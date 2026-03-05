@@ -1,4 +1,5 @@
 .zsh_history
+node_modules/
 .orchestrator/
 .worktrees/
 .agents/
