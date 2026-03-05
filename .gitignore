@@ -1,1 +1,8 @@
 .zsh_history
+.orchestrator/
+.worktrees/
+.agents/
+.claude/
+.agent/
+.turbo/
+skills-lock.json
