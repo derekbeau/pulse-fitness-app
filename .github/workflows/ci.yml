@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Resolve pnpm version from root package.json "packageManager" only.
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
