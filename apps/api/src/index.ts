@@ -1,4 +1,10 @@
 import Fastify from "fastify";
+import { userSchema } from "@pulse/shared";
+
+const healthcheckUser = userSchema.parse({
+  id: "api-user",
+  name: "Pulse",
+});
 
 export const buildServer = () => {
   const app = Fastify({ logger: true });
@@ -21,5 +27,6 @@ const start = async () => {
 };
 
 if (process.env.NODE_ENV !== "test") {
+  void healthcheckUser;
   void start();
 }
