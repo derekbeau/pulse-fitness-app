@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 type TurboConfig = {
@@ -13,8 +14,11 @@ type TurboConfig = {
 };
 
 describe('monorepo pipeline configuration', () => {
+  const currentFileDir = dirname(fileURLToPath(import.meta.url));
+  const monorepoRoot = resolve(currentFileDir, '..', '..', '..');
+
   it('defines the expected turbo task graph', async () => {
-    const turboConfigPath = resolve(process.cwd(), '..', '..', 'turbo.json');
+    const turboConfigPath = resolve(monorepoRoot, 'turbo.json');
     const turboConfigRaw = await readFile(turboConfigPath, 'utf8');
     const turboConfig = JSON.parse(turboConfigRaw) as TurboConfig;
 
@@ -34,7 +38,7 @@ describe('monorepo pipeline configuration', () => {
   });
 
   it('delegates root scripts to turbo run', async () => {
-    const rootPackagePath = resolve(process.cwd(), '..', '..', 'package.json');
+    const rootPackagePath = resolve(monorepoRoot, 'package.json');
     const rootPackageRaw = await readFile(rootPackagePath, 'utf8');
     const rootPackage = JSON.parse(rootPackageRaw) as {
       scripts?: Record<string, string>;
