@@ -1,5 +1,6 @@
 import { userSchema } from '@pulse/shared';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { Button } from '@/components/ui/button';
 
 const demoUser = userSchema.parse({
   id: 'web-user',
@@ -14,13 +15,9 @@ function App() {
       <section className="mx-auto max-w-2xl rounded-2xl border border-border bg-card/95 p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold text-primary">Hello {demoUser.name}</h1>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:opacity-85"
-          >
+          <Button type="button" onClick={toggleTheme}>
             Theme: {theme} (cycle)
-          </button>
+          </Button>
         </div>
         <p className="mt-3 text-base text-muted">
           Tailwind v4 is wired with theme tokens and a persistent three-theme toggle.

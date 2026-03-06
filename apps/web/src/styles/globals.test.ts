@@ -8,10 +8,12 @@ const stylesDirectory = path.dirname(currentFilePath);
 const globalsCssPath = path.join(stylesDirectory, 'globals.css');
 
 describe('globals.css design tokens', () => {
-  it('defines Tailwind import and light/dark/midnight token sets', () => {
+  it('defines Tailwind imports and light/dark/midnight token sets', () => {
     const css = readFileSync(globalsCssPath, 'utf8');
 
     expect(css).toContain('@import "tailwindcss";');
+    expect(css).toContain('@import "tw-animate-css";');
+    expect(css).toContain('@import "shadcn/tailwind.css";');
     expect(css).toContain(':root');
     expect(css).toContain('.dark');
     expect(css).toContain('.theme-midnight');
@@ -59,6 +61,29 @@ describe('globals.css design tokens', () => {
 
     for (const token of requiredTokens) {
       expect(css).toContain(token);
+    }
+  });
+
+  it('maps shadcn semantic variables to the design token system', () => {
+    const css = readFileSync(globalsCssPath, 'utf8');
+
+    const expectedMappings = [
+      '--background: var(--color-background);',
+      '--foreground: var(--color-foreground);',
+      '--card: var(--color-card);',
+      '--primary: var(--color-primary);',
+      '--secondary: var(--color-secondary);',
+      '--muted-foreground: var(--color-muted);',
+      '--border: var(--color-border);',
+      '--input: var(--color-border);',
+      '--ring: var(--color-primary);',
+      '--color-primary-foreground: var(--primary-foreground);',
+      '--color-ring: var(--ring);',
+      '--color-input: var(--input);',
+    ];
+
+    for (const mapping of expectedMappings) {
+      expect(css).toContain(mapping);
     }
   });
 });
