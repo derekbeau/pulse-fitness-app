@@ -175,7 +175,7 @@ export const mockRecentWorkouts: RecentWorkoutSession[] = [
   {
     id: 'wsn-005',
     name: 'Upper Push B',
-    date: toWorkoutDate(12, 17),
+    date: toWorkoutDate(14, 17),
     totalSets: 16,
     totalReps: 124,
     duration: 56,

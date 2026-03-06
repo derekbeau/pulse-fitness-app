@@ -23,7 +23,7 @@ export const formatRelativeWorkoutDate = (value: string, today: Date = getToday(
     return `${diffInDays} days ago`;
   }
 
-  const weeks = Math.round(diffInDays / DAYS_PER_WEEK);
+  const weeks = Math.floor(diffInDays / DAYS_PER_WEEK);
 
   return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
 };

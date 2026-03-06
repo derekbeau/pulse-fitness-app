@@ -22,7 +22,8 @@ describe('formatRelativeWorkoutDate', () => {
     expect(formatRelativeWorkoutDate('2026-03-05T08:00:00.000Z')).toBe('Yesterday');
     expect(formatRelativeWorkoutDate('2026-03-03T08:00:00.000Z')).toBe('3 days ago');
     expect(formatRelativeWorkoutDate('2026-02-25T08:00:00.000Z')).toBe('1 week ago');
-    expect(formatRelativeWorkoutDate('2026-02-22T08:00:00.000Z')).toBe('2 weeks ago');
+    expect(formatRelativeWorkoutDate('2026-02-21T08:00:00.000Z')).toBe('1 week ago');
+    expect(formatRelativeWorkoutDate('2026-02-20T08:00:00.000Z')).toBe('2 weeks ago');
   });
 });
 
