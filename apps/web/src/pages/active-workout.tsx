@@ -1,9 +1,13 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import {
   SessionExerciseList,
+  SessionFeedback,
   SessionHeader,
+  SessionSummary,
   buildActiveWorkoutSession,
+  countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   createWorkoutSetId,
@@ -11,7 +15,12 @@ import {
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
 
-const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
+const activeTemplate =
+  mockTemplates.find((template) => template.id === 'upper-push') ??
+  (() => {
+    throw new Error('Expected upper-push template in mock data.');
+  })();
+
 const completedSetIds = [
   createWorkoutSetId('row-erg', 1),
   createWorkoutSetId('banded-shoulder-external-rotation', 1),
@@ -19,13 +28,11 @@ const completedSetIds = [
   createWorkoutSetId('incline-dumbbell-press', 1),
   createWorkoutSetId('incline-dumbbell-press', 2),
 ];
-const templateExerciseById = activeTemplate
-  ? new Map(
-      activeTemplate.sections.flatMap((section) =>
-        section.exercises.map((exercise) => [exercise.exerciseId, exercise]),
-      ),
-    )
-  : new Map();
+const templateExerciseById = new Map(
+  activeTemplate.sections.flatMap((section) =>
+    section.exercises.map((exercise) => [exercise.exerciseId, exercise]),
+  ),
+);
 
 type RestTimerState = {
   duration: number;
@@ -35,49 +42,84 @@ type RestTimerState = {
 };
 
 export function ActiveWorkoutPage() {
+  const navigate = useNavigate();
   const [startTime] = useState(() => new Date(Date.now() - 16 * 60_000 - 23_000).toISOString());
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
     activeTemplate
       ? createInitialWorkoutSetDrafts(activeTemplate, new Set(completedSetIds))
       : {},
   );
+  const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
+  const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
+  const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const restTimerTokenRef = useRef(0);
 
-  if (!activeTemplate) {
-    return null;
-  }
-
   const template = activeTemplate;
-  const session = buildActiveWorkoutSession(template, setDrafts);
+  const session = useMemo(
+    () =>
+      buildActiveWorkoutSession(template, setDrafts, {
+        exerciseNotes,
+        sessionStartedAt: startTime,
+      }),
+    [exerciseNotes, setDrafts, startTime, template],
+  );
+  const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
+  const summaryDuration = sessionCompletedAt
+    ? formatElapsedTime(getElapsedSeconds(startTime, new Date(sessionCompletedAt).getTime()))
+    : formatElapsedTime(getElapsedSeconds(startTime, Date.now()));
 
   return (
     <section className="space-y-5 pb-8">
-      <SessionHeader
-        className="sticky top-4 z-20"
-        completedSets={session.completedSets}
-        currentExercise={session.currentExercise}
-        startTime={startTime}
-        totalExercises={session.totalExercises}
-        totalSets={session.totalSets}
-        workoutName={session.workoutName}
-      />
+      {stage === 'active' ? (
+        <>
+          <SessionHeader
+            className="sticky top-4 z-20"
+            completedSets={session.completedSets}
+            currentExercise={session.currentExercise}
+            startTime={startTime}
+            totalExercises={session.totalExercises}
+            totalSets={session.totalSets}
+            workoutName={session.workoutName}
+          />
 
-      <SessionExerciseList
-        focusSetId={focusSetId}
-        onAddSet={handleAddSet}
-        onFocusSetHandled={() => setFocusSetId(null)}
-        onRestTimerComplete={() => {
-          setRestTimer(null);
-          setFocusSetId(restTimerTargetSetId);
-          setRestTimerTargetSetId(null);
-        }}
-        onSetUpdate={handleSetUpdate}
-        restTimer={restTimer}
-        session={session}
-      />
+          <SessionExerciseList
+            focusSetId={focusSetId}
+            onAddSet={handleAddSet}
+            onExerciseNotesChange={(exerciseId, notes) =>
+              setExerciseNotes((current) => ({
+                ...current,
+                [exerciseId]: notes,
+              }))
+            }
+            onFocusSetHandled={() => setFocusSetId(null)}
+            onRestTimerComplete={handleRestTimerComplete}
+            onSetUpdate={handleSetUpdate}
+            restTimer={restTimer}
+            session={session}
+          />
+        </>
+      ) : null}
+
+      {stage === 'feedback' ? (
+        <SessionFeedback
+          onSubmit={() => {
+            setStage('summary');
+          }}
+        />
+      ) : null}
+
+      {stage === 'summary' ? (
+        <SessionSummary
+          duration={summaryDuration}
+          exercisesCompleted={session.totalExercises}
+          onDone={() => navigate('/workouts')}
+          totalReps={totalCompletedReps}
+          totalSets={session.completedSets}
+        />
+      ) : null}
     </section>
   );
 
@@ -88,22 +130,17 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    let nextSetId: string | null = null;
+    const exerciseSets = setDrafts[exerciseId] ?? [];
+    const nextSet = createWorkoutSetDraft(templateExercise, exerciseSets.length + 1);
 
-    setSetDrafts((current) => {
-      const exerciseSets = current[exerciseId] ?? [];
-      const nextSet = createWorkoutSetDraft(templateExercise, exerciseSets.length + 1);
-      nextSetId = nextSet.id;
-
-      return {
-        ...current,
-        [exerciseId]: [...exerciseSets, nextSet],
-      };
+    setSetDrafts({
+      ...setDrafts,
+      [exerciseId]: [...exerciseSets, nextSet],
     });
 
     setRestTimer(null);
     setRestTimerTargetSetId(null);
-    setFocusSetId(nextSetId);
+    setFocusSetId(nextSet.id);
   }
 
   function handleSetUpdate(
@@ -111,77 +148,82 @@ export function ActiveWorkoutPage() {
     setId: string,
     update: { completed?: boolean; reps?: number | null; weight?: number | null },
   ) {
-    let nextDrafts: ActiveWorkoutSetDrafts | null = null;
-    let nextRestTimer: RestTimerState | null = null;
-    let nextTargetSetId: string | null = null;
-    let shouldClearTimer = false;
+    const exerciseSets = setDrafts[exerciseId] ?? [];
+    const updatedSets = exerciseSets.map((set) =>
+      set.id === setId
+        ? {
+            ...set,
+            ...update,
+          }
+        : set,
+    );
+    const nextDrafts = {
+      ...setDrafts,
+      [exerciseId]: updatedSets,
+    };
 
-    setSetDrafts((current) => {
-      const exerciseSets = current[exerciseId] ?? [];
-      const updatedSets = exerciseSets.map((set) =>
-        set.id === setId
-          ? {
-              ...set,
-              ...update,
-            }
-          : set,
-      );
+    setSetDrafts(nextDrafts);
 
-      nextDrafts = {
-        ...current,
-        [exerciseId]: updatedSets,
-      };
+    const previousSet = exerciseSets.find((set) => set.id === setId);
+    const updatedSet = updatedSets.find((set) => set.id === setId);
+    const templateExercise = templateExerciseById.get(exerciseId);
 
-      const previousSet = exerciseSets.find((set) => set.id === setId);
-      const updatedSet = updatedSets.find((set) => set.id === setId);
-      const templateExercise = templateExerciseById.get(exerciseId);
+    if (!previousSet || !updatedSet || !templateExercise) {
+      return;
+    }
 
-      if (!previousSet || !updatedSet || !templateExercise) {
-        return nextDrafts;
-      }
-
-      if (update.completed === false) {
-        shouldClearTimer = true;
-        return nextDrafts;
-      }
-
-      if (previousSet.completed || !updatedSet.completed) {
-        return nextDrafts;
-      }
-
-      const updatedSession = buildActiveWorkoutSession(template, nextDrafts);
-      nextTargetSetId = findNextPendingSetId(updatedSession);
-
-      if (!nextTargetSetId) {
-        shouldClearTimer = true;
-        return nextDrafts;
-      }
-
-      nextRestTimer = {
-        duration: templateExercise.restSeconds,
-        exerciseName:
-          updatedSession.sections
-            .flatMap((section) => section.exercises)
-            .find((exercise) => exercise.id === exerciseId)?.name ?? 'Next set',
-        setNumber: updatedSet.number,
-        token: ++restTimerTokenRef.current,
-      };
-
-      return nextDrafts;
-    });
-
-    if (!nextDrafts || shouldClearTimer) {
+    if (update.completed === false) {
       setRestTimer(null);
       setRestTimerTargetSetId(null);
       setFocusSetId(null);
       return;
     }
 
-    if (nextRestTimer) {
-      setRestTimer(nextRestTimer);
-      setRestTimerTargetSetId(nextTargetSetId);
-      setFocusSetId(null);
+    if (previousSet.completed || !updatedSet.completed) {
+      return;
     }
+
+    const updatedSession = buildActiveWorkoutSession(template, nextDrafts, {
+      exerciseNotes,
+      sessionStartedAt: startTime,
+    });
+
+    if (updatedSession.completedSets === updatedSession.totalSets) {
+      setRestTimer(null);
+      setRestTimerTargetSetId(null);
+      setFocusSetId(null);
+      setSessionCompletedAt((current) => current ?? new Date().toISOString());
+      setStage('feedback');
+      return;
+    }
+
+    const nextTargetSetId = findNextPendingSetId(updatedSession);
+
+    if (!nextTargetSetId) {
+      setRestTimer(null);
+      setRestTimerTargetSetId(null);
+      setFocusSetId(null);
+      return;
+    }
+
+    restTimerTokenRef.current += 1;
+    setRestTimer({
+      duration: templateExercise.restSeconds,
+      exerciseName:
+        updatedSession.sections
+          .flatMap((section) => section.exercises)
+          .find((exercise) => exercise.id === exerciseId)?.name ?? 'Next set',
+      setNumber: updatedSet.number,
+      token: restTimerTokenRef.current,
+    });
+    setRestTimerTargetSetId(nextTargetSetId);
+    setFocusSetId(null);
+  }
+
+  function handleRestTimerComplete() {
+    setRestTimer(null);
+    setFocusSetId(restTimerTargetSetId);
+    setRestTimerTargetSetId(null);
   }
 }
 
@@ -197,4 +239,18 @@ function findNextPendingSetId(session: ReturnType<typeof buildActiveWorkoutSessi
   }
 
   return null;
+}
+
+function getElapsedSeconds(startTime: Date | string, currentTime: number) {
+  const startedAt = new Date(startTime).getTime();
+  const elapsedMilliseconds = currentTime - startedAt;
+
+  return Math.max(0, Math.floor(elapsedMilliseconds / 1000));
+}
+
+function formatElapsedTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`;
 }

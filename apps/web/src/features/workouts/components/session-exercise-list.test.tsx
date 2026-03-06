@@ -26,11 +26,18 @@ describe('SessionExerciseList', () => {
           createWorkoutSetId('incline-dumbbell-press', 2),
         ]),
       ),
+      {
+        exerciseNotes: {
+          'incline-dumbbell-press': 'Bench one notch lower than usual.',
+        },
+        sessionStartedAt: '2026-03-06T12:00:00Z',
+      },
     );
 
     render(
       <SessionExerciseList
         onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
@@ -54,6 +61,16 @@ describe('SessionExerciseList', () => {
     expect(within(currentCard as HTMLElement).getByLabelText('Weight for set 1')).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByLabelText('Reps for set 3')).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByRole('button', { name: 'Add Set' })).toBeInTheDocument();
+    expect(
+      within(currentCard as HTMLElement).getByText(/Last time .*24 x 10 reps • 24 x 9 reps • 24 x 8 reps/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Form cues' }));
+    expect(within(currentCard as HTMLElement).getByText('Drive feet into the floor')).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows')).toBeVisible();
+
+    const notesInput = within(currentCard as HTMLElement).getByLabelText('Session notes');
+    expect(notesInput).toHaveValue('Bench one notch lower than usual.');
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
@@ -70,6 +87,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         focusSetId={createWorkoutSetId('row-erg', 1)}
         onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
         onFocusSetHandled={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
@@ -86,6 +104,7 @@ describe('SessionExerciseList', () => {
     rerender(
       <SessionExerciseList
         onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
         onFocusSetHandled={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}

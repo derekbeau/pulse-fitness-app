@@ -1,11 +1,14 @@
 import {
   mockExercises,
+  mockSessions,
+  type WorkoutSession,
   type WorkoutTemplate,
   type WorkoutTemplateExercise,
 } from '@/lib/mock-data/workouts';
 
 import type {
   ActiveWorkoutExercise,
+  ActiveWorkoutLastPerformance,
   ActiveWorkoutSection,
   ActiveWorkoutSessionData,
   ActiveWorkoutSet,
@@ -31,10 +34,22 @@ export function createWorkoutSetId(exerciseId: string, setNumber: number) {
   return `${exerciseId}:set-${setNumber}`;
 }
 
+type BuildActiveWorkoutSessionOptions = {
+  exerciseNotes?: Record<string, string>;
+  sessionStartedAt?: Date | string;
+  sessions?: WorkoutSession[];
+};
+
 export function buildActiveWorkoutSession(
   template: WorkoutTemplate,
   setDrafts: ActiveWorkoutSetDrafts,
+  options: BuildActiveWorkoutSessionOptions = {},
 ): ActiveWorkoutSessionData {
+  const {
+    exerciseNotes = {},
+    sessionStartedAt = new Date().toISOString(),
+    sessions = mockSessions,
+  } = options;
   const sections = template.sections.map((section): ActiveWorkoutSection => {
     const exercises = section.exercises.map((templateExercise): ActiveWorkoutExercise => {
       const exercise = exerciseById.get(templateExercise.exerciseId);
@@ -45,8 +60,15 @@ export function buildActiveWorkoutSession(
         badges: templateExercise.badges,
         category: exercise?.category ?? 'compound',
         completedSets,
+        formCues: templateExercise.formCues,
         id: templateExercise.exerciseId,
+        lastPerformance: getLastPerformance(
+          templateExercise.exerciseId,
+          sessionStartedAt,
+          sessions,
+        ),
         name: exercise?.name ?? 'Unknown Exercise',
+        notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         prescribedReps: templateExercise.reps,
         restSeconds: templateExercise.restSeconds,
         sets,
@@ -123,8 +145,53 @@ function getWorkoutSets(
   return [...(setDrafts[templateExercise.exerciseId] ?? [])].sort((left, right) => left.number - right.number);
 }
 
+function getLastPerformance(
+  exerciseId: string,
+  sessionStartedAt: Date | string,
+  sessions: WorkoutSession[],
+): ActiveWorkoutLastPerformance | null {
+  const parsedStartTime = new Date(sessionStartedAt).getTime();
+  const currentStartedAt = Number.isNaN(parsedStartTime) ? Number.POSITIVE_INFINITY : parsedStartTime;
+
+  const previousSession = [...sessions]
+    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())
+    .find(
+      (session) =>
+        session.status === 'completed' &&
+        new Date(session.startedAt).getTime() < currentStartedAt &&
+        session.exercises.some((exercise) => exercise.exerciseId === exerciseId),
+    );
+
+  if (!previousSession) {
+    return null;
+  }
+
+  const exerciseLog = previousSession.exercises.find((exercise) => exercise.exerciseId === exerciseId);
+
+  if (!exerciseLog) {
+    return null;
+  }
+
+  return {
+    date: previousSession.startedAt.slice(0, 10),
+    sessionId: previousSession.id,
+    sets: exerciseLog.sets.map((set) => ({
+      completed: set.completed,
+      reps: set.reps,
+      setNumber: set.setNumber,
+      weight: set.weight ?? null,
+    })),
+  };
+}
+
 function getInitialRepsValue(reps: string) {
   const match = reps.match(/\d+/);
 
   return match ? Number(match[0]) : null;
+}
+
+export function countCompletedReps(setDrafts: ActiveWorkoutSetDrafts) {
+  return Object.values(setDrafts)
+    .flat()
+    .reduce((total, set) => total + (set.completed ? set.reps ?? 0 : 0), 0);
 }

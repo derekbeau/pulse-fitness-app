@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check, Dot } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 import type { ActiveWorkoutExercise, ActiveWorkoutSessionData } from '../types';
@@ -19,6 +21,7 @@ type RestTimerState = {
 type SessionExerciseListProps = {
   focusSetId?: string | null;
   onAddSet: (exerciseId: string) => void;
+  onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onFocusSetHandled?: () => void;
   onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
@@ -42,6 +45,7 @@ const badgeStyles = {
 export function SessionExerciseList({
   focusSetId = null,
   onAddSet,
+  onExerciseNotesChange,
   onFocusSetHandled,
   onRestTimerComplete,
   onSetUpdate,
@@ -50,6 +54,8 @@ export function SessionExerciseList({
 }: SessionExerciseListProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
+  const [visibleCuePanels, setVisibleCuePanels] = useState<Record<string, boolean>>({});
+  const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
 
@@ -168,6 +174,8 @@ export function SessionExerciseList({
                     focusTarget?.exerciseId === exercise.id
                       ? true
                       : expandedExercises[exercise.id] ?? exercise.id === session.currentExerciseId;
+                  const isCuePanelOpen = visibleCuePanels[exercise.id] ?? false;
+                  const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
 
                   return (
                     <Card
@@ -232,7 +240,85 @@ export function SessionExerciseList({
                         hidden={!isExpanded}
                         id={`exercise-panel-${exercise.id}`}
                       >
-                        <div className="space-y-3">
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                aria-controls={`exercise-cues-${exercise.id}`}
+                                aria-expanded={isCuePanelOpen}
+                                onClick={() =>
+                                  setVisibleCuePanels((current) => ({
+                                    ...current,
+                                    [exercise.id]: !isCuePanelOpen,
+                                  }))
+                                }
+                                size="xs"
+                                type="button"
+                                variant={isCuePanelOpen ? 'secondary' : 'outline'}
+                              >
+                                Form cues
+                              </Button>
+                              <Button
+                                aria-controls={`exercise-notes-${exercise.id}`}
+                                aria-expanded={isNotesPanelOpen}
+                                onClick={() =>
+                                  setVisibleNotesPanels((current) => ({
+                                    ...current,
+                                    [exercise.id]: !isNotesPanelOpen,
+                                  }))
+                                }
+                                size="xs"
+                                type="button"
+                                variant={isNotesPanelOpen ? 'secondary' : 'outline'}
+                              >
+                                Notes
+                              </Button>
+                            </div>
+
+                            <p className="text-sm text-muted">
+                              {formatLastPerformance(exercise.lastPerformance, exercise.prescribedReps)}
+                            </p>
+
+                            <div
+                              className="rounded-2xl border border-border bg-background/80 p-4"
+                              hidden={!isCuePanelOpen}
+                              id={`exercise-cues-${exercise.id}`}
+                            >
+                              <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                                Technique cues
+                              </p>
+                              <ul className="mt-3 space-y-2 text-sm text-foreground">
+                                {exercise.formCues.map((cue) => (
+                                  <li className="flex items-start gap-2" key={cue}>
+                                    <span aria-hidden="true" className="mt-1 size-1.5 rounded-full bg-primary" />
+                                    <span>{cue}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div
+                              className="space-y-2"
+                              hidden={!isNotesPanelOpen}
+                              id={`exercise-notes-${exercise.id}`}
+                            >
+                              <label
+                                className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
+                                htmlFor={`exercise-note-${exercise.id}`}
+                              >
+                                Session notes
+                              </label>
+                              <Textarea
+                                id={`exercise-note-${exercise.id}`}
+                                onChange={(event) =>
+                                  onExerciseNotesChange(exercise.id, event.target.value)
+                                }
+                                placeholder="Add any technique reminders, machine settings, or quick context."
+                                value={exercise.notes}
+                              />
+                            </div>
+                          </div>
+
                           {exercise.sets.map((set, setIndex) => (
                             <SetRow
                               completed={set.completed}
@@ -323,4 +409,56 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
   }
 
   return null;
+}
+
+function formatLastPerformance(
+  lastPerformance: ActiveWorkoutExercise['lastPerformance'],
+  prescribedReps: string,
+) {
+  if (!lastPerformance) {
+    return 'Last time: no prior logged sets for this exercise.';
+  }
+
+  const date = new Date(`${lastPerformance.date}T12:00:00`);
+  const formattedDate = date.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+  });
+
+  return `Last time (${formattedDate}): ${lastPerformance.sets
+    .map((set) => formatPerformanceSet(set.weight, set.reps, prescribedReps))
+    .join(' • ')}`;
+}
+
+function formatPerformanceSet(weight: number | null, reps: number, prescribedReps: string) {
+  const formattedReps = formatPerformedReps(reps, prescribedReps);
+
+  if (weight === null) {
+    return formattedReps;
+  }
+
+  return `${formatWeight(weight)} x ${formattedReps}`;
+}
+
+function formatPerformedReps(reps: number, prescribedReps: string) {
+  if (prescribedReps.includes('min')) {
+    const minutes = Math.floor(reps / 60);
+    const seconds = reps % 60;
+
+    if (seconds === 0) {
+      return `${minutes} min`;
+    }
+
+    return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
+  }
+
+  if (prescribedReps.includes('sec')) {
+    return `${reps}s`;
+  }
+
+  return `${reps} reps`;
+}
+
+function formatWeight(weight: number) {
+  return Number.isInteger(weight) ? `${weight}` : weight.toFixed(1);
 }
