@@ -4,6 +4,13 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  addDays,
+  differenceInCalendarDays,
+  getMondayIndex,
+  parseDateKey,
+  toDateKey,
+} from '@/lib/date-utils';
+import {
   mockSchedule,
   mockSessions,
   mockTemplates,
@@ -43,7 +50,9 @@ type DayDetails = {
 
 const templateNameById = new Map(mockTemplates.map((template) => [template.id, template.name]));
 const scheduleByDate = new Map(mockSchedule.map((entry) => [entry.date, entry]));
-const sessionByDate = new Map(mockSessions.map((session) => [session.startedAt.slice(0, 10), session]));
+const sessionByDate = new Map(
+  mockSessions.map((session) => [session.startedAt.slice(0, 10), session]),
+);
 
 export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
   const initialMonth = startOfMonth(parseDateKey(TODAY_KEY));
@@ -138,8 +147,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
               const isSelected = selectedDateKey === dateKey;
               const isToday = dateKey === TODAY_KEY;
               const isInMonth = day.getMonth() === visibleMonth.getMonth();
-              const isWorkoutDay =
-                details.status === 'completed' || details.status === 'scheduled';
+              const isWorkoutDay = details.status === 'completed' || details.status === 'scheduled';
 
               return (
                 <button
@@ -149,7 +157,9 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                   aria-pressed={isSelected}
                   className={cn(
                     'flex min-h-24 cursor-pointer flex-col rounded-2xl border px-2.5 py-2 text-left transition-colors sm:min-h-28 sm:px-3 sm:py-3',
-                    isInMonth ? 'bg-card hover:border-primary/40 hover:bg-secondary/50' : 'bg-secondary/35 opacity-55',
+                    isInMonth
+                      ? 'bg-card hover:border-primary/40 hover:bg-secondary/50'
+                      : 'bg-secondary/35 opacity-55',
                     isSelected && 'border-primary bg-secondary shadow-sm',
                     isToday && 'ring-2 ring-primary/30',
                   )}
@@ -188,7 +198,8 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                         isInMonth ? 'text-foreground' : 'text-muted',
                       )}
                     >
-                      {details.templateName ?? (details.status === 'rest' ? 'Recovery / rest' : 'No workout')}
+                      {details.templateName ??
+                        (details.status === 'rest' ? 'Recovery / rest' : 'No workout')}
                     </p>
                     <p className="line-clamp-2 text-[11px] text-muted">
                       {details.notes ?? 'Tap to review the day details.'}
@@ -208,7 +219,9 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                         className="size-2.5 rounded-full bg-blue-500"
                       />
                     ) : null}
-                    {isToday ? <span className="text-[11px] font-medium text-primary">Today</span> : null}
+                    {isToday ? (
+                      <span className="text-[11px] font-medium text-primary">Today</span>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -234,9 +247,15 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
               Day details
             </p>
             <h3 className="text-2xl font-semibold">
-              {selectedDay.templateName ?? (selectedDay.status === 'rest' ? 'Recovery day' : 'No workout planned')}
+              {selectedDay.templateName ??
+                (selectedDay.status === 'rest' ? 'Recovery day' : 'No workout planned')}
             </h3>
-            <p className={cn('text-sm', hasWorkout ? 'text-[var(--color-on-accent)]/80' : 'text-muted')}>
+            <p
+              className={cn(
+                'text-sm',
+                hasWorkout ? 'text-[var(--color-on-accent)]/80' : 'text-muted',
+              )}
+            >
               {fullDateFormatter.format(selectedDay.date)}
             </p>
           </div>
@@ -265,7 +284,12 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
             ))}
           </div>
 
-          <p className={cn('text-sm leading-6', hasWorkout ? 'text-[var(--color-on-accent)]/85' : 'text-muted')}>
+          <p
+            className={cn(
+              'text-sm leading-6',
+              hasWorkout ? 'text-[var(--color-on-accent)]/85' : 'text-muted',
+            )}
+          >
             {selectedDay.notes ??
               (selectedDay.status === 'rest'
                 ? 'Recovery focus: keep steps up, get meals in, and stay ready for the next lift.'
@@ -313,7 +337,7 @@ function getDayDetails(dateKey: string): DayDetails {
   }
 
   const templateName =
-    schedule?.templateName ?? (session ? templateNameById.get(session.templateId) ?? null : null);
+    schedule?.templateName ?? (session ? (templateNameById.get(session.templateId) ?? null) : null);
 
   return {
     date,
@@ -350,7 +374,10 @@ function getDetailStats(selectedDay: DayDetails) {
       { label: 'Status', value: 'Scheduled' },
       { label: 'Plan', value: '1 session queued' },
       { label: 'Focus', value: selectedDay.templateName ?? 'Workout block' },
-      { label: 'Day', value: fullDateFormatter.format(selectedDay.date).split(',')[0] ?? 'Planned' },
+      {
+        label: 'Day',
+        value: fullDateFormatter.format(selectedDay.date).split(',')[0] ?? 'Planned',
+      },
     ];
   }
 
@@ -395,7 +422,7 @@ function hasWorkoutEntry(dateKey: string) {
 
 function buildCalendarDays(month: Date): Date[] {
   const start = startOfCalendarWeek(startOfMonth(month));
-  let totalDays = differenceInDays(start, endOfCalendarWeek(endOfMonth(month))) + 1;
+  let totalDays = differenceInCalendarDays(start, endOfCalendarWeek(endOfMonth(month))) + 1;
 
   if (totalDays < 35) {
     totalDays = 35;
@@ -420,36 +447,10 @@ function endOfCalendarWeek(date: Date) {
   return addDays(date, 6 - getMondayIndex(date));
 }
 
-function getMondayIndex(date: Date) {
-  return (date.getDay() + 6) % 7;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
 function addMonths(date: Date, months: number) {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
-function differenceInDays(start: Date, end: Date) {
-  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
-}
-
 function isSameMonth(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
-}
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-}
-
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }

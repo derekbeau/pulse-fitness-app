@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { parseDateKey } from '@/lib/date-utils';
 import { mockSchedule } from '@/lib/mock-data/workouts';
 
 import { WorkoutCalendar } from './workout-calendar';
@@ -31,7 +32,9 @@ describe('WorkoutCalendar', () => {
       screen.getByRole('button', { name: formatFullDate(parseDateKey(scheduledDay?.date ?? '')) }),
     );
 
-    expect(screen.getByRole('heading', { name: scheduledDay?.templateName ?? '' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: scheduledDay?.templateName ?? '' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Scheduled')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute(
       'href',
@@ -50,11 +53,6 @@ describe('WorkoutCalendar', () => {
     expect(screen.getByText(formatMonth(nextMonth))).toBeInTheDocument();
   });
 });
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-}
 
 function formatFullDate(date: Date) {
   return new Intl.DateTimeFormat('en-US', {

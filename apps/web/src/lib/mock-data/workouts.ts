@@ -1,3 +1,5 @@
+import { addDays, startOfWeek, toDateKey } from '@/lib/date-utils';
+
 export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
 
 export type WorkoutBadgeType =
@@ -534,11 +536,11 @@ const currentWeekMonday = startOfWeek(new Date());
 const twoWeeksAgoMonday = addDays(currentWeekMonday, -14);
 const oneWeekAgoMonday = addDays(currentWeekMonday, -7);
 
-const upperPushTwoWeeksAgoDate = formatDate(addDays(twoWeeksAgoMonday, 1));
-const lowerQuadTwoWeeksAgoDate = formatDate(addDays(twoWeeksAgoMonday, 3));
-const fullBodyOneWeekAgoDate = formatDate(addDays(oneWeekAgoMonday, 1));
-const upperPushCurrentWeekDate = formatDate(currentWeekMonday);
-const lowerQuadCurrentWeekDate = formatDate(addDays(currentWeekMonday, 2));
+const upperPushTwoWeeksAgoDate = toDateKey(addDays(twoWeeksAgoMonday, 1));
+const lowerQuadTwoWeeksAgoDate = toDateKey(addDays(twoWeeksAgoMonday, 3));
+const fullBodyOneWeekAgoDate = toDateKey(addDays(oneWeekAgoMonday, 1));
+const upperPushCurrentWeekDate = toDateKey(currentWeekMonday);
+const lowerQuadCurrentWeekDate = toDateKey(addDays(currentWeekMonday, 2));
 
 export const mockSessions: WorkoutSession[] = [
   createCompletedSession({
@@ -775,7 +777,7 @@ export const mockSessions: WorkoutSession[] = [
 ];
 
 export const mockSchedule: WorkoutScheduleEntry[] = DAY_NAMES.map((dayOfWeek, index) => {
-  const date = formatDate(addDays(currentWeekMonday, index));
+  const date = toDateKey(addDays(currentWeekMonday, index));
 
   switch (index) {
     case 0:
@@ -875,30 +877,4 @@ function buildLoggedSets(
     completed: set.completed ?? true,
     timestamp: new Date(baseDate.getTime() + set.offsetMinutes * 60_000).toISOString(),
   }));
-}
-
-function startOfWeek(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(12, 0, 0, 0);
-
-  const currentDay = result.getDay();
-  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
-
-  result.setDate(result.getDate() + mondayOffset);
-
-  return result;
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
 }

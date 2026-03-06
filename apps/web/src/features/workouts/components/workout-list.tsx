@@ -2,6 +2,7 @@ import { CalendarDays, Dumbbell, Layers3, ListChecks } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
 import {
   mockSessions,
   mockTemplates,
@@ -70,7 +71,9 @@ export function WorkoutList({
               <h2 className="text-xl font-semibold text-foreground">
                 {`Week of ${weekOfFormatter.format(group.weekStart)}`}
               </h2>
-              <p className="text-sm text-muted">{formatWeekRange(group.weekStart, group.weekEnd)}</p>
+              <p className="text-sm text-muted">
+                {formatWeekRange(group.weekStart, group.weekEnd)}
+              </p>
             </div>
 
             <span
@@ -96,7 +99,9 @@ export function WorkoutList({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
                         <CardTitle>{session.name}</CardTitle>
-                        <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
+                        <p className="text-sm text-muted">
+                          {sessionDateFormatter.format(session.date)}
+                        </p>
                       </div>
 
                       <span
@@ -129,13 +134,7 @@ export function WorkoutList({
   );
 }
 
-function WorkoutStat({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof CalendarDays;
-  label: string;
-}) {
+function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: string }) {
   return (
     <li className="inline-flex items-center gap-1.5 rounded-full bg-secondary/55 px-3 py-1.5">
       <Icon aria-hidden="true" className="size-3.5 text-primary" />
@@ -152,14 +151,12 @@ function groupSessionsByWeek(sessions: WorkoutSession[]): WorkoutWeekGroup[] {
     const weekStart = startOfWeek(sessionDate);
     const weekKey = toDateKey(weekStart);
     const weekEnd = addDays(weekStart, 6);
-    const group =
-      groups.get(weekKey) ??
-      {
-        weekKey,
-        weekStart,
-        weekEnd,
-        sessions: [],
-      };
+    const group = groups.get(weekKey) ?? {
+      weekKey,
+      weekStart,
+      weekEnd,
+      sessions: [],
+    };
 
     group.sessions.push(buildWorkoutListItem(session));
     groups.set(weekKey, group);
@@ -222,30 +219,4 @@ function formatWeekRange(weekStart: Date, weekEnd: Date) {
   }
 
   return `${startLabel}, ${weekStart.getFullYear()} - ${endLabel}, ${weekEnd.getFullYear()}`;
-}
-
-function startOfWeek(date: Date) {
-  return addDays(date, -getMondayIndex(date));
-}
-
-function getMondayIndex(date: Date) {
-  return (date.getDay() + 6) % 7;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, 12);
-}
-
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
