@@ -67,6 +67,7 @@ describe('convention documentation', () => {
   const monorepoRoot = resolve(currentFileDir, '..', '..', '..');
   const designSystemPath = resolve(monorepoRoot, 'docs', 'conventions', 'design-system.md');
   const featureStructurePath = resolve(monorepoRoot, 'docs', 'conventions', 'feature-structure.md');
+  const workoutDomainPath = resolve(monorepoRoot, 'docs', 'conventions', 'workout-domain.md');
 
   it('documents all design-system requirements', async () => {
     const designSystemDoc = await readFile(designSystemPath, 'utf8');
@@ -126,5 +127,57 @@ describe('convention documentation', () => {
     expect(featureStructureDoc).toContain('kebab-case');
     expect(featureStructureDoc).toContain('App.tsx');
     expect(featureStructureDoc).toContain('Create New Feature vs Extend Existing');
+  });
+
+  it('documents all workout-domain requirements', async () => {
+    const workoutDomainDoc = await readFile(workoutDomainPath, 'utf8');
+
+    expect(workoutDomainDoc).toContain('# Workout Domain Conventions');
+    expect(workoutDomainDoc).toContain('## Template Structure');
+    expect(workoutDomainDoc).toContain('name');
+    expect(workoutDomainDoc).toContain('description');
+    expect(workoutDomainDoc).toContain('tags');
+    expect(workoutDomainDoc).toContain('warmup');
+    expect(workoutDomainDoc).toContain('main');
+    expect(workoutDomainDoc).toContain('cooldown');
+    expect(workoutDomainDoc).toContain('ordered `exercises` array');
+    expect(workoutDomainDoc).toContain('## Exercise In Template');
+    expect(workoutDomainDoc).toContain('exerciseId');
+    expect(workoutDomainDoc).toContain('sets');
+    expect(workoutDomainDoc).toContain('reps');
+    expect(workoutDomainDoc).toContain('tempo');
+    expect(workoutDomainDoc).toContain('restSeconds');
+    expect(workoutDomainDoc).toContain('formCues');
+    expect(workoutDomainDoc).toContain('badges');
+    expect(workoutDomainDoc).toContain('## Session Structure');
+    expect(workoutDomainDoc).toContain('templateId');
+    expect(workoutDomainDoc).toContain('status');
+    expect(workoutDomainDoc).toContain('startedAt');
+    expect(workoutDomainDoc).toContain('completedAt');
+    expect(workoutDomainDoc).toContain('duration');
+    expect(workoutDomainDoc).toContain('## Set Logging');
+    expect(workoutDomainDoc).toContain('weight');
+    expect(workoutDomainDoc).toContain('completed');
+    expect(workoutDomainDoc).toContain('timestamp');
+    expect(workoutDomainDoc).toContain('## Exercise Types');
+    expect(workoutDomainDoc).toContain('compound');
+    expect(workoutDomainDoc).toContain('isolation');
+    expect(workoutDomainDoc).toContain('cardio');
+    expect(workoutDomainDoc).toContain('mobility');
+    expect(workoutDomainDoc).toContain('## Badge Types');
+    expect(workoutDomainDoc).toContain('push');
+    expect(workoutDomainDoc).toContain('pull');
+    expect(workoutDomainDoc).toContain('legs');
+    expect(workoutDomainDoc).toContain('## Feedback Questions');
+    expect(workoutDomainDoc).toContain('energy');
+    expect(workoutDomainDoc).toContain('recovery');
+    expect(workoutDomainDoc).toContain('technique');
+    expect(workoutDomainDoc).toContain('notes');
+    expect(workoutDomainDoc).toContain('## Tempo Notation');
+    expect(workoutDomainDoc).toContain('eccentric');
+    expect(workoutDomainDoc).toContain('pause at stretch');
+    expect(workoutDomainDoc).toContain('concentric');
+    expect(workoutDomainDoc).toContain('3110');
+    expect(workoutDomainDoc).toContain('--color-on-accent');
   });
 });
