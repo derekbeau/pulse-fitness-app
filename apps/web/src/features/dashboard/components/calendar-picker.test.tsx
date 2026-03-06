@@ -54,6 +54,7 @@ describe('CalendarPicker', () => {
     const sundayButton = getDayButton('2026-03-08');
 
     expect(todayButton).toHaveClass('bg-[var(--color-primary)]');
+    expect(todayButton).toHaveClass('text-[var(--color-on-accent)]');
     expect(todayButton).toHaveAttribute('data-today', 'true');
     expect(saturdayButton).toHaveClass('opacity-45');
     expect(sundayButton).toHaveClass('opacity-45');
@@ -63,7 +64,7 @@ describe('CalendarPicker', () => {
     const { container } = render(<CalendarPicker />);
 
     const activityDots = container.querySelectorAll(
-      '[data-slot="calendar-day"] [data-slot="calendar-activity-dot"].visible',
+      '[data-slot="calendar-day"] [data-slot="calendar-activity-dot"][data-has-activity="true"]',
     );
 
     expect(activityDots.length).toBeGreaterThan(0);
@@ -103,5 +104,16 @@ describe('CalendarPicker', () => {
     const calendar = screen.getByLabelText('Calendar day picker');
     expect(calendar).toHaveClass('w-full');
     expect(selectedDay).toHaveClass('sm:px-2');
+  });
+
+  it('syncs the displayed week when a controlled selectedDate moves across week boundaries', () => {
+    const { rerender } = render(<CalendarPicker selectedDate={new Date('2026-03-03T00:00:00')} />);
+
+    expect(getDayButton('2026-03-03')).toHaveAttribute('data-selected', 'true');
+
+    rerender(<CalendarPicker selectedDate={new Date('2026-02-24T00:00:00')} />);
+
+    expect(getDayButton('2026-02-24')).toHaveAttribute('data-selected', 'true');
+    expect(document.querySelector('[data-slot="calendar-day"][data-date="2026-03-03"]')).toBeNull();
   });
 });

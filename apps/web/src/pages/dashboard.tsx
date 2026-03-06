@@ -4,13 +4,8 @@ import { CalendarPicker } from '@/features/dashboard/components/calendar-picker'
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
+import { getToday } from '@/lib/date';
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
-
-const getToday = (): Date => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
 
 export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());

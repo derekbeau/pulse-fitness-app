@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { addDays, formatDateKey, getToday, normalizeDate } from '@/lib/date';
 import { getMockDayActivity } from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
 
@@ -12,26 +13,6 @@ type CalendarPickerProps = {
 };
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-const MILLISECONDS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-
-const formatDateKey = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const normalizeDate = (date: Date): Date => {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
-};
-
-const addDays = (date: Date, days: number): Date => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
 
 const isSameDay = (first: Date, second: Date): boolean => {
   return formatDateKey(first) === formatDateKey(second);
@@ -42,12 +23,6 @@ const getWeekStart = (date: Date): Date => {
   const dayOfWeek = normalizedDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   return addDays(normalizedDate, mondayOffset);
-};
-
-const getWeekOffset = (fromDate: Date, baseDate: Date): number => {
-  const fromWeekStart = getWeekStart(fromDate).getTime();
-  const baseWeekStart = getWeekStart(baseDate).getTime();
-  return Math.round((fromWeekStart - baseWeekStart) / MILLISECONDS_PER_WEEK);
 };
 
 const monthYearFormatter = new Intl.DateTimeFormat('en-US', {
@@ -63,21 +38,24 @@ const ariaDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 export function CalendarPicker({ selectedDate, onDateSelect, className }: CalendarPickerProps) {
-  const today = useMemo(() => normalizeDate(new Date()), []);
+  const today = useMemo(() => getToday(), []);
   const normalizedSelectedDate = selectedDate ? normalizeDate(selectedDate) : undefined;
   const [internalSelectedDate, setInternalSelectedDate] = useState<Date>(
     normalizedSelectedDate ?? today,
   );
-  const [weekOffset, setWeekOffset] = useState<number>(() =>
-    getWeekOffset(normalizedSelectedDate ?? today, today),
-  );
-
   const activeSelectedDate = normalizedSelectedDate ?? internalSelectedDate;
+  const activeSelectedDateKey = formatDateKey(activeSelectedDate);
+  const [weekNavigation, setWeekNavigation] = useState(() => ({
+    originDateKey: activeSelectedDateKey,
+    delta: 0,
+  }));
+  const effectiveWeekDelta =
+    weekNavigation.originDateKey === activeSelectedDateKey ? weekNavigation.delta : 0;
 
   const weekDays = useMemo(() => {
-    const weekStart = addDays(getWeekStart(today), weekOffset * 7);
+    const weekStart = addDays(getWeekStart(activeSelectedDate), effectiveWeekDelta * 7);
     return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  }, [today, weekOffset]);
+  }, [activeSelectedDate, effectiveWeekDelta]);
 
   const monthLabelDate = weekDays[3] ?? weekDays[0] ?? today;
   const monthYearLabel = monthYearFormatter.format(monthLabelDate);
@@ -94,7 +72,10 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
             aria-label="Previous week"
             className="size-8 rounded-full"
             onClick={() => {
-              setWeekOffset((current) => current - 1);
+              setWeekNavigation({
+                originDateKey: activeSelectedDateKey,
+                delta: effectiveWeekDelta - 1,
+              });
             }}
             size="icon"
             type="button"
@@ -106,7 +87,10 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
             aria-label="Next week"
             className="size-8 rounded-full"
             onClick={() => {
-              setWeekOffset((current) => current + 1);
+              setWeekNavigation({
+                originDateKey: activeSelectedDateKey,
+                delta: effectiveWeekDelta + 1,
+              });
             }}
             size="icon"
             type="button"
@@ -132,7 +116,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
               className={cn(
                 'flex min-w-0 flex-1 cursor-pointer flex-col items-center rounded-lg border px-1 py-2 transition-colors sm:px-2 sm:py-2.5',
                 isToday
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-primary-foreground'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-accent)]'
                   : 'text-foreground',
                 isSelected && !isToday ? 'border-[var(--color-primary)] bg-card' : 'border-transparent',
                 !isToday && 'hover:border-border hover:bg-secondary/50',
@@ -143,10 +127,16 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
               data-selected={isSelected ? 'true' : 'false'}
               data-slot="calendar-day"
               data-today={isToday ? 'true' : 'false'}
-              key={day.toISOString()}
+              key={formatDateKey(day)}
               onClick={() => {
-                setInternalSelectedDate(day);
-                onDateSelect?.(new Date(day));
+                const nextDate = new Date(day);
+
+                setInternalSelectedDate(nextDate);
+                setWeekNavigation({
+                  originDateKey: formatDateKey(nextDate),
+                  delta: 0,
+                });
+                onDateSelect?.(nextDate);
               }}
               type="button"
             >
@@ -159,13 +149,14 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
                   'mt-1 size-1.5 rounded-full',
                   hasActivity ? 'visible' : 'invisible',
                   isToday
-                    ? 'bg-primary-foreground'
+                    ? 'bg-[var(--color-on-accent)]'
                     : activity.hasWorkout && activity.hasMeals
                       ? 'bg-[var(--color-primary)]'
                       : activity.hasWorkout
                         ? 'bg-[var(--color-accent-mint)]'
                         : 'bg-[var(--color-accent-pink)]',
                 )}
+                data-has-activity={hasActivity ? 'true' : 'false'}
                 data-slot="calendar-activity-dot"
               />
             </button>

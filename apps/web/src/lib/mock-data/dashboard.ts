@@ -1,3 +1,5 @@
+import { addDays, formatDateKey, getToday, normalizeDate, parseDateInput, toDateKey } from '@/lib/date';
+
 export interface MacroStat {
   actual: number;
   target: number;
@@ -56,33 +58,6 @@ export interface DashboardDayActivity {
 
 const DAYS = 30;
 
-const addDays = (date: Date, days: number): Date => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
-const formatDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const normalizeDate = (date: Date): Date => {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
-};
-
-const toDateKey = (date: Date): string => formatDate(normalizeDate(date));
-
-const getToday = (): Date => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
-
 const dayOffsets = Array.from({ length: DAYS }, (_, index) => DAYS - 1 - index);
 const today = getToday();
 
@@ -104,7 +79,7 @@ const buildHabit = (id: string, name: string, missedOffsets: number[]): Habit =>
   const missedDays = new Set(missedOffsets);
 
   const entries = dayOffsets.map((daysAgo) => ({
-    date: formatDate(addDays(today, -daysAgo)),
+    date: formatDateKey(addDays(today, -daysAgo)),
     completed: !missedDays.has(daysAgo),
   }));
 
@@ -119,7 +94,7 @@ const buildHabit = (id: string, name: string, missedOffsets: number[]): Habit =>
 const weightVariance = [0.1, -0.05, 0.08, -0.1, 0.05, -0.03, 0.06, -0.08, 0.02, -0.04];
 
 export const mockWeightTrend: WeightTrendEntry[] = dayOffsets.map((daysAgo, index) => ({
-  date: formatDate(addDays(today, -daysAgo)),
+  date: formatDateKey(addDays(today, -daysAgo)),
   value: Number((178.1 - index * 0.095 + weightVariance[index % weightVariance.length]).toFixed(1)),
 }));
 
@@ -127,7 +102,7 @@ const calorieVariance = [-220, 80, 140, -60, 210, -180, 120, -90, 60, -40, 170, 
 const proteinVariance = [-18, 6, 14, -5, 12, -10, 8, -4, 11, -6, 13, -9];
 
 export const mockMacroTrend: MacroTrendEntry[] = dayOffsets.map((daysAgo, index) => ({
-  date: formatDate(addDays(today, -daysAgo)),
+  date: formatDateKey(addDays(today, -daysAgo)),
   calories: 2050 + calorieVariance[index % calorieVariance.length] + (index % 6 === 0 ? 90 : 0),
   protein: 160 + proteinVariance[index % proteinVariance.length] + (index % 5 === 0 ? 8 : 0),
 }));
@@ -210,7 +185,7 @@ export const mockRecentWorkouts: RecentWorkoutSession[] = [
 const macroTrendByDate = new Map(mockMacroTrend.map((entry) => [entry.date, entry]));
 const weightTrendByDate = new Map(mockWeightTrend.map((entry) => [entry.date, entry.value]));
 const workoutByDate = new Map(
-  mockRecentWorkouts.map((session) => [toDateKey(new Date(session.date)), session.name]),
+  mockRecentWorkouts.map((session) => [toDateKey(parseDateInput(session.date)), session.name]),
 );
 
 const getMacrosForDate = (dateKey: string): DailySnapshot['macros'] => {
