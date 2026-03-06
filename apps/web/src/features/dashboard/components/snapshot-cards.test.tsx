@@ -1,7 +1,23 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { mockDailySnapshot } from '@/lib/mock-data/dashboard';
-import { SnapshotCards } from './snapshot-cards';
+import { calculateWeightTrend, SnapshotCards } from './snapshot-cards';
+
+describe('calculateWeightTrend', () => {
+  it('returns neutral when yesterday weight is not positive', () => {
+    expect(calculateWeightTrend(180, 0)).toEqual({ direction: 'neutral', value: 0 });
+    expect(calculateWeightTrend(180, -1)).toEqual({ direction: 'neutral', value: 0 });
+  });
+
+  it('returns neutral when there is no change', () => {
+    expect(calculateWeightTrend(180, 180)).toEqual({ direction: 'neutral', value: 0 });
+  });
+
+  it('returns up or down trend with rounded percent change', () => {
+    expect(calculateWeightTrend(182, 180)).toEqual({ direction: 'up', value: 1.1 });
+    expect(calculateWeightTrend(178, 180)).toEqual({ direction: 'down', value: 1.1 });
+  });
+});
 
 describe('SnapshotCards', () => {
   it('renders four snapshot cards in a responsive grid with mock data values', () => {
@@ -38,36 +54,23 @@ describe('SnapshotCards', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(caloriesCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(workoutCard).toHaveClass('bg-primary/10');
+    expect(workoutCard).toHaveClass('bg-[var(--color-primary)]/12');
 
-    const expectedDirection =
-      mockDailySnapshot.weight > mockDailySnapshot.weightYesterday
-        ? 'up'
-        : mockDailySnapshot.weight < mockDailySnapshot.weightYesterday
-          ? 'down'
-          : 'neutral';
-
-    const expectedPercent =
-      mockDailySnapshot.weightYesterday > 0
-        ? Number(
-            (
-              (Math.abs(mockDailySnapshot.weight - mockDailySnapshot.weightYesterday) /
-                mockDailySnapshot.weightYesterday) *
-              100
-            ).toFixed(1),
-          )
-        : 0;
+    const expectedTrend = calculateWeightTrend(
+      mockDailySnapshot.weight,
+      mockDailySnapshot.weightYesterday,
+    );
 
     expect(
-      within(weightCard as HTMLElement).getByLabelText(`trend ${expectedDirection}`),
+      within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`),
     ).toBeInTheDocument();
 
     const expectedTrendText =
-      expectedDirection === 'up'
-        ? `+${expectedPercent}%`
-        : expectedDirection === 'down'
-          ? `-${expectedPercent}%`
-          : `${expectedPercent}%`;
+      expectedTrend.direction === 'up'
+        ? `+${expectedTrend.value}%`
+        : expectedTrend.direction === 'down'
+          ? `-${expectedTrend.value}%`
+          : `${expectedTrend.value}%`;
 
     expect(within(weightCard as HTMLElement).getByText(expectedTrendText)).toBeInTheDocument();
   });

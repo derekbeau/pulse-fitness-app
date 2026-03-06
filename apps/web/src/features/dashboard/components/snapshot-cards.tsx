@@ -5,7 +5,7 @@ type SnapshotCardsProps = {
   snapshot?: DailySnapshot;
 };
 
-const toWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
+export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
   if (weightYesterday <= 0) {
     return { direction: 'neutral', value: 0 };
   }
@@ -30,7 +30,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       <StatCard
         className="bg-[var(--color-accent-cream)]"
         label="Body Weight"
-        trend={toWeightTrend(snapshot.weight, snapshot.weightYesterday)}
+        trend={calculateWeightTrend(snapshot.weight, snapshot.weightYesterday)}
         value={`${snapshot.weight.toFixed(1)} lbs`}
       />
 
@@ -49,7 +49,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
-        className="bg-primary/10"
+        className="bg-[var(--color-primary)]/12"
         label="Today's Workout"
         value={snapshot.workoutName ?? 'Rest Day'}
       />
