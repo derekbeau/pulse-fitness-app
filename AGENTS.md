@@ -1,0 +1,94 @@
+# Pulse — Agent Instructions
+
+> **Note:** `CLAUDE.md` is a symlink to this file. Both paths load these instructions.
+
+## Project Overview
+
+Pulse is a personal health and fitness tracking app. Two-person household, AI agent-driven data entry, interactive workout logging UI. See `README.md` for full feature list and tech stack.
+
+## Monorepo Structure
+
+```
+apps/web/       — React 19 + Vite SPA (frontend)
+apps/api/       — Fastify 5 REST API (backend)
+packages/shared — Zod schemas + shared TypeScript types
+```
+
+Package manager: **pnpm** (workspaces). Build system: **Turborepo**.
+
+## Commands
+
+```bash
+pnpm dev                    # Start all apps in dev mode
+pnpm build                  # Build all packages
+pnpm test                   # Run all tests (Vitest)
+pnpm lint                   # ESLint across all packages
+pnpm typecheck              # TypeScript type checking
+pnpm format                 # Prettier format
+
+# Run commands in a specific workspace
+pnpm --filter web dev       # Start frontend only
+pnpm --filter api dev       # Start backend only
+pnpm --filter shared build  # Build shared package
+```
+
+## Tech Stack Quick Reference
+
+| Area     | Stack                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, React Router v7 (declarative SPA), TanStack Query v5, Zustand, React Hook Form + Zod, Recharts |
+| Backend  | Fastify 5, TypeScript, Drizzle ORM, SQLite (better-sqlite3), JWT auth                                                                                  |
+| Shared   | Zod schemas as single source of truth — types derived via `z.infer<>`                                                                                  |
+| Testing  | Vitest + React Testing Library (unit/integration), Playwright (E2E)                                                                                    |
+| Quality  | ESLint flat config, Prettier, Husky + lint-staged pre-commit hooks                                                                                     |
+
+## Conventions
+
+### Code Organization
+
+- Frontend features live in `apps/web/src/features/<feature>/` with colocated components, hooks, and queries
+- API routes follow Fastify plugin pattern in `apps/api/src/routes/`
+- Shared Zod schemas in `packages/shared/src/schemas/` — import from `@pulse/shared`
+- Convention docs live in `docs/conventions/` — consult these before working on a domain
+
+### API Design
+
+- App routes: `/api/v1/` (JWT session auth)
+- Agent routes: `/api/agent/` (token auth, scoped per user)
+- Success response: `{ data: T }`
+- Error response: `{ error: { code: string, message: string } }`
+- Paginated: `{ data: T[], meta: { page, limit, total } }`
+- All inputs validated with Zod
+
+### Frontend Patterns
+
+- **Mobile-first** responsive design (375px → 768px → 1280px+)
+- Dark theme default, light theme supported, accent themes switchable
+- CSS custom properties for design tokens via Tailwind v4
+- TanStack Query for all server state; Zustand only for cross-component UI state
+- React Hook Form + Zod for all forms (schemas from `@pulse/shared`)
+
+### Database
+
+- Drizzle ORM with SQLite — all queries scoped to authenticated `userId`
+- Migrations managed by Drizzle Kit
+- No cross-user data access — every table with user data has a `userId` column
+
+### Testing
+
+- Unit/integration: Vitest — test files colocated as `*.test.ts(x)`
+- E2E: Playwright — tests in `apps/web/e2e/`
+- Run `pnpm test` before committing
+
+## Key Domain Notes
+
+- **Nutrition**: Meals are entered by AI agents only — no manual entry UI. The frontend is read-only for meal data.
+- **Workouts**: The most complex UI domain. Templates → Sessions → Sets. Active session state persists in localStorage.
+- **Habits**: User-configurable with boolean/numeric/time tracking types. Feed into dashboard "don't break the chain" widgets.
+- **Foods**: Per-user database. `lastUsedAt` tracks recency for agent quick-matching.
+
+## PRD & Build Plan
+
+Full PRD: `.orchestrator/health-fitness-app/prd/PRD.md`
+Summary: `.orchestrator/health-fitness-app/prd/SUMMARY.md`
+Build plan: `.orchestrator/health-fitness-app/plan.json`
