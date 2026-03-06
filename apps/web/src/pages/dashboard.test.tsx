@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
@@ -39,7 +40,11 @@ describe('DashboardPage', () => {
   });
 
   it('updates snapshot content when a new calendar day is selected', () => {
-    render(<DashboardPage />);
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
 
     const todaySnapshot = getMockSnapshotForDate(new Date('2026-03-06T00:00:00'));
     const selectedSnapshot = getMockSnapshotForDate(new Date('2026-03-04T00:00:00'));
@@ -55,5 +60,6 @@ describe('DashboardPage', () => {
     expect(
       within(bodyWeightCard as HTMLElement).getByText(formatWeight(selectedSnapshot.weight)),
     ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
   });
 });
