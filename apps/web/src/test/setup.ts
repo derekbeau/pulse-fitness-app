@@ -41,3 +41,15 @@ if (!hasStorageApi) {
     value: storage,
   });
 }
+
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.hasPointerCapture) {
+  HTMLElement.prototype.hasPointerCapture = () => false;
+}
+
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.setPointerCapture) {
+  HTMLElement.prototype.setPointerCapture = () => {};
+}
+
+if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.releasePointerCapture) {
+  HTMLElement.prototype.releasePointerCapture = () => {};
+}
