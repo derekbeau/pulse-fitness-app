@@ -9,7 +9,7 @@ describe('App', () => {
     document.documentElement.classList.remove('dark');
   });
 
-  it('renders the hello pulse heading and theme toggle with current theme label', () => {
+  it('renders the dashboard preview primitives with the theme toggle', () => {
     render(
       <ThemeProvider>
         <App />
@@ -23,5 +23,8 @@ describe('App', () => {
     ).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: /theme: dark \(cycle\)/i })).toBeInTheDocument();
+    expect(screen.getByText('Workouts This Week')).toBeInTheDocument();
+    expect(screen.getByText('Daily Macro Targets')).toBeInTheDocument();
+    expect(screen.getByText('Hydration')).toBeInTheDocument();
   });
 });
