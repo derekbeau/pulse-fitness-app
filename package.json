@@ -1,7 +1,8 @@
 {
   "name": "pulse",
   "private": true,
-  "packageManager": "pnpm@9.15.4",
+  "type": "module",
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "prepare": "husky",
     "dev": "turbo run dev",
