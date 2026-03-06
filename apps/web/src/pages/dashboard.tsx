@@ -1,8 +1,10 @@
+import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
+
 export function DashboardPage() {
   return (
-    <section className="space-y-2">
+    <section className="space-y-6">
       <h1 className="text-3xl font-semibold text-primary">Dashboard</h1>
-      <p className="text-sm text-muted">Dashboard page placeholder.</p>
+      <SnapshotCards />
     </section>
   );
 }
