@@ -3,19 +3,14 @@ import { CheckCheck, CircleDashed } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
+import type { HabitConfig } from '@/features/habits/types';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-type HabitTrackingType = 'boolean' | 'numeric' | 'time';
 type HabitValue = boolean | number | null;
 
-type Habit = {
-  id: string;
-  name: string;
-  emoji: string;
-  trackingType: HabitTrackingType;
-  target: number | null;
-  unit: string | null;
+type Habit = HabitConfig & {
   todayValue: HabitValue;
 };
 
@@ -84,12 +79,6 @@ const mockHabits: Habit[] = [
     todayValue: 3,
   },
 ];
-
-const trackingSurfaceClasses: Record<HabitTrackingType, string> = {
-  boolean: 'bg-[var(--color-accent-pink)]',
-  numeric: 'bg-[var(--color-accent-cream)]',
-  time: 'bg-[var(--color-accent-mint)]',
-};
 
 const todayFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
