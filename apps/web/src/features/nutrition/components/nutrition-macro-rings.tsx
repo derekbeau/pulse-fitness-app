@@ -24,13 +24,13 @@ const MACRO_RING_CONFIG: Array<{
   color: string;
   unit: 'cal' | 'g';
 }> = [
-  { key: 'calories', label: 'Calories', color: '#F59E0B', unit: 'cal' },
-  { key: 'protein', label: 'Protein', color: '#10B981', unit: 'g' },
-  { key: 'carbs', label: 'Carbs', color: '#3B82F6', unit: 'g' },
-  { key: 'fat', label: 'Fat', color: '#8B5CF6', unit: 'g' },
+  { key: 'calories', label: 'Calories', color: 'var(--color-accent-cream)', unit: 'cal' },
+  { key: 'protein', label: 'Protein', color: 'var(--color-accent-mint)', unit: 'g' },
+  { key: 'carbs', label: 'Carbs', color: 'var(--color-primary)', unit: 'g' },
+  { key: 'fat', label: 'Fat', color: 'var(--color-accent-pink)', unit: 'g' },
 ];
 
-const OVER_TARGET_COLOR = '#DC2626';
+const OVER_TARGET_COLOR = 'var(--color-destructive)';
 
 export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsProps) {
   const [view, setView] = useState<MacroView>('eaten');
@@ -193,7 +193,7 @@ function RingValue({
       <span
         className={cn(
           'text-[13px] font-semibold tracking-tight text-foreground sm:text-sm',
-          tone === 'danger' && 'text-red-700',
+          tone === 'danger' && 'text-destructive',
         )}
       >
         {primary}
@@ -202,7 +202,7 @@ function RingValue({
         <span
           className={cn(
             'text-[10px] font-medium uppercase tracking-[0.18em] text-muted',
-            tone === 'danger' && 'text-red-600',
+            tone === 'danger' && 'text-destructive',
           )}
         >
           {secondary}

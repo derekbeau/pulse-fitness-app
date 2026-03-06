@@ -16,22 +16,13 @@ export function calculateMacroTotals(
   sources: Array<Pick<FoodItem, MacroKey>> | Meal[],
 ): MacroTotals {
   return sources.reduce<MacroTotals>((totals, source) => {
-    if ('items' in source) {
-      const mealTotals = calculateMacroTotals(source.items);
-
-      return {
-        calories: totals.calories + mealTotals.calories,
-        protein: totals.protein + mealTotals.protein,
-        carbs: totals.carbs + mealTotals.carbs,
-        fat: totals.fat + mealTotals.fat,
-      };
-    }
+    const macrosToAdd = 'items' in source ? calculateMacroTotals(source.items) : source;
 
     return {
-      calories: totals.calories + source.calories,
-      protein: totals.protein + source.protein,
-      carbs: totals.carbs + source.carbs,
-      fat: totals.fat + source.fat,
+      calories: totals.calories + macrosToAdd.calories,
+      protein: totals.protein + macrosToAdd.protein,
+      carbs: totals.carbs + macrosToAdd.carbs,
+      fat: totals.fat + macrosToAdd.fat,
     };
   }, DEFAULT_TOTALS);
 }
@@ -98,5 +89,5 @@ export function startOfDay(date: Date): Date {
 function formatNumber(value: number): string {
   const rounded = Number(value.toFixed(2));
 
-  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+  return `${rounded}`;
 }

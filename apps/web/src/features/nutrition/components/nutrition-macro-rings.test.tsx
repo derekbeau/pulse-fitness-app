@@ -43,7 +43,7 @@ describe('NutritionMacroRings', () => {
     expect(caloriesRing).toHaveAttribute('aria-valuenow', '16');
   });
 
-  it('shows a full red ring and overage copy when a macro exceeds the target', () => {
+  it('shows a full destructive ring and overage copy when a macro exceeds the target', () => {
     render(
       <NutritionMacroRings
         actuals={{ calories: 2250, protein: 192, carbs: 185, fat: 70 }}
@@ -65,6 +65,6 @@ describe('NutritionMacroRings', () => {
     expect(proteinRing).toHaveAttribute('aria-valuenow', '100');
 
     const indicator = proteinCard.querySelector('[data-slot="progress-ring-indicator"]');
-    expect(indicator).toHaveAttribute('stroke', '#DC2626');
+    expect(indicator).toHaveAttribute('stroke', 'var(--color-destructive)');
   });
 });

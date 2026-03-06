@@ -37,6 +37,8 @@ type FoodListProps = {
 type FoodSortOption = 'alphabetical' | 'highest-protein' | 'most-recent';
 type FoodSortDirection = 'ascending' | 'descending';
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 const SORT_OPTIONS: Array<{ label: string; value: FoodSortOption }> = [
   { label: 'Alphabetical', value: 'alphabetical' },
   { label: 'Most Recent', value: 'most-recent' },
@@ -55,7 +57,7 @@ function getDaysAgo(lastUsedAt: string, now: Date) {
   const lastUsedDate = new Date(lastUsedAt);
   const diffMs = startOfDay(now).getTime() - startOfDay(lastUsedDate).getTime();
 
-  return Math.max(0, Math.floor(diffMs / 86_400_000));
+  return Math.max(0, Math.floor(diffMs / MS_PER_DAY));
 }
 
 function formatLastUsed(lastUsedAt: string | null, now: Date) {
@@ -193,7 +195,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
           <CardTitle className="text-xl text-[var(--color-on-accent)]">
             Search your foods database
           </CardTitle>
-          <CardDescription className="text-sm text-gray-700">
+          <CardDescription className="text-sm text-muted">
             Filter by food name or brand, then switch between alphabetical, recency, and
             protein-focused views with reversible sort direction.
           </CardDescription>
@@ -263,7 +265,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
         </CardContent>
 
         <CardContent className="px-5 pt-0 sm:px-6">
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-muted">
             Showing {visibleFoods.length} of {localFoods.length} foods
           </p>
         </CardContent>
