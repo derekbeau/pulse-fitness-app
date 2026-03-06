@@ -11,6 +11,7 @@ All colors are defined as CSS custom properties on the root theme class.
 | `--color-background`   | `#FFFFFF`        | `#1A1A2E`      | `#0D1B2A`                     |
 | `--color-foreground`   | `#1A1A2E`        | `#E8E8E8`      | `#CCD6F6`                     |
 | `--color-card`         | `#F8F9FA`        | `#202942`      | `#1B2838`                     |
+| `--color-on-accent`    | `#111827`        | `#111827`      | `#111827`                     |
 | `--color-primary`      | `#3F63C7`        | `#9BB1FF`      | `#3B82F6`                     |
 | `--color-secondary`    | `#EEF2F7`        | `#16213E`      | `#14263A`                     |
 | `--color-accent-cream` | `#F7E8C4`        | `#F3D7A8`      | `#F4C95D`                     |
@@ -89,6 +90,7 @@ Implementation contract:
 Pulse color tokens are the source-of-truth. shadcn semantic variables are aliases layered on top:
 
 - Example mappings: `--background -> --color-background`, `--primary -> --color-primary`, `--border -> --color-border`.
+- `--accent-foreground` must resolve from `--color-on-accent` so text remains readable on pastel accent surfaces in every theme.
 - Tailwind utilities should continue to use semantic utility names (`bg-background`, `text-foreground`, `border-border`, etc.) through the `@theme inline` bridge.
 - New primitives should map through existing `--color-*` tokens rather than introducing parallel color systems.
 
@@ -136,4 +138,5 @@ Guardrails:
 
 - Do not stack multiple accent backgrounds inside one card.
 - Use one accent per card and keep dense data regions on `--color-card`.
+- Always use `--color-on-accent` (or a semantic alias that resolves to it) for text on accent-colored cards.
 - Always verify foreground contrast before shipping.

@@ -9,7 +9,8 @@ export type ProgressRingProps = Omit<React.ComponentProps<'div'>, 'children'> & 
   size?: number;
   strokeWidth?: number;
   color?: string;
-  label?: string;
+  label?: React.ReactNode;
+  labelClassName?: string;
 };
 
 export function ProgressRing({
@@ -18,6 +19,7 @@ export function ProgressRing({
   strokeWidth = 8,
   color = 'var(--color-primary)',
   label,
+  labelClassName,
   className,
   ...props
 }: ProgressRingProps) {
@@ -26,6 +28,7 @@ export function ProgressRing({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   const centerText = label ?? `${Math.round(progress)}%`;
+  const labelWidth = Math.max(size - strokeWidth * 3, 0);
 
   return (
     <div
@@ -60,7 +63,15 @@ export function ProgressRing({
           strokeDashoffset={strokeDashoffset}
         />
       </svg>
-      <span className="absolute text-sm font-semibold text-foreground">{centerText}</span>
+      <span
+        className={cn(
+          'pointer-events-none absolute inline-flex items-center justify-center text-center text-sm font-semibold text-foreground',
+          labelClassName,
+        )}
+        style={{ maxWidth: `${labelWidth}px` }}
+      >
+        {centerText}
+      </span>
     </div>
   );
 }

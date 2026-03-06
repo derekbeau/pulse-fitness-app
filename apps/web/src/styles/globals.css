@@ -8,6 +8,7 @@
   --color-background: #ffffff;
   --color-foreground: #1a1a2e;
   --color-card: #f8f9fa;
+  --color-on-accent: #111827;
   --color-primary: #3f63c7;
   --color-secondary: #eef2f7;
   --color-accent-cream: #f7e8c4;
@@ -16,6 +17,7 @@
   --color-on-accent: #111827;
   --color-muted: #5d6476;
   --color-border: #d6dce8;
+  --color-destructive: #dc2626;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -54,8 +56,8 @@
   --muted: var(--color-secondary);
   --muted-foreground: var(--color-muted);
   --accent: var(--color-accent-mint);
-  --accent-foreground: var(--color-foreground);
-  --destructive: #dc2626;
+  --accent-foreground: var(--color-on-accent);
+  --destructive: var(--color-destructive);
   --border: var(--color-border);
   --input: var(--color-border);
   --ring: var(--color-primary);
@@ -78,6 +80,7 @@
   --color-background: #1a1a2e;
   --color-foreground: #e8e8e8;
   --color-card: #202942;
+  --color-on-accent: #111827;
   --color-primary: #9bb1ff;
   --color-secondary: #16213e;
   --color-accent-cream: #f3d7a8;
@@ -86,12 +89,14 @@
   --color-on-accent: #111827;
   --color-muted: #aeb6cc;
   --color-border: #303b59;
+  --color-destructive: #f87171;
 }
 
 .theme-midnight {
   --color-background: #0d1b2a;
   --color-foreground: #ccd6f6;
   --color-card: #1b2838;
+  --color-on-accent: #111827;
   --color-primary: #3b82f6;
   --color-secondary: #14263a;
   --color-accent-cream: #f4c95d;
@@ -100,6 +105,7 @@
   --color-on-accent: #111827;
   --color-muted: #91a2bf;
   --color-border: #31465f;
+  --color-destructive: #f87171;
 }
 
 html,
@@ -112,6 +118,7 @@ body {
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
   --color-card: var(--color-card);
+  --color-on-accent: var(--color-on-accent);
   --color-primary: var(--color-primary);
   --color-secondary: var(--color-secondary);
   --color-accent-cream: var(--color-accent-cream);
@@ -120,6 +127,7 @@ body {
   --color-on-accent: var(--color-on-accent);
   --color-muted: var(--color-muted);
   --color-border: var(--color-border);
+  --color-destructive: var(--color-destructive);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);

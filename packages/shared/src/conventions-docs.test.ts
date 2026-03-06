@@ -7,6 +7,7 @@ const COLOR_TOKENS = [
   '--color-background',
   '--color-foreground',
   '--color-card',
+  '--color-on-accent',
   '--color-primary',
   '--color-secondary',
   '--color-accent-cream',
@@ -24,6 +25,7 @@ const THEME_COLORS: Record<
     '--color-background': '#FFFFFF',
     '--color-foreground': '#1A1A2E',
     '--color-card': '#F8F9FA',
+    '--color-on-accent': '#111827',
     '--color-primary': '#3F63C7',
     '--color-secondary': '#EEF2F7',
     '--color-accent-cream': '#F7E8C4',
@@ -36,6 +38,7 @@ const THEME_COLORS: Record<
     '--color-background': '#1A1A2E',
     '--color-foreground': '#E8E8E8',
     '--color-card': '#202942',
+    '--color-on-accent': '#111827',
     '--color-primary': '#9BB1FF',
     '--color-secondary': '#16213E',
     '--color-accent-cream': '#F3D7A8',
@@ -48,6 +51,7 @@ const THEME_COLORS: Record<
     '--color-background': '#0D1B2A',
     '--color-foreground': '#CCD6F6',
     '--color-card': '#1B2838',
+    '--color-on-accent': '#111827',
     '--color-primary': '#3B82F6',
     '--color-secondary': '#14263A',
     '--color-accent-cream': '#F4C95D',
@@ -84,6 +88,8 @@ describe('convention documentation', () => {
     expect(designSystemDoc).toContain('cn(');
     expect(designSystemDoc).toContain('cursor-pointer');
     expect(designSystemDoc).toContain('Buttons and button-like controls');
+    expect(designSystemDoc).toContain('--accent-foreground');
+    expect(designSystemDoc).toContain('--color-on-accent');
     expect(designSystemDoc).toContain('--radius-sm');
     expect(designSystemDoc).toContain('--radius-2xl');
 
