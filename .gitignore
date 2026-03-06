@@ -1,8 +1,11 @@
 .zsh_history
+node_modules/
 .orchestrator/
 .worktrees/
 .agents/
 .claude/
 .agent/
 .turbo/
+**/dist/
+**/*.tsbuildinfo
 skills-lock.json
