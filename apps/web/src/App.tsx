@@ -8,6 +8,7 @@ import { HabitsPage } from '@/pages/habits';
 import { JournalPage } from '@/pages/journal';
 import { NutritionPage } from '@/pages/nutrition';
 import { SettingsPage } from '@/pages/settings';
+import { WorkoutTemplateDetailPage } from '@/pages/workout-template-detail';
 import { WorkoutsPage } from '@/pages/workouts';
 
 function AppRoutes() {
@@ -17,6 +18,7 @@ function AppRoutes() {
         <Route element={<DashboardPage />} path="/" />
         <Route element={<DesignSystemPage />} path="/design-system" />
         <Route element={<WorkoutsPage />} path="/workouts" />
+        <Route element={<WorkoutTemplateDetailPage />} path="/workouts/template/:templateId" />
         <Route element={<NutritionPage />} path="/nutrition" />
         <Route element={<HabitsPage />} path="/habits" />
         <Route element={<ActivityPage />} path="/activity" />
