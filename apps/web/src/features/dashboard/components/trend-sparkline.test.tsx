@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { mockMacroTrend, mockWeightTrend } from '@/lib/mock-data/dashboard';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
 
-import { DashboardTrendSparklines } from './dashboard-trend-sparklines';
-import { TrendSparkline } from './trend-sparkline';
+import { TrendSparkline, TrendSparklines } from './trend-sparkline';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
@@ -66,9 +65,9 @@ describe('TrendSparkline', () => {
   });
 });
 
-describe('DashboardTrendSparklines', () => {
+describe('TrendSparklines', () => {
   it('renders weight, calorie, and protein trend cards from dashboard mock data', () => {
-    const { container } = render(<DashboardTrendSparklines />);
+    const { container } = render(<TrendSparklines />);
 
     const cards = container.querySelectorAll('[data-slot="trend-sparkline-card"]');
     expect(cards).toHaveLength(3);

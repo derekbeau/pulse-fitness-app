@@ -36,7 +36,7 @@ describe('MacroRings', () => {
   it('renders four macro rings with distinct colors and eaten values', () => {
     const { container } = render(<MacroRings />);
 
-    const grid = container.querySelector('div.grid.grid-cols-2.gap-4.md\\:grid-cols-4');
+    const grid = container.querySelector('div.grid.grid-cols-2.gap-4.lg\\:grid-cols-4');
     expect(grid).toBeInTheDocument();
     expect(screen.getAllByRole('progressbar')).toHaveLength(4);
 

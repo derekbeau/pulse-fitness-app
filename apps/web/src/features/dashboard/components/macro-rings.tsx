@@ -98,7 +98,7 @@ export function MacroRings({ snapshot = mockDailySnapshot }: MacroRingsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
           const state = getMacroRingState(
             snapshot.macros[macro.key],
