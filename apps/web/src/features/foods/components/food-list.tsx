@@ -1,6 +1,17 @@
-import { CheckCircle2Icon, SearchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowUpDownIcon, CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -24,12 +35,17 @@ type FoodListProps = {
 };
 
 type FoodSortOption = 'alphabetical' | 'highest-protein' | 'most-recent';
+type FoodSortDirection = 'ascending' | 'descending';
 
 const SORT_OPTIONS: Array<{ label: string; value: FoodSortOption }> = [
   { label: 'Alphabetical', value: 'alphabetical' },
   { label: 'Most Recent', value: 'most-recent' },
   { label: 'Highest Protein', value: 'highest-protein' },
 ];
+
+function getDefaultSortDirection(sortBy: FoodSortOption): FoodSortDirection {
+  return sortBy === 'alphabetical' ? 'ascending' : 'descending';
+}
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -57,7 +73,7 @@ function formatServing(food: Food) {
   return `${food.servingSize} ${food.servingUnit}`;
 }
 
-function sortFoods(foods: Food[], sortBy: FoodSortOption) {
+function sortFoods(foods: Food[], sortBy: FoodSortOption, sortDirection: FoodSortDirection) {
   const sortedFoods = [...foods];
 
   if (sortBy === 'most-recent') {
@@ -74,10 +90,10 @@ function sortFoods(foods: Food[], sortBy: FoodSortOption) {
         return -1;
       }
 
-      const dateDiff = new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
+      const dateDiff = new Date(a.lastUsedAt).getTime() - new Date(b.lastUsedAt).getTime();
 
       if (dateDiff !== 0) {
-        return dateDiff;
+        return sortDirection === 'ascending' ? dateDiff : -dateDiff;
       }
 
       return a.name.localeCompare(b.name);
@@ -86,25 +102,78 @@ function sortFoods(foods: Food[], sortBy: FoodSortOption) {
 
   if (sortBy === 'highest-protein') {
     return sortedFoods.sort((a, b) => {
-      const proteinDiff = b.protein - a.protein;
+      const proteinDiff = a.protein - b.protein;
 
       if (proteinDiff !== 0) {
-        return proteinDiff;
+        return sortDirection === 'ascending' ? proteinDiff : -proteinDiff;
       }
 
       return a.name.localeCompare(b.name);
     });
   }
 
-  return sortedFoods.sort((a, b) => a.name.localeCompare(b.name));
+  return sortedFoods.sort((a, b) =>
+    sortDirection === 'ascending' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name),
+  );
 }
 
 export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps) {
+  const [localFoods, setLocalFoods] = useState<Food[]>(() => foods);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<FoodSortOption>('alphabetical');
+  const [sortDirection, setSortDirection] = useState<FoodSortDirection>(() =>
+    getDefaultSortDirection('alphabetical'),
+  );
+  const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
+  const [draftFoodName, setDraftFoodName] = useState('');
+  const [foodPendingDeleteId, setFoodPendingDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalFoods(foods);
+  }, [foods]);
+
+  function beginEditing(food: Food) {
+    setEditingFoodId(food.id);
+    setDraftFoodName(food.name);
+  }
+
+  function cancelEditing() {
+    setEditingFoodId(null);
+    setDraftFoodName('');
+  }
+
+  function saveEditing() {
+    if (!editingFoodId) {
+      return;
+    }
+
+    const nextName = draftFoodName.trim();
+
+    if (!nextName) {
+      cancelEditing();
+      return;
+    }
+
+    setLocalFoods((currentFoods) =>
+      currentFoods.map((food) =>
+        food.id === editingFoodId ? { ...food, name: nextName } : food,
+      ),
+    );
+    cancelEditing();
+  }
+
+  function removeFood(foodId: string) {
+    setLocalFoods((currentFoods) => currentFoods.filter((food) => food.id !== foodId));
+
+    if (editingFoodId === foodId) {
+      cancelEditing();
+    }
+
+    setFoodPendingDeleteId(null);
+  }
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredFoods = foods.filter((food) => {
+  const filteredFoods = localFoods.filter((food) => {
     if (!normalizedQuery) {
       return true;
     }
@@ -113,7 +182,9 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
       value.toLowerCase().includes(normalizedQuery),
     );
   });
-  const visibleFoods = sortFoods(filteredFoods, sortBy);
+  const visibleFoods = sortFoods(filteredFoods, sortBy, sortDirection);
+  const foodPendingDelete =
+    localFoods.find((food) => food.id === foodPendingDeleteId) ?? null;
 
   return (
     <div className="space-y-4">
@@ -124,11 +195,11 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
           </CardTitle>
           <CardDescription className="text-sm text-gray-700">
             Filter by food name or brand, then switch between alphabetical, recency, and
-            protein-focused views.
+            protein-focused views with reversible sort direction.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="grid gap-3 px-5 sm:grid-cols-[minmax(0,1fr)_13rem] sm:px-6">
+        <CardContent className="grid gap-3 px-5 sm:grid-cols-[minmax(0,1fr)_13rem_10rem] sm:px-6">
           <label className="space-y-2">
             <span className="text-sm font-medium text-[var(--color-on-accent)]">Search foods</span>
             <div className="relative">
@@ -146,7 +217,15 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-[var(--color-on-accent)]">Sort by</span>
-            <Select onValueChange={(value) => setSortBy(value as FoodSortOption)} value={sortBy}>
+            <Select
+              onValueChange={(value) => {
+                const nextSortBy = value as FoodSortOption;
+
+                setSortBy(nextSortBy);
+                setSortDirection(getDefaultSortDirection(nextSortBy));
+              }}
+              value={sortBy}
+            >
               <SelectTrigger
                 aria-label="Sort foods"
                 className="border-black/10 bg-white/80 text-[var(--color-on-accent)] dark:bg-white/80"
@@ -162,11 +241,30 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
               </SelectContent>
             </Select>
           </label>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-[var(--color-on-accent)]">Direction</span>
+            <Button
+              aria-label="Toggle sort direction"
+              aria-pressed={sortDirection === 'descending'}
+              className="w-full border-black/10 bg-white/80 text-[var(--color-on-accent)] hover:bg-white/90"
+              onClick={() =>
+                setSortDirection((currentDirection) =>
+                  currentDirection === 'ascending' ? 'descending' : 'ascending',
+                )
+              }
+              type="button"
+              variant="outline"
+            >
+              <ArrowUpDownIcon className="size-4" />
+              {sortDirection === 'ascending' ? 'Ascending' : 'Descending'}
+            </Button>
+          </div>
         </CardContent>
 
         <CardContent className="px-5 pt-0 sm:px-6">
           <p className="text-sm text-gray-700">
-            Showing {visibleFoods.length} of {foods.length} foods
+            Showing {visibleFoods.length} of {localFoods.length} foods
           </p>
         </CardContent>
       </Card>
@@ -191,18 +289,65 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
               <CardHeader className="gap-3 px-5 sm:px-6">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <CardTitle aria-level={3} className="text-lg" role="heading">
-                      {food.name}
-                    </CardTitle>
+                    {editingFoodId === food.id ? (
+                      <form
+                        className="space-y-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          saveEditing();
+                        }}
+                      >
+                        <Input
+                          aria-label={`Edit ${food.name} name`}
+                          autoFocus
+                          className="h-9"
+                          onBlur={cancelEditing}
+                          onChange={(event) => setDraftFoodName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              cancelEditing();
+                            }
+                          }}
+                          value={draftFoodName}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Press Enter to save or Escape to cancel.
+                        </p>
+                      </form>
+                    ) : (
+                      <CardTitle aria-level={3} className="text-lg" role="heading">
+                        <button
+                          className="cursor-pointer text-left transition-colors hover:text-primary"
+                          onClick={() => beginEditing(food)}
+                          type="button"
+                        >
+                          {food.name}
+                        </button>
+                      </CardTitle>
+                    )}
                     {food.brand ? <CardDescription>{food.brand}</CardDescription> : null}
                   </div>
 
-                  {food.verified ? (
-                    <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
-                      <CheckCircle2Icon className="size-3.5" />
-                      Verified
-                    </Badge>
-                  ) : null}
+                  <div className="flex items-start gap-2">
+                    {food.verified ? (
+                      <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+                        <CheckCircle2Icon className="size-3.5" />
+                        Verified
+                      </Badge>
+                    ) : null}
+
+                    <Button
+                      aria-label={`Delete ${food.name}`}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setFoodPendingDeleteId(food.id)}
+                      size="icon-xs"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
@@ -247,6 +392,39 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
           ))}
         </div>
       )}
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setFoodPendingDeleteId(null);
+          }
+        }}
+        open={foodPendingDeleteId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove food?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {foodPendingDelete
+                ? `Are you sure you want to remove ${foodPendingDelete.name}?`
+                : 'Are you sure you want to remove this food?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (foodPendingDelete) {
+                  removeFood(foodPendingDelete.id);
+                }
+              }}
+              type="button"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

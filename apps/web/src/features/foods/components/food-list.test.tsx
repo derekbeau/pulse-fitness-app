@@ -96,6 +96,85 @@ describe('FoodList', () => {
     ]);
   });
 
+  it('toggles sort direction for the current sort option', () => {
+    render(<FoodList />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle sort direction' }));
+
+    expect(getVisibleFoodNames().slice(0, 5)).toEqual([
+      'Whole Wheat Bread',
+      'White Rice',
+      'Whey Protein',
+      'Sweet Potato',
+      'Spinach',
+    ]);
+
+    selectSortOption('Most Recent');
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle sort direction' }));
+
+    expect(getVisibleFoodNames()[0]).toBe('Avocado');
+    expect(getVisibleFoodNames().at(-1)).toBe('Cheddar Cheese');
+  });
+
+  it('saves an inline food-name edit on Enter and reapplies the active search filter', () => {
+    render(<FoodList />);
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
+      target: { value: 'whey' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
+
+    const editInput = screen.getByRole('textbox', { name: 'Edit Whey Protein name' });
+
+    fireEvent.change(editInput, { target: { value: 'Casein Protein' } });
+    fireEvent.submit(editInput.closest('form') as HTMLFormElement);
+
+    expect(screen.getByText('No foods found')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: 'Whey Protein' })).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 0 of 20 foods')).toBeInTheDocument();
+  });
+
+  it('cancels inline editing on Escape and on outside focus changes', () => {
+    render(<FoodList />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Greek Yogurt' }));
+
+    const escapeInput = screen.getByRole('textbox', { name: 'Edit Greek Yogurt name' });
+    fireEvent.change(escapeInput, { target: { value: 'Skyr Yogurt' } });
+    fireEvent.keyDown(escapeInput, { key: 'Escape' });
+
+    expect(screen.getByRole('button', { name: 'Greek Yogurt' })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Skyr Yogurt')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apple' }));
+
+    const blurInput = screen.getByRole('textbox', { name: 'Edit Apple name' });
+    fireEvent.change(blurInput, { target: { value: 'Honeycrisp Apple' } });
+    fireEvent.blur(blurInput);
+
+    expect(screen.getByRole('button', { name: 'Apple' })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Honeycrisp Apple')).not.toBeInTheDocument();
+  });
+
+  it('confirms deletion with the food name and removes the food from local state', () => {
+    render(<FoodList />);
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
+      target: { value: 'spinach' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Spinach' }));
+
+    expect(
+      screen.getByText('Are you sure you want to remove Spinach?'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(screen.queryByRole('heading', { level: 3, name: 'Spinach' })).not.toBeInTheDocument();
+    expect(screen.getByText('No foods found')).toBeInTheDocument();
+    expect(screen.getByText('Showing 0 of 19 foods')).toBeInTheDocument();
+  });
+
   it('shows an empty state when the search yields no matches', () => {
     render(<FoodList />);
 
