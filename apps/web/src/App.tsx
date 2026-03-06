@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AppLayout } from '@/components/layout/app-layout';
+import { ActivityPage } from '@/pages/activity';
 import { DashboardPage } from '@/pages/dashboard';
 import { DesignSystemPage } from '@/pages/design-system';
 import { FoodsPage } from '@/pages/foods';
@@ -18,6 +19,7 @@ function AppRoutes() {
         <Route element={<WorkoutsPage />} path="/workouts" />
         <Route element={<NutritionPage />} path="/nutrition" />
         <Route element={<HabitsPage />} path="/habits" />
+        <Route element={<ActivityPage />} path="/activity" />
         <Route element={<FoodsPage />} path="/foods" />
         <Route element={<JournalPage />} path="/journal" />
         <Route element={<SettingsPage />} path="/settings" />
