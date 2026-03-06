@@ -8,6 +8,7 @@ import { HabitsPage } from '@/pages/habits';
 import { JournalPage } from '@/pages/journal';
 import { NutritionPage } from '@/pages/nutrition';
 import { SettingsPage } from '@/pages/settings';
+import { ActiveWorkoutPage } from '@/pages/active-workout';
 import { WorkoutTemplateDetailPage } from '@/pages/workout-template-detail';
 import { WorkoutsPage } from '@/pages/workouts';
 
@@ -18,6 +19,7 @@ function AppRoutes() {
         <Route element={<DashboardPage />} path="/" />
         <Route element={<DesignSystemPage />} path="/design-system" />
         <Route element={<WorkoutsPage />} path="/workouts" />
+        <Route element={<ActiveWorkoutPage />} path="/workouts/active" />
         <Route element={<WorkoutTemplateDetailPage />} path="/workouts/template/:templateId" />
         <Route element={<NutritionPage />} path="/nutrition" />
         <Route element={<HabitsPage />} path="/habits" />

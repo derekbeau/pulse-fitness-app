@@ -7,6 +7,7 @@ const pageRoutes = [
   { heading: 'Dashboard', path: '/' },
   { heading: 'Design System', path: '/design-system' },
   { heading: 'Workouts', path: '/workouts' },
+  { heading: 'Upper Push', path: '/workouts/active' },
   { heading: 'Upper Push', path: '/workouts/template/upper-push' },
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },
