@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
+import { DashboardTrendSparklines } from '@/features/dashboard/components/dashboard-trend-sparklines';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
@@ -16,6 +17,7 @@ export function DashboardPage() {
       <h1 className="text-3xl font-semibold text-primary">Dashboard</h1>
       <CalendarPicker onDateSelect={setSelectedDate} selectedDate={selectedDate} />
       <SnapshotCards snapshot={selectedSnapshot} />
+      <DashboardTrendSparklines />
       <MacroRings snapshot={selectedSnapshot} />
       <HabitChain />
     </section>
