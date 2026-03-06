@@ -17,19 +17,19 @@ function formatDuration(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
-export function RestTimer({ durationSeconds, onComplete }: RestTimerProps) {
+type RestTimerCountdownProps = RestTimerProps;
+
+function RestTimerCountdown({ durationSeconds, onComplete }: RestTimerCountdownProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(durationSeconds);
-  const hasCompletedRef = useRef(durationSeconds <= 0);
+  const hasCompletedRef = useRef(false);
 
   useEffect(() => {
-    if (remainingSeconds <= 0) {
-      if (!hasCompletedRef.current) {
-        hasCompletedRef.current = true;
-        onComplete?.();
-      }
-
+    if (durationSeconds <= 0) {
+      hasCompletedRef.current = true;
       return;
     }
+
+    hasCompletedRef.current = false;
 
     const intervalId = window.setInterval(() => {
       setRemainingSeconds((currentValue) => {
@@ -51,7 +51,7 @@ export function RestTimer({ durationSeconds, onComplete }: RestTimerProps) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [onComplete, remainingSeconds]);
+  }, [durationSeconds, onComplete]);
 
   const isDone = remainingSeconds === 0;
 
@@ -79,5 +79,15 @@ export function RestTimer({ durationSeconds, onComplete }: RestTimerProps) {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+export function RestTimer({ durationSeconds, onComplete }: RestTimerProps) {
+  return (
+    <RestTimerCountdown
+      durationSeconds={durationSeconds}
+      key={durationSeconds}
+      onComplete={onComplete}
+    />
   );
 }

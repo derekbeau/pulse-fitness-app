@@ -49,6 +49,11 @@ const journalSampleEntries: JournalSampleEntry[] = [
   },
 ];
 
+function formatJournalEntryDate(date: string) {
+  // Parse date-only strings at noon local time to avoid timezone shifts when formatting preview content.
+  return entryDateFormatter.format(new Date(`${date}T12:00:00`));
+}
+
 export function JournalPage() {
   return (
     <section className="space-y-6">
@@ -88,7 +93,7 @@ export function JournalPage() {
                     {entry.type}
                   </Badge>
                   <CardDescription className="text-xs font-medium uppercase tracking-[0.14em]">
-                    {entryDateFormatter.format(new Date(`${entry.date}T12:00:00`))}
+                    {formatJournalEntryDate(entry.date)}
                   </CardDescription>
                 </div>
                 <CardTitle

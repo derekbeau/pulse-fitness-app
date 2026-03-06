@@ -30,8 +30,8 @@ function createHabitId(name: string) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${slug || 'habit'}-${crypto.randomUUID().slice(0, 8)}`;
+  if (globalThis.crypto?.randomUUID) {
+    return `${slug || 'habit'}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
   }
 
   return `${slug || 'habit'}-${Math.random().toString(36).slice(2, 10)}`;

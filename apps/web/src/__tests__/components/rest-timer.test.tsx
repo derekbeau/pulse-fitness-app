@@ -47,4 +47,30 @@ describe('RestTimer', () => {
     expect(screen.getByText('Done')).toBeInTheDocument();
     expect(handleComplete).toHaveBeenCalledTimes(1);
   });
+
+  it('resets cleanly when the duration changes without duplicating completion calls', () => {
+    const handleComplete = vi.fn();
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    const { rerender } = render(<RestTimer durationSeconds={5} onComplete={handleComplete} />);
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByText('00:03')).toBeInTheDocument();
+
+    rerender(<RestTimer durationSeconds={3} onComplete={handleComplete} />);
+
+    expect(screen.getByText('00:03')).toBeInTheDocument();
+    expect(setIntervalSpy).toHaveBeenCalledTimes(2);
+    expect(clearIntervalSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+    expect(handleComplete).toHaveBeenCalledTimes(1);
+  });
 });

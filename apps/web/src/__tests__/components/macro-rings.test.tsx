@@ -15,23 +15,17 @@ const targets = {
   fat: 70,
 };
 
-function getMacroCard(name: string) {
-  const card = screen.getByRole('heading', { name }).closest('div.rounded-2xl');
-
-  if (!(card instanceof HTMLElement)) {
-    throw new Error(`Macro card not found for ${name}.`);
-  }
-
-  return card;
+function getMacroCard(key: 'protein' | 'carbs' | 'fat') {
+  return screen.getByTestId(`macro-card-${key}`);
 }
 
 describe('MacroRings', () => {
   it('displays actual macro values in eaten mode by default', () => {
     render(<MacroRings actual={actual} targets={targets} />);
 
-    expect(within(getMacroCard('Protein')).getByText('130g eaten')).toBeInTheDocument();
-    expect(within(getMacroCard('Carbs')).getByText('220g eaten')).toBeInTheDocument();
-    expect(within(getMacroCard('Fat')).getByText('60g eaten')).toBeInTheDocument();
+    expect(within(getMacroCard('protein')).getByText('130g eaten')).toBeInTheDocument();
+    expect(within(getMacroCard('carbs')).getByText('220g eaten')).toBeInTheDocument();
+    expect(within(getMacroCard('fat')).getByText('60g eaten')).toBeInTheDocument();
   });
 
   it('toggles to remaining mode and shows target minus actual values', () => {
@@ -39,14 +33,14 @@ describe('MacroRings', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
-    expect(within(getMacroCard('Protein')).getByText('-10g remaining')).toBeInTheDocument();
-    expect(within(getMacroCard('Carbs')).getByText('40g remaining')).toBeInTheDocument();
-    expect(within(getMacroCard('Fat')).getByText('10g remaining')).toBeInTheDocument();
+    expect(within(getMacroCard('protein')).getByText('-10g remaining')).toBeInTheDocument();
+    expect(within(getMacroCard('carbs')).getByText('40g remaining')).toBeInTheDocument();
+    expect(within(getMacroCard('fat')).getByText('10g remaining')).toBeInTheDocument();
   });
 
   it('marks over-target macros with a warning color', () => {
     render(<MacroRings actual={actual} targets={targets} />);
 
-    expect(within(getMacroCard('Protein')).getByText('130g eaten')).toHaveClass('text-red-600');
+    expect(within(getMacroCard('protein')).getByText('130g eaten')).toHaveClass('text-red-600');
   });
 });

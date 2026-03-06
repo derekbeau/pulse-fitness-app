@@ -84,6 +84,7 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
 
           return (
             <div
+              data-testid={`macro-card-${macro.key}`}
               key={macro.key}
               className="grid gap-3 rounded-2xl bg-white/75 p-4 text-slate-950 shadow-sm"
             >
