@@ -19,6 +19,7 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('.theme-midnight');
     expect(css).toContain('--color-background: #ffffff;');
     expect(css).toContain('--color-card: #f8f9fa;');
+    expect(css).toContain('--color-on-accent: #111827;');
     expect(css).toContain('--color-background: #1a1a2e;');
     expect(css).toContain('--color-secondary: #16213e;');
     expect(css).toContain('--color-foreground: #e8e8e8;');
@@ -33,6 +34,7 @@ describe('globals.css design tokens', () => {
       '--color-background',
       '--color-foreground',
       '--color-card',
+      '--color-on-accent',
       '--color-primary',
       '--color-secondary',
       '--color-accent-cream',
@@ -71,6 +73,7 @@ describe('globals.css design tokens', () => {
       '--background: var(--color-background);',
       '--foreground: var(--color-foreground);',
       '--card: var(--color-card);',
+      '--accent-foreground: var(--color-on-accent);',
       '--primary: var(--color-primary);',
       '--secondary: var(--color-secondary);',
       '--muted-foreground: var(--color-muted);',
