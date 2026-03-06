@@ -170,7 +170,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       </div>
 
       <Button asChild className="w-full sm:w-auto" size="lg">
-        <Link to="/workouts/active">Start Workout</Link>
+        <Link to={`/workouts/active?template=${template.id}`}>Start Workout</Link>
       </Button>
     </section>
   );

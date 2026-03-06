@@ -1,18 +1,22 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
-import { WorkoutCalendar, WorkoutList } from '@/features/workouts';
+import { ExerciseLibrary, TemplateBrowser, WorkoutCalendar, WorkoutList } from '@/features/workouts';
 
 export function WorkoutsPage() {
-  const [activeView, setActiveView] = useState<'calendar' | 'list'>('calendar');
+  const navigate = useNavigate();
+  const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
+    'calendar',
+  );
 
   return (
     <section className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold text-primary">Workouts</h1>
         <p className="max-w-2xl text-sm text-muted">
-          Switch between the monthly schedule and a weekly history list to review completed
-          training sessions.
+          Review the schedule, revisit completed sessions, launch saved templates, or browse the
+          shared exercise library.
         </p>
       </div>
 
@@ -39,12 +43,36 @@ export function WorkoutsPage() {
         >
           List
         </Button>
+        <Button
+          aria-pressed={activeView === 'templates'}
+          onClick={() => setActiveView('templates')}
+          size="sm"
+          type="button"
+          variant={activeView === 'templates' ? 'default' : 'ghost'}
+        >
+          Templates
+        </Button>
+        <Button
+          aria-pressed={activeView === 'exercises'}
+          onClick={() => setActiveView('exercises')}
+          size="sm"
+          type="button"
+          variant={activeView === 'exercises' ? 'default' : 'ghost'}
+        >
+          Exercises
+        </Button>
       </div>
 
       {activeView === 'calendar' ? (
         <WorkoutCalendar buildDayHref={(date) => `/workouts?date=${date}`} />
-      ) : (
+      ) : activeView === 'list' ? (
         <WorkoutList />
+      ) : activeView === 'templates' ? (
+        <TemplateBrowser
+          onStartTemplate={(templateId) => navigate(`/workouts/active?template=${templateId}`)}
+        />
+      ) : (
+        <ExerciseLibrary />
       )}
     </section>
   );

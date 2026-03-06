@@ -1,0 +1,49 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { SessionSummary } from './session-summary';
+
+describe('SessionSummary', () => {
+  it('opens the save-as-template dialog with prefilled fields and performs a mock save', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    render(
+      <SessionSummary
+        defaultDescription="Chest, shoulders, and triceps emphasis with controlled tempo work."
+        defaultTags={['strength', 'push', 'upper-body']}
+        duration="47:12"
+        exercisesCompleted={7}
+        onDone={() => {}}
+        totalReps={124}
+        totalSets={14}
+        workoutName="Upper Push"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
+
+    expect(screen.getByRole('heading', { name: 'Save this workout as a template' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Upper Push');
+    expect(screen.getByLabelText('Description')).toHaveValue(
+      'Chest, shoulders, and triceps emphasis with controlled tempo work.',
+    );
+    expect(screen.getByLabelText('Tags')).toHaveValue('strength, push, upper-body');
+
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'Heavy upper emphasis with a slower incline press tempo.' },
+    });
+    fireEvent.change(screen.getByLabelText('Tags'), {
+      target: { value: 'strength, push, hypertrophy' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(logSpy).toHaveBeenCalledWith('Mock save workout template', {
+      description: 'Heavy upper emphasis with a slower incline press tempo.',
+      name: 'Upper Push',
+      tags: ['strength', 'push', 'hypertrophy'],
+    });
+    expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();
+
+    logSpy.mockRestore();
+  });
+});

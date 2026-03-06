@@ -52,7 +52,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(screen.getByText('Drive feet into the floor')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Start Workout' }),
-    ).toHaveAttribute('href', '/workouts/active');
+    ).toHaveAttribute('href', '/workouts/active?template=upper-push');
   });
 
   it('renders a fallback state when the template does not exist', () => {

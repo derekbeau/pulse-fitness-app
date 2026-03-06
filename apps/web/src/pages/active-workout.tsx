@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   SessionExerciseList,
@@ -15,7 +15,7 @@ import {
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
 
-const activeTemplate =
+const defaultTemplate =
   mockTemplates.find((template) => template.id === 'upper-push') ??
   (() => {
     throw new Error('Expected upper-push template in mock data.');
@@ -28,11 +28,6 @@ const completedSetIds = [
   createWorkoutSetId('incline-dumbbell-press', 1),
   createWorkoutSetId('incline-dumbbell-press', 2),
 ];
-const templateExerciseById = new Map(
-  activeTemplate.sections.flatMap((section) =>
-    section.exercises.map((exercise) => [exercise.exerciseId, exercise]),
-  ),
-);
 
 type RestTimerState = {
   duration: number;
@@ -43,11 +38,15 @@ type RestTimerState = {
 
 export function ActiveWorkoutPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedTemplate = mockTemplates.find((template) => template.id === searchParams.get('template'));
+  const template = selectedTemplate ?? defaultTemplate;
   const [startTime] = useState(() => new Date(Date.now() - 16 * 60_000 - 23_000).toISOString());
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
-    activeTemplate
-      ? createInitialWorkoutSetDrafts(activeTemplate, new Set(completedSetIds))
-      : {},
+    createInitialWorkoutSetDrafts(
+      template,
+      selectedTemplate ? new Set<string>() : new Set(completedSetIds),
+    ),
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
@@ -57,7 +56,15 @@ export function ActiveWorkoutPage() {
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const restTimerTokenRef = useRef(0);
 
-  const template = activeTemplate;
+  const templateExerciseById = useMemo(
+    () =>
+      new Map(
+        template.sections.flatMap((section) =>
+          section.exercises.map((exercise) => [exercise.exerciseId, exercise]),
+        ),
+      ),
+    [template],
+  );
   const session = useMemo(
     () =>
       buildActiveWorkoutSession(template, setDrafts, {
@@ -113,11 +120,14 @@ export function ActiveWorkoutPage() {
 
       {stage === 'summary' ? (
         <SessionSummary
+          defaultDescription={template.description}
+          defaultTags={template.tags}
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
           onDone={() => navigate('/workouts')}
           totalReps={totalCompletedReps}
           totalSets={session.completedSets}
+          workoutName={session.workoutName}
         />
       ) : null}
     </section>

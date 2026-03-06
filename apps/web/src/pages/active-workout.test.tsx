@@ -100,11 +100,18 @@ describe('ActiveWorkoutPage', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Workouts' })).toBeInTheDocument();
   });
+
+  it('uses the selected template from the route query string', () => {
+    renderActiveWorkoutPage('/workouts/active?template=lower-quad-dominant');
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' })).toBeInTheDocument();
+    expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
+  });
 });
 
-function renderActiveWorkoutPage() {
+function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
   return render(
-    <MemoryRouter initialEntries={['/workouts/active']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route element={<ActiveWorkoutPage />} path="/workouts/active" />
         <Route element={<h1>Workouts</h1>} path="/workouts" />
