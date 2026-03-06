@@ -60,6 +60,41 @@ export function formatDayLabel(date: string): string {
   }).format(new Date(`${date}T12:00:00`));
 }
 
+export function formatCompactDayLabel(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  }).format(startOfDay(date));
+}
+
+export function formatDateKey(date: Date): string {
+  const normalizedDate = startOfDay(date);
+  const year = normalizedDate.getFullYear();
+  const month = `${normalizedDate.getMonth() + 1}`.padStart(2, '0');
+  const day = `${normalizedDate.getDate()}`.padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+export function addDays(date: Date, amount: number): Date {
+  const nextDate = startOfDay(date);
+  nextDate.setDate(nextDate.getDate() + amount);
+
+  return nextDate;
+}
+
+export function isSameDay(left: Date, right: Date): boolean {
+  return formatDateKey(left) === formatDateKey(right);
+}
+
+export function startOfDay(date: Date): Date {
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(0, 0, 0, 0);
+
+  return normalizedDate;
+}
+
 function formatNumber(value: number): string {
   const rounded = Number(value.toFixed(2));
 

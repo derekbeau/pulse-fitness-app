@@ -1,10 +1,14 @@
-import { MealCard, NutritionMacroRings } from '@/features/nutrition';
+import { useState } from 'react';
+
+import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
+  formatDateKey,
   calculateMacroTotals,
   formatCalories,
   formatDayLabel,
   formatGrams,
   sortMeals,
+  startOfDay,
   type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
 import { mockDailyMeals, mockDailyTargets } from '@/lib/mock-data/nutrition';
@@ -21,19 +25,29 @@ const MACRO_CONFIG: Array<{
   { key: 'fat', label: 'Fat', formatValue: formatGrams },
 ];
 
-const selectedDate = Object.keys(mockDailyMeals).sort().at(-1);
-const selectedMeals = selectedDate ? sortMeals(mockDailyMeals[selectedDate]) : [];
-const dailyTotals = calculateMacroTotals(selectedMeals);
+const EMPTY_TOTALS = {
+  calories: 0,
+  protein: 0,
+  carbs: 0,
+  fat: 0,
+};
 
 export function NutritionPage() {
+  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const dateKey = formatDateKey(selectedDate);
+  const selectedMeals = sortMeals(mockDailyMeals[dateKey] ?? []);
+  const dailyTotals = selectedMeals.length > 0 ? calculateMacroTotals(selectedMeals) : EMPTY_TOTALS;
+
   return (
     <section className="space-y-5">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
         <p className="max-w-2xl text-sm text-muted">
-          Agent-logged meals for {selectedDate ? formatDayLabel(selectedDate) : 'the selected day'}.
+          Agent-logged meals for {formatDayLabel(dateKey)}.
         </p>
       </header>
+
+      <DateNavBar selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
       <section
         aria-label="Daily macro totals"
@@ -49,14 +63,12 @@ export function NutritionPage() {
               Actual intake against your daily macro targets.
             </p>
           </div>
-          {selectedDate ? (
-            <p
-              className="text-sm font-medium"
-              style={{ color: 'color-mix(in srgb, var(--color-on-accent) 72%, transparent)' }}
-            >
-              {formatDayLabel(selectedDate)}
-            </p>
-          ) : null}
+          <p
+            className="text-sm font-medium"
+            style={{ color: 'color-mix(in srgb, var(--color-on-accent) 72%, transparent)' }}
+          >
+            {formatDayLabel(dateKey)}
+          </p>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -101,9 +113,13 @@ export function NutritionPage() {
       <NutritionMacroRings actuals={dailyTotals} targets={mockDailyTargets} />
 
       <div className="space-y-3">
-        {selectedMeals.map((meal) => (
-          <MealCard key={meal.id} meal={meal} />
-        ))}
+        {selectedMeals.length > 0 ? (
+          selectedMeals.map((meal) => <MealCard key={meal.id} meal={meal} />)
+        ) : (
+          <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-10 text-center shadow-sm">
+            <p className="text-sm font-medium text-muted">No meals logged for this day</p>
+          </div>
+        )}
       </div>
     </section>
   );
