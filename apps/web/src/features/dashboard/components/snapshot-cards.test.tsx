@@ -55,15 +55,30 @@ describe('SnapshotCards', () => {
     expect(caloriesCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(workoutCard).toHaveClass('bg-[var(--color-primary)]/12');
+    expect(screen.getByText('Body Weight')).toHaveClass('text-on-accent');
+    expect(screen.getByText('Calories')).toHaveClass('text-on-accent');
+    expect(screen.getByText('Protein')).toHaveClass('text-on-accent');
+    expect(screen.getByText("Today's Workout")).toHaveClass('text-on-accent');
+
+    expect(
+      screen.getByText(
+        `${mockDailySnapshot.macros.calories.actual} / ${mockDailySnapshot.macros.calories.target}`,
+      ),
+    ).toHaveClass('text-on-accent');
+    expect(
+      screen.getByText(
+        `${mockDailySnapshot.macros.protein.actual}g / ${mockDailySnapshot.macros.protein.target}g`,
+      ),
+    ).toHaveClass('text-on-accent');
 
     const expectedTrend = calculateWeightTrend(
       mockDailySnapshot.weight,
       mockDailySnapshot.weightYesterday,
     );
 
-    expect(
-      within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`),
-    ).toBeInTheDocument();
+    const weightTrend = within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`);
+    expect(weightTrend).toBeInTheDocument();
+    expect(weightTrend).toHaveClass('text-on-accent');
 
     const expectedTrendText =
       expectedTrend.direction === 'up'

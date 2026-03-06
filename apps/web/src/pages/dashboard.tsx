@@ -1,3 +1,4 @@
+import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 
@@ -7,6 +8,7 @@ export function DashboardPage() {
       <h1 className="text-3xl font-semibold text-primary">Dashboard</h1>
       <SnapshotCards />
       <MacroRings />
+      <HabitChain />
     </section>
   );
 }

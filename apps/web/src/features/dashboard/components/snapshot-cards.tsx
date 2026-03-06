@@ -28,6 +28,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard
+        accentText
         className="bg-[var(--color-accent-cream)]"
         label="Body Weight"
         trend={calculateWeightTrend(snapshot.weight, snapshot.weightYesterday)}
@@ -35,6 +36,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
+        accentText
         className="bg-[var(--color-accent-pink)]"
         label="Calories"
         trend={{ direction: 'neutral', value: 0 }}
@@ -42,6 +44,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
+        accentText
         className="bg-[var(--color-accent-mint)]"
         label="Protein"
         trend={{ direction: 'neutral', value: 0 }}
@@ -49,6 +52,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
+        accentText
         className="bg-[var(--color-primary)]/12"
         label="Today's Workout"
         value={snapshot.workoutName ?? 'Rest Day'}

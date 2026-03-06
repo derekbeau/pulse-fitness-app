@@ -53,4 +53,19 @@ describe('StatCard', () => {
     const card = document.querySelector('[data-slot="stat-card"]');
     expect(card).toHaveClass('custom-card');
   });
+
+  it('uses on-accent text colors when accentText is enabled', () => {
+    render(
+      <StatCard
+        accentText
+        label="Body Weight"
+        trend={{ direction: 'up', value: 1.2 }}
+        value="178.4 lbs"
+      />,
+    );
+
+    expect(screen.getByText('Body Weight')).toHaveClass('text-on-accent');
+    expect(screen.getByText('178.4 lbs')).toHaveClass('text-on-accent');
+    expect(screen.getByLabelText('trend up')).toHaveClass('text-on-accent');
+  });
 });
