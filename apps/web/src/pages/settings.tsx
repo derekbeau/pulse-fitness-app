@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { HabitSettings } from '@/features/habits';
+import { defaultHabitConfigs, HabitSettings } from '@/features/habits';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { cn } from '@/lib/utils';
@@ -61,8 +65,98 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
 ];
 
+const SETTINGS_STORAGE_KEY = 'pulse-prototype-settings';
+const TREND_SPARKLINE_OPTIONS = ['Weight', 'Calories', 'Protein', 'Steps'] as const;
+const HABIT_CHAIN_OPTIONS = defaultHabitConfigs.map((habit) => ({
+  id: habit.id,
+  label: habit.name,
+}));
+
+type SettingsFormState = {
+  dashboardConfig: {
+    habitChains: string[];
+    trendSparklines: string[];
+  };
+  nutritionTargets: {
+    calories: number;
+    carbs: number;
+    fat: number;
+    protein: number;
+  };
+};
+
+const DEFAULT_SETTINGS: SettingsFormState = {
+  dashboardConfig: {
+    habitChains: HABIT_CHAIN_OPTIONS.slice(0, 3).map((habit) => habit.id),
+    trendSparklines: ['Weight', 'Calories', 'Protein'],
+  },
+  nutritionTargets: {
+    calories: 2000,
+    carbs: 250,
+    fat: 65,
+    protein: 150,
+  },
+};
+
 function isTheme(value: string): value is Theme {
   return THEME_OPTIONS.some((option) => option.value === value);
+}
+
+function isTrendSparkline(value: string): value is (typeof TREND_SPARKLINE_OPTIONS)[number] {
+  return TREND_SPARKLINE_OPTIONS.includes(value as (typeof TREND_SPARKLINE_OPTIONS)[number]);
+}
+
+function clampNumber(value: unknown, fallback: number) {
+  if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+    return fallback;
+  }
+
+  return value;
+}
+
+function loadSettings(): SettingsFormState {
+  if (typeof window === 'undefined') {
+    return DEFAULT_SETTINGS;
+  }
+
+  try {
+    const rawSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+
+    if (!rawSettings) {
+      return DEFAULT_SETTINGS;
+    }
+
+    const parsedSettings = JSON.parse(rawSettings) as Partial<SettingsFormState>;
+
+    const savedNutritionTargets = parsedSettings.nutritionTargets;
+    const savedDashboardConfig = parsedSettings.dashboardConfig;
+
+    return {
+      dashboardConfig: {
+        habitChains:
+          savedDashboardConfig?.habitChains?.filter((habitId) =>
+            HABIT_CHAIN_OPTIONS.some((habit) => habit.id === habitId),
+          ) ?? DEFAULT_SETTINGS.dashboardConfig.habitChains,
+        trendSparklines:
+          savedDashboardConfig?.trendSparklines?.filter(isTrendSparkline) ??
+          DEFAULT_SETTINGS.dashboardConfig.trendSparklines,
+      },
+      nutritionTargets: {
+        calories: clampNumber(
+          savedNutritionTargets?.calories,
+          DEFAULT_SETTINGS.nutritionTargets.calories,
+        ),
+        carbs: clampNumber(savedNutritionTargets?.carbs, DEFAULT_SETTINGS.nutritionTargets.carbs),
+        fat: clampNumber(savedNutritionTargets?.fat, DEFAULT_SETTINGS.nutritionTargets.fat),
+        protein: clampNumber(
+          savedNutritionTargets?.protein,
+          DEFAULT_SETTINGS.nutritionTargets.protein,
+        ),
+      },
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
 }
 
 function ThemePreviewSwatch({ label, preview }: Pick<ThemeOption, 'label' | 'preview'>) {
@@ -153,6 +247,22 @@ function ThemeOptionCard({
 
 export function SettingsPage() {
   const { setTheme, theme } = useThemeContext();
+  const [settings, setSettings] = useState<SettingsFormState>(() => loadSettings());
+  const [saveMessage, setSaveMessage] = useState('');
+
+  useEffect(() => {
+    if (!saveMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSaveMessage('');
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [saveMessage]);
 
   function handleThemeChange(nextValue: string) {
     if (!isTheme(nextValue)) {
@@ -160,6 +270,57 @@ export function SettingsPage() {
     }
 
     setTheme(nextValue);
+  }
+
+  function handleNutritionTargetChange(
+    field: keyof SettingsFormState['nutritionTargets'],
+    value: string,
+  ) {
+    const parsedValue = Number(value);
+
+    setSaveMessage('');
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      nutritionTargets: {
+        ...currentSettings.nutritionTargets,
+        [field]: Number.isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue,
+      },
+    }));
+  }
+
+  function toggleHabitChain(habitId: string, checked: boolean) {
+    setSaveMessage('');
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      dashboardConfig: {
+        ...currentSettings.dashboardConfig,
+        habitChains: checked
+          ? [...currentSettings.dashboardConfig.habitChains, habitId]
+          : currentSettings.dashboardConfig.habitChains.filter((value) => value !== habitId),
+      },
+    }));
+  }
+
+  function toggleTrendSparkline(metric: (typeof TREND_SPARKLINE_OPTIONS)[number], checked: boolean) {
+    setSaveMessage('');
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      dashboardConfig: {
+        ...currentSettings.dashboardConfig,
+        trendSparklines: checked
+          ? [...currentSettings.dashboardConfig.trendSparklines, metric]
+          : currentSettings.dashboardConfig.trendSparklines.filter((value) => value !== metric),
+      },
+    }));
+  }
+
+  function handleSave() {
+    try {
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      setSaveMessage('Nutrition targets and dashboard preferences saved.');
+    } catch {
+      setSaveMessage('Settings could not be saved on this device.');
+    }
   }
 
   return (
@@ -227,7 +388,172 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="gap-4 border-border/70 shadow-sm">
+        <CardHeader className="space-y-2">
+          <CardTitle>
+            <h2 className="text-xl font-semibold text-foreground">Nutrition Targets</h2>
+          </CardTitle>
+          <CardDescription>
+            Set daily macro targets for the dashboard rings and nutrition summaries.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="target-calories">
+              Daily calories
+            </Label>
+            <Input
+              id="target-calories"
+              min={0}
+              onChange={(event) => handleNutritionTargetChange('calories', event.target.value)}
+              step={1}
+              type="number"
+              value={settings.nutritionTargets.calories}
+            />
+            <p className="text-sm text-muted-foreground">Baseline energy target for each day.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="target-protein">
+              Protein (g)
+            </Label>
+            <Input
+              id="target-protein"
+              min={0}
+              onChange={(event) => handleNutritionTargetChange('protein', event.target.value)}
+              step={1}
+              type="number"
+              value={settings.nutritionTargets.protein}
+            />
+            <p className="text-sm text-muted-foreground">Use grams for the daily protein goal.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="target-carbs">
+              Carbs (g)
+            </Label>
+            <Input
+              id="target-carbs"
+              min={0}
+              onChange={(event) => handleNutritionTargetChange('carbs', event.target.value)}
+              step={1}
+              type="number"
+              value={settings.nutritionTargets.carbs}
+            />
+            <p className="text-sm text-muted-foreground">Carbohydrate target for daily fueling.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="target-fat">
+              Fat (g)
+            </Label>
+            <Input
+              id="target-fat"
+              min={0}
+              onChange={(event) => handleNutritionTargetChange('fat', event.target.value)}
+              step={1}
+              type="number"
+              value={settings.nutritionTargets.fat}
+            />
+            <p className="text-sm text-muted-foreground">Fat target to round out macro balance.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="gap-4 border-border/70 shadow-sm">
+        <CardHeader className="space-y-2">
+          <CardTitle>
+            <h2 className="text-xl font-semibold text-foreground">Dashboard Configuration</h2>
+          </CardTitle>
+          <CardDescription>
+            Choose which habit streaks and trend sparklines show up on the dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">Habit Chains</h3>
+              <p className="text-sm text-muted-foreground">
+                Select the habit streaks to spotlight in the daily dashboard snapshot.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {HABIT_CHAIN_OPTIONS.map((habit) => {
+                const checkboxId = `habit-chain-${habit.id}`;
+
+                return (
+                  <Label
+                    key={habit.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    htmlFor={checkboxId}
+                  >
+                    <Checkbox
+                      checked={settings.dashboardConfig.habitChains.includes(habit.id)}
+                      id={checkboxId}
+                      onCheckedChange={(checked) => toggleHabitChain(habit.id, checked === true)}
+                    />
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium text-foreground">{habit.label}</span>
+                      <p className="text-sm text-muted-foreground">
+                        Show this streak chain in the dashboard summary row.
+                      </p>
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">Trend Sparklines</h3>
+              <p className="text-sm text-muted-foreground">
+                Pick the quick-glance metrics that stay pinned to the dashboard.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {TREND_SPARKLINE_OPTIONS.map((metric) => {
+                const checkboxId = `trend-sparkline-${metric.toLowerCase()}`;
+
+                return (
+                  <Label
+                    key={metric}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    htmlFor={checkboxId}
+                  >
+                    <Checkbox
+                      checked={settings.dashboardConfig.trendSparklines.includes(metric)}
+                      id={checkboxId}
+                      onCheckedChange={(checked) =>
+                        toggleTrendSparkline(metric, checked === true)
+                      }
+                    />
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium text-foreground">{metric}</span>
+                      <p className="text-sm text-muted-foreground">
+                        Keep the {metric.toLowerCase()} sparkline visible on the dashboard.
+                      </p>
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {saveMessage || 'Save changes to keep these preferences on this device.'}
+            </p>
+            <Button onClick={handleSave} type="button">
+              Save settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <HabitSettings />
     </section>
   );
 }
+
+export { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY };
