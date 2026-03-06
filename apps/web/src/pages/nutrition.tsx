@@ -1,4 +1,4 @@
-import { MealCard } from '@/features/nutrition';
+import { MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
   calculateMacroTotals,
   formatCalories,
@@ -97,6 +97,8 @@ export function NutritionPage() {
           })}
         </div>
       </section>
+
+      <NutritionMacroRings actuals={dailyTotals} targets={mockDailyTargets} />
 
       <div className="space-y-3">
         {selectedMeals.map((meal) => (
