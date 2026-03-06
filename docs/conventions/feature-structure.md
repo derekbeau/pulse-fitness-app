@@ -1,10 +1,36 @@
 # Feature Structure Conventions
 
-This document defines the required frontend feature layout and import boundaries for `apps/web`.
+This document defines the frontend structure and import boundaries for `apps/web`.
+
+## Current Prototype Layout
+
+The current prototype is route-first and shared-component-first. This is intentional until domain modules need independent ownership.
+
+```text
+src/
+  components/
+    layout/
+    ui/
+    <app-level providers/context>
+  hooks/
+  lib/
+  pages/
+  styles/
+  test/
+```
+
+Rules:
+
+- `src/pages/` owns route-level composition.
+- `src/components/layout` owns shell/navigation composition.
+- `src/components/ui` owns reusable primitives (shadcn wrappers + custom primitives).
+- `src/components/` root may contain app-level providers/context wrappers shared across routes.
+- `src/hooks` and `src/lib` own shared app-level hooks/utilities.
+- `src/test` owns shared test setup utilities.
 
 ## Feature Directory Layout
 
-Each feature lives under `src/features/{name}/`.
+When a domain area grows beyond simple page composition, move it into `src/features/{name}/`.
 
 ```text
 src/features/{name}/
@@ -24,6 +50,7 @@ Rules:
 - `lib/`: pure feature utilities (formatters, calculators, selectors).
 - `types.ts`: shared feature-level TypeScript types/interfaces.
 - `index.ts`: feature public API barrel.
+- Feature folders and file names are kebab-case.
 
 ## Barrel Export Pattern
 
@@ -49,6 +76,7 @@ Features must not import directly from other features.
 Allowed external imports from feature code:
 
 - `@/components/*` (shared app UI)
+- `@/hooks/*` (shared app hooks)
 - `@/lib/*` (shared app utilities)
 - `@pulse/shared` (cross-app shared package)
 
@@ -67,12 +95,18 @@ Rules:
 - Pages orchestrate data and compose feature components.
 - Feature modules must not import route objects, route constants, or router hooks that encode page-level navigation policy.
 
+For current prototype pages that are not yet split into feature modules:
+
+- Page files in `src/pages/` may directly compose shared primitives from `@/components/*`, `@/hooks/*`, and `@/lib/*`.
+- Keep page files focused on composition and avoid embedding large data/business logic blocks; move that logic into a feature module once it becomes non-trivial.
+
 ## Naming Conventions
 
 - Components: PascalCase symbol names (`WorkoutSummaryCard`).
 - Hooks/utilities: camelCase symbol names (`useWorkoutTemplate`, `formatMacroValue`).
 - File names: kebab-case (`workout-summary-card.tsx`, `use-workout-template.ts`).
 - Feature folder names: kebab-case (`workout-logging`, `nutrition-overview`).
+- App entrypoint exceptions are allowed: `App.tsx`, `main.tsx`, and `vite-env.d.ts`.
 
 ## Create New Feature vs Extend Existing
 

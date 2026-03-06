@@ -21,40 +21,40 @@ const THEME_COLORS: Record<
   Record<(typeof COLOR_TOKENS)[number], string>
 > = {
   light: {
-    '--color-background': '#F7F8FC',
-    '--color-foreground': '#1C2230',
-    '--color-card': '#FFFFFF',
-    '--color-primary': '#2F6FED',
-    '--color-secondary': '#E8ECF8',
-    '--color-accent-cream': '#FFF3D6',
-    '--color-accent-pink': '#FFD9E6',
-    '--color-accent-mint': '#D6F5EA',
-    '--color-muted': '#687185',
-    '--color-border': '#D8DEEA',
+    '--color-background': '#FFFFFF',
+    '--color-foreground': '#1A1A2E',
+    '--color-card': '#F8F9FA',
+    '--color-primary': '#3F63C7',
+    '--color-secondary': '#EEF2F7',
+    '--color-accent-cream': '#F7E8C4',
+    '--color-accent-pink': '#F4CADB',
+    '--color-accent-mint': '#CDEEE2',
+    '--color-muted': '#5D6476',
+    '--color-border': '#D6DCE8',
   },
   dark: {
-    '--color-background': '#10131A',
-    '--color-foreground': '#F5F7FF',
-    '--color-card': '#181D27',
-    '--color-primary': '#7AA2FF',
-    '--color-secondary': '#273246',
+    '--color-background': '#1A1A2E',
+    '--color-foreground': '#E8E8E8',
+    '--color-card': '#202942',
+    '--color-primary': '#9BB1FF',
+    '--color-secondary': '#16213E',
     '--color-accent-cream': '#F3D7A8',
     '--color-accent-pink': '#F5B5CB',
     '--color-accent-mint': '#9EDCC9',
-    '--color-muted': '#9AA6BF',
-    '--color-border': '#2D384C',
+    '--color-muted': '#AEB6CC',
+    '--color-border': '#303B59',
   },
   midnight: {
-    '--color-background': '#070B14',
-    '--color-foreground': '#EAF2FF',
-    '--color-card': '#0F1728',
-    '--color-primary': '#5EA2FF',
-    '--color-secondary': '#18233B',
-    '--color-accent-cream': '#E7C78C',
-    '--color-accent-pink': '#E9A7C7',
-    '--color-accent-mint': '#8BD7C3',
-    '--color-muted': '#93A4C2',
-    '--color-border': '#233250',
+    '--color-background': '#0D1B2A',
+    '--color-foreground': '#CCD6F6',
+    '--color-card': '#1B2838',
+    '--color-primary': '#3B82F6',
+    '--color-secondary': '#14263A',
+    '--color-accent-cream': '#F4C95D',
+    '--color-accent-pink': '#B8A1FF',
+    '--color-accent-mint': '#6EC3FF',
+    '--color-muted': '#91A2BF',
+    '--color-border': '#31465F',
   },
 };
 
@@ -73,10 +73,12 @@ describe('convention documentation', () => {
     expect(designSystemDoc).toContain('## Typography Scale');
     expect(designSystemDoc).toContain('## Border Radius Tokens');
     expect(designSystemDoc).toContain('## Theme Switching Mechanism');
+    expect(designSystemDoc).toContain('## shadcn Semantic Token Bridge');
     expect(designSystemDoc).toContain('## Component Composition Patterns');
     expect(designSystemDoc).toContain('## Accent Card Usage Guidelines');
     expect(designSystemDoc).toContain('localStorage');
     expect(designSystemDoc).toContain('useTheme');
+    expect(designSystemDoc).toContain('`dark`, `theme-midnight`');
     expect(designSystemDoc).toContain('className?: string');
     expect(designSystemDoc).toContain('cn(');
     expect(designSystemDoc).toContain('--radius-sm');
@@ -94,6 +96,7 @@ describe('convention documentation', () => {
     const featureStructureDoc = await readFile(featureStructurePath, 'utf8');
 
     expect(featureStructureDoc).toContain('# Feature Structure Conventions');
+    expect(featureStructureDoc).toContain('Current Prototype Layout');
     expect(featureStructureDoc).toContain('src/features/{name}/');
     expect(featureStructureDoc).toContain('components/');
     expect(featureStructureDoc).toContain('hooks/');
@@ -112,6 +115,7 @@ describe('convention documentation', () => {
     expect(featureStructureDoc).toContain('PascalCase');
     expect(featureStructureDoc).toContain('camelCase');
     expect(featureStructureDoc).toContain('kebab-case');
+    expect(featureStructureDoc).toContain('App.tsx');
     expect(featureStructureDoc).toContain('Create New Feature vs Extend Existing');
   });
 });

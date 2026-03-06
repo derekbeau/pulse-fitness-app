@@ -6,18 +6,18 @@ This document is the source of truth for Pulse UI tokens and theme behavior.
 
 All colors are defined as CSS custom properties on the root theme class.
 
-| Token                  | Light     | Dark (default) | Midnight  |
-| ---------------------- | --------- | -------------- | --------- |
-| `--color-background`   | `#F7F8FC` | `#10131A`      | `#070B14` |
-| `--color-foreground`   | `#1C2230` | `#F5F7FF`      | `#EAF2FF` |
-| `--color-card`         | `#FFFFFF` | `#181D27`      | `#0F1728` |
-| `--color-primary`      | `#2F6FED` | `#7AA2FF`      | `#5EA2FF` |
-| `--color-secondary`    | `#E8ECF8` | `#273246`      | `#18233B` |
-| `--color-accent-cream` | `#FFF3D6` | `#F3D7A8`      | `#E7C78C` |
-| `--color-accent-pink`  | `#FFD9E6` | `#F5B5CB`      | `#E9A7C7` |
-| `--color-accent-mint`  | `#D6F5EA` | `#9EDCC9`      | `#8BD7C3` |
-| `--color-muted`        | `#687185` | `#9AA6BF`      | `#93A4C2` |
-| `--color-border`       | `#D8DEEA` | `#2D384C`      | `#233250` |
+| Token                  | Light (`:root`) | Dark (`.dark`) | Midnight (`.theme-midnight`) |
+| ---------------------- | ---------------- | -------------- | ----------------------------- |
+| `--color-background`   | `#FFFFFF`        | `#1A1A2E`      | `#0D1B2A`                     |
+| `--color-foreground`   | `#1A1A2E`        | `#E8E8E8`      | `#CCD6F6`                     |
+| `--color-card`         | `#F8F9FA`        | `#202942`      | `#1B2838`                     |
+| `--color-primary`      | `#3F63C7`        | `#9BB1FF`      | `#3B82F6`                     |
+| `--color-secondary`    | `#EEF2F7`        | `#16213E`      | `#14263A`                     |
+| `--color-accent-cream` | `#F7E8C4`        | `#F3D7A8`      | `#F4C95D`                     |
+| `--color-accent-pink`  | `#F4CADB`        | `#F5B5CB`      | `#B8A1FF`                     |
+| `--color-accent-mint`  | `#CDEEE2`        | `#9EDCC9`      | `#6EC3FF`                     |
+| `--color-muted`        | `#5D6476`        | `#AEB6CC`      | `#91A2BF`                     |
+| `--color-border`       | `#D6DCE8`        | `#303B59`      | `#31465F`                     |
 
 ## Spacing Scale
 
@@ -44,35 +44,13 @@ Rules:
 
 ## Typography Scale
 
-Typography is tokenized for size, line-height, and weight. Use Tailwind classes (`text-*`, `leading-*`, `font-*`) as the primary API.
+Typography is utility-first. Use Tailwind classes (`text-*`, `leading-*`, `font-*`) as the primary API.
 
-### Font size + line-height
+Current typography token contract:
 
-| Token                | Value      |
-| -------------------- | ---------- |
-| `--font-size-xs`     | `0.75rem`  |
-| `--line-height-xs`   | `1rem`     |
-| `--font-size-sm`     | `0.875rem` |
-| `--line-height-sm`   | `1.25rem`  |
-| `--font-size-base`   | `1rem`     |
-| `--line-height-base` | `1.5rem`   |
-| `--font-size-lg`     | `1.125rem` |
-| `--line-height-lg`   | `1.75rem`  |
-| `--font-size-xl`     | `1.25rem`  |
-| `--line-height-xl`   | `1.75rem`  |
-| `--font-size-2xl`    | `1.5rem`   |
-| `--line-height-2xl`  | `2rem`     |
-| `--font-size-3xl`    | `1.875rem` |
-| `--line-height-3xl`  | `2.25rem`  |
-
-### Font weights
-
-| Token                    | Value | Tailwind mapping |
-| ------------------------ | ----- | ---------------- |
-| `--font-weight-regular`  | `400` | `font-normal`    |
-| `--font-weight-medium`   | `500` | `font-medium`    |
-| `--font-weight-semibold` | `600` | `font-semibold`  |
-| `--font-weight-bold`     | `700` | `font-bold`      |
+- `--font-sans` defines the global sans stack.
+- Font size/line-height/weight are applied via Tailwind classes directly (`text-3xl`, `font-semibold`, `leading-tight`, etc.).
+- No `--font-size-*` or `--line-height-*` CSS variables are currently part of the required token contract.
 
 ## Border Radius Tokens
 
@@ -84,20 +62,35 @@ Typography is tokenized for size, line-height, and weight. Use Tailwind classes 
 | `--radius-xl`  | `1rem`     | `rounded-xl`     |
 | `--radius-2xl` | `1.25rem`  | `rounded-2xl`    |
 
+Additional shadcn/radix integration tokens:
+
+- `--radius` (base radius primitive used for derived tokens)
+- `--radius-3xl` and `--radius-4xl` are derived in `@theme inline`
+
 ## Theme Switching Mechanism
 
 Theme behavior is class-based and controlled by a `useTheme` hook.
 
 Implementation contract:
 
-- Theme classes live on the document root: `theme-light`, `theme-dark`, `theme-midnight`.
+- Light theme is the default `:root` token set with no theme class.
+- Alternate theme classes live on the document root: `dark`, `theme-midnight`.
 - Persist user choice in `localStorage` under key `pulse-theme`.
 - `useTheme` is the single source of truth for reading/updating theme.
+- `index.html` includes a pre-hydration bootstrap script that mirrors `useTheme` logic to prevent initial flash.
 - Initialization order:
 
 1. Use saved `pulse-theme` value if present.
 2. Otherwise detect `prefers-color-scheme` and map to `dark`/`light`.
 3. If detection is unavailable, default to `dark`.
+
+## shadcn Semantic Token Bridge
+
+Pulse color tokens are the source-of-truth. shadcn semantic variables are aliases layered on top:
+
+- Example mappings: `--background -> --color-background`, `--primary -> --color-primary`, `--border -> --color-border`.
+- Tailwind utilities should continue to use semantic utility names (`bg-background`, `text-foreground`, `border-border`, etc.) through the `@theme inline` bridge.
+- New primitives should map through existing `--color-*` tokens rather than introducing parallel color systems.
 
 ## Component Composition Patterns
 

@@ -6,7 +6,7 @@ export const THEME_STORAGE_KEY = 'pulse-theme';
 
 const THEME_DARK_QUERY = '(prefers-color-scheme: dark)';
 const THEME_LIGHT_QUERY = '(prefers-color-scheme: light)';
-const THEME_CLASSES = ['dark', 'theme-light', 'theme-midnight'] as const;
+const THEME_CLASSES = ['dark', 'theme-midnight'] as const;
 
 const isTheme = (value: string | null): value is Theme =>
   value === 'light' || value === 'dark' || value === 'midnight';
