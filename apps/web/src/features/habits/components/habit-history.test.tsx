@@ -58,7 +58,9 @@ describe('HabitHistory', () => {
     expect(mobilityToday).toHaveClass('bg-slate-300/70');
     expect(hydrateToday).toHaveAttribute('data-percent', '100');
     expect(proteinToday).toHaveAttribute('data-percent', '92');
-    expect(hydrateToday).toHaveStyle({ backgroundColor: 'rgb(16, 185, 129)' });
+    expect(hydrateToday.getAttribute('style')).toContain(
+      'background-color: color-mix(in srgb, #10b981 100%, var(--color-border));',
+    );
 
     expect(proteinToday).toHaveAttribute('title', 'Mar 6 - 110/120 grams');
   });

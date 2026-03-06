@@ -238,14 +238,7 @@ function getMonthMarkers(dates: Date[]) {
 }
 
 function getProgressCellColor(percent: number) {
-  const normalizedPercent = clampPercent(percent) / 100;
-  const gray = [203, 213, 225];
-  const green = [16, 185, 129];
-  const red = Math.round(gray[0] + (green[0] - gray[0]) * normalizedPercent);
-  const greenChannel = Math.round(gray[1] + (green[1] - gray[1]) * normalizedPercent);
-  const blue = Math.round(gray[2] + (green[2] - gray[2]) * normalizedPercent);
-
-  return `rgb(${red}, ${greenChannel}, ${blue})`;
+  return `color-mix(in srgb, #10b981 ${Math.round(clampPercent(percent))}%, var(--color-border))`;
 }
 
 function getCellPresentation(habit: HabitConfig, entry: HabitHistoryEntry) {
@@ -259,7 +252,7 @@ function getCellPresentation(habit: HabitConfig, entry: HabitHistoryEntry) {
   }
 
   return {
-    className: 'border-black/5',
+    className: 'border-black/5 dark:border-white/10',
     style: {
       backgroundColor: getProgressCellColor(entry.completionPercent),
     } satisfies CSSProperties,
