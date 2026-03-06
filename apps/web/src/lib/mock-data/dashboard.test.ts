@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getMockDayActivity,
+  getMockSnapshotForDate,
   mockDailySnapshot,
   mockHabits,
   mockMacroTrend,
@@ -130,5 +132,39 @@ describe('dashboard mock data', () => {
 
       previousTimestamp = timestamp;
     }
+  });
+
+  it('derives day activity flags from existing workout and macro mock data', () => {
+    const workoutDay = new Date(mockRecentWorkouts[0]?.date ?? Date.now());
+    workoutDay.setHours(0, 0, 0, 0);
+    const workoutDayActivity = getMockDayActivity(workoutDay);
+
+    expect(workoutDayActivity.hasWorkout).toBe(true);
+    expect(workoutDayActivity.hasMeals).toBe(true);
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 45);
+    futureDate.setHours(0, 0, 0, 0);
+    const futureActivity = getMockDayActivity(futureDate);
+
+    expect(futureActivity).toEqual({ hasWorkout: false, hasMeals: false });
+  });
+
+  it('returns date-specific snapshots while preserving today as the default snapshot object', () => {
+    const historicalDateKey = mockWeightTrend.at(-3)?.date;
+
+    if (!historicalDateKey) {
+      throw new Error('Expected historical weight trend entry.');
+    }
+
+    const historicalDate = new Date(`${historicalDateKey}T00:00:00`);
+    const historicalSnapshot = getMockSnapshotForDate(historicalDate);
+
+    expect(historicalSnapshot.weight).toBe(mockWeightTrend.at(-3)?.value);
+    expect(historicalSnapshot.macros.calories.actual).toBe(mockMacroTrend.at(-3)?.calories);
+    expect(historicalSnapshot.habitsTotal).toBe(mockHabits.length);
+
+    const todaySnapshot = getMockSnapshotForDate(new Date());
+    expect(todaySnapshot).toBe(mockDailySnapshot);
   });
 });

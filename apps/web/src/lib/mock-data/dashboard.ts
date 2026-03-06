@@ -49,6 +49,11 @@ export interface RecentWorkoutSession {
   duration: number;
 }
 
+export interface DashboardDayActivity {
+  hasWorkout: boolean;
+  hasMeals: boolean;
+}
+
 const DAYS = 30;
 
 const addDays = (date: Date, days: number): Date => {
@@ -63,6 +68,14 @@ const formatDate = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const normalizeDate = (date: Date): Date => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
+const toDateKey = (date: Date): string => formatDate(normalizeDate(date));
 
 const getToday = (): Date => {
   const today = new Date();
@@ -193,3 +206,67 @@ export const mockRecentWorkouts: RecentWorkoutSession[] = [
     duration: 56,
   },
 ];
+
+const macroTrendByDate = new Map(mockMacroTrend.map((entry) => [entry.date, entry]));
+const weightTrendByDate = new Map(mockWeightTrend.map((entry) => [entry.date, entry.value]));
+const workoutByDate = new Map(
+  mockRecentWorkouts.map((session) => [toDateKey(new Date(session.date)), session.name]),
+);
+
+const getMacrosForDate = (dateKey: string): DailySnapshot['macros'] => {
+  const macroEntry = macroTrendByDate.get(dateKey);
+
+  if (!macroEntry) {
+    return {
+      calories: { actual: 0, target: 2200 },
+      protein: { actual: 0, target: 180 },
+      carbs: { actual: 0, target: 250 },
+      fat: { actual: 0, target: 73 },
+    };
+  }
+
+  return {
+    calories: { actual: macroEntry.calories, target: 2200 },
+    protein: { actual: macroEntry.protein, target: 180 },
+    carbs: { actual: Math.round(macroEntry.calories / 11), target: 250 },
+    fat: { actual: Math.round(macroEntry.calories / 32), target: 73 },
+  };
+};
+
+const getCompletedHabitsForDate = (dateKey: string): number => {
+  return mockHabits.filter((habit) =>
+    habit.entries.some((entry) => entry.date === dateKey && entry.completed),
+  ).length;
+};
+
+export const getMockDayActivity = (date: Date): DashboardDayActivity => {
+  const dateKey = toDateKey(date);
+  const hasWorkout = workoutByDate.has(dateKey);
+  const macroEntry = macroTrendByDate.get(dateKey);
+  const hasMeals = Boolean(macroEntry && macroEntry.calories > 0 && macroEntry.protein > 0);
+
+  return { hasWorkout, hasMeals };
+};
+
+export const getMockSnapshotForDate = (date: Date): DailySnapshot => {
+  const normalizedDate = normalizeDate(date);
+  const dateKey = toDateKey(normalizedDate);
+  const todayKey = toDateKey(today);
+
+  if (dateKey === todayKey) {
+    return mockDailySnapshot;
+  }
+
+  const yesterdayKey = toDateKey(addDays(normalizedDate, -1));
+  const weight = weightTrendByDate.get(dateKey) ?? mockDailySnapshot.weight;
+  const weightYesterday = weightTrendByDate.get(yesterdayKey) ?? weight;
+
+  return {
+    weight,
+    weightYesterday,
+    macros: getMacrosForDate(dateKey),
+    workoutName: workoutByDate.get(dateKey) ?? null,
+    habitsCompleted: getCompletedHabitsForDate(dateKey),
+    habitsTotal: mockHabits.length,
+  };
+};
