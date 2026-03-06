@@ -40,6 +40,7 @@ describe('ThemeProvider', () => {
   beforeEach(() => {
     window.localStorage.removeItem('pulse-theme');
     document.documentElement.classList.remove('dark');
+    document.documentElement.classList.remove('theme-midnight');
     mockMatchMedia();
   });
 
@@ -57,9 +58,10 @@ describe('ThemeProvider', () => {
 
     expect(screen.getByText('dark')).toBeInTheDocument();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
   });
 
-  it('updates context and document class when toggled', () => {
+  it('updates context and document class when toggled through all themes', () => {
     render(
       <ThemeProvider>
         <ThemeConsumer />
@@ -70,5 +72,18 @@ describe('ThemeProvider', () => {
 
     expect(screen.getByText('light')).toBeInTheDocument();
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
+
+    expect(screen.getByText('midnight')).toBeInTheDocument();
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
+
+    expect(screen.getByText('dark')).toBeInTheDocument();
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
   });
 });

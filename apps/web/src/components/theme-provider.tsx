@@ -8,10 +8,11 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const themeState = useTheme();
+  const { theme } = themeState;
 
   useLayoutEffect(() => {
-    applyThemeClass(themeState.theme);
-  }, [themeState.theme]);
+    applyThemeClass(theme);
+  }, [theme]);
 
   return <ThemeContext.Provider value={themeState}>{children}</ThemeContext.Provider>;
 }

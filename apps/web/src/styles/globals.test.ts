@@ -8,17 +8,24 @@ const stylesDirectory = path.dirname(currentFilePath);
 const globalsCssPath = path.join(stylesDirectory, 'globals.css');
 
 describe('globals.css design tokens', () => {
-  it('defines Tailwind import and both light/dark token sets', () => {
+  it('defines Tailwind import and light/dark/midnight token sets', () => {
     const css = readFileSync(globalsCssPath, 'utf8');
 
     expect(css).toContain('@import "tailwindcss";');
     expect(css).toContain(':root');
     expect(css).toContain('.dark');
+    expect(css).toContain('.theme-midnight');
     expect(css).toContain('--color-background: #ffffff;');
     expect(css).toContain('--color-card: #f8f9fa;');
     expect(css).toContain('--color-background: #1a1a2e;');
     expect(css).toContain('--color-secondary: #16213e;');
     expect(css).toContain('--color-foreground: #e8e8e8;');
+    expect(css).toContain('--color-background: #0d1b2a;');
+    expect(css).toContain('--color-card: #1b2838;');
+    expect(css).toContain('--color-foreground: #ccd6f6;');
+    expect(css).toContain('--color-primary: #3b82f6;');
+    expect(css).toContain('--color-accent-pink: #b8a1ff;');
+    expect(css).toContain('--color-accent-cream: #f4c95d;');
 
     const requiredTokens = [
       '--color-background',

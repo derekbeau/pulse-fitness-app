@@ -40,6 +40,7 @@ describe('useTheme', () => {
   beforeEach(() => {
     window.localStorage.removeItem(THEME_STORAGE_KEY);
     document.documentElement.classList.remove('dark');
+    document.documentElement.classList.remove('theme-midnight');
     mockMatchMedia({ dark: false, light: false });
   });
 
@@ -55,12 +56,12 @@ describe('useTheme', () => {
   });
 
   it('uses stored theme value before system preference', () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'midnight');
     mockMatchMedia({ dark: true, light: false });
 
     const { result } = renderHook(() => useTheme());
 
-    expect(result.current.theme).toBe('light');
+    expect(result.current.theme).toBe('midnight');
   });
 
   it('falls back to light when system preference is light', () => {
@@ -71,14 +72,38 @@ describe('useTheme', () => {
     expect(result.current.theme).toBe('light');
   });
 
-  it('persists theme updates and toggles the html class', () => {
+  it('persists explicit midnight theme updates and applies class mapping', () => {
     const { result } = renderHook(() => useTheme());
 
     act(() => {
-      result.current.setTheme('light');
+      result.current.setTheme('midnight');
     });
 
+    expect(result.current.theme).toBe('midnight');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('midnight');
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  it('cycles dark -> light -> midnight -> dark when toggled', () => {
+    const { result } = renderHook(() => useTheme());
+
+    act(() => {
+      result.current.toggleTheme();
+    });
+
+    expect(result.current.theme).toBe('light');
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
+
+    act(() => {
+      result.current.toggleTheme();
+    });
+
+    expect(result.current.theme).toBe('midnight');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('midnight');
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(true);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
 
     act(() => {
@@ -88,5 +113,6 @@ describe('useTheme', () => {
     expect(result.current.theme).toBe('dark');
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
   });
 });

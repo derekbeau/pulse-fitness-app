@@ -9,7 +9,7 @@ describe('App', () => {
     document.documentElement.classList.remove('dark');
   });
 
-  it('renders the hello pulse heading and theme toggle', () => {
+  it('renders the hello pulse heading and theme toggle with current theme label', () => {
     render(
       <ThemeProvider>
         <App />
@@ -22,6 +22,6 @@ describe('App', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: /switch to light theme/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /theme: dark \(cycle\)/i })).toBeInTheDocument();
   });
 });

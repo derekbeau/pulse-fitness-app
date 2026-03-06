@@ -8,7 +8,6 @@ const demoUser = userSchema.parse({
 
 function App() {
   const { theme, toggleTheme } = useThemeContext();
-  const nextThemeLabel = theme === 'dark' ? 'light' : 'dark';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background to-secondary px-6 py-10 text-foreground font-sans">
@@ -20,11 +19,11 @@ function App() {
             onClick={toggleTheme}
             className="rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:opacity-85"
           >
-            Switch to {nextThemeLabel} theme
+            Theme: {theme} (cycle)
           </button>
         </div>
         <p className="mt-3 text-base text-muted">
-          Tailwind v4 is wired with theme tokens and a persistent dark/light toggle.
+          Tailwind v4 is wired with theme tokens and a persistent three-theme toggle.
         </p>
       </section>
     </main>

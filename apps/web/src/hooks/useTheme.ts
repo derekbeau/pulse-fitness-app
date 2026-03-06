@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'midnight';
 
 export const THEME_STORAGE_KEY = 'pulse-theme';
 
 const THEME_DARK_QUERY = '(prefers-color-scheme: dark)';
 const THEME_LIGHT_QUERY = '(prefers-color-scheme: light)';
+const THEME_CLASSES = ['dark', 'theme-light', 'theme-midnight'] as const;
 
-const isTheme = (value: string | null): value is Theme => value === 'light' || value === 'dark';
+const isTheme = (value: string | null): value is Theme =>
+  value === 'light' || value === 'dark' || value === 'midnight';
 
 const getSystemTheme = (): Theme => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -49,13 +51,16 @@ export const applyThemeClass = (theme: Theme): void => {
   }
 
   const root = document.documentElement;
+  root.classList.remove(...THEME_CLASSES);
 
   if (theme === 'dark') {
     root.classList.add('dark');
     return;
   }
 
-  root.classList.remove('dark');
+  if (theme === 'midnight') {
+    root.classList.add('theme-midnight');
+  }
 };
 
 type SetTheme = (theme: Theme) => void;
@@ -85,7 +90,8 @@ export function useTheme(): UseThemeReturn {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    const nextTheme: Theme = theme === 'dark' ? 'light' : theme === 'light' ? 'midnight' : 'dark';
+    setTheme(nextTheme);
   }, [setTheme, theme]);
 
   return { theme, setTheme, toggleTheme };
