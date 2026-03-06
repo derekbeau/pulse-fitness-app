@@ -17,12 +17,14 @@ export function startOfWeek(date: Date) {
   return addDays(normalized, -getMondayIndex(normalized));
 }
 
-export function differenceInCalendarDays(start: Date, end: Date) {
+export function differenceInDays(start: Date, end: Date) {
   const utcStart = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
   const utcEnd = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 
   return (utcEnd - utcStart) / MS_PER_DAY;
 }
+
+export const differenceInCalendarDays = differenceInDays;
 
 export function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split('-').map(Number);

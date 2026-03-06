@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addDays,
-  differenceInCalendarDays,
+  differenceInDays,
   parseDateKey,
   startOfWeek,
   toDateKey,
@@ -28,6 +28,6 @@ describe('date-utils', () => {
     const start = new Date(2026, 2, 7, 12);
     const end = addDays(start, 2);
 
-    expect(differenceInCalendarDays(start, end)).toBe(2);
+    expect(differenceInDays(start, end)).toBe(2);
   });
 });

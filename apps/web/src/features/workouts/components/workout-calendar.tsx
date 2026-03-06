@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   addDays,
-  differenceInCalendarDays,
+  differenceInDays,
   getMondayIndex,
   parseDateKey,
   toDateKey,
@@ -422,7 +422,7 @@ function hasWorkoutEntry(dateKey: string) {
 
 function buildCalendarDays(month: Date): Date[] {
   const start = startOfCalendarWeek(startOfMonth(month));
-  let totalDays = differenceInCalendarDays(start, endOfCalendarWeek(endOfMonth(month))) + 1;
+  let totalDays = differenceInDays(start, endOfCalendarWeek(endOfMonth(month))) + 1;
 
   if (totalDays < 35) {
     totalDays = 35;
