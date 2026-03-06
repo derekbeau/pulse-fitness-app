@@ -29,6 +29,7 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('--color-primary: #3b82f6;');
     expect(css).toContain('--color-accent-pink: #b8a1ff;');
     expect(css).toContain('--color-accent-cream: #f4c95d;');
+    expect(css).toContain('--color-on-accent: #1a1a2e;');
 
     const requiredTokens = [
       '--color-background',
@@ -40,6 +41,7 @@ describe('globals.css design tokens', () => {
       '--color-accent-cream',
       '--color-accent-pink',
       '--color-accent-mint',
+      '--color-on-accent',
       '--color-muted',
       '--color-border',
       '--radius-sm',
