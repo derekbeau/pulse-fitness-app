@@ -12,7 +12,9 @@ function renderBottomNav(initialPath = '/') {
         <Route element={<h1>Workouts Route</h1>} path="/workouts" />
         <Route element={<h1>Nutrition Route</h1>} path="/nutrition" />
         <Route element={<h1>Habits Route</h1>} path="/habits" />
+        <Route element={<h1>Activity Route</h1>} path="/activity" />
         <Route element={<h1>Foods Route</h1>} path="/foods" />
+        <Route element={<h1>Journal Route</h1>} path="/journal" />
         <Route element={<h1>Settings Route</h1>} path="/settings" />
       </Routes>
     </MemoryRouter>,
@@ -20,7 +22,7 @@ function renderBottomNav(initialPath = '/') {
 }
 
 describe('BottomNav', () => {
-  it('opens the More menu with Foods and Settings links', () => {
+  it('opens the More menu with activity, foods, journal, and settings links', () => {
     renderBottomNav('/');
 
     const moreButton = screen.getByRole('button', { name: 'More' });
@@ -30,8 +32,12 @@ describe('BottomNav', () => {
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Activity' })).toHaveAttribute('href', '/activity');
+    expect(screen.getByRole('menuitem', { name: 'Activity' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveAttribute('href', '/foods');
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveAttribute('href', '/journal');
+    expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveClass('cursor-pointer');
   });

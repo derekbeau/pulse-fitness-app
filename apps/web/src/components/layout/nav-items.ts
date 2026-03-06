@@ -1,8 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  Activity,
   Apple,
   Dumbbell,
   Ellipsis,
+  NotebookPen,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -42,9 +44,19 @@ export const primaryNavItems: NavItem[] = [
 
 export const moreNavItems: NavItem[] = [
   {
+    icon: Activity,
+    label: 'Activity',
+    to: '/activity',
+  },
+  {
     icon: Apple,
     label: 'Foods',
     to: '/foods',
+  },
+  {
+    icon: NotebookPen,
+    label: 'Journal',
+    to: '/journal',
   },
   {
     icon: Settings,
