@@ -54,7 +54,7 @@ describe('StatCard', () => {
     expect(card).toHaveClass('custom-card');
   });
 
-  it('uses on-accent text colors when accentText is enabled', () => {
+  it('keeps semantic trend colors when accentText is enabled', () => {
     render(
       <StatCard
         accentText
@@ -66,6 +66,6 @@ describe('StatCard', () => {
 
     expect(screen.getByText('Body Weight')).toHaveClass('text-on-accent');
     expect(screen.getByText('178.4 lbs')).toHaveClass('text-on-accent');
-    expect(screen.getByLabelText('trend up')).toHaveClass('text-on-accent');
+    expect(screen.getByLabelText('trend up')).toHaveClass('text-[var(--color-accent-mint)]');
   });
 });

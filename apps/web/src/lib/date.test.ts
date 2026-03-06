@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getToday, parseDateInput, toDateKey } from './date';
+import { getToday, getWeekStart, isSameDay, parseDateInput, toDateKey } from './date';
 
 describe('date utilities', () => {
   it('parses date-only strings at local midnight', () => {
@@ -18,5 +18,15 @@ describe('date utilities', () => {
     expect(toDateKey(getToday())).toBe('2026-03-06');
 
     vi.useRealTimers();
+  });
+
+  it('compares dates by local calendar day', () => {
+    expect(isSameDay(new Date('2026-03-06T00:15:00'), new Date('2026-03-06T23:45:00'))).toBe(true);
+    expect(isSameDay(new Date('2026-03-06T23:59:00'), new Date('2026-03-07T00:00:00'))).toBe(false);
+  });
+
+  it('returns Monday as the start of the week', () => {
+    expect(toDateKey(getWeekStart(new Date('2026-03-06T09:15:00')))).toBe('2026-03-02');
+    expect(toDateKey(getWeekStart(new Date('2026-03-08T09:15:00')))).toBe('2026-03-02');
   });
 });

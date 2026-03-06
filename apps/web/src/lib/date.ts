@@ -23,6 +23,17 @@ export const toDateKey = (date: Date): string => formatDateKey(normalizeDate(dat
 
 export const getToday = (): Date => normalizeDate(new Date());
 
+export const isSameDay = (first: Date, second: Date): boolean => {
+  return formatDateKey(first) === formatDateKey(second);
+};
+
+export const getWeekStart = (date: Date): Date => {
+  const normalizedDate = normalizeDate(date);
+  const dayOfWeek = normalizedDate.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  return addDays(normalizedDate, mondayOffset);
+};
+
 export const parseDateInput = (value: string): Date => {
   return DATE_ONLY_PATTERN.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
 };

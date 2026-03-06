@@ -1,1 +1,1 @@
-export { TrendSparklines, TrendSparklines as DashboardTrendSparklines } from './trend-sparkline';
+export { TrendSparklines } from './trend-sparkline';

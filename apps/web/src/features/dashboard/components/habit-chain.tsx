@@ -2,6 +2,7 @@ import { Flame } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDateKey, getToday } from '@/lib/date';
 import { type Habit, mockHabits } from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
 
@@ -16,12 +17,6 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-
-const getTodayKey = (): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString().slice(0, 10);
-};
 
 const formatDateLabel = (date: string): string => {
   return dateFormatter.format(new Date(`${date}T00:00:00`));
@@ -38,7 +33,7 @@ const getVisibleHabits = (habitIds?: string[]): Habit[] => {
 
 export function HabitChain({ habitIds }: HabitChainProps) {
   const habits = getVisibleHabits(habitIds);
-  const todayKey = getTodayKey();
+  const todayKey = formatDateKey(getToday());
 
   if (habits.length === 0) {
     return <p className="text-sm text-muted">No matching habits.</p>;

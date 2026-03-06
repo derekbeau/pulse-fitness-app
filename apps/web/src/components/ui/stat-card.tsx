@@ -61,7 +61,7 @@ export function StatCard({
   const labelClassName = accentText ? accentTextClass : 'text-muted';
   const valueClassName = accentText ? accentTextClass : 'text-foreground';
   const iconClassName = accentText ? accentTextClass : 'text-muted';
-  const trendClassName = accentText ? accentTextClass : trendStyle?.className;
+  const trendClassName = trendStyle?.className;
 
   return (
     <Card data-slot="stat-card" className={cn('gap-4 py-5', className)} {...props}>

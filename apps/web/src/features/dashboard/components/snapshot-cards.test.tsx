@@ -78,7 +78,13 @@ describe('SnapshotCards', () => {
 
     const weightTrend = within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`);
     expect(weightTrend).toBeInTheDocument();
-    expect(weightTrend).toHaveClass('text-on-accent');
+    expect(weightTrend).toHaveClass(
+      expectedTrend.direction === 'up'
+        ? 'text-[var(--color-accent-mint)]'
+        : expectedTrend.direction === 'down'
+          ? 'text-[var(--destructive)]'
+          : 'text-[var(--color-muted)]',
+    );
 
     const expectedTrendText =
       expectedTrend.direction === 'up'

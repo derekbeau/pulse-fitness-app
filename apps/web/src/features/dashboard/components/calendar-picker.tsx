@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { addDays, formatDateKey, getToday, normalizeDate } from '@/lib/date';
+import { addDays, formatDateKey, getToday, getWeekStart, isSameDay, normalizeDate } from '@/lib/date';
 import { getMockDayActivity } from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
 
@@ -13,17 +13,6 @@ type CalendarPickerProps = {
 };
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-
-const isSameDay = (first: Date, second: Date): boolean => {
-  return formatDateKey(first) === formatDateKey(second);
-};
-
-const getWeekStart = (date: Date): Date => {
-  const normalizedDate = normalizeDate(date);
-  const dayOfWeek = normalizedDate.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  return addDays(normalizedDate, mondayOffset);
-};
 
 const monthYearFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
