@@ -13,6 +13,7 @@ function renderBottomNav(initialPath = '/') {
         <Route element={<h1>Nutrition Route</h1>} path="/nutrition" />
         <Route element={<h1>Habits Route</h1>} path="/habits" />
         <Route element={<h1>Foods Route</h1>} path="/foods" />
+        <Route element={<h1>Journal Route</h1>} path="/journal" />
         <Route element={<h1>Settings Route</h1>} path="/settings" />
       </Routes>
     </MemoryRouter>,
@@ -32,6 +33,8 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveAttribute('href', '/foods');
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveAttribute('href', '/journal');
+    expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveClass('cursor-pointer');
   });

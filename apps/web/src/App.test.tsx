@@ -10,6 +10,7 @@ const pageRoutes = [
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },
   { heading: 'Foods', path: '/foods' },
+  { heading: 'Journal', path: '/journal' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
 
@@ -19,6 +20,7 @@ const navRoutes = [
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },
   { heading: 'Foods', path: '/foods' },
+  { heading: 'Journal', path: '/journal' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
 

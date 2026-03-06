@@ -4,6 +4,7 @@ import { DashboardPage } from '@/pages/dashboard';
 import { DesignSystemPage } from '@/pages/design-system';
 import { FoodsPage } from '@/pages/foods';
 import { HabitsPage } from '@/pages/habits';
+import { JournalPage } from '@/pages/journal';
 import { NutritionPage } from '@/pages/nutrition';
 import { SettingsPage } from '@/pages/settings';
 import { WorkoutsPage } from '@/pages/workouts';
@@ -18,6 +19,7 @@ function AppRoutes() {
         <Route element={<NutritionPage />} path="/nutrition" />
         <Route element={<HabitsPage />} path="/habits" />
         <Route element={<FoodsPage />} path="/foods" />
+        <Route element={<JournalPage />} path="/journal" />
         <Route element={<SettingsPage />} path="/settings" />
       </Routes>
     </AppLayout>

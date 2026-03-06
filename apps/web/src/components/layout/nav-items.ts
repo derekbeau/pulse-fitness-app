@@ -3,6 +3,7 @@ import {
   Apple,
   Dumbbell,
   Ellipsis,
+  NotebookPen,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -45,6 +46,11 @@ export const moreNavItems: NavItem[] = [
     icon: Apple,
     label: 'Foods',
     to: '/foods',
+  },
+  {
+    icon: NotebookPen,
+    label: 'Journal',
+    to: '/journal',
   },
   {
     icon: Settings,
