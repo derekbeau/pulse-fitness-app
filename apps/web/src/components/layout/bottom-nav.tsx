@@ -45,7 +45,7 @@ export function BottomNav() {
               key={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-11 flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
+                  'flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted hover:bg-secondary hover:text-foreground',
@@ -65,7 +65,7 @@ export function BottomNav() {
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              'flex min-h-11 w-full flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
+              'flex min-h-11 w-full cursor-pointer flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
               isMoreActive
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted hover:bg-secondary hover:text-foreground',
@@ -89,7 +89,7 @@ export function BottomNav() {
                     key={item.to}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                        'flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'text-foreground hover:bg-secondary',

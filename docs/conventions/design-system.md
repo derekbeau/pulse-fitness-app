@@ -111,6 +111,19 @@ export function Card({ className, ...props }: Props) {
 }
 ```
 
+## Interaction Affordance
+
+All clickable or interactive UI elements must include `cursor-pointer` so hover affordance is explicit and consistent across themes/browsers.
+
+This applies to:
+
+- Buttons and button-like controls
+- Links and navigation items
+- Toggles/theme switchers
+- Dropdown/menu triggers and menu items
+- Clickable cards or list rows
+- Any custom element (`div`, `span`, etc.) that handles click or keyboard activation
+
 ## Accent Card Usage Guidelines
 
 Use pastel accents intentionally to encode meaning:

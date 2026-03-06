@@ -21,7 +21,9 @@ describe('Sidebar', () => {
     );
 
     navLinks.forEach(({ label, path }) => {
-      expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', path);
+      const link = screen.getByRole('link', { name: label });
+      expect(link).toHaveAttribute('href', path);
+      expect(link).toHaveClass('cursor-pointer');
     });
 
     const activeLink = screen.getByRole('link', { name: 'Nutrition' });

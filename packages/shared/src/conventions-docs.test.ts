@@ -75,12 +75,15 @@ describe('convention documentation', () => {
     expect(designSystemDoc).toContain('## Theme Switching Mechanism');
     expect(designSystemDoc).toContain('## shadcn Semantic Token Bridge');
     expect(designSystemDoc).toContain('## Component Composition Patterns');
+    expect(designSystemDoc).toContain('## Interaction Affordance');
     expect(designSystemDoc).toContain('## Accent Card Usage Guidelines');
     expect(designSystemDoc).toContain('localStorage');
     expect(designSystemDoc).toContain('useTheme');
     expect(designSystemDoc).toContain('`dark`, `theme-midnight`');
     expect(designSystemDoc).toContain('className?: string');
     expect(designSystemDoc).toContain('cn(');
+    expect(designSystemDoc).toContain('cursor-pointer');
+    expect(designSystemDoc).toContain('Buttons and button-like controls');
     expect(designSystemDoc).toContain('--radius-sm');
     expect(designSystemDoc).toContain('--radius-2xl');
 

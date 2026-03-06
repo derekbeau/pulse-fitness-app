@@ -23,11 +23,17 @@ describe('BottomNav', () => {
   it('opens the More menu with Foods and Settings links', () => {
     renderBottomNav('/');
 
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    const moreButton = screen.getByRole('button', { name: 'More' });
+    expect(moreButton).toHaveClass('cursor-pointer');
+
+    fireEvent.click(moreButton);
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveAttribute('href', '/foods');
+    expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveClass('cursor-pointer');
   });
 
   it('highlights More on nested routes and navigates from the dropdown', () => {
