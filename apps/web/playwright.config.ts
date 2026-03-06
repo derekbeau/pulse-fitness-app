@@ -1,10 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.BASE_URL || 'http://localhost:5173';
+
 export default defineConfig({
   testDir: './e2e',
   retries: process.env.CI ? 2 : 0,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL,
   },
   projects: [
     {
@@ -16,7 +18,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:5173',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
   },
 });
