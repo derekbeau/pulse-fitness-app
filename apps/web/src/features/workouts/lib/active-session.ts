@@ -9,9 +9,23 @@ import type {
   ActiveWorkoutSection,
   ActiveWorkoutSessionData,
   ActiveWorkoutSet,
+  ActiveWorkoutSetDrafts,
 } from '../types';
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
+const sampleWeightByExerciseId = new Map<string, number>([
+  ['incline-dumbbell-press', 60],
+  ['seated-dumbbell-shoulder-press', 40],
+  ['seated-machine-chest-press', 120],
+  ['cable-lateral-raise', 15],
+  ['rope-triceps-pushdown', 42.5],
+  ['high-bar-back-squat', 205],
+  ['leg-press', 270],
+  ['leg-extension', 95],
+  ['romanian-deadlift', 185],
+  ['lat-pulldown', 130],
+  ['chest-supported-row', 110],
+]);
 
 export function createWorkoutSetId(exerciseId: string, setNumber: number) {
   return `${exerciseId}:set-${setNumber}`;
@@ -19,22 +33,24 @@ export function createWorkoutSetId(exerciseId: string, setNumber: number) {
 
 export function buildActiveWorkoutSession(
   template: WorkoutTemplate,
-  completedSetIds: ReadonlySet<string>,
+  setDrafts: ActiveWorkoutSetDrafts,
 ): ActiveWorkoutSessionData {
   const sections = template.sections.map((section): ActiveWorkoutSection => {
     const exercises = section.exercises.map((templateExercise): ActiveWorkoutExercise => {
       const exercise = exerciseById.get(templateExercise.exerciseId);
+      const sets = getWorkoutSets(templateExercise, setDrafts);
+      const completedSets = sets.filter((set) => set.completed).length;
 
       return {
         badges: templateExercise.badges,
         category: exercise?.category ?? 'compound',
-        completedSets: countCompletedSets(templateExercise, completedSetIds),
-        exerciseId: templateExercise.exerciseId,
+        completedSets,
         id: templateExercise.exerciseId,
         name: exercise?.name ?? 'Unknown Exercise',
-        reps: templateExercise.reps,
-        sets: buildActiveWorkoutSets(templateExercise, completedSetIds),
-        targetSets: templateExercise.sets,
+        prescribedReps: templateExercise.reps,
+        restSeconds: templateExercise.restSeconds,
+        sets,
+        targetSets: sets.length,
       };
     });
 
@@ -66,26 +82,49 @@ export function buildActiveWorkoutSession(
   };
 }
 
-function countCompletedSets(
-  templateExercise: WorkoutTemplateExercise,
+export function createInitialWorkoutSetDrafts(
+  template: WorkoutTemplate,
   completedSetIds: ReadonlySet<string>,
-) {
-  return buildActiveWorkoutSets(templateExercise, completedSetIds).filter((set) => set.completed).length;
+): ActiveWorkoutSetDrafts {
+  return Object.fromEntries(
+    template.sections.flatMap((section) =>
+      section.exercises.map((templateExercise) => [
+        templateExercise.exerciseId,
+        Array.from({ length: templateExercise.sets }, (_, index) =>
+          createWorkoutSetDraft(templateExercise, index + 1, completedSetIds.has(
+            createWorkoutSetId(templateExercise.exerciseId, index + 1),
+          )),
+        ),
+      ]),
+    ),
+  );
 }
 
-function buildActiveWorkoutSets(
+export function createWorkoutSetDraft(
   templateExercise: WorkoutTemplateExercise,
-  completedSetIds: ReadonlySet<string>,
-): ActiveWorkoutSet[] {
-  return Array.from({ length: templateExercise.sets }, (_, index) => {
-    const number = index + 1;
-    const id = createWorkoutSetId(templateExercise.exerciseId, number);
+  setNumber: number,
+  completed = false,
+): ActiveWorkoutSet {
+  const exerciseId = templateExercise.exerciseId;
 
-    return {
-      id,
-      completed: completedSetIds.has(id),
-      label: templateExercise.reps,
-      number,
-    };
-  });
+  return {
+    id: createWorkoutSetId(exerciseId, setNumber),
+    completed,
+    number: setNumber,
+    reps: completed ? getInitialRepsValue(templateExercise.reps) : null,
+    weight: completed ? sampleWeightByExerciseId.get(exerciseId) ?? null : null,
+  };
+}
+
+function getWorkoutSets(
+  templateExercise: WorkoutTemplateExercise,
+  setDrafts: ActiveWorkoutSetDrafts,
+) {
+  return [...(setDrafts[templateExercise.exerciseId] ?? [])].sort((left, right) => left.number - right.number);
+}
+
+function getInitialRepsValue(reps: string) {
+  const match = reps.match(/\d+/);
+
+  return match ? Number(match[0]) : null;
 }

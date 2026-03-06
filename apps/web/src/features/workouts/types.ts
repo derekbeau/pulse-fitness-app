@@ -7,18 +7,21 @@ import type {
 export type ActiveWorkoutSet = {
   id: string;
   completed: boolean;
-  label: string;
   number: number;
+  reps: number | null;
+  weight: number | null;
 };
+
+export type ActiveWorkoutSetDrafts = Record<string, ActiveWorkoutSet[]>;
 
 export type ActiveWorkoutExercise = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
   completedSets: number;
-  exerciseId: string;
   id: string;
   name: string;
-  reps: string;
+  prescribedReps: string;
+  restSeconds: number;
   sets: ActiveWorkoutSet[];
   targetSets: number;
 };
