@@ -4,6 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pulse</title>
+    <script>
+      (() => {
+        const storageKey = 'pulse-theme';
+
+        try {
+          const storedTheme = window.localStorage.getItem(storageKey);
+          const hasStoredTheme = storedTheme === 'light' || storedTheme === 'dark';
+          const prefersDark =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const prefersLight =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: light)').matches;
+          const theme = hasStoredTheme
+            ? storedTheme
+            : prefersDark
+              ? 'dark'
+              : prefersLight
+                ? 'light'
+                : 'dark';
+
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
