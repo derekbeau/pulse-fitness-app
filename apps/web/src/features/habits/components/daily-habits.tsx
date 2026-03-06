@@ -10,11 +10,11 @@ import { cn } from '@/lib/utils';
 
 type HabitValue = boolean | number | null;
 
-type Habit = HabitConfig & {
+export type DailyHabit = HabitConfig & {
   todayValue: HabitValue;
 };
 
-const mockHabits: Habit[] = [
+const defaultHabits: DailyHabit[] = [
   {
     id: 'hydrate',
     name: 'Hydrate',
@@ -90,7 +90,7 @@ function formatNumber(value: number) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 }
 
-function getHabitCompletion(habit: Habit, value: HabitValue) {
+function getHabitCompletion(habit: DailyHabit, value: HabitValue) {
   if (habit.trackingType === 'boolean') {
     return value === true;
   }
@@ -98,7 +98,7 @@ function getHabitCompletion(habit: Habit, value: HabitValue) {
   return typeof value === 'number' && habit.target !== null && value >= habit.target;
 }
 
-function getProgressText(habit: Habit, value: HabitValue) {
+function getProgressText(habit: DailyHabit, value: HabitValue) {
   if (habit.trackingType === 'boolean') {
     return value === true ? 'Completed for today' : 'Ready to check off';
   }
@@ -111,7 +111,7 @@ function getProgressText(habit: Habit, value: HabitValue) {
   return `${formattedCurrent} / ${formattedTarget} ${unit}`.trim();
 }
 
-function getProgressPercent(habit: Habit, value: HabitValue) {
+function getProgressPercent(habit: DailyHabit, value: HabitValue) {
   if (habit.trackingType === 'boolean' || habit.target === null || habit.target <= 0) {
     return value === true ? 100 : 0;
   }
@@ -131,14 +131,17 @@ function parseInputValue(rawValue: string) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
-export function DailyHabits() {
+type DailyHabitsProps = {
+  habits?: DailyHabit[];
+};
+
+export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
   const [habitValues, setHabitValues] = useState<Record<string, HabitValue>>(() =>
-    Object.fromEntries(mockHabits.map((habit) => [habit.id, habit.todayValue])),
+    Object.fromEntries(habits.map((habit) => [habit.id, habit.todayValue])),
   );
 
-  const completedCount = mockHabits.filter((habit) =>
-    getHabitCompletion(habit, habitValues[habit.id]),
-  ).length;
+  const completedCount = habits.filter((habit) => getHabitCompletion(habit, habitValues[habit.id]))
+    .length;
 
   return (
     <div className="space-y-4">
@@ -162,14 +165,14 @@ export function DailyHabits() {
               </CardDescription>
             </div>
             <div className="inline-flex self-start rounded-full bg-slate-950/10 px-4 py-2 text-sm font-semibold text-slate-900">
-              {completedCount} of {mockHabits.length} habits complete
+              {completedCount} of {habits.length} habits complete
             </div>
           </div>
         </CardHeader>
       </Card>
 
       <div className="grid gap-4">
-        {mockHabits.map((habit) => {
+        {habits.map((habit) => {
           const value = habitValues[habit.id];
           const isComplete = getHabitCompletion(habit, value);
           const progressText = getProgressText(habit, value);
