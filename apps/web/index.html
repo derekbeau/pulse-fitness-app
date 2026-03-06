@@ -11,8 +11,7 @@
 
         try {
           const storedTheme = window.localStorage.getItem(storageKey);
-          const hasStoredTheme =
-            storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'midnight';
+          const hasStoredTheme = ['light', 'dark', 'midnight'].includes(storedTheme);
           const prefersDark =
             typeof window.matchMedia === 'function' &&
             window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -20,12 +19,12 @@
             typeof window.matchMedia === 'function' &&
             window.matchMedia('(prefers-color-scheme: light)').matches;
           const theme = hasStoredTheme
-              ? storedTheme
-              : prefersDark
-                ? 'dark'
-                : prefersLight
-                  ? 'light'
-                  : 'dark';
+            ? storedTheme
+            : prefersDark
+              ? 'dark'
+              : prefersLight
+                ? 'light'
+                : 'dark';
 
           document.documentElement.classList.remove(...themeClasses);
 

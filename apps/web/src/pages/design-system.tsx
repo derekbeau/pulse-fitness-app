@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { CheckCircle2, Flame, Timer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,7 +98,11 @@ const normalizeColorValue = (rawValue: string): string => {
   return value.toUpperCase();
 };
 
-const readResolvedTokenValues = (): Record<ColorTokenName, string> => {
+const readResolvedTokenValues = (activeTheme: Theme): Record<ColorTokenName, string> => {
+  if (!THEME_OPTIONS.some((option) => option.value === activeTheme)) {
+    return EMPTY_TOKEN_VALUES;
+  }
+
   if (typeof window === 'undefined') {
     return EMPTY_TOKEN_VALUES;
   }
@@ -135,7 +139,7 @@ function SectionCard({ title, description, children, className }: SectionCardPro
 
 export function DesignSystemPage() {
   const { theme, setTheme } = useThemeContext();
-  const tokenValues = readResolvedTokenValues();
+  const tokenValues = useMemo(() => readResolvedTokenValues(theme), [theme]);
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-10">
