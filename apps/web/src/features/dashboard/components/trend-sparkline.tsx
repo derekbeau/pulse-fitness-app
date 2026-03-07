@@ -23,6 +23,7 @@ export type TrendSparklineProps = {
   currentValue: number | string;
   changePercent: number;
   className?: string;
+  textClassName?: string;
 };
 
 type ChangeDirection = 'up' | 'down' | 'neutral';
@@ -34,6 +35,7 @@ type TrendMetricCardProps = {
   color: string;
   data: TrendSparklineDatum[];
   className?: string;
+  textClassName?: string;
 };
 
 const CHANGE_ICONS = {
@@ -94,7 +96,9 @@ const TREND_CARD_CONFIGS = [
     ),
     color: '#b8860b',
     data: weightSeries,
-    className: 'bg-[var(--color-accent-cream)]',
+    className:
+      'bg-[var(--color-accent-cream)] dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    textClassName: 'text-on-cream',
   },
   {
     label: 'Calorie Trend',
@@ -105,7 +109,9 @@ const TREND_CARD_CONFIGS = [
     ),
     color: '#c2477a',
     data: calorieSeries,
-    className: 'bg-[var(--color-accent-pink)]',
+    className:
+      'bg-[var(--color-accent-pink)] dark:border-l-4 dark:border-l-pink-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    textClassName: 'text-on-pink',
   },
   {
     label: 'Protein Trend',
@@ -116,7 +122,9 @@ const TREND_CARD_CONFIGS = [
     ),
     color: '#2a8a62',
     data: proteinSeries,
-    className: 'bg-[var(--color-accent-mint)]',
+    className:
+      'bg-[var(--color-accent-mint)] dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    textClassName: 'text-on-mint',
   },
 ] satisfies TrendMetricCardProps[];
 
@@ -127,20 +135,36 @@ export function TrendSparkline({
   currentValue,
   changePercent,
   className,
+  textClassName,
 }: TrendSparklineProps) {
   const direction = getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
+  const textClass = textClassName ?? 'text-on-accent';
 
   return (
     <div className={cn('flex h-full flex-col gap-4', className)} data-slot="trend-sparkline">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-sm font-medium text-on-accent/70">{label}</p>
+        <p
+          className={cn(
+            'text-sm font-medium opacity-70 dark:text-muted dark:opacity-100',
+            textClass,
+          )}
+        >
+          {label}
+        </p>
 
         <div className="space-y-1 text-right">
-          <p className="text-3xl font-semibold tracking-tight text-on-accent">{currentValue}</p>
+          <p
+            className={cn('text-3xl font-semibold tracking-tight dark:text-foreground', textClass)}
+          >
+            {currentValue}
+          </p>
           <div
             aria-label={`trend ${direction}`}
-            className="flex items-center justify-end gap-1 text-sm font-medium text-on-accent/80"
+            className={cn(
+              'flex items-center justify-end gap-1 text-sm font-medium opacity-80 dark:text-muted dark:opacity-100',
+              textClass,
+            )}
             data-slot="trend-sparkline-change"
           >
             <ChangeIcon aria-hidden="true" className="size-4" />
@@ -181,10 +205,15 @@ function TrendMetricCard({
   color,
   data,
   className,
+  textClassName,
 }: TrendMetricCardProps) {
   return (
     <Card
-      className={cn('gap-0 border-transparent py-5 text-on-accent shadow-sm', className)}
+      className={cn(
+        'gap-0 border-transparent py-5 shadow-sm dark:text-foreground',
+        textClassName,
+        className,
+      )}
       data-slot="trend-sparkline-card"
     >
       <CardContent className="h-full px-5">
@@ -194,6 +223,7 @@ function TrendMetricCard({
           currentValue={currentValue}
           data={data}
           label={label}
+          textClassName={textClassName}
         />
       </CardContent>
     </Card>

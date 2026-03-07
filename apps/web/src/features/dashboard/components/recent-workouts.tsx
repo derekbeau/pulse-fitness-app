@@ -52,15 +52,17 @@ export function RecentWorkouts() {
                 data-slot="recent-workout-card"
               >
                 <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-base font-semibold text-foreground">{workout.name}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-base font-semibold text-foreground">
+                        {workout.name}
+                      </p>
                       <time className="text-sm text-muted" dateTime={workout.date}>
                         {formatWorkoutDate(workout.date)}
                       </time>
                     </div>
 
-                    <span className="rounded-full bg-[var(--color-accent-cream)] px-2.5 py-1 text-xs font-semibold text-on-accent">
+                    <span className="shrink-0 rounded-full bg-[var(--color-accent-cream)] px-2.5 py-1 text-xs font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
                       {formatRelativeWorkoutDate(workout.date)}
                     </span>
                   </div>

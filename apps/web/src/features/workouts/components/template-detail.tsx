@@ -17,10 +17,11 @@ const sectionLabels = {
 } as const;
 
 const categoryBadgeStyles = {
-  compound: 'bg-[var(--color-accent-pink)] text-[var(--color-on-accent)]',
-  isolation: 'bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
-  cardio: 'bg-[var(--color-accent-mint)] text-[var(--color-on-accent)]',
-  mobility: 'bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
+  compound: 'bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
+  isolation:
+    'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
+  cardio: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
+  mobility: 'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
 } as const;
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
@@ -49,16 +50,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   return (
     <section className="space-y-6">
       <Card className="gap-4 overflow-hidden border-transparent bg-card/80 py-0">
-        <div
-          className="space-y-4 px-6 py-6 text-[var(--color-on-accent)]"
-          style={{ backgroundColor: 'var(--color-accent-cream)' }}
-        >
+        <div className="space-y-4 bg-[var(--color-accent-cream)] px-6 py-6 text-on-cream dark:bg-card dark:text-foreground dark:border-b dark:border-border">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-on-accent)]/70">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] opacity-70 dark:text-muted dark:opacity-100">
               Workout template
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">{template.name}</h1>
-            <p className="max-w-3xl text-sm text-[var(--color-on-accent)]/80 sm:text-base">
+            <p className="max-w-3xl text-sm opacity-80 sm:text-base dark:text-muted dark:opacity-100">
               {template.description}
             </p>
           </div>
@@ -66,7 +64,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
           <div className="flex flex-wrap gap-2">
             {template.tags.map((tag) => (
               <Badge
-                className="border-white/45 bg-white/55 text-[var(--color-on-accent)]"
+                className="border-white/45 bg-white/55 dark:border-border dark:bg-secondary"
                 key={tag}
                 variant="outline"
               >

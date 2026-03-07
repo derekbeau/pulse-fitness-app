@@ -32,7 +32,7 @@ export function BottomNav() {
   }, [menuOpen]);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card/95 backdrop-blur-sm md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border/60 bg-card/90 backdrop-blur-xl md:hidden">
       <nav
         aria-label="Mobile navigation"
         className="pointer-events-auto mx-auto grid w-full max-w-screen-sm grid-cols-5 gap-1 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
@@ -45,9 +45,9 @@ export function BottomNav() {
               key={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
+                  'flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
                     : 'text-muted hover:bg-secondary hover:text-foreground',
                 )
               }
@@ -65,9 +65,9 @@ export function BottomNav() {
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              'flex min-h-11 w-full cursor-pointer flex-col items-center justify-center rounded-lg px-1 py-1 text-[0.7rem] font-medium leading-tight transition-colors',
+              'flex min-h-11 w-full cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
               isMoreActive
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
                 : 'text-muted hover:bg-secondary hover:text-foreground',
             )}
             onClick={() => setMenuOpen((previousValue) => !previousValue)}
@@ -78,7 +78,7 @@ export function BottomNav() {
           </button>
           {menuOpen ? (
             <div
-              className="absolute bottom-[calc(100%+0.5rem)] right-0 w-44 rounded-lg border border-border bg-card p-1 shadow-lg"
+              className="absolute bottom-[calc(100%+0.5rem)] right-0 w-44 animate-slide-up rounded-xl border border-border/60 bg-card p-1.5 shadow-xl"
               role="menu"
             >
               {moreNavItems.map((item) => {

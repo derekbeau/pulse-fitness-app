@@ -16,20 +16,22 @@ export function DashboardPage() {
   const greeting = getDashboardGreeting();
 
   return (
-    <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted">{greeting}</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+    <main className="flex w-full flex-col gap-8 py-6">
+      <header className="animate-fade-in space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
+          {greeting}
+        </p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
           Dashboard
         </h1>
       </header>
 
       <div
-        className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[280px_1fr_300px]"
+        className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]"
         data-slot="dashboard-layout"
       >
         <div
-          className="order-1 flex flex-col gap-6 md:order-1 xl:order-2"
+          className="order-1 flex min-w-0 flex-col gap-6 md:order-1 xl:order-2"
           data-slot="dashboard-main-column"
         >
           <div className="order-1 md:order-3" data-slot="dashboard-calendar-panel">
@@ -46,7 +48,7 @@ export function DashboardPage() {
         </div>
 
         <div
-          className="order-2 flex flex-col gap-6 md:order-2 xl:order-1"
+          className="order-2 flex min-w-0 flex-col gap-6 md:order-2 xl:order-1"
           data-slot="dashboard-sidebar-column"
         >
           <HabitChain />
@@ -54,7 +56,7 @@ export function DashboardPage() {
         </div>
 
         <div
-          className="order-3 md:col-start-2 xl:col-start-3"
+          className="order-3 min-w-0 md:col-start-2 xl:col-start-3"
           data-slot="dashboard-recent-workouts-column"
         >
           <RecentWorkouts />

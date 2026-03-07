@@ -16,7 +16,8 @@ export type StatCardProps = Omit<React.ComponentProps<typeof Card>, 'children'> 
   label: string;
   trend?: StatTrend;
   icon?: React.ReactNode;
-  textClassName?: string;
+  accentText?: boolean;
+  accentTextClassName?: string;
 };
 
 const TREND_STYLES: Record<
@@ -49,7 +50,8 @@ export function StatCard({
   label,
   trend,
   icon,
-  textClassName,
+  accentText = false,
+  accentTextClassName,
   className,
   ...props
 }: StatCardProps) {
@@ -57,19 +59,36 @@ export function StatCard({
   const TrendIcon = trendStyle?.icon;
   const trendSymbol = trend?.direction !== 'neutral' ? (trendStyle?.symbol ?? '') : '';
   const formattedTrend = `${trendSymbol}${Math.abs(trend?.value ?? 0)}%`;
-  const labelClassName = textClassName ?? 'text-muted';
-  const valueClassName = textClassName ?? 'text-foreground';
-  const iconClassName = textClassName ?? 'text-muted';
-  const trendClassName = trendStyle?.className;
+  const hasAccent = accentText || !!accentTextClassName;
+  const accentClass = accentTextClassName ?? 'text-on-accent';
+  const labelClassName = hasAccent
+    ? cn(accentClass, 'opacity-70 dark:text-muted dark:opacity-100')
+    : 'text-muted';
+  const valueClassName = hasAccent ? cn(accentClass, 'dark:text-foreground') : 'text-foreground';
+  const iconClassName = hasAccent ? cn(accentClass, 'dark:text-muted') : 'text-muted';
+  const trendClassName = hasAccent
+    ? cn(accentClass, 'opacity-80 dark:text-muted dark:opacity-100')
+    : trendStyle?.className;
 
   return (
-    <Card data-slot="stat-card" className={cn('gap-4 py-5', className)} {...props}>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-0">
-        <p className={cn('text-sm font-medium', labelClassName)}>{label}</p>
+    <Card data-slot="stat-card" className={cn('gap-3 py-4 sm:gap-4 sm:py-5', className)} {...props}>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+        <p
+          className={cn(
+            'text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
+            labelClassName,
+          )}
+        >
+          {label}
+        </p>
         {icon ? <div className={iconClassName}>{icon}</div> : null}
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className={cn('text-2xl font-semibold tracking-tight sm:text-3xl', valueClassName)}>{value}</p>
+      <CardContent className="space-y-1.5">
+        <p
+          className={cn('text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl', valueClassName)}
+        >
+          {value}
+        </p>
         {trend && trendStyle && TrendIcon ? (
           <div
             aria-label={`trend ${trend.direction}`}

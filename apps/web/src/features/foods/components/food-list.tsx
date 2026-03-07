@@ -12,14 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -158,9 +151,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
     }
 
     setLocalFoods((currentFoods) =>
-      currentFoods.map((food) =>
-        food.id === editingFoodId ? { ...food, name: nextName } : food,
-      ),
+      currentFoods.map((food) => (food.id === editingFoodId ? { ...food, name: nextName } : food)),
     );
     cancelEditing();
   }
@@ -186,17 +177,14 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
     );
   });
   const visibleFoods = sortFoods(filteredFoods, sortBy, sortDirection);
-  const foodPendingDelete =
-    localFoods.find((food) => food.id === foodPendingDeleteId) ?? null;
+  const foodPendingDelete = localFoods.find((food) => food.id === foodPendingDeleteId) ?? null;
 
   return (
     <div className="space-y-4">
-      <Card className="gap-4 border-transparent bg-[var(--color-accent-cream)] py-5 text-[var(--color-on-accent)] shadow-none">
+      <Card className="gap-4 border-transparent bg-[var(--color-accent-cream)] py-5 text-on-cream shadow-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
         <CardHeader className="gap-1 px-5 sm:px-6">
-          <CardTitle className="text-xl text-[var(--color-on-accent)]">
-            Search your foods database
-          </CardTitle>
-          <CardDescription className="text-sm text-muted">
+          <CardTitle className="text-xl">Search your foods database</CardTitle>
+          <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
             Filter by food name or brand, then switch between alphabetical, recency, and
             protein-focused views with reversible sort direction.
           </CardDescription>
@@ -204,12 +192,14 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
         <CardContent className="grid gap-3 px-5 sm:grid-cols-[minmax(0,1fr)_13rem_10rem] sm:px-6">
           <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--color-on-accent)]">Search foods</span>
+            <span className="text-sm font-medium text-on-cream dark:text-foreground">
+              Search foods
+            </span>
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-500" />
               <Input
                 aria-label="Search foods"
-                className="border-black/10 bg-white/80 pl-9 text-[var(--color-on-accent)] placeholder:text-gray-500 dark:bg-white/80"
+                className="border-black/10 bg-white/80 pl-9 text-on-cream placeholder:text-gray-500 dark:border-border dark:bg-background dark:text-foreground dark:placeholder:text-muted"
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Chicken, Fairlife, oats..."
                 type="search"
@@ -219,7 +209,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
           </label>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--color-on-accent)]">Sort by</span>
+            <span className="text-sm font-medium text-on-cream dark:text-foreground">Sort by</span>
             <Select
               onValueChange={(value) => {
                 const nextSortBy = value as FoodSortOption;
@@ -231,7 +221,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
             >
               <SelectTrigger
                 aria-label="Sort foods"
-                className="border-black/10 bg-white/80 text-[var(--color-on-accent)] dark:bg-white/80"
+                className="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -246,11 +236,13 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
           </label>
 
           <div className="space-y-2">
-            <span className="text-sm font-medium text-[var(--color-on-accent)]">Direction</span>
+            <span className="text-sm font-medium text-on-cream dark:text-foreground">
+              Direction
+            </span>
             <Button
               aria-label="Toggle sort direction"
               aria-pressed={sortDirection === 'descending'}
-              className="w-full border-black/10 bg-white/80 text-[var(--color-on-accent)] hover:bg-white/90"
+              className="w-full border-black/10 bg-white/80 text-on-cream hover:bg-white/90 dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-secondary"
               onClick={() =>
                 setSortDirection((currentDirection) =>
                   currentDirection === 'ascending' ? 'descending' : 'ascending',
@@ -334,19 +326,10 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
                   <div className="flex items-start gap-2">
                     {food.verified ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/20">
-                              <CheckCircle2Icon className="size-3.5" />
-                              Verified
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            {food.brand ? `Verified from ${food.brand} nutrition label` : 'Verified from USDA nutrition database'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+                        <CheckCircle2Icon className="size-3.5" />
+                        Verified
+                      </Badge>
                     ) : null}
 
                     <Button
@@ -375,7 +358,9 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
                     <dt className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
                       Calories
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-foreground">{food.calories} cal</dd>
+                    <dd className="mt-1 text-sm font-semibold text-foreground">
+                      {food.calories} cal
+                    </dd>
                   </div>
 
                   <div className="rounded-lg border border-border/70 bg-background/70 px-3 py-2">

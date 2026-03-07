@@ -36,10 +36,11 @@ const sectionLabels = {
 } as const;
 
 const badgeStyles = {
-  compound: 'bg-[var(--color-accent-pink)] text-[#8b2252]',
-  isolation: 'bg-[var(--color-accent-cream)] text-[#8b6914]',
-  cardio: 'bg-[var(--color-accent-mint)] text-[#1a6b45]',
-  mobility: 'bg-[var(--color-accent-cream)] text-[#8b6914]',
+  compound: 'bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
+  isolation:
+    'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
+  cardio: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
+  mobility: 'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
 } as const;
 
 export function SessionExerciseList({
@@ -84,15 +85,15 @@ export function SessionExerciseList({
     <div className="space-y-4">
       {restTimer ? (
         <section
-          className="rounded-3xl border border-transparent bg-[var(--color-accent-mint)] px-5 py-5 text-[var(--color-on-accent)] shadow-sm"
+          className="rounded-3xl border border-transparent bg-[var(--color-accent-mint)] px-5 py-5 text-on-mint shadow-sm dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground"
           data-slot="rest-timer-panel"
         >
           <div className="mb-4 space-y-1">
-            <p className="text-xs font-semibold tracking-[0.22em] text-[var(--color-on-accent)]/70 uppercase">
+            <p className="text-xs font-semibold tracking-[0.22em] uppercase opacity-70 dark:text-muted dark:opacity-100">
               Rest Timer
             </p>
             <h2 className="text-xl font-semibold">{`After ${restTimer.exerciseName}`}</h2>
-            <p className="text-sm text-[var(--color-on-accent)]/75">{`Set ${restTimer.setNumber} logged. Start the next set when you're ready.`}</p>
+            <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">{`Set ${restTimer.setNumber} logged. Start the next set when you're ready.`}</p>
           </div>
 
           <RestTimer
@@ -113,8 +114,8 @@ export function SessionExerciseList({
         const isOpen =
           focusTarget?.sectionId === section.id
             ? true
-            : openSections[section.id] ??
-              section.exercises.some((exercise) => exercise.id === session.currentExerciseId);
+            : (openSections[section.id] ??
+              section.exercises.some((exercise) => exercise.id === session.currentExerciseId));
 
         return (
           <section
@@ -128,11 +129,10 @@ export function SessionExerciseList({
               onClick={() =>
                 setOpenSections((current) => ({
                   ...current,
-                  [section.id]:
-                    !(current[section.id] ??
-                      section.exercises.some(
-                        (exercise) => exercise.id === session.currentExerciseId,
-                      )),
+                  [section.id]: !(
+                    current[section.id] ??
+                    section.exercises.some((exercise) => exercise.id === session.currentExerciseId)
+                  ),
                 }))
               }
               type="button"
@@ -165,7 +165,10 @@ export function SessionExerciseList({
                 {section.exercises.map((exercise, index) => {
                   const exerciseNumber =
                     session.sections
-                      .slice(0, session.sections.findIndex((candidate) => candidate.id === section.id))
+                      .slice(
+                        0,
+                        session.sections.findIndex((candidate) => candidate.id === section.id),
+                      )
                       .reduce((count, candidate) => count + candidate.exercises.length, 0) +
                     index +
                     1;
@@ -173,9 +176,11 @@ export function SessionExerciseList({
                   const isExpanded =
                     focusTarget?.exerciseId === exercise.id
                       ? true
-                      : expandedExercises[exercise.id] ?? exercise.id === session.currentExerciseId;
+                      : (expandedExercises[exercise.id] ??
+                        exercise.id === session.currentExerciseId);
                   const isCuePanelOpen = visibleCuePanels[exercise.id] ?? false;
-                  const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
+                  const isNotesPanelOpen =
+                    visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
 
                   return (
                     <Card
@@ -192,8 +197,9 @@ export function SessionExerciseList({
                         onClick={() =>
                           setExpandedExercises((current) => ({
                             ...current,
-                            [exercise.id]:
-                              !(current[exercise.id] ?? exercise.id === session.currentExerciseId),
+                            [exercise.id]: !(
+                              current[exercise.id] ?? exercise.id === session.currentExerciseId
+                            ),
                           }))
                         }
                         type="button"
@@ -202,9 +208,14 @@ export function SessionExerciseList({
                           <ExerciseStatusIndicator state={state} />
                           <div className="space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-lg font-semibold text-foreground">{exercise.name}</h3>
+                              <h3 className="text-lg font-semibold text-foreground">
+                                {exercise.name}
+                              </h3>
                               <Badge
-                                className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
+                                className={cn(
+                                  'border-transparent capitalize',
+                                  badgeStyles[exercise.category],
+                                )}
                                 variant="outline"
                               >
                                 {exercise.category}
@@ -276,7 +287,10 @@ export function SessionExerciseList({
                             </div>
 
                             <p className="text-sm text-muted">
-                              {formatLastPerformance(exercise.lastPerformance, exercise.prescribedReps)}
+                              {formatLastPerformance(
+                                exercise.lastPerformance,
+                                exercise.prescribedReps,
+                              )}
                             </p>
 
                             <div
@@ -290,7 +304,10 @@ export function SessionExerciseList({
                               <ul className="mt-3 space-y-2 text-sm text-foreground">
                                 {exercise.formCues.map((cue) => (
                                   <li className="flex items-start gap-2" key={cue}>
-                                    <span aria-hidden="true" className="mt-1 size-1.5 rounded-full bg-primary" />
+                                    <span
+                                      aria-hidden="true"
+                                      className="mt-1 size-1.5 rounded-full bg-primary"
+                                    />
                                     <span>{cue}</span>
                                   </li>
                                 ))}

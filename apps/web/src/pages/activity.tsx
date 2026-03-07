@@ -14,9 +14,10 @@ type ActivityPreview = {
 };
 
 const badgeClassesByType: Record<ActivityType, string> = {
-  Stretching: 'border-transparent bg-sky-200 text-sky-800 dark:bg-sky-400/20 dark:text-sky-300',
-  Walking: 'border-transparent bg-emerald-200 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-300',
-  Yoga: 'border-transparent bg-violet-200 text-violet-800 dark:bg-violet-400/20 dark:text-violet-300',
+  Stretching: 'border-transparent bg-sky-200 text-sky-950 dark:bg-sky-500/20 dark:text-sky-400',
+  Walking:
+    'border-transparent bg-emerald-200 text-emerald-950 dark:bg-emerald-500/20 dark:text-emerald-400',
+  Yoga: 'border-transparent bg-violet-200 text-violet-950 dark:bg-violet-500/20 dark:text-violet-400',
 };
 
 const sampleActivities: ActivityPreview[] = [
@@ -45,7 +46,7 @@ export function ActivityPage() {
     <section className="space-y-6">
       <header className="space-y-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-2xl bg-[var(--color-accent-mint)] p-3 text-slate-950 shadow-sm">
+          <div className="rounded-2xl bg-[var(--color-accent-mint)] p-3 text-on-mint shadow-sm dark:bg-emerald-500/20 dark:text-emerald-400">
             <Activity aria-hidden="true" className="size-6" />
           </div>
           <div className="space-y-2">
@@ -91,8 +92,12 @@ export function ActivityPage() {
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <h2 className="text-xl font-semibold text-foreground">{activity.description}</h2>
-                      <CardDescription>{activity.note ?? 'Sample activity note coming soon.'}</CardDescription>
+                      <h2 className="text-xl font-semibold text-foreground">
+                        {activity.description}
+                      </h2>
+                      <CardDescription>
+                        {activity.note ?? 'Sample activity note coming soon.'}
+                      </CardDescription>
                     </div>
                   </div>
                   <div className="min-w-20 rounded-xl bg-secondary/70 px-3 py-2 text-right">

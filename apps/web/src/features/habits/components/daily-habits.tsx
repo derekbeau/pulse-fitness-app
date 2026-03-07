@@ -140,31 +140,32 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
     Object.fromEntries(habits.map((habit) => [habit.id, habit.todayValue])),
   );
 
-  const completedCount = habits.filter((habit) => getHabitCompletion(habit, habitValues[habit.id]))
-    .length;
+  const completedCount = habits.filter((habit) =>
+    getHabitCompletion(habit, habitValues[habit.id]),
+  ).length;
 
   return (
     <div className="space-y-4">
-      <Card className="border-transparent bg-[var(--color-accent-pink)] text-slate-950 shadow-sm">
+      <Card className="border-transparent bg-[var(--color-accent-pink)] text-on-pink shadow-sm dark:border-l-4 dark:border-l-pink-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
         <CardHeader className="gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
               <CardTitle
                 aria-level={2}
-                className="text-3xl font-semibold tracking-tight text-slate-950"
+                className="text-3xl font-semibold tracking-tight"
                 role="heading"
               >
                 {todayFormatter.format(new Date())}
               </CardTitle>
-              <CardDescription className="max-w-2xl text-sm text-slate-700">
+              <CardDescription className="max-w-2xl text-sm opacity-70 dark:text-muted dark:opacity-100">
                 Log today&apos;s routines, keep your streak alive, and spot what still needs
                 attention before the day ends.
               </CardDescription>
             </div>
-            <div className="inline-flex self-start rounded-full bg-slate-950/10 px-4 py-2 text-sm font-semibold text-slate-900">
+            <div className="inline-flex self-start rounded-full bg-black/10 px-4 py-2 text-sm font-semibold dark:bg-secondary dark:text-foreground">
               {completedCount} of {habits.length} habits complete
             </div>
           </div>
@@ -182,7 +183,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
             <Card
               key={habit.id}
               className={cn(
-                'gap-4 border-transparent py-5 text-slate-950 shadow-sm transition-transform duration-200',
+                'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
                 trackingSurfaceClasses[habit.trackingType],
                 isComplete && 'ring-2 ring-emerald-500/40',
               )}
@@ -193,22 +194,20 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                     <span className="text-3xl leading-none" aria-hidden="true">
                       {habit.emoji}
                     </span>
-                    <CardTitle
-                      aria-level={3}
-                      className="text-xl font-semibold text-slate-950"
-                      role="heading"
-                    >
+                    <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
                       {habit.name}
                     </CardTitle>
                   </div>
-                  <CardDescription className="pl-12 text-sm text-slate-700">
+                  <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
                     {progressText}
                   </CardDescription>
                 </div>
                 <div
                   className={cn(
                     'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
-                    isComplete ? 'bg-emerald-600 text-white' : 'bg-slate-950/10 text-slate-700',
+                    isComplete
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
                   )}
                 >
                   {isComplete ? (
@@ -223,14 +222,14 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
               <CardContent className="space-y-4">
                 {habit.trackingType === 'boolean' ? (
                   <label
-                    className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/70 px-4 py-3 shadow-sm"
+                    className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/70 px-4 py-3 shadow-sm dark:bg-secondary/60 dark:shadow-none"
                     htmlFor={`habit-${habit.id}`}
                   >
                     <Checkbox
                       id={`habit-${habit.id}`}
                       aria-label={habit.name}
                       checked={value === true}
-                      className="border-slate-900/20 bg-white"
+                      className="border-slate-900/20 bg-white dark:border-border dark:bg-background"
                       onCheckedChange={(checked) => {
                         setHabitValues((currentValues) => ({
                           ...currentValues,
@@ -238,7 +237,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                         }));
                       }}
                     />
-                    <span className="text-sm font-medium text-slate-800">
+                    <span className="text-sm font-medium text-slate-800 dark:text-foreground">
                       Mark this habit complete for today
                     </span>
                   </label>
@@ -246,7 +245,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-end">
                     <div className="space-y-2">
                       <label
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                        className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100"
                         htmlFor={`habit-${habit.id}`}
                       >
                         {habit.trackingType === 'time' ? 'Hours today' : 'Logged today'}
@@ -254,7 +253,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                       <Input
                         id={`habit-${habit.id}`}
                         aria-label={habit.name}
-                        className="h-11 border-slate-900/15 bg-white/75 text-lg font-semibold text-slate-950 placeholder:text-slate-500 focus-visible:border-slate-900/30 focus-visible:ring-slate-900/10"
+                        className="h-11 border-black/10 bg-white/75 text-lg font-semibold text-slate-950 placeholder:text-slate-500 focus-visible:border-black/20 focus-visible:ring-black/5 dark:border-border dark:bg-background dark:text-foreground dark:placeholder:text-muted dark:focus-visible:border-ring dark:focus-visible:ring-ring/20"
                         inputMode="decimal"
                         min="0"
                         step={habit.trackingType === 'time' ? '0.25' : '1'}
@@ -273,19 +272,21 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="font-semibold text-slate-950">{progressText}</span>
-                        <span className="text-slate-700">{Math.round(progressPercent)}%</span>
+                        <span className="font-semibold dark:text-foreground">{progressText}</span>
+                        <span className="opacity-70 dark:text-muted dark:opacity-100">
+                          {Math.round(progressPercent)}%
+                        </span>
                       </div>
                       <div
                         aria-hidden="true"
-                        className="h-2 overflow-hidden rounded-full bg-slate-950/10"
+                        className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-secondary"
                       >
                         <div
                           className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
                           style={{ width: `${progressPercent}%` }}
                         />
                       </div>
-                      <p className="text-xs font-medium tracking-wide text-slate-700 uppercase">
+                      <p className="text-xs font-medium tracking-wide uppercase opacity-70 dark:text-muted dark:opacity-100">
                         Target: {formatNumber(habit.target ?? 0)} {habit.unit}
                       </p>
                     </div>

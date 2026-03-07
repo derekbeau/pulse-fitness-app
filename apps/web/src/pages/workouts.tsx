@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
-import { ExerciseLibrary, TemplateBrowser, WorkoutCalendar, WorkoutList } from '@/features/workouts';
+import {
+  ExerciseLibrary,
+  TemplateBrowser,
+  WorkoutCalendar,
+  WorkoutList,
+} from '@/features/workouts';
 
 export function WorkoutsPage() {
   const navigate = useNavigate();
@@ -22,7 +27,7 @@ export function WorkoutsPage() {
 
       <div
         aria-label="Workout views"
-        className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card p-1"
+        className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
         role="group"
       >
         <Button

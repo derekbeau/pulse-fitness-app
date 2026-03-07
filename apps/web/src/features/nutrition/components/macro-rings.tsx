@@ -32,26 +32,27 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
   const [mode, setMode] = useState<'eaten' | 'remaining'>('eaten');
 
   return (
-    <Card className="border-transparent bg-[var(--color-accent-cream)] text-slate-950 shadow-sm">
+    <Card className="border-transparent bg-[var(--color-accent-cream)] text-on-cream shadow-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <CardTitle aria-level={2} className="text-2xl font-semibold text-slate-950" role="heading">
+            <CardTitle aria-level={2} className="text-2xl font-semibold" role="heading">
               Macro rings
             </CardTitle>
-            <CardDescription className="text-sm text-slate-700">
+            <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
               Toggle between what you&apos;ve eaten and what remains to hit today&apos;s targets.
             </CardDescription>
           </div>
-          <div className="inline-flex rounded-full bg-slate-950/10 p-1">
+          <div className="inline-flex rounded-full bg-black/10 p-1 dark:bg-secondary">
             <Button
               type="button"
               size="sm"
               variant={mode === 'eaten' ? 'secondary' : 'ghost'}
               aria-pressed={mode === 'eaten'}
               className={cn(
-                'rounded-full px-4 text-slate-950',
-                mode === 'eaten' && 'bg-white/80 hover:bg-white/80',
+                'rounded-full px-4',
+                mode === 'eaten' &&
+                  'bg-white/80 hover:bg-white/80 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90',
               )}
               onClick={() => setMode('eaten')}
             >
@@ -63,8 +64,9 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
               variant={mode === 'remaining' ? 'secondary' : 'ghost'}
               aria-pressed={mode === 'remaining'}
               className={cn(
-                'rounded-full px-4 text-slate-950',
-                mode === 'remaining' && 'bg-white/80 hover:bg-white/80',
+                'rounded-full px-4',
+                mode === 'remaining' &&
+                  'bg-white/80 hover:bg-white/80 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90',
               )}
               onClick={() => setMode('remaining')}
             >
@@ -86,12 +88,15 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
             <div
               data-testid={`macro-card-${macro.key}`}
               key={macro.key}
-              className="grid gap-3 rounded-2xl bg-white/75 p-4 text-slate-950 shadow-sm"
+              className="grid gap-3 rounded-2xl bg-white/75 p-4 shadow-sm dark:border dark:border-border dark:bg-secondary/60"
             >
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-slate-950">{macro.label}</h3>
+                <h3 className="text-lg font-semibold">{macro.label}</h3>
                 <p
-                  className={cn('text-sm font-medium text-slate-700', isOverTarget && 'text-red-600')}
+                  className={cn(
+                    'text-sm font-medium opacity-70 dark:text-muted dark:opacity-100',
+                    isOverTarget && 'text-red-600 opacity-100 dark:text-red-400',
+                  )}
                 >
                   {formatMacroValue(displayedValue)} {mode}
                 </p>
@@ -100,9 +105,12 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
                 value={progressValue}
                 label={formatMacroValue(displayedValue)}
                 color={isOverTarget ? '#dc2626' : macro.color}
-                className={cn('justify-self-start text-slate-950', isOverTarget && 'text-red-600')}
+                className={cn(
+                  'justify-self-start',
+                  isOverTarget && 'text-red-600 dark:text-red-400',
+                )}
               />
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-700">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
                 Target {formatMacroValue(target)}
               </p>
             </div>
