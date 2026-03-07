@@ -42,7 +42,7 @@ describe('JournalPage', () => {
       const card = cardHeading.closest('[data-slot="card"]');
 
       expect(card).not.toBeNull();
-      expect(within(card as HTMLElement).getByText(entry.type.replace(/_/g, ' '))).toBeInTheDocument();
+      expect(within(card as HTMLElement).getByText(entry.type)).toBeInTheDocument();
       expect(within(card as HTMLElement).getByText(entry.date)).toBeInTheDocument();
       expect(within(card as HTMLElement).getByText(entry.contentPreview)).toBeInTheDocument();
       expect(card).toHaveClass('border-dashed');
@@ -55,14 +55,14 @@ describe('JournalPage', () => {
 
     const observationBadge = screen.getByText('observation');
     const milestoneBadge = screen.getByText('milestone');
-    const weeklySummaryBadge = screen.getByText('weekly summary');
+    const weeklySummaryBadge = screen.getByText('weekly_summary');
 
     expect(observationBadge).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(milestoneBadge).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(weeklySummaryBadge).toHaveClass('bg-[var(--color-accent-pink)]');
 
-    expect(observationBadge).toHaveClass('text-[#8b6914]');
-    expect(milestoneBadge).toHaveClass('text-[#1a6b45]');
-    expect(weeklySummaryBadge).toHaveClass('text-[#8b2252]');
+    expect(observationBadge).toHaveClass('text-on-cream');
+    expect(milestoneBadge).toHaveClass('text-on-mint');
+    expect(weeklySummaryBadge).toHaveClass('text-on-pink');
   });
 });

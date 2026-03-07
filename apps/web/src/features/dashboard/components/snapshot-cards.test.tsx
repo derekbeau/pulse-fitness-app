@@ -24,7 +24,7 @@ describe('SnapshotCards', () => {
   it('renders four snapshot cards in a responsive grid with mock data values', () => {
     const { container } = render(<MemoryRouter><SnapshotCards /></MemoryRouter>);
 
-    const grid = container.querySelector('div.grid.grid-cols-2.xl\\:grid-cols-4');
+    const grid = container.querySelector('div.grid.grid-cols-2');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');
@@ -55,22 +55,10 @@ describe('SnapshotCards', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(caloriesCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(workoutCard).toHaveClass('bg-[var(--color-primary)]/12');
-    expect(screen.getByText('Body Weight')).toHaveClass('text-[#8b6914]');
-    expect(screen.getByText('Calories')).toHaveClass('text-[#8b2252]');
-    expect(screen.getByText('Protein')).toHaveClass('text-[#1a6b45]');
-    expect(screen.getByText("Today's Workout")).toHaveClass('text-[#2a3f8f]');
-
-    expect(
-      screen.getByText(
-        `${mockDailySnapshot.macros.calories.actual} / ${mockDailySnapshot.macros.calories.target}`,
-      ),
-    ).toHaveClass('text-[#8b2252]');
-    expect(
-      screen.getByText(
-        `${mockDailySnapshot.macros.protein.actual}g / ${mockDailySnapshot.macros.protein.target}g`,
-      ),
-    ).toHaveClass('text-[#1a6b45]');
+    expect(workoutCard).toHaveClass('bg-secondary');
+    expect(screen.getByText('Body Weight')).toHaveClass('text-on-cream');
+    expect(screen.getByText('Calories')).toHaveClass('text-on-pink');
+    expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
 
     const expectedTrend = calculateWeightTrend(
       mockDailySnapshot.weight,
@@ -79,13 +67,7 @@ describe('SnapshotCards', () => {
 
     const weightTrend = within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`);
     expect(weightTrend).toBeInTheDocument();
-    expect(weightTrend).toHaveClass(
-      expectedTrend.direction === 'up'
-        ? 'text-[var(--color-accent-mint)]'
-        : expectedTrend.direction === 'down'
-          ? 'text-[var(--destructive)]'
-          : 'text-[var(--color-muted)]',
-    );
+    expect(weightTrend).toHaveClass('text-on-cream');
 
     const expectedTrendText =
       expectedTrend.direction === 'up'

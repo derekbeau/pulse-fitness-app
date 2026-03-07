@@ -17,19 +17,19 @@ describe('globals.css design tokens', () => {
     expect(css).toContain(':root');
     expect(css).toContain('.dark');
     expect(css).toContain('.theme-midnight');
-    expect(css).toContain('--color-background: #ffffff;');
-    expect(css).toContain('--color-card: #f8f9fa;');
+    expect(css).toContain('--color-background: #fafbfc;');
+    expect(css).toContain('--color-card: #ffffff;');
     expect(css).toContain('--color-on-accent: #111827;');
-    expect(css).toContain('--color-background: #1a1a2e;');
-    expect(css).toContain('--color-secondary: #16213e;');
-    expect(css).toContain('--color-foreground: #e8e8e8;');
-    expect(css).toContain('--color-background: #0d1b2a;');
-    expect(css).toContain('--color-card: #1b2838;');
+    expect(css).toContain('--color-background: #141726;');
+    expect(css).toContain('--color-secondary: #1a1e36;');
+    expect(css).toContain('--color-foreground: #eaedf5;');
+    expect(css).toContain('--color-background: #0b1120;');
+    expect(css).toContain('--color-card: #131b2e;');
     expect(css).toContain('--color-foreground: #ccd6f6;');
-    expect(css).toContain('--color-primary: #3b82f6;');
+    expect(css).toContain('--color-primary: #5b8def;');
     expect(css).toContain('--color-accent-pink: #b8a1ff;');
     expect(css).toContain('--color-accent-cream: #f4c95d;');
-    expect(css).toContain('--color-on-accent: #1a1a2e;');
+    expect(css).toContain('--color-on-accent: #0b1120;');
 
     const requiredTokens = [
       '--color-background',

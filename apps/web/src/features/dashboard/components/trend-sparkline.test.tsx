@@ -96,9 +96,9 @@ describe('TrendSparklines', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(calorieCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(weightCard).toHaveClass('text-on-accent');
-    expect(calorieCard).toHaveClass('text-on-accent');
-    expect(proteinCard).toHaveClass('text-on-accent');
+    expect(weightCard).toHaveClass('text-on-cream');
+    expect(calorieCard).toHaveClass('text-on-pink');
+    expect(proteinCard).toHaveClass('text-on-mint');
 
     expect(weightCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();
     expect(calorieCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();

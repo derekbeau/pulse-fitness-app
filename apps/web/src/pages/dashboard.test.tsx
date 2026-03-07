@@ -66,10 +66,11 @@ describe('DashboardPage', () => {
 
     expect(layout).toHaveClass(
       'grid',
+      'min-w-0',
       'grid-cols-1',
       'gap-6',
       'md:grid-cols-2',
-      'xl:grid-cols-[280px_1fr_300px]',
+      'xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]',
     );
     expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
     expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');

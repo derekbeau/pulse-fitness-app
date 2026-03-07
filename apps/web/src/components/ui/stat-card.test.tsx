@@ -54,10 +54,10 @@ describe('StatCard', () => {
     expect(card).toHaveClass('custom-card');
   });
 
-  it('keeps semantic trend colors when textClassName is provided', () => {
+  it('applies accentTextClassName to label, value, and trend', () => {
     render(
       <StatCard
-        textClassName="text-[#8b6914]"
+        accentTextClassName="text-[#8b6914]"
         label="Body Weight"
         trend={{ direction: 'up', value: 1.2 }}
         value="178.4 lbs"
@@ -66,6 +66,6 @@ describe('StatCard', () => {
 
     expect(screen.getByText('Body Weight')).toHaveClass('text-[#8b6914]');
     expect(screen.getByText('178.4 lbs')).toHaveClass('text-[#8b6914]');
-    expect(screen.getByLabelText('trend up')).toHaveClass('text-[var(--color-accent-mint)]');
+    expect(screen.getByLabelText('trend up')).toHaveClass('text-[#8b6914]');
   });
 });
