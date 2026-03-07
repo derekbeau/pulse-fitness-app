@@ -141,7 +141,7 @@ const sharedLowerSupplemental: ActiveWorkoutSupplementalExercise[] = [
   },
 ];
 
-export const workoutCustomFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
+export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
   {
     id: 'knee-pain',
     label: 'Knee pain',
@@ -718,12 +718,14 @@ export const workoutExerciseHistory: ActiveWorkoutExerciseHistory = {
 
 export const enhancedWorkoutMockData = {
   completedSessions: workoutCompletedSessions,
-  customFeedbackFields: workoutCustomFeedbackFields,
+  feedbackFields: workoutFeedbackFields,
   enhancedExercises: workoutEnhancedExercises,
   exerciseHistory: workoutExerciseHistory,
   sessionContext: workoutSessionContext,
   supplementalExercises: workoutSupplementalExercises,
 };
+
+export const workoutCustomFeedbackFields = workoutFeedbackFields;
 
 function createCompletedSession(input: CompletedSessionInput): ActiveWorkoutCompletedSession {
   return {

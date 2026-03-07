@@ -14,8 +14,10 @@ import {
   createWorkoutSetDraft,
   createWorkoutSetId,
   workoutCompletedSessions,
+  workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
+  type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
@@ -58,6 +60,7 @@ export function ActiveWorkoutPage() {
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
+  const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
@@ -136,7 +139,9 @@ export function ActiveWorkoutPage() {
 
       {stage === 'feedback' ? (
         <SessionFeedback
-          onSubmit={() => {
+          fields={workoutFeedbackFields}
+          onSubmit={(feedback) => {
+            setSessionFeedback(feedback);
             setStage('summary');
           }}
         />
@@ -148,6 +153,7 @@ export function ActiveWorkoutPage() {
           defaultTags={template.tags}
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
+          feedback={sessionFeedback}
           onDone={() => navigate('/workouts')}
           totalReps={totalCompletedReps}
           totalSets={session.completedSets}

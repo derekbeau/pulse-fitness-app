@@ -67,18 +67,6 @@ export type ActiveWorkoutSessionData = {
   workoutName: string;
 };
 
-export type ActiveWorkoutFeedbackQuestion = 'energy' | 'recovery' | 'technique';
-
-export type ActiveWorkoutFeedbackResponse = {
-  note: string;
-  score: WorkoutFeedbackScore | null;
-};
-
-export type ActiveWorkoutFeedbackDraft = Record<
-  ActiveWorkoutFeedbackQuestion,
-  ActiveWorkoutFeedbackResponse
->;
-
 export type ActiveWorkoutSleepStatus = 'poor' | 'fair' | 'good' | 'great';
 
 export type ActiveWorkoutPhaseBadge = 'rebuild' | 'recovery' | 'test' | 'moderate';
@@ -145,7 +133,7 @@ export type ActiveWorkoutCustomFeedbackField =
       min: number;
       notes?: string;
       type: 'scale';
-      value?: number;
+      value?: WorkoutFeedbackScore | null;
     }
   | {
       id: string;
@@ -154,6 +142,8 @@ export type ActiveWorkoutCustomFeedbackField =
       type: 'text';
       value?: string;
     };
+
+export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];
 
 export type ActiveWorkoutSupplementalCategory = 'core-spine' | 'atg' | 'strength-side' | 'optional';
 

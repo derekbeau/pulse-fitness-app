@@ -100,21 +100,32 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
+    expect(screen.getAllByRole('textbox', { name: 'Optional notes' })).toHaveLength(4);
 
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy rating' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Knee pain rating' })).getByRole('button', {
         name: '4',
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Recovery rating' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
         name: '3',
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Technique rating' })).getByRole('button', {
-        name: '5',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout rating' })).getByRole(
+        'button',
+        {
+          name: '5',
+        },
+      ),
+    );
+    fireEvent.change(
+      screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
+      {
+        target: { value: 'Shoulders stayed stable, keep the same setup.' },
+      },
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
@@ -125,6 +136,9 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Sets completed')).toBeInTheDocument();
     expect(screen.getByText('Total reps')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
+    expect(screen.getByText('4 / 5')).toBeInTheDocument();
+    expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await act(async () => {});
