@@ -20,7 +20,7 @@ const pageRoutes = [
   { heading: 'Journal', path: '/journal' },
   { heading: 'Profile', path: '/profile' },
   { heading: 'Equipment', path: '/profile/equipment' },
-  { heading: 'Injuries', path: '/profile/injuries' },
+  { heading: 'Health Tracking', path: '/profile/injuries' },
   { heading: 'Resources', path: '/profile/resources' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
