@@ -28,8 +28,10 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Active Injuries')).toBeInTheDocument();
     expect(screen.getByText('Training Phase')).toBeInTheDocument();
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
+    expect(screen.getByText('Superset')).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
+    expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
 
     fireEvent.click(within(inclineCard).getByLabelText('Complete set 3'));
 
@@ -43,6 +45,9 @@ describe('ActiveWorkoutPage', () => {
     const nextExerciseCard = getExerciseCard('Seated Dumbbell Shoulder Press');
     expect(within(nextExerciseCard).getByLabelText('Reps for set 1')).toHaveFocus();
     expect(screen.queryByText('Rest Timer')).not.toBeInTheDocument();
+
+    const optionalCard = getExerciseCard('Rope Triceps Pushdown');
+    expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
   });
 
   it('moves from session logging to feedback, summary, and back to workouts', async () => {

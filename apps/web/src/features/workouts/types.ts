@@ -39,9 +39,12 @@ export type ActiveWorkoutExercise = {
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;
   notes: string;
+  phaseBadge: ActiveWorkoutPhaseBadge;
   prescribedReps: string;
+  priority: ActiveWorkoutPriority;
   restSeconds: number;
   sets: ActiveWorkoutSet[];
+  supersetGroup: string | null;
   targetSets: number;
 };
 
