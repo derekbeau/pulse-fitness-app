@@ -21,8 +21,7 @@ export const scheduledWorkouts = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     templateId: text('template_id')
-      .notNull()
-      .references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+      .references(() => workoutTemplates.id, { onDelete: 'set null' }),
     date: text('date').notNull(),
     sessionId: text('session_id').references(() => workoutSessions.id, {
       onDelete: 'set null',
@@ -31,6 +30,11 @@ export const scheduledWorkouts = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
     index('scheduled_workouts_user_date_idx').on(table.userId, table.date),

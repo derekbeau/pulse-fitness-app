@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import {
   check,
-  index,
   integer,
   real,
   sqliteTable,
@@ -29,9 +28,13 @@ export const nutritionTargets = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
-    index('nutrition_targets_user_effective_date_idx').on(table.userId, table.effectiveDate),
     unique('nutrition_targets_user_id_effective_date_unique').on(table.userId, table.effectiveDate),
     check(
       'nutrition_targets_effective_date_format_check',

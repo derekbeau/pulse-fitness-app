@@ -14,6 +14,10 @@ export const dashboardConfig = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     habitChainIds: text('habit_chain_ids').$type<string[]>().notNull().default(sql`'[]'`),
     trendMetrics: text('trend_metrics').$type<string[]>().notNull().default(sql`'[]'`),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now()),
     updatedAt: integer('updated_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

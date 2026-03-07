@@ -133,11 +133,22 @@ describe('bodyWeight schema', () => {
     expect(getTableName(bodyWeight)).toBe('body_weight');
 
     const columns = getTableColumns(bodyWeight);
-    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'weight', 'notes', 'createdAt']);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'date',
+      'weight',
+      'notes',
+      'createdAt',
+      'updatedAt',
+    ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(bodyWeight);
     expect(config.foreignKeys).toHaveLength(1);
@@ -169,18 +180,20 @@ describe('nutritionTargets schema', () => {
       'fat',
       'effectiveDate',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(nutritionTargets);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
-    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
-      'nutrition_targets_user_effective_date_idx',
-    ]);
+    expect(config.indexes).toHaveLength(0);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
       'nutrition_targets_user_id_effective_date_unique',
@@ -265,12 +278,15 @@ describe('dashboardConfig schema', () => {
       'userId',
       'habitChainIds',
       'trendMetrics',
+      'createdAt',
       'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.habitChainIds.default).toBeDefined();
     expect(columns.trendMetrics.default).toBeDefined();
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
     expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
@@ -667,12 +683,17 @@ describe('scheduledWorkouts schema', () => {
       'date',
       'sessionId',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.templateId.notNull).toBe(false);
     expect(columns.sessionId.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(scheduledWorkouts);
     expect(config.foreignKeys).toHaveLength(3);
@@ -690,7 +711,7 @@ describe('scheduledWorkouts schema', () => {
       config.foreignKeys.find(
         (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
       )?.onDelete,
-    ).toBe('cascade');
+    ).toBe('set null');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'scheduled_workouts_session_id_idx',
       'scheduled_workouts_template_id_idx',
