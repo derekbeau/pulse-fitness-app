@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createAgentTokenInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
-import { authenticate } from '../../lib/auth.js';
+import { requireUserAuth } from '../../middleware/auth.js';
 import { sendError } from '../../lib/reply.js';
 
 import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
@@ -11,12 +11,9 @@ import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js'
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/', async (request, reply) => {
-    const auth = await authenticate(request, reply);
-    if (!auth) {
-      return;
-    }
+  app.addHook('onRequest', requireUserAuth);
 
+  app.post('/', async (request, reply) => {
     const parsedBody = createAgentTokenInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid agent token payload');
@@ -25,7 +22,7 @@ export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
     const token = randomBytes(32).toString('hex');
     const createdToken = await createAgentToken({
       id: randomUUID(),
-      userId: auth.userId,
+      userId: request.userId,
       name: parsedBody.data.name,
       tokenHash: hashToken(token),
     });
@@ -40,12 +37,7 @@ export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/', async (request, reply) => {
-    const auth = await authenticate(request, reply);
-    if (!auth) {
-      return;
-    }
-
-    const tokens = await listAgentTokens(auth.userId);
+    const tokens = await listAgentTokens(request.userId);
 
     return reply.send({
       data: tokens,
@@ -53,12 +45,7 @@ export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const auth = await authenticate(request, reply);
-    if (!auth) {
-      return;
-    }
-
-    const deleted = await deleteAgentToken(request.params.id, auth.userId);
+    const deleted = await deleteAgentToken(request.params.id, request.userId);
     if (!deleted) {
       return sendError(reply, 404, 'AGENT_TOKEN_NOT_FOUND', 'Agent token not found');
     }
