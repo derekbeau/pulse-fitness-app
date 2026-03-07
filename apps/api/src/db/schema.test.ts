@@ -2,8 +2,20 @@ import { getTableColumns, getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { describe, expect, it } from 'vitest';
 
-import type { HabitTrackingType } from './schema/index.js';
-import { agentTokens, habitEntries, habits, users } from './schema/index.js';
+import type {
+  HabitTrackingType,
+  WorkoutExerciseCategory,
+  WorkoutTemplateSectionType,
+} from './schema/index.js';
+import {
+  agentTokens,
+  exercises,
+  habitEntries,
+  habits,
+  templateExercises,
+  users,
+  workoutTemplates,
+} from './schema/index.js';
 
 describe('users schema', () => {
   it('defines the expected table and columns', () => {
@@ -89,6 +101,123 @@ describe('habits schema', () => {
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['habits_user_id_idx']);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'habits_tracking_type_check',
+    ]);
+  });
+});
+
+describe('exercises schema', () => {
+  it('defines the expected table, optional user scope, and category constraint', () => {
+    const category: WorkoutExerciseCategory = 'compound';
+
+    expect(getTableName(exercises)).toBe('exercises');
+    expect(category).toBe('compound');
+
+    const columns = getTableColumns(exercises);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'name',
+      'muscleGroups',
+      'equipment',
+      'category',
+      'instructions',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.userId.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(exercises);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['exercises_user_id_idx']);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'exercises_category_check',
+    ]);
+  });
+});
+
+describe('workoutTemplates schema', () => {
+  it('defines the expected table, columns, timestamps, and user index', () => {
+    expect(getTableName(workoutTemplates)).toBe('workout_templates');
+
+    const columns = getTableColumns(workoutTemplates);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'name',
+      'description',
+      'tags',
+      'createdAt',
+      'updatedAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
+
+    const config = getTableConfig(workoutTemplates);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'workout_templates_user_id_idx',
+    ]);
+  });
+});
+
+describe('templateExercises schema', () => {
+  it('defines the expected table, foreign keys, ordering, and section constraints', () => {
+    const section: WorkoutTemplateSectionType = 'warmup';
+
+    expect(getTableName(templateExercises)).toBe('template_exercises');
+    expect(section).toBe('warmup');
+
+    const columns = getTableColumns(templateExercises);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'templateId',
+      'exerciseId',
+      'orderIndex',
+      'sets',
+      'repsMin',
+      'repsMax',
+      'tempo',
+      'restSeconds',
+      'supersetGroup',
+      'section',
+      'notes',
+      'cues',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(templateExercises);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
+      'exercises',
+      'workout_templates',
+    ]);
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'template_exercises_exercise_id_idx',
+      'template_exercises_template_id_idx',
+    ]);
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe(
+      'template_exercises_template_section_order_unique',
+    );
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'template_id',
+      'section',
+      'order_index',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'template_exercises_reps_range_check',
+      'template_exercises_section_check',
     ]);
   });
 });
