@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export * from './schemas/auth.js';
+export * from './schemas/agent-tokens.js';
 
 export const userSchema = z.object({
   id: z.string(),
