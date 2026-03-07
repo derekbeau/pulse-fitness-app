@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProtocolList } from './protocol-list';
+import { SeverityChart } from './severity-chart';
 import type {
   ConditionStatus,
   HealthCondition,
@@ -223,6 +224,8 @@ export function ConditionDetail({ condition }: ConditionDetailProps) {
       </Card>
 
       <ProtocolList protocols={condition.protocols} />
+
+      <SeverityChart severityHistory={condition.severityHistory} timeline={condition.timeline} />
 
       <Card className="py-6 shadow-sm">
         <CardHeader className="gap-2">
