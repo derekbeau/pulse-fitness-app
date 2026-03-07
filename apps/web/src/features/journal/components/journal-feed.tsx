@@ -143,7 +143,7 @@ export function JournalFeed({ getEntryHref }: JournalFeedProps) {
                 </p>
                 <div className="pointer-events-auto flex flex-wrap gap-2">
                   {entry.linkedEntities.map((entity) => (
-                    <EntityChip entity={entity} key={`${entry.id}-${entity.type}-${entity.id}`} />
+                    <EntityChip entity={entity} key={`${entity.type}-${entity.id}`} />
                   ))}
                 </div>
               </CardContent>

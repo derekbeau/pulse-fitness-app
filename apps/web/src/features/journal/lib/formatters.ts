@@ -29,7 +29,7 @@ export function getJournalEntrySubtitle(type: JournalEntryType) {
 export function getJournalEntryPreview(content: string, maxLength = 132) {
   const normalized = content
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[#>*_`-]+/g, ' ')
+    .replace(/[#>*_`]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 

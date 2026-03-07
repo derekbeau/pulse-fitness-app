@@ -16,6 +16,8 @@ const iconByType: Record<LinkedEntityType, typeof Dumbbell> = {
 const hrefByType: Partial<Record<LinkedEntityType, (entity: LinkedEntity) => string>> = {
   activity: () => '/activity',
   habit: () => '/habits',
+  // Links to the workout template route. When API data lands, confirm whether
+  // journal-linked workout IDs refer to sessions or templates and update if needed.
   workout: (entity) => `/workouts/template/${entity.id}`,
 };
 

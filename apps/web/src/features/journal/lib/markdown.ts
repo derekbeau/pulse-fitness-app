@@ -48,6 +48,9 @@ export function renderJournalMarkdown(content: string) {
       continue;
     }
 
+    // Check h3 before h2 so that "### " doesn't partially match "## ".
+    // h1 ("# ") is intentionally unsupported because the entry title
+    // already occupies that heading level in the detail view.
     if (line.startsWith('### ')) {
       flushParagraph();
       flushList();
