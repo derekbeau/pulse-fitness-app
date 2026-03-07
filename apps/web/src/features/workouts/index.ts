@@ -14,8 +14,32 @@ export {
   createWorkoutSetDraft,
   createWorkoutSetId,
 } from './lib/active-session';
+export {
+  enhancedWorkoutMockData,
+  workoutCompletedSessions,
+  workoutCustomFeedbackFields,
+  workoutEnhancedExercises,
+  workoutExerciseHistory,
+  workoutSessionContext,
+  workoutSupplementalExercises,
+} from './lib/mock-data';
 export type {
+  ActiveWorkoutCompletedSession,
+  ActiveWorkoutCustomFeedbackField,
   ActiveWorkoutFeedbackDraft,
+  ActiveWorkoutEnhancedExercise,
+  ActiveWorkoutExerciseHistory,
+  ActiveWorkoutExerciseHistoryPoint,
+  ActiveWorkoutFormCueDetails,
+  ActiveWorkoutInjuryContext,
+  ActiveWorkoutPhaseBadge,
+  ActiveWorkoutPriority,
+  ActiveWorkoutRecentSessionSummary,
+  ActiveWorkoutReversePyramidTarget,
+  ActiveWorkoutSessionContext,
   ActiveWorkoutSessionData,
+  ActiveWorkoutSleepStatus,
+  ActiveWorkoutSupplementalCategory,
+  ActiveWorkoutSupplementalExercise,
   ActiveWorkoutSetDrafts,
 } from './types';
