@@ -62,6 +62,7 @@ describe('auth middleware', () => {
   beforeEach(() => {
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -93,11 +94,40 @@ describe('auth middleware', () => {
     }
   });
 
-  it('accepts agent tokens through plugin-level protection and updates lastUsedAt', async () => {
+  it('rejects tampered bearer JWTs for requireAuth', async () => {
+    vi.mocked(updateAgentTokenLastUsedAt).mockRejectedValue(new Error('best-effort write failure'));
+
+    const app = await buildTestApp();
+
+    try {
+      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${jwt}tampered`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(findAgentTokenByHash)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('accepts agent tokens through plugin-level protection when lastUsedAt update fails', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-agent-1',
     });
+    vi.mocked(updateAgentTokenLastUsedAt).mockRejectedValue(new Error('best-effort write failure'));
 
     const app = await buildTestApp();
 
@@ -121,6 +151,32 @@ describe('auth middleware', () => {
         createHash('sha256').update(token).digest('hex'),
       );
       expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects tampered bearer JWTs for requireUserAuth', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-user-auth',
+        headers: {
+          authorization: `Bearer ${jwt}tampered`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(findAgentTokenByHash)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

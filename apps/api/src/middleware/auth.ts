@@ -27,13 +27,12 @@ const extractAuthorizationToken = (
     return undefined;
   }
 
-  const [prefix, ...tokenParts] = authorization.split(/\s+/);
+  const [prefix, token] = authorization.split(/\s+/);
   if (!prefix || prefix.toLowerCase() !== scheme.toLowerCase()) {
     return undefined;
   }
 
-  const token = tokenParts.join(' ').trim();
-  return token.length > 0 ? token : undefined;
+  return token && token.length > 0 ? token : undefined;
 };
 
 const setRequestUserId = (request: FastifyRequest, userId: string) => {
@@ -71,7 +70,11 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<string | undef
     return undefined;
   }
 
-  await updateAgentTokenLastUsedAt(agentToken.id);
+  try {
+    await updateAgentTokenLastUsedAt(agentToken.id);
+  } catch {
+    // Best-effort tracking: auth should still succeed if the write fails.
+  }
 
   return setRequestUserId(request, agentToken.userId);
 };
