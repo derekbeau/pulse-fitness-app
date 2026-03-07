@@ -57,11 +57,7 @@ export const listAgentTokens = async (userId: string): Promise<AgentTokenListIte
     .from(agentTokens)
     .where(eq(agentTokens.userId, userId))
     .orderBy(desc(agentTokens.createdAt))
-    .all()
-    .map((token) => ({
-      ...token,
-      lastUsedAt: token.lastUsedAt ?? null,
-    }));
+    .all();
 };
 
 export const deleteAgentToken = async (id: string, userId: string): Promise<boolean> => {

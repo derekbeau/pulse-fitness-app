@@ -1,32 +1,12 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { createAgentTokenInputSchema } from '@pulse/shared';
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
+
+import { authenticate } from '../../lib/auth.js';
+import { sendError } from '../../lib/reply.js';
 
 import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
-
-const sendError = (reply: FastifyReply, statusCode: number, code: string, message: string) =>
-  reply.code(statusCode).send({
-    error: {
-      code,
-      message,
-    },
-  });
-
-type SessionJwtPayload = {
-  userId: string;
-};
-
-const authenticate = async (
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<SessionJwtPayload | undefined> => {
-  try {
-    return await request.jwtVerify<SessionJwtPayload>();
-  } catch {
-    return sendError(reply, 401, 'UNAUTHORIZED', 'Authentication required');
-  }
-};
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 

@@ -21,6 +21,14 @@ describe('createAgentTokenInputSchema', () => {
     ).toThrow();
   });
 
+  it('rejects token names longer than 255 characters', () => {
+    expect(() =>
+      createAgentTokenInputSchema.parse({
+        name: 'a'.repeat(256),
+      }),
+    ).toThrow();
+  });
+
   it('infers the CreateAgentTokenInput type from the schema', () => {
     const payload: CreateAgentTokenInput = {
       name: 'Automation token',

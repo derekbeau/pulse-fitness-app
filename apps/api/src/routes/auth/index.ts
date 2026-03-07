@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import bcrypt from 'bcryptjs';
 import { loginInputSchema, registerInputSchema } from '@pulse/shared';
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+
+import { sendError } from '../../lib/reply.js';
 
 import { createUser, findUserByUsername } from './store.js';
 
@@ -15,14 +17,6 @@ const INVALID_CREDENTIALS_RESPONSE = {
 
 const PASSWORD_SALT_ROUNDS = 12;
 const JWT_EXPIRES_IN = '7d';
-
-const sendError = (reply: FastifyReply, statusCode: number, code: string, message: string) =>
-  reply.code(statusCode).send({
-    error: {
-      code,
-      message,
-    },
-  });
 
 const isSqliteUniqueConstraintError = (error: unknown) =>
   typeof error === 'object' &&

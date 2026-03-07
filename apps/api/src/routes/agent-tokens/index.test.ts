@@ -104,6 +104,7 @@ describe('agent token routes', () => {
     const app = buildServer();
 
     try {
+      await app.ready();
       const requests = await Promise.all([
         app.inject({
           method: 'POST',
