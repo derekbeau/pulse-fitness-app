@@ -129,11 +129,14 @@ describe('nutritionLogs schema', () => {
     expect(getTableName(nutritionLogs)).toBe('nutrition_logs');
 
     const columns = getTableColumns(nutritionLogs);
-    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'notes', 'createdAt']);
+    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'notes', 'createdAt', 'updatedAt']);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(nutritionLogs);
     expect(config.foreignKeys).toHaveLength(1);
@@ -162,16 +165,21 @@ describe('meals schema', () => {
       'time',
       'notes',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(meals);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('nutrition_logs');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['meals_nutrition_log_id_idx']);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual(['meals_time_format_check']);
   });
 });
 
@@ -191,6 +199,8 @@ describe('mealItems schema', () => {
       'protein',
       'carbs',
       'fat',
+      'fiber',
+      'sugar',
       'createdAt',
     ]);
 
@@ -215,7 +225,9 @@ describe('mealItems schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'meal_items_amount_check',
+      'meal_items_fiber_nonnegative_check',
       'meal_items_macros_nonnegative_check',
+      'meal_items_sugar_nonnegative_check',
     ]);
   });
 });

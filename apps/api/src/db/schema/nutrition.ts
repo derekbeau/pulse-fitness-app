@@ -27,6 +27,11 @@ export const nutritionLogs = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
     unique('nutrition_logs_user_id_date_unique').on(table.userId, table.date),
@@ -51,8 +56,16 @@ export const meals = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
-  (table) => [index('meals_nutrition_log_id_idx').on(table.nutritionLogId)],
+  (table) => [
+    index('meals_nutrition_log_id_idx').on(table.nutritionLogId),
+    check('meals_time_format_check', sql`${table.time} is null or ${table.time} glob '[0-9][0-9]:[0-9][0-9]'`),
+  ],
 );
 
 export const mealItems = sqliteTable(
@@ -70,6 +83,8 @@ export const mealItems = sqliteTable(
     protein: real('protein').notNull(),
     carbs: real('carbs').notNull(),
     fat: real('fat').notNull(),
+    fiber: real('fiber'),
+    sugar: real('sugar'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
@@ -83,5 +98,7 @@ export const mealItems = sqliteTable(
       'meal_items_macros_nonnegative_check',
       sql`${table.calories} >= 0 and ${table.protein} >= 0 and ${table.carbs} >= 0 and ${table.fat} >= 0`,
     ),
+    check('meal_items_fiber_nonnegative_check', sql`${table.fiber} is null or ${table.fiber} >= 0`),
+    check('meal_items_sugar_nonnegative_check', sql`${table.sugar} is null or ${table.sugar} >= 0`),
   ],
 );

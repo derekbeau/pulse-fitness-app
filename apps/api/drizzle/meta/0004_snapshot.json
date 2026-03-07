@@ -728,6 +728,20 @@
           "notNull": true,
           "autoincrement": false
         },
+        "fiber": {
+          "name": "fiber",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sugar": {
+          "name": "sugar",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -791,6 +805,14 @@
         "meal_items_macros_nonnegative_check": {
           "name": "meal_items_macros_nonnegative_check",
           "value": "\"meal_items\".\"calories\" >= 0 and \"meal_items\".\"protein\" >= 0 and \"meal_items\".\"carbs\" >= 0 and \"meal_items\".\"fat\" >= 0"
+        },
+        "meal_items_fiber_nonnegative_check": {
+          "name": "meal_items_fiber_nonnegative_check",
+          "value": "\"meal_items\".\"fiber\" is null or \"meal_items\".\"fiber\" >= 0"
+        },
+        "meal_items_sugar_nonnegative_check": {
+          "name": "meal_items_sugar_nonnegative_check",
+          "value": "\"meal_items\".\"sugar\" is null or \"meal_items\".\"sugar\" >= 0"
         }
       }
     },
@@ -839,6 +861,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
         }
       },
       "indexes": {
@@ -867,7 +897,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "meals_time_format_check": {
+          "name": "meals_time_format_check",
+          "value": "\"meals\".\"time\" is null or \"meals\".\"time\" glob '[0-9][0-9]:[0-9][0-9]'"
+        }
+      }
     },
     "nutrition_logs": {
       "name": "nutrition_logs",
@@ -902,6 +937,14 @@
         },
         "created_at": {
           "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
