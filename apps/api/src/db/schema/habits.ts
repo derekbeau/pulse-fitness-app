@@ -13,7 +13,7 @@ import {
 
 import { users } from './users.js';
 
-type HabitTrackingType = 'boolean' | 'numeric' | 'time';
+export type HabitTrackingType = 'boolean' | 'numeric' | 'time';
 
 export const habits = sqliteTable(
   'habits',
@@ -33,8 +33,14 @@ export const habits = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
+    index('habits_user_id_idx').on(table.userId),
     check(
       'habits_tracking_type_check',
       sql`${table.trackingType} in ('boolean', 'numeric', 'time')`,
@@ -64,5 +70,9 @@ export const habitEntries = sqliteTable(
     unique('habit_entries_habit_id_date_unique').on(table.habitId, table.date),
     index('habit_entries_user_id_idx').on(table.userId),
     index('habit_entries_date_idx').on(table.date),
+    check(
+      'habit_entries_date_format_check',
+      sql`${table.date} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
   ],
 );

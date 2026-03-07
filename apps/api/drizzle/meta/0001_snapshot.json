@@ -180,7 +180,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "habit_entries_date_format_check": {
+          "name": "habit_entries_date_format_check",
+          "value": "\"habit_entries\".\"date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        }
+      }
     },
     "habits": {
       "name": "habits",
@@ -257,9 +262,25 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "habits_user_id_idx": {
+          "name": "habits_user_id_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "habits_user_id_users_id_fk": {
           "name": "habits_user_id_users_id_fk",

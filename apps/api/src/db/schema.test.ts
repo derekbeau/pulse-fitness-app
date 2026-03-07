@@ -2,6 +2,7 @@ import { getTableColumns, getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { describe, expect, it } from 'vitest';
 
+import type { HabitTrackingType } from './schema/index.js';
 import { agentTokens, habitEntries, habits, users } from './schema/index.js';
 
 describe('users schema', () => {
@@ -53,7 +54,10 @@ describe('agentTokens schema', () => {
 
 describe('habits schema', () => {
   it('defines the expected table, columns, and tracking type constraint', () => {
+    const trackingType: HabitTrackingType = 'boolean';
+
     expect(getTableName(habits)).toBe('habits');
+    expect(trackingType).toBe('boolean');
 
     const columns = getTableColumns(habits);
     expect(Object.keys(columns)).toEqual([
@@ -67,6 +71,7 @@ describe('habits schema', () => {
       'sortOrder',
       'active',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
@@ -74,11 +79,17 @@ describe('habits schema', () => {
     expect(columns.active.default).toBe(true);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(habits);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
-    expect(config.checks.map((constraint) => constraint.name)).toContain('habits_tracking_type_check');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['habits_user_id_idx']);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'habits_tracking_type_check',
+    ]);
   });
 });
 
@@ -119,6 +130,9 @@ describe('habitEntries schema', () => {
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'habit_entries_date_idx',
       'habit_entries_user_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'habit_entries_date_format_check',
     ]);
   });
 });
