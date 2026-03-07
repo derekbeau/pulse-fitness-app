@@ -3,16 +3,20 @@ import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { describe, expect, it } from 'vitest';
 
 import type {
+  ActivityType,
   ConditionProtocolStatus,
   ConditionTimelineEventType,
   HealthConditionStatus,
   HabitTrackingType,
+  JournalEntryCreatedBy,
+  JournalEntryType,
   WorkoutExerciseCategory,
   WorkoutSessionFeedback,
   WorkoutSessionStatus,
   WorkoutTemplateSectionType,
 } from './schema/index.js';
 import {
+  activities,
   agentTokens,
   bodyWeight,
   conditionProtocols,
@@ -24,6 +28,7 @@ import {
   healthConditions,
   habitEntries,
   habits,
+  journalEntries,
   mealItems,
   meals,
   nutritionTargets,
@@ -169,6 +174,81 @@ describe('bodyWeight schema', () => {
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'body_weight_date_format_check',
       'body_weight_weight_check',
+    ]);
+  });
+});
+
+describe('activities schema', () => {
+  it('defines the expected table, per-user date index, and activity guardrails', () => {
+    const type: ActivityType = 'walking';
+
+    expect(getTableName(activities)).toBe('activities');
+    expect(type).toBe('walking');
+
+    const columns = getTableColumns(activities);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'date',
+      'type',
+      'name',
+      'durationMinutes',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.notes.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(activities);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['activities_user_date_idx']);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'activities_date_format_check',
+      'activities_duration_minutes_check',
+      'activities_type_check',
+    ]);
+  });
+});
+
+describe('journalEntries schema', () => {
+  it('defines the expected table, per-user date index, and journal guardrails', () => {
+    const type: JournalEntryType = 'post-workout';
+    const createdBy: JournalEntryCreatedBy = 'agent';
+
+    expect(getTableName(journalEntries)).toBe('journal_entries');
+    expect(type).toBe('post-workout');
+    expect(createdBy).toBe('agent');
+
+    const columns = getTableColumns(journalEntries);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'date',
+      'title',
+      'type',
+      'content',
+      'createdBy',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(journalEntries);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['journal_entries_user_date_idx']);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'journal_entries_created_by_check',
+      'journal_entries_date_format_check',
+      'journal_entries_type_check',
     ]);
   });
 });
