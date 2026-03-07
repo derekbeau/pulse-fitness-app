@@ -1,7 +1,6 @@
 import type {
   WorkoutBadgeType,
   WorkoutExerciseCategory,
-  WorkoutFeedbackScore,
   WorkoutSession,
   WorkoutSessionFeedback,
   WorkoutTemplateSectionType,
@@ -133,12 +132,13 @@ export type ActiveWorkoutCustomFeedbackField =
       min: number;
       notes?: string;
       type: 'scale';
-      value?: WorkoutFeedbackScore | null;
+      value?: number | null;
     }
   | {
       id: string;
       label: string;
       notes?: string;
+      optional?: boolean;
       type: 'text';
       value?: string;
     };

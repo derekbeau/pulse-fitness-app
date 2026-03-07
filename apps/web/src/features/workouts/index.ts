@@ -19,7 +19,6 @@ export {
 export {
   enhancedWorkoutMockData,
   workoutCompletedSessions,
-  workoutCustomFeedbackFields,
   workoutFeedbackFields,
   workoutEnhancedExercises,
   workoutExerciseHistory,

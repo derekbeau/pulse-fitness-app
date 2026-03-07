@@ -171,6 +171,7 @@ export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
   {
     id: 'session-note',
     label: 'Coach note',
+    optional: true,
     type: 'text',
     value: 'Keep incline press to a 2-count pause on the chest next week.',
   },
@@ -724,8 +725,6 @@ export const enhancedWorkoutMockData = {
   sessionContext: workoutSessionContext,
   supplementalExercises: workoutSupplementalExercises,
 };
-
-export const workoutCustomFeedbackFields = workoutFeedbackFields;
 
 function createCompletedSession(input: CompletedSessionInput): ActiveWorkoutCompletedSession {
   return {

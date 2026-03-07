@@ -69,9 +69,38 @@ describe('SessionFeedback', () => {
         id: 'session-note',
         label: 'Coach note',
         notes: '',
+        optional: true,
         type: 'text',
         value: 'Stay tucked and keep the pause honest next week.',
       },
     ]);
+  });
+
+  it('allows optional text feedback fields to be cleared without blocking finalization', () => {
+    const onSubmit = vi.fn();
+
+    render(<SessionFeedback fields={workoutFeedbackFields} onSubmit={onSubmit} />);
+
+    const finalizeButton = screen.getByRole('button', { name: 'Finalize session' });
+    const coachNoteInput = screen.getByDisplayValue(
+      'Keep incline press to a 2-count pause on the chest next week.',
+    );
+
+    fireEvent.change(coachNoteInput, { target: { value: '' } });
+
+    expect(finalizeButton).toBeEnabled();
+
+    fireEvent.click(finalizeButton);
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'session-note',
+          optional: true,
+          type: 'text',
+          value: '',
+        }),
+      ]),
+    );
   });
 });

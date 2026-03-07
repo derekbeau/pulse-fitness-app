@@ -35,6 +35,10 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
       return field.value !== null && field.value !== undefined;
     }
 
+    if (field.optional) {
+      return true;
+    }
+
     return (field.value ?? '').trim().length > 0;
   });
 
@@ -90,7 +94,7 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
                           setFeedback((current) =>
                             current.map((entry) =>
                               entry.id === field.id && entry.type === 'scale'
-                                ? { ...entry, value: score as 1 | 2 | 3 | 4 | 5 }
+                                ? { ...entry, value: score }
                                 : entry,
                             ),
                           )
