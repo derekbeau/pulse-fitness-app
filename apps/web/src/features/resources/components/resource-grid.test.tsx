@@ -23,7 +23,7 @@ describe('ResourceGrid', () => {
     );
     expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(mockResources.length);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Books' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Books' }));
     expect(screen.getByRole('link', { name: 'Open Starting Strength' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open McGill Big 3' })).not.toBeInTheDocument();
 
@@ -37,7 +37,7 @@ describe('ResourceGrid', () => {
     });
     expect(screen.getByText('No resources found')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(screen.getByRole('link', { name: 'Open Strength Side' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', { name: 'Open Strength Side' }));

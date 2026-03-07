@@ -14,6 +14,7 @@ export const resourceTypeLabels: Record<ResourceType, string> = {
   creator: 'Creator',
 };
 
+// TODO: Replace this derived slug with a stored route id/slug when injury detail routes are backed by real data.
 export function buildConditionDetailPath(conditionName: string) {
   const slug = conditionName
     .trim()

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Link } from 'react-router';
 
@@ -24,27 +24,32 @@ const FILTER_OPTIONS: Array<{ label: string; value: ResourceFilter }> = [
   { label: 'Creators', value: 'creator' },
 ];
 
+const MAX_VISIBLE_TAGS = 4;
+
 export function ResourceGrid({ resources }: ResourceGridProps) {
   const [activeFilter, setActiveFilter] = useState<ResourceFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredResources = resources.filter((resource) => {
-    const matchesType = activeFilter === 'all' || resource.type === activeFilter;
-    const matchesSearch =
-      normalizedQuery.length === 0 ||
-      resource.title.toLowerCase().includes(normalizedQuery) ||
-      resource.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery));
+  const filteredResources = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return matchesType && matchesSearch;
-  });
+    return resources.filter((resource) => {
+      const matchesType = activeFilter === 'all' || resource.type === activeFilter;
+      const matchesSearch =
+        normalizedQuery.length === 0 ||
+        resource.title.toLowerCase().includes(normalizedQuery) ||
+        resource.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery));
+
+      return matchesType && matchesSearch;
+    });
+  }, [activeFilter, resources, searchQuery]);
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
       <header className="space-y-4">
         <Button
           asChild
-          className="w-fit gap-2 px-0 text-muted hover:text-foreground"
+          className="w-fit gap-2 px-0 text-muted-foreground hover:text-foreground"
           size="sm"
           variant="ghost"
         >
@@ -58,7 +63,7 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold text-primary">Resources</h1>
-              <p className="max-w-3xl text-sm text-muted">
+              <p className="max-w-3xl text-sm text-muted-foreground">
                 Browse saved programs, books, and creators with quick tag search and type filters.
               </p>
             </div>
@@ -91,21 +96,16 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
             </div>
           </div>
 
-          <div
-            aria-label="Resource types"
-            className="flex gap-2 overflow-x-auto pb-1"
-            role="tablist"
-          >
+          <div aria-label="Resource types" className="flex gap-2 overflow-x-auto pb-1">
             {FILTER_OPTIONS.map((option) => {
               const isActive = option.value === activeFilter;
 
               return (
                 <Button
-                  aria-selected={isActive}
+                  aria-pressed={isActive}
                   className="rounded-full"
                   key={option.value}
                   onClick={() => setActiveFilter(option.value)}
-                  role="tab"
                   size="sm"
                   type="button"
                   variant={isActive ? 'default' : 'ghost'}
@@ -121,7 +121,7 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
       {filteredResources.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredResources.map((resource) => {
-            const visibleTags = resource.tags.slice(0, 4);
+            const visibleTags = resource.tags.slice(0, MAX_VISIBLE_TAGS);
             const hiddenTagCount = resource.tags.length - visibleTags.length;
 
             return (
@@ -152,7 +152,7 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
                   </CardHeader>
 
                   <CardContent className="space-y-4 pb-5">
-                    <p className="overflow-hidden text-sm leading-6 text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
                       {resource.description}
                     </p>
 

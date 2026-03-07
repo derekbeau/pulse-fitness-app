@@ -9,6 +9,7 @@ import { ResourceDetail } from './resource-detail';
 describe('ResourceDetail', () => {
   it('renders the full resource detail layout for a populated resource', () => {
     const resource = mockResources.find((item) => item.id === 'mcgill-big-3');
+    if (!resource) throw new Error('mcgill-big-3 missing from mockResources');
 
     render(
       <MemoryRouter>
@@ -16,7 +17,7 @@ describe('ResourceDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: '← Back to Resources' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Back to Resources' })).toHaveAttribute(
       'href',
       '/profile/resources',
     );
