@@ -1,5 +1,6 @@
 import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
+import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
@@ -36,6 +37,14 @@ const start = async () => {
   const app = buildServer();
 
   try {
+    const [{ db }, { migrate }] = await Promise.all([
+      import('./db/index.js'),
+      import('drizzle-orm/better-sqlite3/migrator'),
+    ]);
+    const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+
+    migrate(db, { migrationsFolder });
+
     const address = await app.listen({
       host: process.env.HOST || '0.0.0.0',
       port: Number(process.env.PORT) || 3001,

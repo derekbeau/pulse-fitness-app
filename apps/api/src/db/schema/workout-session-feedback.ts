@@ -30,7 +30,14 @@ export function parseWorkoutSessionFeedback(
     return null;
   }
 
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new TypeError(INVALID_WORKOUT_SESSION_FEEDBACK_ERROR);
+  }
+
   if (
     !isFeedbackRecord(parsed) ||
     !isFeedbackRating(parsed.energy) ||
@@ -38,7 +45,10 @@ export function parseWorkoutSessionFeedback(
     !isFeedbackRating(parsed.technique) ||
     ('notes' in parsed && parsed.notes !== undefined && typeof parsed.notes !== 'string') ||
     Object.keys(parsed).some(
-      (key) => !WORKOUT_SESSION_FEEDBACK_KEYS.includes(key as (typeof WORKOUT_SESSION_FEEDBACK_KEYS)[number]),
+      (key) =>
+        !WORKOUT_SESSION_FEEDBACK_KEYS.includes(
+          key as (typeof WORKOUT_SESSION_FEEDBACK_KEYS)[number],
+        ),
     )
   ) {
     throw new TypeError(INVALID_WORKOUT_SESSION_FEEDBACK_ERROR);

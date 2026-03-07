@@ -1,16 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  unique,
-} from 'drizzle-orm/sqlite-core';
+import { check, index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
+import { exercises } from './exercises.js';
 import type { WorkoutTemplateSectionType } from './workout-templates.js';
 import { workoutTemplates } from './workout-templates.js';
 import { users } from './users.js';
@@ -27,7 +20,9 @@ export type WorkoutSessionFeedback = {
 export const workoutSessions = sqliteTable(
   'workout_sessions',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -74,11 +69,15 @@ export const workoutSessions = sqliteTable(
 export const sessionSets = sqliteTable(
   'session_sets',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     sessionId: text('session_id')
       .notNull()
       .references(() => workoutSessions.id, { onDelete: 'cascade' }),
-    exerciseId: text('exercise_id').notNull(),
+    exerciseId: text('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'restrict' }),
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),
     reps: integer('reps'),

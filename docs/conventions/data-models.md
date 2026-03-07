@@ -5,7 +5,7 @@ Pulse stores application data in SQLite through Drizzle ORM. This document is th
 ## Storage Conventions
 
 - Primary keys: all primary keys are UUIDs stored as `text`.
-- User scoping: every user-owned root table stores `userId`, and child tables inherit scope through foreign keys. `entity_links` is the deliberate exception and must be scoped through the owning source record.
+- User scoping: every user-owned root table stores `userId`, and child tables inherit scope through foreign keys. `entity_links` also stores `userId`, but reads should still usually scope through the owning source entity.
 - Dates: calendar dates are stored as `text` in `YYYY-MM-DD` format and protected with SQLite `CHECK` constraints.
 - Time-of-day fields: meal times are stored as nullable `text` in `HH:MM` 24-hour format.
 - Timestamps: audit and event timestamps are stored as `integer` Unix milliseconds.
@@ -37,6 +37,7 @@ Direct `userId` ownership lives on these root tables:
 - `activities`
 - `resources`
 - `equipment_locations`
+- `entity_links`
 
 Inherited ownership comes from foreign-key chains:
 
@@ -49,7 +50,7 @@ Inherited ownership comes from foreign-key chains:
 - `condition_severity_points` through `health_conditions`
 - `equipment_items` through `equipment_locations`
 
-`entity_links` has no `userId` column or foreign keys by design. Every read and write must scope through the owning source entity so links cannot cross household-user boundaries.
+`entity_links` stores `userId` for direct isolation and cleanup queries. Every read and write must still scope through the owning source entity so links cannot cross household-user boundaries.
 
 ## Table Inventory
 
@@ -70,7 +71,7 @@ Inherited ownership comes from foreign-key chains:
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `name`: `text`, required
-- `tokenHash`: `text`, required, SHA-256 hash of the plain token
+- `tokenHash`: `text`, required, unique, SHA-256 hash of the plain token
 - `lastUsedAt`: nullable `integer` Unix ms
 - `createdAt`: `integer` Unix ms, required, default now
 
@@ -185,7 +186,7 @@ Constraints:
 
 - `id`: `text` primary key UUID
 - `sessionId`: `text`, required, FK -> `workout_sessions.id`, `ON DELETE CASCADE`, indexed
-- `exerciseId`: `text`, required
+- `exerciseId`: `text`, required, FK -> `exercises.id`, `ON DELETE RESTRICT`
 - `setNumber`: `integer`, required
 - `weight`: nullable `real`
 - `reps`: nullable `integer`
@@ -500,6 +501,7 @@ Constraints:
 #### `entity_links`
 
 - `id`: `text` primary key UUID
+- `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `sourceType`: `text`, required, one of `journal | activity | resource`
 - `sourceId`: `text`, required
 - `targetType`: `text`, required, one of `workout | activity | habit | injury | exercise | protocol`
@@ -509,8 +511,8 @@ Constraints:
 
 Indexes and constraints:
 
-- `entity_links_source_type_source_id_idx`
-- `entity_links_target_type_target_id_idx`
+- `entity_links_user_source_type_source_id_idx`
+- `entity_links_user_target_type_target_id_idx`
 - `entity_links_source_type_check`
 - `entity_links_target_type_check`
 
@@ -518,11 +520,12 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 
 ## Relationship Patterns
 
-- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, and `equipment_locations`.
+- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`.
 - `users` has one `dashboard_config`.
 - `habits` has many `habit_entries`.
 - `workout_templates` has many `template_exercises`.
 - `workout_sessions` optionally references a `workout_template` and has many `session_sets`.
+- `session_sets` references both `workout_sessions` and `exercises`.
 - `scheduled_workouts` may point to both a `workout_template` and a realized `workout_session`.
 - `nutrition_logs` has many `meals`; `meals` has many `meal_items`; `meal_items` may reference `foods`.
 - `health_conditions` has many `condition_timeline_events`, `condition_protocols`, and `condition_severity_points`.

@@ -6,12 +6,14 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { users } from './users.js';
 
 export const agentTokens = sqliteTable('agent_tokens', {
-  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  tokenHash: text('token_hash').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
   lastUsedAt: integer('last_used_at', { mode: 'number' }),
   createdAt: integer('created_at', { mode: 'number' })
     .notNull()

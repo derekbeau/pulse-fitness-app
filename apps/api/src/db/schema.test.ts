@@ -77,7 +77,7 @@ describe('users schema', () => {
 });
 
 describe('agentTokens schema', () => {
-  it('defines the expected table and foreign key to users', () => {
+  it('defines the expected table, unique token hash, and foreign key to users', () => {
     expect(getTableName(agentTokens)).toBe('agent_tokens');
 
     const columns = getTableColumns(agentTokens);
@@ -91,6 +91,8 @@ describe('agentTokens schema', () => {
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.tokenHash.isUnique).toBe(true);
+    expect(columns.tokenHash.uniqueName).toBe('agent_tokens_token_hash_unique');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
@@ -322,7 +324,7 @@ describe('equipmentItems schema', () => {
 });
 
 describe('entityLinks schema', () => {
-  it('defines the expected table, bidirectional indexes, and polymorphic type guardrails', () => {
+  it('defines the expected table, user scope, and polymorphic type guardrails', () => {
     const sourceType: EntityLinkSourceType = 'resource';
     const targetType: EntityLinkTargetType = 'exercise';
 
@@ -333,6 +335,7 @@ describe('entityLinks schema', () => {
     const columns = getTableColumns(entityLinks);
     expect(Object.keys(columns)).toEqual([
       'id',
+      'userId',
       'sourceType',
       'sourceId',
       'targetType',
@@ -346,10 +349,11 @@ describe('entityLinks schema', () => {
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
     const config = getTableConfig(entityLinks);
-    expect(config.foreignKeys).toHaveLength(0);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
-      'entity_links_source_type_source_id_idx',
-      'entity_links_target_type_target_id_idx',
+      'entity_links_user_source_type_source_id_idx',
+      'entity_links_user_target_type_target_id_idx',
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'entity_links_source_type_check',
@@ -674,8 +678,8 @@ describe('dashboardConfig schema', () => {
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
-    expect(columns.habitChainIds.default).toBeDefined();
-    expect(columns.trendMetrics.default).toBeDefined();
+    expect(columns.habitChainIds.default).toEqual([]);
+    expect(columns.trendMetrics.default).toEqual([]);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
@@ -1006,7 +1010,7 @@ describe('habitEntries schema', () => {
 });
 
 describe('sessionSets schema', () => {
-  it('defines the expected table, defaults, ordering constraint, and session foreign key', () => {
+  it('defines the expected table, defaults, ordering constraint, and required foreign keys', () => {
     expect(getTableName(sessionSets)).toBe('session_sets');
 
     const columns = getTableColumns(sessionSets);
@@ -1031,8 +1035,14 @@ describe('sessionSets schema', () => {
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
     const config = getTableConfig(sessionSets);
-    expect(config.foreignKeys).toHaveLength(1);
-    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('workout_sessions');
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['exercises', 'workout_sessions']);
+    expect(
+      config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'exercises')
+        ?.onDelete,
+    ).toBe('restrict');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['session_sets_session_id_idx']);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
@@ -1111,6 +1121,7 @@ describe('JSON-backed string array helpers', () => {
   });
 
   it('rejects invalid JSON payloads', () => {
+    expect(() => parseJsonStringArray('not-json')).toThrow(TypeError);
     expect(() => parseJsonStringArray('{"group":"legs"}')).toThrow(TypeError);
     expect(() => parseJsonStringArray('[1,2,3]')).toThrow(TypeError);
   });
@@ -1134,6 +1145,7 @@ describe('workout session feedback helpers', () => {
   });
 
   it('rejects invalid feedback payloads', () => {
+    expect(() => parseWorkoutSessionFeedback('not-json')).toThrow(TypeError);
     expect(() => parseWorkoutSessionFeedback('{"energy":6,"recovery":3,"technique":4}')).toThrow(
       TypeError,
     );

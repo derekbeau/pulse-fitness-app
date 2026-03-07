@@ -26,6 +26,15 @@ describe('registerInputSchema', () => {
     ).toThrow();
   });
 
+  it('rejects usernames longer than 30 characters', () => {
+    expect(() =>
+      registerInputSchema.parse({
+        username: 'a'.repeat(31),
+        password: 'super-secret',
+      }),
+    ).toThrow();
+  });
+
   it('rejects passwords longer than bcrypt supports and empty names', () => {
     expect(() =>
       registerInputSchema.parse({

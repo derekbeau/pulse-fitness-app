@@ -5,20 +5,18 @@ import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-cor
 
 import { users } from './users.js';
 
-export type WorkoutExerciseCategory =
-  | 'compound'
-  | 'isolation'
-  | 'cardio'
-  | 'mobility';
+export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
 
 export const exercises = sqliteTable(
   'exercises',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     // Null userId rows belong to the shared exercise library and should be included in user list queries.
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    muscleGroups: text('muscle_groups').$type<string[]>().notNull(),
+    muscleGroups: text('muscle_groups', { mode: 'json' }).$type<string[]>().notNull(),
     equipment: text('equipment').notNull(),
     category: text('category').$type<WorkoutExerciseCategory>().notNull(),
     instructions: text('instructions'),

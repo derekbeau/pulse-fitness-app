@@ -10,7 +10,14 @@ export function parseJsonStringArray(value: string | null | undefined): string[]
     return [];
   }
 
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new TypeError(INVALID_JSON_STRING_ARRAY_ERROR);
+  }
+
   if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== 'string')) {
     throw new TypeError(INVALID_JSON_STRING_ARRAY_ERROR);
   }

@@ -8,12 +8,17 @@ import { users } from './users.js';
 export const dashboardConfig = sqliteTable(
   'dashboard_config',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    habitChainIds: text('habit_chain_ids').$type<string[]>().notNull().default(sql`'[]'`),
-    trendMetrics: text('trend_metrics').$type<string[]>().notNull().default(sql`'[]'`),
+    habitChainIds: text('habit_chain_ids', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    trendMetrics: text('trend_metrics', { mode: 'json' }).$type<string[]>().notNull().default([]),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const usernameSchema = z.string().trim().toLowerCase().min(3);
+const usernameSchema = z.string().trim().toLowerCase().min(3).max(30);
 
 export const registerInputSchema = z.object({
   username: usernameSchema,

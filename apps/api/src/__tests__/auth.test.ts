@@ -1,45 +1,165 @@
 import { createHash } from 'node:crypto';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import bcrypt from 'bcryptjs';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq } from 'drizzle-orm';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = resolve(__dirname, '../../drizzle');
-
-type TestContext = {
-  app: Awaited<ReturnType<typeof createTestApp>>['app'];
-  db: Awaited<ReturnType<typeof createTestApp>>['db'];
-  sqlite: Awaited<ReturnType<typeof createTestApp>>['sqlite'];
+type StoredUser = {
+  id: string;
+  username: string;
+  name: string | null;
+  passwordHash: string;
 };
+
+type StoredAgentToken = {
+  id: string;
+  userId: string;
+  name: string;
+  tokenHash: string;
+  lastUsedAt: number | null;
+  createdAt: number;
+};
+
+const testState = vi.hoisted(() => {
+  const users = new Map<string, StoredUser>();
+  const agentTokens = new Map<string, StoredAgentToken>();
+  const initialCreatedAt = 1_700_000_000_000;
+  let createdAtCounter = initialCreatedAt;
+
+  return {
+    users,
+    agentTokens,
+    reset() {
+      users.clear();
+      agentTokens.clear();
+      createdAtCounter = initialCreatedAt;
+    },
+    nextCreatedAt() {
+      const createdAt = createdAtCounter;
+      createdAtCounter += 1;
+      return createdAt;
+    },
+  };
+});
+
+vi.mock('../routes/auth/store.js', () => ({
+  createUser: vi.fn(
+    async ({
+      id,
+      username,
+      name,
+      passwordHash,
+    }: {
+      id: string;
+      username: string;
+      name?: string;
+      passwordHash: string;
+    }) => {
+      if (testState.users.has(username)) {
+        throw Object.assign(new Error('Username already exists'), {
+          code: 'SQLITE_CONSTRAINT_UNIQUE',
+        });
+      }
+
+      testState.users.set(username, {
+        id,
+        username,
+        name: name ?? null,
+        passwordHash,
+      });
+
+      return {
+        id,
+        username,
+        name: name ?? null,
+      };
+    },
+  ),
+  findUserByUsername: vi.fn(async (username: string) => testState.users.get(username)),
+}));
+
+vi.mock('../routes/agent-tokens/store.js', () => ({
+  createAgentToken: vi.fn(
+    async ({
+      id,
+      userId,
+      name,
+      tokenHash,
+    }: {
+      id: string;
+      userId: string;
+      name: string;
+      tokenHash: string;
+    }) => {
+      testState.agentTokens.set(id, {
+        id,
+        userId,
+        name,
+        tokenHash,
+        lastUsedAt: null,
+        createdAt: testState.nextCreatedAt(),
+      });
+
+      return { id, name };
+    },
+  ),
+  listAgentTokens: vi.fn(async (userId: string) =>
+    [...testState.agentTokens.values()]
+      .filter((token) => token.userId === userId)
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .map(({ id, name, lastUsedAt, createdAt }) => ({
+        id,
+        name,
+        lastUsedAt,
+        createdAt,
+      })),
+  ),
+  deleteAgentToken: vi.fn(async (id: string, userId: string) => {
+    const token = testState.agentTokens.get(id);
+    if (!token || token.userId !== userId) {
+      return false;
+    }
+
+    testState.agentTokens.delete(id);
+    return true;
+  }),
+}));
+
+vi.mock('../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(async (tokenHash: string) => {
+    const token = [...testState.agentTokens.values()].find(
+      (candidate) => candidate.tokenHash === tokenHash,
+    );
+
+    return token ? { id: token.id, userId: token.userId } : undefined;
+  }),
+  updateAgentTokenLastUsedAt: vi.fn(async (id: string, lastUsedAt = Date.now()) => {
+    const token = testState.agentTokens.get(id);
+    if (!token) {
+      throw new Error('Failed to update agent token last used timestamp');
+    }
+
+    token.lastUsedAt = lastUsedAt;
+  }),
+}));
 
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
   authorization: `${scheme} ${token}`,
 });
 
 const createTestApp = async () => {
-  process.env.DATABASE_URL = ':memory:';
   process.env.JWT_SECRET = 'integration-test-jwt-secret';
 
   vi.resetModules();
 
-  const [{ buildServer }, { requireAuth }, dbModule, schemaModule] = await Promise.all([
+  const [{ buildServer }, { requireAuth }] = await Promise.all([
     import('../index.js'),
     import('../middleware/auth.js'),
-    import('../db/index.js'),
-    import('../db/schema/index.js'),
   ]);
-
-  migrate(dbModule.db, { migrationsFolder });
 
   const app = buildServer();
 
   await app.register(async (instance) => {
     instance.addHook('onRequest', requireAuth);
-
     instance.get('/api/agent/ping', async (request) => ({
       data: {
         userId: request.userId,
@@ -49,16 +169,11 @@ const createTestApp = async () => {
 
   await app.ready();
 
-  return {
-    app,
-    db: dbModule.db,
-    sqlite: dbModule.sqlite,
-    schema: schemaModule,
-  };
+  return { app };
 };
 
 const registerUser = async (
-  app: TestContext['app'],
+  app: Awaited<ReturnType<typeof createTestApp>>['app'],
   overrides?: Partial<{
     username: string;
     password: string;
@@ -77,7 +192,7 @@ const registerUser = async (
   });
 
 const loginUser = async (
-  app: TestContext['app'],
+  app: Awaited<ReturnType<typeof createTestApp>>['app'],
   overrides?: Partial<{
     username: string;
     password: string;
@@ -93,36 +208,40 @@ const loginUser = async (
     },
   });
 
-const registerAndLogin = async (app: TestContext['app']) => {
+const registerAndLogin = async (app: Awaited<ReturnType<typeof createTestApp>>['app']) => {
   const registerResponse = await registerUser(app);
   expect(registerResponse.statusCode).toBe(201);
 
   const loginResponse = await loginUser(app);
   expect(loginResponse.statusCode).toBe(200);
 
-  const payload = loginResponse.json() as {
-    data: {
-      token: string;
-      user: {
-        id: string;
-        username: string;
-        name: string | null;
+  return (
+    loginResponse.json() as {
+      data: {
+        token: string;
+        user: {
+          id: string;
+          username: string;
+          name: string | null;
+        };
       };
-    };
-  };
-
-  return payload.data;
+    }
+  ).data;
 };
 
 describe('auth integration', () => {
+  beforeEach(() => {
+    testState.reset();
+  });
+
   afterEach(() => {
-    delete process.env.DATABASE_URL;
     delete process.env.JWT_SECRET;
+    vi.useRealTimers();
     vi.resetModules();
   });
 
   it('registers a user, returns a JWT, and stores a hashed password', async () => {
-    const { app, db, sqlite, schema } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await registerUser(app, {
@@ -149,12 +268,7 @@ describe('auth integration', () => {
       const decoded = app.jwt.verify<{ userId: string }>(payload.data.token);
       expect(decoded.userId).toBe(payload.data.user.id);
 
-      const storedUser = db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.username, 'derek'))
-        .limit(1)
-        .get();
+      const storedUser = testState.users.get('derek');
 
       expect(storedUser).toBeDefined();
       expect(storedUser?.passwordHash).not.toBe('super-secret-password');
@@ -164,12 +278,11 @@ describe('auth integration', () => {
       );
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects duplicate usernames with a 409 conflict', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       expect((await registerUser(app)).statusCode).toBe(201);
@@ -185,12 +298,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects registration when required fields are missing', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await app.inject({
@@ -210,12 +322,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects registration when the password is too short', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await registerUser(app, {
@@ -231,12 +342,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('logs in with valid credentials and returns a JWT', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -251,12 +361,11 @@ describe('auth integration', () => {
       expect(decoded.userId).toBe(authData.user.id);
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('returns INVALID_CREDENTIALS for the wrong password', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       await registerUser(app);
@@ -274,12 +383,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('returns INVALID_CREDENTIALS for a nonexistent username', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await loginUser(app, {
@@ -295,12 +403,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('accepts a valid JWT on a protected route', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -318,12 +425,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects expired JWTs on protected routes', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -343,12 +449,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects malformed JWTs on protected routes', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await app.inject({
@@ -366,12 +471,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects requests without an Authorization header', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const response = await app.inject({
@@ -388,12 +492,11 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('creates and lists agent tokens without exposing stored hashes', async () => {
-    const { app, db, sqlite, schema } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -419,12 +522,7 @@ describe('auth integration', () => {
       expect(createdPayload.data.name).toBe('Meal logger');
       expect(createdPayload.data.token).toHaveLength(64);
 
-      const storedToken = db
-        .select()
-        .from(schema.agentTokens)
-        .where(eq(schema.agentTokens.id, createdPayload.data.id))
-        .limit(1)
-        .get();
+      const storedToken = testState.agentTokens.get(createdPayload.data.id);
 
       expect(storedToken).toBeDefined();
       expect(storedToken?.tokenHash).toBe(
@@ -452,12 +550,11 @@ describe('auth integration', () => {
       expect(listResponse.body).not.toContain(createdPayload.data.token);
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('authenticates /api/agent routes with an agent token and updates lastUsedAt', async () => {
-    const { app, db, sqlite, schema } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -477,12 +574,7 @@ describe('auth integration', () => {
         };
       };
 
-      const beforeUse = db
-        .select()
-        .from(schema.agentTokens)
-        .where(eq(schema.agentTokens.id, createdPayload.data.id))
-        .limit(1)
-        .get();
+      const beforeUse = testState.agentTokens.get(createdPayload.data.id);
       expect(beforeUse?.lastUsedAt).toBeNull();
 
       const useResponse = await app.inject({
@@ -498,21 +590,15 @@ describe('auth integration', () => {
         },
       });
 
-      const afterUse = db
-        .select()
-        .from(schema.agentTokens)
-        .where(eq(schema.agentTokens.id, createdPayload.data.id))
-        .limit(1)
-        .get();
+      const afterUse = testState.agentTokens.get(createdPayload.data.id);
       expect(afterUse?.lastUsedAt).toBeTypeOf('number');
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 
   it('rejects deleted agent tokens on subsequent use', async () => {
-    const { app, sqlite } = await createTestApp();
+    const { app } = await createTestApp();
 
     try {
       const authData = await registerAndLogin(app);
@@ -560,7 +646,6 @@ describe('auth integration', () => {
       });
     } finally {
       await app.close();
-      sqlite.close();
     }
   });
 });
