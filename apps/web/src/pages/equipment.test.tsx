@@ -49,7 +49,7 @@ describe('EquipmentRoutePage', () => {
       'aria-expanded',
       'false',
     );
-    expect(screen.queryByText('Free Weights')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Free Weights' })).not.toBeInTheDocument();
   });
 
   it('adds a new location from the dialog into local state', () => {

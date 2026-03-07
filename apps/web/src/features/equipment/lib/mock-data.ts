@@ -35,14 +35,6 @@ export const equipmentCategoryMeta: Record<EquipmentCategory, { icon: LucideIcon
     },
   };
 
-export function getEquipmentCategoryLabel(category: EquipmentCategory) {
-  return equipmentCategoryMeta[category].label;
-}
-
-export function getEquipmentCategoryIcon(category: EquipmentCategory) {
-  return equipmentCategoryMeta[category].icon;
-}
-
 export const equipmentLocations: EquipmentLocation[] = [
   {
     id: 'home-gym',
@@ -82,7 +74,7 @@ export const equipmentLocations: EquipmentLocation[] = [
       {
         id: 'squat-rack',
         name: 'Squat Rack',
-        category: 'accessories',
+        category: 'machines',
         details: 'Main rack for barbell lifts and rack-supported setup work.',
       },
       {

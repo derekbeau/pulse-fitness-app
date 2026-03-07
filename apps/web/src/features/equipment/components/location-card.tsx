@@ -169,161 +169,153 @@ export function LocationCard({
           </div>
         </button>
 
-        {isExpanded ? (
-          <div className="border-t border-border/80 px-5 py-5" id={contentId}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Manage inventory</p>
-                <p className="text-xs text-muted-foreground">
-                  Add items, refine notes, or remove tools from this location.
-                </p>
-              </div>
-
-              <Button
-                onClick={() => handleAddItemDialogChange(true)}
-                type="button"
-                variant="outline"
-              >
-                <PlusCircle aria-hidden="true" className="size-4" />
-                Add Item
-              </Button>
+        <div className="border-t border-border/80 px-5 py-5" hidden={!isExpanded} id={contentId}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Manage inventory</p>
+              <p className="text-xs text-muted-foreground">
+                Add items, refine notes, or remove tools from this location.
+              </p>
             </div>
 
-            {groupedEquipment.length > 0 ? (
-              <div className="mt-5 space-y-5">
-                {groupedEquipment.map((group, index) => {
-                  const Icon = equipmentCategoryMeta[group.category].icon;
+            <Button onClick={() => handleAddItemDialogChange(true)} type="button" variant="outline">
+              <PlusCircle aria-hidden="true" className="size-4" />
+              Add Item
+            </Button>
+          </div>
 
-                  return (
-                    <div className="space-y-3" key={group.category}>
-                      {index > 0 ? <Separator /> : null}
+          {groupedEquipment.length > 0 ? (
+            <div className="mt-5 space-y-5">
+              {groupedEquipment.map((group, index) => {
+                const Icon = equipmentCategoryMeta[group.category].icon;
 
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="flex size-10 items-center justify-center rounded-2xl bg-secondary text-primary">
-                          <Icon aria-hidden="true" className="size-4" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground">
-                            {equipmentCategoryMeta[group.category].label}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-                          </p>
-                        </div>
+                return (
+                  <div className="space-y-3" key={group.category}>
+                    {index > 0 ? <Separator /> : null}
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-secondary text-primary">
+                        <Icon aria-hidden="true" className="size-4" />
                       </div>
+                      <div>
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground">
+                          {equipmentCategoryMeta[group.category].label}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+                        </p>
+                      </div>
+                    </div>
 
-                      <ul className="space-y-2">
-                        {group.items.map((item) => {
-                          const isEditing = editingItemId === item.id;
+                    <ul className="space-y-2">
+                      {group.items.map((item) => {
+                        const isEditing = editingItemId === item.id;
 
-                          return (
-                            <li
-                              className="rounded-2xl border border-border/60 bg-secondary/15 px-4 py-3"
-                              key={item.id}
-                            >
-                              {isEditing ? (
-                                <div className="space-y-3">
-                                  <div className="space-y-2">
-                                    <Label htmlFor={`${item.id}-name`}>Item name</Label>
-                                    <Input
-                                      id={`${item.id}-name`}
-                                      onChange={(event) => setEditingName(event.target.value)}
-                                      value={editingName}
-                                    />
-                                  </div>
+                        return (
+                          <li
+                            className="rounded-2xl border border-border/60 bg-secondary/15 px-4 py-3"
+                            key={item.id}
+                          >
+                            {isEditing ? (
+                              <div className="space-y-3">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`${item.id}-name`}>Item name</Label>
+                                  <Input
+                                    id={`${item.id}-name`}
+                                    onChange={(event) => setEditingName(event.target.value)}
+                                    value={editingName}
+                                  />
+                                </div>
 
-                                  <div className="space-y-2">
-                                    <Label htmlFor={`${item.id}-details`}>Details</Label>
-                                    <Textarea
-                                      id={`${item.id}-details`}
-                                      onChange={(event) => setEditingDetails(event.target.value)}
-                                      placeholder="Add setup notes, load range, or attachment details."
-                                      value={editingDetails}
-                                    />
-                                  </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`${item.id}-details`}>Details</Label>
+                                  <Textarea
+                                    id={`${item.id}-details`}
+                                    onChange={(event) => setEditingDetails(event.target.value)}
+                                    placeholder="Add setup notes, load range, or attachment details."
+                                    value={editingDetails}
+                                  />
+                                </div>
 
-                                  <div className="flex flex-col gap-2 sm:flex-row">
-                                    <Button
-                                      disabled={editingName.trim().length === 0}
-                                      onClick={() => handleEditSave(item.id)}
-                                      type="button"
-                                    >
-                                      <Save aria-hidden="true" className="size-4" />
-                                      Save
-                                    </Button>
-                                    <Button
-                                      onClick={handleEditCancel}
-                                      type="button"
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                  <Button
+                                    disabled={editingName.trim().length === 0}
+                                    onClick={() => handleEditSave(item.id)}
+                                    type="button"
+                                  >
+                                    <Save aria-hidden="true" className="size-4" />
+                                    Save
+                                  </Button>
+                                  <Button
+                                    onClick={handleEditCancel}
+                                    type="button"
+                                    variant="outline"
+                                  >
+                                    <X aria-hidden="true" className="size-4" />
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-medium text-foreground">{item.name}</p>
+                                    <Badge
+                                      className="rounded-full px-2 py-0.5 text-[0.65rem]"
                                       variant="outline"
                                     >
-                                      <X aria-hidden="true" className="size-4" />
-                                      Cancel
-                                    </Button>
+                                      {equipmentCategoryMeta[item.category].label}
+                                    </Badge>
                                   </div>
+                                  {item.details ? (
+                                    <p className="text-sm text-muted-foreground">{item.details}</p>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      No details added yet.
+                                    </p>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="font-medium text-foreground">{item.name}</p>
-                                      <Badge
-                                        className="rounded-full px-2 py-0.5 text-[0.65rem]"
-                                        variant="outline"
-                                      >
-                                        {equipmentCategoryMeta[item.category].label}
-                                      </Badge>
-                                    </div>
-                                    {item.details ? (
-                                      <p className="text-sm text-muted-foreground">
-                                        {item.details}
-                                      </p>
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">
-                                        No details added yet.
-                                      </p>
-                                    )}
-                                  </div>
 
-                                  <div className="flex shrink-0 items-center gap-1">
-                                    <Button
-                                      aria-label={`Edit ${item.name}`}
-                                      onClick={() => handleEditStart(item)}
-                                      size="icon-xs"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <Pencil aria-hidden="true" className="size-3.5" />
-                                    </Button>
-                                    <Button
-                                      aria-label={`Remove ${item.name}`}
-                                      onClick={() => setPendingRemovalItem(item)}
-                                      size="icon-xs"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <Trash2 aria-hidden="true" className="size-3.5" />
-                                    </Button>
-                                  </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button
+                                    aria-label={`Edit ${item.name}`}
+                                    onClick={() => handleEditStart(item)}
+                                    size="icon-xs"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    <Pencil aria-hidden="true" className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    aria-label={`Remove ${item.name}`}
+                                    onClick={() => setPendingRemovalItem(item)}
+                                    size="icon-xs"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    <Trash2 aria-hidden="true" className="size-3.5" />
+                                  </Button>
                                 </div>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-2xl border border-dashed border-border/70 bg-secondary/10 px-4 py-6 text-center">
-                <p className="font-medium text-foreground">No equipment added yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Use this card to track what is available in this location.
-                </p>
-              </div>
-            )}
-          </div>
-        ) : null}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-dashed border-border/70 bg-secondary/10 px-4 py-6 text-center">
+              <p className="font-medium text-foreground">No equipment added yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Use this card to track what is available in this location.
+              </p>
+            </div>
+          )}
+        </div>
       </Card>
 
       <Dialog onOpenChange={handleAddItemDialogChange} open={isAddItemOpen}>
@@ -421,10 +413,22 @@ export function LocationCard({
 }
 
 function groupEquipmentByCategory(items: EquipmentItem[]) {
+  const itemsByCategory = items.reduce<Partial<Record<EquipmentCategory, EquipmentItem[]>>>(
+    (groups, item) => {
+      const categoryItems = groups[item.category] ?? [];
+
+      categoryItems.push(item);
+      groups[item.category] = categoryItems;
+
+      return groups;
+    },
+    {},
+  );
+
   return equipmentCategoryOrder
     .map((category) => ({
       category,
-      items: items.filter((item) => item.category === category),
+      items: itemsByCategory[category] ?? [],
     }))
     .filter((group) => group.items.length > 0);
 }

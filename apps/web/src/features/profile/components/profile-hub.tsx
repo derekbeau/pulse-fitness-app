@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils';
 
 type ProfileDestination = {
+  accentClassName?: string;
   description: string;
   href: string;
   icon: LucideIcon;
@@ -13,44 +14,49 @@ type ProfileDestination = {
   title: string;
 };
 
-const profileDestinations: ProfileDestination[] = [
-  {
-    description: 'Inventory across every gym setup and storage spot.',
-    href: '/profile/equipment',
-    icon: Wrench,
-    summary: '2 locations, 32 total items',
-    title: 'Equipment',
-  },
-  {
-    description: 'Track injuries, recovery notes, and active protocols.',
-    href: '/profile/injuries',
-    icon: Heart,
-    summary: '1 active condition',
-    title: 'Health Tracking',
-  },
-  {
-    description: 'Books, programs, and coaching references to revisit.',
-    href: '/profile/resources',
-    icon: BookOpen,
-    summary: '8 resources',
-    title: 'Resources',
-  },
-  {
-    description: 'Theme, targets, and dashboard preferences.',
-    href: '/settings',
-    icon: Settings,
-    summary: 'Theme, targets, dashboard',
-    title: 'Settings',
-  },
-];
-
 const mockProfile = {
   displayName: 'Jordan Lee',
   initials: 'JL',
   memberSince: 'March 2024',
 };
 
-export function ProfileHub() {
+type ProfileHubProps = {
+  equipmentSummary: string;
+};
+
+export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
+  const profileDestinations: ProfileDestination[] = [
+    {
+      description: 'Inventory across every gym setup and storage spot.',
+      href: '/profile/equipment',
+      icon: Wrench,
+      summary: equipmentSummary,
+      title: 'Equipment',
+    },
+    {
+      accentClassName: 'hover:border-rose-400/45 focus-within:border-rose-400/55',
+      description: 'Track injuries, recovery notes, and active protocols.',
+      href: '/profile/injuries',
+      icon: Heart,
+      summary: '1 active condition',
+      title: 'Health Tracking',
+    },
+    {
+      description: 'Books, programs, and coaching references to revisit.',
+      href: '/profile/resources',
+      icon: BookOpen,
+      summary: '8 resources',
+      title: 'Resources',
+    },
+    {
+      description: 'Theme, targets, and dashboard preferences.',
+      href: '/settings',
+      icon: Settings,
+      summary: 'Theme, targets, dashboard',
+      title: 'Settings',
+    },
+  ];
+
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
       <header className="space-y-2">
@@ -107,8 +113,7 @@ export function ProfileHub() {
                 <Card
                   className={cn(
                     'h-full gap-4 border-border/70 bg-card/90 transition-all duration-200 hover:-translate-y-1 hover:border-primary/45 hover:bg-secondary/40 hover:shadow-lg focus-within:border-primary/55 focus-within:ring-2 focus-within:ring-primary/20',
-                    destination.title === 'Health Tracking' &&
-                      'hover:border-rose-400/45 focus-within:border-rose-400/55',
+                    destination.accentClassName,
                   )}
                 >
                   <CardHeader className="gap-4">
