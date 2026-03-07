@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SeverityPoint, TimelineEvent } from '../types';
+import type { HealthCondition } from '../types';
 import { SeverityChart } from './severity-chart';
 
 vi.mock('recharts', async () => {
@@ -27,23 +27,37 @@ vi.mock('recharts', async () => {
 });
 
 describe('SeverityChart', () => {
-  const severityHistory: SeverityPoint[] = [
-    { date: '2025-01-01', value: 6 },
-    { date: '2025-01-10', value: 3 },
-  ];
-
-  const timeline: TimelineEvent[] = [
-    {
-      id: 'shoulder-flare-2025-01-05',
-      date: '2025-01-05',
-      event: 'Pain spiked after a heavy pressing day.',
-      type: 'flare',
-      notes: 'Backed off pressing volume for the rest of the week.',
-    },
-  ];
+  const condition: HealthCondition = {
+    id: 'test-condition',
+    bodyArea: 'Right Shoulder',
+    description: 'Minimal inline fixture for the severity chart tests.',
+    linkedJournalEntries: [],
+    name: 'Test Condition',
+    onsetDate: '2025-01-01',
+    protocols: [],
+    severityHistory: [
+      { date: '2025-01-01', value: 6 },
+      { date: '2025-01-10', value: 3 },
+    ],
+    status: 'active',
+    timeline: [
+      {
+        id: 'shoulder-flare-2025-01-05',
+        date: '2025-01-05',
+        event: 'Pain spiked after a heavy pressing day.',
+        type: 'flare',
+        notes: 'Backed off pressing volume for the rest of the week.',
+      },
+    ],
+  };
 
   it('renders a responsive chart with event markers and hover details', () => {
-    const { container } = render(<SeverityChart severityHistory={severityHistory} timeline={timeline} />);
+    const { container } = render(
+      <SeverityChart
+        severityHistory={condition.severityHistory}
+        timeline={condition.timeline}
+      />,
+    );
 
     expect(screen.getByText('Pain / Severity Over Time')).toBeInTheDocument();
     expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
@@ -60,7 +74,12 @@ describe('SeverityChart', () => {
   });
 
   it('shows a fallback when fewer than two severity data points are available', () => {
-    render(<SeverityChart severityHistory={[severityHistory[0]]} timeline={timeline} />);
+    render(
+      <SeverityChart
+        severityHistory={[condition.severityHistory[0]]}
+        timeline={condition.timeline}
+      />,
+    );
 
     expect(
       screen.getByText('Not enough data to show a trend yet. Add at least two severity check-ins.'),
