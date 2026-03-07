@@ -20,6 +20,7 @@ import { mockExercises, mockTemplates, type WorkoutTemplateSectionType } from '@
 import { cn } from '@/lib/utils';
 
 import { workoutCompletedSessions, workoutEnhancedExercises } from '../lib/mock-data';
+import { findPreviousTemplateSession } from '../lib/session-comparison';
 import type { ActiveWorkoutCompletedSession } from '../types';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
@@ -109,6 +110,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   const template = templateById.get(session.templateId);
+  const previousSession = findPreviousTemplateSession(session);
   const sessionDate = new Date(session.startedAt);
   const summary = getSessionSummary(session);
   const sections = buildSections(session);
@@ -211,7 +213,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </CardContent>
       </Card>
 
-      {showComparison ? <SessionComparison currentSession={session} /> : null}
+      {showComparison ? (
+        <SessionComparison currentSession={session} previousSession={previousSession} />
+      ) : null}
 
       <div className="space-y-4">
         <div className="space-y-1">
@@ -281,6 +285,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                       <SessionExerciseComparison
                         currentSession={session}
                         exerciseId={exercise.exerciseId}
+                        previousSession={previousSession}
                       />
                     ) : null}
 

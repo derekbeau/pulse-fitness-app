@@ -57,6 +57,7 @@ describe('SessionDetail', () => {
     expect(screen.getAllByText('Weight +5 kg').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Reps +1').length).toBeGreaterThan(0);
     expect(screen.getAllByText('PR').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Weight -')).not.toBeInTheDocument();
   });
 
   it('shows the first-session fallback when there is no previous session for the template', () => {

@@ -9,11 +9,13 @@ import type { ActiveWorkoutCompletedSession } from '../types';
 
 type SessionComparisonProps = {
   currentSession: ActiveWorkoutCompletedSession;
+  previousSession: ActiveWorkoutCompletedSession | null;
 };
 
 type SessionExerciseComparisonProps = {
   currentSession: ActiveWorkoutCompletedSession;
   exerciseId: string;
+  previousSession: ActiveWorkoutCompletedSession | null;
 };
 
 type ComparisonDirection = 'down' | 'flat' | 'up';
@@ -33,7 +35,7 @@ type SetComparison = {
 };
 
 type ExerciseComparison = {
-  previousExerciseName: string;
+  previousSessionDate: string;
   setComparisons: SetComparison[];
   volumeDelta: number;
 };
@@ -49,9 +51,7 @@ const decimalFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
 });
 
-export function SessionComparison({ currentSession }: SessionComparisonProps) {
-  const previousSession = findPreviousTemplateSession(currentSession);
-
+export function SessionComparison({ currentSession, previousSession }: SessionComparisonProps) {
   if (!previousSession) {
     return (
       <Card className="border-dashed">
@@ -118,8 +118,9 @@ export function SessionComparison({ currentSession }: SessionComparisonProps) {
 export function SessionExerciseComparison({
   currentSession,
   exerciseId,
+  previousSession,
 }: SessionExerciseComparisonProps) {
-  const comparison = getExerciseComparison(currentSession, exerciseId);
+  const comparison = getExerciseComparison(currentSession, previousSession, exerciseId);
 
   if (!comparison) {
     return null;
@@ -132,10 +133,10 @@ export function SessionExerciseComparison({
           Comparison
         </p>
         <div className="flex items-center gap-2 text-sm text-foreground">
-          <span className="text-muted">{`Volume vs ${comparison.previousExerciseName}`}</span>
+          <span className="text-muted">{`Volume vs ${comparison.previousSessionDate}`}</span>
           <DeltaIndicator
             direction={getDirection(comparison.volumeDelta)}
-            label={formatSignedNumber(comparison.volumeDelta)}
+            label={`${formatSignedNumber(comparison.volumeDelta)} kg`}
           />
         </div>
       </div>
@@ -147,14 +148,12 @@ export function SessionExerciseComparison({
             key={set.setNumber}
           >
             <span className="font-medium text-foreground">{`Set ${set.setNumber}`}</span>
-            <DeltaIndicator
-              direction={getDirection(set.weightDelta ?? 0)}
-              label={
-                set.currentWeight != null && set.weightDelta != null
-                  ? `Weight ${formatSignedNumber(set.weightDelta)} kg`
-                  : 'Weight -'
-              }
-            />
+            {set.currentWeight != null && set.weightDelta != null ? (
+              <DeltaIndicator
+                direction={getDirection(set.weightDelta)}
+                label={`Weight ${formatSignedNumber(set.weightDelta)} kg`}
+              />
+            ) : null}
             <DeltaIndicator
               direction={getDirection(set.repsDelta)}
               label={`Reps ${formatSignedInteger(set.repsDelta)}`}
@@ -189,9 +188,11 @@ function DeltaIndicator({ direction, label }: DeltaIndicatorProps) {
   );
 }
 
-function getExerciseComparison(currentSession: ActiveWorkoutCompletedSession, exerciseId: string) {
-  const previousSession = findPreviousTemplateSession(currentSession);
-
+function getExerciseComparison(
+  currentSession: ActiveWorkoutCompletedSession,
+  previousSession: ActiveWorkoutCompletedSession | null,
+  exerciseId: string,
+) {
   if (!previousSession) {
     return null;
   }
@@ -208,7 +209,7 @@ function getExerciseComparison(currentSession: ActiveWorkoutCompletedSession, ex
   const earlierSets = getEarlierExerciseSets(currentSession, exerciseId);
 
   return {
-    previousExerciseName: dateFormatter.format(new Date(previousSession.startedAt)),
+    previousSessionDate: dateFormatter.format(new Date(previousSession.startedAt)),
     setComparisons: currentExercise.sets.map((set, index) => {
       const previousSet = previousExercise.sets[index];
 
@@ -224,19 +225,6 @@ function getExerciseComparison(currentSession: ActiveWorkoutCompletedSession, ex
     }),
     volumeDelta: getExerciseVolume(currentExercise) - getExerciseVolume(previousExercise),
   } satisfies ExerciseComparison;
-}
-
-function findPreviousTemplateSession(currentSession: ActiveWorkoutCompletedSession) {
-  const currentTime = new Date(currentSession.startedAt).getTime();
-
-  return [...workoutCompletedSessions]
-    .filter(
-      (session) =>
-        session.id !== currentSession.id &&
-        session.templateId === currentSession.templateId &&
-        new Date(session.startedAt).getTime() < currentTime,
-    )
-    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())[0];
 }
 
 function getEarlierExerciseSets(currentSession: ActiveWorkoutCompletedSession, exerciseId: string) {
@@ -272,7 +260,7 @@ function isPersonalRecord(
   ) as Array<{ reps: number; weight: number }>;
 
   if (comparableSets.length === 0) {
-    return previousSets.length > 0;
+    return false;
   }
 
   return currentWeight > Math.max(...comparableSets.map((set) => set.weight));
