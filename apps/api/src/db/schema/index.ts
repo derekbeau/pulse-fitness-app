@@ -1,4 +1,6 @@
 export * from './users.js';
+export * from './foods.js';
+export * from './nutrition.js';
 export * from './exercises.js';
 export * from './json-arrays.js';
 export * from './workout-session-feedback.js';

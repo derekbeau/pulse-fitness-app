@@ -12,8 +12,12 @@ import type {
 import {
   agentTokens,
   exercises,
+  foods,
   habitEntries,
   habits,
+  mealItems,
+  meals,
+  nutritionLogs,
   parseJsonStringArray,
   parseWorkoutSessionFeedback,
   sessionSets,
@@ -69,6 +73,150 @@ describe('agentTokens schema', () => {
     const config = getTableConfig(agentTokens);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+  });
+});
+
+describe('foods schema', () => {
+  it('defines the expected table, recency index, defaults, and nutrition guards', () => {
+    expect(getTableName(foods)).toBe('foods');
+
+    const columns = getTableColumns(foods);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'name',
+      'brand',
+      'servingSize',
+      'servingGrams',
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+      'fiber',
+      'sugar',
+      'verified',
+      'source',
+      'notes',
+      'lastUsedAt',
+      'createdAt',
+      'updatedAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.verified.default).toBe(false);
+    expect(columns.lastUsedAt.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
+
+    const config = getTableConfig(foods);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['foods_user_last_used_at_idx']);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'foods_fiber_nonnegative_check',
+      'foods_macros_nonnegative_check',
+      'foods_serving_grams_check',
+      'foods_sugar_nonnegative_check',
+    ]);
+  });
+});
+
+describe('nutritionLogs schema', () => {
+  it('defines the expected table, unique per-user date constraint, and date validation', () => {
+    expect(getTableName(nutritionLogs)).toBe('nutrition_logs');
+
+    const columns = getTableColumns(nutritionLogs);
+    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'notes', 'createdAt']);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(nutritionLogs);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe('nutrition_logs_user_id_date_unique');
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'user_id',
+      'date',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'nutrition_logs_date_format_check',
+    ]);
+  });
+});
+
+describe('meals schema', () => {
+  it('defines the expected table, timestamps, and nutrition log foreign key', () => {
+    expect(getTableName(meals)).toBe('meals');
+
+    const columns = getTableColumns(meals);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'nutritionLogId',
+      'name',
+      'time',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(meals);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('nutrition_logs');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['meals_nutrition_log_id_idx']);
+  });
+});
+
+describe('mealItems schema', () => {
+  it('defines the expected table, historical food linkage, and nonnegative nutrition checks', () => {
+    expect(getTableName(mealItems)).toBe('meal_items');
+
+    const columns = getTableColumns(mealItems);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'mealId',
+      'foodId',
+      'name',
+      'amount',
+      'unit',
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.foodId.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(mealItems);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
+      'foods',
+      'meals',
+    ]);
+    expect(
+      config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'foods')
+        ?.onDelete,
+    ).toBe('set null');
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'meal_items_food_id_idx',
+      'meal_items_meal_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'meal_items_amount_check',
+      'meal_items_macros_nonnegative_check',
+    ]);
   });
 });
 
