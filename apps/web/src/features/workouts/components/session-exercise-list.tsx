@@ -6,7 +6,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { AlertTriangle, ChevronDown, Check, Circle, Dot } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ChevronDown, Check, Circle, Dot } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,9 @@ import { cn } from '@/lib/utils';
 
 import type {
   ActiveWorkoutExercise,
+  ActiveWorkoutLastPerformance,
   ActiveWorkoutPhaseBadge,
+  ActiveWorkoutReversePyramidTarget,
   ActiveWorkoutSessionData,
 } from '../types';
 import { RestTimer } from './rest-timer';
@@ -452,8 +454,16 @@ function ExerciseCardItem({
             </div>
 
             <p className="text-sm text-muted">
-              {formatLastPerformance(exercise.lastPerformance, exercise.prescribedReps)}
+              {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
             </p>
+
+            {exercise.lastPerformance ? (
+              <LastPerformanceSummary
+                lastPerformance={exercise.lastPerformance}
+                currentSets={exercise.sets}
+                prescribedReps={exercise.prescribedReps}
+              />
+            ) : null}
 
             {hasInjuryCues ? (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/12 p-4 text-amber-950 dark:text-amber-100">
@@ -545,12 +555,63 @@ function ExerciseCardItem({
               }}
               reps={set.reps}
               setNumber={set.number}
+              lastPerformance={exercise.lastPerformance?.sets.find(
+                (previousSet) => previousSet.setNumber === set.number,
+              )}
+              target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
               weight={set.weight}
             />
           ))}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function LastPerformanceSummary({
+  currentSets,
+  lastPerformance,
+  prescribedReps,
+}: {
+  currentSets: ActiveWorkoutExercise['sets'];
+  lastPerformance: ActiveWorkoutLastPerformance;
+  prescribedReps: ActiveWorkoutExercise['prescribedReps'];
+}) {
+  const formattedDate = new Date(`${lastPerformance.date}T12:00:00`).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+  });
+  const exceededSetNumbers = new Set(
+    currentSets
+      .filter((set) =>
+        exceedsPreviousSet(
+          set,
+          lastPerformance.sets.find((previousSet) => previousSet.setNumber === set.number) ?? null,
+        ),
+      )
+      .map((set) => set.number),
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+      <span className="font-medium">{`Last: ${formattedDate}`}</span>
+      <span aria-hidden="true">•</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {lastPerformance.sets.map((set, index) => (
+          <span className="inline-flex items-center gap-1" key={set.setNumber}>
+            <span>
+              {formatCompactPerformanceSet(set.weight, set.reps, prescribedReps)}
+              {index < lastPerformance.sets.length - 1 ? ',' : ''}
+            </span>
+            {exceededSetNumbers.has(set.setNumber) ? (
+              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
+                <ArrowUpRight aria-hidden="true" className="size-3" />
+              </span>
+            ) : null}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -657,33 +718,82 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
   return null;
 }
 
-function formatLastPerformance(
-  lastPerformance: ActiveWorkoutExercise['lastPerformance'],
-  prescribedReps: string,
-) {
-  if (!lastPerformance) {
-    return 'Last time: no prior logged sets for this exercise.';
+function formatCompactPerformanceSet(weight: number | null, reps: number, prescribedReps: string) {
+  if (weight === null) {
+    return formatPerformedReps(reps, prescribedReps);
   }
 
-  const date = new Date(`${lastPerformance.date}T12:00:00`);
-  const formattedDate = date.toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-  });
+  if (prescribedReps.includes('min') || prescribedReps.includes('sec')) {
+    return `${formatWeight(weight)}x${formatPerformedReps(reps, prescribedReps)}`;
+  }
 
-  return `Last time (${formattedDate}): ${lastPerformance.sets
-    .map((set) => formatPerformanceSet(set.weight, set.reps, prescribedReps))
-    .join(' • ')}`;
+  return `${formatWeight(weight)}x${reps}`;
 }
 
-function formatPerformanceSet(weight: number | null, reps: number, prescribedReps: string) {
-  const formattedReps = formatPerformedReps(reps, prescribedReps);
+function getSetTarget(
+  reversePyramid: ActiveWorkoutReversePyramidTarget[],
+  setNumber: number,
+  prescribedReps: string,
+) {
+  const currentTarget = reversePyramid.find((target) => target.setNumber === setNumber);
 
-  if (weight === null) {
-    return formattedReps;
+  if (!currentTarget) {
+    return null;
   }
 
-  return `${formatWeight(weight)} x ${formattedReps}`;
+  const previousTarget = reversePyramid.find((target) => target.setNumber === setNumber - 1);
+  const prescribedRange = parseRepRange(prescribedReps);
+  const minReps =
+    setNumber === 1 ? (prescribedRange?.min ?? currentTarget.targetReps) : currentTarget.targetReps;
+  const maxReps =
+    setNumber === 1
+      ? (prescribedRange?.max ?? currentTarget.targetReps)
+      : (previousTarget?.targetReps ?? currentTarget.targetReps);
+
+  return {
+    maxReps,
+    minReps,
+    weight: currentTarget.targetWeight,
+  };
+}
+
+function parseRepRange(prescribedReps: string) {
+  const match = prescribedReps.match(/(\d+)\s*-\s*(\d+)/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    max: Number(match[2]),
+    min: Number(match[1]),
+  };
+}
+
+function exceedsPreviousSet(
+  currentSet: ActiveWorkoutExercise['sets'][number],
+  previousSet: ActiveWorkoutLastPerformance['sets'][number] | null,
+) {
+  if (!previousSet || currentSet.reps === null) {
+    return false;
+  }
+
+  if (currentSet.weight !== null && previousSet.weight !== null) {
+    return (
+      currentSet.weight > previousSet.weight ||
+      (currentSet.weight === previousSet.weight && currentSet.reps > previousSet.reps)
+    );
+  }
+
+  if (currentSet.weight !== null && previousSet.weight === null) {
+    return true;
+  }
+
+  return currentSet.reps > previousSet.reps;
+}
+
+function formatSetPrescription(prescribedReps: string, restSeconds: number) {
+  return `Target ${prescribedReps} • Rest ${restSeconds}s`;
 }
 
 function formatPerformedReps(reps: number, prescribedReps: string) {

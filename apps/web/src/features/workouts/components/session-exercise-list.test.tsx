@@ -75,9 +75,25 @@ describe('SessionExerciseList', () => {
     expect(
       within(currentCard as HTMLElement).getByRole('button', { name: 'Add Set' }),
     ).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        /Last time .*24 x 10 reps • 24 x 9 reps • 24 x 8 reps/i,
+        (_, element) => element?.textContent === '50x12,45x10,40x9',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(currentCard as HTMLElement).getByText(
+        (_, element) => element?.textContent === 'Target: 50 lbs x 8-10',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(currentCard as HTMLElement).getByText(
+        (_, element) => element?.textContent === 'Target: 45 lbs x 10-12',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(currentCard as HTMLElement).getByText(
+        (_, element) => element?.textContent === 'Target: 40 lbs x 9-10',
       ),
     ).toBeInTheDocument();
 
@@ -149,6 +165,45 @@ describe('SessionExerciseList', () => {
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).queryByText(/^Last:/)).not.toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).queryByText(/^Target:/)).not.toBeInTheDocument();
+  });
+
+  it('shows a PR indicator when the current set exceeds the last performance', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
+    drafts['incline-dumbbell-press'][0] = {
+      ...drafts['incline-dumbbell-press'][0],
+      completed: true,
+      reps: 13,
+      weight: 50,
+    };
+
+    const session = buildActiveWorkoutSession(activeTemplate, drafts, {
+      sessionStartedAt: '2026-03-06T12:00:00Z',
+    });
+
+    render(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
+
+    const currentCard = screen
+      .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
+      .closest('[data-slot="card"]');
+
+    expect(currentCard).not.toBeNull();
+    expect(within(currentCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {

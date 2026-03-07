@@ -44,6 +44,7 @@ export type ActiveWorkoutExercise = {
   prescribedReps: string;
   priority: ActiveWorkoutPriority;
   restSeconds: number;
+  reversePyramid: ActiveWorkoutReversePyramidTarget[];
   sets: ActiveWorkoutSet[];
   supersetGroup: string | null;
   targetSets: number;

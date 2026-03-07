@@ -1,6 +1,5 @@
 import {
   mockExercises,
-  mockSessions,
   type WorkoutSession,
   type WorkoutTemplate,
   type WorkoutTemplateExercise,
@@ -50,11 +49,7 @@ export function buildActiveWorkoutSession(
   setDrafts: ActiveWorkoutSetDrafts,
   options: BuildActiveWorkoutSessionOptions = {},
 ): ActiveWorkoutSessionData {
-  const {
-    exerciseNotes = {},
-    sessionStartedAt = new Date().toISOString(),
-    sessions = mockSessions,
-  } = options;
+  const { exerciseNotes = {}, sessionStartedAt = new Date().toISOString(), sessions } = options;
   const sections = template.sections.map((section): ActiveWorkoutSection => {
     const exercises = section.exercises.map((templateExercise): ActiveWorkoutExercise => {
       const exercise = exerciseById.get(templateExercise.exerciseId);
@@ -69,17 +64,16 @@ export function buildActiveWorkoutSession(
         formCues: enhancedExercise?.formCues ?? null,
         id: templateExercise.exerciseId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
-        lastPerformance: getLastPerformance(
-          templateExercise.exerciseId,
-          sessionStartedAt,
-          sessions,
-        ),
+        lastPerformance: sessions
+          ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
+          : (enhancedExercise?.lastPerformance ?? null),
         name: exercise?.name ?? 'Unknown Exercise',
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         prescribedReps: templateExercise.reps,
         priority: enhancedExercise?.priority ?? 'required',
         restSeconds: templateExercise.restSeconds,
+        reversePyramid: enhancedExercise?.reversePyramid ?? [],
         sets,
         supersetGroup: enhancedExercise?.supersetGroup ?? null,
         targetSets: sets.length,
