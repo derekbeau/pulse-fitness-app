@@ -1,3 +1,4 @@
+export { ConditionsList } from './components/conditions-list';
 export { mockHealthConditions } from './lib/mock-data';
 export type {
   ConditionStatus,
