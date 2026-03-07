@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -301,7 +302,10 @@ export function SettingsPage() {
     }));
   }
 
-  function toggleTrendSparkline(metric: (typeof TREND_SPARKLINE_OPTIONS)[number], checked: boolean) {
+  function toggleTrendSparkline(
+    metric: (typeof TREND_SPARKLINE_OPTIONS)[number],
+    checked: boolean,
+  ) {
     setSaveMessage('');
     setSettings((currentSettings) => ({
       ...currentSettings,
@@ -325,6 +329,8 @@ export function SettingsPage() {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
+      <BackLink />
+
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold text-primary">Settings</h1>
         <p className="max-w-3xl text-sm text-muted">
@@ -346,12 +352,7 @@ export function SettingsPage() {
           <Label className="text-sm font-medium text-foreground" htmlFor="display-name">
             Display name
           </Label>
-          <Input
-            id="display-name"
-            placeholder="User"
-            readOnly
-            value=""
-          />
+          <Input id="display-name" placeholder="User" readOnly value="" />
           <p className="text-sm text-muted-foreground">
             Profile details are read-only in this prototype.
           </p>
@@ -375,11 +376,7 @@ export function SettingsPage() {
             value={theme}
           >
             {THEME_OPTIONS.map((option) => (
-              <ThemeOptionCard
-                key={option.value}
-                checked={theme === option.value}
-                {...option}
-              />
+              <ThemeOptionCard key={option.value} checked={theme === option.value} {...option} />
             ))}
           </RadioGroup>
           <p className="text-sm text-muted-foreground">
@@ -524,9 +521,7 @@ export function SettingsPage() {
                     <Checkbox
                       checked={settings.dashboardConfig.trendSparklines.includes(metric)}
                       id={checkboxId}
-                      onCheckedChange={(checked) =>
-                        toggleTrendSparkline(metric, checked === true)
-                      }
+                      onCheckedChange={(checked) => toggleTrendSparkline(metric, checked === true)}
                     />
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">{metric}</span>

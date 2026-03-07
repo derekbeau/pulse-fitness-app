@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
@@ -7,9 +8,11 @@ import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/se
 
 function renderSettingsPage() {
   return render(
-    <ThemeProvider>
-      <SettingsPage />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider>
+        <SettingsPage />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -25,6 +28,10 @@ describe('SettingsPage', () => {
     renderSettingsPage();
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Back to Profile/i })).toHaveAttribute(
+      'href',
+      '/profile',
+    );
     expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument();
     expect(screen.getByLabelText('Display name')).toHaveAttribute('readonly');
     expect(screen.getByPlaceholderText('User')).toBeInTheDocument();
@@ -116,7 +123,9 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Steps/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
-    expect(screen.getByText('Nutrition targets and dashboard preferences saved.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Nutrition targets and dashboard preferences saved.'),
+    ).toBeInTheDocument();
 
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
       dashboardConfig: {

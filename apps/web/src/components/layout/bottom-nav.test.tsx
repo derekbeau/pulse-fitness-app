@@ -15,14 +15,14 @@ function renderBottomNav(initialPath = '/') {
         <Route element={<h1>Activity Route</h1>} path="/activity" />
         <Route element={<h1>Foods Route</h1>} path="/foods" />
         <Route element={<h1>Journal Route</h1>} path="/journal" />
-        <Route element={<h1>Settings Route</h1>} path="/settings" />
+        <Route element={<h1>Profile Route</h1>} path="/profile" />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe('BottomNav', () => {
-  it('opens the More menu with activity, foods, journal, and settings links', () => {
+  it('opens the More menu with activity, foods, journal, and profile links', () => {
     renderBottomNav('/');
 
     const moreButton = screen.getByRole('button', { name: 'More' });
@@ -38,11 +38,11 @@ describe('BottomNav', () => {
     expect(screen.getByRole('menuitem', { name: 'Foods' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveAttribute('href', '/journal');
     expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveClass('cursor-pointer');
-    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings');
-    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveClass('cursor-pointer');
   });
 
-  it('highlights More on nested routes and navigates from the dropdown', () => {
+  it('highlights More on more-menu routes and navigates from the dropdown', () => {
     renderBottomNav('/foods');
 
     const moreButton = screen.getByRole('button', { name: 'More' });
@@ -50,9 +50,9 @@ describe('BottomNav', () => {
     expect(moreButton).toHaveClass('bg-primary');
 
     fireEvent.click(moreButton);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Profile' }));
 
-    expect(screen.getByRole('heading', { name: 'Settings Route' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Profile Route' })).toBeInTheDocument();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 });
