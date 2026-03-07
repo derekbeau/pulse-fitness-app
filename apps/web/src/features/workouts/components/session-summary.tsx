@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import {
   Dialog,
   DialogClose,
@@ -47,29 +48,27 @@ export function SessionSummary({
 
   return (
     <>
-      <Card
-        className={cn(
-          'overflow-hidden border-transparent py-0 text-[var(--color-on-accent)] shadow-lg',
-          className,
-        )}
-        style={{ backgroundColor: 'var(--color-accent-mint)' }}
-      >
+      <Card className={cn(`overflow-hidden py-0 shadow-lg ${accentCardStyles.mint}`, className)}>
         <CardContent className="space-y-5 px-5 py-6 sm:px-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-on-accent)]/15 bg-white/40 px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase">
+            <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/40 px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase dark:border-border dark:bg-secondary/60">
               <CheckCircle2 aria-hidden="true" className="size-3.5" />
               Session complete
             </div>
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-tight">Workout summary</h1>
-              <p className="max-w-2xl text-sm text-[var(--color-on-accent)]/75">
+              <p className="max-w-2xl text-sm opacity-75 dark:text-muted dark:opacity-100">
                 Logged, reflected, and ready to head back to the workouts overview.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryStat icon={Dumbbell} label="Exercises completed" value={`${exercisesCompleted}`} />
+            <SummaryStat
+              icon={Dumbbell}
+              label="Exercises completed"
+              value={`${exercisesCompleted}`}
+            />
             <SummaryStat icon={ListChecks} label="Sets completed" value={`${totalSets}`} />
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
@@ -77,7 +76,7 @@ export function SessionSummary({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button
-              className="w-full border-[var(--color-on-accent)]/20 bg-white/60 text-[var(--color-on-accent)] hover:bg-white/75 sm:w-auto"
+              className="w-full border-black/10 bg-white/60 hover:bg-white/75 sm:w-auto dark:bg-secondary dark:text-foreground dark:hover:bg-secondary/80"
               onClick={() => {
                 setTemplateName(workoutName);
                 setTemplateDescription(defaultDescription);
@@ -93,7 +92,7 @@ export function SessionSummary({
             </Button>
 
             <Button
-              className="w-full border-[var(--color-on-accent)]/20 bg-white/60 text-[var(--color-on-accent)] hover:bg-white/75 sm:w-auto"
+              className="w-full border-black/10 bg-white/60 hover:bg-white/75 sm:w-auto dark:bg-secondary dark:text-foreground dark:hover:bg-secondary/80"
               onClick={onDone}
               type="button"
               variant="secondary"
@@ -103,7 +102,10 @@ export function SessionSummary({
           </div>
 
           {saveMessage ? (
-            <p aria-live="polite" className="text-sm font-medium text-[var(--color-on-accent)]/80">
+            <p
+              aria-live="polite"
+              className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100"
+            >
               {saveMessage}
             </p>
           ) : null}
@@ -132,10 +134,7 @@ export function SessionSummary({
             </div>
 
             <div className="space-y-2">
-              <label
-                className="text-sm font-medium text-foreground"
-                htmlFor="template-description"
-              >
+              <label className="text-sm font-medium text-foreground" htmlFor="template-description">
                 Description
               </label>
               <Textarea
@@ -203,8 +202,8 @@ function SummaryStat({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-on-accent)]/15 bg-white/40 p-4">
-      <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-[var(--color-on-accent)]/65 uppercase">
+    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 dark:border-border dark:bg-secondary/60">
+      <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase opacity-65 dark:text-muted dark:opacity-100">
         <Icon aria-hidden="true" className="size-3.5" />
         <span>{label}</span>
       </div>

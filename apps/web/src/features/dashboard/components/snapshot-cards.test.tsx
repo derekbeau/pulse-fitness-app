@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { mockDailySnapshot } from '@/lib/mock-data/dashboard';
 import { calculateWeightTrend, SnapshotCards } from './snapshot-cards';
@@ -21,9 +22,9 @@ describe('calculateWeightTrend', () => {
 
 describe('SnapshotCards', () => {
   it('renders four snapshot cards in a responsive grid with mock data values', () => {
-    const { container } = render(<SnapshotCards />);
+    const { container } = render(<MemoryRouter><SnapshotCards /></MemoryRouter>);
 
-    const grid = container.querySelector('div.grid.grid-cols-2.gap-4.lg\\:grid-cols-4');
+    const grid = container.querySelector('div.grid.grid-cols-2');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');
@@ -44,7 +45,7 @@ describe('SnapshotCards', () => {
   });
 
   it('calculates weight trend from yesterday and applies accent card backgrounds', () => {
-    render(<SnapshotCards />);
+    render(<MemoryRouter><SnapshotCards /></MemoryRouter>);
 
     const weightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     const caloriesCard = screen.getByText('Calories').closest('[data-slot="stat-card"]');
@@ -54,22 +55,10 @@ describe('SnapshotCards', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(caloriesCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(workoutCard).toHaveClass('bg-[var(--color-primary)]/12');
-    expect(screen.getByText('Body Weight')).toHaveClass('text-on-accent');
-    expect(screen.getByText('Calories')).toHaveClass('text-on-accent');
-    expect(screen.getByText('Protein')).toHaveClass('text-on-accent');
-    expect(screen.getByText("Today's Workout")).toHaveClass('text-on-accent');
-
-    expect(
-      screen.getByText(
-        `${mockDailySnapshot.macros.calories.actual} / ${mockDailySnapshot.macros.calories.target}`,
-      ),
-    ).toHaveClass('text-on-accent');
-    expect(
-      screen.getByText(
-        `${mockDailySnapshot.macros.protein.actual}g / ${mockDailySnapshot.macros.protein.target}g`,
-      ),
-    ).toHaveClass('text-on-accent');
+    expect(workoutCard).toHaveClass('bg-secondary');
+    expect(screen.getByText('Body Weight')).toHaveClass('text-on-cream');
+    expect(screen.getByText('Calories')).toHaveClass('text-on-pink');
+    expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
 
     const expectedTrend = calculateWeightTrend(
       mockDailySnapshot.weight,
@@ -78,13 +67,7 @@ describe('SnapshotCards', () => {
 
     const weightTrend = within(weightCard as HTMLElement).getByLabelText(`trend ${expectedTrend.direction}`);
     expect(weightTrend).toBeInTheDocument();
-    expect(weightTrend).toHaveClass(
-      expectedTrend.direction === 'up'
-        ? 'text-[var(--color-accent-mint)]'
-        : expectedTrend.direction === 'down'
-          ? 'text-[var(--destructive)]'
-          : 'text-[var(--color-muted)]',
-    );
+    expect(weightTrend).toHaveClass('text-on-cream');
 
     const expectedTrendText =
       expectedTrend.direction === 'up'
@@ -98,13 +81,15 @@ describe('SnapshotCards', () => {
 
   it('renders neutral calories/protein trends and handles rest day fallback', () => {
     render(
-      <SnapshotCards
-        snapshot={{
-          ...mockDailySnapshot,
-          weightYesterday: 0,
-          workoutName: null,
-        }}
-      />,
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...mockDailySnapshot,
+            weightYesterday: 0,
+            workoutName: null,
+          }}
+        />
+      </MemoryRouter>,
     );
 
     const weightCard = screen

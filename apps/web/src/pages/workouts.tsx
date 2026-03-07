@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
-import { ExerciseLibrary, TemplateBrowser, WorkoutCalendar, WorkoutList } from '@/features/workouts';
+import {
+  ExerciseLibrary,
+  TemplateBrowser,
+  WorkoutCalendar,
+  WorkoutList,
+} from '@/features/workouts';
 
 export function WorkoutsPage() {
   const navigate = useNavigate();
@@ -22,11 +27,12 @@ export function WorkoutsPage() {
 
       <div
         aria-label="Workout views"
-        className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card p-1"
+        className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
         role="group"
       >
         <Button
           aria-pressed={activeView === 'calendar'}
+          className="rounded-full"
           onClick={() => setActiveView('calendar')}
           size="sm"
           type="button"
@@ -36,6 +42,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'list'}
+          className="rounded-full"
           onClick={() => setActiveView('list')}
           size="sm"
           type="button"
@@ -45,6 +52,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'templates'}
+          className="rounded-full"
           onClick={() => setActiveView('templates')}
           size="sm"
           type="button"
@@ -54,6 +62,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'exercises'}
+          className="rounded-full"
           onClick={() => setActiveView('exercises')}
           size="sm"
           type="button"

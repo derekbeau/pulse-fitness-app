@@ -20,9 +20,12 @@ const entryDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const badgeClassesByType: Record<JournalEntryType, string> = {
-  milestone: 'border-transparent bg-[var(--color-accent-mint)] text-slate-950',
-  observation: 'border-transparent bg-[var(--color-accent-cream)] text-slate-950',
-  weekly_summary: 'border-transparent bg-[var(--color-accent-pink)] text-slate-950',
+  milestone:
+    'border-transparent bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
+  observation:
+    'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
+  weekly_summary:
+    'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
 };
 
 const journalSampleEntries: JournalSampleEntry[] = [
@@ -59,7 +62,7 @@ export function JournalPage() {
     <section className="space-y-6">
       <header className="space-y-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-2xl bg-[var(--color-accent-cream)] p-3 text-slate-950 shadow-sm">
+          <div className="rounded-2xl bg-[var(--color-accent-cream)] p-3 text-on-cream shadow-sm dark:bg-amber-500/20 dark:text-amber-400">
             <BookOpen aria-hidden="true" className="size-6" />
           </div>
           <div className="space-y-2">
@@ -80,7 +83,10 @@ export function JournalPage() {
         </p>
         <div className="grid gap-4 xl:grid-cols-3">
           {journalSampleEntries.map((entry) => (
-            <Card key={`${entry.date}-${entry.title}`} className="border-dashed bg-card/70 opacity-90">
+            <Card
+              key={`${entry.date}-${entry.title}`}
+              className="border-dashed bg-card/70 opacity-90"
+            >
               <CardHeader className="gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Badge
@@ -96,11 +102,7 @@ export function JournalPage() {
                     {formatJournalEntryDate(entry.date)}
                   </CardDescription>
                 </div>
-                <CardTitle
-                  aria-level={2}
-                  className="text-xl text-foreground"
-                  role="heading"
-                >
+                <CardTitle aria-level={2} className="text-xl text-foreground" role="heading">
                   {entry.title}
                 </CardTitle>
               </CardHeader>

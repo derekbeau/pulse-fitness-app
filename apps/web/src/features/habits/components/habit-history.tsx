@@ -291,16 +291,16 @@ export function HabitHistory() {
               Last 90 days
             </CardTitle>
             <CardDescription className="max-w-2xl">
-              Scan streaks across every habit, compare quiet misses against stronger runs, and
-              hover any day for the exact value that was logged.
+              Scan streaks across every habit, compare quiet misses against stronger runs, and hover
+              any day for the exact value that was logged.
             </CardDescription>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex rounded-full bg-[var(--color-accent-pink)] px-3 py-1 text-xs font-semibold text-slate-950">
+            <span className="inline-flex rounded-full bg-[var(--color-accent-pink)] px-3 py-1 text-xs font-semibold text-on-pink dark:bg-pink-500/20 dark:text-pink-400">
               Boolean habits: gray or green
             </span>
-            <span className="inline-flex rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold text-slate-950">
+            <span className="inline-flex rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
               Numeric/time habits: intensity by target %
             </span>
           </div>

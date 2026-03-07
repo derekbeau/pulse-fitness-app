@@ -40,9 +40,11 @@ export const trackingTypeLabels: Record<HabitTrackingType, string> = {
 };
 
 export const trackingSurfaceClasses: Record<HabitTrackingType, string> = {
-  boolean: 'bg-[var(--color-accent-pink)] text-slate-950',
-  numeric: 'bg-[var(--color-accent-cream)] text-slate-950',
-  time: 'bg-[var(--color-accent-mint)] text-slate-950',
+  boolean:
+    'bg-[var(--color-accent-pink)] text-on-pink dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-pink-500',
+  numeric:
+    'bg-[var(--color-accent-cream)] text-on-cream dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-amber-500',
+  time: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-emerald-500',
 };
 
 export const defaultHabitConfigs: HabitConfig[] = [

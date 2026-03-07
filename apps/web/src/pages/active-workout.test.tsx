@@ -68,7 +68,9 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(within(getExerciseCard('Couch Stretch')).getByLabelText('Complete set 2'));
     await act(async () => {});
 
-    expect(screen.getByRole('heading', { level: 1, name: 'How did this session feel?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Energy rating' })).getByRole('button', {
@@ -104,7 +106,9 @@ describe('ActiveWorkoutPage', () => {
   it('uses the selected template from the route query string', () => {
     renderActiveWorkoutPage('/workouts/active?template=lower-quad-dominant');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
   });
 });
@@ -131,7 +135,9 @@ function getExerciseCard(name: string) {
 }
 
 function completeSet(exerciseName: string, setNumber: number) {
-  fireEvent.click(within(getExerciseCard(exerciseName)).getByLabelText(`Complete set ${setNumber}`));
+  fireEvent.click(
+    within(getExerciseCard(exerciseName)).getByLabelText(`Complete set ${setNumber}`),
+  );
 
   const skipButton = screen.queryByRole('button', { name: 'Skip' });
 

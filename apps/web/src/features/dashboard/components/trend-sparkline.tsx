@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
 import {
   mockMacroTrend,
@@ -23,6 +24,7 @@ export type TrendSparklineProps = {
   currentValue: number | string;
   changePercent: number;
   className?: string;
+  textClassName?: string;
 };
 
 type ChangeDirection = 'up' | 'down' | 'neutral';
@@ -34,6 +36,7 @@ type TrendMetricCardProps = {
   color: string;
   data: TrendSparklineDatum[];
   className?: string;
+  textClassName?: string;
 };
 
 const CHANGE_ICONS = {
@@ -92,9 +95,10 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(weightSeries, 0),
       getPreviousValue(weightSeries, getLatestValue(weightSeries, 0)),
     ),
-    color: '#3B82F6',
+    color: 'var(--color-on-cream)',
     data: weightSeries,
-    className: 'bg-[var(--color-accent-cream)]',
+    className: accentCardStyles.cream,
+    textClassName: 'text-on-cream',
   },
   {
     label: 'Calorie Trend',
@@ -103,9 +107,10 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(calorieSeries, 0),
       getPreviousValue(calorieSeries, getLatestValue(calorieSeries, 0)),
     ),
-    color: '#F59E0B',
+    color: 'var(--color-on-pink)',
     data: calorieSeries,
-    className: 'bg-[var(--color-accent-pink)]',
+    className: accentCardStyles.pink,
+    textClassName: 'text-on-pink',
   },
   {
     label: 'Protein Trend',
@@ -114,9 +119,10 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(proteinSeries, 0),
       getPreviousValue(proteinSeries, getLatestValue(proteinSeries, 0)),
     ),
-    color: '#22C55E',
+    color: 'var(--color-on-mint)',
     data: proteinSeries,
-    className: 'bg-[var(--color-accent-mint)]',
+    className: accentCardStyles.mint,
+    textClassName: 'text-on-mint',
   },
 ] satisfies TrendMetricCardProps[];
 
@@ -127,20 +133,36 @@ export function TrendSparkline({
   currentValue,
   changePercent,
   className,
+  textClassName,
 }: TrendSparklineProps) {
   const direction = getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
+  const textClass = textClassName ?? 'text-on-accent';
 
   return (
     <div className={cn('flex h-full flex-col gap-4', className)} data-slot="trend-sparkline">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-sm font-medium text-on-accent/70">{label}</p>
+        <p
+          className={cn(
+            'text-sm font-medium opacity-70 dark:text-muted dark:opacity-100',
+            textClass,
+          )}
+        >
+          {label}
+        </p>
 
         <div className="space-y-1 text-right">
-          <p className="text-3xl font-semibold tracking-tight text-on-accent">{currentValue}</p>
+          <p
+            className={cn('text-3xl font-semibold tracking-tight dark:text-foreground', textClass)}
+          >
+            {currentValue}
+          </p>
           <div
             aria-label={`trend ${direction}`}
-            className="flex items-center justify-end gap-1 text-sm font-medium text-on-accent/80"
+            className={cn(
+              'flex items-center justify-end gap-1 text-sm font-medium opacity-80 dark:text-muted dark:opacity-100',
+              textClass,
+            )}
             data-slot="trend-sparkline-change"
           >
             <ChangeIcon aria-hidden="true" className="size-4" />
@@ -181,10 +203,15 @@ function TrendMetricCard({
   color,
   data,
   className,
+  textClassName,
 }: TrendMetricCardProps) {
   return (
     <Card
-      className={cn('gap-0 border-transparent py-5 text-on-accent shadow-sm', className)}
+      className={cn(
+        'gap-0 border-transparent py-5 shadow-sm dark:text-foreground',
+        textClassName,
+        className,
+      )}
       data-slot="trend-sparkline-card"
     >
       <CardContent className="h-full px-5">
@@ -194,6 +221,7 @@ function TrendMetricCard({
           currentValue={currentValue}
           data={data}
           label={label}
+          textClassName={textClassName}
         />
       </CardContent>
     </Card>

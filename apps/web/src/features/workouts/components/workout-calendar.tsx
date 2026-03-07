@@ -10,6 +10,7 @@ import {
   parseDateKey,
   toDateKey,
 } from '@/lib/date-utils';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import {
   mockSchedule,
   mockSessions,
@@ -64,17 +65,12 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
   const detailHref = buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`;
   const detailStats = getDetailStats(selectedDay);
   const hasWorkout = selectedDay.status === 'completed' || selectedDay.status === 'scheduled';
-  const accentPanel =
-    selectedDay.status === 'completed' || selectedDay.status === 'scheduled'
-      ? 'border-transparent text-[var(--color-on-accent)]'
-      : 'bg-card text-foreground';
 
-  const accentPanelStyle =
-    selectedDay.status === 'completed'
-      ? { backgroundColor: 'var(--color-accent-mint)' }
-      : selectedDay.status === 'scheduled'
-        ? { backgroundColor: 'var(--color-accent-cream)' }
-        : undefined;
+  const accentPanel = hasWorkout
+    ? selectedDay.status === 'completed'
+      ? accentCardStyles.mint
+      : accentCardStyles.cream
+    : 'bg-card text-foreground';
 
   function handleMonthChange(offset: number) {
     const nextMonth = addMonths(visibleMonth, offset);
@@ -156,7 +152,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                   aria-label={fullDateFormatter.format(day)}
                   aria-pressed={isSelected}
                   className={cn(
-                    'flex min-h-24 cursor-pointer flex-col rounded-2xl border px-2.5 py-2 text-left transition-colors sm:min-h-28 sm:px-3 sm:py-3',
+                    'flex min-h-14 cursor-pointer flex-col rounded-xl border px-1.5 py-1.5 text-left transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3',
                     isInMonth
                       ? 'bg-card hover:border-primary/40 hover:bg-secondary/50'
                       : 'bg-secondary/35 opacity-55',
@@ -167,10 +163,10 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                   onClick={() => setSelectedDateKey(dateKey)}
                   type="button"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-0.5">
                     <span
                       className={cn(
-                        'text-sm font-semibold',
+                        'shrink-0 text-xs font-semibold sm:text-sm',
                         isToday ? 'text-primary' : 'text-foreground',
                         !isInMonth && 'text-muted',
                       )}
@@ -180,47 +176,49 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                     {isWorkoutDay ? (
                       <span
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]',
+                          'hidden shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide sm:inline',
                           details.status === 'completed'
-                            ? 'bg-emerald-500/15 text-emerald-700'
-                            : 'bg-blue-500/15 text-blue-700',
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
                         )}
                       >
-                        {details.status}
+                        {details.status === 'completed' ? 'Done' : 'Plan'}
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="mt-3 space-y-1">
+                  <div className="mt-1 hidden min-w-0 space-y-0.5 sm:block">
                     <p
                       className={cn(
-                        'line-clamp-2 text-xs font-medium',
+                        'truncate text-xs font-medium leading-snug',
                         isInMonth ? 'text-foreground' : 'text-muted',
                       )}
                     >
                       {details.templateName ??
-                        (details.status === 'rest' ? 'Recovery / rest' : 'No workout')}
+                        (details.status === 'rest' ? 'Rest day' : 'No workout')}
                     </p>
-                    <p className="line-clamp-2 text-[11px] text-muted">
-                      {details.notes ?? 'Tap to review the day details.'}
+                    <p className="truncate text-[10px] leading-snug text-muted">
+                      {details.notes ?? (isWorkoutDay ? 'Tap for details' : '')}
                     </p>
                   </div>
 
-                  <div className="mt-auto flex items-center gap-1.5 pt-3">
+                  <div className="mt-auto flex items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
                     {details.status === 'completed' ? (
                       <span
                         aria-label="Completed workout"
-                        className="size-2.5 rounded-full bg-emerald-500"
+                        className="size-2 rounded-full bg-emerald-500 sm:size-2.5"
                       />
                     ) : null}
                     {details.status === 'scheduled' ? (
                       <span
                         aria-label="Scheduled workout"
-                        className="size-2.5 rounded-full bg-blue-500"
+                        className="size-2 rounded-full bg-blue-500 sm:size-2.5"
                       />
                     ) : null}
                     {isToday ? (
-                      <span className="text-[11px] font-medium text-primary">Today</span>
+                      <span className="hidden text-[11px] font-medium text-primary sm:inline">
+                        Today
+                      </span>
                     ) : null}
                   </div>
                 </button>
@@ -235,13 +233,12 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
             accentPanel,
           )}
           id="workout-day-details"
-          style={accentPanelStyle}
         >
           <div className="space-y-1">
             <p
               className={cn(
                 'text-xs font-semibold uppercase tracking-[0.2em]',
-                hasWorkout ? 'text-[var(--color-on-accent)]/70' : 'text-muted',
+                hasWorkout ? 'opacity-70 dark:text-muted dark:opacity-100' : 'text-muted',
               )}
             >
               Day details
@@ -253,7 +250,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
             <p
               className={cn(
                 'text-sm',
-                hasWorkout ? 'text-[var(--color-on-accent)]/80' : 'text-muted',
+                hasWorkout ? 'opacity-80 dark:text-muted dark:opacity-100' : 'text-muted',
               )}
             >
               {fullDateFormatter.format(selectedDay.date)}
@@ -267,14 +264,14 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                 className={cn(
                   'rounded-2xl border p-3',
                   hasWorkout
-                    ? 'border-white/35 bg-white/45 text-[var(--color-on-accent)]'
+                    ? 'border-white/35 bg-white/45 dark:border-border dark:bg-secondary/60'
                     : 'border-border bg-secondary/40 text-foreground',
                 )}
               >
                 <p
                   className={cn(
                     'text-[11px] font-semibold uppercase tracking-[0.18em]',
-                    hasWorkout ? 'text-[var(--color-on-accent)]/70' : 'text-muted',
+                    hasWorkout ? 'opacity-70 dark:text-muted dark:opacity-100' : 'text-muted',
                   )}
                 >
                   {stat.label}
@@ -287,7 +284,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
           <p
             className={cn(
               'text-sm leading-6',
-              hasWorkout ? 'text-[var(--color-on-accent)]/85' : 'text-muted',
+              hasWorkout ? 'opacity-85 dark:text-muted dark:opacity-100' : 'text-muted',
             )}
           >
             {selectedDay.notes ??
@@ -299,7 +296,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
           {hasWorkout ? (
             <Button
               asChild
-              className="mt-auto self-start bg-white/60 text-[var(--color-on-accent)] hover:bg-white/75"
+              className="mt-auto self-start bg-white/60 hover:bg-white/75 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
               size="sm"
               variant="secondary"
             >

@@ -40,7 +40,13 @@ export function ProgressRing({
       className={cn('relative inline-flex items-center justify-center', className)}
       {...props}
     >
-      <svg className="-rotate-90" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg
+        className="-rotate-90"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        style={{ width: '100%', height: 'auto' }}
+      >
         <circle
           data-slot="progress-ring-track"
           cx={size / 2}

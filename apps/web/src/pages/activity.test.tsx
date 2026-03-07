@@ -59,8 +59,8 @@ describe('ActivityPage', () => {
     expect(walkingBadge).toHaveClass('bg-emerald-200');
     expect(yogaBadge).toHaveClass('bg-violet-200');
 
-    [stretchingBadge, walkingBadge, yogaBadge].forEach((badge) =>
-      expect(badge).toHaveClass('text-slate-950'),
-    );
+    expect(stretchingBadge).toHaveClass('text-sky-950');
+    expect(walkingBadge).toHaveClass('text-emerald-950');
+    expect(yogaBadge).toHaveClass('text-violet-950');
   });
 });

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
+import { cn } from '@/lib/utils';
 import {
   mockSessions,
   mockTemplates,
@@ -35,6 +36,7 @@ type WorkoutWeekGroup = {
 
 type WorkoutListItem = {
   accentColor: string;
+  badgeClass: string;
   date: Date;
   exerciseCount: number;
   id: string;
@@ -76,10 +78,7 @@ export function WorkoutList({
               </p>
             </div>
 
-            <span
-              className="inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] text-[var(--color-on-accent)] uppercase"
-              style={{ backgroundColor: 'var(--color-accent-cream)' }}
-            >
+            <span className="inline-flex w-fit rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-on-cream uppercase dark:bg-amber-500/20 dark:text-amber-400">
               {`${group.sessions.length} workout${group.sessions.length === 1 ? '' : 's'}`}
             </span>
           </div>
@@ -105,8 +104,10 @@ export function WorkoutList({
                       </div>
 
                       <span
-                        className="inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-[var(--color-on-accent)] uppercase"
-                        style={{ backgroundColor: session.accentColor }}
+                        className={cn(
+                          'inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
+                          session.badgeClass,
+                        )}
                       >
                         {session.typeLabel}
                       </span>
@@ -179,6 +180,7 @@ function buildWorkoutListItem(session: WorkoutSession): WorkoutListItem {
 
   return {
     accentColor: presentation.accentColor,
+    badgeClass: presentation.badgeClass,
     date,
     exerciseCount,
     id: session.id,
@@ -193,6 +195,8 @@ function getWorkoutPresentation(template?: WorkoutTemplate) {
   if (template?.tags.includes('legs')) {
     return {
       accentColor: 'var(--color-accent-mint)',
+      badgeClass:
+        'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
       typeLabel: 'Legs',
     };
   }
@@ -200,12 +204,16 @@ function getWorkoutPresentation(template?: WorkoutTemplate) {
   if (template?.tags.includes('push')) {
     return {
       accentColor: 'var(--color-accent-pink)',
+      badgeClass:
+        'bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
       typeLabel: 'Push',
     };
   }
 
   return {
     accentColor: 'var(--color-accent-cream)',
+    badgeClass:
+      'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
     typeLabel: 'Full Body',
   };
 }

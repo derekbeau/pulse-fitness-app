@@ -11,6 +11,7 @@ import {
   startOfDay,
   type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { mockDailyMeals, mockDailyTargets } from '@/lib/mock-data/nutrition';
 import { cn } from '@/lib/utils';
 
@@ -51,22 +52,16 @@ export function NutritionPage() {
 
       <section
         aria-label="Daily macro totals"
-        className="rounded-2xl border border-border/70 bg-[var(--color-accent-cream)] px-5 py-5 text-[var(--color-on-accent)] shadow-sm"
+        className={cn('rounded-2xl border border-border/70 px-5 py-5', accentCardStyles.cream)}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Daily totals</h2>
-            <p
-              className="text-sm"
-              style={{ color: 'color-mix(in srgb, var(--color-on-accent) 68%, transparent)' }}
-            >
+            <p className="text-sm opacity-70 dark:text-muted dark:opacity-100">
               Actual intake against your daily macro targets.
             </p>
           </div>
-          <p
-            className="text-sm font-medium"
-            style={{ color: 'color-mix(in srgb, var(--color-on-accent) 72%, transparent)' }}
-          >
+          <p className="text-sm font-medium opacity-75 dark:text-muted dark:opacity-100">
             {formatDayLabel(dateKey)}
           </p>
         </div>
@@ -80,26 +75,23 @@ export function NutritionPage() {
             return (
               <div
                 key={macro.key}
-                className="rounded-xl border border-black/8 bg-white/30 px-4 py-4 backdrop-blur-sm"
+                className="rounded-xl border border-black/8 bg-white/30 px-4 py-4 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
               >
-                <p
-                  className="text-xs font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: 'color-mix(in srgb, var(--color-on-accent) 66%, transparent)' }}
-                >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65 dark:text-muted dark:opacity-100">
                   {macro.label}
                 </p>
-                <p className="mt-2 text-sm font-semibold text-[var(--color-on-accent)]">
+                <p className="mt-2 text-sm font-semibold">
                   <span
                     className={cn(
-                      isOverTarget ? 'text-red-900' : 'text-emerald-950',
+                      isOverTarget
+                        ? 'text-red-900 dark:text-red-400'
+                        : 'text-emerald-950 dark:text-emerald-400',
                       'text-lg tracking-tight',
                     )}
                   >
                     {macro.formatValue(actual)}
                   </span>
-                  <span
-                    style={{ color: 'color-mix(in srgb, var(--color-on-accent) 72%, transparent)' }}
-                  >
+                  <span className="opacity-70 dark:text-muted dark:opacity-100">
                     {' '}
                     / {macro.formatValue(target)}
                   </span>

@@ -11,10 +11,14 @@ import {
 import { cn } from '@/lib/utils';
 
 const categoryBadgeStyles: Record<WorkoutExerciseCategory, string> = {
-  compound: 'border-transparent bg-[var(--color-accent-pink)] text-[var(--color-on-accent)]',
-  isolation: 'border-transparent bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
-  cardio: 'border-transparent bg-[var(--color-accent-mint)] text-[var(--color-on-accent)]',
-  mobility: 'border-transparent bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
+  compound:
+    'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
+  isolation:
+    'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
+  cardio:
+    'border-transparent bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
+  mobility:
+    'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
 };
 
 type ExerciseLibraryProps = {
@@ -169,7 +173,10 @@ function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
             <Badge className="border-border bg-card" variant="outline">
               {formatLabel(exercise.equipment)}
             </Badge>
-            <Badge className={cn(categoryBadgeStyles[exercise.category], 'capitalize')} variant="outline">
+            <Badge
+              className={cn(categoryBadgeStyles[exercise.category], 'capitalize')}
+              variant="outline"
+            >
               {exercise.category}
             </Badge>
           </div>
@@ -184,13 +191,7 @@ function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
   );
 }
 
-function FilterField({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) {
+function FilterField({ children, label }: { children: ReactNode; label: string }) {
   return (
     <label className="space-y-2 text-sm font-medium text-foreground">
       <span>{label}</span>

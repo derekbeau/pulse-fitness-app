@@ -61,8 +61,8 @@ describe('JournalPage', () => {
     expect(milestoneBadge).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(weeklySummaryBadge).toHaveClass('bg-[var(--color-accent-pink)]');
 
-    [observationBadge, milestoneBadge, weeklySummaryBadge].forEach((badge) =>
-      expect(badge).toHaveClass('text-slate-950'),
-    );
+    expect(observationBadge).toHaveClass('text-on-cream');
+    expect(milestoneBadge).toHaveClass('text-on-mint');
+    expect(weeklySummaryBadge).toHaveClass('text-on-pink');
   });
 });

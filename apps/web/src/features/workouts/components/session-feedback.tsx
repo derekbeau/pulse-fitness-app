@@ -35,45 +35,52 @@ const feedbackQuestions: Array<{
 ];
 
 export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
-  const [feedback, setFeedback] = useState<ActiveWorkoutFeedbackDraft>(() =>
-    Object.fromEntries(
-      feedbackQuestions.map((question) => [
-        question.id,
-        {
-          note: '',
-          score: null,
-        },
-      ]),
-    ) as ActiveWorkoutFeedbackDraft,
+  const [feedback, setFeedback] = useState<ActiveWorkoutFeedbackDraft>(
+    () =>
+      Object.fromEntries(
+        feedbackQuestions.map((question) => [
+          question.id,
+          {
+            note: '',
+            score: null,
+          },
+        ]),
+      ) as ActiveWorkoutFeedbackDraft,
   );
 
   const isComplete = feedbackQuestions.every((question) => feedback[question.id].score !== null);
 
   return (
     <Card className={cn('overflow-hidden py-0 shadow-sm', className)}>
-      <CardHeader className="gap-3 border-b border-border bg-[var(--color-accent-pink)] py-6 text-[var(--color-on-accent)]">
+      <CardHeader className="gap-3 border-b border-border bg-[var(--color-accent-pink)] py-6 text-on-pink dark:border-b-border dark:bg-card dark:text-foreground">
         <div className="space-y-1">
-          <p className="text-xs font-semibold tracking-[0.22em] text-[var(--color-on-accent)]/70 uppercase">
+          <p className="text-xs font-semibold tracking-[0.22em] uppercase opacity-70 dark:text-muted dark:opacity-100">
             Post-workout feedback
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">How did this session feel?</h1>
-          <p className="max-w-2xl text-sm text-[var(--color-on-accent)]/75">
-            Capture a quick read on energy, recovery, and technique before you wrap the
-            workout.
+          <h2 className="text-3xl font-semibold tracking-tight">How did this session feel?</h2>
+          <p className="max-w-2xl text-sm opacity-75 dark:text-muted dark:opacity-100">
+            Capture a quick read on energy, recovery, and technique before you wrap the workout.
           </p>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4 px-5 py-5 sm:px-6">
         {feedbackQuestions.map((question) => (
-          <section className="rounded-3xl border border-border bg-secondary/25 p-4" key={question.id}>
+          <section
+            className="rounded-3xl border border-border bg-secondary/25 p-4"
+            key={question.id}
+          >
             <div className="space-y-3">
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">{question.title}</h2>
+                <h3 className="text-lg font-semibold text-foreground">{question.title}</h3>
                 <p className="text-sm text-muted">{question.prompt}</p>
               </div>
 
-              <div aria-label={`${question.title} rating`} className="flex flex-wrap gap-2" role="group">
+              <div
+                aria-label={`${question.title} rating`}
+                className="flex flex-wrap gap-2"
+                role="group"
+              >
                 {[1, 2, 3, 4, 5].map((score) => {
                   const isSelected = feedback[question.id].score === score;
 
@@ -83,7 +90,7 @@ export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
                       className={cn(
                         'min-w-11',
                         isSelected &&
-                          'border-transparent bg-[var(--color-accent-cream)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-cream)]/90',
+                          'border-transparent bg-[var(--color-accent-cream)] text-on-cream hover:bg-[var(--color-accent-cream)]/90 dark:bg-amber-500/20 dark:text-amber-400 dark:hover:bg-amber-500/30',
                       )}
                       key={score}
                       onClick={() =>

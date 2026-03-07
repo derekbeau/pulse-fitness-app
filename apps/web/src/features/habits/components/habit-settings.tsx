@@ -148,7 +148,7 @@ export function HabitSettings() {
                 <li key={habit.id}>
                   <article
                     className={cn(
-                      'rounded-2xl border border-slate-950/10 p-4 text-slate-950 shadow-sm',
+                      'rounded-2xl border border-current/10 p-4 shadow-sm',
                       trackingSurfaceClasses[habit.trackingType],
                     )}
                   >
@@ -159,11 +159,11 @@ export function HabitSettings() {
                             {habit.emoji}
                           </span>
                           <div className="space-y-1">
-                            <h3 className="text-lg font-semibold text-slate-950">{habit.name}</h3>
-                            <p className="text-sm text-slate-700">{describeHabit(habit)}</p>
+                            <h3 className="text-lg font-semibold">{habit.name}</h3>
+                            <p className="text-sm opacity-75">{describeHabit(habit)}</p>
                           </div>
                         </div>
-                        <div className="inline-flex rounded-full bg-slate-950/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-800">
+                        <div className="inline-flex rounded-full bg-current/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
                           {trackingTypeLabels[habit.trackingType]}
                         </div>
                       </div>
