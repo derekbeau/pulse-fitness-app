@@ -3,31 +3,37 @@ import type { LucideIcon } from 'lucide-react';
 
 import type { EquipmentCategory, EquipmentLocation } from '../types';
 
-export const equipmentCategoryMeta: Record<
-  EquipmentCategory,
-  { icon: LucideIcon; label: string }
-> = {
-  accessories: {
-    icon: Layers3,
-    label: 'Accessories',
-  },
-  cables: {
-    icon: Wrench,
-    label: 'Cables',
-  },
-  cardio: {
-    icon: Activity,
-    label: 'Cardio',
-  },
-  'free-weights': {
-    icon: Dumbbell,
-    label: 'Free Weights',
-  },
-  machines: {
-    icon: Settings,
-    label: 'Machines',
-  },
-};
+export const equipmentCategoryOrder: EquipmentCategory[] = [
+  'free-weights',
+  'machines',
+  'cables',
+  'cardio',
+  'accessories',
+];
+
+export const equipmentCategoryMeta: Record<EquipmentCategory, { icon: LucideIcon; label: string }> =
+  {
+    accessories: {
+      icon: Layers3,
+      label: 'Accessories',
+    },
+    cables: {
+      icon: Wrench,
+      label: 'Cables',
+    },
+    cardio: {
+      icon: Activity,
+      label: 'Cardio',
+    },
+    'free-weights': {
+      icon: Dumbbell,
+      label: 'Free Weights',
+    },
+    machines: {
+      icon: Settings,
+      label: 'Machines',
+    },
+  };
 
 export function getEquipmentCategoryLabel(category: EquipmentCategory) {
   return equipmentCategoryMeta[category].label;

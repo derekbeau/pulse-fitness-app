@@ -1,5 +1,6 @@
 export { EquipmentPage } from './components/equipment-page';
 export {
+  equipmentCategoryOrder,
   equipmentCategoryMeta,
   equipmentLocations,
   getEquipmentCategoryIcon,
