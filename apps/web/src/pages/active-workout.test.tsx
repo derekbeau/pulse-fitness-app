@@ -22,6 +22,11 @@ describe('ActiveWorkoutPage', () => {
 
     expect(headerCard).toHaveClass('sticky');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
+    expect(screen.getByText('Recent Training')).toBeInTheDocument();
+    expect(screen.getByText('Recovery Status')).toBeInTheDocument();
+    expect(screen.getByText('Active Injuries')).toBeInTheDocument();
+    expect(screen.getByText('Training Phase')).toBeInTheDocument();
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');

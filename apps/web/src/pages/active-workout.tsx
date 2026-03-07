@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
+  SessionContext,
   SessionExerciseList,
   SessionFeedback,
   SessionHeader,
@@ -11,6 +12,7 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   createWorkoutSetId,
+  workoutSessionContext,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
@@ -91,6 +93,8 @@ export function ActiveWorkoutPage() {
             totalSets={session.totalSets}
             workoutName={session.workoutName}
           />
+
+          <SessionContext context={workoutSessionContext} />
 
           <SessionExerciseList
             focusSetId={focusSetId}
