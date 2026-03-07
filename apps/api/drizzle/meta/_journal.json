@@ -57,6 +57,13 @@
       "when": 1772916755553,
       "tag": "0007_outgoing_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772917778519,
+      "tag": "0008_slimy_cardiac",
+      "breakpoints": true
     }
   ]
 }

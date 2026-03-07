@@ -6,10 +6,14 @@ import type {
   ActivityType,
   ConditionProtocolStatus,
   ConditionTimelineEventType,
+  EntityLinkSourceType,
+  EntityLinkTargetType,
+  EquipmentItemCategory,
   HealthConditionStatus,
   HabitTrackingType,
   JournalEntryCreatedBy,
   JournalEntryType,
+  ResourceType,
   WorkoutExerciseCategory,
   WorkoutSessionFeedback,
   WorkoutSessionStatus,
@@ -23,6 +27,9 @@ import {
   conditionSeverityPoints,
   conditionTimelineEvents,
   dashboardConfig,
+  entityLinks,
+  equipmentItems,
+  equipmentLocations,
   exercises,
   foods,
   healthConditions,
@@ -35,6 +42,7 @@ import {
   nutritionLogs,
   parseJsonStringArray,
   parseWorkoutSessionFeedback,
+  resources,
   scheduledWorkouts,
   sessionSets,
   serializeJsonStringArray,
@@ -215,6 +223,137 @@ describe('activities schema', () => {
       'activities_date_format_check',
       'activities_duration_minutes_check',
       'activities_type_check',
+    ]);
+  });
+});
+
+describe('resources schema', () => {
+  it('defines the expected table, user index, JSON columns, and type guardrails', () => {
+    const type: ResourceType = 'program';
+
+    expect(getTableName(resources)).toBe('resources');
+    expect(type).toBe('program');
+
+    const columns = getTableColumns(resources);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'title',
+      'type',
+      'author',
+      'description',
+      'tags',
+      'principles',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.tags.default).toEqual([]);
+    expect(columns.principles.default).toEqual([]);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(resources);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['resources_user_id_idx']);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual(['resources_type_check']);
+  });
+});
+
+describe('equipmentLocations schema', () => {
+  it('defines the expected table, user foreign key, and lookup index', () => {
+    expect(getTableName(equipmentLocations)).toBe('equipment_locations');
+
+    const columns = getTableColumns(equipmentLocations);
+    expect(Object.keys(columns)).toEqual(['id', 'userId', 'name', 'notes', 'createdAt']);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.notes.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(equipmentLocations);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'equipment_locations_user_id_idx',
+    ]);
+  });
+});
+
+describe('equipmentItems schema', () => {
+  it('defines the expected table, location foreign key, and category guardrails', () => {
+    const category: EquipmentItemCategory = 'free-weights';
+
+    expect(getTableName(equipmentItems)).toBe('equipment_items');
+    expect(category).toBe('free-weights');
+
+    const columns = getTableColumns(equipmentItems);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'locationId',
+      'name',
+      'category',
+      'details',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.details.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(equipmentItems);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe(
+      'equipment_locations',
+    );
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'equipment_items_location_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'equipment_items_category_check',
+    ]);
+  });
+});
+
+describe('entityLinks schema', () => {
+  it('defines the expected table, bidirectional indexes, and polymorphic type guardrails', () => {
+    const sourceType: EntityLinkSourceType = 'resource';
+    const targetType: EntityLinkTargetType = 'exercise';
+
+    expect(getTableName(entityLinks)).toBe('entity_links');
+    expect(sourceType).toBe('resource');
+    expect(targetType).toBe('exercise');
+
+    const columns = getTableColumns(entityLinks);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'sourceType',
+      'sourceId',
+      'targetType',
+      'targetId',
+      'targetName',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(entityLinks);
+    expect(config.foreignKeys).toHaveLength(0);
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'entity_links_source_type_source_id_idx',
+      'entity_links_target_type_target_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'entity_links_source_type_check',
+      'entity_links_target_type_check',
     ]);
   });
 });
