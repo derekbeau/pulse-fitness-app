@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
@@ -125,7 +125,9 @@ function interpolateSeverity(
       const progress =
         (timestamp - currentPoint.timestamp) / (nextPoint.timestamp - currentPoint.timestamp);
 
-      return Number((currentPoint.value + (nextPoint.value - currentPoint.value) * progress).toFixed(2));
+      return Math.round(
+        (currentPoint.value + (nextPoint.value - currentPoint.value) * progress) * 100,
+      ) / 100;
     }
   }
 
@@ -182,7 +184,7 @@ function EventTooltip({ hoveredEvent }: { hoveredEvent: HoveredEventState }) {
       </p>
       <div className="mt-2 grid gap-2">
         {hoveredEvent.datum.events.map((event) => (
-          <div className="space-y-1" key={`${event.date}-${event.type}-${event.event}`}>
+          <div className="space-y-1" key={event.id}>
             <Badge
               className="border-transparent"
               style={{
@@ -206,6 +208,52 @@ function EventTooltip({ hoveredEvent }: { hoveredEvent: HoveredEventState }) {
 export function SeverityChart({ severityHistory, timeline }: SeverityChartProps) {
   const chartId = useId();
   const [hoveredEvent, setHoveredEvent] = useState<HoveredEventState | null>(null);
+  const renderEventDot = useCallback(
+    ({ cx, cy, payload }: EventMarkerDotProps) => {
+      if (
+        typeof cx !== 'number' ||
+        typeof cy !== 'number' ||
+        !payload?.primaryEventType ||
+        payload.events.length === 0
+      ) {
+        return null;
+      }
+
+      const eventMeta = EVENT_META[payload.primaryEventType];
+
+      return (
+        <g>
+          <circle
+            aria-label={`${eventMeta.label} event on ${formatFullDate(payload.date)}`}
+            className="cursor-pointer outline-none"
+            cx={cx}
+            cy={cy}
+            data-slot="severity-event-marker"
+            fill={eventMeta.dotFill}
+            onBlur={() => setHoveredEvent(null)}
+            onFocus={() => setHoveredEvent({ datum: payload, x: cx, y: cy })}
+            onMouseEnter={() => setHoveredEvent({ datum: payload, x: cx, y: cy })}
+            onMouseLeave={() => setHoveredEvent(null)}
+            r={6}
+            stroke={eventMeta.dotStroke}
+            strokeWidth={2}
+            tabIndex={0}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            fill="none"
+            pointerEvents="none"
+            r={10}
+            stroke={eventMeta.dotFill}
+            strokeOpacity={0.2}
+            strokeWidth={6}
+          />
+        </g>
+      );
+    },
+    [setHoveredEvent],
+  );
 
   if (severityHistory.length < 2) {
     return (
@@ -227,50 +275,6 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
 
   const data = buildChartData(severityHistory, timeline);
   const gradientId = `severity-gradient-${chartId.replace(/:/g, '-')}`;
-
-  const renderEventDot = ({ cx, cy, payload }: EventMarkerDotProps) => {
-    if (
-      typeof cx !== 'number' ||
-      typeof cy !== 'number' ||
-      !payload?.primaryEventType ||
-      payload.events.length === 0
-    ) {
-      return null;
-    }
-
-    const eventMeta = EVENT_META[payload.primaryEventType];
-
-    return (
-      <g>
-        <circle
-          aria-label={`${eventMeta.label} event on ${formatFullDate(payload.date)}`}
-          className="cursor-pointer outline-none"
-          cx={cx}
-          cy={cy}
-          data-slot="severity-event-marker"
-          fill={eventMeta.dotFill}
-          onBlur={() => setHoveredEvent(null)}
-          onFocus={() => setHoveredEvent({ datum: payload, x: cx, y: cy })}
-          onMouseEnter={() => setHoveredEvent({ datum: payload, x: cx, y: cy })}
-          onMouseLeave={() => setHoveredEvent(null)}
-          r={6}
-          stroke={eventMeta.dotStroke}
-          strokeWidth={2}
-          tabIndex={0}
-        />
-        <circle
-          cx={cx}
-          cy={cy}
-          fill="none"
-          pointerEvents="none"
-          r={10}
-          stroke={eventMeta.dotFill}
-          strokeOpacity={0.2}
-          strokeWidth={6}
-        />
-      </g>
-    );
-  };
 
   return (
     <Card className="py-6 shadow-sm">

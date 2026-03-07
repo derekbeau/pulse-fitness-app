@@ -3,6 +3,7 @@ export type ConditionStatus = 'active' | 'monitoring' | 'resolved';
 export type TimelineEventType = 'onset' | 'flare' | 'improvement' | 'treatment' | 'milestone';
 
 export type TimelineEvent = {
+  id: string;
   date: string;
   event: string;
   type: TimelineEventType;

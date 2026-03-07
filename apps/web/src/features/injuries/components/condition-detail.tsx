@@ -194,7 +194,7 @@ export function ConditionDetail({ condition }: ConditionDetailProps) {
         <CardContent>
           <ol className="relative space-y-5 border-l border-border/70 pl-6">
             {timeline.map((item) => (
-              <li className="relative space-y-3" key={`${item.date}-${item.type}-${item.event}`}>
+              <li className="relative space-y-3" key={item.id}>
                 <span
                   aria-hidden="true"
                   className={`absolute -left-[1.95rem] top-1.5 size-3 rounded-full ${TIMELINE_META[item.type].dotClassName}`}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { CalendarDaysIcon, ClipboardPlusIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,8 @@ type ProtocolDraft = {
   status: ProtocolStatus;
 };
 
+type ProtocolStatusOverride = Pick<Protocol, 'endDate' | 'status'>;
+
 const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
   day: 'numeric',
@@ -46,6 +48,8 @@ const PROTOCOL_STATUS_ORDER: Record<ProtocolStatus, number> = {
   completed: 1,
   discontinued: 2,
 };
+
+const PROTOCOL_STATUSES = ['active', 'completed', 'discontinued'] as const;
 
 const PROTOCOL_STATUS_META: Record<
   ProtocolStatus,
@@ -132,15 +136,27 @@ function sortProtocols(protocols: Protocol[]) {
 }
 
 export function ProtocolList({ protocols }: ProtocolListProps) {
-  const [localProtocols, setLocalProtocols] = useState<Protocol[]>(() => protocols);
+  const [addedProtocols, setAddedProtocols] = useState<Protocol[]>([]);
+  const [protocolStatusById, setProtocolStatusById] = useState<
+    Record<string, ProtocolStatusOverride>
+  >({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [draftProtocol, setDraftProtocol] = useState<ProtocolDraft>(() => getDefaultDraft());
 
-  useEffect(() => {
-    setLocalProtocols(protocols);
-  }, [protocols]);
+  const allProtocols = useMemo(
+    () =>
+      [...protocols, ...addedProtocols].map((protocol) => {
+        const statusOverride = protocolStatusById[protocol.id];
 
-  const visibleProtocols = sortProtocols(localProtocols);
+        return statusOverride ? { ...protocol, ...statusOverride } : protocol;
+      }),
+    [protocols, addedProtocols, protocolStatusById],
+  );
+  const protocolLookup = useMemo(
+    () => new Map(allProtocols.map((protocol) => [protocol.id, protocol])),
+    [allProtocols],
+  );
+  const visibleProtocols = useMemo(() => sortProtocols(allProtocols), [allProtocols]);
 
   function updateDraft<K extends keyof ProtocolDraft>(field: K, value: ProtocolDraft[K]) {
     setDraftProtocol((currentDraft) => ({
@@ -164,7 +180,7 @@ export function ProtocolList({ protocols }: ProtocolListProps) {
       return;
     }
 
-    setLocalProtocols((currentProtocols) => [
+    setAddedProtocols((currentProtocols) => [
       ...currentProtocols,
       {
         id: createProtocolId(name),
@@ -172,7 +188,7 @@ export function ProtocolList({ protocols }: ProtocolListProps) {
         notes,
         startDate: draftProtocol.startDate,
         status: draftProtocol.status,
-        endDate: draftProtocol.status === 'active' ? undefined : draftProtocol.startDate,
+        endDate: draftProtocol.status === 'active' ? undefined : getTodayDate(),
       },
     ]);
 
@@ -180,21 +196,21 @@ export function ProtocolList({ protocols }: ProtocolListProps) {
   }
 
   function handleStatusChange(protocolId: string, nextStatus: ProtocolStatus) {
+    const protocol = protocolLookup.get(protocolId);
+
+    if (!protocol || protocol.status === nextStatus) {
+      return;
+    }
+
     const today = getTodayDate();
 
-    setLocalProtocols((currentProtocols) =>
-      currentProtocols.map((protocol) => {
-        if (protocol.id !== protocolId || protocol.status === nextStatus) {
-          return protocol;
-        }
-
-        return {
-          ...protocol,
-          status: nextStatus,
-          endDate: nextStatus === 'active' ? undefined : (protocol.endDate ?? today),
-        };
-      }),
-    );
+    setProtocolStatusById((currentStatuses) => ({
+      ...currentStatuses,
+      [protocolId]: {
+        status: nextStatus,
+        endDate: nextStatus === 'active' ? undefined : (protocol.endDate ?? today),
+      },
+    }));
   }
 
   return (
@@ -273,7 +289,7 @@ export function ProtocolList({ protocols }: ProtocolListProps) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(['active', 'completed', 'discontinued'] as const).map((status) => (
+                          {PROTOCOL_STATUSES.map((status) => (
                             <SelectItem key={status} value={status}>
                               {PROTOCOL_STATUS_META[status].label}
                             </SelectItem>
@@ -336,7 +352,7 @@ export function ProtocolList({ protocols }: ProtocolListProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(['active', 'completed', 'discontinued'] as const).map((status) => (
+                    {PROTOCOL_STATUSES.map((status) => (
                       <SelectItem key={status} value={status}>
                         {PROTOCOL_STATUS_META[status].label}
                       </SelectItem>

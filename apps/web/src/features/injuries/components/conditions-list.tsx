@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { ArrowLeftIcon, ArrowUpDownIcon, CalendarDaysIcon, ClipboardPlusIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
@@ -23,13 +23,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { mockHealthConditions } from '../lib/mock-data';
 import type { ConditionStatus, HealthCondition } from '../types';
 
 type ConditionsListProps = {
   conditions?: HealthCondition[];
-  selectedConditionId?: string;
 };
 
 type ConditionSortOption = 'status' | 'onset-date';
@@ -47,6 +45,8 @@ const STATUS_ORDER: Record<ConditionStatus, number> = {
   monitoring: 1,
   resolved: 2,
 };
+
+const CONDITION_STATUSES = ['active', 'monitoring', 'resolved'] as const;
 
 const SORT_OPTIONS: Array<{ description: string; label: string; value: ConditionSortOption }> = [
   {
@@ -143,26 +143,27 @@ function formatConditionSummary(conditions: HealthCondition[]) {
   return `${conditions.length} ${conditionLabel} (${counts.active} ${STATUS_META.active.summaryLabel}, ${counts.monitoring} ${STATUS_META.monitoring.summaryLabel}, ${counts.resolved} ${STATUS_META.resolved.summaryLabel})`;
 }
 
+function parseDate(date: string) {
+  return new Date(`${date}T12:00:00`);
+}
+
 function sortConditions(conditions: HealthCondition[], sortBy: ConditionSortOption) {
   return [...conditions].sort((left, right) => {
-    if (sortBy === 'status') {
-      const statusDifference = STATUS_ORDER[left.status] - STATUS_ORDER[right.status];
+    const statusDifference = STATUS_ORDER[left.status] - STATUS_ORDER[right.status];
+    const onsetDifference =
+      parseDate(right.onsetDate).getTime() - parseDate(left.onsetDate).getTime();
 
+    if (sortBy === 'status') {
       if (statusDifference !== 0) {
         return statusDifference;
       }
-    }
-
-    const onsetDifference =
-      new Date(right.onsetDate).getTime() - new Date(left.onsetDate).getTime();
-
-    if (onsetDifference !== 0) {
-      return onsetDifference;
-    }
-
-    if (sortBy === 'onset-date') {
-      const statusDifference = STATUS_ORDER[left.status] - STATUS_ORDER[right.status];
-
+      if (onsetDifference !== 0) {
+        return onsetDifference;
+      }
+    } else {
+      if (onsetDifference !== 0) {
+        return onsetDifference;
+      }
       if (statusDifference !== 0) {
         return statusDifference;
       }
@@ -172,23 +173,21 @@ function sortConditions(conditions: HealthCondition[], sortBy: ConditionSortOpti
   });
 }
 
-export function ConditionsList({
-  conditions = mockHealthConditions,
-  selectedConditionId,
-}: ConditionsListProps) {
-  const [localConditions, setLocalConditions] = useState<HealthCondition[]>(() => conditions);
+export function ConditionsList({ conditions = mockHealthConditions }: ConditionsListProps) {
+  const [addedConditions, setAddedConditions] = useState<HealthCondition[]>([]);
   const [sortBy, setSortBy] = useState<ConditionSortOption>('status');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [draftCondition, setDraftCondition] = useState<ConditionDraft>(() => getDefaultDraft());
 
-  useEffect(() => {
-    setLocalConditions(conditions);
-  }, [conditions]);
-
-  const visibleConditions = sortConditions(localConditions, sortBy);
-  const conditionCounts = getConditionCounts(localConditions);
-  const selectedCondition =
-    visibleConditions.find((condition) => condition.id === selectedConditionId) ?? null;
+  const allConditions = useMemo(
+    () => [...addedConditions, ...conditions],
+    [addedConditions, conditions],
+  );
+  const visibleConditions = useMemo(
+    () => sortConditions(allConditions, sortBy),
+    [allConditions, sortBy],
+  );
+  const conditionCounts = useMemo(() => getConditionCounts(allConditions), [allConditions]);
 
   function updateDraft<K extends keyof ConditionDraft>(field: K, value: ConditionDraft[K]) {
     setDraftCondition((currentDraft) => ({
@@ -213,7 +212,7 @@ export function ConditionsList({
       return;
     }
 
-    setLocalConditions((currentConditions) => [
+    setAddedConditions((currentConditions) => [
       {
         id: createConditionId(name),
         name,
@@ -274,7 +273,7 @@ export function ConditionsList({
             <div className="space-y-2">
               <CardTitle className="text-xl text-foreground">Condition overview</CardTitle>
               <CardDescription className="max-w-2xl text-sm text-muted-foreground">
-                {formatConditionSummary(localConditions)}
+                {formatConditionSummary(allConditions)}
               </CardDescription>
             </div>
 
@@ -308,7 +307,7 @@ export function ConditionsList({
         </CardHeader>
 
         <CardContent className="grid gap-3 px-6 py-5 sm:grid-cols-3">
-          {(['active', 'monitoring', 'resolved'] as const).map((status) => {
+          {CONDITION_STATUSES.map((status) => {
             return (
               <div
                 className="rounded-2xl border border-border/60 bg-background/75 px-4 py-3 shadow-sm backdrop-blur"
@@ -335,51 +334,11 @@ export function ConditionsList({
         </CardContent>
       </Card>
 
-      {selectedCondition ? (
-        <Card className="gap-3 border-primary/35 bg-primary/5 py-5 shadow-sm">
-          <CardHeader className="gap-2">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-lg text-foreground">{selectedCondition.name}</CardTitle>
-                <CardDescription>
-                  Route selected:{' '}
-                  <span className="font-medium text-foreground">{selectedCondition.bodyArea}</span>
-                </CardDescription>
-              </div>
-              <Badge className={STATUS_META[selectedCondition.status].badgeClassName}>
-                {STATUS_META[selectedCondition.status].label}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-0">
-            <p className="text-sm text-muted-foreground">
-              The detail route is active for this condition. This task keeps the list experience in
-              place and highlights the selected record until the full detail page lands.
-            </p>
-            <Button asChild className="w-fit" size="sm" variant="outline">
-              <Link to="/profile/injuries">Back to all conditions</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
       <div className="grid gap-4 lg:grid-cols-2">
         {visibleConditions.map((condition) => {
-          const isSelected = condition.id === selectedConditionId;
-
           return (
-            <Link
-              aria-current={isSelected ? 'page' : undefined}
-              className="block cursor-pointer"
-              key={condition.id}
-              to={`/profile/injuries/${condition.id}`}
-            >
-              <Card
-                className={cn(
-                  'h-full gap-4 py-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50',
-                  isSelected && 'border-primary/60 bg-primary/5 shadow-md ring-2 ring-primary/15',
-                )}
-              >
+            <Link className="block cursor-pointer" key={condition.id} to={`/profile/injuries/${condition.id}`}>
+              <Card className="h-full gap-4 py-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50">
                 <CardHeader className="gap-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-3">
