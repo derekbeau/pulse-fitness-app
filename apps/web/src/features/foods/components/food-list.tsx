@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { mockFoods, type Food } from '@/lib/mock-data/foods';
 
 type FoodListProps = {
@@ -326,10 +327,21 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
                   <div className="flex items-start gap-2">
                     {food.verified ? (
-                      <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
-                        <CheckCircle2Icon className="size-3.5" />
-                        Verified
-                      </Badge>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/15">
+                              <CheckCircle2Icon className="size-3.5" />
+                              Verified
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {food.verifiedSource
+                              ? `Source: ${food.verifiedSource}`
+                              : 'Verified nutrition data'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : null}
 
                     <Button

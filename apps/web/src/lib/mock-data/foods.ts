@@ -10,6 +10,7 @@ export interface Food {
   fat: number;
   fiber?: number;
   verified: boolean;
+  verifiedSource?: string;
   lastUsedAt: string | null;
 }
 
@@ -24,6 +25,7 @@ export const mockFoods: Food[] = [
     carbs: 0,
     fat: 4,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T12:30:00.000Z',
   },
   {
@@ -37,6 +39,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 1,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T12:30:00.000Z',
   },
   {
@@ -49,6 +52,7 @@ export const mockFoods: Food[] = [
     carbs: 1,
     fat: 10,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T07:15:00.000Z',
   },
   {
@@ -63,6 +67,7 @@ export const mockFoods: Food[] = [
     fat: 3,
     fiber: 4,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-04T07:10:00.000Z',
   },
   {
@@ -76,6 +81,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 3,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T07:15:00.000Z',
   },
   {
@@ -89,6 +95,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 4,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-04T18:45:00.000Z',
   },
   {
@@ -101,6 +108,7 @@ export const mockFoods: Food[] = [
     carbs: 0,
     fat: 17,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T18:40:00.000Z',
   },
   {
@@ -114,6 +122,7 @@ export const mockFoods: Food[] = [
     carbs: 5,
     fat: 0,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-05T15:30:00.000Z',
   },
   {
@@ -127,6 +136,7 @@ export const mockFoods: Food[] = [
     fat: 14,
     fiber: 4,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-03T20:20:00.000Z',
   },
   {
@@ -140,6 +150,7 @@ export const mockFoods: Food[] = [
     carbs: 3,
     fat: 1,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-05T16:45:00.000Z',
   },
   {
@@ -153,6 +164,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 2,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T12:30:00.000Z',
   },
   {
@@ -166,6 +178,7 @@ export const mockFoods: Food[] = [
     carbs: 0,
     fat: 14,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-04T18:45:00.000Z',
   },
   {
@@ -180,6 +193,7 @@ export const mockFoods: Food[] = [
     fat: 2,
     fiber: 6,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-05T07:15:00.000Z',
   },
   {
@@ -193,6 +207,7 @@ export const mockFoods: Food[] = [
     fat: 11,
     fiber: 5,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-02T12:15:00.000Z',
   },
   {
@@ -205,6 +220,7 @@ export const mockFoods: Food[] = [
     carbs: 0,
     fat: 11,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-03T18:30:00.000Z',
   },
   {
@@ -218,6 +234,7 @@ export const mockFoods: Food[] = [
     carbs: 6,
     fat: 4,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: '2026-03-04T07:10:00.000Z',
   },
   {
@@ -245,6 +262,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 4,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-04T15:20:00.000Z',
   },
   {
@@ -258,6 +276,7 @@ export const mockFoods: Food[] = [
     fat: 0,
     fiber: 1,
     verified: true,
+    verifiedSource: 'USDA FoodData Central',
     lastUsedAt: '2026-03-05T18:40:00.000Z',
   },
   {
@@ -271,6 +290,7 @@ export const mockFoods: Food[] = [
     carbs: 1,
     fat: 9,
     verified: true,
+    verifiedSource: 'Manufacturer label',
     lastUsedAt: null,
   },
 ];
