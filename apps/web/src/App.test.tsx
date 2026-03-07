@@ -18,6 +18,7 @@ const pageRoutes = [
   { heading: 'Activity', path: '/activity' },
   { heading: 'Foods', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
+  { heading: 'Profile', path: '/profile' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
 
