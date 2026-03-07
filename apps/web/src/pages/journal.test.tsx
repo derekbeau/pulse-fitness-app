@@ -48,7 +48,7 @@ describe('JournalPage', () => {
     expect(within(firstCard).getByText('injury update')).toBeInTheDocument();
     expect(within(firstCard).getByText('Mar 6, 2026')).toBeInTheDocument();
     expect(
-      within(firstCard).getByText(/Sports med check in: cleared to reintroduce overhead work/i),
+      within(firstCard).getByText(/Sports med check-?in: cleared to reintroduce overhead work/i),
     ).toHaveTextContent(/\.\.\.$/);
     expect(within(firstCard).getByRole('link', { name: 'Mobility warm-up' })).toHaveAttribute(
       'href',
