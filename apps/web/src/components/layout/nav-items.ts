@@ -7,7 +7,7 @@ import {
   NotebookPen,
   LayoutDashboard,
   ListChecks,
-  Settings,
+  User,
   UtensilsCrossed,
 } from 'lucide-react';
 
@@ -59,9 +59,9 @@ export const moreNavItems: NavItem[] = [
     to: '/journal',
   },
   {
-    icon: Settings,
-    label: 'Settings',
-    to: '/settings',
+    icon: User,
+    label: 'Profile',
+    to: '/profile',
   },
 ];
 

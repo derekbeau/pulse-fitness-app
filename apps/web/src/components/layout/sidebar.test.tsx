@@ -11,7 +11,7 @@ const navLinks = [
   { label: 'Activity', path: '/activity' },
   { label: 'Foods', path: '/foods' },
   { label: 'Journal', path: '/journal' },
-  { label: 'Settings', path: '/settings' },
+  { label: 'Profile', path: '/profile' },
 ] as const;
 
 describe('Sidebar', () => {

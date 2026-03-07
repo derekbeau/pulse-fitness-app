@@ -19,6 +19,9 @@ const pageRoutes = [
   { heading: 'Foods', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
   { heading: 'Profile', path: '/profile' },
+  { heading: 'Equipment', path: '/profile/equipment' },
+  { heading: 'Injuries', path: '/profile/injuries' },
+  { heading: 'Resources', path: '/profile/resources' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
 
@@ -30,7 +33,7 @@ const navRoutes = [
   { heading: 'Activity', path: '/activity' },
   { heading: 'Foods', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
-  { heading: 'Settings', path: '/settings' },
+  { heading: 'Profile', path: '/profile' },
 ] as const;
 
 function renderApp() {
@@ -67,5 +70,7 @@ describe('App', () => {
 
       expect(links.some((link) => link.getAttribute('href') === path)).toBe(true);
     });
+
+    expect(screen.queryByRole('link', { name: /^Settings$/i })).not.toBeInTheDocument();
   });
 });
