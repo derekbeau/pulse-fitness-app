@@ -57,8 +57,4 @@ CREATE TABLE `condition_timeline_events` (
 	CONSTRAINT "condition_timeline_events_type_check" CHECK("condition_timeline_events"."type" in ('onset', 'flare', 'improvement', 'treatment', 'milestone'))
 );
 --> statement-breakpoint
-CREATE INDEX `condition_timeline_events_condition_date_idx` ON `condition_timeline_events` (`condition_id`,`date`);--> statement-breakpoint
-ALTER TABLE `body_weight` ADD `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL;--> statement-breakpoint
-ALTER TABLE `dashboard_config` ADD `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL;--> statement-breakpoint
-ALTER TABLE `agent_tokens` DROP COLUMN `updated_at`;--> statement-breakpoint
-ALTER TABLE `session_sets` DROP COLUMN `updated_at`;
+CREATE INDEX `condition_timeline_events_condition_date_idx` ON `condition_timeline_events` (`condition_id`,`date`);
