@@ -68,6 +68,8 @@ describe('convention documentation', () => {
   const designSystemPath = resolve(monorepoRoot, 'docs', 'conventions', 'design-system.md');
   const featureStructurePath = resolve(monorepoRoot, 'docs', 'conventions', 'feature-structure.md');
   const workoutDomainPath = resolve(monorepoRoot, 'docs', 'conventions', 'workout-domain.md');
+  const dataModelsPath = resolve(monorepoRoot, 'docs', 'conventions', 'data-models.md');
+  const apiConventionsPath = resolve(monorepoRoot, 'docs', 'conventions', 'api-conventions.md');
 
   it('documents all design-system requirements', async () => {
     const designSystemDoc = await readFile(designSystemPath, 'utf8');
@@ -179,5 +181,124 @@ describe('convention documentation', () => {
     expect(workoutDomainDoc).toContain('concentric');
     expect(workoutDomainDoc).toContain('3110');
     expect(workoutDomainDoc).toContain('--color-on-accent');
+  });
+
+  it('documents all data-model requirements', async () => {
+    const dataModelsDoc = await readFile(dataModelsPath, 'utf8');
+
+    expect(dataModelsDoc).toContain('# Data Model Conventions');
+    expect(dataModelsDoc).toContain('## Storage Conventions');
+    expect(dataModelsDoc).toContain('## User Scope Rules');
+    expect(dataModelsDoc).toContain('## Table Inventory');
+    expect(dataModelsDoc).toContain('## Relationship Patterns');
+    expect(dataModelsDoc).toContain('## JSON Field Patterns');
+    expect(dataModelsDoc).toContain('## Normalization Decision Framework');
+    expect(dataModelsDoc).toContain('UUIDs stored as `text`');
+    expect(dataModelsDoc).toContain('`YYYY-MM-DD`');
+    expect(dataModelsDoc).toContain('Unix milliseconds');
+    expect(dataModelsDoc).toContain('integer` `0`/`1`');
+    expect(dataModelsDoc).toContain("text('col', { mode: 'json' }).$type<T>()");
+    expect(dataModelsDoc).toContain('journal_mode = WAL');
+    expect(dataModelsDoc).toContain('busy_timeout = 5000');
+    expect(dataModelsDoc).toContain('synchronous = NORMAL');
+    expect(dataModelsDoc).toContain('foreign_keys = ON');
+    expect(dataModelsDoc).toContain('Soft delete');
+    expect(dataModelsDoc).toContain('habits.active');
+    expect(dataModelsDoc).toContain('polymorphic bridge');
+    expect(dataModelsDoc).toContain('sourceType');
+    expect(dataModelsDoc).toContain('sourceId');
+    expect(dataModelsDoc).toContain('targetType');
+    expect(dataModelsDoc).toContain('targetId');
+    expect(dataModelsDoc).toContain('targetName');
+    expect(dataModelsDoc).toContain('scope through the owning source entity');
+    expect(dataModelsDoc).toContain('query, filter, sort, or paginate');
+    expect(dataModelsDoc).toContain('read and written as a whole');
+    expect(dataModelsDoc).toContain('preferences');
+    expect(dataModelsDoc).toContain('feedback');
+    expect(dataModelsDoc).toContain('habitChainIds');
+    expect(dataModelsDoc).toContain('trendMetrics');
+    expect(dataModelsDoc).toContain('muscleGroups');
+    expect(dataModelsDoc).toContain('formCues');
+    expect(dataModelsDoc).toContain('badges');
+    expect(dataModelsDoc).toContain('reversePyramid');
+    expect(dataModelsDoc).toContain('injuryCues');
+    expect(dataModelsDoc).toContain('customFeedback');
+    expect(dataModelsDoc).toContain('supplemental');
+    expect(dataModelsDoc).toContain('principles');
+
+    [
+      'users',
+      'agent_tokens',
+      'habits',
+      'habit_entries',
+      'exercises',
+      'workout_templates',
+      'template_exercises',
+      'workout_sessions',
+      'session_sets',
+      'foods',
+      'nutrition_logs',
+      'meals',
+      'meal_items',
+      'body_weight',
+      'nutrition_targets',
+      'dashboard_config',
+      'scheduled_workouts',
+      'health_conditions',
+      'condition_timeline_events',
+      'condition_protocols',
+      'condition_severity_points',
+      'journal_entries',
+      'activities',
+      'resources',
+      'equipment_locations',
+      'equipment_items',
+      'entity_links',
+    ].forEach((tableName) => {
+      expect(dataModelsDoc).toContain(`\`${tableName}\``);
+    });
+  });
+
+  it('documents all api convention requirements', async () => {
+    const apiConventionsDoc = await readFile(apiConventionsPath, 'utf8');
+
+    expect(apiConventionsDoc).toContain('# API Conventions');
+    expect(apiConventionsDoc).toContain('## Route Structure');
+    expect(apiConventionsDoc).toContain('## Request Validation');
+    expect(apiConventionsDoc).toContain('## Authentication');
+    expect(apiConventionsDoc).toContain('## Response Envelope');
+    expect(apiConventionsDoc).toContain('## Standard Error Codes');
+    expect(apiConventionsDoc).toContain('## Pagination Pattern');
+    expect(apiConventionsDoc).toContain('## Date Range Queries');
+    expect(apiConventionsDoc).toContain('/api/v1/');
+    expect(apiConventionsDoc).toContain('/api/agent/');
+    expect(apiConventionsDoc).toContain('/api/v1/auth/register');
+    expect(apiConventionsDoc).toContain('/api/v1/agent-tokens');
+    expect(apiConventionsDoc).toContain('Zod');
+    expect(apiConventionsDoc).toContain('safeParse');
+    expect(apiConventionsDoc).toContain('requireAuth');
+    expect(apiConventionsDoc).toContain('requireUserAuth');
+    expect(apiConventionsDoc).toContain('Authorization: Bearer <jwt>');
+    expect(apiConventionsDoc).toContain('Authorization: AgentToken <token>');
+    expect(apiConventionsDoc).toContain('request.userId');
+    expect(apiConventionsDoc).toContain('{ data: T }');
+    expect(apiConventionsDoc).toContain('{ data: T[], meta: { page, limit, total } }');
+    expect(apiConventionsDoc).toContain('{ error: { code, message } }');
+    expect(apiConventionsDoc).toContain('UNAUTHORIZED');
+    expect(apiConventionsDoc).toContain('FORBIDDEN');
+    expect(apiConventionsDoc).toContain('NOT_FOUND');
+    expect(apiConventionsDoc).toContain('VALIDATION_ERROR');
+    expect(apiConventionsDoc).toContain('CONFLICT');
+    expect(apiConventionsDoc).toContain('INTERNAL_ERROR');
+    expect(apiConventionsDoc).toContain('page');
+    expect(apiConventionsDoc).toContain('default `1`');
+    expect(apiConventionsDoc).toContain('limit');
+    expect(apiConventionsDoc).toContain('default `50`');
+    expect(apiConventionsDoc).toContain('max `100`');
+    expect(apiConventionsDoc).toContain('meta');
+    expect(apiConventionsDoc).toContain('total');
+    expect(apiConventionsDoc).toContain('from');
+    expect(apiConventionsDoc).toContain('to');
+    expect(apiConventionsDoc).toContain('YYYY-MM-DD');
   });
 });

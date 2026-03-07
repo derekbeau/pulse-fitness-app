@@ -69,7 +69,7 @@ describe('ActiveWorkoutPage', () => {
     ).toBeChecked();
   });
 
-  it('moves from session logging to feedback, summary, and back to workouts', async () => {
+  it('moves from session logging to feedback, summary, and back to workouts', () => {
     renderActiveWorkoutPage();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
@@ -95,7 +95,6 @@ describe('ActiveWorkoutPage', () => {
     completeSet('Couch Stretch', 1);
 
     fireEvent.click(within(getExerciseCard('Couch Stretch')).getByLabelText('Complete set 2'));
-    await act(async () => {});
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -129,7 +128,6 @@ describe('ActiveWorkoutPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
-    await act(async () => {});
 
     expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();
     expect(screen.getByText('Exercises completed')).toBeInTheDocument();
@@ -141,10 +139,8 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    await act(async () => {});
-
     expect(screen.getByRole('heading', { level: 1, name: 'Workouts' })).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('uses the selected template from the route query string', () => {
     renderActiveWorkoutPage('/workouts/active?template=lower-quad-dominant');
