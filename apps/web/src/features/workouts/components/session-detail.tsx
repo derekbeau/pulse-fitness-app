@@ -8,20 +8,33 @@ import {
   ListChecks,
   NotebookPen,
   Scale,
+  TrendingUp,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { mockExercises, mockTemplates, type WorkoutTemplateSectionType } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
-import { workoutCompletedSessions, workoutEnhancedExercises } from '../lib/mock-data';
+import {
+  workoutCompletedSessions,
+  workoutEnhancedExercises,
+  workoutExerciseHistory,
+} from '../lib/mock-data';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
 import type { ActiveWorkoutCompletedSession } from '../types';
+import { ExerciseTrendChart } from './exercise-trend-chart';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
 type SessionDetailProps = {
@@ -89,6 +102,7 @@ const phaseBadgeStyles = {
 export function SessionDetail({ sessionId }: SessionDetailProps) {
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const session = workoutCompletedSessions.find((candidate) => candidate.id === sessionId);
 
   if (!session) {
@@ -114,6 +128,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const sessionDate = new Date(session.startedAt);
   const summary = getSessionSummary(session);
   const sections = buildSections(session);
+  const selectedExercise = sections
+    .flatMap((section) => section.exercises)
+    .find((exercise) => exercise.exerciseId === selectedExerciseId);
 
   return (
     <section className="space-y-6">
@@ -266,6 +283,17 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                           {`${exercise.sets.length} logged set${exercise.sets.length === 1 ? '' : 's'}`}
                         </p>
                       </div>
+
+                      <Button
+                        aria-label={`Open ${exercise.name} trend chart`}
+                        className="self-start"
+                        onClick={() => setSelectedExerciseId(exercise.exerciseId)}
+                        size="icon-sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <TrendingUp aria-hidden="true" className="size-4" />
+                      </Button>
                     </div>
                   </CardHeader>
 
@@ -366,6 +394,27 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       <Button asChild className="w-full sm:w-auto" size="lg">
         <Link to={`/workouts/active?template=${session.templateId}`}>Repeat Workout</Link>
       </Button>
+
+      <Dialog onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)} open={selectedExercise != null}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
+          {selectedExercise ? (
+            <div className="space-y-0">
+              <DialogHeader className="px-6 pt-6">
+                <DialogTitle>{`${selectedExercise.name} trends`}</DialogTitle>
+                <DialogDescription>
+                  Review weight and rep progression for this exercise.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                <ExerciseTrendChart
+                  exerciseName={selectedExercise.name}
+                  history={workoutExerciseHistory[selectedExercise.exerciseId] ?? []}
+                />
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

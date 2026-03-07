@@ -2,6 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   mockExercises,
@@ -9,6 +16,9 @@ import {
   type WorkoutExerciseCategory,
 } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
+
+import { workoutExerciseHistory } from '../lib/mock-data';
+import { ExerciseTrendChart } from './exercise-trend-chart';
 
 const categoryBadgeStyles: Record<WorkoutExerciseCategory, string> = {
   compound:
@@ -30,6 +40,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const [muscleGroup, setMuscleGroup] = useState('all');
   const [equipment, setEquipment] = useState('all');
   const [category, setCategory] = useState<'all' | WorkoutExerciseCategory>('all');
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
 
   const muscleGroupOptions = useMemo(
     () => Array.from(new Set(mockExercises.flatMap((exercise) => exercise.muscleGroups))).sort(),
@@ -53,6 +64,9 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       }),
     [category, equipment, muscleGroup, searchTerm],
   );
+
+  const selectedExercise =
+    mockExercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -141,22 +155,61 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredExercises.map((exercise) => (
-            <ExerciseCard exercise={exercise} key={exercise.id} />
+            <ExerciseCard
+              exercise={exercise}
+              key={exercise.id}
+              onSelectTrend={() => setSelectedExerciseId(exercise.id)}
+            />
           ))}
         </div>
       )}
+
+      <Dialog onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)} open={selectedExercise != null}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
+          {selectedExercise ? (
+            <div className="space-y-0">
+              <DialogHeader className="px-6 pt-6">
+                <DialogTitle>{`${selectedExercise.name} trends`}</DialogTitle>
+                <DialogDescription>
+                  Review weight and rep progression across completed sessions.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                <ExerciseTrendChart
+                  exerciseName={selectedExercise.name}
+                  history={workoutExerciseHistory[selectedExercise.id] ?? []}
+                />
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
+function ExerciseCard({
+  exercise,
+  onSelectTrend,
+}: {
+  exercise: WorkoutExercise;
+  onSelectTrend: () => void;
+}) {
   return (
     <Card className="gap-4 py-0">
       <CardHeader className="gap-3 py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-3">
             <div className="space-y-1">
-              <h3 className="text-xl font-semibold text-foreground">{exercise.name}</h3>
+              <h3>
+                <button
+                  className="cursor-pointer text-left text-xl font-semibold text-foreground underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={onSelectTrend}
+                  type="button"
+                >
+                  {exercise.name}
+                </button>
+              </h3>
               <p className="text-sm text-muted">{formatLabel(exercise.equipment)}</p>
             </div>
 

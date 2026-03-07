@@ -1,9 +1,31 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { workoutCompletedSessions } from '..';
 import { SessionDetail } from './session-detail';
+
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
+  const React = await vi.importActual<typeof import('react')>('react');
+
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="responsive-container">
+        {React.isValidElement(children)
+          ? React.cloneElement(
+              children as React.ReactElement<{ height?: number; width?: number }>,
+              {
+                height: 320,
+                width: 640,
+              },
+            )
+          : children}
+      </div>
+    ),
+  };
+});
 
 describe('SessionDetail', () => {
   it('renders a not-found state for unknown sessions', () => {
@@ -76,5 +98,21 @@ describe('SessionDetail', () => {
     fireEvent.click(screen.getByLabelText(/show comparison/i));
 
     expect(screen.getByText('First session — no comparison available')).toBeInTheDocument();
+  });
+
+  it('opens an exercise trend chart from the session detail exercise action', () => {
+    const session = workoutCompletedSessions[0];
+
+    render(
+      <MemoryRouter>
+        <SessionDetail sessionId={session.id} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
+    expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
   });
 });
