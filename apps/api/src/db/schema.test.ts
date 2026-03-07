@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   HabitTrackingType,
   WorkoutExerciseCategory,
+  WorkoutSessionStatus,
   WorkoutTemplateSectionType,
 } from './schema/index.js';
 import {
@@ -13,7 +14,9 @@ import {
   habitEntries,
   habits,
   parseJsonStringArray,
+  sessionSets,
   serializeJsonStringArray,
+  workoutSessions,
   templateExercises,
   users,
   workoutTemplates,
@@ -233,6 +236,58 @@ describe('templateExercises schema', () => {
   });
 });
 
+describe('workoutSessions schema', () => {
+  it('defines the expected table, nullable template link, indexes, and constraints', () => {
+    const status: WorkoutSessionStatus = 'in-progress';
+
+    expect(getTableName(workoutSessions)).toBe('workout_sessions');
+    expect(status).toBe('in-progress');
+
+    const columns = getTableColumns(workoutSessions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'templateId',
+      'name',
+      'date',
+      'status',
+      'startedAt',
+      'completedAt',
+      'duration',
+      'feedback',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.templateId.notNull).toBe(false);
+    expect(columns.status.default).toBe('in-progress');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(workoutSessions);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
+      'users',
+      'workout_templates',
+    ]);
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
+      )?.onDelete,
+    ).toBe('set null');
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'workout_sessions_date_idx',
+      'workout_sessions_user_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'workout_sessions_completed_at_check',
+      'workout_sessions_date_format_check',
+      'workout_sessions_status_check',
+    ]);
+  });
+});
+
 describe('habitEntries schema', () => {
   it('defines the expected table, foreign keys, unique constraint, and indexes', () => {
     expect(getTableName(habitEntries)).toBe('habit_entries');
@@ -273,6 +328,54 @@ describe('habitEntries schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name)).toEqual([
       'habit_entries_date_format_check',
+    ]);
+  });
+});
+
+describe('sessionSets schema', () => {
+  it('defines the expected table, defaults, ordering constraint, and session foreign key', () => {
+    expect(getTableName(sessionSets)).toBe('session_sets');
+
+    const columns = getTableColumns(sessionSets);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'sessionId',
+      'exerciseId',
+      'setNumber',
+      'weight',
+      'reps',
+      'completed',
+      'skipped',
+      'section',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.completed.default).toBe(false);
+    expect(columns.skipped.default).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(sessionSets);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('workout_sessions');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'session_sets_session_id_idx',
+    ]);
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe(
+      'session_sets_session_exercise_set_number_unique',
+    );
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'session_id',
+      'exercise_id',
+      'set_number',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'session_sets_completion_state_check',
+      'session_sets_section_check',
+      'session_sets_set_number_check',
     ]);
   });
 });
