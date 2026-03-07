@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
+import { weightRoutes } from './routes/weight/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 
@@ -29,6 +30,7 @@ export const buildServer = () => {
   app.get('/health', async () => ({ status: 'ok' }));
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
+  app.register(weightRoutes, { prefix: '/api/v1/weight' });
 
   return app;
 };
