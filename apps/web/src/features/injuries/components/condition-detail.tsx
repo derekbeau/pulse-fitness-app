@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProtocolList } from './protocol-list';
 import type {
   ConditionStatus,
   HealthCondition,
@@ -220,6 +221,8 @@ export function ConditionDetail({ condition }: ConditionDetailProps) {
           </ol>
         </CardContent>
       </Card>
+
+      <ProtocolList protocols={condition.protocols} />
 
       <Card className="py-6 shadow-sm">
         <CardHeader className="gap-2">
