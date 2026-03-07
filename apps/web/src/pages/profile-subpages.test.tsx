@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
-import { ProfileEquipmentPage } from '@/pages/profile-equipment';
+import { EquipmentRoutePage } from '@/pages/equipment';
 import { ProfileInjuriesPage } from '@/pages/profile-injuries';
 import { ProfileResourcesPage } from '@/pages/profile-resources';
 
 const subpages = [
   {
-    component: ProfileEquipmentPage,
+    component: EquipmentRoutePage,
     heading: 'Equipment',
   },
   {

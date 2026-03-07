@@ -18,7 +18,7 @@ const profileDestinations: ProfileDestination[] = [
     description: 'Inventory across every gym setup and storage spot.',
     href: '/profile/equipment',
     icon: Wrench,
-    summary: '2 locations, 45 items',
+    summary: '2 locations, 32 total items',
     title: 'Equipment',
   },
   {

@@ -1,3 +1,4 @@
+export { EquipmentPage } from './components/equipment-page';
 export {
   equipmentCategoryMeta,
   equipmentLocations,

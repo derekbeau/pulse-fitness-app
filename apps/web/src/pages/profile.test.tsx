@@ -36,7 +36,7 @@ describe('ProfilePage', () => {
     );
     expect(screen.getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
 
-    expect(screen.getByText('2 locations, 45 items')).toBeInTheDocument();
+    expect(screen.getByText('2 locations, 32 total items')).toBeInTheDocument();
     expect(screen.getByText('1 active condition')).toBeInTheDocument();
     expect(screen.getByText('8 resources')).toBeInTheDocument();
     expect(screen.getByText('Theme, targets, dashboard')).toBeInTheDocument();

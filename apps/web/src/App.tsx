@@ -3,10 +3,10 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { ActivityPage } from '@/pages/activity';
 import { DashboardPage } from '@/pages/dashboard';
 import { DesignSystemPage } from '@/pages/design-system';
+import { EquipmentRoutePage } from '@/pages/equipment';
 import { FoodsPage } from '@/pages/foods';
 import { HabitsPage } from '@/pages/habits';
 import { JournalPage } from '@/pages/journal';
-import { ProfileEquipmentPage } from '@/pages/profile-equipment';
 import { ProfileInjuriesPage } from '@/pages/profile-injuries';
 import { ProfileResourcesPage } from '@/pages/profile-resources';
 import { NutritionPage } from '@/pages/nutrition';
@@ -33,7 +33,7 @@ function AppRoutes() {
         <Route element={<FoodsPage />} path="/foods" />
         <Route element={<JournalPage />} path="/journal" />
         <Route element={<ProfilePage />} path="/profile" />
-        <Route element={<ProfileEquipmentPage />} path="/profile/equipment" />
+        <Route element={<EquipmentRoutePage />} path="/profile/equipment" />
         <Route element={<ProfileInjuriesPage />} path="/profile/injuries" />
         <Route element={<ProfileResourcesPage />} path="/profile/resources" />
         <Route element={<SettingsPage />} path="/settings" />
