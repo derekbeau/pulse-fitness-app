@@ -1,6 +1,6 @@
 .zsh_history
 node_modules/
-.orchestrator/
+.orca/
 .worktrees/
 .agents/
 .claude/
