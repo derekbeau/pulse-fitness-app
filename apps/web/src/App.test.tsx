@@ -22,6 +22,7 @@ const pageRoutes = [
   { heading: 'Equipment', path: '/profile/equipment' },
   { heading: 'Health Tracking', path: '/profile/injuries' },
   { heading: 'Resources', path: '/profile/resources' },
+  { heading: 'McGill Big 3', path: '/profile/resources/mcgill-big-3' },
   { heading: 'Settings', path: '/settings' },
 ] as const;
 

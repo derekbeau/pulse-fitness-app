@@ -10,9 +10,10 @@ import { HabitsPage } from '@/pages/habits';
 import { InjuriesPage } from '@/pages/injuries';
 import { InjuryDetailPage } from '@/pages/injury-detail';
 import { JournalPage } from '@/pages/journal';
-import { ProfileResourcesPage } from '@/pages/profile-resources';
 import { NutritionPage } from '@/pages/nutrition';
 import { ProfilePage } from '@/pages/profile';
+import { ResourceDetailPage } from '@/pages/resource-detail';
+import { ResourcesPage } from '@/pages/resources';
 import { SettingsPage } from '@/pages/settings';
 import { ActiveWorkoutPage } from '@/pages/active-workout';
 import { WorkoutSessionDetailPage } from '@/pages/workout-session-detail';
@@ -39,7 +40,8 @@ function AppRoutes() {
         <Route element={<EquipmentRoutePage />} path="/profile/equipment" />
         <Route element={<InjuriesPage />} path="/profile/injuries" />
         <Route element={<InjuryDetailPage />} path="/profile/injuries/:conditionId" />
-        <Route element={<ProfileResourcesPage />} path="/profile/resources" />
+        <Route element={<ResourcesPage />} path="/profile/resources" />
+        <Route element={<ResourceDetailPage />} path="/profile/resources/:resourceId" />
         <Route element={<SettingsPage />} path="/settings" />
       </Routes>
     </AppLayout>
