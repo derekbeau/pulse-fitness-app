@@ -100,8 +100,14 @@ export const conditionProtocols = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
+    index('condition_protocols_condition_id_idx').on(table.conditionId),
     check(
       'condition_protocols_status_check',
       sql`${table.status} in ('active', 'discontinued', 'completed')`,

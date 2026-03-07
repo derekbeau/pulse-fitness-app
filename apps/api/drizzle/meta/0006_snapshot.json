@@ -765,9 +765,23 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "condition_protocols_condition_id_idx": {
+          "name": "condition_protocols_condition_id_idx",
+          "columns": ["condition_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "condition_protocols_condition_id_health_conditions_id_fk": {
           "name": "condition_protocols_condition_id_health_conditions_id_fk",

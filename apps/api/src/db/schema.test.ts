@@ -255,7 +255,7 @@ describe('conditionTimelineEvents schema', () => {
 });
 
 describe('conditionProtocols schema', () => {
-  it('defines the expected table, condition foreign key, and protocol status/date rules', () => {
+  it('defines the expected table, audit/index metadata, and protocol status/date rules', () => {
     expect(getTableName(conditionProtocols)).toBe('condition_protocols');
 
     const columns = getTableColumns(conditionProtocols);
@@ -268,12 +268,16 @@ describe('conditionProtocols schema', () => {
       'endDate',
       'notes',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.endDate.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const allowedStatuses: ConditionProtocolStatus[] = ['active', 'discontinued', 'completed'];
     expect(allowedStatuses).toEqual(['active', 'discontinued', 'completed']);
@@ -282,6 +286,9 @@ describe('conditionProtocols schema', () => {
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('health_conditions');
     expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'condition_protocols_condition_id_idx',
+    ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'condition_protocols_end_date_format_check',
       'condition_protocols_end_date_order_check',
