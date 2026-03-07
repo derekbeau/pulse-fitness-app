@@ -1,0 +1,463 @@
+import type { HealthCondition } from '../types';
+
+export const mockHealthConditions: HealthCondition[] = [
+  {
+    id: 'shoulder-slap-tear-right',
+    name: 'Shoulder SLAP Tear (Right)',
+    bodyArea: 'Right Shoulder',
+    status: 'resolved',
+    onsetDate: '2025-03-18',
+    description:
+      'Right shoulder labrum irritation that escalated during heavy pressing and overhead work, then gradually resolved with physical therapy, scapular stability work, and temporary pressing modifications.',
+    timeline: [
+      {
+        date: '2025-03-18',
+        event:
+          'Sharp anterior shoulder pain showed up during the top set of incline dumbbell press.',
+        type: 'onset',
+        notes: 'Pain was worst at lockout and when lowering with elbows flared.',
+      },
+      {
+        date: '2025-04-02',
+        event: 'Sports medicine consult flagged a probable SLAP tear and biceps anchor irritation.',
+        type: 'treatment',
+        notes: 'Plan was conservative rehab before considering imaging or injections.',
+      },
+      {
+        date: '2025-04-10',
+        event: 'Physical therapy started with scapular control drills and cuff endurance work.',
+        type: 'treatment',
+        notes: 'Initial home program centered on pain-free range and posture cleanup.',
+      },
+      {
+        date: '2025-04-14',
+        event: 'All barbell and overhead pressing was swapped to neutral-grip dumbbell variations.',
+        type: 'milestone',
+        notes: 'Volume stayed in, but pressing intensity was cut sharply for six weeks.',
+      },
+      {
+        date: '2025-06-11',
+        event: 'Bench and incline pressing became mostly pain-free with controlled tempo.',
+        type: 'improvement',
+        notes: 'Still avoided maximal loading and deep stretch positions.',
+      },
+      {
+        date: '2025-08-21',
+        event: 'Short flare-up after pushing a high-volume chest day too aggressively.',
+        type: 'flare',
+        notes: 'Symptoms settled after one lighter week and extra PT work.',
+      },
+      {
+        date: '2025-11-15',
+        event: 'Returned to full pressing range without next-day soreness.',
+        type: 'improvement',
+        notes: 'Face pulls and scap retractions stayed in the warmup through the end of the year.',
+      },
+      {
+        date: '2026-01-12',
+        event: 'Cleared from rehab and marked resolved after several symptom-free weeks.',
+        type: 'milestone',
+        notes: 'Still keeping a shoulder primer before upper-body sessions.',
+      },
+    ],
+    protocols: [
+      {
+        id: 'shoulder-face-pulls',
+        name: 'Face pulls',
+        status: 'completed',
+        startDate: '2025-04-10',
+        endDate: '2025-12-20',
+        notes: 'Used as a high-rep finisher and warmup staple to keep the shoulder centered.',
+      },
+      {
+        id: 'shoulder-scapular-retractions',
+        name: 'Scapular retractions',
+        status: 'completed',
+        startDate: '2025-04-10',
+        endDate: '2025-11-15',
+        notes: 'Performed between upper-body sets to rebuild scapular control.',
+      },
+      {
+        id: 'shoulder-pt-sessions',
+        name: 'Physical therapy sessions',
+        status: 'completed',
+        startDate: '2025-04-10',
+        endDate: '2025-09-05',
+        notes: 'Weekly PT progressed from pain management into return-to-pressing strength work.',
+      },
+      {
+        id: 'shoulder-pressing-modifications',
+        name: 'Pressing modifications',
+        status: 'completed',
+        startDate: '2025-04-14',
+        endDate: '2025-11-15',
+        notes:
+          'Neutral-grip pressing, reduced ROM, and slower eccentrics prevented repeated irritation.',
+      },
+    ],
+    linkedJournalEntries: [
+      {
+        id: 'journal-upper-2025-03-18',
+        title: 'Upper body session shut down by sharp shoulder pain',
+        date: '2025-03-18',
+      },
+      {
+        id: 'journal-pt-2025-06-11',
+        title: 'PT notes: pressing finally feels stable again',
+        date: '2025-06-11',
+      },
+      {
+        id: 'journal-clearance-2026-01-12',
+        title: 'Shoulder clearance and return-to-normal pressing',
+        date: '2026-01-12',
+      },
+    ],
+    severityHistory: [
+      { date: '2025-03-18', value: 7 },
+      { date: '2025-04-02', value: 7 },
+      { date: '2025-04-24', value: 6 },
+      { date: '2025-05-22', value: 5 },
+      { date: '2025-06-19', value: 4 },
+      { date: '2025-08-21', value: 5 },
+      { date: '2025-09-18', value: 3 },
+      { date: '2025-11-15', value: 2 },
+      { date: '2026-01-12', value: 1 },
+    ],
+  },
+  {
+    id: 'patellar-tendon-issues',
+    name: 'Patellar Tendon Issues',
+    bodyArea: 'Both Knees',
+    status: 'monitoring',
+    onsetDate: '2025-06-03',
+    description:
+      'Bilateral patellar tendon irritation that spikes with aggressive squat progressions, sprint work, and jumping volume. Symptoms are manageable but still require ongoing prep and load control.',
+    timeline: [
+      {
+        date: '2025-06-03',
+        event:
+          'Front-of-knee pain started after a dense block of squats, split squats, and sprints.',
+        type: 'onset',
+        notes: 'Descending stairs and the first warmup sets were the worst triggers.',
+      },
+      {
+        date: '2025-06-10',
+        event: 'Swapped to slower eccentrics and removed jumps from lower-body accessories.',
+        type: 'treatment',
+        notes: 'Immediate goal was to calm tendon irritation without dropping all leg training.',
+      },
+      {
+        date: '2025-06-18',
+        event: 'Spanish squats were added before leg sessions and on off days.',
+        type: 'treatment',
+        notes: 'These consistently reduced pain during the first loaded knee flexion patterns.',
+      },
+      {
+        date: '2025-07-09',
+        event: 'Symptoms improved enough to reintroduce machine leg work and split squats.',
+        type: 'improvement',
+        notes: 'Kept ROM honest and avoided fast rebounds out of the hole.',
+      },
+      {
+        date: '2025-08-14',
+        event: 'Knees flared after a hard weekend of basketball and high-volume walking lunges.',
+        type: 'flare',
+        notes: 'Left side felt worse than right for about a week.',
+      },
+      {
+        date: '2025-09-05',
+        event: 'Tibialis raises and slant board stretching became part of the daily warmup.',
+        type: 'treatment',
+        notes: 'Ankles and lower-leg stiffness were contributing more than expected.',
+      },
+      {
+        date: '2025-12-02',
+        event: 'Moved from rehab mode into ongoing monitoring with stable training tolerance.',
+        type: 'milestone',
+        notes: 'Still need to cap sprint and jump exposure when volume is already high.',
+      },
+    ],
+    protocols: [
+      {
+        id: 'knee-spanish-squats',
+        name: 'Spanish squats',
+        status: 'active',
+        startDate: '2025-06-18',
+        notes: 'Primary analgesic drill before squats, split squats, and conditioning.',
+      },
+      {
+        id: 'knee-tibialis-raises',
+        name: 'Tibialis raises',
+        status: 'active',
+        startDate: '2025-09-05',
+        notes:
+          'Used daily to improve lower-leg tolerance and reduce stress concentration at the knee.',
+      },
+      {
+        id: 'knee-slant-board-stretches',
+        name: 'Slant board stretches',
+        status: 'active',
+        startDate: '2025-09-05',
+        notes: 'Done after training and on rest days to keep ankle dorsiflexion from regressing.',
+      },
+      {
+        id: 'knee-plyometric-block',
+        name: 'High-impact plyometric block',
+        status: 'discontinued',
+        startDate: '2025-07-28',
+        endDate: '2025-08-14',
+        notes:
+          'Dropped when repeated jumping aggravated the tendons faster than recovery could keep up.',
+      },
+    ],
+    linkedJournalEntries: [
+      {
+        id: 'journal-knees-2025-06-03',
+        title: 'Quad day notes: knees ache on every warmup set',
+        date: '2025-06-03',
+      },
+      {
+        id: 'journal-knees-2025-08-14',
+        title: 'Basketball weekend triggered another knee flare',
+        date: '2025-08-14',
+      },
+      {
+        id: 'journal-knees-2025-12-02',
+        title: 'Knees stable enough to treat as managed, not acute',
+        date: '2025-12-02',
+      },
+    ],
+    severityHistory: [
+      { date: '2025-06-03', value: 5 },
+      { date: '2025-06-18', value: 4 },
+      { date: '2025-07-02', value: 3 },
+      { date: '2025-07-23', value: 4 },
+      { date: '2025-08-14', value: 5 },
+      { date: '2025-09-05', value: 4 },
+      { date: '2025-10-01', value: 3 },
+      { date: '2025-11-06', value: 4 },
+      { date: '2025-12-02', value: 3 },
+    ],
+  },
+  {
+    id: 'lower-back-disc-herniation',
+    name: 'Lower Back Disc Herniation',
+    bodyArea: 'Lumbar Spine',
+    status: 'active',
+    onsetDate: '2025-09-18',
+    description:
+      'Lumbar disc irritation with occasional referral into the glute after fatigue-heavy pulling and prolonged sitting. Improved from the initial acute phase, but still actively managed with spine-sparing training.',
+    timeline: [
+      {
+        date: '2025-09-18',
+        event:
+          'Low back tightened sharply after a heavy pull and stayed irritated through the next morning.',
+        type: 'onset',
+        notes: 'Pain was worse with bending, sitting, and getting in or out of the car.',
+      },
+      {
+        date: '2025-09-22',
+        event:
+          'Stopped loading squats, deadlifts, and any movements that stacked spinal compression.',
+        type: 'treatment',
+        notes: 'Training pivoted toward supported rows, split squats, sled work, and machines.',
+      },
+      {
+        date: '2025-09-29',
+        event: 'Started McGill Big 3 progression and strict brace-focused warmups.',
+        type: 'treatment',
+        notes: 'Daily consistency mattered more than trying to progress difficulty quickly.',
+      },
+      {
+        date: '2025-10-17',
+        event: 'Symptoms improved enough to tolerate longer walks and easier hinge patterns.',
+        type: 'improvement',
+        notes: 'Still avoiding fatigue that caused lumbar flexion under load.',
+      },
+      {
+        date: '2025-11-12',
+        event: 'Flare after a long drive and too much sitting during a busy work week.',
+        type: 'flare',
+        notes: 'Pain centralized again after two lighter sessions and frequent walking breaks.',
+      },
+      {
+        date: '2025-12-08',
+        event: 'Couch stretch and hip-opening work reduced the constant low-back guarding.',
+        type: 'improvement',
+        notes: 'Hip flexor tightness was feeding into an overextended standing position.',
+      },
+      {
+        date: '2026-02-03',
+        event: 'Still marked active but stable enough for careful training progression.',
+        type: 'milestone',
+        notes: 'No return yet to barbell axial loading or high-fatigue spinal flexion work.',
+      },
+    ],
+    protocols: [
+      {
+        id: 'back-mcgill-big-3',
+        name: 'McGill Big 3',
+        status: 'active',
+        startDate: '2025-09-29',
+        notes: 'Daily spine-stability circuit to maintain tolerance without provoking symptoms.',
+      },
+      {
+        id: 'back-couch-stretch',
+        name: 'Couch stretch',
+        status: 'active',
+        startDate: '2025-12-08',
+        notes: 'Used to reduce anterior hip tightness that was increasing lumbar extension bias.',
+      },
+      {
+        id: 'back-no-spinal-compression',
+        name: 'No spinal compression loading',
+        status: 'active',
+        startDate: '2025-09-22',
+        notes:
+          'No back squats, heavy deadlifts, or overhead loading until symptoms remain steady longer.',
+      },
+      {
+        id: 'back-loaded-flexion-work',
+        name: 'Loaded lumbar flexion work',
+        status: 'discontinued',
+        startDate: '2025-09-18',
+        endDate: '2025-09-22',
+        notes: 'Removed immediately because it predictably reproduced symptoms.',
+      },
+    ],
+    linkedJournalEntries: [
+      {
+        id: 'journal-back-2025-09-18',
+        title: 'Heavy pull day turned into low-back spasm management',
+        date: '2025-09-18',
+      },
+      {
+        id: 'journal-back-2025-11-12',
+        title: 'Sitting all week brought the back pain back',
+        date: '2025-11-12',
+      },
+      {
+        id: 'journal-back-2026-02-03',
+        title: 'Back still active, but training feels more predictable now',
+        date: '2026-02-03',
+      },
+    ],
+    severityHistory: [
+      { date: '2025-09-18', value: 6 },
+      { date: '2025-09-22', value: 5 },
+      { date: '2025-09-29', value: 5 },
+      { date: '2025-10-17', value: 4 },
+      { date: '2025-11-12', value: 5 },
+      { date: '2025-12-08', value: 4 },
+      { date: '2026-01-07', value: 4 },
+      { date: '2026-02-03', value: 4 },
+    ],
+  },
+  {
+    id: 'foot-pain-plantar-fasciitis',
+    name: 'Foot Pain / Plantar Fasciitis',
+    bodyArea: 'Both Feet',
+    status: 'monitoring',
+    onsetDate: '2025-07-05',
+    description:
+      'Heel and arch pain that built up from steps, standing, and conditioning volume. The condition is improving, but daily lower-leg work and footwear choices still matter.',
+    timeline: [
+      {
+        date: '2025-07-05',
+        event:
+          'First-step heel pain showed up after a stretch of high daily step counts and incline walking.',
+        type: 'onset',
+        notes: 'Morning stiffness and post-workout standing were the main symptoms.',
+      },
+      {
+        date: '2025-07-14',
+        event: 'Conditioning volume was reduced and calf mobility work was added after sessions.',
+        type: 'treatment',
+        notes: 'Incline treadmill work was the fastest trigger at that point.',
+      },
+      {
+        date: '2025-08-01',
+        event: 'Daily tibialis raises started to build ankle and foot tolerance.',
+        type: 'treatment',
+        notes: 'Foot discomfort decreased when these were done consistently.',
+      },
+      {
+        date: '2025-08-28',
+        event: 'Short flare after several long days on concrete with minimal recovery.',
+        type: 'flare',
+        notes: 'Pain was still milder than the original onset week.',
+      },
+      {
+        date: '2025-09-19',
+        event: 'Supportive insoles made longer walks and errands much more manageable.',
+        type: 'improvement',
+        notes: 'This was enough to bring daily pain down even before training changes.',
+      },
+      {
+        date: '2025-11-07',
+        event: 'Morning pain dropped noticeably and conditioning tolerance improved.',
+        type: 'improvement',
+        notes: 'Walking is mostly fine as long as calf work stays consistent.',
+      },
+      {
+        date: '2026-01-18',
+        event: 'Condition moved into monitoring with only occasional tightness after long days.',
+        type: 'milestone',
+        notes: 'Still keeping the lower-leg routine because symptoms return when it drops off.',
+      },
+    ],
+    protocols: [
+      {
+        id: 'feet-tibialis-raises',
+        name: 'Tibialis raises daily',
+        status: 'active',
+        startDate: '2025-08-01',
+        notes:
+          'Daily anterior lower-leg work improved dorsiflexion control and reduced foot fatigue.',
+      },
+      {
+        id: 'feet-calf-stretches',
+        name: 'Calf stretches',
+        status: 'active',
+        startDate: '2025-07-14',
+        notes:
+          'Performed after training and before long walking days to reduce arch and heel tension.',
+      },
+      {
+        id: 'feet-supportive-insoles',
+        name: 'Supportive insoles',
+        status: 'completed',
+        startDate: '2025-09-19',
+        endDate: '2026-01-18',
+        notes: 'Temporary support bridged the gap while tissue tolerance was building back up.',
+      },
+    ],
+    linkedJournalEntries: [
+      {
+        id: 'journal-feet-2025-07-05',
+        title: 'Morning heel pain is now affecting conditioning',
+        date: '2025-07-05',
+      },
+      {
+        id: 'journal-feet-2025-08-28',
+        title: 'Long weekend on concrete brought the foot pain back',
+        date: '2025-08-28',
+      },
+      {
+        id: 'journal-feet-2026-01-18',
+        title: 'Feet improving enough to treat this as maintenance',
+        date: '2026-01-18',
+      },
+    ],
+    severityHistory: [
+      { date: '2025-07-05', value: 6 },
+      { date: '2025-07-14', value: 5 },
+      { date: '2025-08-01', value: 5 },
+      { date: '2025-08-28', value: 6 },
+      { date: '2025-09-19', value: 4 },
+      { date: '2025-10-10', value: 4 },
+      { date: '2025-11-07', value: 3 },
+      { date: '2026-01-18', value: 3 },
+    ],
+  },
+];
