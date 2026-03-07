@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { dateSchema } from './common.js';
 
 export const journalEntryTypeSchema = z.enum([
   'post-workout',
@@ -20,6 +20,7 @@ export const journalEntrySchema = z.object({
   content: z.string().min(1),
   createdBy: journalEntryCreatedBySchema,
   createdAt: z.number().int(),
+  updatedAt: z.number().int(),
 });
 
 export type JournalEntryType = z.infer<typeof journalEntryTypeSchema>;

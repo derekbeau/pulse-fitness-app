@@ -195,12 +195,16 @@ describe('activities schema', () => {
       'durationMinutes',
       'notes',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.notes.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(activities);
     expect(config.foreignKeys).toHaveLength(1);
@@ -234,11 +238,15 @@ describe('journalEntries schema', () => {
       'content',
       'createdBy',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(journalEntries);
     expect(config.foreignKeys).toHaveLength(1);

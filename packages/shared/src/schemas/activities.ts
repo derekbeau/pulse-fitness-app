@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { dateSchema } from './common.js';
 
 export const activityTypeSchema = z.enum([
   'walking',
@@ -22,6 +22,7 @@ export const activitySchema = z.object({
   durationMinutes: z.number().int().positive(),
   notes: z.string().nullable(),
   createdAt: z.number().int(),
+  updatedAt: z.number().int(),
 });
 
 export type ActivityType = z.infer<typeof activityTypeSchema>;

@@ -18,6 +18,7 @@ describe('journalEntrySchema', () => {
       content: 'Felt strong on deadlifts today.',
       createdBy: 'agent',
       createdAt: 1,
+      updatedAt: 2,
     });
 
     expect(payload).toEqual({
@@ -29,6 +30,7 @@ describe('journalEntrySchema', () => {
       content: 'Felt strong on deadlifts today.',
       createdBy: 'agent',
       createdAt: 1,
+      updatedAt: 2,
     });
   });
 
@@ -43,6 +45,7 @@ describe('journalEntrySchema', () => {
         content: 'Still recovering well.',
         createdBy: 'coach',
         createdAt: 1,
+        updatedAt: 2,
       }),
     ).toThrow();
   });
@@ -59,6 +62,7 @@ describe('journalEntrySchema', () => {
       content: 'Front squat moved cleanly.',
       createdBy,
       createdAt: 2,
+      updatedAt: 3,
     };
 
     expect(payload.type).toBe('milestone');

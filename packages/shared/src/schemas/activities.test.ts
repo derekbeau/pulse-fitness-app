@@ -13,6 +13,7 @@ describe('activitySchema', () => {
       durationMinutes: 35,
       notes: null,
       createdAt: 1,
+      updatedAt: 2,
     });
 
     expect(payload).toEqual({
@@ -24,6 +25,7 @@ describe('activitySchema', () => {
       durationMinutes: 35,
       notes: null,
       createdAt: 1,
+      updatedAt: 2,
     });
   });
 
@@ -38,6 +40,7 @@ describe('activitySchema', () => {
         durationMinutes: 0,
         notes: null,
         createdAt: 1,
+        updatedAt: 2,
       }),
     ).toThrow();
   });
@@ -53,6 +56,7 @@ describe('activitySchema', () => {
       durationMinutes: 20,
       notes: 'Focused on hips and shoulders',
       createdAt: 2,
+      updatedAt: 3,
     };
 
     expect(payload.type).toBe('yoga');

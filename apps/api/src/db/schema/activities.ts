@@ -33,6 +33,11 @@ export const activities = sqliteTable(
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
     index('activities_user_date_idx').on(table.userId, table.date),

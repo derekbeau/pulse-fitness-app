@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { dateSchema } from './common.js';
 
 export const healthConditionStatusSchema = z.enum(['active', 'monitoring', 'resolved']);
 export const conditionTimelineEventTypeSchema = z.enum([
