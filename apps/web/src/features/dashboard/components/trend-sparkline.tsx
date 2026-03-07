@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
 import {
   mockMacroTrend,
@@ -94,10 +95,9 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(weightSeries, 0),
       getPreviousValue(weightSeries, getLatestValue(weightSeries, 0)),
     ),
-    color: '#b8860b',
+    color: 'var(--color-on-cream)',
     data: weightSeries,
-    className:
-      'bg-[var(--color-accent-cream)] dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    className: accentCardStyles.cream,
     textClassName: 'text-on-cream',
   },
   {
@@ -107,10 +107,9 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(calorieSeries, 0),
       getPreviousValue(calorieSeries, getLatestValue(calorieSeries, 0)),
     ),
-    color: '#c2477a',
+    color: 'var(--color-on-pink)',
     data: calorieSeries,
-    className:
-      'bg-[var(--color-accent-pink)] dark:border-l-4 dark:border-l-pink-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    className: accentCardStyles.pink,
     textClassName: 'text-on-pink',
   },
   {
@@ -120,10 +119,9 @@ const TREND_CARD_CONFIGS = [
       getLatestValue(proteinSeries, 0),
       getPreviousValue(proteinSeries, getLatestValue(proteinSeries, 0)),
     ),
-    color: '#2a8a62',
+    color: 'var(--color-on-mint)',
     data: proteinSeries,
-    className:
-      'bg-[var(--color-accent-mint)] dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card',
+    className: accentCardStyles.mint,
     textClassName: 'text-on-mint',
   },
 ] satisfies TrendMetricCardProps[];

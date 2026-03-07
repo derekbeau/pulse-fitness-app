@@ -57,7 +57,7 @@ export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
           <p className="text-xs font-semibold tracking-[0.22em] uppercase opacity-70 dark:text-muted dark:opacity-100">
             Post-workout feedback
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">How did this session feel?</h1>
+          <h2 className="text-3xl font-semibold tracking-tight">How did this session feel?</h2>
           <p className="max-w-2xl text-sm opacity-75 dark:text-muted dark:opacity-100">
             Capture a quick read on energy, recovery, and technique before you wrap the workout.
           </p>

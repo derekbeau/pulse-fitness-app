@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import {
   Dialog,
   DialogClose,
@@ -47,12 +48,7 @@ export function SessionSummary({
 
   return (
     <>
-      <Card
-        className={cn(
-          'overflow-hidden border-transparent bg-[var(--color-accent-mint)] py-0 text-on-mint shadow-lg dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground',
-          className,
-        )}
-      >
+      <Card className={cn(`overflow-hidden py-0 shadow-lg ${accentCardStyles.mint}`, className)}>
         <CardContent className="space-y-5 px-5 py-6 sm:px-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/40 px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase dark:border-border dark:bg-secondary/60">

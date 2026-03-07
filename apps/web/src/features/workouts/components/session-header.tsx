@@ -3,6 +3,7 @@ import { Clock3, Dumbbell, ListChecks } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
 type SessionHeaderProps = {
@@ -38,7 +39,7 @@ export function SessionHeader({
   return (
     <Card
       className={cn(
-        'overflow-hidden border-transparent bg-[var(--color-accent-cream)] py-0 text-on-cream shadow-lg backdrop-blur-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground',
+        `overflow-hidden py-0 shadow-lg backdrop-blur-sm ${accentCardStyles.cream}`,
         className,
       )}
     >

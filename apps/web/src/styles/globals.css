@@ -8,13 +8,12 @@
   --color-background: #fafbfc;
   --color-foreground: #141726;
   --color-card: #ffffff;
-  --color-on-accent: #111827;
+  --color-on-accent: #141726;
   --color-primary: #4361c2;
   --color-secondary: #f0f2f7;
   --color-accent-cream: #f7e8c4;
   --color-accent-pink: #f4cadb;
   --color-accent-mint: #cdeee2;
-  --color-on-accent: #141726;
   --color-on-cream: #6b4f1d;
   --color-on-pink: #7a2e4e;
   --color-on-mint: #1b6b4e;
@@ -82,7 +81,6 @@
   --color-background: #141726;
   --color-foreground: #eaedf5;
   --color-card: #1c2038;
-  --color-on-accent: #141726;
   --color-primary: #8ba4ff;
   --color-secondary: #1a1e36;
   --color-accent-cream: #f3d7a8;
@@ -130,7 +128,6 @@ body {
   --color-accent-cream: var(--color-accent-cream);
   --color-accent-pink: var(--color-accent-pink);
   --color-accent-mint: var(--color-accent-mint);
-  --color-on-accent: var(--color-on-accent);
   --color-on-cream: var(--color-on-cream);
   --color-on-pink: var(--color-on-pink);
   --color-on-mint: var(--color-on-mint);
@@ -145,6 +142,7 @@ body {
   --radius-2xl: var(--radius-2xl);
 
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -345,14 +343,12 @@ nav a {
    PAGE-LEVEL ENTRANCE
    ============================================ */
 
-main > header,
-main > section,
-main > div {
+.page-section {
   animation: fade-in 0.4s ease-out both;
 }
 
-main > *:nth-child(1) { animation-delay: 0ms; }
-main > *:nth-child(2) { animation-delay: 80ms; }
-main > *:nth-child(3) { animation-delay: 160ms; }
-main > *:nth-child(4) { animation-delay: 240ms; }
-main > *:nth-child(5) { animation-delay: 320ms; }
+.page-section:nth-child(1) { animation-delay: 0ms; }
+.page-section:nth-child(2) { animation-delay: 80ms; }
+.page-section:nth-child(3) { animation-delay: 160ms; }
+.page-section:nth-child(4) { animation-delay: 240ms; }
+.page-section:nth-child(5) { animation-delay: 320ms; }

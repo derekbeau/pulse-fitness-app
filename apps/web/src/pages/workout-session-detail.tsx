@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, Clock, Dumbbell, ListChecks, Star } from 'luci
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatCard } from '@/components/ui/stat-card';
 import {
   mockExercises,
   mockSessions,
@@ -101,10 +102,26 @@ export function WorkoutSessionDetailPage() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={CalendarDays} label="Date" value={dateFormatter.format(sessionDate)} />
-        <StatCard icon={Clock} label="Duration" value={`${session.duration} min`} />
-        <StatCard icon={Dumbbell} label="Exercises" value={`${totalExercises}`} />
-        <StatCard icon={ListChecks} label="Sets Completed" value={`${completedSets}`} />
+        <StatCard
+          icon={<CalendarDays aria-hidden="true" className="size-4" />}
+          label="Date"
+          value={dateFormatter.format(sessionDate)}
+        />
+        <StatCard
+          icon={<Clock aria-hidden="true" className="size-4" />}
+          label="Duration"
+          value={`${session.duration} min`}
+        />
+        <StatCard
+          icon={<Dumbbell aria-hidden="true" className="size-4" />}
+          label="Exercises"
+          value={`${totalExercises}`}
+        />
+        <StatCard
+          icon={<ListChecks aria-hidden="true" className="size-4" />}
+          label="Sets Completed"
+          value={`${completedSets}`}
+        />
       </div>
 
       {feedback && (
@@ -215,28 +232,6 @@ const categoryBadgeStyles = {
   cardio: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
   mobility: 'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
 } as const;
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof CalendarDays;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card className="gap-2">
-      <CardContent className="flex items-start gap-3 pt-5">
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
-          <p className="text-sm font-semibold text-foreground">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function FeedbackItem({ label, score }: { label: string; score: number }) {
   return (

@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { mockFoods, type Food } from '@/lib/mock-data/foods';
 
 type FoodListProps = {
@@ -182,7 +183,7 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
   return (
     <div className="space-y-4">
-      <Card className="gap-4 border-transparent bg-[var(--color-accent-cream)] py-5 text-on-cream shadow-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
+      <Card className={`gap-4 py-5 ${accentCardStyles.cream}`}>
         <CardHeader className="gap-1 px-5 sm:px-6">
           <CardTitle className="text-xl">Search your foods database</CardTitle>
           <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">

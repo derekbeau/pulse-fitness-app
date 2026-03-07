@@ -16,7 +16,6 @@ export type StatCardProps = Omit<React.ComponentProps<typeof Card>, 'children'> 
   label: string;
   trend?: StatTrend;
   icon?: React.ReactNode;
-  accentText?: boolean;
   accentTextClassName?: string;
 };
 
@@ -50,7 +49,6 @@ export function StatCard({
   label,
   trend,
   icon,
-  accentText = false,
   accentTextClassName,
   className,
   ...props
@@ -59,7 +57,7 @@ export function StatCard({
   const TrendIcon = trendStyle?.icon;
   const trendSymbol = trend?.direction !== 'neutral' ? (trendStyle?.symbol ?? '') : '';
   const formattedTrend = `${trendSymbol}${Math.abs(trend?.value ?? 0)}%`;
-  const hasAccent = accentText || !!accentTextClassName;
+  const hasAccent = !!accentTextClassName;
   const accentClass = accentTextClassName ?? 'text-on-accent';
   const labelClassName = hasAccent
     ? cn(accentClass, 'opacity-70 dark:text-muted dark:opacity-100')

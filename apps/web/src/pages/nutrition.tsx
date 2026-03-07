@@ -11,6 +11,7 @@ import {
   startOfDay,
   type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { mockDailyMeals, mockDailyTargets } from '@/lib/mock-data/nutrition';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +52,7 @@ export function NutritionPage() {
 
       <section
         aria-label="Daily macro totals"
-        className="rounded-2xl border border-border/70 bg-[var(--color-accent-cream)] px-5 py-5 text-on-cream shadow-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground"
+        className={cn('rounded-2xl border border-border/70 px-5 py-5', accentCardStyles.cream)}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>

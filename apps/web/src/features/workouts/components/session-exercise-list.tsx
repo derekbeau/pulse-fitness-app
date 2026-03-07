@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
 import type { ActiveWorkoutExercise, ActiveWorkoutSessionData } from '../types';
@@ -60,6 +61,14 @@ export function SessionExerciseList({
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
 
+  const exerciseNumberMap = new Map<string, number>();
+  let exerciseCounter = 1;
+  for (const section of session.sections) {
+    for (const exercise of section.exercises) {
+      exerciseNumberMap.set(exercise.id, exerciseCounter++);
+    }
+  }
+
   useEffect(() => {
     if (!focusSetId) {
       return;
@@ -85,7 +94,7 @@ export function SessionExerciseList({
     <div className="space-y-4">
       {restTimer ? (
         <section
-          className="rounded-3xl border border-transparent bg-[var(--color-accent-mint)] px-5 py-5 text-on-mint shadow-sm dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground"
+          className={`rounded-3xl border px-5 py-5 ${accentCardStyles.mint}`}
           data-slot="rest-timer-panel"
         >
           <div className="mb-4 space-y-1">
@@ -162,16 +171,8 @@ export function SessionExerciseList({
               id={`section-panel-${section.id}`}
             >
               <div className="space-y-3">
-                {section.exercises.map((exercise, index) => {
-                  const exerciseNumber =
-                    session.sections
-                      .slice(
-                        0,
-                        session.sections.findIndex((candidate) => candidate.id === section.id),
-                      )
-                      .reduce((count, candidate) => count + candidate.exercises.length, 0) +
-                    index +
-                    1;
+                {section.exercises.map((exercise) => {
+                  const exerciseNumber = exerciseNumberMap.get(exercise.id) ?? 0;
                   const state = getExerciseState(exercise, session.currentExerciseId);
                   const isExpanded =
                     focusTarget?.exerciseId === exercise.id

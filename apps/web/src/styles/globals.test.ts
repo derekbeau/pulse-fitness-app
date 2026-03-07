@@ -19,7 +19,7 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('.theme-midnight');
     expect(css).toContain('--color-background: #fafbfc;');
     expect(css).toContain('--color-card: #ffffff;');
-    expect(css).toContain('--color-on-accent: #111827;');
+    expect(css).toContain('--color-on-accent: #141726;');
     expect(css).toContain('--color-background: #141726;');
     expect(css).toContain('--color-secondary: #1a1e36;');
     expect(css).toContain('--color-foreground: #eaedf5;');

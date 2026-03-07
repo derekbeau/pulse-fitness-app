@@ -40,17 +40,11 @@ export function Sidebar() {
     >
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-6">
         {collapsed ? (
-          <p
-            className="w-full text-center text-2xl font-extrabold tracking-tight text-primary"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
+          <p className="w-full text-center text-2xl font-extrabold tracking-tight text-primary font-display">
             P
           </p>
         ) : (
-          <p
-            className="px-2 text-2xl font-extrabold tracking-tight text-primary"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
+          <p className="px-2 text-2xl font-extrabold tracking-tight text-primary font-display">
             Pulse
           </p>
         )}

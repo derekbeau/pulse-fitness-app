@@ -10,6 +10,7 @@ import {
   parseDateKey,
   toDateKey,
 } from '@/lib/date-utils';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import {
   mockSchedule,
   mockSessions,
@@ -67,8 +68,8 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
 
   const accentPanel = hasWorkout
     ? selectedDay.status === 'completed'
-      ? 'bg-[var(--color-accent-mint)] text-on-mint border-transparent dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60'
-      : 'bg-[var(--color-accent-cream)] text-on-cream border-transparent dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60'
+      ? accentCardStyles.mint
+      : accentCardStyles.cream
     : 'bg-card text-foreground';
 
   function handleMonthChange(offset: number) {

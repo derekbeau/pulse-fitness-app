@@ -1,4 +1,5 @@
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { mockDailySnapshot, type DailySnapshot } from '@/lib/mock-data/dashboard';
 
 type SnapshotCardsProps = {
@@ -29,7 +30,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       <StatCard
         accentTextClassName="text-on-cream"
-        className="bg-[var(--color-accent-cream)] dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card"
+        className={accentCardStyles.cream}
         data-stagger="0"
         label="Body Weight"
         trend={calculateWeightTrend(snapshot.weight, snapshot.weightYesterday)}
@@ -38,7 +39,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
 
       <StatCard
         accentTextClassName="text-on-pink"
-        className="bg-[var(--color-accent-pink)] dark:border-l-4 dark:border-l-pink-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card"
+        className={accentCardStyles.pink}
         data-stagger="1"
         label="Calories"
         trend={{ direction: 'neutral', value: 0 }}
@@ -47,7 +48,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
 
       <StatCard
         accentTextClassName="text-on-mint"
-        className="bg-[var(--color-accent-mint)] dark:border-l-4 dark:border-l-emerald-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card"
+        className={accentCardStyles.mint}
         data-stagger="2"
         label="Protein"
         trend={{ direction: 'neutral', value: 0 }}

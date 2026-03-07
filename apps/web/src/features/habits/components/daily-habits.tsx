@@ -3,6 +3,7 @@ import { CheckCheck, CircleDashed } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
 import type { HabitConfig } from '@/features/habits/types';
 import { Input } from '@/components/ui/input';
@@ -146,7 +147,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-transparent bg-[var(--color-accent-pink)] text-on-pink shadow-sm dark:border-l-4 dark:border-l-pink-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
+      <Card className={accentCardStyles.pink}>
         <CardHeader className="gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
@@ -206,7 +207,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                   className={cn(
                     'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
                     isComplete
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
                   )}
                 >
@@ -229,7 +230,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                       id={`habit-${habit.id}`}
                       aria-label={habit.name}
                       checked={value === true}
-                      className="border-slate-900/20 bg-white dark:border-border dark:bg-background"
+                      className="border-border bg-white dark:bg-background"
                       onCheckedChange={(checked) => {
                         setHabitValues((currentValues) => ({
                           ...currentValues,
@@ -237,7 +238,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                         }));
                       }}
                     />
-                    <span className="text-sm font-medium text-slate-800 dark:text-foreground">
+                    <span className="text-sm font-medium text-foreground">
                       Mark this habit complete for today
                     </span>
                   </label>
@@ -253,7 +254,7 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
                       <Input
                         id={`habit-${habit.id}`}
                         aria-label={habit.name}
-                        className="h-11 border-black/10 bg-white/75 text-lg font-semibold text-slate-950 placeholder:text-slate-500 focus-visible:border-black/20 focus-visible:ring-black/5 dark:border-border dark:bg-background dark:text-foreground dark:placeholder:text-muted dark:focus-visible:border-ring dark:focus-visible:ring-ring/20"
+                        className="h-11 border-border bg-white/75 text-lg font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
                         inputMode="decimal"
                         min="0"
                         step={habit.trackingType === 'time' ? '0.25' : '1'}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { Button } from '@/components/ui/button';
+import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
 type MacroKey = 'protein' | 'carbs' | 'fat';
@@ -32,7 +33,7 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
   const [mode, setMode] = useState<'eaten' | 'remaining'>('eaten');
 
   return (
-    <Card className="border-transparent bg-[var(--color-accent-cream)] text-on-cream shadow-sm dark:border-l-4 dark:border-l-amber-500 dark:border-t-border/60 dark:border-r-border/60 dark:border-b-border/60 dark:bg-card dark:text-foreground">
+    <Card className={accentCardStyles.cream}>
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
