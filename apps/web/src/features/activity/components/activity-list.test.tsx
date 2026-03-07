@@ -5,7 +5,29 @@ import { ActivityList } from '@/features/activity';
 
 describe('ActivityList', () => {
   it('formats longer durations using hours and minutes', () => {
-    render(<ActivityList />);
+    render(
+      <ActivityList
+        activities={[
+          {
+            id: 'activity-hike',
+            date: '2026-03-05',
+            durationMinutes: 90,
+            linkedJournalEntries: [],
+            name: 'Trail Session',
+            notes: 'Rolling climbs with easy descents.',
+            type: 'hiking',
+          },
+          {
+            id: 'activity-yoga',
+            date: '2026-03-04',
+            durationMinutes: 45,
+            linkedJournalEntries: [],
+            name: 'Morning Flow',
+            type: 'yoga',
+          },
+        ]}
+      />,
+    );
 
     expect(screen.getByText('1h 30min')).toBeInTheDocument();
     expect(screen.getByText('45 min')).toBeInTheDocument();
@@ -32,7 +54,7 @@ describe('ActivityList', () => {
 
     expect(screen.getByText('No activities match this filter.')).toBeInTheDocument();
     expect(
-      screen.getByText('Try a different activity type to view the rest of the mock log.'),
+      screen.getByText('Try a different activity type to view the rest of the activity log.'),
     ).toBeInTheDocument();
   });
 });

@@ -19,6 +19,6 @@ export type Activity = {
   type: ActivityType;
   name: string;
   durationMinutes: number;
-  notes: string;
+  notes?: string;
   linkedJournalEntries: ActivityJournalEntryReference[];
 };

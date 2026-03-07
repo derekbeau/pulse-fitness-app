@@ -12,12 +12,12 @@ import {
   getActivityTypeBadgeClasses,
   getActivityTypeIcon,
   getActivityTypeLabel,
-  mockActivities,
 } from '../lib/mock-data';
+import { formatDuration } from '../lib/format';
 import type { Activity, ActivityType } from '../types';
 
 type ActivityListProps = {
-  activities?: Activity[];
+  activities: Activity[];
 };
 
 type ActivityFilter = 'all' | ActivityType;
@@ -32,22 +32,7 @@ function formatActivityDate(date: string) {
   return activityDateFormatter.format(parseDateKey(date));
 }
 
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}min`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return `${minutes} min`;
-}
-
-export function ActivityList({ activities = mockActivities }: ActivityListProps) {
+export function ActivityList({ activities }: ActivityListProps) {
   const [selectedType, setSelectedType] = useState<ActivityFilter>('all');
 
   const filteredActivities =
@@ -109,7 +94,7 @@ export function ActivityList({ activities = mockActivities }: ActivityListProps)
           <CardContent className="px-5 py-6 sm:px-6">
             <p className="text-sm font-medium text-foreground">No activities match this filter.</p>
             <p className="mt-1 text-sm text-muted">
-              Try a different activity type to view the rest of the mock log.
+              Try a different activity type to view the rest of the activity log.
             </p>
           </CardContent>
         </Card>
@@ -144,10 +129,8 @@ export function ActivityList({ activities = mockActivities }: ActivityListProps)
                             {activity.name}
                           </h2>
                           {activity.notes ? (
-                            <p className="max-w-3xl text-sm leading-6 text-muted">
-                              <span className="block max-h-[3rem] overflow-hidden">
-                                {activity.notes}
-                              </span>
+                            <p className="max-w-3xl text-sm leading-6 text-muted line-clamp-2">
+                              {activity.notes}
                             </p>
                           ) : null}
                         </div>

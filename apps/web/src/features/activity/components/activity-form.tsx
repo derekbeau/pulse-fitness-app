@@ -16,11 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
-import {
-  activityTypeOptions,
-  getActivityTypeIcon,
-  getActivityTypeLabel,
-} from '../lib/mock-data';
+import { activityTypeOptions, getActivityTypeIcon, getActivityTypeLabel } from '../lib/mock-data';
+import { formatDuration } from '../lib/format';
 import type { Activity, ActivityType } from '../types';
 
 type ActivityFormProps = {
@@ -46,21 +43,6 @@ const activityNameSuggestions: Record<ActivityType, string> = {
   hiking: 'Local Trail Hike',
   other: 'Movement Session',
 };
-
-function formatDurationPreview(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}min`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return `${minutes} min`;
-}
 
 function createDefaultFormState(): ActivityFormState {
   return {
@@ -125,10 +107,10 @@ export function ActivityForm({ className, onSubmit }: ActivityFormProps) {
     onSubmit({
       date: formState.date,
       durationMinutes: parsedDuration,
-      id: `activity-local-${Date.now()}`,
+      id: `activity-local-${crypto.randomUUID()}`,
       linkedJournalEntries: [],
       name: activityName,
-      notes,
+      notes: notes.length > 0 ? notes : undefined,
       type: formState.type,
     });
 
@@ -137,7 +119,7 @@ export function ActivityForm({ className, onSubmit }: ActivityFormProps) {
   };
 
   const selectedTypeLabel = getActivityTypeLabel(formState.type);
-  const durationPreview = hasValidDuration ? formatDurationPreview(parsedDuration) : null;
+  const durationPreview = hasValidDuration ? formatDuration(parsedDuration) : null;
 
   return (
     <div className={cn('space-y-3', className)}>

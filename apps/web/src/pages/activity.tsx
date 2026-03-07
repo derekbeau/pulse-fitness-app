@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { Activity as ActivityGlyph } from 'lucide-react';
 
-import { ActivityForm, ActivityList, mockActivities } from '@/features/activity';
+import {
+  ActivityForm,
+  ActivityList,
+  mockActivities,
+  sortActivitiesByDateDesc,
+} from '@/features/activity';
 import type { Activity } from '@/features/activity';
 
 export function ActivityPage() {
-  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+  const [activities, setActivities] = useState<Activity[]>(() =>
+    sortActivitiesByDateDesc(mockActivities),
+  );
 
   return (
     <section className="space-y-6">
@@ -24,7 +31,11 @@ export function ActivityPage() {
         </div>
       </header>
 
-      <ActivityForm onSubmit={(activity) => setActivities((current) => [activity, ...current])} />
+      <ActivityForm
+        onSubmit={(activity) =>
+          setActivities((current) => sortActivitiesByDateDesc([...current, activity]))
+        }
+      />
 
       <ActivityList activities={activities} />
     </section>

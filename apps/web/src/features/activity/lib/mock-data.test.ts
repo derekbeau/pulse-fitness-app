@@ -87,7 +87,7 @@ describe('activity mock data', () => {
     activityTypeOptions.forEach((type) => {
       expect(getActivityTypeIcon(type)).toBe(expectedIcons[type]);
       expect(getActivityTypeBadgeClasses(type)).toContain('border-transparent');
-      expect(getActivityTypeLabel(type)).toMatch(/[A-Z]/);
+      expect(getActivityTypeLabel(type)).toMatch(/^[A-Z][a-z]/);
     });
   });
 });

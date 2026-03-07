@@ -7,4 +7,5 @@ export {
   getActivityTypeLabel,
   mockActivities,
 } from './lib/mock-data';
+export { sortActivitiesByDateDesc } from './lib/sort';
 export type { Activity, ActivityJournalEntryReference, ActivityType } from './types';

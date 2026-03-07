@@ -1,13 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { mockActivities } from '@/features/activity';
+import { mockActivities, sortActivitiesByDateDesc } from '@/features/activity';
 import { toDateKey } from '@/lib/date-utils';
 import { ActivityPage } from '@/pages/activity';
 
-const sortedActivities = [...mockActivities].sort((left, right) =>
-  right.date.localeCompare(left.date),
-);
+const sortedActivities = sortActivitiesByDateDesc(mockActivities);
 
 describe('ActivityPage', () => {
   it('renders the activity list sorted newest first with formatted metadata', () => {
@@ -134,6 +132,43 @@ describe('ActivityPage', () => {
         'Focused on hips, hamstrings, and mid-back rotation.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the list in date order when a past activity is submitted', () => {
+    render(<ActivityPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Activity' }));
+
+    const dialog = screen.getByRole('dialog');
+
+    fireEvent.change(within(dialog).getByLabelText('Name'), {
+      target: { value: 'Backfilled Recovery Walk' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Duration'), {
+      target: { value: '35' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Date'), {
+      target: { value: '2026-02-26' },
+    });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Log Activity' }));
+
+    const activityHeadings = screen.getAllByRole('heading', { level: 2 });
+
+    expect(activityHeadings.map((heading) => heading.textContent)).toEqual([
+      'Peloton Ride',
+      'Evening Walk',
+      'Hip Opener Flow',
+      'Trail Hike - Blue Ridge',
+      'Zone 2 Run',
+      'Yoga with Adriene',
+      'Backfilled Recovery Walk',
+      'Morning Walk',
+      'Morning Stretch Routine',
+      'Recovery Swim',
+      'Neighborhood Spin',
+      'Sauna + Mobility Circuit',
+    ]);
   });
 
   it('closes the form without adding an activity when cancelled', () => {
