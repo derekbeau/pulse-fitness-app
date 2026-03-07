@@ -12,6 +12,7 @@ import { InjuryDetailPage } from '@/pages/injury-detail';
 import { JournalPage } from '@/pages/journal';
 import { NutritionPage } from '@/pages/nutrition';
 import { ProfilePage } from '@/pages/profile';
+import { ResourceDetailPage } from '@/pages/resource-detail';
 import { ResourcesPage } from '@/pages/resources';
 import { SettingsPage } from '@/pages/settings';
 import { ActiveWorkoutPage } from '@/pages/active-workout';
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route element={<InjuriesPage />} path="/profile/injuries" />
         <Route element={<InjuryDetailPage />} path="/profile/injuries/:conditionId" />
         <Route element={<ResourcesPage />} path="/profile/resources" />
+        <Route element={<ResourceDetailPage />} path="/profile/resources/:resourceId" />
         <Route element={<SettingsPage />} path="/settings" />
       </Routes>
     </AppLayout>

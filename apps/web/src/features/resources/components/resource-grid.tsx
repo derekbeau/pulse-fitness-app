@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
+import { resourceTypeBadgeClasses, resourceTypeLabels } from '../lib/resource-ui';
 import type { Resource, ResourceType } from '../types';
 
 type ResourceGridProps = {
@@ -22,20 +23,6 @@ const FILTER_OPTIONS: Array<{ label: string; value: ResourceFilter }> = [
   { label: 'Books', value: 'book' },
   { label: 'Creators', value: 'creator' },
 ];
-
-const typeBadgeClasses: Record<ResourceType, string> = {
-  program:
-    'border-transparent bg-violet-200 text-violet-950 dark:bg-violet-500/20 dark:text-violet-300',
-  book: 'border-transparent bg-sky-200 text-sky-950 dark:bg-sky-500/20 dark:text-sky-300',
-  creator:
-    'border-transparent bg-emerald-200 text-emerald-950 dark:bg-emerald-500/20 dark:text-emerald-300',
-};
-
-const typeLabels: Record<ResourceType, string> = {
-  program: 'Program',
-  book: 'Book',
-  creator: 'Creator',
-};
 
 export function ResourceGrid({ resources }: ResourceGridProps) {
   const [activeFilter, setActiveFilter] = useState<ResourceFilter>('all');
@@ -150,11 +137,11 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
                       <Badge
                         className={cn(
                           'cursor-pointer px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em]',
-                          typeBadgeClasses[resource.type],
+                          resourceTypeBadgeClasses[resource.type],
                         )}
                         variant="outline"
                       >
-                        {typeLabels[resource.type]}
+                        {resourceTypeLabels[resource.type]}
                       </Badge>
                     </div>
 
