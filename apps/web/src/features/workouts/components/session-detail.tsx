@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ArrowLeft,
@@ -12,12 +13,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { mockExercises, mockTemplates, type WorkoutTemplateSectionType } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
 import { workoutCompletedSessions, workoutEnhancedExercises } from '../lib/mock-data';
 import type { ActiveWorkoutCompletedSession } from '../types';
+import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
 type SessionDetailProps = {
   sessionId: string;
@@ -82,6 +86,8 @@ const phaseBadgeStyles = {
 } as const;
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
+  const comparisonToggleId = useId();
+  const [showComparison, setShowComparison] = useState(false);
   const session = workoutCompletedSessions.find((candidate) => candidate.id === sessionId);
 
   if (!session) {
@@ -183,6 +189,30 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         />
       </div>
 
+      <Card>
+        <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-foreground">Session comparison</h2>
+            <p className="text-sm text-muted">
+              Compare this workout against the previous session on the same template.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={showComparison}
+              id={comparisonToggleId}
+              onCheckedChange={(checked) => setShowComparison(checked === true)}
+            />
+            <Label className="cursor-pointer" htmlFor={comparisonToggleId}>
+              Show comparison
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {showComparison ? <SessionComparison currentSession={session} /> : null}
+
       <div className="space-y-4">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground">Section breakdown</h2>
@@ -246,6 +276,13 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         </span>
                       ))}
                     </div>
+
+                    {showComparison ? (
+                      <SessionExerciseComparison
+                        currentSession={session}
+                        exerciseId={exercise.exerciseId}
+                      />
+                    ) : null}
 
                     {exercise.notes ? (
                       <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
