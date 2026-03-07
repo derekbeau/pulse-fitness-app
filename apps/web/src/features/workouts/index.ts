@@ -4,6 +4,7 @@ export { SessionFeedback } from './components/session-feedback';
 export { SessionHeader } from './components/session-header';
 export { SessionContext } from './components/session-context';
 export { SessionSummary } from './components/session-summary';
+export { SupplementalMenu } from './components/supplemental-menu';
 export { TemplateBrowser } from './components/template-browser';
 export { WorkoutCalendar } from './components/workout-calendar';
 export { WorkoutList } from './components/workout-list';

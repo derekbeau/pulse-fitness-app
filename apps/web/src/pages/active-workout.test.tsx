@@ -29,6 +29,9 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Training Phase')).toBeInTheDocument();
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
+    ).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
     expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
@@ -48,6 +51,22 @@ describe('ActiveWorkoutPage', () => {
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
+    expect(screen.getByText('Core & Spine Health (pick at least 2)')).toBeInTheDocument();
+    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Optional' })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Complete supplemental exercise Dead Bug Breathing',
+      }),
+    );
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Complete supplemental exercise Dead Bug Breathing',
+      }),
+    ).toBeChecked();
   });
 
   it('moves from session logging to feedback, summary, and back to workouts', async () => {
@@ -120,6 +139,10 @@ describe('ActiveWorkoutPage', () => {
       screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
+    expect(screen.getByText('Tibialis Raise')).toBeInTheDocument();
+    expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
   });
 });
 

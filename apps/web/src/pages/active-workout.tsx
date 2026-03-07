@@ -7,12 +7,15 @@ import {
   SessionFeedback,
   SessionHeader,
   SessionSummary,
+  SupplementalMenu,
   buildActiveWorkoutSession,
   countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   createWorkoutSetId,
+  workoutCompletedSessions,
   workoutSessionContext,
+  workoutSupplementalExercises,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
@@ -41,7 +44,9 @@ type RestTimerState = {
 export function ActiveWorkoutPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const selectedTemplate = mockTemplates.find((template) => template.id === searchParams.get('template'));
+  const selectedTemplate = mockTemplates.find(
+    (template) => template.id === searchParams.get('template'),
+  );
   const template = selectedTemplate ?? defaultTemplate;
   const [startTime] = useState(() => new Date(Date.now() - 16 * 60_000 - 23_000).toISOString());
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
@@ -56,7 +61,11 @@ export function ActiveWorkoutPage() {
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
+  const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
+  const supplementalExercises =
+    workoutCompletedSessions.find((session) => session.templateId === template.id)?.supplemental ??
+    workoutSupplementalExercises;
 
   const templateExerciseById = useMemo(
     () =>
@@ -110,6 +119,17 @@ export function ActiveWorkoutPage() {
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
             session={session}
+          />
+
+          <SupplementalMenu
+            checkedByExerciseId={supplementalChecks}
+            exercises={supplementalExercises}
+            onCheckedChange={(exerciseId, checked) =>
+              setSupplementalChecks((current) => ({
+                ...current,
+                [exerciseId]: checked,
+              }))
+            }
           />
         </>
       ) : null}
