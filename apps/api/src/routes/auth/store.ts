@@ -40,7 +40,8 @@ export const createUser = async ({
 }: CreateUserInput): Promise<Omit<AuthUserRecord, 'passwordHash'>> => {
   const { db } = await import('../../db/index.js');
 
-  db.insert(users)
+  const result = db
+    .insert(users)
     .values({
       id,
       username,
@@ -48,6 +49,10 @@ export const createUser = async ({
       passwordHash,
     })
     .run();
+
+  if (result.changes !== 1) {
+    throw new Error('Failed to persist auth user');
+  }
 
   return {
     id,

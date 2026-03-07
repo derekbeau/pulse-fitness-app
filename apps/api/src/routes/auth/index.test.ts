@@ -19,11 +19,12 @@ describe('auth routes', () => {
     delete process.env.JWT_SECRET;
   });
 
-  it('registers a new user, hashes the password, and returns a 7-day JWT', async () => {
+  it('registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT', async () => {
     process.env.JWT_SECRET = 'test-auth-secret';
 
     vi.mocked(findUserByUsername).mockResolvedValue(undefined);
     vi.mocked(createUser).mockImplementation(async ({ id, username, name, passwordHash }) => {
+      expect(username).toBe('derek');
       expect(passwordHash).not.toBe('super-secret-password');
       expect(await bcrypt.compare('super-secret-password', passwordHash)).toBe(true);
 
@@ -41,9 +42,9 @@ describe('auth routes', () => {
         method: 'POST',
         url: '/api/v1/auth/register',
         payload: {
-          username: 'derek',
+          username: ' Derek ',
           password: 'super-secret-password',
-          name: 'Derek',
+          name: ' Derek ',
         },
       });
 
@@ -59,6 +60,7 @@ describe('auth routes', () => {
       expect(payload.data.user.username).toBe('derek');
       expect(payload.data.user.name).toBe('Derek');
       expect(payload.data.user.id).toBeTruthy();
+      expect(vi.mocked(findUserByUsername)).toHaveBeenCalledWith('derek');
       expect(vi.mocked(createUser)).toHaveBeenCalledOnce();
 
       const decoded = app.jwt.verify<{
@@ -124,7 +126,7 @@ describe('auth routes', () => {
         method: 'POST',
         url: '/api/v1/auth/login',
         payload: {
-          username: 'derek',
+          username: ' Derek ',
           password: 'super-secret-password',
         },
       });
@@ -146,6 +148,34 @@ describe('auth routes', () => {
 
       const decoded = app.jwt.verify<{ userId: string }>(payload.data.token);
       expect(decoded.userId).toBe('user-1');
+      expect(vi.mocked(findUserByUsername)).toHaveBeenCalledWith('derek');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns INVALID_CREDENTIALS for a non-existent username', async () => {
+    vi.mocked(findUserByUsername).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: {
+          username: 'missing-user',
+          password: 'whatever-password',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid username or password',
+        },
+      });
     } finally {
       await app.close();
     }

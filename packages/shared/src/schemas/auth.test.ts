@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { type LoginInput, type RegisterInput, loginInputSchema, registerInputSchema } from './auth';
 
 describe('registerInputSchema', () => {
-  it('parses a valid registration payload', () => {
+  it('parses a valid registration payload and normalizes text fields', () => {
     const payload = registerInputSchema.parse({
-      username: 'derek',
+      username: ' Derek ',
       password: 'super-secret',
-      name: 'Derek',
+      name: ' Derek ',
     });
 
     expect(payload).toEqual({
@@ -26,6 +26,23 @@ describe('registerInputSchema', () => {
     ).toThrow();
   });
 
+  it('rejects passwords longer than bcrypt supports and empty names', () => {
+    expect(() =>
+      registerInputSchema.parse({
+        username: 'derek',
+        password: 'a'.repeat(73),
+      }),
+    ).toThrow();
+
+    expect(() =>
+      registerInputSchema.parse({
+        username: 'derek',
+        password: 'super-secret',
+        name: '   ',
+      }),
+    ).toThrow();
+  });
+
   it('infers the RegisterInput type from the schema', () => {
     const payload: RegisterInput = {
       username: 'pulse-user',
@@ -38,9 +55,9 @@ describe('registerInputSchema', () => {
 });
 
 describe('loginInputSchema', () => {
-  it('parses a valid login payload', () => {
+  it('parses a valid login payload and normalizes the username', () => {
     const payload = loginInputSchema.parse({
-      username: 'derek',
+      username: ' Derek ',
       password: 'super-secret',
     });
 
