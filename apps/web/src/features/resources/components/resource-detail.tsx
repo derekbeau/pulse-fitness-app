@@ -23,7 +23,7 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
       <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-10">
         <Button
           asChild
-          className="w-fit px-0 text-muted hover:text-foreground"
+          className="w-fit px-0 text-muted-foreground hover:text-foreground"
           size="sm"
           variant="ghost"
         >
@@ -46,7 +46,7 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
       <Button
         asChild
-        className="w-fit px-0 text-muted hover:text-foreground"
+        className="w-fit px-0 text-muted-foreground hover:text-foreground"
         size="sm"
         variant="ghost"
       >
@@ -102,7 +102,7 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ol className="space-y-3 pl-5 text-sm leading-7 text-foreground marker:font-semibold marker:text-primary">
+            <ol className="list-decimal space-y-3 pl-5 text-sm leading-7 text-foreground marker:font-semibold marker:text-primary">
               {resource.principles.map((principle) => (
                 <li key={principle}>{principle}</li>
               ))}
