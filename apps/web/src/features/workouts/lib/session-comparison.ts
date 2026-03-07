@@ -2,15 +2,20 @@ import { workoutCompletedSessions } from './mock-data';
 
 import type { ActiveWorkoutCompletedSession } from '../types';
 
-export function findPreviousTemplateSession(currentSession: ActiveWorkoutCompletedSession) {
+export function findPreviousTemplateSession(
+  currentSession: ActiveWorkoutCompletedSession,
+): ActiveWorkoutCompletedSession | null {
   const currentTime = new Date(currentSession.startedAt).getTime();
 
-  return [...workoutCompletedSessions]
+  return (
+    [...workoutCompletedSessions]
     .filter(
       (session) =>
         session.id !== currentSession.id &&
         session.templateId === currentSession.templateId &&
         new Date(session.startedAt).getTime() < currentTime,
     )
-    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())[0];
+    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())[0] ??
+    null
+  );
 }

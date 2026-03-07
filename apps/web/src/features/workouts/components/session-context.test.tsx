@@ -57,4 +57,20 @@ describe('SessionContext', () => {
     expect(screen.getByText('0 active')).toBeInTheDocument();
     expect(screen.getByText('No active conditions')).toBeInTheDocument();
   });
+
+  it('renders sleep-specific recovery guidance', () => {
+    render(
+      <SessionContext
+        context={{
+          ...workoutSessionContext,
+          sleepStatus: 'poor',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Poor sleep')).toBeInTheDocument();
+    expect(
+      screen.getByText('Recovery is limited. Reduce load or volume if the session feels off.'),
+    ).toBeInTheDocument();
+  });
 });

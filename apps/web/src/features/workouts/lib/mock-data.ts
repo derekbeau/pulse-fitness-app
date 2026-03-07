@@ -793,7 +793,7 @@ function findTemplateExercise(exerciseId: string) {
 
 function getLastPerformance(exerciseId: string): ActiveWorkoutLastPerformance | null {
   const session = [...workoutCompletedSessions]
-    .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
+    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())
     .find((item) =>
       item.exercises.some(
         (exercise: WorkoutSessionExerciseLog) => exercise.exerciseId === exerciseId,

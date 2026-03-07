@@ -860,8 +860,11 @@ function groupExercises(exercises: ActiveWorkoutExercise[]) {
     const run = [exercise];
     let nextIndex = index + 1;
 
-    while (exercises[nextIndex]?.supersetGroup === exercise.supersetGroup) {
-      run.push(exercises[nextIndex] as ActiveWorkoutExercise);
+    while (
+      nextIndex < exercises.length &&
+      exercises[nextIndex].supersetGroup === exercise.supersetGroup
+    ) {
+      run.push(exercises[nextIndex]);
       nextIndex += 1;
     }
 

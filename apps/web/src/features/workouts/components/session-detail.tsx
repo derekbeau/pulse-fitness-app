@@ -3,10 +3,10 @@ import { Link } from 'react-router';
 import {
   ArrowLeft,
   ChevronDown,
-  Clock3,
   Dumbbell,
   ListChecks,
   NotebookPen,
+  Repeat2,
   Scale,
   TrendingUp,
 } from 'lucide-react';
@@ -197,7 +197,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           value={`${summary.totalSets}`}
         />
         <StatCard
-          icon={<Clock3 aria-hidden="true" className="size-4" />}
+          icon={<Repeat2 aria-hidden="true" className="size-4" />}
           label="Reps"
           value={integerFormatter.format(summary.totalReps)}
         />

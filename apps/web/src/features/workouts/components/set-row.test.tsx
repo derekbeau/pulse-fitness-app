@@ -26,7 +26,7 @@ describe('SetRow', () => {
 
     expect(weightInput).toHaveClass('h-11');
     expect(repsInput).toHaveClass('h-11');
-    expect(screen.getByText('Target: 50 lbs x 8-12')).toBeInTheDocument();
+    expect(screen.getByText('Target: 50 kg x 8-12')).toBeInTheDocument();
 
     fireEvent.change(weightInput, { target: { value: '60' } });
     fireEvent.change(repsInput, { target: { value: '10' } });

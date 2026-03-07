@@ -83,11 +83,11 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
               value={weight ?? ''}
             />
             <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-muted">
-              lbs
+              kg
             </span>
           </div>
           {target ? (
-            <p className="text-xs text-muted">{`Target: ${formatWeight(target.weight)} lbs x ${formatTargetReps(target)}`}</p>
+            <p className="text-xs text-muted">{`Target: ${formatWeight(target.weight)} kg x ${formatTargetReps(target)}`}</p>
           ) : null}
         </label>
 

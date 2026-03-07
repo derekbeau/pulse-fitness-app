@@ -29,23 +29,26 @@ export type ActiveWorkoutLastPerformance = {
   sets: ActiveWorkoutLastPerformanceSet[];
 };
 
-export type ActiveWorkoutExercise = {
+export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
-  completedSets: number;
   formCues: ActiveWorkoutFormCueDetails | null;
-  id: string;
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;
-  notes: string;
   phaseBadge: ActiveWorkoutPhaseBadge;
   prescribedReps: string;
   priority: ActiveWorkoutPriority;
   restSeconds: number;
   reversePyramid: ActiveWorkoutReversePyramidTarget[];
-  sets: ActiveWorkoutSet[];
   supersetGroup: string | null;
+};
+
+export type ActiveWorkoutExercise = ActiveWorkoutExerciseMetadata & {
+  completedSets: number;
+  id: string;
+  notes: string;
+  sets: ActiveWorkoutSet[];
   targetSets: number;
 };
 
@@ -105,22 +108,10 @@ export type ActiveWorkoutFormCueDetails = {
   technique: string;
 };
 
-export type ActiveWorkoutEnhancedExercise = {
-  badges: WorkoutBadgeType[];
-  category: WorkoutExerciseCategory;
+export type ActiveWorkoutEnhancedExercise = ActiveWorkoutExerciseMetadata & {
   exerciseId: string;
-  formCues: ActiveWorkoutFormCueDetails;
-  injuryCues: string[];
-  lastPerformance: ActiveWorkoutLastPerformance | null;
-  name: string;
-  phaseBadge: ActiveWorkoutPhaseBadge;
-  prescribedReps: string;
-  priority: ActiveWorkoutPriority;
-  restSeconds: number;
-  reversePyramid: ActiveWorkoutReversePyramidTarget[];
   section: WorkoutTemplateSectionType;
   sets: number;
-  supersetGroup: string | null;
   tempo: string;
 };
 

@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { workoutCompletedSessions } from '../lib/mock-data';
 import type { ActiveWorkoutCompletedSession } from '../types';
 
 type SessionComparisonProps = {
@@ -206,17 +205,27 @@ function getExerciseComparison(
     return null;
   }
 
-  const earlierSets = getEarlierExerciseSets(currentSession, exerciseId);
-
   return {
     previousSessionDate: dateFormatter.format(new Date(previousSession.startedAt)),
-    setComparisons: currentExercise.sets.map((set, index) => {
-      const previousSet = previousExercise.sets[index];
+    setComparisons: currentExercise.sets.map((set) => {
+      const previousSet =
+        previousExercise.sets.find((candidate) => candidate.setNumber === set.setNumber) ?? null;
 
       return {
         currentReps: set.reps,
         currentWeight: set.weight ?? null,
-        hasPr: isPersonalRecord(set.weight ?? null, set.reps, earlierSets),
+        hasPr: isPersonalRecord(
+          set.weight ?? null,
+          set.reps,
+          previousSet
+            ? [
+                {
+                  reps: previousSet.reps,
+                  weight: previousSet.weight ?? null,
+                },
+              ]
+            : [],
+        ),
         repsDelta: previousSet ? set.reps - previousSet.reps : 0,
         setNumber: set.setNumber,
         weightDelta:
@@ -227,43 +236,35 @@ function getExerciseComparison(
   } satisfies ExerciseComparison;
 }
 
-function getEarlierExerciseSets(currentSession: ActiveWorkoutCompletedSession, exerciseId: string) {
-  const currentTime = new Date(currentSession.startedAt).getTime();
-
-  return workoutCompletedSessions
-    .filter(
-      (session) =>
-        session.templateId === currentSession.templateId &&
-        new Date(session.startedAt).getTime() < currentTime,
-    )
-    .flatMap((session) =>
-      session.exercises
-        .find((exercise) => exercise.exerciseId === exerciseId)
-        ?.sets.map((set) => ({
-          reps: set.reps,
-          weight: set.weight ?? null,
-        })) ?? [],
-    );
-}
-
 function isPersonalRecord(
   currentWeight: number | null,
   currentReps: number,
   previousSets: Array<{ reps: number; weight: number | null }>,
 ) {
-  if (currentWeight == null) {
+  if (previousSets.length === 0) {
     return false;
   }
 
-  const comparableSets = previousSets.filter(
-    (set) => set.weight != null && currentReps >= set.reps,
-  ) as Array<{ reps: number; weight: number }>;
+  if (currentWeight != null) {
+    const comparableSets = previousSets.reduce<Array<{ reps: number; weight: number }>>(
+      (sets, set) => {
+        if (set.weight != null && currentReps >= set.reps) {
+          sets.push({ reps: set.reps, weight: set.weight });
+        }
 
-  if (comparableSets.length === 0) {
-    return false;
+        return sets;
+      },
+      [],
+    );
+
+    if (comparableSets.length > 0) {
+      return currentWeight > Math.max(...comparableSets.map((set) => set.weight));
+    }
   }
 
-  return currentWeight > Math.max(...comparableSets.map((set) => set.weight));
+  const maxPreviousReps = Math.max(0, ...previousSets.map((set) => set.reps));
+
+  return currentReps > maxPreviousReps;
 }
 
 function getSessionVolume(session: ActiveWorkoutCompletedSession) {

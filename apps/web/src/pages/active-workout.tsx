@@ -13,7 +13,6 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   createWorkoutSetId,
-  workoutCompletedSessions,
   workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
@@ -66,9 +65,7 @@ export function ActiveWorkoutPage() {
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
-  const supplementalExercises =
-    workoutCompletedSessions.find((session) => session.templateId === template.id)?.supplemental ??
-    workoutSupplementalExercises;
+  const supplementalExercises = workoutSupplementalExercises;
 
   const templateExerciseById = useMemo(
     () =>

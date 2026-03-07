@@ -24,25 +24,29 @@ const recentSessionDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 const sleepStatusConfig: Record<
   ActiveWorkoutSleepStatus,
-  { className: string; iconClassName: string; label: string }
+  { className: string; description: string; iconClassName: string; label: string }
 > = {
   poor: {
     className: 'border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300',
+    description: 'Recovery is limited. Reduce load or volume if the session feels off.',
     iconClassName: 'text-red-600 dark:text-red-300',
     label: 'Poor sleep',
   },
   fair: {
     className: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    description: 'Recovery is moderate. Keep intensity honest and adjust if needed.',
     iconClassName: 'text-amber-600 dark:text-amber-300',
     label: 'Fair sleep',
   },
   good: {
     className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    description: "Recovery looks stable for today's training.",
     iconClassName: 'text-emerald-600 dark:text-emerald-300',
     label: 'Good sleep',
   },
   great: {
     className: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    description: 'Fully recovered. Good day to push the top end of the plan.',
     iconClassName: 'text-sky-600 dark:text-sky-300',
     label: 'Great sleep',
   },
@@ -105,7 +109,7 @@ export function SessionContext({ className, context }: SessionContextProps) {
             <MoonStar aria-hidden="true" className={cn('size-4', sleepStatus.iconClassName)} />
             <div className="space-y-0.5">
               <p className="text-sm font-semibold">{sleepStatus.label}</p>
-              <p className="text-xs text-muted">Recovery looks stable for today&apos;s training.</p>
+              <p className="text-xs text-muted">{sleepStatus.description}</p>
             </div>
           </div>
         </ContextCard>
