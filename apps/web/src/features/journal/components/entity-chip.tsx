@@ -13,10 +13,10 @@ const iconByType: Record<LinkedEntityType, typeof Dumbbell> = {
   workout: Dumbbell,
 };
 
-const hrefByType: Partial<Record<LinkedEntityType, string>> = {
-  activity: '/activity',
-  habit: '/habits',
-  workout: '/workouts',
+const hrefByType: Partial<Record<LinkedEntityType, (entity: LinkedEntity) => string>> = {
+  activity: () => '/activity',
+  habit: () => '/habits',
+  workout: (entity) => `/workouts/template/${entity.id}`,
 };
 
 type EntityChipProps = {
@@ -25,7 +25,7 @@ type EntityChipProps = {
 
 export function EntityChip({ entity }: EntityChipProps) {
   const Icon = iconByType[entity.type];
-  const href = hrefByType[entity.type];
+  const href = hrefByType[entity.type]?.(entity);
   const content = (
     <>
       <Icon aria-hidden="true" className="size-3.5" />
@@ -50,7 +50,7 @@ export function EntityChip({ entity }: EntityChipProps) {
   return (
     <Badge
       className={cn(
-        'cursor-pointer rounded-full border-border/70 bg-background/75 px-3 py-1 text-xs font-medium text-muted shadow-sm',
+        'rounded-full border-border/70 bg-background/75 px-3 py-1 text-xs font-medium text-muted shadow-sm',
       )}
       variant="outline"
     >

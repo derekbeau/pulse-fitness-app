@@ -5,6 +5,7 @@ import { DashboardPage } from '@/pages/dashboard';
 import { DesignSystemPage } from '@/pages/design-system';
 import { EquipmentRoutePage } from '@/pages/equipment';
 import { FoodsPage } from '@/pages/foods';
+import { JournalEntryPage } from '@/pages/journal-entry';
 import { HabitsPage } from '@/pages/habits';
 import { JournalPage } from '@/pages/journal';
 import { ProfileInjuriesPage } from '@/pages/profile-injuries';
@@ -32,6 +33,7 @@ function AppRoutes() {
         <Route element={<ActivityPage />} path="/activity" />
         <Route element={<FoodsPage />} path="/foods" />
         <Route element={<JournalPage />} path="/journal" />
+        <Route element={<JournalEntryPage />} path="/journal/:entryId" />
         <Route element={<ProfilePage />} path="/profile" />
         <Route element={<EquipmentRoutePage />} path="/profile/equipment" />
         <Route element={<ProfileInjuriesPage />} path="/profile/injuries" />

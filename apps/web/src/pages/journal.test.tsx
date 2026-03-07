@@ -23,12 +23,19 @@ describe('JournalPage', () => {
     const cardTitles = screen
       .getAllByRole('heading', { level: 2 })
       .map((heading) => heading.textContent);
-    expect(cardTitles).toEqual(mockJournalEntries.map((entry) => entry.title));
+    expect(cardTitles).toEqual(
+      [...mockJournalEntries]
+        .sort((left, right) => right.date.localeCompare(left.date))
+        .map((entry) => entry.title),
+    );
 
     const cards = container.querySelectorAll('[data-slot="journal-entry-card"]');
     expect(cards).toHaveLength(mockJournalEntries.length);
 
     const firstCard = cards[0] as HTMLElement;
+    expect(
+      within(firstCard).getByRole('link', { name: 'Open journal entry Shoulder SLAP Clearance' }),
+    ).toHaveAttribute('href', '/journal/journal-shoulder-slap-clearance');
     expect(within(firstCard).getByText('injury update')).toBeInTheDocument();
     expect(within(firstCard).getByText('Mar 6, 2026')).toBeInTheDocument();
     expect(
@@ -55,5 +62,17 @@ describe('JournalPage', () => {
     expect(screen.getAllByText('observation')[0]).toHaveClass('bg-sky-200');
     expect(screen.getByText('weekly summary')).toHaveClass('bg-violet-200');
     expect(screen.getAllByText('injury update')[0]).toHaveClass('bg-red-200');
+  });
+
+  it('links workout entity chips to the workout template detail route', () => {
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>,
+    );
+
+    for (const link of screen.getAllByRole('link', { name: 'Upper Push' })) {
+      expect(link).toHaveAttribute('href', '/workouts/template/upper-push');
+    }
   });
 });

@@ -19,7 +19,7 @@ export function JournalPage() {
           </div>
         </div>
       </header>
-      <JournalFeed />
+      <JournalFeed getEntryHref={(entryId) => `/journal/${entryId}`} />
     </section>
   );
 }
