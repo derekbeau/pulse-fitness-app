@@ -155,7 +155,7 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
-    expect(screen.getByText('Tibialis Raise')).toBeInTheDocument();
+    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
     expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
   });
 });
