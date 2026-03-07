@@ -12,6 +12,8 @@ import {
   exercises,
   habitEntries,
   habits,
+  parseJsonStringArray,
+  serializeJsonStringArray,
   templateExercises,
   users,
   workoutTemplates,
@@ -122,12 +124,16 @@ describe('exercises schema', () => {
       'category',
       'instructions',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.userId.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(exercises);
     expect(config.foreignKeys).toHaveLength(1);
@@ -202,6 +208,11 @@ describe('templateExercises schema', () => {
       'exercises',
       'workout_templates',
     ]);
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'exercises',
+      )?.onDelete,
+    ).toBe('restrict');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'template_exercises_exercise_id_idx',
       'template_exercises_template_id_idx',
@@ -263,5 +274,20 @@ describe('habitEntries schema', () => {
     expect(config.checks.map((constraint) => constraint.name)).toEqual([
       'habit_entries_date_format_check',
     ]);
+  });
+});
+
+describe('JSON-backed string array helpers', () => {
+  it('serializes and parses string arrays for SQLite text columns', () => {
+    const serialized = serializeJsonStringArray(['legs', 'glutes']);
+
+    expect(serialized).toBe('["legs","glutes"]');
+    expect(parseJsonStringArray(serialized)).toEqual(['legs', 'glutes']);
+    expect(parseJsonStringArray(null)).toEqual([]);
+  });
+
+  it('rejects invalid JSON payloads', () => {
+    expect(() => parseJsonStringArray('{"group":"legs"}')).toThrow(TypeError);
+    expect(() => parseJsonStringArray('[1,2,3]')).toThrow(TypeError);
   });
 });

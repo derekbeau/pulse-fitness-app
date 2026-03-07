@@ -47,7 +47,7 @@ export const templateExercises = sqliteTable(
       .references(() => workoutTemplates.id, { onDelete: 'cascade' }),
     exerciseId: text('exercise_id')
       .notNull()
-      .references(() => exercises.id),
+      .references(() => exercises.id, { onDelete: 'restrict' }),
     orderIndex: integer('order_index').notNull(),
     sets: integer('sets'),
     repsMin: integer('reps_min'),

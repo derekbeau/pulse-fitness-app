@@ -7,6 +7,7 @@ CREATE TABLE `exercises` (
 	`category` text NOT NULL,
 	`instructions` text,
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	CONSTRAINT "exercises_category_check" CHECK("exercises"."category" in ('compound', 'isolation', 'cardio', 'mobility'))
 );
@@ -39,7 +40,7 @@ CREATE TABLE `template_exercises` (
 	`notes` text,
 	`cues` text,
 	FOREIGN KEY (`template_id`) REFERENCES `workout_templates`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "template_exercises_section_check" CHECK("template_exercises"."section" in ('warmup', 'main', 'cooldown')),
 	CONSTRAINT "template_exercises_reps_range_check" CHECK("template_exercises"."reps_min" is null or "template_exercises"."reps_max" is null or "template_exercises"."reps_min" <= "template_exercises"."reps_max")
 );
