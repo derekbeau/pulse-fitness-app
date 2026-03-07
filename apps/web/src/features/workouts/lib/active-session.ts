@@ -66,8 +66,9 @@ export function buildActiveWorkoutSession(
         badges: templateExercise.badges,
         category: exercise?.category ?? 'compound',
         completedSets,
-        formCues: templateExercise.formCues,
+        formCues: enhancedExercise?.formCues ?? null,
         id: templateExercise.exerciseId,
+        injuryCues: enhancedExercise?.injuryCues ?? [],
         lastPerformance: getLastPerformance(
           templateExercise.exerciseId,
           sessionStartedAt,

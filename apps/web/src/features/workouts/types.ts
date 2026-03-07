@@ -34,8 +34,9 @@ export type ActiveWorkoutExercise = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
   completedSets: number;
-  formCues: string[];
+  formCues: ActiveWorkoutFormCueDetails | null;
   id: string;
+  injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;
   notes: string;

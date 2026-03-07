@@ -11,6 +11,7 @@ import {
 import { SessionExerciseList } from './session-exercise-list';
 
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
+const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
 
 describe('SessionExerciseList', () => {
   it('shows editable set rows for the current exercise and can render the rest timer panel', () => {
@@ -80,10 +81,26 @@ describe('SessionExerciseList', () => {
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Form cues' }));
-    expect(within(currentCard as HTMLElement).getByText('Drive feet into the floor')).toBeVisible();
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
+    expect(within(currentCard as HTMLElement).getByText('Technique')).toBeVisible();
     expect(
-      within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows'),
+      within(currentCard as HTMLElement).getByText(
+        'Press with a slight neutral grip, keep forearms stacked, and control a 3-second eccentric into the upper chest.',
+      ),
+    ).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Mental Cues')).toBeVisible();
+    expect(
+      within(currentCard as HTMLElement).getByText('Drive upper back into the bench'),
+    ).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Common Mistakes')).toBeVisible();
+    expect(
+      within(currentCard as HTMLElement).getByText('Losing the shoulder blade set-up'),
+    ).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Injury-aware cues')).toBeVisible();
+    expect(
+      within(currentCard as HTMLElement).getByText(
+        'Avoid the last 10 degrees of lockout if the left shoulder feels unstable.',
+      ),
     ).toBeVisible();
 
     const notesInput = within(currentCard as HTMLElement).getByLabelText('Session notes');
@@ -97,6 +114,41 @@ describe('SessionExerciseList', () => {
 
     expect(optionalCard).not.toBeNull();
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
+  });
+
+  it('omits cue toggles and injury warnings when enhanced cue data is unavailable', () => {
+    if (!lowerTemplate) {
+      throw new Error('Expected lower-quad-dominant template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      lowerTemplate,
+      createInitialWorkoutSetDrafts(lowerTemplate, new Set()),
+    );
+
+    render(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
+
+    const squatCard = screen
+      .getByRole('heading', { level: 3, name: 'High-Bar Back Squat' })
+      .closest('[data-slot="card"]');
+
+    expect(squatCard).not.toBeNull();
+    expect(
+      within(squatCard as HTMLElement).queryByRole('button', { name: /Form Cues/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
+    ).not.toBeInTheDocument();
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {

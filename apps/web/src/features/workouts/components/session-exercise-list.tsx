@@ -6,7 +6,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { ChevronDown, Check, Circle, Dot } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Check, Circle, Dot } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -328,7 +328,10 @@ function ExerciseCardItem({
     focusTargetExerciseId === exercise.id
       ? true
       : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
-  const isCuePanelOpen = visibleCuePanels[exercise.id] ?? false;
+  const formCueDetails = exercise.formCues;
+  const hasFormCues = formCueDetails !== null;
+  const hasInjuryCues = exercise.injuryCues.length > 0;
+  const isCuePanelOpen = hasFormCues && (visibleCuePanels[exercise.id] ?? false);
   const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
   const priorityAccentClass =
     exercise.priority === 'required'
@@ -409,21 +412,28 @@ function ExerciseCardItem({
         <div className="space-y-4">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Button
-                aria-controls={`exercise-cues-${exercise.id}`}
-                aria-expanded={isCuePanelOpen}
-                onClick={() =>
-                  setVisibleCuePanels((current) => ({
-                    ...current,
-                    [exercise.id]: !isCuePanelOpen,
-                  }))
-                }
-                size="xs"
-                type="button"
-                variant={isCuePanelOpen ? 'secondary' : 'outline'}
-              >
-                Form cues
-              </Button>
+              {hasFormCues ? (
+                <Button
+                  aria-controls={`exercise-cues-${exercise.id}`}
+                  aria-expanded={isCuePanelOpen}
+                  className="cursor-pointer gap-1.5"
+                  onClick={() =>
+                    setVisibleCuePanels((current) => ({
+                      ...current,
+                      [exercise.id]: !isCuePanelOpen,
+                    }))
+                  }
+                  size="xs"
+                  type="button"
+                  variant={isCuePanelOpen ? 'secondary' : 'outline'}
+                >
+                  Form Cues
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn('size-3.5 transition-transform', isCuePanelOpen && 'rotate-180')}
+                  />
+                </Button>
+              ) : null}
               <Button
                 aria-controls={`exercise-notes-${exercise.id}`}
                 aria-expanded={isNotesPanelOpen}
@@ -445,23 +455,63 @@ function ExerciseCardItem({
               {formatLastPerformance(exercise.lastPerformance, exercise.prescribedReps)}
             </p>
 
-            <div
-              className="rounded-2xl border border-border bg-background/80 p-4"
-              hidden={!isCuePanelOpen}
-              id={`exercise-cues-${exercise.id}`}
-            >
-              <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                Technique cues
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-foreground">
-                {exercise.formCues.map((cue) => (
-                  <li className="flex items-start gap-2" key={cue}>
-                    <span aria-hidden="true" className="mt-1 size-1.5 rounded-full bg-primary" />
-                    <span>{cue}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {hasInjuryCues ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/12 p-4 text-amber-950 dark:text-amber-100">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500/18 text-amber-700 dark:text-amber-200">
+                    <AlertTriangle aria-hidden="true" className="size-4" />
+                  </span>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase text-amber-700 dark:text-amber-200">
+                      Injury-aware cues
+                    </p>
+                    <ul className="space-y-2 text-sm">
+                      {exercise.injuryCues.map((cue) => (
+                        <li className="flex items-start gap-2" key={cue}>
+                          <span
+                            aria-hidden="true"
+                            className="mt-1 size-1.5 rounded-full bg-current"
+                          />
+                          <span>{cue}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {hasFormCues ? (
+              <div
+                aria-hidden={!isCuePanelOpen}
+                className={cn(
+                  'grid transition-all duration-300 ease-out',
+                  isCuePanelOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                )}
+                id={`exercise-cues-${exercise.id}`}
+              >
+                <div className="overflow-hidden">
+                  <div className="rounded-2xl border border-border bg-background/80 p-4">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                          Technique
+                        </p>
+                        <p className="text-sm text-foreground">{formCueDetails?.technique}</p>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <CueList items={formCueDetails?.mentalCues ?? []} title="Mental Cues" />
+                        <CueList
+                          items={formCueDetails?.commonMistakes ?? []}
+                          title="Common Mistakes"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div
               className="space-y-2"
@@ -501,6 +551,22 @@ function ExerciseCardItem({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CueList({ items, title }: { items: string[]; title: string }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">{title}</p>
+      <ul className="space-y-2 text-sm text-foreground">
+        {items.map((item) => (
+          <li className="flex items-start gap-2" key={item}>
+            <span aria-hidden="true" className="mt-1 size-1.5 rounded-full bg-primary" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
