@@ -11,15 +11,19 @@ import type {
 } from './schema/index.js';
 import {
   agentTokens,
+  bodyWeight,
+  dashboardConfig,
   exercises,
   foods,
   habitEntries,
   habits,
   mealItems,
   meals,
+  nutritionTargets,
   nutritionLogs,
   parseJsonStringArray,
   parseWorkoutSessionFeedback,
+  scheduledWorkouts,
   sessionSets,
   serializeJsonStringArray,
   serializeWorkoutSessionFeedback,
@@ -124,6 +128,74 @@ describe('foods schema', () => {
   });
 });
 
+describe('bodyWeight schema', () => {
+  it('defines the expected table, unique per-user date constraint, and validation checks', () => {
+    expect(getTableName(bodyWeight)).toBe('body_weight');
+
+    const columns = getTableColumns(bodyWeight);
+    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'weight', 'notes', 'createdAt']);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(bodyWeight);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe('body_weight_user_id_date_unique');
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'user_id',
+      'date',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'body_weight_date_format_check',
+      'body_weight_weight_check',
+    ]);
+  });
+});
+
+describe('nutritionTargets schema', () => {
+  it('defines the expected table, lookup index, and effective-date guardrails', () => {
+    expect(getTableName(nutritionTargets)).toBe('nutrition_targets');
+
+    const columns = getTableColumns(nutritionTargets);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+      'effectiveDate',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(nutritionTargets);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'nutrition_targets_user_effective_date_idx',
+    ]);
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe(
+      'nutrition_targets_user_id_effective_date_unique',
+    );
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'user_id',
+      'effective_date',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'nutrition_targets_effective_date_format_check',
+      'nutrition_targets_macros_nonnegative_check',
+    ]);
+  });
+});
+
 describe('nutritionLogs schema', () => {
   it('defines the expected table, unique per-user date constraint, and date validation', () => {
     expect(getTableName(nutritionLogs)).toBe('nutrition_logs');
@@ -180,6 +252,37 @@ describe('meals schema', () => {
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('nutrition_logs');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['meals_nutrition_log_id_idx']);
     expect(config.checks.map((constraint) => constraint.name)).toEqual(['meals_time_format_check']);
+  });
+});
+
+describe('dashboardConfig schema', () => {
+  it('defines the expected singleton-per-user config row with JSON text defaults', () => {
+    expect(getTableName(dashboardConfig)).toBe('dashboard_config');
+
+    const columns = getTableColumns(dashboardConfig);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'habitChainIds',
+      'trendMetrics',
+      'updatedAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.habitChainIds.default).toBeDefined();
+    expect(columns.trendMetrics.default).toBeDefined();
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
+
+    const config = getTableConfig(dashboardConfig);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.uniqueConstraints).toHaveLength(1);
+    expect(config.uniqueConstraints[0]?.getName()).toBe('dashboard_config_user_id_unique');
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
+      'user_id',
+    ]);
   });
 });
 
@@ -548,6 +651,53 @@ describe('sessionSets schema', () => {
       'session_sets_completion_state_check',
       'session_sets_section_check',
       'session_sets_set_number_check',
+    ]);
+  });
+});
+
+describe('scheduledWorkouts schema', () => {
+  it('defines the expected table, foreign keys, and upcoming-workout indexes', () => {
+    expect(getTableName(scheduledWorkouts)).toBe('scheduled_workouts');
+
+    const columns = getTableColumns(scheduledWorkouts);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'templateId',
+      'date',
+      'sessionId',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.sessionId.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(scheduledWorkouts);
+    expect(config.foreignKeys).toHaveLength(3);
+    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
+      'users',
+      'workout_sessions',
+      'workout_templates',
+    ]);
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'workout_sessions',
+      )?.onDelete,
+    ).toBe('set null');
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
+      )?.onDelete,
+    ).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'scheduled_workouts_session_id_idx',
+      'scheduled_workouts_template_id_idx',
+      'scheduled_workouts_user_date_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'scheduled_workouts_date_format_check',
     ]);
   });
 });
