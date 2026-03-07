@@ -7,15 +7,16 @@ CREATE TABLE `workout_sessions` (
 	`status` text DEFAULT 'in-progress' NOT NULL,
 	`started_at` integer NOT NULL,
 	`completed_at` integer,
-	`duration` text,
+	`duration` integer,
 	`feedback` text,
 	`notes` text,
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`template_id`) REFERENCES `workout_templates`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "workout_sessions_date_format_check" CHECK("workout_sessions"."date" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
 	CONSTRAINT "workout_sessions_status_check" CHECK("workout_sessions"."status" in ('scheduled', 'in-progress', 'completed')),
-	CONSTRAINT "workout_sessions_completed_at_check" CHECK("workout_sessions"."completed_at" is null or "workout_sessions"."completed_at" >= "workout_sessions"."started_at")
+	CONSTRAINT "workout_sessions_completed_at_check" CHECK(("workout_sessions"."status" != 'completed' or "workout_sessions"."completed_at" is not null) and ("workout_sessions"."completed_at" is null or "workout_sessions"."completed_at" >= "workout_sessions"."started_at"))
 );
 --> statement-breakpoint
 CREATE INDEX `workout_sessions_user_id_idx` ON `workout_sessions` (`user_id`);--> statement-breakpoint

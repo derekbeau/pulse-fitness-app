@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   HabitTrackingType,
   WorkoutExerciseCategory,
+  WorkoutSessionFeedback,
   WorkoutSessionStatus,
   WorkoutTemplateSectionType,
 } from './schema/index.js';
@@ -14,8 +15,10 @@ import {
   habitEntries,
   habits,
   parseJsonStringArray,
+  parseWorkoutSessionFeedback,
   sessionSets,
   serializeJsonStringArray,
+  serializeWorkoutSessionFeedback,
   workoutSessions,
   templateExercises,
   users,
@@ -257,13 +260,18 @@ describe('workoutSessions schema', () => {
       'feedback',
       'notes',
       'createdAt',
+      'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.templateId.notNull).toBe(false);
     expect(columns.status.default).toBe('in-progress');
+    expect(columns.duration.getSQLType()).toBe('integer');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(workoutSessions);
     expect(config.foreignKeys).toHaveLength(2);
@@ -276,6 +284,10 @@ describe('workoutSessions schema', () => {
         (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
       )?.onDelete,
     ).toBe('set null');
+    expect(
+      config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'users')
+        ?.onDelete,
+    ).toBe('cascade');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'workout_sessions_date_idx',
       'workout_sessions_user_id_idx',
@@ -392,5 +404,40 @@ describe('JSON-backed string array helpers', () => {
   it('rejects invalid JSON payloads', () => {
     expect(() => parseJsonStringArray('{"group":"legs"}')).toThrow(TypeError);
     expect(() => parseJsonStringArray('[1,2,3]')).toThrow(TypeError);
+  });
+});
+
+describe('workout session feedback helpers', () => {
+  it('serializes and parses feedback objects for SQLite text columns', () => {
+    const feedback: WorkoutSessionFeedback = {
+      energy: 4,
+      recovery: 3,
+      technique: 5,
+      notes: 'Moved well today.',
+    };
+
+    const serialized = serializeWorkoutSessionFeedback(feedback);
+
+    expect(serialized).toBe(
+      '{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today."}',
+    );
+    expect(parseWorkoutSessionFeedback(serialized)).toEqual(feedback);
+    expect(parseWorkoutSessionFeedback(null)).toBeNull();
+    expect(serializeWorkoutSessionFeedback(null)).toBeNull();
+  });
+
+  it('rejects invalid feedback payloads', () => {
+    expect(() => parseWorkoutSessionFeedback('{"energy":6,"recovery":3,"technique":4}')).toThrow(
+      TypeError,
+    );
+    expect(
+      () => parseWorkoutSessionFeedback('{"energy":4,"recovery":3,"technique":4,"notes":1}'),
+    ).toThrow(TypeError);
+    expect(
+      () =>
+        parseWorkoutSessionFeedback(
+          '{"energy":4,"recovery":3,"technique":4,"notes":"ok","extra":true}',
+        ),
+    ).toThrow(TypeError);
   });
 });

@@ -39,13 +39,19 @@ export const workoutSessions = sqliteTable(
     status: text('status').$type<WorkoutSessionStatus>().notNull().default('in-progress'),
     startedAt: integer('started_at', { mode: 'number' }).notNull(),
     completedAt: integer('completed_at', { mode: 'number' }),
-    duration: text('duration'),
-    feedback: text('feedback').$type<WorkoutSessionFeedback>(),
+    duration: integer('duration', { mode: 'number' }).$type<number>(),
+    // JSON-encoded WorkoutSessionFeedback; use the serializer helpers when reading or writing.
+    feedback: text('feedback'),
     notes: text('notes'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
       .$defaultFn(() => Date.now()),
+    updatedAt: integer('updated_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (table) => [
     index('workout_sessions_user_id_idx').on(table.userId),
@@ -60,7 +66,7 @@ export const workoutSessions = sqliteTable(
     ),
     check(
       'workout_sessions_completed_at_check',
-      sql`${table.completedAt} is null or ${table.completedAt} >= ${table.startedAt}`,
+      sql`(${table.status} != 'completed' or ${table.completedAt} is not null) and (${table.completedAt} is null or ${table.completedAt} >= ${table.startedAt})`,
     ),
   ],
 );
