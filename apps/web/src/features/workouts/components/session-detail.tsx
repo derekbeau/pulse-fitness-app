@@ -191,7 +191,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
         {sections.map((section) => (
           <details
-            className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
+            className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
             key={section.type}
             open={section.type === 'main'}
           >
