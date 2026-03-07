@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { mockDailySnapshot, type DailySnapshot } from '@/lib/mock-data/dashboard';
 
@@ -26,9 +28,9 @@ export const calculateWeightTrend = (weight: number, weightYesterday: number): S
 
 export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <StatCard
-        accentText
+        textClassName="text-[#8b6914]"
         className="bg-[var(--color-accent-cream)]"
         label="Body Weight"
         trend={calculateWeightTrend(snapshot.weight, snapshot.weightYesterday)}
@@ -36,7 +38,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
-        accentText
+        textClassName="text-[#8b2252]"
         className="bg-[var(--color-accent-pink)]"
         label="Calories"
         trend={{ direction: 'neutral', value: 0 }}
@@ -44,19 +46,21 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
-        accentText
+        textClassName="text-[#1a6b45]"
         className="bg-[var(--color-accent-mint)]"
         label="Protein"
         trend={{ direction: 'neutral', value: 0 }}
         value={`${snapshot.macros.protein.actual}g / ${snapshot.macros.protein.target}g`}
       />
 
-      <StatCard
-        accentText
-        className="bg-[var(--color-primary)]/12"
-        label="Today's Workout"
-        value={snapshot.workoutName ?? 'Rest Day'}
-      />
+      <Link className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" to="/workouts">
+        <StatCard
+          textClassName="text-[#2a3f8f] dark:text-[#b4c6ff]"
+          className="h-full cursor-pointer bg-[var(--color-primary)]/12 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md"
+          label="Today's Workout"
+          value={snapshot.workoutName ?? 'Rest Day'}
+        />
+      </Link>
     </div>
   );
 }

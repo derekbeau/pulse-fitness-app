@@ -156,7 +156,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                   aria-label={fullDateFormatter.format(day)}
                   aria-pressed={isSelected}
                   className={cn(
-                    'flex min-h-24 cursor-pointer flex-col rounded-2xl border px-2.5 py-2 text-left transition-colors sm:min-h-28 sm:px-3 sm:py-3',
+                    'flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border p-1 text-center transition-colors sm:aspect-auto sm:min-h-28 sm:items-start sm:justify-start sm:rounded-2xl sm:px-3 sm:py-3 sm:text-left',
                     isInMonth
                       ? 'bg-card hover:border-primary/40 hover:bg-secondary/50'
                       : 'bg-secondary/35 opacity-55',
@@ -167,31 +167,29 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                   onClick={() => setSelectedDateKey(dateKey)}
                   type="button"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <span
+                    className={cn(
+                      'text-sm font-semibold sm:self-start',
+                      isToday ? 'text-primary' : 'text-foreground',
+                      !isInMonth && 'text-muted',
+                    )}
+                  >
+                    {day.getDate()}
+                  </span>
+                  {isWorkoutDay ? (
                     <span
                       className={cn(
-                        'text-sm font-semibold',
-                        isToday ? 'text-primary' : 'text-foreground',
-                        !isInMonth && 'text-muted',
+                        'hidden max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] sm:inline-block',
+                        details.status === 'completed'
+                          ? 'bg-emerald-500/15 text-emerald-700'
+                          : 'bg-blue-500/15 text-blue-700',
                       )}
                     >
-                      {day.getDate()}
+                      {details.status}
                     </span>
-                    {isWorkoutDay ? (
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]',
-                          details.status === 'completed'
-                            ? 'bg-emerald-500/15 text-emerald-700'
-                            : 'bg-blue-500/15 text-blue-700',
-                        )}
-                      >
-                        {details.status}
-                      </span>
-                    ) : null}
-                  </div>
+                  ) : null}
 
-                  <div className="mt-3 space-y-1">
+                  <div className="mt-1 hidden space-y-1 sm:block">
                     <p
                       className={cn(
                         'line-clamp-2 text-xs font-medium',
@@ -206,21 +204,21 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
                     </p>
                   </div>
 
-                  <div className="mt-auto flex items-center gap-1.5 pt-3">
+                  <div className="mt-0.5 flex items-center justify-center gap-1 sm:mt-auto sm:justify-start sm:gap-1.5 sm:pt-3">
                     {details.status === 'completed' ? (
                       <span
                         aria-label="Completed workout"
-                        className="size-2.5 rounded-full bg-emerald-500"
+                        className="size-2 rounded-full bg-emerald-500 sm:size-2.5"
                       />
                     ) : null}
                     {details.status === 'scheduled' ? (
                       <span
                         aria-label="Scheduled workout"
-                        className="size-2.5 rounded-full bg-blue-500"
+                        className="size-2 rounded-full bg-blue-500 sm:size-2.5"
                       />
                     ) : null}
                     {isToday ? (
-                      <span className="text-[11px] font-medium text-primary">Today</span>
+                      <span className="hidden text-[11px] font-medium text-primary sm:inline">Today</span>
                     ) : null}
                   </div>
                 </button>

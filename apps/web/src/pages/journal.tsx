@@ -20,9 +20,9 @@ const entryDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const badgeClassesByType: Record<JournalEntryType, string> = {
-  milestone: 'border-transparent bg-[var(--color-accent-mint)] text-slate-950',
-  observation: 'border-transparent bg-[var(--color-accent-cream)] text-slate-950',
-  weekly_summary: 'border-transparent bg-[var(--color-accent-pink)] text-slate-950',
+  milestone: 'border-transparent bg-[var(--color-accent-mint)] text-[#1a6b45]',
+  observation: 'border-transparent bg-[var(--color-accent-cream)] text-[#8b6914]',
+  weekly_summary: 'border-transparent bg-[var(--color-accent-pink)] text-[#8b2252]',
 };
 
 const journalSampleEntries: JournalSampleEntry[] = [
@@ -90,7 +90,7 @@ export function JournalPage() {
                     )}
                     variant="secondary"
                   >
-                    {entry.type}
+                    {entry.type.replace(/_/g, ' ')}
                   </Badge>
                   <CardDescription className="text-xs font-medium uppercase tracking-[0.14em]">
                     {formatJournalEntryDate(entry.date)}

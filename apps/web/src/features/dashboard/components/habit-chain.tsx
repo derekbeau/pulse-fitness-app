@@ -40,7 +40,7 @@ export function HabitChain({ habitIds }: HabitChainProps) {
   }
 
   return (
-    <section aria-label="Habit chains" className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+    <section aria-label="Habit chains" className="space-y-3">
       <TooltipProvider>
         {habits.map((habit) => {
           const entries = [...habit.entries]
@@ -48,8 +48,8 @@ export function HabitChain({ habitIds }: HabitChainProps) {
             .slice(-DAYS_TO_DISPLAY);
 
           return (
-            <Card className="gap-3 px-3 py-3" key={habit.id}>
-              <CardContent className="space-y-3 px-0">
+            <Card className="gap-2 px-3 py-3" key={habit.id}>
+              <CardContent className="space-y-2 px-0">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-sm font-semibold text-foreground">{habit.name}</h2>
                   <p
@@ -61,7 +61,7 @@ export function HabitChain({ habitIds }: HabitChainProps) {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-6 gap-1.5" data-slot="habit-chain-grid">
+                <div className="grid grid-cols-10 gap-[5px]" data-slot="habit-chain-grid">
                   {entries.map((entry) => {
                     const isToday = entry.date === todayKey;
                     const statusLabel = entry.completed ? 'Completed' : 'Missed';
@@ -72,7 +72,7 @@ export function HabitChain({ habitIds }: HabitChainProps) {
                           <button
                             aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
                             className={cn(
-                              'size-4 shrink-0 cursor-pointer rounded-sm border',
+                              'aspect-square w-full cursor-pointer rounded-full border',
                               entry.completed
                                 ? 'bg-[var(--color-accent-mint)]'
                                 : 'bg-[var(--color-muted)]/40',

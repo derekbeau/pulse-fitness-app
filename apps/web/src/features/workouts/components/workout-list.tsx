@@ -9,6 +9,7 @@ import {
   type WorkoutSession,
   type WorkoutTemplate,
 } from '@/lib/mock-data/workouts';
+import { cn } from '@/lib/utils';
 
 const weekOfFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -77,8 +78,7 @@ export function WorkoutList({
             </div>
 
             <span
-              className="inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] text-[var(--color-on-accent)] uppercase"
-              style={{ backgroundColor: 'var(--color-accent-cream)' }}
+              className="inline-flex w-fit rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-[#8b6914] uppercase dark:text-[#7a5c10]"
             >
               {`${group.sessions.length} workout${group.sessions.length === 1 ? '' : 's'}`}
             </span>
@@ -105,8 +105,14 @@ export function WorkoutList({
                       </div>
 
                       <span
-                        className="inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-[var(--color-on-accent)] uppercase"
-                        style={{ backgroundColor: session.accentColor }}
+                        className={cn(
+                          'inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
+                          session.accentColor === 'var(--color-accent-mint)'
+                            ? 'bg-[var(--color-accent-mint)] text-[#1a6b45] dark:text-[#14573a]'
+                            : session.accentColor === 'var(--color-accent-pink)'
+                              ? 'bg-[var(--color-accent-pink)] text-[#8b2252] dark:text-[#7a1e48]'
+                              : 'bg-[var(--color-accent-cream)] text-[#8b6914] dark:text-[#7a5c10]',
+                        )}
                       >
                         {session.typeLabel}
                       </span>

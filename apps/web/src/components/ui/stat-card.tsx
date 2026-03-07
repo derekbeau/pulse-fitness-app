@@ -16,7 +16,7 @@ export type StatCardProps = Omit<React.ComponentProps<typeof Card>, 'children'> 
   label: string;
   trend?: StatTrend;
   icon?: React.ReactNode;
-  accentText?: boolean;
+  textClassName?: string;
 };
 
 const TREND_STYLES: Record<
@@ -49,7 +49,7 @@ export function StatCard({
   label,
   trend,
   icon,
-  accentText = false,
+  textClassName,
   className,
   ...props
 }: StatCardProps) {
@@ -57,10 +57,9 @@ export function StatCard({
   const TrendIcon = trendStyle?.icon;
   const trendSymbol = trend?.direction !== 'neutral' ? (trendStyle?.symbol ?? '') : '';
   const formattedTrend = `${trendSymbol}${Math.abs(trend?.value ?? 0)}%`;
-  const accentTextClass = 'text-on-accent';
-  const labelClassName = accentText ? accentTextClass : 'text-muted';
-  const valueClassName = accentText ? accentTextClass : 'text-foreground';
-  const iconClassName = accentText ? accentTextClass : 'text-muted';
+  const labelClassName = textClassName ?? 'text-muted';
+  const valueClassName = textClassName ?? 'text-foreground';
+  const iconClassName = textClassName ?? 'text-muted';
   const trendClassName = trendStyle?.className;
 
   return (
@@ -70,7 +69,7 @@ export function StatCard({
         {icon ? <div className={iconClassName}>{icon}</div> : null}
       </CardHeader>
       <CardContent className="space-y-2">
-        <p className={cn('text-3xl font-semibold tracking-tight', valueClassName)}>{value}</p>
+        <p className={cn('text-2xl font-semibold tracking-tight sm:text-3xl', valueClassName)}>{value}</p>
         {trend && trendStyle && TrendIcon ? (
           <div
             aria-label={`trend ${trend.direction}`}

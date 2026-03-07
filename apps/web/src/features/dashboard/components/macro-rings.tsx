@@ -109,14 +109,15 @@ export function MacroRings({ snapshot = mockDailySnapshot }: MacroRingsProps) {
 
           return (
             <div className="flex flex-col items-center gap-2" data-slot="macro-ring-item" key={macro.key}>
-              <ProgressRing
-                aria-label={`${macro.label} progress`}
-                className="[&_span]:text-[11px] [&_span]:leading-tight [&_span]:text-center"
-                color={state.color}
-                label={state.valueLabel}
-                size={106}
-                value={state.progress}
-              />
+              <div className="w-full max-w-[106px] px-1">
+                <ProgressRing
+                  aria-label={`${macro.label} progress`}
+                  className="h-auto w-full [&_span]:text-[11px] [&_span]:leading-tight [&_span]:text-center"
+                  color={state.color}
+                  label={state.valueLabel}
+                  value={state.progress}
+                />
+              </div>
               <p className="text-sm font-medium text-muted">{macro.label}</p>
             </div>
           );

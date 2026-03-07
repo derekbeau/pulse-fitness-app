@@ -11,10 +11,10 @@ import {
 import { cn } from '@/lib/utils';
 
 const categoryBadgeStyles: Record<WorkoutExerciseCategory, string> = {
-  compound: 'border-transparent bg-[var(--color-accent-pink)] text-[var(--color-on-accent)]',
-  isolation: 'border-transparent bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
-  cardio: 'border-transparent bg-[var(--color-accent-mint)] text-[var(--color-on-accent)]',
-  mobility: 'border-transparent bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
+  compound: 'border-transparent bg-[var(--color-accent-pink)] text-[#8b2252]',
+  isolation: 'border-transparent bg-[var(--color-accent-cream)] text-[#8b6914]',
+  cardio: 'border-transparent bg-[var(--color-accent-mint)] text-[#1a6b45]',
+  mobility: 'border-transparent bg-[var(--color-accent-cream)] text-[#8b6914]',
 };
 
 type ExerciseLibraryProps = {

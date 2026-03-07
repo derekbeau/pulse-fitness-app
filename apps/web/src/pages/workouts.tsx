@@ -27,6 +27,7 @@ export function WorkoutsPage() {
       >
         <Button
           aria-pressed={activeView === 'calendar'}
+          className="rounded-full"
           onClick={() => setActiveView('calendar')}
           size="sm"
           type="button"
@@ -36,6 +37,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'list'}
+          className="rounded-full"
           onClick={() => setActiveView('list')}
           size="sm"
           type="button"
@@ -45,6 +47,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'templates'}
+          className="rounded-full"
           onClick={() => setActiveView('templates')}
           size="sm"
           type="button"
@@ -54,6 +57,7 @@ export function WorkoutsPage() {
         </Button>
         <Button
           aria-pressed={activeView === 'exercises'}
+          className="rounded-full"
           onClick={() => setActiveView('exercises')}
           size="sm"
           type="button"

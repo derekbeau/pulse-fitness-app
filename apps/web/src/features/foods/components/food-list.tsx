@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Card,
   CardContent,
@@ -333,10 +334,19 @@ export function FoodList({ foods = mockFoods, now = new Date() }: FoodListProps)
 
                   <div className="flex items-start gap-2">
                     {food.verified ? (
-                      <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
-                        <CheckCircle2Icon className="size-3.5" />
-                        Verified
-                      </Badge>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/20">
+                              <CheckCircle2Icon className="size-3.5" />
+                              Verified
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {food.brand ? `Verified from ${food.brand} nutrition label` : 'Verified from USDA nutrition database'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : null}
 
                     <Button

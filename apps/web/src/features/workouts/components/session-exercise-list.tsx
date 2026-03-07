@@ -36,10 +36,10 @@ const sectionLabels = {
 } as const;
 
 const badgeStyles = {
-  compound: 'bg-[var(--color-accent-pink)] text-[var(--color-on-accent)]',
-  isolation: 'bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
-  cardio: 'bg-[var(--color-accent-mint)] text-[var(--color-on-accent)]',
-  mobility: 'bg-[var(--color-accent-cream)] text-[var(--color-on-accent)]',
+  compound: 'bg-[var(--color-accent-pink)] text-[#8b2252]',
+  isolation: 'bg-[var(--color-accent-cream)] text-[#8b6914]',
+  cardio: 'bg-[var(--color-accent-mint)] text-[#1a6b45]',
+  mobility: 'bg-[var(--color-accent-cream)] text-[#8b6914]',
 } as const;
 
 export function SessionExerciseList({

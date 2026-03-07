@@ -14,9 +14,9 @@ type ActivityPreview = {
 };
 
 const badgeClassesByType: Record<ActivityType, string> = {
-  Stretching: 'border-transparent bg-sky-200 text-slate-950',
-  Walking: 'border-transparent bg-emerald-200 text-slate-950',
-  Yoga: 'border-transparent bg-violet-200 text-slate-950',
+  Stretching: 'border-transparent bg-sky-200 text-sky-800 dark:bg-sky-400/20 dark:text-sky-300',
+  Walking: 'border-transparent bg-emerald-200 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-300',
+  Yoga: 'border-transparent bg-violet-200 text-violet-800 dark:bg-violet-400/20 dark:text-violet-300',
 };
 
 const sampleActivities: ActivityPreview[] = [
