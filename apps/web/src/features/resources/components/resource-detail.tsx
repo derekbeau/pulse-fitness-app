@@ -161,7 +161,7 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
                               buttonVariants({ size: 'sm', variant: 'ghost' }),
                               'w-fit px-0 text-primary hover:text-primary',
                             )}
-                            to={buildConditionDetailPath(protocol.conditionName)}
+                            to={buildConditionDetailPath(protocol.conditionSlug)}
                           >
                             View condition
                           </Link>

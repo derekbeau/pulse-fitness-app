@@ -73,6 +73,7 @@ export const mockResources: Resource[] = [
         id: 'lower-back-disc-herniation-mcgill-big-3',
         name: 'McGill Big 3',
         conditionName: 'Lower Back Disc Herniation',
+        conditionSlug: 'lower-back-disc-herniation',
       },
     ],
   },

@@ -9,6 +9,7 @@ export type LinkedProtocol = {
   id: string;
   name: string;
   conditionName: string;
+  conditionSlug: string;
 };
 
 export type Resource = {
