@@ -1,4 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import {
+  Bike,
+  Flower2,
+  Footprints,
+  MoreHorizontal,
+  Mountain,
+  StretchHorizontal,
+  Timer,
+  Waves,
+} from 'lucide-react';
 
 import {
   activityTypeOptions,
@@ -63,8 +73,19 @@ describe('activity mock data', () => {
   });
 
   it('exposes icon, color, and label helpers for every activity type', () => {
+    const expectedIcons = {
+      cycling: Bike,
+      hiking: Mountain,
+      other: MoreHorizontal,
+      running: Timer,
+      stretching: StretchHorizontal,
+      swimming: Waves,
+      walking: Footprints,
+      yoga: Flower2,
+    } as const;
+
     activityTypeOptions.forEach((type) => {
-      expect(getActivityTypeIcon(type)).toBeTruthy();
+      expect(getActivityTypeIcon(type)).toBe(expectedIcons[type]);
       expect(getActivityTypeBadgeClasses(type)).toContain('border-transparent');
       expect(getActivityTypeLabel(type)).toMatch(/[A-Z]/);
     });

@@ -1,3 +1,4 @@
+export { ActivityList } from './components/activity-list';
 export {
   activityTypeOptions,
   getActivityTypeBadgeClasses,

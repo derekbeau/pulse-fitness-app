@@ -1,52 +1,70 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { getActivityTypeLabel, mockActivities } from '@/features/activity';
+import { mockActivities } from '@/features/activity';
 import { ActivityPage } from '@/pages/activity';
 
-const previewActivities = mockActivities.slice(0, 3);
+const sortedActivities = [...mockActivities].sort((left, right) =>
+  right.date.localeCompare(left.date),
+);
 
 describe('ActivityPage', () => {
-  it('renders the coming soon state with sample activity cards', () => {
+  it('renders the activity list sorted newest first with formatted metadata', () => {
     render(<ActivityPage />);
 
     expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
-    expect(screen.getByText('Coming Soon')).toBeInTheDocument();
     expect(
-      screen.getByText('Log walks, stretching, yoga, and other movement activities.'),
+      screen.getByText(
+        /Review recent movement sessions outside structured workouts, with quick filtering by activity type and linked journal context\./,
+      ),
     ).toBeInTheDocument();
 
-    previewActivities.forEach((activity) => {
-      const cardHeading = screen.getByRole('heading', { name: activity.name });
-      const card = cardHeading.closest('[data-slot="card"]');
+    const activityHeadings = screen.getAllByRole('heading', { level: 2 });
 
-      expect(card).not.toBeNull();
-      expect(
-        within(card as HTMLElement).getByText(getActivityTypeLabel(activity.type)),
-      ).toBeInTheDocument();
-      expect(
-        within(card as HTMLElement).getByText(`${activity.durationMinutes} min`),
-      ).toBeInTheDocument();
-      expect(within(card as HTMLElement).getByText(activity.notes)).toBeInTheDocument();
-      expect(within(card as HTMLElement).getByText('Preview')).toBeInTheDocument();
-      expect(card).toHaveClass('border-dashed');
-      expect(card).toHaveClass('opacity-85');
-    });
+    expect(activityHeadings.map((heading) => heading.textContent)).toEqual(
+      sortedActivities.map((activity) => activity.name),
+    );
+
+    const pelotonCard = screen
+      .getByRole('heading', { name: 'Peloton Ride' })
+      .closest('[data-slot="card"]');
+    const eveningWalkCard = screen
+      .getByRole('heading', { name: 'Evening Walk' })
+      .closest('[data-slot="card"]');
+
+    expect(pelotonCard).not.toBeNull();
+    expect(eveningWalkCard).not.toBeNull();
+    expect(within(pelotonCard as HTMLElement).getByText('30 min')).toBeInTheDocument();
+    expect(within(pelotonCard as HTMLElement).getByText('Mar 4, 2026')).toBeInTheDocument();
+    expect(
+      within(pelotonCard as HTMLElement).getByText(
+        'Low-impact ride with a steady Zone 2 effort before breakfast.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(pelotonCard as HTMLElement).getByText('Linked journal')).toBeInTheDocument();
+    expect(within(pelotonCard as HTMLElement).getByText('Week 12 Summary')).toBeInTheDocument();
+    expect(
+      within(eveningWalkCard as HTMLElement).queryByText('Linked journal'),
+    ).not.toBeInTheDocument();
   });
 
-  it('uses distinct badge colors with explicit dark text on accent surfaces', () => {
+  it('filters the activity cards by type', () => {
     render(<ActivityPage />);
 
-    const cyclingBadge = screen.getByText('Cycling');
-    const walkingBadge = screen.getByText('Walking');
-    const stretchingBadge = screen.getByText('Stretching');
+    const runningFilter = screen.getByRole('button', { name: 'Running' });
+    const allFilter = screen.getByRole('button', { name: 'All' });
 
-    expect(cyclingBadge).toHaveClass('bg-amber-200');
-    expect(walkingBadge).toHaveClass('bg-emerald-200');
-    expect(stretchingBadge).toHaveClass('bg-sky-200');
+    fireEvent.click(runningFilter);
 
-    expect(cyclingBadge).toHaveClass('text-amber-950');
-    expect(walkingBadge).toHaveClass('text-emerald-950');
-    expect(stretchingBadge).toHaveClass('text-sky-950');
+    expect(runningFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { name: 'Zone 2 Run' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Peloton Ride' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Morning Walk' })).not.toBeInTheDocument();
+
+    fireEvent.click(allFilter);
+
+    expect(allFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { name: 'Peloton Ride' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Morning Walk' })).toBeInTheDocument();
   });
 });

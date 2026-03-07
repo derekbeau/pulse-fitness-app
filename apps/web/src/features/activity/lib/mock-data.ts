@@ -1,12 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Activity as ActivityIcon,
   Bike,
-  CircleEllipsis,
+  Flower2,
   Footprints,
   Mountain,
-  Move,
-  PersonStanding,
+  MoreHorizontal,
+  StretchHorizontal,
+  Timer,
   Waves,
 } from 'lucide-react';
 
@@ -28,19 +28,19 @@ const activityTypeMetadata: Record<ActivityType, ActivityTypeMetadata> = {
   running: {
     badgeClassName:
       'border-transparent bg-rose-200 text-rose-950 dark:bg-rose-500/20 dark:text-rose-400',
-    icon: ActivityIcon,
+    icon: Timer,
     label: 'Running',
   },
   stretching: {
     badgeClassName:
       'border-transparent bg-sky-200 text-sky-950 dark:bg-sky-500/20 dark:text-sky-400',
-    icon: Move,
+    icon: StretchHorizontal,
     label: 'Stretching',
   },
   yoga: {
     badgeClassName:
       'border-transparent bg-violet-200 text-violet-950 dark:bg-violet-500/20 dark:text-violet-400',
-    icon: PersonStanding,
+    icon: Flower2,
     label: 'Yoga',
   },
   cycling: {
@@ -64,7 +64,7 @@ const activityTypeMetadata: Record<ActivityType, ActivityTypeMetadata> = {
   other: {
     badgeClassName:
       'border-transparent bg-slate-200 text-slate-950 dark:bg-slate-500/20 dark:text-slate-300',
-    icon: CircleEllipsis,
+    icon: MoreHorizontal,
     label: 'Other',
   },
 };
