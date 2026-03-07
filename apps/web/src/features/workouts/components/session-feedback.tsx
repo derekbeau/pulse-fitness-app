@@ -72,7 +72,7 @@ export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
           >
             <div className="space-y-3">
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">{question.title}</h2>
+                <h3 className="text-lg font-semibold text-foreground">{question.title}</h3>
                 <p className="text-sm text-muted">{question.prompt}</p>
               </div>
 

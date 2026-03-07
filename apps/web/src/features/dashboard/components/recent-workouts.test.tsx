@@ -1,22 +1,24 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Hoist fake timers before imports so the mock-data module (which computes
+// dates at load time via getToday()) sees the same fake date the tests use.
+vi.hoisted(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-03-06T10:00:00'));
+});
 
 import { formatRelativeWorkoutDate } from '@/features/dashboard/lib/recent-workouts';
 import { mockRecentWorkouts } from '@/lib/mock-data/dashboard';
 
 import { RecentWorkouts } from './recent-workouts';
 
+afterAll(() => {
+  vi.useRealTimers();
+});
+
 describe('formatRelativeWorkoutDate', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-06T10:00:00'));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('formats today, yesterday, day, and week ranges', () => {
     expect(formatRelativeWorkoutDate('2026-03-06T08:00:00.000Z')).toBe('Today');
     expect(formatRelativeWorkoutDate('2026-03-05T08:00:00.000Z')).toBe('Yesterday');
@@ -28,15 +30,6 @@ describe('formatRelativeWorkoutDate', () => {
 });
 
 describe('RecentWorkouts', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-06T10:00:00'));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('renders five recent workout cards with workout links and metadata', () => {
     render(
       <MemoryRouter>
