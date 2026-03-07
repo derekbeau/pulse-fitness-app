@@ -100,16 +100,19 @@ export const mockHealthConditions: HealthCondition[] = [
         id: 'journal-upper-2025-03-18',
         title: 'Upper body session shut down by sharp shoulder pain',
         date: '2025-03-18',
+        type: 'observation',
       },
       {
         id: 'journal-pt-2025-06-11',
         title: 'PT notes: pressing finally feels stable again',
         date: '2025-06-11',
+        type: 'observation',
       },
       {
         id: 'journal-clearance-2026-01-12',
         title: 'Shoulder clearance and return-to-normal pressing',
         date: '2026-01-12',
+        type: 'milestone',
       },
     ],
     severityHistory: [
@@ -215,16 +218,19 @@ export const mockHealthConditions: HealthCondition[] = [
         id: 'journal-knees-2025-06-03',
         title: 'Quad day notes: knees ache on every warmup set',
         date: '2025-06-03',
+        type: 'observation',
       },
       {
         id: 'journal-knees-2025-08-14',
         title: 'Basketball weekend triggered another knee flare',
         date: '2025-08-14',
+        type: 'observation',
       },
       {
         id: 'journal-knees-2025-12-02',
         title: 'Knees stable enough to treat as managed, not acute',
         date: '2025-12-02',
+        type: 'weekly_summary',
       },
     ],
     severityHistory: [
@@ -330,16 +336,19 @@ export const mockHealthConditions: HealthCondition[] = [
         id: 'journal-back-2025-09-18',
         title: 'Heavy pull day turned into low-back spasm management',
         date: '2025-09-18',
+        type: 'observation',
       },
       {
         id: 'journal-back-2025-11-12',
         title: 'Sitting all week brought the back pain back',
         date: '2025-11-12',
+        type: 'weekly_summary',
       },
       {
         id: 'journal-back-2026-02-03',
         title: 'Back still active, but training feels more predictable now',
         date: '2026-02-03',
+        type: 'milestone',
       },
     ],
     severityHistory: [
@@ -437,16 +446,19 @@ export const mockHealthConditions: HealthCondition[] = [
         id: 'journal-feet-2025-07-05',
         title: 'Morning heel pain is now affecting conditioning',
         date: '2025-07-05',
+        type: 'observation',
       },
       {
         id: 'journal-feet-2025-08-28',
         title: 'Long weekend on concrete brought the foot pain back',
         date: '2025-08-28',
+        type: 'observation',
       },
       {
         id: 'journal-feet-2026-01-18',
         title: 'Feet improving enough to treat this as maintenance',
         date: '2026-01-18',
+        type: 'milestone',
       },
     ],
     severityHistory: [

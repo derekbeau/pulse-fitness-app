@@ -20,10 +20,13 @@ export type Protocol = {
   notes: string;
 };
 
+export type LinkedJournalEntryType = 'milestone' | 'observation' | 'weekly_summary';
+
 export type LinkedJournalEntry = {
   id: string;
   title: string;
   date: string;
+  type: LinkedJournalEntryType;
 };
 
 export type SeverityPoint = {

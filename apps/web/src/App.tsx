@@ -8,6 +8,7 @@ import { FoodsPage } from '@/pages/foods';
 import { JournalEntryPage } from '@/pages/journal-entry';
 import { HabitsPage } from '@/pages/habits';
 import { InjuriesPage } from '@/pages/injuries';
+import { InjuryDetailPage } from '@/pages/injury-detail';
 import { JournalPage } from '@/pages/journal';
 import { ProfileResourcesPage } from '@/pages/profile-resources';
 import { NutritionPage } from '@/pages/nutrition';
@@ -37,7 +38,7 @@ function AppRoutes() {
         <Route element={<ProfilePage />} path="/profile" />
         <Route element={<EquipmentRoutePage />} path="/profile/equipment" />
         <Route element={<InjuriesPage />} path="/profile/injuries" />
-        <Route element={<InjuriesPage />} path="/profile/injuries/:conditionId" />
+        <Route element={<InjuryDetailPage />} path="/profile/injuries/:conditionId" />
         <Route element={<ProfileResourcesPage />} path="/profile/resources" />
         <Route element={<SettingsPage />} path="/settings" />
       </Routes>
