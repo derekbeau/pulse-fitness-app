@@ -47,18 +47,13 @@ function formatDuration(minutes: number) {
   return `${minutes} min`;
 }
 
-function sortActivitiesByDate(activities: Activity[]) {
-  return [...activities].sort((left, right) => right.date.localeCompare(left.date));
-}
-
 export function ActivityList({ activities = mockActivities }: ActivityListProps) {
   const [selectedType, setSelectedType] = useState<ActivityFilter>('all');
 
-  const sortedActivities = sortActivitiesByDate(activities);
   const filteredActivities =
     selectedType === 'all'
-      ? sortedActivities
-      : sortedActivities.filter((activity) => activity.type === selectedType);
+      ? activities
+      : activities.filter((activity) => activity.type === selectedType);
 
   return (
     <div className="space-y-5">
@@ -148,11 +143,13 @@ export function ActivityList({ activities = mockActivities }: ActivityListProps)
                           <h2 className="text-lg font-semibold text-foreground sm:text-xl">
                             {activity.name}
                           </h2>
-                          <p className="max-w-3xl text-sm leading-6 text-muted">
-                            <span className="block max-h-[3rem] overflow-hidden">
-                              {activity.notes}
-                            </span>
-                          </p>
+                          {activity.notes ? (
+                            <p className="max-w-3xl text-sm leading-6 text-muted">
+                              <span className="block max-h-[3rem] overflow-hidden">
+                                {activity.notes}
+                              </span>
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </div>

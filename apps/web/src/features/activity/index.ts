@@ -1,3 +1,4 @@
+export { ActivityForm } from './components/activity-form';
 export { ActivityList } from './components/activity-list';
 export {
   activityTypeOptions,

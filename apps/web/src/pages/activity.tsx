@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { Activity as ActivityGlyph } from 'lucide-react';
 
-import { ActivityList, mockActivities } from '@/features/activity';
+import { ActivityForm, ActivityList, mockActivities } from '@/features/activity';
+import type { Activity } from '@/features/activity';
 
 export function ActivityPage() {
+  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+
   return (
     <section className="space-y-6">
       <header className="space-y-4">
@@ -20,7 +24,9 @@ export function ActivityPage() {
         </div>
       </header>
 
-      <ActivityList activities={mockActivities} />
+      <ActivityForm onSubmit={(activity) => setActivities((current) => [activity, ...current])} />
+
+      <ActivityList activities={activities} />
     </section>
   );
 }
