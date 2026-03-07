@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
+    "@fastify/jwt": "^10.0.0",
     "@pulse/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.0.0"
