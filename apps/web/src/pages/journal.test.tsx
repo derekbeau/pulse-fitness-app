@@ -1,68 +1,59 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
+import { mockJournalEntries } from '@/features/journal';
 import { JournalPage } from '@/pages/journal';
 
-const sampleEntries = [
-  {
-    contentPreview:
-      'Noticed a significant boost in morning energy after switching to earlier bedtime and keeping caffeine before noon.',
-    date: 'February 16, 2026',
-    title: 'Feeling More Energetic',
-    type: 'observation',
-  },
-  {
-    contentPreview:
-      'Ran my first 5K today in 28:32. Started training 8 weeks ago and finally felt confident pushing the last kilometer.',
-    date: 'February 28, 2026',
-    title: 'First 5K Completed!',
-    type: 'milestone',
-  },
-  {
-    contentPreview:
-      'Consistent with all habits this week. Weight trending down slightly, workouts felt steady, and recovery improved by Friday.',
-    date: 'March 2, 2026',
-    title: 'Week 12 Summary',
-    type: 'weekly_summary',
-  },
-] as const;
-
 describe('JournalPage', () => {
-  it('renders the coming soon state with sample entries', () => {
-    render(<JournalPage />);
+  it('renders the chronological feed with badges, previews, and entity chips', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByRole('heading', { name: 'Journal' })).toBeInTheDocument();
-    expect(screen.getByText('Coming Soon')).toBeInTheDocument();
     expect(
-      screen.getByText('Track your health observations, milestones, and weekly reflections.'),
+      screen.getByText(
+        'Review coaching notes, milestones, observations, and injury updates in one chronological feed.',
+      ),
     ).toBeInTheDocument();
 
-    sampleEntries.forEach((entry) => {
-      const cardHeading = screen.getByRole('heading', { name: entry.title });
-      const card = cardHeading.closest('[data-slot="card"]');
+    const cardTitles = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(cardTitles).toEqual(mockJournalEntries.map((entry) => entry.title));
 
-      expect(card).not.toBeNull();
-      expect(within(card as HTMLElement).getByText(entry.type)).toBeInTheDocument();
-      expect(within(card as HTMLElement).getByText(entry.date)).toBeInTheDocument();
-      expect(within(card as HTMLElement).getByText(entry.contentPreview)).toBeInTheDocument();
-      expect(card).toHaveClass('border-dashed');
-      expect(card).toHaveClass('opacity-90');
-    });
+    const cards = container.querySelectorAll('[data-slot="journal-entry-card"]');
+    expect(cards).toHaveLength(mockJournalEntries.length);
+
+    const firstCard = cards[0] as HTMLElement;
+    expect(within(firstCard).getByText('injury update')).toBeInTheDocument();
+    expect(within(firstCard).getByText('Mar 6, 2026')).toBeInTheDocument();
+    expect(
+      within(firstCard).getByText(/Sports med check in: cleared to reintroduce overhead work/i),
+    ).toHaveTextContent(/\.\.\.$/);
+    expect(within(firstCard).getByRole('link', { name: 'Mobility warm-up' })).toHaveAttribute(
+      'href',
+      '/habits',
+    );
+    expect(
+      within(firstCard).getByText('Right shoulder SLAP rehab').closest('[data-slot="badge"]'),
+    ).toBeInTheDocument();
   });
 
-  it('uses distinct badge colors with explicit dark text on accent surfaces', () => {
-    render(<JournalPage />);
+  it('uses the required color mapping for each journal type badge', () => {
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>,
+    );
 
-    const observationBadge = screen.getByText('observation');
-    const milestoneBadge = screen.getByText('milestone');
-    const weeklySummaryBadge = screen.getByText('weekly_summary');
-
-    expect(observationBadge).toHaveClass('bg-[var(--color-accent-cream)]');
-    expect(milestoneBadge).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(weeklySummaryBadge).toHaveClass('bg-[var(--color-accent-pink)]');
-
-    expect(observationBadge).toHaveClass('text-on-cream');
-    expect(milestoneBadge).toHaveClass('text-on-mint');
-    expect(weeklySummaryBadge).toHaveClass('text-on-pink');
+    expect(screen.getAllByText('post workout')[0]).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(screen.getAllByText('milestone')[0]).toHaveClass('bg-amber-200');
+    expect(screen.getAllByText('observation')[0]).toHaveClass('bg-sky-200');
+    expect(screen.getByText('weekly summary')).toHaveClass('bg-violet-200');
+    expect(screen.getAllByText('injury update')[0]).toHaveClass('bg-red-200');
   });
 });
