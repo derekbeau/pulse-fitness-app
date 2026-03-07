@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "04ea1936-b602-46fd-b410-9e8310e07228",
-  "prevId": "999d7681-f729-45c1-8800-f4bd5c0ab86b",
+  "id": "a4dbad0a-af13-4dc1-9713-f5d9e3524a68",
+  "prevId": "04ea1936-b602-46fd-b410-9e8310e07228",
   "tables": {
     "agent_tokens": {
       "name": "agent_tokens",
@@ -44,14 +44,6 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(unixepoch() * 1000)"
-        },
-        "updated_at": {
-          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -115,6 +107,14 @@
         },
         "created_at": {
           "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -188,6 +188,14 @@
         },
         "created_at": {
           "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -695,6 +703,356 @@
         "habits_tracking_type_check": {
           "name": "habits_tracking_type_check",
           "value": "\"habits\".\"tracking_type\" in ('boolean', 'numeric', 'time')"
+        }
+      }
+    },
+    "condition_protocols": {
+      "name": "condition_protocols",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "condition_id": {
+          "name": "condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "condition_protocols_condition_id_health_conditions_id_fk": {
+          "name": "condition_protocols_condition_id_health_conditions_id_fk",
+          "tableFrom": "condition_protocols",
+          "tableTo": "health_conditions",
+          "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "condition_protocols_status_check": {
+          "name": "condition_protocols_status_check",
+          "value": "\"condition_protocols\".\"status\" in ('active', 'discontinued', 'completed')"
+        },
+        "condition_protocols_start_date_format_check": {
+          "name": "condition_protocols_start_date_format_check",
+          "value": "\"condition_protocols\".\"start_date\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "condition_protocols_end_date_format_check": {
+          "name": "condition_protocols_end_date_format_check",
+          "value": "\"condition_protocols\".\"end_date\" is null or \"condition_protocols\".\"end_date\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "condition_protocols_end_date_order_check": {
+          "name": "condition_protocols_end_date_order_check",
+          "value": "\"condition_protocols\".\"end_date\" is null or \"condition_protocols\".\"end_date\" >= \"condition_protocols\".\"start_date\""
+        }
+      }
+    },
+    "condition_severity_points": {
+      "name": "condition_severity_points",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "condition_id": {
+          "name": "condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "condition_severity_points_condition_date_idx": {
+          "name": "condition_severity_points_condition_date_idx",
+          "columns": ["condition_id", "date"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "condition_severity_points_condition_id_health_conditions_id_fk": {
+          "name": "condition_severity_points_condition_id_health_conditions_id_fk",
+          "tableFrom": "condition_severity_points",
+          "tableTo": "health_conditions",
+          "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "condition_severity_points_date_format_check": {
+          "name": "condition_severity_points_date_format_check",
+          "value": "\"condition_severity_points\".\"date\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "condition_severity_points_value_check": {
+          "name": "condition_severity_points_value_check",
+          "value": "\"condition_severity_points\".\"value\" between 1 and 10"
+        }
+      }
+    },
+    "condition_timeline_events": {
+      "name": "condition_timeline_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "condition_id": {
+          "name": "condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "condition_timeline_events_condition_date_idx": {
+          "name": "condition_timeline_events_condition_date_idx",
+          "columns": ["condition_id", "date"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "condition_timeline_events_condition_id_health_conditions_id_fk": {
+          "name": "condition_timeline_events_condition_id_health_conditions_id_fk",
+          "tableFrom": "condition_timeline_events",
+          "tableTo": "health_conditions",
+          "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "condition_timeline_events_date_format_check": {
+          "name": "condition_timeline_events_date_format_check",
+          "value": "\"condition_timeline_events\".\"date\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "condition_timeline_events_type_check": {
+          "name": "condition_timeline_events_type_check",
+          "value": "\"condition_timeline_events\".\"type\" in ('onset', 'flare', 'improvement', 'treatment', 'milestone')"
+        }
+      }
+    },
+    "health_conditions": {
+      "name": "health_conditions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body_area": {
+          "name": "body_area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "onset_date": {
+          "name": "onset_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "health_conditions_user_id_idx": {
+          "name": "health_conditions_user_id_idx",
+          "columns": ["user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "health_conditions_user_id_users_id_fk": {
+          "name": "health_conditions_user_id_users_id_fk",
+          "tableFrom": "health_conditions",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "health_conditions_status_check": {
+          "name": "health_conditions_status_check",
+          "value": "\"health_conditions\".\"status\" in ('active', 'monitoring', 'resolved')"
+        },
+        "health_conditions_onset_date_format_check": {
+          "name": "health_conditions_onset_date_format_check",
+          "value": "\"health_conditions\".\"onset_date\" glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
         }
       }
     },
@@ -1470,14 +1828,6 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(unixepoch() * 1000)"
-        },
-        "updated_at": {
-          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

@@ -2,6 +2,7 @@ export * from './users.js';
 export * from './body-weight.js';
 export * from './dashboard-config.js';
 export * from './foods.js';
+export * from './health-conditions.js';
 export * from './nutrition.js';
 export * from './nutrition-targets.js';
 export * from './exercises.js';

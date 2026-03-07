@@ -3,6 +3,9 @@ import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { describe, expect, it } from 'vitest';
 
 import type {
+  ConditionProtocolStatus,
+  ConditionTimelineEventType,
+  HealthConditionStatus,
   HabitTrackingType,
   WorkoutExerciseCategory,
   WorkoutSessionFeedback,
@@ -12,9 +15,13 @@ import type {
 import {
   agentTokens,
   bodyWeight,
+  conditionProtocols,
+  conditionSeverityPoints,
+  conditionTimelineEvents,
   dashboardConfig,
   exercises,
   foods,
+  healthConditions,
   habitEntries,
   habits,
   mealItems,
@@ -166,6 +173,149 @@ describe('bodyWeight schema', () => {
   });
 });
 
+describe('healthConditions schema', () => {
+  it('defines the expected table, user index, and status/date guardrails', () => {
+    expect(getTableName(healthConditions)).toBe('health_conditions');
+
+    const columns = getTableColumns(healthConditions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'name',
+      'bodyArea',
+      'status',
+      'onsetDate',
+      'description',
+      'createdAt',
+      'updatedAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
+
+    const allowedStatuses: HealthConditionStatus[] = ['active', 'monitoring', 'resolved'];
+    expect(allowedStatuses).toEqual(['active', 'monitoring', 'resolved']);
+
+    const config = getTableConfig(healthConditions);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['health_conditions_user_id_idx']);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'health_conditions_onset_date_format_check',
+      'health_conditions_status_check',
+    ]);
+  });
+});
+
+describe('conditionTimelineEvents schema', () => {
+  it('defines the expected table, condition/date index, and timeline type rules', () => {
+    expect(getTableName(conditionTimelineEvents)).toBe('condition_timeline_events');
+
+    const columns = getTableColumns(conditionTimelineEvents);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'conditionId',
+      'date',
+      'event',
+      'type',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const allowedTypes: ConditionTimelineEventType[] = [
+      'onset',
+      'flare',
+      'improvement',
+      'treatment',
+      'milestone',
+    ];
+    expect(allowedTypes).toEqual(['onset', 'flare', 'improvement', 'treatment', 'milestone']);
+
+    const config = getTableConfig(conditionTimelineEvents);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('health_conditions');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'condition_timeline_events_condition_date_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'condition_timeline_events_date_format_check',
+      'condition_timeline_events_type_check',
+    ]);
+  });
+});
+
+describe('conditionProtocols schema', () => {
+  it('defines the expected table, condition foreign key, and protocol status/date rules', () => {
+    expect(getTableName(conditionProtocols)).toBe('condition_protocols');
+
+    const columns = getTableColumns(conditionProtocols);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'conditionId',
+      'name',
+      'status',
+      'startDate',
+      'endDate',
+      'notes',
+      'createdAt',
+    ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.endDate.notNull).toBe(false);
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const allowedStatuses: ConditionProtocolStatus[] = ['active', 'discontinued', 'completed'];
+    expect(allowedStatuses).toEqual(['active', 'discontinued', 'completed']);
+
+    const config = getTableConfig(conditionProtocols);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('health_conditions');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'condition_protocols_end_date_format_check',
+      'condition_protocols_end_date_order_check',
+      'condition_protocols_start_date_format_check',
+      'condition_protocols_status_check',
+    ]);
+  });
+});
+
+describe('conditionSeverityPoints schema', () => {
+  it('defines the expected table, condition/date index, and severity range guards', () => {
+    expect(getTableName(conditionSeverityPoints)).toBe('condition_severity_points');
+
+    const columns = getTableColumns(conditionSeverityPoints);
+    expect(Object.keys(columns)).toEqual(['id', 'conditionId', 'date', 'value', 'createdAt']);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
+
+    const config = getTableConfig(conditionSeverityPoints);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('health_conditions');
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'condition_severity_points_condition_date_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'condition_severity_points_date_format_check',
+      'condition_severity_points_value_check',
+    ]);
+  });
+});
+
 describe('nutritionTargets schema', () => {
   it('defines the expected table, lookup index, and effective-date guardrails', () => {
     expect(getTableName(nutritionTargets)).toBe('nutrition_targets');
@@ -214,7 +364,14 @@ describe('nutritionLogs schema', () => {
     expect(getTableName(nutritionLogs)).toBe('nutrition_logs');
 
     const columns = getTableColumns(nutritionLogs);
-    expect(Object.keys(columns)).toEqual(['id', 'userId', 'date', 'notes', 'createdAt', 'updatedAt']);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'date',
+      'notes',
+      'createdAt',
+      'updatedAt',
+    ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.createdAt.default).toBeDefined();
@@ -296,9 +453,7 @@ describe('dashboardConfig schema', () => {
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe('dashboard_config_user_id_unique');
-    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
-      'user_id',
-    ]);
+    expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual(['user_id']);
   });
 });
 
@@ -330,10 +485,9 @@ describe('mealItems schema', () => {
 
     const config = getTableConfig(mealItems);
     expect(config.foreignKeys).toHaveLength(2);
-    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
-      'foods',
-      'meals',
-    ]);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['foods', 'meals']);
     expect(
       config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'foods')
         ?.onDelete,
@@ -455,9 +609,7 @@ describe('workoutTemplates schema', () => {
     const config = getTableConfig(workoutTemplates);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
-    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
-      'workout_templates_user_id_idx',
-    ]);
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['workout_templates_user_id_idx']);
   });
 });
 
@@ -489,14 +641,12 @@ describe('templateExercises schema', () => {
 
     const config = getTableConfig(templateExercises);
     expect(config.foreignKeys).toHaveLength(2);
-    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
-      'exercises',
-      'workout_templates',
-    ]);
     expect(
-      config.foreignKeys.find(
-        (fk) => getTableName(fk.reference().foreignTable) === 'exercises',
-      )?.onDelete,
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['exercises', 'workout_templates']);
+    expect(
+      config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'exercises')
+        ?.onDelete,
     ).toBe('restrict');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'template_exercises_exercise_id_idx',
@@ -554,10 +704,9 @@ describe('workoutSessions schema', () => {
 
     const config = getTableConfig(workoutSessions);
     expect(config.foreignKeys).toHaveLength(2);
-    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
-      'users',
-      'workout_templates',
-    ]);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['users', 'workout_templates']);
     expect(
       config.foreignKeys.find(
         (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
@@ -601,10 +750,9 @@ describe('habitEntries schema', () => {
 
     const config = getTableConfig(habitEntries);
     expect(config.foreignKeys).toHaveLength(2);
-    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
-      'habits',
-      'users',
-    ]);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['habits', 'users']);
 
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe('habit_entries_habit_id_date_unique');
@@ -651,9 +799,7 @@ describe('sessionSets schema', () => {
     const config = getTableConfig(sessionSets);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('workout_sessions');
-    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
-      'session_sets_session_id_idx',
-    ]);
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['session_sets_session_id_idx']);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
       'session_sets_session_exercise_set_number_unique',
@@ -697,11 +843,9 @@ describe('scheduledWorkouts schema', () => {
 
     const config = getTableConfig(scheduledWorkouts);
     expect(config.foreignKeys).toHaveLength(3);
-    expect(config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort()).toEqual([
-      'users',
-      'workout_sessions',
-      'workout_templates',
-    ]);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['users', 'workout_sessions', 'workout_templates']);
     expect(
       config.foreignKeys.find(
         (fk) => getTableName(fk.reference().foreignTable) === 'workout_sessions',
@@ -749,9 +893,7 @@ describe('workout session feedback helpers', () => {
 
     const serialized = serializeWorkoutSessionFeedback(feedback);
 
-    expect(serialized).toBe(
-      '{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today."}',
-    );
+    expect(serialized).toBe('{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today."}');
     expect(parseWorkoutSessionFeedback(serialized)).toEqual(feedback);
     expect(parseWorkoutSessionFeedback(null)).toBeNull();
     expect(serializeWorkoutSessionFeedback(null)).toBeNull();
@@ -761,14 +903,13 @@ describe('workout session feedback helpers', () => {
     expect(() => parseWorkoutSessionFeedback('{"energy":6,"recovery":3,"technique":4}')).toThrow(
       TypeError,
     );
-    expect(
-      () => parseWorkoutSessionFeedback('{"energy":4,"recovery":3,"technique":4,"notes":1}'),
+    expect(() =>
+      parseWorkoutSessionFeedback('{"energy":4,"recovery":3,"technique":4,"notes":1}'),
     ).toThrow(TypeError);
-    expect(
-      () =>
-        parseWorkoutSessionFeedback(
-          '{"energy":4,"recovery":3,"technique":4,"notes":"ok","extra":true}',
-        ),
+    expect(() =>
+      parseWorkoutSessionFeedback(
+        '{"energy":4,"recovery":3,"technique":4,"notes":"ok","extra":true}',
+      ),
     ).toThrow(TypeError);
   });
 });
