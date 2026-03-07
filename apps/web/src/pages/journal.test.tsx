@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -19,7 +19,15 @@ describe('JournalPage', () => {
         'Review coaching notes, milestones, observations, and injury updates in one chronological feed.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Type filter' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Linked entity filter' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `Showing ${mockJournalEntries.length} of ${mockJournalEntries.length} entries`,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Journal feed' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reset filters' })).not.toBeInTheDocument();
 
     const cardTitles = screen
       .getAllByRole('heading', { level: 2 })
@@ -75,5 +83,44 @@ describe('JournalPage', () => {
     for (const link of screen.getAllByRole('link', { name: 'Upper Push' })) {
       expect(link).toHaveAttribute('href', '/workouts/template/upper-push');
     }
+  });
+
+  it('filters entries by type and linked entity with AND logic and resets back to all entries', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>,
+    );
+
+    const injuryUpdateFilter = screen.getByRole('button', { name: 'Injury Update' });
+    const activitiesFilter = screen.getByRole('button', { name: 'Activities' });
+
+    fireEvent.click(injuryUpdateFilter);
+
+    expect(injuryUpdateFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(injuryUpdateFilter).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(screen.getByText('Showing 2 of 9 entries')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(['Shoulder SLAP Clearance', 'Easy bike flush settled Achilles stiffness']);
+
+    fireEvent.click(activitiesFilter);
+
+    expect(activitiesFilter).toHaveAttribute('aria-pressed', 'true');
+    expect(activitiesFilter).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(screen.getByText('Showing 1 of 9 entries')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Easy bike flush settled Achilles stiffness' }),
+    ).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="journal-entry-card"]')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+
+    expect(screen.getByText('Showing 9 of 9 entries')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="journal-entry-card"]')).toHaveLength(
+      mockJournalEntries.length,
+    );
+    expect(screen.queryByRole('button', { name: 'Reset filters' })).not.toBeInTheDocument();
   });
 });
