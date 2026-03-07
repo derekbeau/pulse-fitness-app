@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import {
-  mockSessions,
   mockTemplates,
-  type WorkoutSession,
   type WorkoutTemplate,
 } from '@/lib/mock-data/workouts';
+import { workoutCompletedSessions } from '../lib/mock-data';
+import type { ActiveWorkoutCompletedSession } from '../types';
 
 const weekOfFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -24,7 +24,7 @@ const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 type WorkoutListProps = {
   buildSessionHref?: (sessionId: string) => string;
-  sessions?: WorkoutSession[];
+  sessions?: ActiveWorkoutCompletedSession[];
 };
 
 type WorkoutWeekGroup = {
@@ -49,8 +49,8 @@ type WorkoutListItem = {
 const templateById = new Map(mockTemplates.map((template) => [template.id, template]));
 
 export function WorkoutList({
-  buildSessionHref = (sessionId) => `/workouts/${sessionId}`,
-  sessions = mockSessions,
+  buildSessionHref = (sessionId) => `/workouts/session/${sessionId}`,
+  sessions = workoutCompletedSessions,
 }: WorkoutListProps) {
   const weekGroups = groupSessionsByWeek(sessions);
 
@@ -144,7 +144,7 @@ function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: 
   );
 }
 
-function groupSessionsByWeek(sessions: WorkoutSession[]): WorkoutWeekGroup[] {
+function groupSessionsByWeek(sessions: ActiveWorkoutCompletedSession[]): WorkoutWeekGroup[] {
   const groups = new Map<string, WorkoutWeekGroup>();
 
   for (const session of sessions) {
@@ -171,7 +171,7 @@ function groupSessionsByWeek(sessions: WorkoutSession[]): WorkoutWeekGroup[] {
     .sort((left, right) => right.weekStart.getTime() - left.weekStart.getTime());
 }
 
-function buildWorkoutListItem(session: WorkoutSession): WorkoutListItem {
+function buildWorkoutListItem(session: ActiveWorkoutCompletedSession): WorkoutListItem {
   const template = templateById.get(session.templateId);
   const date = parseDateKey(session.startedAt.slice(0, 10));
   const exerciseCount = session.exercises.length;

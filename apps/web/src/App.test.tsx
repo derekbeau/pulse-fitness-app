@@ -2,12 +2,16 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
+import { workoutCompletedSessions } from '@/features/workouts';
+
+const sessionId = workoutCompletedSessions[0]?.id ?? 'session-upper-push-2026-03-02';
 
 const pageRoutes = [
   { heading: 'Dashboard', path: '/' },
   { heading: 'Design System', path: '/design-system' },
   { heading: 'Workouts', path: '/workouts' },
   { heading: 'Upper Push', path: '/workouts/active' },
+  { heading: 'Upper Push', path: `/workouts/session/${sessionId}` },
   { heading: 'Upper Push', path: '/workouts/template/upper-push' },
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },

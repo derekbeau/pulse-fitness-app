@@ -2,14 +2,15 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
-import { mockSessions, mockTemplates } from '@/lib/mock-data/workouts';
+import { workoutCompletedSessions } from '@/features/workouts';
+import { mockTemplates } from '@/lib/mock-data/workouts';
 import { WorkoutSessionDetailPage } from './workout-session-detail';
 
 function renderWithRoute(sessionId: string) {
   return render(
-    <MemoryRouter initialEntries={[`/workouts/${sessionId}`]}>
+    <MemoryRouter initialEntries={[`/workouts/session/${sessionId}`]}>
       <Routes>
-        <Route path="/workouts/:sessionId" element={<WorkoutSessionDetailPage />} />
+        <Route path="/workouts/session/:sessionId" element={<WorkoutSessionDetailPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -26,13 +27,19 @@ describe('WorkoutSessionDetailPage', () => {
     );
   });
 
-  it('renders session header with template name and tags', () => {
-    const session = mockSessions[0];
+  it('renders session header, summary stats, and tags', () => {
+    const session = workoutCompletedSessions[0];
     const template = mockTemplates.find((t) => t.id === session.templateId);
+    const totalReps = session.exercises.reduce(
+      (count, exercise) => count + exercise.sets.reduce((sum, set) => sum + set.reps, 0),
+      0,
+    );
 
     renderWithRoute(session.id);
 
     expect(screen.getByText(template?.name ?? 'Workout Session')).toBeInTheDocument();
+    expect(screen.getByText(`${session.exercises.length}`)).toBeInTheDocument();
+    expect(screen.getByText(`${totalReps}`)).toBeInTheDocument();
     if (template?.tags) {
       for (const tag of template.tags) {
         const formatted = tag
@@ -45,49 +52,44 @@ describe('WorkoutSessionDetailPage', () => {
     }
   });
 
-  it('renders stat cards with duration, exercises, and sets', () => {
-    const session = mockSessions[0];
+  it('renders collapsible section breakdown with logged sets', () => {
+    const session = workoutCompletedSessions[0];
     renderWithRoute(session.id);
 
-    expect(screen.getByText(`${session.duration} min`)).toBeInTheDocument();
-    expect(screen.getByText(`${session.exercises.length}`)).toBeInTheDocument();
-
-    const completedSets = session.exercises.reduce(
-      (total, ex) => total + ex.sets.filter((s) => s.completed).length,
-      0,
+    expect(screen.getByText('Section breakdown')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Main' }).closest('details')).toHaveAttribute(
+      'open',
     );
-    expect(screen.getByText(`${completedSets}`)).toBeInTheDocument();
+    expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('Supplemental')).toBeInTheDocument();
   });
 
   it('renders feedback card when session has feedback', () => {
-    const session = mockSessions.find((s) => s.feedback !== null);
+    const session = workoutCompletedSessions.find((s) => s.feedback !== null);
     if (!session || !session.feedback) return;
 
     renderWithRoute(session.id);
 
-    expect(screen.getByText('Session Feedback')).toBeInTheDocument();
+    expect(screen.getByText('Feedback')).toBeInTheDocument();
+    expect(screen.getByText('Shoulder feel')).toBeInTheDocument();
+    expect(screen.getByText('Coach note')).toBeInTheDocument();
     expect(screen.getByText('Energy')).toBeInTheDocument();
-    expect(screen.getByText('Recovery')).toBeInTheDocument();
+    expect(screen.getAllByText('Recovery').length).toBeGreaterThan(0);
     expect(screen.getByText('Technique')).toBeInTheDocument();
-
-    const avg = (
-      (session.feedback.energy + session.feedback.recovery + session.feedback.technique) /
-      3
-    ).toFixed(1);
-    expect(screen.getByText(`${avg}/5`)).toBeInTheDocument();
+    expect(screen.getByText(session.feedback.notes ?? '')).toBeInTheDocument();
   });
 
-  it('does not render feedback card when session has no feedback', () => {
-    const session = mockSessions.find((s) => s.feedback === null);
-    if (!session) return;
+  it('renders session notes when present', () => {
+    const session = workoutCompletedSessions[0];
 
     renderWithRoute(session.id);
 
-    expect(screen.queryByText('Session Feedback')).not.toBeInTheDocument();
+    expect(screen.getByText('Session notes')).toBeInTheDocument();
+    expect(screen.getByText(session.notes)).toBeInTheDocument();
   });
 
   it('renders Repeat Workout button with correct link', () => {
-    const session = mockSessions[0];
+    const session = workoutCompletedSessions[0];
     renderWithRoute(session.id);
 
     const repeatButton = screen.getByRole('link', { name: /repeat workout/i });

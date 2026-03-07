@@ -3,8 +3,9 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
-import { mockSessions, mockTemplates } from '@/lib/mock-data/workouts';
+import { mockTemplates } from '@/lib/mock-data/workouts';
 
+import { workoutCompletedSessions } from '..';
 import { WorkoutList } from './workout-list';
 
 describe('WorkoutList', () => {
@@ -15,11 +16,11 @@ describe('WorkoutList', () => {
       .getAllByRole('heading', { level: 2 })
       .map((heading) => heading.textContent);
 
-    expect(headings).toEqual(getExpectedWeekHeadings(mockSessions));
+    expect(headings).toEqual(getExpectedWeekHeadings(workoutCompletedSessions));
   });
 
   it('renders each workout card with summary stats and a session detail link', () => {
-    const session = mockSessions[mockSessions.length - 1];
+    const session = workoutCompletedSessions[workoutCompletedSessions.length - 1];
     const template = mockTemplates.find((item) => item.id === session?.templateId);
     const totalSets =
       session?.exercises.reduce((count, exercise) => count + exercise.sets.length, 0) ?? 0;
@@ -29,7 +30,7 @@ describe('WorkoutList', () => {
     expect(
       screen
         .getAllByRole('link')
-        .some((link) => link.getAttribute('href') === `/workouts/${session?.id}`),
+        .some((link) => link.getAttribute('href') === `/workouts/session/${session?.id}`),
     ).toBe(true);
     expect(screen.getAllByText(template?.name ?? '').length).toBeGreaterThan(0);
     expect(
@@ -42,13 +43,16 @@ describe('WorkoutList', () => {
   });
 
   it('omits empty weeks instead of rendering gap headers', () => {
-    renderWorkoutList([mockSessions[0], mockSessions[mockSessions.length - 1]].filter(isDefined));
+    renderWorkoutList(
+      [workoutCompletedSessions[0], workoutCompletedSessions[workoutCompletedSessions.length - 1]]
+        .filter(isDefined),
+    );
 
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2);
   });
 });
 
-function renderWorkoutList(sessions = mockSessions) {
+function renderWorkoutList(sessions = workoutCompletedSessions) {
   return render(
     <MemoryRouter>
       <WorkoutList sessions={sessions} />
@@ -56,7 +60,7 @@ function renderWorkoutList(sessions = mockSessions) {
   );
 }
 
-function getExpectedWeekHeadings(sessions: typeof mockSessions) {
+function getExpectedWeekHeadings(sessions: typeof workoutCompletedSessions) {
   const formatter = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
