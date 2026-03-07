@@ -18,6 +18,12 @@ describe('users schema', () => {
       'createdAt',
       'updatedAt',
     ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.updatedAt.default).toBeDefined();
+    expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
+    expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
   });
 });
 
@@ -34,6 +40,10 @@ describe('agentTokens schema', () => {
       'lastUsedAt',
       'createdAt',
     ]);
+
+    expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.createdAt.default).toBeDefined();
+    expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
     const config = getTableConfig(agentTokens);
     expect(config.foreignKeys).toHaveLength(1);
