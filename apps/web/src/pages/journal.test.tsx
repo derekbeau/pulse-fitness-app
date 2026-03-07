@@ -19,6 +19,7 @@ describe('JournalPage', () => {
         'Review coaching notes, milestones, observations, and injury updates in one chronological feed.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Journal feed' })).toBeInTheDocument();
 
     const cardTitles = screen
       .getAllByRole('heading', { level: 2 })

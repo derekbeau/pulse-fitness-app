@@ -19,7 +19,7 @@ type JournalFeedProps = {
 
 export function JournalFeed({ getEntryHref }: JournalFeedProps) {
   return (
-    <div aria-label="Journal feed" className="space-y-4">
+    <div aria-label="Journal feed" className="space-y-4" role="list">
       {entriesNewestFirst.map((entry) => (
         <Card
           key={entry.id}
@@ -28,6 +28,7 @@ export function JournalFeed({ getEntryHref }: JournalFeedProps) {
             getEntryHref && 'transition-colors hover:border-primary/35',
           )}
           data-slot="journal-entry-card"
+          role="listitem"
         >
           {getEntryHref && (
             <Link

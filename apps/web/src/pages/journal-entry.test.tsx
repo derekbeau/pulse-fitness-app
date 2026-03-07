@@ -2,6 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
+import { JournalEntryDetail } from '@/features/journal';
+import type { JournalEntry } from '@/features/journal';
+
 import { JournalEntryPage } from './journal-entry';
 
 function renderWithRoute(entryId: string) {
@@ -34,6 +37,9 @@ describe('JournalEntryPage', () => {
     expect(screen.getByText('post workout')).toBeInTheDocument();
     expect(screen.getByText('Mar 5, 2026')).toBeInTheDocument();
     expect(screen.getByText('Created by agent')).toBeInTheDocument();
+    expect(
+      screen.getByText('Detailed session debrief with linked training and recovery context.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Coach notes' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Wins' })).toBeInTheDocument();
     expect(screen.getByText(/Session focus:/)).toBeInTheDocument();
@@ -46,5 +52,28 @@ describe('JournalEntryPage', () => {
       'href',
       '/workouts/template/upper-push',
     );
+  });
+
+  it('omits the linked entities card when an entry has no related entities', () => {
+    const entry: JournalEntry = {
+      id: 'journal-empty-links',
+      date: '2026-03-06',
+      title: 'Standalone note',
+      type: 'observation',
+      content: 'A quick standalone update.',
+      linkedEntities: [],
+      createdBy: 'user',
+    };
+
+    render(
+      <MemoryRouter>
+        <JournalEntryDetail entry={entry} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('Linked To')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Observation log capturing trends, signals, and linked context.'),
+    ).toBeInTheDocument();
   });
 });

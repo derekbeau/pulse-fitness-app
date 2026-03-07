@@ -14,6 +14,18 @@ export function formatEntryType(type: JournalEntryType) {
   return type.replaceAll('-', ' ');
 }
 
+const detailSubtitleByType: Record<JournalEntryType, string> = {
+  'post-workout': 'Detailed session debrief with linked training and recovery context.',
+  milestone: 'Milestone recap tying the win back to the work that drove it.',
+  observation: 'Observation log capturing trends, signals, and linked context.',
+  'weekly-summary': 'Weekly recap connecting standout sessions, recovery, and next steps.',
+  'injury-update': 'Injury status update with rehab notes, guardrails, and linked context.',
+};
+
+export function getJournalEntrySubtitle(type: JournalEntryType) {
+  return detailSubtitleByType[type];
+}
+
 export function getJournalEntryPreview(content: string, maxLength = 132) {
   const normalized = content
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')

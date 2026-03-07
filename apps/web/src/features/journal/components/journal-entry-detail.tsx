@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { formatEntryType, formatJournalEntryDate } from '../lib/formatters';
+import {
+  formatEntryType,
+  formatJournalEntryDate,
+  getJournalEntrySubtitle,
+} from '../lib/formatters';
 import { renderJournalMarkdown } from '../lib/markdown';
 import { journalBadgeClassesByType } from '../lib/presentation';
 import type { JournalEntry } from '../types';
@@ -17,6 +21,8 @@ type JournalEntryDetailProps = {
 };
 
 export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
+  const hasLinkedEntities = entry.linkedEntities.length > 0;
+
   return (
     <section className="space-y-6">
       <Button asChild className="gap-2" size="sm" variant="ghost">
@@ -55,7 +61,7 @@ export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
                 {entry.title}
               </h1>
               <p className="max-w-3xl text-sm opacity-80 sm:text-base dark:text-muted dark:opacity-100">
-                Full journal entry with linked training context and supporting notes.
+                {getJournalEntrySubtitle(entry.type)}
               </p>
             </div>
           </div>
@@ -71,6 +77,8 @@ export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
             className={cn(
               'max-w-3xl space-y-4 text-sm leading-7 text-foreground',
               '[&_br]:block [&_br]:content-[""] [&_h2]:mt-1 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight',
+              '[&_code]:rounded-sm [&_code]:bg-secondary/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_code]:text-foreground',
+              '[&_em]:font-medium [&_em]:italic [&_em]:text-foreground',
               '[&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-semibold',
               '[&_p]:text-muted [&_strong]:font-semibold [&_strong]:text-foreground',
               '[&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:list-disc [&_li]:text-muted',
@@ -80,21 +88,23 @@ export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles aria-hidden="true" className="size-5 text-primary" />
-            Linked To
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {entry.linkedEntities.map((entity) => (
-              <EntityChip entity={entity} key={`${entry.id}-${entity.type}-${entity.id}`} />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {hasLinkedEntities && (
+        <Card>
+          <CardHeader className="gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles aria-hidden="true" className="size-5 text-primary" />
+              Linked To
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {entry.linkedEntities.map((entity) => (
+                <EntityChip entity={entity} key={`${entry.id}-${entity.type}-${entity.id}`} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }

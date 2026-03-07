@@ -8,7 +8,10 @@ function escapeHtml(value: string) {
 }
 
 function formatInlineMarkdown(value: string) {
-  return escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
 }
 
 export function renderJournalMarkdown(content: string) {
