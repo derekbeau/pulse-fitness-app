@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDateKey } from '@/lib/date-utils';
 import { mockSchedule } from '@/lib/mock-data/workouts';
 
+import { workoutCompletedSessions } from '..';
 import { WorkoutCalendar } from './workout-calendar';
 
 describe('WorkoutCalendar', () => {
@@ -39,6 +40,21 @@ describe('WorkoutCalendar', () => {
     expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute(
       'href',
       `/workouts?date=${scheduledDay?.date}`,
+    );
+  });
+
+  it('links completed workout days to the session detail route', () => {
+    const completedSession = workoutCompletedSessions[0];
+    const completedDate = parseDateKey(completedSession.startedAt.slice(0, 10));
+
+    render(<WorkoutCalendar buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />);
+
+    fireEvent.click(screen.getByRole('button', { name: formatFullDate(completedDate) }));
+
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View Session' })).toHaveAttribute(
+      'href',
+      `/workouts/session/${completedSession.id}`,
     );
   });
 

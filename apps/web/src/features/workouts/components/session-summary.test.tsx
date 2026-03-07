@@ -13,6 +13,24 @@ describe('SessionSummary', () => {
         defaultTags={['strength', 'push', 'upper-body']}
         duration="47:12"
         exercisesCompleted={7}
+        feedback={[
+          {
+            id: 'knee-pain',
+            label: 'Knee pain',
+            max: 5,
+            min: 1,
+            notes: 'Stayed manageable after the second warmup round.',
+            type: 'scale',
+            value: 2,
+          },
+          {
+            id: 'coach-note',
+            label: 'Coach note',
+            notes: '',
+            type: 'text',
+            value: 'Pause the first rep of each incline set next time.',
+          },
+        ]}
         onDone={() => {}}
         totalReps={124}
         totalSets={14}
@@ -20,9 +38,17 @@ describe('SessionSummary', () => {
       />,
     );
 
+    expect(screen.getByRole('heading', { name: 'Session feedback' })).toBeInTheDocument();
+    expect(screen.getByText('2 / 5')).toBeInTheDocument();
+    expect(
+      screen.getByText('Pause the first rep of each incline set next time.'),
+    ).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
 
-    expect(screen.getByRole('heading', { name: 'Save this workout as a template' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Save this workout as a template' }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toHaveValue('Upper Push');
     expect(screen.getByLabelText('Description')).toHaveValue(
       'Chest, shoulders, and triceps emphasis with controlled tempo work.',

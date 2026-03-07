@@ -21,7 +21,7 @@ function AppRoutes() {
         <Route element={<DesignSystemPage />} path="/design-system" />
         <Route element={<WorkoutsPage />} path="/workouts" />
         <Route element={<ActiveWorkoutPage />} path="/workouts/active" />
-        <Route element={<WorkoutSessionDetailPage />} path="/workouts/:sessionId" />
+        <Route element={<WorkoutSessionDetailPage />} path="/workouts/session/:sessionId" />
         <Route element={<WorkoutTemplateDetailPage />} path="/workouts/template/:templateId" />
         <Route element={<NutritionPage />} path="/nutrition" />
         <Route element={<HabitsPage />} path="/habits" />

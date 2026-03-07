@@ -73,9 +73,12 @@ export function WorkoutsPage() {
       </div>
 
       {activeView === 'calendar' ? (
-        <WorkoutCalendar buildDayHref={(date) => `/workouts?date=${date}`} />
+        <WorkoutCalendar
+          buildDayHref={(date) => `/workouts?date=${date}`}
+          buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`}
+        />
       ) : activeView === 'list' ? (
-        <WorkoutList />
+        <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
         <TemplateBrowser
           onStartTemplate={(templateId) => navigate(`/workouts/active?template=${templateId}`)}

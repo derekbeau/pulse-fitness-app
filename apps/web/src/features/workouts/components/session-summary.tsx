@@ -17,12 +17,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
+import type { ActiveWorkoutFeedbackDraft } from '../types';
+
 type SessionSummaryProps = {
   className?: string;
   defaultDescription?: string;
   defaultTags?: string[];
   duration: string;
   exercisesCompleted: number;
+  feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
   totalReps: number;
   totalSets: number;
@@ -35,6 +38,7 @@ export function SessionSummary({
   defaultTags = [],
   duration,
   exercisesCompleted,
+  feedback = [],
   onDone,
   totalReps,
   totalSets,
@@ -73,6 +77,38 @@ export function SessionSummary({
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
           </div>
+
+          {feedback.length > 0 ? (
+            <section className="space-y-3 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-foreground">Session feedback</h2>
+                <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">
+                  Saved check-ins from the end of this workout.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {feedback.map((field) => (
+                  <div
+                    className="rounded-2xl border border-black/10 bg-white/45 p-4 dark:border-border dark:bg-card"
+                    key={field.id}
+                  >
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase opacity-65 dark:text-muted dark:opacity-100">
+                      {field.label}
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-foreground">
+                      {field.type === 'scale'
+                        ? `${field.value ?? '-'} / ${field.max}`
+                        : field.value}
+                    </p>
+                    {field.notes?.trim() ? (
+                      <p className="mt-2 text-sm text-muted">{field.notes.trim()}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button

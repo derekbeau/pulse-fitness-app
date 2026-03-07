@@ -89,7 +89,16 @@ describe('active-session helpers', () => {
       .find((exercise) => exercise.id === 'incline-dumbbell-press');
 
     expect(incline).toMatchObject({
-      formCues: ['Drive feet into the floor', 'Keep wrists stacked over elbows'],
+      formCues: {
+        commonMistakes: ['Flared elbows at the bottom', 'Losing the shoulder blade set-up'],
+        mentalCues: ['Crack the handles', 'Drive upper back into the bench'],
+        technique:
+          'Press with a slight neutral grip, keep forearms stacked, and control a 3-second eccentric into the upper chest.',
+      },
+      injuryCues: [
+        'Avoid the last 10 degrees of lockout if the left shoulder feels unstable.',
+        'Cap the top set at RPE 8 while the SLAP tear is still active.',
+      ],
       notes: 'Use the 30 degree bench.',
     });
     expect(incline?.lastPerformance).toEqual({
@@ -126,5 +135,25 @@ describe('active-session helpers', () => {
     ];
 
     expect(countCompletedReps(drafts)).toBe(10);
+  });
+
+  it('leaves enhanced cue fields empty when an exercise has no enhanced mock entry', () => {
+    const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
+
+    if (!lowerTemplate) {
+      throw new Error('Expected lower-quad-dominant template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      lowerTemplate,
+      createInitialWorkoutSetDrafts(lowerTemplate, new Set()),
+    );
+
+    const squat = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'high-bar-back-squat');
+
+    expect(squat?.formCues).toBeNull();
+    expect(squat?.injuryCues).toEqual([]);
   });
 });

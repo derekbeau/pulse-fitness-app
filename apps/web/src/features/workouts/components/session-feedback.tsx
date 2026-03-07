@@ -5,50 +5,42 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
-import type { ActiveWorkoutFeedbackDraft, ActiveWorkoutFeedbackQuestion } from '../types';
+import type { ActiveWorkoutCustomFeedbackField, ActiveWorkoutFeedbackDraft } from '../types';
 
 type SessionFeedbackProps = {
   className?: string;
+  fields: ActiveWorkoutCustomFeedbackField[];
   onSubmit: (feedback: ActiveWorkoutFeedbackDraft) => void;
 };
 
-const feedbackQuestions: Array<{
-  id: ActiveWorkoutFeedbackQuestion;
-  prompt: string;
-  title: string;
-}> = [
-  {
-    id: 'energy',
-    prompt: 'How was your energy level?',
-    title: 'Energy',
-  },
-  {
-    id: 'recovery',
-    prompt: 'How recovered did you feel?',
-    title: 'Recovery',
-  },
-  {
-    id: 'technique',
-    prompt: 'How was your form/technique?',
-    title: 'Technique',
-  },
-];
-
-export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
-  const [feedback, setFeedback] = useState<ActiveWorkoutFeedbackDraft>(
-    () =>
-      Object.fromEntries(
-        feedbackQuestions.map((question) => [
-          question.id,
-          {
-            note: '',
-            score: null,
+export function SessionFeedback({ className, fields, onSubmit }: SessionFeedbackProps) {
+  const [feedback, setFeedback] = useState<ActiveWorkoutFeedbackDraft>(() =>
+    fields.map((field) =>
+      field.type === 'scale'
+        ? {
+            ...field,
+            notes: field.notes ?? '',
+            value: field.value ?? null,
+          }
+        : {
+            ...field,
+            notes: field.notes ?? '',
+            value: field.value ?? '',
           },
-        ]),
-      ) as ActiveWorkoutFeedbackDraft,
+    ),
   );
 
-  const isComplete = feedbackQuestions.every((question) => feedback[question.id].score !== null);
+  const isComplete = feedback.every((field) => {
+    if (field.type === 'scale') {
+      return field.value !== null && field.value !== undefined;
+    }
+
+    if (field.optional) {
+      return true;
+    }
+
+    return (field.value ?? '').trim().length > 0;
+  });
 
   return (
     <Card className={cn('overflow-hidden py-0 shadow-sm', className)}>
@@ -59,79 +51,103 @@ export function SessionFeedback({ className, onSubmit }: SessionFeedbackProps) {
           </p>
           <h2 className="text-3xl font-semibold tracking-tight">How did this session feel?</h2>
           <p className="max-w-2xl text-sm opacity-75 dark:text-muted dark:opacity-100">
-            Capture a quick read on energy, recovery, and technique before you wrap the workout.
+            Capture the custom check-ins for this session before you wrap the workout.
           </p>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4 px-5 py-5 sm:px-6">
-        {feedbackQuestions.map((question) => (
-          <section
-            className="rounded-3xl border border-border bg-secondary/25 p-4"
-            key={question.id}
-          >
+        {feedback.map((field) => (
+          <section className="rounded-3xl border border-border bg-secondary/25 p-4" key={field.id}>
             <div className="space-y-3">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-foreground">{question.title}</h3>
-                <p className="text-sm text-muted">{question.prompt}</p>
+                <h3 className="text-lg font-semibold text-foreground">{field.label}</h3>
+                <p className="text-sm text-muted">
+                  {field.type === 'scale'
+                    ? `Rate ${field.label.toLowerCase()} from ${field.min} to ${field.max}.`
+                    : `Add a note for ${field.label.toLowerCase()}.`}
+                </p>
               </div>
 
-              <div
-                aria-label={`${question.title} rating`}
-                className="flex flex-wrap gap-2"
-                role="group"
-              >
-                {[1, 2, 3, 4, 5].map((score) => {
-                  const isSelected = feedback[question.id].score === score;
+              {field.type === 'scale' ? (
+                <div
+                  aria-label={`${field.label} rating`}
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                >
+                  {Array.from(
+                    { length: field.max - field.min + 1 },
+                    (_, index) => field.min + index,
+                  ).map((score) => {
+                    const isSelected = field.value === score;
 
-                  return (
-                    <Button
-                      aria-pressed={isSelected}
-                      className={cn(
-                        'min-w-11',
-                        isSelected &&
-                          'border-transparent bg-[var(--color-accent-cream)] text-on-cream hover:bg-[var(--color-accent-cream)]/90 dark:bg-amber-500/20 dark:text-amber-400 dark:hover:bg-amber-500/30',
-                      )}
-                      key={score}
-                      onClick={() =>
-                        setFeedback((current) => ({
-                          ...current,
-                          [question.id]: {
-                            ...current[question.id],
-                            score: score as 1 | 2 | 3 | 4 | 5,
-                          },
-                        }))
-                      }
-                      size="sm"
-                      type="button"
-                      variant={isSelected ? 'secondary' : 'outline'}
-                    >
-                      {score}
-                    </Button>
-                  );
-                })}
-              </div>
+                    return (
+                      <Button
+                        aria-pressed={isSelected}
+                        className={cn(
+                          'min-w-11',
+                          isSelected &&
+                            'border-transparent bg-[var(--color-accent-cream)] text-on-cream hover:bg-[var(--color-accent-cream)]/90 dark:bg-amber-500/20 dark:text-amber-400 dark:hover:bg-amber-500/30',
+                        )}
+                        key={score}
+                        onClick={() =>
+                          setFeedback((current) =>
+                            current.map((entry) =>
+                              entry.id === field.id && entry.type === 'scale'
+                                ? { ...entry, value: score }
+                                : entry,
+                            ),
+                          )
+                        }
+                        size="sm"
+                        type="button"
+                        variant={isSelected ? 'secondary' : 'outline'}
+                      >
+                        {score}
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Textarea
+                  id={`${field.id}-value`}
+                  onChange={(event) =>
+                    setFeedback((current) =>
+                      current.map((entry) =>
+                        entry.id === field.id && entry.type === 'text'
+                          ? { ...entry, value: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
+                  placeholder={`Add your ${field.label.toLowerCase()} notes.`}
+                  value={field.value}
+                />
+              )}
 
               <div className="space-y-2">
                 <label
                   className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
-                  htmlFor={`${question.id}-notes`}
+                  htmlFor={`${field.id}-notes`}
                 >
                   Optional notes
                 </label>
                 <Textarea
-                  id={`${question.id}-notes`}
+                  id={`${field.id}-notes`}
                   onChange={(event) =>
-                    setFeedback((current) => ({
-                      ...current,
-                      [question.id]: {
-                        ...current[question.id],
-                        note: event.target.value,
-                      },
-                    }))
+                    setFeedback((current) =>
+                      current.map((entry) =>
+                        entry.id === field.id
+                          ? {
+                              ...entry,
+                              notes: event.target.value,
+                            }
+                          : entry,
+                      ),
+                    )
                   }
-                  placeholder={`Add a note about ${question.title.toLowerCase()} if it mattered today.`}
-                  value={feedback[question.id].note}
+                  placeholder={`Add context about ${field.label.toLowerCase()} if it mattered today.`}
+                  value={field.notes ?? ''}
                 />
               </div>
             </div>

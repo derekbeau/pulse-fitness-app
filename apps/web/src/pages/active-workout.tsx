@@ -2,15 +2,21 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
+  SessionContext,
   SessionExerciseList,
   SessionFeedback,
   SessionHeader,
   SessionSummary,
+  SupplementalMenu,
   buildActiveWorkoutSession,
   countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   createWorkoutSetId,
+  workoutFeedbackFields,
+  workoutSessionContext,
+  workoutSupplementalExercises,
+  type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { mockTemplates } from '@/lib/mock-data/workouts';
@@ -39,7 +45,9 @@ type RestTimerState = {
 export function ActiveWorkoutPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const selectedTemplate = mockTemplates.find((template) => template.id === searchParams.get('template'));
+  const selectedTemplate = mockTemplates.find(
+    (template) => template.id === searchParams.get('template'),
+  );
   const template = selectedTemplate ?? defaultTemplate;
   const [startTime] = useState(() => new Date(Date.now() - 16 * 60_000 - 23_000).toISOString());
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
@@ -51,10 +59,13 @@ export function ActiveWorkoutPage() {
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
+  const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
+  const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
+  const supplementalExercises = workoutSupplementalExercises;
 
   const templateExerciseById = useMemo(
     () =>
@@ -92,6 +103,8 @@ export function ActiveWorkoutPage() {
             workoutName={session.workoutName}
           />
 
+          <SessionContext context={workoutSessionContext} />
+
           <SessionExerciseList
             focusSetId={focusSetId}
             onAddSet={handleAddSet}
@@ -107,12 +120,25 @@ export function ActiveWorkoutPage() {
             restTimer={restTimer}
             session={session}
           />
+
+          <SupplementalMenu
+            checkedByExerciseId={supplementalChecks}
+            exercises={supplementalExercises}
+            onCheckedChange={(exerciseId, checked) =>
+              setSupplementalChecks((current) => ({
+                ...current,
+                [exerciseId]: checked,
+              }))
+            }
+          />
         </>
       ) : null}
 
       {stage === 'feedback' ? (
         <SessionFeedback
-          onSubmit={() => {
+          fields={workoutFeedbackFields}
+          onSubmit={(feedback) => {
+            setSessionFeedback(feedback);
             setStage('summary');
           }}
         />
@@ -124,6 +150,7 @@ export function ActiveWorkoutPage() {
           defaultTags={template.tags}
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
+          feedback={sessionFeedback}
           onDone={() => navigate('/workouts')}
           totalReps={totalCompletedReps}
           totalSets={session.completedSets}

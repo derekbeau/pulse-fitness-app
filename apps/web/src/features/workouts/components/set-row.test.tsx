@@ -14,6 +14,7 @@ describe('SetRow', () => {
         isLast
         onAddSet={onAddSet}
         onUpdate={onUpdate}
+        target={{ maxReps: 12, minReps: 8, weight: 50 }}
         reps={8}
         setNumber={3}
         weight={55}
@@ -25,6 +26,7 @@ describe('SetRow', () => {
 
     expect(weightInput).toHaveClass('h-11');
     expect(repsInput).toHaveClass('h-11');
+    expect(screen.getByText('Target: 50 kg x 8-12')).toBeInTheDocument();
 
     fireEvent.change(weightInput, { target: { value: '60' } });
     fireEvent.change(repsInput, { target: { value: '10' } });
@@ -44,8 +46,9 @@ describe('SetRow', () => {
       <SetRow
         completed
         isLast={false}
+        lastPerformance={{ reps: 12, weight: 50 }}
         onUpdate={onUpdate}
-        reps={12}
+        reps={13}
         setNumber={1}
         weight={null}
       />,
@@ -55,6 +58,8 @@ describe('SetRow', () => {
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
     expect(onUpdate).toHaveBeenCalledWith({ reps: null });
+    expect(screen.getByText('Last: 50x12')).toBeInTheDocument();
+    expect(screen.getByText('PR')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
   });
 });

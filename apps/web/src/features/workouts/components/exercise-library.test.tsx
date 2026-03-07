@@ -1,7 +1,29 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ExerciseLibrary } from './exercise-library';
+
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
+  const React = await vi.importActual<typeof import('react')>('react');
+
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="responsive-container">
+        {React.isValidElement(children)
+          ? React.cloneElement(
+              children as React.ReactElement<{ height?: number; width?: number }>,
+              {
+                height: 320,
+                width: 640,
+              },
+            )
+          : children}
+      </div>
+    ),
+  };
+});
 
 describe('ExerciseLibrary', () => {
   it('filters exercises by case-insensitive name search', () => {
@@ -48,5 +70,21 @@ describe('ExerciseLibrary', () => {
     expect(
       screen.getByText('No exercises match the current search and filter combination.'),
     ).toBeInTheDocument();
+  });
+
+  it('opens the selected exercise trend chart from the exercise name and shows empty history states', () => {
+    render(<ExerciseLibrary />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Incline Dumbbell Press' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
+    expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Air Bike' }));
+
+    expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
+    expect(screen.getByText('No history yet')).toBeInTheDocument();
   });
 });

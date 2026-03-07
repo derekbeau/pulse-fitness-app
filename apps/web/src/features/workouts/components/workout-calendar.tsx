@@ -13,12 +13,12 @@ import {
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import {
   mockSchedule,
-  mockSessions,
   mockTemplates,
   type WorkoutScheduleEntry,
-  type WorkoutSession,
 } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
+import { workoutCompletedSessions } from '../lib/mock-data';
+import type { ActiveWorkoutCompletedSession } from '../types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const TODAY_KEY = toDateKey(new Date());
@@ -35,6 +35,7 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
+  buildSessionHref?: (sessionId: string) => string;
 };
 
 type DayStatus = 'completed' | 'scheduled' | 'rest' | 'none';
@@ -43,7 +44,7 @@ type DayDetails = {
   date: Date;
   dateKey: string;
   schedule?: WorkoutScheduleEntry;
-  session?: WorkoutSession;
+  session?: ActiveWorkoutCompletedSession;
   status: DayStatus;
   templateName: string | null;
   notes: string | null;
@@ -52,17 +53,19 @@ type DayDetails = {
 const templateNameById = new Map(mockTemplates.map((template) => [template.id, template.name]));
 const scheduleByDate = new Map(mockSchedule.map((entry) => [entry.date, entry]));
 const sessionByDate = new Map(
-  mockSessions.map((session) => [session.startedAt.slice(0, 10), session]),
+  workoutCompletedSessions.map((session) => [session.startedAt.slice(0, 10), session]),
 );
 
-export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
+export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalendarProps) {
   const initialMonth = startOfMonth(parseDateKey(TODAY_KEY));
   const [visibleMonth, setVisibleMonth] = useState(initialMonth);
   const [selectedDateKey, setSelectedDateKey] = useState(getDefaultSelectedDateKey(initialMonth));
 
   const calendarDays = buildCalendarDays(visibleMonth);
   const selectedDay = getDayDetails(selectedDateKey);
-  const detailHref = buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`;
+  const detailHref = selectedDay.session
+    ? (buildSessionHref?.(selectedDay.session.id) ?? `/workouts/session/${selectedDay.session.id}`)
+    : (buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`);
   const detailStats = getDetailStats(selectedDay);
   const hasWorkout = selectedDay.status === 'completed' || selectedDay.status === 'scheduled';
 
@@ -300,7 +303,7 @@ export function WorkoutCalendar({ buildDayHref }: WorkoutCalendarProps) {
               size="sm"
               variant="secondary"
             >
-              <a href={detailHref}>View Details</a>
+              <a href={detailHref}>{selectedDay.session ? 'View Session' : 'View Details'}</a>
             </Button>
           ) : null}
         </aside>
@@ -343,7 +346,7 @@ function getDayDetails(dateKey: string): DayDetails {
     session,
     status,
     templateName,
-    notes: schedule?.notes ?? session?.feedback?.notes ?? null,
+    notes: schedule?.notes ?? session?.notes ?? session?.feedback?.notes ?? null,
   };
 }
 

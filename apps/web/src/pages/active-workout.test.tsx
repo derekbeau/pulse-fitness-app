@@ -22,9 +22,19 @@ describe('ActiveWorkoutPage', () => {
 
     expect(headerCard).toHaveClass('sticky');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
+    expect(screen.getByText('Recent Training')).toBeInTheDocument();
+    expect(screen.getByText('Recovery Status')).toBeInTheDocument();
+    expect(screen.getByText('Active Injuries')).toBeInTheDocument();
+    expect(screen.getByText('Training Phase')).toBeInTheDocument();
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
+    expect(screen.getByText('Superset')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
+    ).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
+    expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
 
     fireEvent.click(within(inclineCard).getByLabelText('Complete set 3'));
 
@@ -38,6 +48,25 @@ describe('ActiveWorkoutPage', () => {
     const nextExerciseCard = getExerciseCard('Seated Dumbbell Shoulder Press');
     expect(within(nextExerciseCard).getByLabelText('Reps for set 1')).toHaveFocus();
     expect(screen.queryByText('Rest Timer')).not.toBeInTheDocument();
+
+    const optionalCard = getExerciseCard('Rope Triceps Pushdown');
+    expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
+    expect(screen.getByText('Core & Spine Health (pick at least 2)')).toBeInTheDocument();
+    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Optional' })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Complete supplemental exercise Dead Bug Breathing',
+      }),
+    );
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Complete supplemental exercise Dead Bug Breathing',
+      }),
+    ).toBeChecked();
   });
 
   it('moves from session logging to feedback, summary, and back to workouts', async () => {
@@ -71,21 +100,32 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
+    expect(screen.getAllByRole('textbox', { name: 'Optional notes' })).toHaveLength(4);
 
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy rating' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Knee pain rating' })).getByRole('button', {
         name: '4',
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Recovery rating' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
         name: '3',
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Technique rating' })).getByRole('button', {
-        name: '5',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout rating' })).getByRole(
+        'button',
+        {
+          name: '5',
+        },
+      ),
+    );
+    fireEvent.change(
+      screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
+      {
+        target: { value: 'Shoulders stayed stable, keep the same setup.' },
+      },
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
@@ -96,6 +136,9 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Sets completed')).toBeInTheDocument();
     expect(screen.getByText('Total reps')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
+    expect(screen.getByText('4 / 5')).toBeInTheDocument();
+    expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await act(async () => {});
@@ -110,6 +153,10 @@ describe('ActiveWorkoutPage', () => {
       screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
+    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
+    expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
   });
 });
 
