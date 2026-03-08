@@ -1,4 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
+import { GuestRoute } from '@/components/auth/guest-route';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 import { AppLayout } from '@/components/layout/app-layout';
 import { ActivityPage } from '@/pages/activity';
 import { DashboardPage } from '@/pages/dashboard';
@@ -25,9 +27,30 @@ import { WorkoutsPage } from '@/pages/workouts';
 function AppRoutes() {
   return (
     <Routes>
-      <Route element={<LoginPage />} path="/login" />
-      <Route element={<RegisterPage />} path="/register" />
-      <Route element={<AppLayout />} path="/">
+      <Route
+        element={
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        }
+        path="/login"
+      />
+      <Route
+        element={
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        }
+        path="/register"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+        path="/"
+      >
         <Route element={<DashboardPage />} index />
         <Route element={<DesignSystemPage />} path="design-system" />
         <Route element={<WorkoutsPage />} path="workouts" />

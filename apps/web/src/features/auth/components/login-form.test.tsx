@@ -18,6 +18,7 @@ type MockAuthStore = {
   user: null;
   token: null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
   isLoading: boolean;
   error: string | null;
 };
@@ -34,6 +35,7 @@ function createAuthStore(overrides: Partial<MockAuthStore> = {}): MockAuthStore 
     user: null,
     token: null,
     isAuthenticated: false,
+    hasHydrated: true,
     isLoading: false,
     error: null,
     ...overrides,

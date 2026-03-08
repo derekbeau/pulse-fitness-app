@@ -26,6 +26,7 @@ type AuthState = {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
   isLoading: boolean;
   error: string | null;
 };
@@ -44,6 +45,7 @@ const initialAuthState: AuthState = {
   user: null,
   token: null,
   isAuthenticated: false,
+  hasHydrated: false,
   isLoading: false,
   error: null,
 };
@@ -99,6 +101,7 @@ function applySession(
     user: session?.user ?? null,
     token: session?.token ?? null,
     isAuthenticated: Boolean(session?.token),
+    hasHydrated: true,
     isLoading: false,
     error: null,
   });
@@ -161,7 +164,7 @@ export const useAuthStore = create<AuthStore>()(
       logout() {
         setStoredToken(null);
         createAppQueryClient().clear();
-        set({ ...initialAuthState });
+        set({ ...initialAuthState, hasHydrated: true });
       },
       hydrate() {
         const storedToken =
@@ -171,6 +174,7 @@ export const useAuthStore = create<AuthStore>()(
         set({
           token,
           isAuthenticated: Boolean(token),
+          hasHydrated: true,
           isLoading: false,
         });
       },

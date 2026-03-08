@@ -17,6 +17,7 @@ function resetAuthStore(): void {
     user: null,
     token: null,
     isAuthenticated: false,
+    hasHydrated: false,
     isLoading: false,
     error: null,
   });
@@ -61,6 +62,7 @@ describe('auth-store', () => {
         name: 'Derek',
       },
       isAuthenticated: true,
+      hasHydrated: true,
       isLoading: false,
       error: null,
     });
@@ -82,6 +84,7 @@ describe('auth-store', () => {
       token: null,
       user: null,
       isAuthenticated: false,
+      hasHydrated: false,
       isLoading: false,
       error: 'Invalid username or password',
     });
@@ -119,6 +122,7 @@ describe('auth-store', () => {
         name: 'Pulse User',
       },
       isAuthenticated: true,
+      hasHydrated: true,
       isLoading: false,
       error: null,
     });
@@ -135,6 +139,7 @@ describe('auth-store', () => {
       },
       token: 'token-1',
       isAuthenticated: true,
+      hasHydrated: true,
       isLoading: false,
       error: null,
     });
@@ -146,6 +151,7 @@ describe('auth-store', () => {
       user: null,
       token: null,
       isAuthenticated: false,
+      hasHydrated: true,
       isLoading: false,
       error: null,
     });
@@ -181,6 +187,7 @@ describe('auth-store', () => {
         name: null,
       },
       isAuthenticated: true,
+      hasHydrated: true,
       isLoading: false,
     });
   });
@@ -194,6 +201,7 @@ describe('auth-store', () => {
     expect(useAuthStore.getState()).toMatchObject({
       token: 'token-3',
       isAuthenticated: true,
+      hasHydrated: true,
     });
 
     useAuthStore.getState().logout();
@@ -201,6 +209,7 @@ describe('auth-store', () => {
     expect(useAuthStore.getState()).toMatchObject({
       token: null,
       isAuthenticated: false,
+      hasHydrated: true,
     });
   });
 });
