@@ -185,6 +185,73 @@ describe('SettingsPage', () => {
     });
   });
 
+  it('preserves dashboard preference saves locally when the targets API call fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/nutrition-targets/current')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: null }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: 'SERVER_ERROR',
+                  message: 'Unavailable',
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 503 },
+            ),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: null }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }),
+    );
+
+    renderSettingsPage();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Hydrate/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Steps/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Nutrition targets could not be saved right now. Dashboard preferences were saved locally.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
+      dashboardConfig: {
+        habitChains: ['vitamins', 'protein'],
+        trendSparklines: ['Weight', 'Calories', 'Protein', 'Steps'],
+      },
+      nutritionTargets: {
+        calories: 2000,
+        carbs: 250,
+        fat: 65,
+        protein: 150,
+      },
+    });
+  });
+
   it('loads current nutrition targets from the API when they exist', async () => {
     vi.stubGlobal(
       'fetch',

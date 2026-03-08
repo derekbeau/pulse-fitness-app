@@ -124,6 +124,31 @@ describe('weight store', () => {
     expect(testState.insertRun).toHaveBeenCalledOnce();
   });
 
+  it('finds a body weight entry by user and date or returns null', async () => {
+    testState.selectGet
+      .mockReturnValueOnce({
+        id: 'entry-1',
+        date: '2026-03-05',
+        weight: 182.8,
+        notes: null,
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_123,
+      })
+      .mockReturnValueOnce(undefined);
+
+    const { findBodyWeightEntryByDate } = await import('./store.js');
+
+    await expect(findBodyWeightEntryByDate('user-1', '2026-03-05')).resolves.toEqual({
+      id: 'entry-1',
+      date: '2026-03-05',
+      weight: 182.8,
+      notes: null,
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_000_123,
+    });
+    await expect(findBodyWeightEntryByDate('user-1', '2026-03-06')).resolves.toBeNull();
+  });
+
   it('throws when an upsert does not yield a persisted row', async () => {
     testState.selectGet.mockReturnValue(undefined);
 

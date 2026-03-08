@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type BodyWeightEntry,
   type CreateWeightInput,
   type WeightQueryParams,
+  bodyWeightEntrySchema,
   createWeightInputSchema,
   weightQueryParamsSchema,
 } from './weight';
@@ -31,6 +33,15 @@ describe('createWeightInputSchema', () => {
     ).toThrow();
   });
 
+  it('rejects implausibly large weights', () => {
+    expect(() =>
+      createWeightInputSchema.parse({
+        date: '2026-03-07',
+        weight: 1_501,
+      }),
+    ).toThrow();
+  });
+
   it('infers the CreateWeightInput type from the schema', () => {
     const payload: CreateWeightInput = {
       date: '2026-03-07',
@@ -39,6 +50,41 @@ describe('createWeightInputSchema', () => {
     };
 
     expect(payload.notes).toBe('Fasted');
+  });
+});
+
+describe('bodyWeightEntrySchema', () => {
+  it('parses a persisted body weight entry', () => {
+    const entry = bodyWeightEntrySchema.parse({
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 182.4,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    expect(entry).toEqual({
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 182.4,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+  });
+
+  it('infers the BodyWeightEntry type from the schema', () => {
+    const entry: BodyWeightEntry = {
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 182.4,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 2,
+    };
+
+    expect(entry.notes).toBeNull();
   });
 });
 

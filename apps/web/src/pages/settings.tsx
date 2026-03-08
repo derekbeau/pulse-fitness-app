@@ -339,16 +339,18 @@ export function SettingsPage() {
     };
 
     try {
-      await updateTargetsMutation.mutateAsync(nextTargets);
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     } catch {
-      setSaveMessage('Nutrition targets could not be saved right now.');
-      return;
+      // Local persistence is best-effort.
     }
 
     try {
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      await updateTargetsMutation.mutateAsync(nextTargets);
     } catch {
-      // Local persistence is best-effort; the API mutation already succeeded.
+      setSaveMessage(
+        'Nutrition targets could not be saved right now. Dashboard preferences were saved locally.',
+      );
+      return;
     }
 
     setSaveMessage('Nutrition targets and dashboard preferences saved.');

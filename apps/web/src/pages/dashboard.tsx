@@ -22,9 +22,7 @@ export function DashboardPage() {
     () => ({
       ...selectedSnapshot,
       weight: latestWeightEntry?.weight ?? selectedSnapshot.weight,
-      weightYesterday: latestWeightEntry
-        ? latestWeightEntry.weight
-        : selectedSnapshot.weightYesterday,
+      weightYesterday: selectedSnapshot.weightYesterday,
       macros: {
         calories: {
           ...selectedSnapshot.macros.calories,

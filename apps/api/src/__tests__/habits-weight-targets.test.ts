@@ -101,10 +101,7 @@ const withoutUserId = <T extends { userId: string }>(value: T) => {
 };
 
 const getTodayDate = () => {
-  const now = new Date();
-  const timezoneAdjusted = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-
-  return timezoneAdjusted.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
 };
 
 vi.mock('../routes/auth/store.js', () => ({
@@ -203,6 +200,11 @@ vi.mock('../middleware/store.js', () => ({
 }));
 
 vi.mock('../routes/weight/store.js', () => ({
+  findBodyWeightEntryByDate: vi.fn(async (userId: string, date: string) => {
+    const entry = testState.weightEntries.get(getWeightEntryKey(userId, date)) ?? null;
+
+    return entry ? withoutUserId(entry) : null;
+  }),
   upsertBodyWeightEntry: vi.fn(
     async (userId: string, input: { date: string; weight: number; notes?: string }) => {
       const key = getWeightEntryKey(userId, input.date);
@@ -420,7 +422,7 @@ describe('weight and nutrition target integration', () => {
         },
       });
 
-      expect(firstEntryResponse.statusCode).toBe(200);
+      expect(firstEntryResponse.statusCode).toBe(201);
 
       const secondEntryResponse = await app.inject({
         method: 'POST',
@@ -433,7 +435,7 @@ describe('weight and nutrition target integration', () => {
         },
       });
 
-      expect(secondEntryResponse.statusCode).toBe(200);
+      expect(secondEntryResponse.statusCode).toBe(201);
 
       const userAListResponse = await app.inject({
         method: 'GET',
@@ -525,7 +527,7 @@ describe('weight and nutrition target integration', () => {
         },
       });
 
-      expect(initialResponse.statusCode).toBe(200);
+      expect(initialResponse.statusCode).toBe(201);
       const initialEntry = (
         initialResponse.json() as {
           data: {
@@ -579,7 +581,7 @@ describe('weight and nutrition target integration', () => {
         },
       });
 
-      expect(userBResponse.statusCode).toBe(200);
+      expect(userBResponse.statusCode).toBe(201);
       expect((userBResponse.json() as { data: { id: string } }).data.id).not.toBe(initialEntry.id);
 
       const userAListResponse = await app.inject({

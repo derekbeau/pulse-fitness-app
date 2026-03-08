@@ -5,9 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../index.js';
 import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 
-import { getLatestBodyWeightEntry, listBodyWeightEntries, upsertBodyWeightEntry } from './store.js';
+import {
+  findBodyWeightEntryByDate,
+  getLatestBodyWeightEntry,
+  listBodyWeightEntries,
+  upsertBodyWeightEntry,
+} from './store.js';
 
 vi.mock('./store.js', () => ({
+  findBodyWeightEntryByDate: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
   listBodyWeightEntries: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
@@ -24,6 +30,7 @@ const createAuthorizationHeader = (token: string) => ({
 
 describe('weight routes', () => {
   beforeEach(() => {
+    vi.mocked(findBodyWeightEntryByDate).mockReset();
     vi.mocked(getLatestBodyWeightEntry).mockReset();
     vi.mocked(listBodyWeightEntries).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
@@ -38,6 +45,7 @@ describe('weight routes', () => {
   });
 
   it('upserts a body weight entry for the authenticated user', async () => {
+    vi.mocked(findBodyWeightEntryByDate).mockResolvedValue(null);
     vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
       id: 'entry-1',
       date: '2026-03-07',
@@ -63,7 +71,7 @@ describe('weight routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(201);
       expect(response.json()).toEqual({
         data: {
           id: 'entry-1',
@@ -74,11 +82,52 @@ describe('weight routes', () => {
           updatedAt: 1_700_000_000_000,
         },
       });
+      expect(vi.mocked(findBodyWeightEntryByDate)).toHaveBeenCalledWith('user-1', '2026-03-07');
       expect(vi.mocked(upsertBodyWeightEntry)).toHaveBeenCalledWith('user-1', {
         date: '2026-03-07',
         weight: 181.5,
         notes: 'Fasted',
       });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 200 when updating an existing body weight entry', async () => {
+    vi.mocked(findBodyWeightEntryByDate).mockResolvedValue({
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 182,
+      notes: null,
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_000_000,
+    });
+    vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 181.5,
+      notes: 'Fasted',
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_100_000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          date: '2026-03-07',
+          weight: 181.5,
+          notes: 'Fasted',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
     } finally {
       await app.close();
     }

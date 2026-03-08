@@ -1,19 +1,8 @@
 import { and, desc, eq, lte } from 'drizzle-orm';
 
-import type { CreateNutritionTargetInput } from '@pulse/shared';
+import type { CreateNutritionTargetInput, NutritionTarget } from '@pulse/shared';
 
 import { nutritionTargets } from '../../db/schema/index.js';
-
-export type NutritionTargetEntry = {
-  id: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  effectiveDate: string;
-  createdAt: number;
-  updatedAt: number;
-};
 
 const nutritionTargetSelection = {
   id: nutritionTargets.id,
@@ -26,17 +15,12 @@ const nutritionTargetSelection = {
   updatedAt: nutritionTargets.updatedAt,
 };
 
-const getTodayDate = () => {
-  const now = new Date();
-  const timezoneAdjusted = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-
-  return timezoneAdjusted.toISOString().slice(0, 10);
-};
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 export const upsertNutritionTarget = async (
   userId: string,
   input: CreateNutritionTargetInput,
-): Promise<NutritionTargetEntry> => {
+): Promise<NutritionTarget> => {
   const { db } = await import('../../db/index.js');
 
   const updatedAt = Date.now();
@@ -83,7 +67,7 @@ export const upsertNutritionTarget = async (
 
 export const getCurrentNutritionTarget = async (
   userId: string,
-): Promise<NutritionTargetEntry | null> => {
+): Promise<NutritionTarget | null> => {
   const { db } = await import('../../db/index.js');
 
   return (
@@ -91,7 +75,10 @@ export const getCurrentNutritionTarget = async (
       .select(nutritionTargetSelection)
       .from(nutritionTargets)
       .where(
-        and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, getTodayDate())),
+        and(
+          eq(nutritionTargets.userId, userId),
+          lte(nutritionTargets.effectiveDate, getTodayDate()),
+        ),
       )
       .orderBy(desc(nutritionTargets.effectiveDate))
       .limit(1)
@@ -99,7 +86,7 @@ export const getCurrentNutritionTarget = async (
   );
 };
 
-export const listNutritionTargets = async (userId: string): Promise<NutritionTargetEntry[]> => {
+export const listNutritionTargets = async (userId: string): Promise<NutritionTarget[]> => {
   const { db } = await import('../../db/index.js');
 
   return db

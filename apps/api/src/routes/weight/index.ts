@@ -4,7 +4,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 
-import { getLatestBodyWeightEntry, listBodyWeightEntries, upsertBodyWeightEntry } from './store.js';
+import {
+  findBodyWeightEntryByDate,
+  getLatestBodyWeightEntry,
+  listBodyWeightEntries,
+  upsertBodyWeightEntry,
+} from './store.js';
 
 export const weightRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -15,9 +20,10 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid weight payload');
     }
 
+    const existingEntry = await findBodyWeightEntryByDate(request.userId, parsedBody.data.date);
     const entry = await upsertBodyWeightEntry(request.userId, parsedBody.data);
 
-    return reply.send({
+    return reply.code(existingEntry ? 200 : 201).send({
       data: entry,
     });
   });

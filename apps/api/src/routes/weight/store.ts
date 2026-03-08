@@ -1,17 +1,8 @@
 import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 
-import type { CreateWeightInput, WeightQueryParams } from '@pulse/shared';
+import type { BodyWeightEntry, CreateWeightInput, WeightQueryParams } from '@pulse/shared';
 
 import { bodyWeight } from '../../db/schema/index.js';
-
-export type BodyWeightEntry = {
-  id: string;
-  date: string;
-  weight: number;
-  notes: string | null;
-  createdAt: number;
-  updatedAt: number;
-};
 
 const bodyWeightEntrySelection = {
   id: bodyWeight.id,
@@ -20,6 +11,22 @@ const bodyWeightEntrySelection = {
   notes: bodyWeight.notes,
   createdAt: bodyWeight.createdAt,
   updatedAt: bodyWeight.updatedAt,
+};
+
+export const findBodyWeightEntryByDate = async (
+  userId: string,
+  date: string,
+): Promise<BodyWeightEntry | null> => {
+  const { db } = await import('../../db/index.js');
+
+  return (
+    db
+      .select(bodyWeightEntrySelection)
+      .from(bodyWeight)
+      .where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, date)))
+      .limit(1)
+      .get() ?? null
+  );
 };
 
 export const upsertBodyWeightEntry = async (
@@ -47,12 +54,7 @@ export const upsertBodyWeightEntry = async (
     })
     .run();
 
-  const entry = db
-    .select(bodyWeightEntrySelection)
-    .from(bodyWeight)
-    .where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, input.date)))
-    .limit(1)
-    .get();
+  const entry = await findBodyWeightEntryByDate(userId, input.date);
 
   if (!entry) {
     throw new Error('Failed to persist body weight entry');

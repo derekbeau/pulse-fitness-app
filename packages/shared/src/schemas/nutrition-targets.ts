@@ -2,14 +2,30 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 
-const nutritionMacroSchema = z.number().nonnegative().finite();
+const MAX_CALORIES_TARGET = 10_000;
+const MAX_MACRO_GRAMS_TARGET = 1_000;
+
+const calorieTargetSchema = z.number().nonnegative().finite().max(MAX_CALORIES_TARGET);
+const macroGramTargetSchema = z.number().nonnegative().finite().max(MAX_MACRO_GRAMS_TARGET);
 
 export const createNutritionTargetInputSchema = z.object({
-  calories: nutritionMacroSchema,
-  protein: nutritionMacroSchema,
-  carbs: nutritionMacroSchema,
-  fat: nutritionMacroSchema,
+  calories: calorieTargetSchema,
+  protein: macroGramTargetSchema,
+  carbs: macroGramTargetSchema,
+  fat: macroGramTargetSchema,
   effectiveDate: dateSchema,
 });
 
+export const nutritionTargetSchema = z.object({
+  id: z.string(),
+  calories: calorieTargetSchema,
+  protein: macroGramTargetSchema,
+  carbs: macroGramTargetSchema,
+  fat: macroGramTargetSchema,
+  effectiveDate: dateSchema,
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+});
+
 export type CreateNutritionTargetInput = z.infer<typeof createNutritionTargetInputSchema>;
+export type NutritionTarget = z.infer<typeof nutritionTargetSchema>;
