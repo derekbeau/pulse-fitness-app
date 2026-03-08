@@ -7,13 +7,34 @@ import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts'
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
-import { getToday } from '@/lib/date';
+import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
 
 export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
-  const selectedSnapshot = useMemo(() => getMockSnapshotForDate(selectedDate), [selectedDate]);
+  const selectedDateKey = toDateKey(selectedDate);
+  const today = getToday();
+  const todayKey = toDateKey(today);
+  const habitRangeStart = toDateKey(addDays(today, -29));
   const greeting = getDashboardGreeting();
+
+  const habitsQuery = useHabits();
+  const selectedHabitEntriesQuery = useHabitEntries(selectedDateKey, selectedDateKey);
+  const habitChainEntriesQuery = useHabitEntries(habitRangeStart, todayKey);
+
+  const selectedSnapshot = useMemo(() => {
+    const baseSnapshot = getMockSnapshotForDate(selectedDate);
+    const habits = habitsQuery.data ?? [];
+    const entries = selectedHabitEntriesQuery.data ?? [];
+    const completedCount = entries.filter((entry) => entry.completed).length;
+
+    return {
+      ...baseSnapshot,
+      habitsCompleted: completedCount,
+      habitsTotal: habits.length,
+    };
+  }, [habitsQuery.data, selectedDate, selectedHabitEntriesQuery.data]);
 
   return (
     <main className="flex w-full flex-col gap-8 py-6">
@@ -51,7 +72,7 @@ export function DashboardPage() {
           className="order-2 flex min-w-0 flex-col gap-6 md:order-2 xl:order-1"
           data-slot="dashboard-sidebar-column"
         >
-          <HabitChain />
+          <HabitChain habits={habitsQuery.data ?? []} entries={habitChainEntriesQuery.data ?? []} />
           <TrendSparklines />
         </div>
 

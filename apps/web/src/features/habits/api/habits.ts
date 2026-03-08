@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { habitEntrySchema, habitSchema, type HabitEntry } from '@pulse/shared';
+import {
+  createHabitInputSchema,
+  habitEntrySchema,
+  habitSchema,
+  reorderHabitsInputSchema,
+  updateHabitInputSchema,
+  type CreateHabitInput,
+  type Habit,
+  type HabitEntry,
+  type ReorderHabitsInput,
+  type UpdateHabitInput,
+} from '@pulse/shared';
 import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
@@ -9,6 +20,9 @@ import { habitKeys } from './keys';
 const habitsSchema = z.array(habitSchema);
 const habitEntriesSchema = z.array(habitEntrySchema);
 const habitEntriesKeyPrefix = [...habitKeys.all, 'entries'] as const;
+const successSchema = z.object({
+  success: z.literal(true),
+});
 
 type HabitEntriesParams = {
   from: string;
@@ -38,10 +52,17 @@ type MutationContext = {
   previousEntries: HabitEntryQuerySnapshot;
 };
 
+type ReorderMutationContext = {
+  previousHabits: Habit[] | undefined;
+};
+
 const compareHabitEntries = (left: HabitEntry, right: HabitEntry) =>
   left.date.localeCompare(right.date) ||
   left.createdAt - right.createdAt ||
   left.id.localeCompare(right.id);
+
+const compareHabits = (left: Habit, right: Habit) =>
+  left.sortOrder - right.sortOrder || left.createdAt - right.createdAt || left.id.localeCompare(right.id);
 
 const isHabitEntriesParams = (value: unknown): value is HabitEntriesParams => {
   return (
@@ -118,6 +139,35 @@ const findCachedHabitEntry = (
   return undefined;
 };
 
+const upsertHabit = (habits: Habit[] | undefined, nextHabit: Habit) => {
+  const currentHabits = habits ?? [];
+  const existingIndex = currentHabits.findIndex((habit) => habit.id === nextHabit.id);
+
+  if (existingIndex === -1) {
+    return [...currentHabits, nextHabit].sort(compareHabits);
+  }
+
+  const nextHabits = [...currentHabits];
+  nextHabits[existingIndex] = nextHabit;
+
+  return nextHabits.sort(compareHabits);
+};
+
+const reorderCachedHabits = (habits: Habit[] | undefined, items: ReorderHabitsInput['items']) => {
+  if (!habits) {
+    return habits;
+  }
+
+  const nextOrderById = new Map(items.map((item) => [item.id, item.sortOrder]));
+
+  return habits
+    .map((habit) => ({
+      ...habit,
+      sortOrder: nextOrderById.get(habit.id) ?? habit.sortOrder,
+    }))
+    .sort(compareHabits);
+};
+
 export function useHabits() {
   return useQuery({
     queryFn: ({ signal }) =>
@@ -140,6 +190,110 @@ export function useHabitEntries(from: string, to: string) {
         signal,
       }),
     queryKey: habitKeys.entries({ from, to }),
+  });
+}
+
+export function useCreateHabit() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Habit, Error, CreateHabitInput>({
+    mutationFn: (values) => {
+      const payload = createHabitInputSchema.parse(values);
+
+      return apiRequest('/api/v1/habits', {
+        body: payload,
+        method: 'POST',
+        schema: habitSchema,
+      });
+    },
+    onSuccess: (habit) => {
+      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+        upsertHabit(currentHabits, habit),
+      );
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+    },
+  });
+}
+
+export function useUpdateHabit() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Habit, Error, { id: string; values: UpdateHabitInput }>({
+    mutationFn: ({ id, values }) => {
+      const payload = updateHabitInputSchema.parse(values);
+
+      return apiRequest(`/api/v1/habits/${id}`, {
+        body: payload,
+        method: 'PUT',
+        schema: habitSchema,
+      });
+    },
+    onSuccess: (habit) => {
+      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+        upsertHabit(currentHabits, habit),
+      );
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+    },
+  });
+}
+
+export function useDeleteHabit() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: true }, Error, { id: string }>({
+    mutationFn: ({ id }) =>
+      apiRequest(`/api/v1/habits/${id}`, {
+        method: 'DELETE',
+        schema: successSchema,
+      }),
+    onSuccess: (_response, variables) => {
+      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+        currentHabits?.filter((habit) => habit.id !== variables.id),
+      );
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+    },
+  });
+}
+
+export function useReorderHabits() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: true }, Error, ReorderHabitsInput['items'], ReorderMutationContext>({
+    mutationFn: (items) => {
+      const payload = reorderHabitsInputSchema.parse({ items });
+
+      return apiRequest('/api/v1/habits/reorder', {
+        body: payload,
+        method: 'PATCH',
+        schema: successSchema,
+      });
+    },
+    onMutate: async (items) => {
+      await queryClient.cancelQueries({ queryKey: habitKeys.list() });
+
+      const previousHabits = queryClient.getQueryData<Habit[]>(habitKeys.list());
+      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+        reorderCachedHabits(currentHabits, items),
+      );
+
+      return { previousHabits };
+    },
+    onError: (_error, _variables, context) => {
+      if (!context) {
+        return;
+      }
+
+      queryClient.setQueryData(habitKeys.list(), context.previousHabits);
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+    },
   });
 }
 

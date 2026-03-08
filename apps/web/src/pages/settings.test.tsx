@@ -1,10 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
+
+vi.mock('@/features/habits', async () => {
+  const actual = await vi.importActual<typeof import('@/features/habits')>('@/features/habits');
+
+  return {
+    ...actual,
+    HabitSettings: () => <div data-testid="habit-settings" />,
+  };
+});
 
 function renderSettingsPage() {
   return render(

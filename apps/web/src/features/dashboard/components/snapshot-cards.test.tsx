@@ -2,7 +2,11 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { mockDailySnapshot } from '@/lib/mock-data/dashboard';
-import { calculateWeightTrend, SnapshotCards } from './snapshot-cards';
+import {
+  calculateHabitCompletionPercent,
+  calculateWeightTrend,
+  SnapshotCards,
+} from './snapshot-cards';
 
 describe('calculateWeightTrend', () => {
   it('returns neutral when yesterday weight is not positive', () => {
@@ -20,15 +24,26 @@ describe('calculateWeightTrend', () => {
   });
 });
 
+describe('calculateHabitCompletionPercent', () => {
+  it('returns 0 when there are no active habits', () => {
+    expect(calculateHabitCompletionPercent(0, 0)).toBe(0);
+  });
+
+  it('returns the rounded completion percent for active habits', () => {
+    expect(calculateHabitCompletionPercent(1, 3)).toBe(33);
+    expect(calculateHabitCompletionPercent(3, 4)).toBe(75);
+  });
+});
+
 describe('SnapshotCards', () => {
-  it('renders four snapshot cards in a responsive grid with mock data values', () => {
+  it('renders five snapshot cards in a responsive grid with mock data values', () => {
     const { container } = render(<MemoryRouter><SnapshotCards /></MemoryRouter>);
 
     const grid = container.querySelector('div.grid.grid-cols-2');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');
-    expect(cards).toHaveLength(4);
+    expect(cards).toHaveLength(5);
 
     expect(screen.getByText(`${mockDailySnapshot.weight.toFixed(1)} lbs`)).toBeInTheDocument();
     expect(
@@ -41,6 +56,9 @@ describe('SnapshotCards', () => {
         `${mockDailySnapshot.macros.protein.actual}g / ${mockDailySnapshot.macros.protein.target}g`,
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(`${mockDailySnapshot.habitsCompleted} / ${mockDailySnapshot.habitsTotal} complete`),
+    ).toBeInTheDocument();
     expect(screen.getByText(mockDailySnapshot.workoutName ?? 'Rest Day')).toBeInTheDocument();
   });
 
@@ -50,15 +68,18 @@ describe('SnapshotCards', () => {
     const weightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     const caloriesCard = screen.getByText('Calories').closest('[data-slot="stat-card"]');
     const proteinCard = screen.getByText('Protein').closest('[data-slot="stat-card"]');
+    const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
     const workoutCard = screen.getByText("Today's Workout").closest('[data-slot="stat-card"]');
 
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(caloriesCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(habitsCard).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(workoutCard).toHaveClass('bg-secondary');
     expect(screen.getByText('Body Weight')).toHaveClass('text-on-cream');
     expect(screen.getByText('Calories')).toHaveClass('text-on-pink');
     expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
+    expect(screen.getByText('Habits')).toHaveClass('text-on-mint');
 
     const expectedTrend = calculateWeightTrend(
       mockDailySnapshot.weight,
@@ -85,6 +106,8 @@ describe('SnapshotCards', () => {
         <SnapshotCards
           snapshot={{
             ...mockDailySnapshot,
+            habitsCompleted: 0,
+            habitsTotal: 0,
             weightYesterday: 0,
             workoutName: null,
           }}
@@ -101,6 +124,7 @@ describe('SnapshotCards', () => {
     const proteinCard = screen
       .getByText('Protein')
       .closest('[data-slot="stat-card"]') as HTMLElement;
+    const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]') as HTMLElement;
     const workoutCard = screen
       .getByText("Today's Workout")
       .closest('[data-slot="stat-card"]') as HTMLElement;
@@ -110,6 +134,8 @@ describe('SnapshotCards', () => {
 
     expect(within(caloriesCard).getByLabelText('trend neutral')).toBeInTheDocument();
     expect(within(proteinCard).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(habitsCard).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(habitsCard).getByText('0 / 0 complete')).toBeInTheDocument();
 
     expect(within(workoutCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(workoutCard).getByText('Rest Day')).toBeInTheDocument();

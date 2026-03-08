@@ -92,7 +92,7 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
           <div className="space-y-1">
             <CardTitle className="text-xl font-semibold text-foreground">{modeLabel}</CardTitle>
             <CardDescription>
-              Pick how the habit should be tracked, then save it into the local list.
+              Pick how the habit should be tracked, then save it to your account.
             </CardDescription>
           </div>
           <div
