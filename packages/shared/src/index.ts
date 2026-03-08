@@ -9,6 +9,7 @@ export * from './schemas/exercises.js';
 export * from './schemas/health-conditions.js';
 export * from './schemas/journal.js';
 export * from './schemas/resources.js';
+export * from './schemas/scheduled-workouts.js';
 export * from './schemas/workout-templates.js';
 
 export const userSchema = z.object({
