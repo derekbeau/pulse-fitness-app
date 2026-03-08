@@ -43,17 +43,18 @@ const foodSelection = {
 };
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
+const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
 
 const buildFoodFilters = (userId: string, query?: string) => {
   const filters: SQL<unknown>[] = [eq(foods.userId, userId)];
 
   if (query) {
-    const pattern = `%${query.toLowerCase()}%`;
+    const pattern = `%${escapeLikePattern(query)}%`;
 
     filters.push(
       sql`(
-        lower(${foods.name}) like ${pattern}
-        or lower(coalesce(${foods.brand}, '')) like ${pattern}
+        lower(${foods.name}) like ${pattern} escape '\\'
+        or lower(coalesce(${foods.brand}, '')) like ${pattern} escape '\\'
       )`,
     );
   }
@@ -256,6 +257,7 @@ export const deleteFood = async (id: string, userId: string): Promise<boolean> =
 
 export const updateFoodLastUsedAt = async (
   foodId: string,
+  userId: string,
   lastUsedAt = Date.now(),
 ): Promise<void> => {
   const { db } = await import('../../db/index.js');
@@ -265,7 +267,7 @@ export const updateFoodLastUsedAt = async (
     .set({
       lastUsedAt,
     })
-    .where(eq(foods.id, foodId))
+    .where(and(eq(foods.id, foodId), eq(foods.userId, userId)))
     .run();
 
   if (result.changes !== 1) {

@@ -18,6 +18,7 @@ const dbState = vi.hoisted(() => ({
   }>,
   insertValues: [] as unknown[],
   updateSets: [] as unknown[],
+  updateWhereCalls: [] as unknown[],
   deleteWhereCalls: [] as unknown[],
   insertRunResult: { changes: 1 },
   updateRunResult: { changes: 1 },
@@ -27,12 +28,47 @@ const dbState = vi.hoisted(() => ({
     this.selectBuilders = [];
     this.insertValues = [];
     this.updateSets = [];
+    this.updateWhereCalls = [];
     this.deleteWhereCalls = [];
     this.insertRunResult = { changes: 1 };
     this.updateRunResult = { changes: 1 };
     this.deleteRunResult = { changes: 1 };
   },
 }));
+
+const flattenSql = (value: unknown): string => {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  if ('name' in value && typeof value.name === 'string') {
+    return value.name;
+  }
+
+  if ('value' in value) {
+    if (Array.isArray(value.value)) {
+      return value.value.map(flattenSql).join('');
+    }
+
+    if (
+      typeof value.value === 'string' ||
+      typeof value.value === 'number' ||
+      typeof value.value === 'boolean'
+    ) {
+      return String(value.value);
+    }
+  }
+
+  if ('queryChunks' in value && Array.isArray(value.queryChunks)) {
+    return value.queryChunks.map(flattenSql).join('');
+  }
+
+  return '';
+};
 
 const createSelectBuilder = (result: SelectResultConfig) => {
   const builder = {
@@ -73,9 +109,13 @@ vi.mock('../../db/index.js', () => ({
         dbState.updateSets.push(values);
 
         return {
-          where: vi.fn(() => ({
-            run: vi.fn(() => dbState.updateRunResult),
-          })),
+          where: vi.fn((whereClause: unknown) => {
+            dbState.updateWhereCalls.push(whereClause);
+
+            return {
+              run: vi.fn(() => dbState.updateRunResult),
+            };
+          }),
         };
       }),
     })),
@@ -200,7 +240,7 @@ describe('foods store', () => {
     const { listFoods } = await import('./store.js');
 
     const result = await listFoods('user-1', {
-      q: 'ghost',
+      q: '50%_off',
       sort: 'protein',
       page: 2,
       limit: 1,
@@ -221,6 +261,10 @@ describe('foods store', () => {
     expect(dbState.selectBuilders[0].limit).toHaveBeenCalledWith(1);
     expect(dbState.selectBuilders[0].offset).toHaveBeenCalledWith(1);
     expect(dbState.selectBuilders[1].get).toHaveBeenCalledOnce();
+
+    const whereClauseText = flattenSql(dbState.selectBuilders[0].where.mock.calls[0]?.[0]);
+    expect(whereClauseText).toContain('%50\\%\\_off%');
+    expect(whereClauseText.toLowerCase()).toContain("escape '\\'");
   });
 
   it('supports recent sorting without pagination errors when the query is absent', async () => {
@@ -329,7 +373,7 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('deletes foods by scope and updates lastUsedAt timestamps', async () => {
+  it('deletes foods by scope and scopes lastUsedAt updates to the user', async () => {
     const { deleteFood, updateFoodLastUsedAt } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
@@ -338,10 +382,13 @@ describe('foods store', () => {
     dbState.deleteRunResult = { changes: 0 };
     await expect(deleteFood('food-1', 'user-2')).resolves.toBe(false);
 
-    await updateFoodLastUsedAt('food-1', 1_700_000_300_000);
+    await updateFoodLastUsedAt('food-1', 'user-1', 1_700_000_300_000);
 
     expect(dbState.updateSets.at(-1)).toEqual({
       lastUsedAt: 1_700_000_300_000,
     });
+    const updateWhereText = flattenSql(dbState.updateWhereCalls.at(-1));
+    expect(updateWhereText).toContain('id = food-1');
+    expect(updateWhereText).toContain('user_id = user-1');
   });
 });
