@@ -3,10 +3,17 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
 import { workoutCompletedSessions } from '@/features/workouts';
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { useAuthStore } from '@/store/auth-store';
 
 const sessionId = workoutCompletedSessions[0]?.id ?? 'session-upper-push-2026-03-02';
 
-const pageRoutes = [
+const guestRoutes = [
+  { heading: 'Welcome back', path: '/login' },
+  { heading: 'Create account', path: '/register' },
+] as const;
+
+const protectedRoutes = [
   { heading: 'Dashboard', path: '/' },
   { heading: 'Design System', path: '/design-system' },
   { heading: 'Workouts', path: '/workouts' },
@@ -45,23 +52,68 @@ function renderApp() {
   );
 }
 
+function setGuestState() {
+  window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  useAuthStore.setState({
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    hasHydrated: true,
+    isLoading: false,
+    error: null,
+  });
+}
+
+function setAuthenticatedState() {
+  window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+  useAuthStore.setState({
+    user: {
+      id: 'user-1',
+      username: 'derek',
+      name: 'Derek',
+    },
+    token: 'test-token',
+    isAuthenticated: true,
+    hasHydrated: true,
+    isLoading: false,
+    error: null,
+  });
+}
+
 describe('App', () => {
   beforeEach(() => {
     window.localStorage.removeItem('pulse-theme');
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
     window.history.pushState({}, '', '/');
+    setGuestState();
   });
 
-  it.each(pageRoutes)('renders $heading page for $path', ({ heading, path }) => {
-    window.history.pushState({}, '', path);
+  it.each(guestRoutes)(
+    'renders $heading page for $path when signed out',
+    async ({ heading, path }) => {
+      window.history.pushState({}, '', path);
 
-    renderApp();
+      renderApp();
 
-    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-  });
+      expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+    },
+  );
+
+  it.each(protectedRoutes)(
+    'renders $heading page for $path when signed in',
+    async ({ heading, path }) => {
+      setAuthenticatedState();
+      window.history.pushState({}, '', path);
+
+      renderApp();
+
+      expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+    },
+  );
 
   it('renders navigation links for all app routes', () => {
+    setAuthenticatedState();
     renderApp();
 
     navRoutes.forEach(({ heading, path }) => {
@@ -73,5 +125,18 @@ describe('App', () => {
     });
 
     expect(screen.queryByRole('link', { name: /^Settings$/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['/login', '/register'])('renders %s as a standalone auth page', (path) => {
+    setGuestState();
+    window.history.pushState({}, '', path);
+
+    renderApp();
+
+    expect(screen.queryByRole('link', { name: /^Dashboard$/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Desktop navigation' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
   });
 });

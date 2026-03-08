@@ -1,17 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router';
+import { LogOut } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { moreNavIcon, moreNavItems, primaryNavItems } from '@/components/layout/nav-items';
+import { useAuthStore } from '@/store/auth-store';
 
 const moreRoutes = new Set(moreNavItems.map((item) => item.to));
 
 export function BottomNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { logout } = useAuthStore();
 
   const MoreIcon = moreNavIcon;
   const isMoreActive = moreRoutes.has(pathname);
+
+  function handleLogout() {
+    setMenuOpen(false);
+    logout();
+    navigate('/login', { replace: true });
+  }
 
   useEffect(() => {
     if (!menuOpen) {
@@ -104,6 +114,15 @@ export function BottomNav() {
                   </NavLink>
                 );
               })}
+              <button
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                onClick={handleLogout}
+                role="menuitem"
+                type="button"
+              >
+                <LogOut aria-hidden="true" className="size-4" />
+                <span>Log out</span>
+              </button>
             </div>
           ) : null}
         </div>
