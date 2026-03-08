@@ -6,6 +6,7 @@ import { createAppQueryClient } from '@/lib/query-client';
 
 export function renderWithQueryClient(element: ReactElement) {
   const queryClient = createAppQueryClient();
+  queryClient.clear();
 
   return render(<QueryClientProvider client={queryClient}>{element}</QueryClientProvider>);
 }

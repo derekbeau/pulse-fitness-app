@@ -12,7 +12,7 @@ import {
 } from '@pulse/shared';
 import { z } from 'zod';
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 
 const paginationMetaSchema = z.object({
   page: z.number().int(),
@@ -65,10 +65,8 @@ export const workoutQueryKeys = {
 };
 
 async function getWorkoutTemplate(id: string) {
-  const payload = await apiRequest({
-    path: `/api/v1/workout-templates/${id}`,
-    schema: workoutTemplateResponseSchema,
-  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${id}`);
+  const payload = workoutTemplateResponseSchema.parse({ data });
 
   return payload.data;
 }
@@ -96,27 +94,25 @@ async function getExercises(params: ExerciseQueryParams) {
   searchParams.set('page', String(parsedParams.page));
   searchParams.set('limit', String(parsedParams.limit));
 
-  return apiRequest({
-    path: `/api/v1/exercises?${searchParams.toString()}`,
-    schema: exercisesResponseSchema,
-  });
+  const payload = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/exercises?${searchParams.toString()}`,
+  );
+
+  return exercisesResponseSchema.parse(payload);
 }
 
 async function getExerciseFilters() {
-  return apiRequest({
-    path: '/api/v1/exercises/filters',
-    schema: exerciseFiltersResponseSchema,
-  });
+  const data = await apiRequest<unknown>('/api/v1/exercises/filters');
+  return exerciseFiltersResponseSchema.parse({ data });
 }
 
 async function createWorkoutSession(input: CreateWorkoutSessionRequest) {
   const parsedInput = createWorkoutSessionInputSchema.parse(input);
-  const payload = await apiRequest({
-    body: parsedInput,
+  const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
+    body: JSON.stringify(parsedInput),
     method: 'POST',
-    path: '/api/v1/workout-sessions',
-    schema: workoutSessionResponseSchema,
   });
+  const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
 }

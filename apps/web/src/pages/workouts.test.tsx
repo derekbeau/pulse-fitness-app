@@ -2,12 +2,15 @@ import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { WorkoutsPage } from './workouts';
 
 describe('WorkoutsPage', () => {
   beforeEach(() => {
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
@@ -29,6 +32,7 @@ describe('WorkoutsPage', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
     vi.restoreAllMocks();
   });
 

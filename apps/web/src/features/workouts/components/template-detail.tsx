@@ -5,7 +5,7 @@ import type { WorkoutTemplateExercise } from '@pulse/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ApiError } from '@/lib/api';
+import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
 import { useStartWorkoutSession, useWorkoutTemplate } from '../api/workouts';

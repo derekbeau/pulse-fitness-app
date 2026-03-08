@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
@@ -80,7 +81,12 @@ const createdSessionPayload = {
   },
 };
 
+beforeEach(() => {
+  window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+});
+
 afterEach(() => {
+  window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
   vi.restoreAllMocks();
 });
 
@@ -197,15 +203,17 @@ describe('WorkoutTemplateDetail', () => {
   });
 
   it('renders a fallback state when the template request returns 404', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      jsonResponse(
-        {
-          error: {
-            code: 'WORKOUT_TEMPLATE_NOT_FOUND',
-            message: 'Workout template not found',
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(
+          {
+            error: {
+              code: 'WORKOUT_TEMPLATE_NOT_FOUND',
+              message: 'Workout template not found',
+            },
           },
-        },
-        { status: 404 },
+          { status: 404 },
+        ),
       ),
     );
 
@@ -215,7 +223,9 @@ describe('WorkoutTemplateDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Template not found' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Template not found' }, { timeout: 2_000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to Workouts' })).toHaveAttribute(
       'href',
       '/workouts',

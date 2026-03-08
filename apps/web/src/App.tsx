@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { GuestRoute } from '@/components/auth/guest-route';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -25,7 +23,6 @@ import { ActiveWorkoutPage } from '@/pages/active-workout';
 import { WorkoutSessionDetailPage } from '@/pages/workout-session-detail';
 import { WorkoutTemplateDetailPage } from '@/pages/workout-template-detail';
 import { WorkoutsPage } from '@/pages/workouts';
-import { createAppQueryClient } from '@/lib/query-client';
 
 function AppRoutes() {
   return (
@@ -79,14 +76,10 @@ function AppRoutes() {
 }
 
 function App() {
-  const [queryClient] = useState(() => createAppQueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

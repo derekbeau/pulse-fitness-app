@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
@@ -143,10 +144,12 @@ const exerciseFixtures = [
 ];
 
 beforeEach(() => {
+  window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
   window.history.pushState({}, '', '/workouts');
 });
 
 afterEach(() => {
+  window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
