@@ -1,85 +1,29 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CheckCheck, CircleDashed } from 'lucide-react';
+import type { Habit, HabitEntry } from '@pulse/shared';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { accentCardStyles } from '@/lib/accent-card-styles';
+import { Input } from '@/components/ui/input';
+import {
+  useHabitEntries,
+  useHabits,
+  useToggleHabit,
+  useUpdateHabitEntry,
+} from '@/features/habits/api/habits';
 import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
 import type { HabitConfig } from '@/features/habits/types';
-import { Input } from '@/components/ui/input';
+import { accentCardStyles } from '@/lib/accent-card-styles';
+import { toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type HabitValue = boolean | number | null;
 
 export type DailyHabit = HabitConfig & {
+  entryId: string | null;
   todayValue: HabitValue;
 };
-
-const defaultHabits: DailyHabit[] = [
-  {
-    id: 'hydrate',
-    name: 'Hydrate',
-    emoji: '💧',
-    trackingType: 'numeric',
-    target: 8,
-    unit: 'glasses',
-    todayValue: 6,
-  },
-  {
-    id: 'vitamins',
-    name: 'Take vitamins',
-    emoji: '💊',
-    trackingType: 'boolean',
-    target: null,
-    unit: null,
-    todayValue: true,
-  },
-  {
-    id: 'protein',
-    name: 'Protein goal',
-    emoji: '🥗',
-    trackingType: 'numeric',
-    target: 120,
-    unit: 'grams',
-    todayValue: 90,
-  },
-  {
-    id: 'sleep',
-    name: 'Sleep',
-    emoji: '😴',
-    trackingType: 'time',
-    target: 8,
-    unit: 'hours',
-    todayValue: 7.5,
-  },
-  {
-    id: 'mobility',
-    name: 'Mobility warm-up',
-    emoji: '🧘',
-    trackingType: 'boolean',
-    target: null,
-    unit: null,
-    todayValue: false,
-  },
-  {
-    id: 'reading',
-    name: 'Read',
-    emoji: '📚',
-    trackingType: 'time',
-    target: 1,
-    unit: 'hours',
-    todayValue: 1,
-  },
-  {
-    id: 'veggies',
-    name: 'Veggie servings',
-    emoji: '🥦',
-    trackingType: 'numeric',
-    target: 3,
-    unit: 'servings',
-    todayValue: 3,
-  },
-];
 
 const todayFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -132,18 +76,181 @@ function parseInputValue(rawValue: string) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
-type DailyHabitsProps = {
-  habits?: DailyHabit[];
+function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] {
+  const entryByHabitId = new Map(entries.map((entry) => [entry.habitId, entry]));
+
+  return habits.map((habit) => {
+    const entry = entryByHabitId.get(habit.id);
+    const todayValue: HabitValue =
+      habit.trackingType === 'boolean' ? (entry?.completed ?? false) : (entry?.value ?? null);
+
+    return {
+      id: habit.id,
+      name: habit.name,
+      emoji: habit.emoji ?? '•',
+      trackingType: habit.trackingType,
+      target: habit.target,
+      unit: habit.unit,
+      entryId: entry?.id ?? null,
+      todayValue,
+    };
+  });
+}
+
+function DailyHabitsLoadingState() {
+  return (
+    <div aria-busy="true" className="space-y-4">
+      <Card className={accentCardStyles.pink}>
+        <CardHeader className="gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
+            Daily habits
+          </p>
+          <div className="space-y-3">
+            <div className="h-8 w-56 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
+            <div className="h-4 w-full max-w-2xl animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid gap-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="gap-4 border-transparent py-5 shadow-sm">
+            <CardHeader className="space-y-3 pb-0">
+              <div className="h-6 w-44 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
+              <div className="h-4 w-56 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-11 animate-pulse rounded-xl bg-black/10 dark:bg-secondary" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <p className="sr-only">Loading today&apos;s habits.</p>
+    </div>
+  );
+}
+
+type DailyHabitsErrorStateProps = {
+  message: string;
+  onRetry: () => void;
 };
 
-export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
-  const [habitValues, setHabitValues] = useState<Record<string, HabitValue>>(() =>
-    Object.fromEntries(habits.map((habit) => [habit.id, habit.todayValue])),
+function DailyHabitsErrorState({ message, onRetry }: DailyHabitsErrorStateProps) {
+  return (
+    <div className="space-y-4">
+      <Card className={accentCardStyles.pink}>
+        <CardHeader className="gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
+            Daily habits
+          </p>
+          <div className="space-y-2">
+            <CardTitle
+              aria-level={2}
+              className="text-3xl font-semibold tracking-tight"
+              role="heading"
+            >
+              {todayFormatter.format(new Date())}
+            </CardTitle>
+            <CardDescription className="max-w-2xl text-sm opacity-70 dark:text-muted dark:opacity-100">
+              Habit progress could not be loaded right now.
+            </CardDescription>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted">{message}</p>
+          <Button onClick={onRetry} type="button">
+            Try again
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export function DailyHabits() {
+  const today = toDateKey(new Date());
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+
+  const habitsQuery = useHabits();
+  const habitEntriesQuery = useHabitEntries(today, today);
+  const toggleHabitMutation = useToggleHabit();
+  const updateHabitEntryMutation = useUpdateHabitEntry();
+
+  const dailyHabits = useMemo(
+    () => buildDailyHabits(habitsQuery.data ?? [], habitEntriesQuery.data ?? []),
+    [habitEntriesQuery.data, habitsQuery.data],
   );
 
-  const completedCount = habits.filter((habit) =>
-    getHabitCompletion(habit, habitValues[habit.id]),
+  const completedCount = dailyHabits.filter((habit) =>
+    getHabitCompletion(habit, habit.todayValue),
   ).length;
+
+  const clearDraftValue = (habitId: string) => {
+    setDraftValues((currentValues) => {
+      if (!(habitId in currentValues)) {
+        return currentValues;
+      }
+
+      return Object.fromEntries(Object.entries(currentValues).filter(([key]) => key !== habitId));
+    });
+  };
+
+  const commitTrackedValue = (habit: DailyHabit) => {
+    const draftValue = draftValues[habit.id];
+    if (draftValue === undefined) {
+      return;
+    }
+
+    clearDraftValue(habit.id);
+
+    const nextValue = parseInputValue(draftValue);
+    const currentValue = typeof habit.todayValue === 'number' ? habit.todayValue : null;
+    if (nextValue === currentValue) {
+      return;
+    }
+
+    const completed = getHabitCompletion(habit, nextValue);
+
+    if (habit.entryId && nextValue !== null) {
+      updateHabitEntryMutation.mutate({
+        id: habit.entryId,
+        habitId: habit.id,
+        date: today,
+        completed,
+        value: nextValue,
+      });
+      return;
+    }
+
+    toggleHabitMutation.mutate({
+      habitId: habit.id,
+      entryId: habit.entryId,
+      date: today,
+      completed,
+      ...(nextValue === null ? {} : { value: nextValue }),
+    });
+  };
+
+  if (habitsQuery.isPending || habitEntriesQuery.isPending) {
+    return <DailyHabitsLoadingState />;
+  }
+
+  if (habitsQuery.isError || habitEntriesQuery.isError) {
+    const error = habitsQuery.error ?? habitEntriesQuery.error;
+
+    return (
+      <DailyHabitsErrorState
+        message={error instanceof Error ? error.message : 'Unable to load daily habits.'}
+        onRetry={() => {
+          void Promise.all([habitsQuery.refetch(), habitEntriesQuery.refetch()]);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -167,137 +274,163 @@ export function DailyHabits({ habits = defaultHabits }: DailyHabitsProps) {
               </CardDescription>
             </div>
             <div className="inline-flex self-start rounded-full bg-black/10 px-4 py-2 text-sm font-semibold dark:bg-secondary dark:text-foreground">
-              {completedCount} of {habits.length} habits complete
+              {completedCount} of {dailyHabits.length} habits complete
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      <div className="grid gap-4">
-        {habits.map((habit) => {
-          const value = habitValues[habit.id];
-          const isComplete = getHabitCompletion(habit, value);
-          const progressText = getProgressText(habit, value);
-          const progressPercent = getProgressPercent(habit, value);
+      {dailyHabits.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-6">
+            <p className="text-base font-medium text-foreground">
+              No active habits configured yet.
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              Add or reactivate habits in settings before logging today&apos;s progress.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {dailyHabits.map((habit) => {
+            const value = habit.todayValue;
+            const isComplete = getHabitCompletion(habit, value);
+            const progressText = getProgressText(habit, value);
+            const progressPercent = getProgressPercent(habit, value);
+            const isSavingValue =
+              updateHabitEntryMutation.isPending &&
+              updateHabitEntryMutation.variables?.habitId === habit.id;
+            const isSavingToggle =
+              toggleHabitMutation.isPending && toggleHabitMutation.variables?.habitId === habit.id;
 
-          return (
-            <Card
-              key={habit.id}
-              className={cn(
-                'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
-                trackingSurfaceClasses[habit.trackingType],
-                isComplete && 'ring-2 ring-emerald-500/40',
-              )}
-            >
-              <CardHeader className="flex flex-row items-start justify-between gap-4 pb-0">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl leading-none" aria-hidden="true">
-                      {habit.emoji}
-                    </span>
-                    <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
-                      {habit.name}
-                    </CardTitle>
+            return (
+              <Card
+                key={habit.id}
+                className={cn(
+                  'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
+                  trackingSurfaceClasses[habit.trackingType],
+                  isComplete && 'ring-2 ring-emerald-500/40',
+                )}
+              >
+                <CardHeader className="flex flex-row items-start justify-between gap-4 pb-0">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl leading-none" aria-hidden="true">
+                        {habit.emoji}
+                      </span>
+                      <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
+                        {habit.name}
+                      </CardTitle>
+                    </div>
+                    <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
+                      {progressText}
+                    </CardDescription>
                   </div>
-                  <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
-                    {progressText}
-                  </CardDescription>
-                </div>
-                <div
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
-                    isComplete
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
-                  )}
-                >
-                  {isComplete ? (
-                    <CheckCheck className="size-3.5" />
-                  ) : (
-                    <CircleDashed className="size-3.5" />
-                  )}
-                  <span>{isComplete ? 'Done' : 'In progress'}</span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {habit.trackingType === 'boolean' ? (
-                  <label
-                    className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/70 px-4 py-3 shadow-sm dark:bg-secondary/60 dark:shadow-none"
-                    htmlFor={`habit-${habit.id}`}
+                  <div
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
+                      isComplete
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
+                    )}
                   >
-                    <Checkbox
-                      id={`habit-${habit.id}`}
-                      aria-label={habit.name}
-                      checked={value === true}
-                      className="border-border bg-white dark:bg-background"
-                      onCheckedChange={(checked) => {
-                        setHabitValues((currentValues) => ({
-                          ...currentValues,
-                          [habit.id]: checked === true,
-                        }));
-                      }}
-                    />
-                    <span className="text-sm font-medium text-foreground">
-                      Mark this habit complete for today
-                    </span>
-                  </label>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-end">
-                    <div className="space-y-2">
-                      <label
-                        className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100"
-                        htmlFor={`habit-${habit.id}`}
-                      >
-                        {habit.trackingType === 'time' ? 'Hours today' : 'Logged today'}
-                      </label>
-                      <Input
+                    {isComplete ? (
+                      <CheckCheck className="size-3.5" />
+                    ) : (
+                      <CircleDashed className="size-3.5" />
+                    )}
+                    <span>{isComplete ? 'Done' : 'In progress'}</span>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {habit.trackingType === 'boolean' ? (
+                    <label
+                      className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/70 px-4 py-3 shadow-sm dark:bg-secondary/60 dark:shadow-none"
+                      htmlFor={`habit-${habit.id}`}
+                    >
+                      <Checkbox
                         id={`habit-${habit.id}`}
                         aria-label={habit.name}
-                        className="h-11 border-border bg-white/75 text-lg font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
-                        inputMode="decimal"
-                        min="0"
-                        step={habit.trackingType === 'time' ? '0.25' : '1'}
-                        type="number"
-                        value={typeof value === 'number' ? value : ''}
-                        onChange={(event) => {
-                          const nextValue = parseInputValue(event.currentTarget.value);
-
-                          setHabitValues((currentValues) => ({
-                            ...currentValues,
-                            [habit.id]: nextValue,
-                          }));
+                        checked={value === true}
+                        className="border-border bg-white dark:bg-background"
+                        disabled={isSavingToggle}
+                        onCheckedChange={(checked) => {
+                          toggleHabitMutation.mutate({
+                            habitId: habit.id,
+                            entryId: habit.entryId,
+                            date: today,
+                            completed: checked === true,
+                          });
                         }}
                       />
-                    </div>
+                      <span className="text-sm font-medium text-foreground">
+                        Mark this habit complete for today
+                      </span>
+                    </label>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-end">
+                      <div className="space-y-2">
+                        <label
+                          className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100"
+                          htmlFor={`habit-${habit.id}`}
+                        >
+                          {habit.trackingType === 'time' ? 'Hours today' : 'Logged today'}
+                        </label>
+                        <Input
+                          id={`habit-${habit.id}`}
+                          aria-label={habit.name}
+                          className="h-11 border-border bg-white/75 text-lg font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
+                          disabled={isSavingValue || isSavingToggle}
+                          inputMode="decimal"
+                          min="0"
+                          step={habit.trackingType === 'time' ? '0.25' : '1'}
+                          type="number"
+                          value={
+                            draftValues[habit.id] ??
+                            (typeof value === 'number' ? formatNumber(value) : '')
+                          }
+                          onBlur={() => commitTrackedValue(habit)}
+                          onChange={(event) => {
+                            const nextValue = event.currentTarget.value;
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="font-semibold dark:text-foreground">{progressText}</span>
-                        <span className="opacity-70 dark:text-muted dark:opacity-100">
-                          {Math.round(progressPercent)}%
-                        </span>
-                      </div>
-                      <div
-                        aria-hidden="true"
-                        className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-secondary"
-                      >
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
-                          style={{ width: `${progressPercent}%` }}
+                            setDraftValues((currentValues) => ({
+                              ...currentValues,
+                              [habit.id]: nextValue,
+                            }));
+                          }}
                         />
                       </div>
-                      <p className="text-xs font-medium tracking-wide uppercase opacity-70 dark:text-muted dark:opacity-100">
-                        Target: {formatNumber(habit.target ?? 0)} {habit.unit}
-                      </p>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="font-semibold dark:text-foreground">{progressText}</span>
+                          <span className="opacity-70 dark:text-muted dark:opacity-100">
+                            {Math.round(progressPercent)}%
+                          </span>
+                        </div>
+                        <div
+                          aria-hidden="true"
+                          className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-secondary"
+                        >
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-[width] duration-200"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs font-medium tracking-wide uppercase opacity-70 dark:text-muted dark:opacity-100">
+                          Target: {formatNumber(habit.target ?? 0)} {habit.unit}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
