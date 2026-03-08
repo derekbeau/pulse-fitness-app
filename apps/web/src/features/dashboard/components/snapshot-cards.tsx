@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { mockDailySnapshot, type DailySnapshot } from '@/lib/mock-data/dashboard';

@@ -1,7 +1,10 @@
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { GuestRoute } from '@/components/auth/guest-route';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { AppLayout } from '@/components/layout/app-layout';
+import { createAppQueryClient } from '@/lib/query-client';
 import { ActivityPage } from '@/pages/activity';
 import { DashboardPage } from '@/pages/dashboard';
 import { DesignSystemPage } from '@/pages/design-system';
@@ -76,10 +79,14 @@ function AppRoutes() {
 }
 
 function App() {
+  const [queryClient] = useState(() => createAppQueryClient());
+
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
