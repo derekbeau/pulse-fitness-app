@@ -21,7 +21,7 @@ export function Sidebar() {
   const { logout, user } = useAuthStore();
   const displayName = user?.name?.trim() || user?.username || 'Account';
   const subtitle = user?.name ? `@${user.username}` : 'Signed in';
-  const avatarLabel = displayName.charAt(0).toUpperCase() || 'A';
+  const avatarLabel = displayName.charAt(0).toUpperCase();
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -144,6 +144,7 @@ export function Sidebar() {
                   <div
                     aria-label={displayName}
                     className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary"
+                    tabIndex={0}
                   >
                     {avatarLabel}
                   </div>

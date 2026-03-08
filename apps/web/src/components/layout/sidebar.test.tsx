@@ -114,4 +114,12 @@ describe('Sidebar', () => {
     expect(store.logout).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
   });
+
+  it('keeps the collapsed avatar focusable for keyboard users', () => {
+    window.localStorage.setItem('pulse-sidebar-collapsed', 'true');
+
+    renderSidebar();
+
+    expect(screen.getByLabelText('Derek')).toHaveAttribute('tabindex', '0');
+  });
 });
