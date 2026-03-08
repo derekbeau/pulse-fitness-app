@@ -83,6 +83,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   });
 
   const filterOptionsQuery = useExercises({
+    // Fetch a broad sample to populate filter dropdown options independently of active filters.
     limit: 100,
     page: 1,
   });

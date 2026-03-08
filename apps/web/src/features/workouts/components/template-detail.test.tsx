@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutTemplateDetail } from './template-detail';
 
@@ -221,12 +222,3 @@ describe('WorkoutTemplateDetail', () => {
     );
   });
 });
-
-function jsonResponse(payload: unknown, init?: ResponseInit) {
-  return new Response(JSON.stringify(payload), {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...init,
-  });
-}

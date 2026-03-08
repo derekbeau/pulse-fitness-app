@@ -25,15 +25,18 @@ type WorkoutTemplateResponse = { data: WorkoutTemplate };
 type ExercisesResponse = { data: Exercise[]; meta: PaginationMeta };
 type WorkoutSessionResponse = { data: WorkoutSession };
 
+// Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutTemplateResponseSchema = z.object({
   data: workoutTemplateSchema,
 }) as unknown as z.ZodType<WorkoutTemplateResponse>;
 
+// Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const exercisesResponseSchema = z.object({
   data: z.array(exerciseSchema),
   meta: paginationMetaSchema,
 }) as unknown as z.ZodType<ExercisesResponse>;
 
+// Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutSessionResponseSchema = z.object({
   data: workoutSessionSchema,
 }) as unknown as z.ZodType<WorkoutSessionResponse>;

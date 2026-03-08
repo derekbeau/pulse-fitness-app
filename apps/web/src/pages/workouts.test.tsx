@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { jsonResponse } from '@/test/test-utils';
 import { WorkoutsPage } from './workouts';
 
 describe('WorkoutsPage', () => {
@@ -63,7 +64,7 @@ describe('WorkoutsPage', () => {
   });
 
   it('starts a selected template from the templates view', () => {
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
@@ -90,13 +91,4 @@ function TemplateRouteProbe() {
   const templateId = new URLSearchParams(location.search).get('template');
 
   return <h1>{`Template ${templateId}`}</h1>;
-}
-
-function jsonResponse(payload: unknown, init?: ResponseInit) {
-  return new Response(JSON.stringify(payload), {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...init,
-  });
 }
