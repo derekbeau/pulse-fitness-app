@@ -6,6 +6,7 @@ import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { exerciseRoutes } from './routes/exercises/index.js';
 import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
+import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
@@ -34,6 +35,7 @@ export const buildServer = () => {
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });
   app.register(scheduledWorkoutRoutes, { prefix: '/api/v1/scheduled-workouts' });
+  app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });
   app.register(workoutTemplateRoutes, { prefix: '/api/v1/workout-templates' });
 
   return app;
