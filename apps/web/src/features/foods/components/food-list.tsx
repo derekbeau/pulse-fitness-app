@@ -1,6 +1,6 @@
 import { CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,6 +114,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
   const [draftFoodName, setDraftFoodName] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [foodPendingDelete, setFoodPendingDelete] = useState<PendingDeleteFood | null>(null);
+  const editCancelledRef = useRef(false);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -152,11 +153,13 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
   }, [page, totalPages]);
 
   function beginEditing(food: Food) {
+    editCancelledRef.current = false;
     setEditingFoodId(food.id);
     setDraftFoodName(food.name);
   }
 
   function cancelEditing() {
+    editCancelledRef.current = true;
     setEditingFoodId(null);
     setDraftFoodName('');
     setIsSavingEdit(false);
@@ -344,8 +347,8 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
                               className="h-9"
                               aria-disabled={isUpdatingFood}
                               onBlur={() => {
-                                if (!isUpdatingFood) {
-                                  cancelEditing();
+                                if (!isUpdatingFood && !editCancelledRef.current) {
+                                  void saveEditing();
                                 }
                               }}
                               onChange={(event) => setDraftFoodName(event.target.value)}
@@ -361,7 +364,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
                             <p className="text-xs text-muted-foreground">
                               {isUpdatingFood
                                 ? 'Saving changes…'
-                                : 'Press Enter to save or Escape to cancel.'}
+                                : 'Press Enter or click away to save, Escape to cancel.'}
                             </p>
                           </form>
                         ) : (
