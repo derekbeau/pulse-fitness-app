@@ -70,7 +70,14 @@ function sortFoods(foods: Food[], sort: string) {
   return copy.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function createFoodsApiMock(initialFoods: Food[], options?: { failDeleteForId?: string }) {
+function createFoodsApiMock(
+  initialFoods: Food[],
+  options?: {
+    deferredUpdateForId?: string;
+    deferredUpdateResponse?: Promise<Response>;
+    failDeleteForId?: string;
+  },
+) {
   let foods = [...initialFoods];
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -122,6 +129,10 @@ function createFoodsApiMock(initialFoods: Food[], options?: { failDeleteForId?: 
             },
           },
         );
+      }
+
+      if (options?.deferredUpdateForId === id && options.deferredUpdateResponse) {
+        return options.deferredUpdateResponse;
       }
 
       foods[index] = {
@@ -402,6 +413,53 @@ describe('FoodList', () => {
 
     lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
     expect(lastUrl.pathname).toBe('/api/v1/foods');
+  });
+
+  it('keeps the inline editor open if a pending save blurs before the API fails', async () => {
+    const deferredUpdate = createDeferredResponse();
+    const api = createFoodsApiMock(paginatedFoods, {
+      deferredUpdateForId: 'food-13',
+      deferredUpdateResponse: deferredUpdate.promise,
+    });
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+
+    selectSortOption('Highest Protein');
+    expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
+    const editInput = await screen.findByRole('textbox', { name: 'Edit Whey Protein name' });
+
+    fireEvent.change(editInput, { target: { value: 'Casein Protein' } });
+    fireEvent.submit(editInput.closest('form') as HTMLFormElement);
+    fireEvent.blur(editInput);
+
+    deferredUpdate.resolve(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'UPDATE_FAILED',
+            message: 'Update failed',
+          },
+        }),
+        {
+          status: 500,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Update failed')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('textbox', { name: 'Edit Whey Protein name' })).toHaveValue(
+      'Casein Protein',
+    );
   });
 
   it('removes foods optimistically and keeps the total count in sync', async () => {

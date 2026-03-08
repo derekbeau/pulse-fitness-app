@@ -81,14 +81,14 @@ export function useUpdateFood() {
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdateFoodInput }) => putFood(id, updates),
-    onSuccess: (updatedFood) => {
+    onSuccess: async (updatedFood) => {
       patchFoodListCache(queryClient, (current) => ({
         ...current,
         data: current.data.map((food) => (food.id === updatedFood.id ? updatedFood : food)),
       }));
 
       queryClient.setQueryData(foodKeys.detail(updatedFood.id), updatedFood);
-      return queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: foodKeys.list(),
       });
     },

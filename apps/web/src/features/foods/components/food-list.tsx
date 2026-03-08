@@ -112,6 +112,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
   const [page, setPage] = useState(1);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [foodPendingDelete, setFoodPendingDelete] = useState<PendingDeleteFood | null>(null);
 
   useEffect(() => {
@@ -140,6 +141,9 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     updateFood.isError && updateFood.error instanceof Error ? updateFood.error.message : null;
   const deleteErrorMessage =
     deleteFood.isError && deleteFood.error instanceof Error ? deleteFood.error.message : null;
+  const isEditingFoodPending =
+    isSavingEdit ||
+    (editingFoodId !== null && updateFood.isPending && updateFood.variables?.id === editingFoodId);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -155,10 +159,11 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
   function cancelEditing() {
     setEditingFoodId(null);
     setDraftFoodName('');
+    setIsSavingEdit(false);
   }
 
   async function saveEditing() {
-    if (!editingFoodId) {
+    if (!editingFoodId || isEditingFoodPending) {
       return;
     }
 
@@ -175,6 +180,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     }
 
     try {
+      setIsSavingEdit(true);
       await updateFood.mutateAsync({
         id: editingFoodId,
         updates: {
@@ -184,6 +190,8 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
       cancelEditing();
     } catch {
       return;
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -334,8 +342,12 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
                               aria-label={`Edit ${food.name} name`}
                               autoFocus
                               className="h-9"
-                              disabled={isUpdatingFood}
-                              onBlur={cancelEditing}
+                              aria-disabled={isUpdatingFood}
+                              onBlur={() => {
+                                if (!isUpdatingFood) {
+                                  cancelEditing();
+                                }
+                              }}
                               onChange={(event) => setDraftFoodName(event.target.value)}
                               onKeyDown={(event) => {
                                 if (event.key === 'Escape') {
@@ -343,6 +355,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
                                   cancelEditing();
                                 }
                               }}
+                              readOnly={isUpdatingFood}
                               value={draftFoodName}
                             />
                             <p className="text-xs text-muted-foreground">
