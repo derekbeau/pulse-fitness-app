@@ -172,24 +172,31 @@ const reorderCachedHabits = (habits: Habit[] | undefined, items: ReorderHabitsIn
 
 export function useHabits() {
   return useQuery({
-    queryFn: ({ signal }) =>
-      apiRequest('/api/v1/habits', {
+    queryFn: async ({ signal }) => {
+      const habits = await apiRequest<Habit[]>('/api/v1/habits', {
         method: 'GET',
-        schema: habitsSchema,
         signal,
-      }),
+      });
+
+      return habitsSchema.parse(habits);
+    },
     queryKey: habitKeys.list(),
   });
 }
 
 export function useHabitEntries(from: string, to: string) {
   return useQuery({
-    queryFn: ({ signal }) =>
-      apiRequest(`/api/v1/habit-entries?from=${from}&to=${to}`, {
-        method: 'GET',
-        schema: habitEntriesSchema,
-        signal,
-      }),
+    queryFn: async ({ signal }) => {
+      const entries = await apiRequest<HabitEntry[]>(
+        `/api/v1/habit-entries?from=${from}&to=${to}`,
+        {
+          method: 'GET',
+          signal,
+        },
+      );
+
+      return habitEntriesSchema.parse(entries);
+    },
     queryKey: habitKeys.entries({ from, to }),
   });
 }
@@ -198,14 +205,14 @@ export function useCreateHabit() {
   const queryClient = useQueryClient();
 
   return useMutation<Habit, Error, CreateHabitInput>({
-    mutationFn: (values) => {
+    mutationFn: async (values) => {
       const payload = createHabitInputSchema.parse(values);
-
-      return apiRequest('/api/v1/habits', {
+      const habit = await apiRequest<Habit>('/api/v1/habits', {
         body: payload,
         method: 'POST',
-        schema: habitSchema,
       });
+
+      return habitSchema.parse(habit);
     },
     onSuccess: (habit) => {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
@@ -222,14 +229,14 @@ export function useUpdateHabit() {
   const queryClient = useQueryClient();
 
   return useMutation<Habit, Error, { id: string; values: UpdateHabitInput }>({
-    mutationFn: ({ id, values }) => {
+    mutationFn: async ({ id, values }) => {
       const payload = updateHabitInputSchema.parse(values);
-
-      return apiRequest(`/api/v1/habits/${id}`, {
+      const habit = await apiRequest<Habit>(`/api/v1/habits/${id}`, {
         body: payload,
         method: 'PUT',
-        schema: habitSchema,
       });
+
+      return habitSchema.parse(habit);
     },
     onSuccess: (habit) => {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
@@ -246,11 +253,13 @@ export function useDeleteHabit() {
   const queryClient = useQueryClient();
 
   return useMutation<{ success: true }, Error, { id: string }>({
-    mutationFn: ({ id }) =>
-      apiRequest(`/api/v1/habits/${id}`, {
+    mutationFn: async ({ id }) => {
+      const response = await apiRequest<{ success: true }>(`/api/v1/habits/${id}`, {
         method: 'DELETE',
-        schema: successSchema,
-      }),
+      });
+
+      return successSchema.parse(response);
+    },
     onSuccess: (_response, variables) => {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
         currentHabits?.filter((habit) => habit.id !== variables.id),
@@ -270,11 +279,10 @@ export function useReorderHabits() {
       mutationFn: (items) => {
         const payload = reorderHabitsInputSchema.parse({ items });
 
-        return apiRequest('/api/v1/habits/reorder', {
+        return apiRequest<{ success: true }>('/api/v1/habits/reorder', {
           body: payload,
           method: 'PATCH',
-          schema: successSchema,
-        });
+        }).then((response) => successSchema.parse(response));
       },
       onMutate: async (items) => {
         await queryClient.cancelQueries({ queryKey: habitKeys.list() });
@@ -304,16 +312,18 @@ export function useToggleHabit() {
   const queryClient = useQueryClient();
 
   return useMutation<HabitEntry, Error, ToggleHabitVariables, MutationContext>({
-    mutationFn: ({ habitId, date, completed, value }) =>
-      apiRequest(`/api/v1/habits/${habitId}/entries`, {
+    mutationFn: async ({ habitId, date, completed, value }) => {
+      const entry = await apiRequest<HabitEntry>(`/api/v1/habits/${habitId}/entries`, {
         body: {
           completed,
           ...(value === undefined ? {} : { value }),
           date,
         },
         method: 'POST',
-        schema: habitEntrySchema,
-      }),
+      });
+
+      return habitEntrySchema.parse(entry);
+    },
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: habitEntriesKeyPrefix });
 
@@ -355,15 +365,17 @@ export function useUpdateHabitEntry() {
   const queryClient = useQueryClient();
 
   return useMutation<HabitEntry, Error, UpdateHabitEntryVariables, MutationContext>({
-    mutationFn: ({ id, completed, value }) =>
-      apiRequest(`/api/v1/habit-entries/${id}`, {
+    mutationFn: async ({ id, completed, value }) => {
+      const entry = await apiRequest<HabitEntry>(`/api/v1/habit-entries/${id}`, {
         body: {
           ...(completed === undefined ? {} : { completed }),
           ...(value === undefined ? {} : { value }),
         },
         method: 'PATCH',
-        schema: habitEntrySchema,
-      }),
+      });
+
+      return habitEntrySchema.parse(entry);
+    },
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: habitEntriesKeyPrefix });
 
