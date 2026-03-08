@@ -278,10 +278,12 @@ const paginatedFoods = [
 
 describe('FoodList', () => {
   beforeEach(() => {
+    createAppQueryClient().clear();
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
   });
 
   afterEach(() => {
+    createAppQueryClient().clear();
     window.localStorage.clear();
     vi.unstubAllGlobals();
   });

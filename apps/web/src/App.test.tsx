@@ -1,9 +1,11 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
 import { workoutCompletedSessions } from '@/features/workouts';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { createAppQueryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/store/auth-store';
 
 const sessionId = workoutCompletedSessions[0]?.id ?? 'session-upper-push-2026-03-02';
@@ -45,10 +47,14 @@ const navRoutes = [
 ] as const;
 
 function renderApp() {
+  const queryClient = createAppQueryClient();
+
   return render(
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -82,6 +88,7 @@ function setAuthenticatedState() {
 
 describe('App', () => {
   beforeEach(() => {
+    createAppQueryClient().clear();
     window.localStorage.removeItem('pulse-theme');
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
