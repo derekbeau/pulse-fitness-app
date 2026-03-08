@@ -28,6 +28,7 @@ type TemplateExerciseRecord = {
   id: string;
   templateId: string;
   exerciseId: string;
+  exerciseName: string;
   orderIndex: number;
   sets: number | null;
   repsMin: number | null;
@@ -54,6 +55,7 @@ const templateExerciseSelection = {
   id: templateExercises.id,
   templateId: templateExercises.templateId,
   exerciseId: templateExercises.exerciseId,
+  exerciseName: exercises.name,
   orderIndex: templateExercises.orderIndex,
   sets: templateExercises.sets,
   repsMin: templateExercises.repsMin,
@@ -77,6 +79,7 @@ const buildTemplateSections = (
       .map<WorkoutTemplateExercise>((row) => ({
         id: row.id,
         exerciseId: row.exerciseId,
+        exerciseName: row.exerciseName,
         sets: row.sets,
         repsMin: row.repsMin,
         repsMax: row.repsMax,
@@ -140,7 +143,9 @@ const findTemplateRows = async (userId: string): Promise<TemplateRecord[]> => {
     .all();
 };
 
-const findTemplateExerciseRows = async (templateIds: string[]): Promise<TemplateExerciseRecord[]> => {
+const findTemplateExerciseRows = async (
+  templateIds: string[],
+): Promise<TemplateExerciseRecord[]> => {
   if (templateIds.length === 0) {
     return [];
   }
@@ -150,6 +155,7 @@ const findTemplateExerciseRows = async (templateIds: string[]): Promise<Template
   return db
     .select(templateExerciseSelection)
     .from(templateExercises)
+    .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
     .where(inArray(templateExercises.templateId, templateIds))
     .all();
 };
@@ -190,6 +196,7 @@ export const findWorkoutTemplateById = async (
   const rows = db
     .select(templateExerciseSelection)
     .from(templateExercises)
+    .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
     .where(eq(templateExercises.templateId, id))
     .all();
 

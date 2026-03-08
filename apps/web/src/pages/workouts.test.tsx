@@ -1,12 +1,38 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { WorkoutsPage } from './workouts';
 
 describe('WorkoutsPage', () => {
+  beforeEach(() => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('switches between the workouts views', () => {
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
@@ -15,7 +41,10 @@ describe('WorkoutsPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Workouts' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Calendar' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Calendar' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByText('Workout Calendar')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
@@ -50,7 +79,9 @@ describe('WorkoutsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start workout' }));
 
-    expect(screen.getByRole('heading', { name: 'Template lower-quad-dominant' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Template lower-quad-dominant' }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -59,4 +90,13 @@ function TemplateRouteProbe() {
   const templateId = new URLSearchParams(location.search).get('template');
 
   return <h1>{`Template ${templateId}`}</h1>;
+}
+
+function jsonResponse(payload: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(payload), {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    ...init,
+  });
 }

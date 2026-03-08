@@ -1,6 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
+import type { Exercise } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
@@ -10,17 +13,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-  mockExercises,
-  type WorkoutExercise,
-  type WorkoutExerciseCategory,
-} from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
+import { useExercises } from '../api/workouts';
 import { workoutExerciseHistory } from '../lib/mock-data';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 
-const categoryBadgeStyles: Record<WorkoutExerciseCategory, string> = {
+const categoryBadgeStyles = {
   compound:
     'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
   isolation:
@@ -29,44 +28,87 @@ const categoryBadgeStyles: Record<WorkoutExerciseCategory, string> = {
     'border-transparent bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
   mobility:
     'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
-};
+} as const;
+
+const categoryOptions = ['compound', 'isolation', 'cardio', 'mobility'] as const;
+const PAGE_SIZE = 8;
 
 type ExerciseLibraryProps = {
   className?: string;
 };
 
 export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [muscleGroup, setMuscleGroup] = useState('all');
-  const [equipment, setEquipment] = useState('all');
-  const [category, setCategory] = useState<'all' | WorkoutExerciseCategory>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
 
+  const currentQuery = searchParams.get('q') ?? '';
+  const muscleGroup = searchParams.get('muscleGroup') ?? 'all';
+  const equipment = searchParams.get('equipment') ?? 'all';
+  const category = searchParams.get('category') ?? 'all';
+  const page = parsePage(searchParams.get('page'));
+
+  useEffect(() => {
+    setSearchTerm(currentQuery);
+  }, [currentQuery]);
+
+  useEffect(() => {
+    const normalizedSearchTerm = searchTerm.trim();
+
+    if (normalizedSearchTerm === currentQuery) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+
+        setSearchParam(next, 'q', normalizedSearchTerm || null);
+        next.set('page', '1');
+
+        return next;
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentQuery, searchTerm, setSearchParams]);
+
+  const exercisesQuery = useExercises({
+    category: parseCategory(category),
+    equipment: normalizeFilterParam(equipment),
+    limit: PAGE_SIZE,
+    muscleGroup: normalizeFilterParam(muscleGroup),
+    page,
+    q: currentQuery || undefined,
+  });
+
+  const filterOptionsQuery = useExercises({
+    limit: 100,
+    page: 1,
+  });
+
+  const filterOptionExercises: Exercise[] =
+    filterOptionsQuery.data?.data ?? exercisesQuery.data?.data ?? [];
+  const filteredExercises: Exercise[] = exercisesQuery.data?.data ?? [];
+  const totalResults = exercisesQuery.data?.meta.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
+
   const muscleGroupOptions = useMemo(
-    () => Array.from(new Set(mockExercises.flatMap((exercise) => exercise.muscleGroups))).sort(),
-    [],
+    () =>
+      Array.from(
+        new Set(filterOptionExercises.flatMap((exercise) => exercise.muscleGroups)),
+      ).sort(),
+    [filterOptionExercises],
   );
   const equipmentOptions = useMemo(
-    () => Array.from(new Set(mockExercises.map((exercise) => exercise.equipment))).sort(),
-    [],
-  );
-
-  const filteredExercises = useMemo(
-    () =>
-      mockExercises.filter((exercise) => {
-        const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.trim().toLowerCase());
-        const matchesMuscleGroup =
-          muscleGroup === 'all' || exercise.muscleGroups.includes(muscleGroup);
-        const matchesEquipment = equipment === 'all' || exercise.equipment === equipment;
-        const matchesCategory = category === 'all' || exercise.category === category;
-
-        return matchesSearch && matchesMuscleGroup && matchesEquipment && matchesCategory;
-      }),
-    [category, equipment, muscleGroup, searchTerm],
+    () => Array.from(new Set(filterOptionExercises.map((exercise) => exercise.equipment))).sort(),
+    [filterOptionExercises],
   );
 
   const selectedExercise =
-    mockExercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
+    filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ??
+    filterOptionExercises.find((exercise) => exercise.id === selectedExerciseId) ??
+    null;
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -93,7 +135,11 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
             <select
               aria-label="Filter by muscle group"
               className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              onChange={(event) => setMuscleGroup(event.target.value)}
+              onChange={(event) =>
+                updateSearchParams(searchParams, setSearchParams, {
+                  muscleGroup: event.target.value,
+                })
+              }
               value={muscleGroup}
             >
               <option value="all">All muscle groups</option>
@@ -109,7 +155,11 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
             <select
               aria-label="Filter by equipment"
               className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              onChange={(event) => setEquipment(event.target.value)}
+              onChange={(event) =>
+                updateSearchParams(searchParams, setSearchParams, {
+                  equipment: event.target.value,
+                })
+              }
               value={equipment}
             >
               <option value="all">All equipment</option>
@@ -126,25 +176,66 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
               aria-label="Filter by category"
               className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               onChange={(event) =>
-                setCategory(event.target.value as 'all' | WorkoutExerciseCategory)
+                updateSearchParams(searchParams, setSearchParams, {
+                  category: event.target.value,
+                })
               }
               value={category}
             >
               <option value="all">All categories</option>
-              <option value="compound">Compound</option>
-              <option value="isolation">Isolation</option>
-              <option value="cardio">Cardio</option>
-              <option value="mobility">Mobility</option>
+              {categoryOptions.map((option) => (
+                <option key={option} value={option}>
+                  {formatLabel(option)}
+                </option>
+              ))}
             </select>
           </FilterField>
         </CardContent>
       </Card>
 
-      <p className="text-sm text-muted">
-        {`${filteredExercises.length} exercise${filteredExercises.length === 1 ? '' : 's'} shown`}
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted">
+          {exercisesQuery.isFetching && !exercisesQuery.isPending
+            ? 'Updating results...'
+            : `${totalResults} exercise${totalResults === 1 ? '' : 's'} shown`}
+        </p>
 
-      {filteredExercises.length === 0 ? (
+        <div className="flex items-center gap-2">
+          <Button
+            disabled={page <= 1 || exercisesQuery.isFetching}
+            onClick={() =>
+              updateSearchParams(searchParams, setSearchParams, { page: String(page - 1) }, false)
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted">{`Page ${page} of ${totalPages}`}</span>
+          <Button
+            disabled={page >= totalPages || exercisesQuery.isFetching}
+            onClick={() =>
+              updateSearchParams(searchParams, setSearchParams, { page: String(page + 1) }, false)
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
+      {exercisesQuery.isPending ? (
+        <ExerciseLibrarySkeleton />
+      ) : exercisesQuery.isError ? (
+        <Card>
+          <CardContent className="py-6">
+            <p className="text-sm text-muted">Unable to load exercises right now.</p>
+          </CardContent>
+        </Card>
+      ) : filteredExercises.length === 0 ? (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted">
@@ -164,7 +255,14 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
         </div>
       )}
 
-      <Dialog onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)} open={selectedExercise != null}>
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedExerciseId(null);
+          }
+        }}
+        open={selectedExercise != null}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
           {selectedExercise ? (
             <div className="space-y-0">
@@ -174,7 +272,13 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
                   Review weight and rep progression across completed sessions.
                 </DialogDescription>
               </DialogHeader>
-              <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+              <div className="space-y-4 px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                {selectedExercise.instructions ? (
+                  <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+                    <p className="text-sm font-medium text-foreground">Instructions</p>
+                    <p className="mt-1 text-sm text-muted">{selectedExercise.instructions}</p>
+                  </div>
+                ) : null}
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
                   history={workoutExerciseHistory[selectedExercise.id] ?? []}
@@ -192,7 +296,7 @@ function ExerciseCard({
   exercise,
   onSelectTrend,
 }: {
-  exercise: WorkoutExercise;
+  exercise: Exercise;
   onSelectTrend: () => void;
 }) {
   return (
@@ -235,12 +339,34 @@ function ExerciseCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pb-5">
+      <CardContent className="space-y-3 pb-5">
         <p className="text-sm text-muted">
           Targets {exercise.muscleGroups.map((group) => formatLabel(group)).join(', ')}.
         </p>
+        {exercise.instructions ? (
+          <p className="text-sm text-muted">{exercise.instructions}</p>
+        ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function ExerciseLibrarySkeleton() {
+  return (
+    <div aria-label="Loading exercises" className="grid gap-4 xl:grid-cols-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card key={index}>
+          <CardContent className="space-y-4 py-6">
+            <div className="h-6 w-1/2 animate-pulse rounded-full bg-secondary" />
+            <div className="h-4 w-1/3 animate-pulse rounded-full bg-secondary" />
+            <div className="flex gap-2">
+              <div className="h-8 w-24 animate-pulse rounded-full bg-secondary/80" />
+              <div className="h-8 w-28 animate-pulse rounded-full bg-secondary/80" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -251,6 +377,50 @@ function FilterField({ children, label }: { children: ReactNode; label: string }
       {children}
     </label>
   );
+}
+
+function updateSearchParams(
+  currentSearchParams: URLSearchParams,
+  setSearchParams: ReturnType<typeof useSearchParams>[1],
+  values: Record<string, string>,
+  resetPage = true,
+) {
+  const next = new URLSearchParams(currentSearchParams);
+
+  Object.entries(values).forEach(([key, value]) => {
+    setSearchParam(next, key, value === 'all' ? null : value);
+  });
+
+  if (resetPage) {
+    next.set('page', '1');
+  }
+
+  setSearchParams(next);
+}
+
+function setSearchParam(searchParams: URLSearchParams, key: string, value: string | null) {
+  if (!value) {
+    searchParams.delete(key);
+    return;
+  }
+
+  searchParams.set(key, value);
+}
+
+function normalizeFilterParam(value: string) {
+  return value === 'all' ? undefined : value;
+}
+
+function parseCategory(value: string) {
+  return categoryOptions.includes(value as (typeof categoryOptions)[number])
+    ? (value as (typeof categoryOptions)[number])
+    : undefined;
+}
+
+function parsePage(value: string | null) {
+  const page = Number.parseInt(value ?? '1', 10);
+
+  return Number.isNaN(page) || page < 1 ? 1 : page;
 }
 
 function formatLabel(value: string) {

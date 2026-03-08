@@ -289,6 +289,7 @@ describe('workout template routes', () => {
           exercises: Array<{
             id: string;
             exerciseId: string;
+            exerciseName: string;
             repsMin: number | null;
             repsMax: number | null;
             notes: string | null;
@@ -309,6 +310,7 @@ describe('workout template routes', () => {
           exercises: [
             {
               exerciseId: 'global-row-erg',
+              exerciseName: 'Row Erg',
               repsMin: 240,
               repsMax: 240,
               notes: 'Easy pace',
@@ -321,6 +323,7 @@ describe('workout template routes', () => {
           exercises: [
             {
               exerciseId: 'user-press',
+              exerciseName: 'Incline Dumbbell Press',
               repsMin: 8,
               repsMax: 10,
               notes: 'Drive feet into floor.',

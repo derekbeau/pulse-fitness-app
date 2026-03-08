@@ -34,6 +34,7 @@ describe('workoutTemplateSchema', () => {
             {
               id: 'exercise-1',
               exerciseId: 'row-erg',
+              exerciseName: ' Row Erg ',
               sets: 1,
               repsMin: 240,
               repsMax: 240,
@@ -73,6 +74,7 @@ describe('workoutTemplateSchema', () => {
             {
               id: 'exercise-1',
               exerciseId: 'row-erg',
+              exerciseName: 'Row Erg',
               sets: 1,
               repsMin: 240,
               repsMax: 240,

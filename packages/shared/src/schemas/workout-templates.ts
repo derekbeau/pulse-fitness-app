@@ -40,6 +40,7 @@ export const workoutTemplateExerciseSchema = z
   .object({
     id: z.string(),
     exerciseId: requiredStringSchema,
+    exerciseName: requiredStringSchema,
     sets: nullablePositiveIntSchema,
     repsMin: nullablePositiveIntSchema,
     repsMax: nullablePositiveIntSchema,
@@ -50,8 +51,7 @@ export const workoutTemplateExerciseSchema = z
     cues: z.array(requiredStringSchema).max(20),
   })
   .refine(
-    (value) =>
-      value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
+    (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
     {
       message: 'repsMin must be less than or equal to repsMax',
       path: ['repsMax'],
@@ -76,8 +76,7 @@ const workoutTemplateExerciseInputSchema = z
     cues: z.array(requiredStringSchema).max(20).optional().default([]),
   })
   .refine(
-    (value) =>
-      value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
+    (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
     {
       message: 'repsMin must be less than or equal to repsMax',
       path: ['repsMax'],
