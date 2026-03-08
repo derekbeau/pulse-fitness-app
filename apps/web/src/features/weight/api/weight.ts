@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BodyWeightEntry, CreateWeightInput } from '@pulse/shared';
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api-client';
 
 type WeightTrendFilters = {
   from?: string;

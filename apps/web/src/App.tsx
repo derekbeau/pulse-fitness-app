@@ -20,7 +20,6 @@ import { ResourceDetailPage } from '@/pages/resource-detail';
 import { ResourcesPage } from '@/pages/resources';
 import { SettingsPage } from '@/pages/settings';
 import { ActiveWorkoutPage } from '@/pages/active-workout';
-import { AppQueryProvider } from '@/lib/query-client';
 import { WorkoutSessionDetailPage } from '@/pages/workout-session-detail';
 import { WorkoutTemplateDetailPage } from '@/pages/workout-template-detail';
 import { WorkoutsPage } from '@/pages/workouts';
@@ -78,11 +77,9 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AppQueryProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AppQueryProvider>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

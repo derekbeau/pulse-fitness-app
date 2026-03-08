@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateNutritionTargetInput, NutritionTarget } from '@pulse/shared';
 
-import { apiRequest } from '@/lib/api';
+import { apiRequest } from '@/lib/api-client';
 
 export const nutritionTargetKeys = {
   all: ['nutrition-targets'] as const,
