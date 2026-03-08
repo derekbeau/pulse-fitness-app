@@ -25,6 +25,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Rebuild better-sqlite3
+        run: pnpm rebuild better-sqlite3
+
       - name: Typecheck
         run: pnpm turbo typecheck
 

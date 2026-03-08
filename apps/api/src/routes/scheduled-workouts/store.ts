@@ -27,22 +27,6 @@ const scheduledWorkoutListSelection = {
   createdAt: scheduledWorkouts.createdAt,
 };
 
-export const templateBelongsToUser = async (
-  templateId: string,
-  userId: string,
-): Promise<boolean> => {
-  const { db } = await import('../../db/index.js');
-
-  const template = db
-    .select({ id: workoutTemplates.id })
-    .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
-    .limit(1)
-    .get();
-
-  return Boolean(template);
-};
-
 export const createScheduledWorkout = async ({
   id,
   userId,
@@ -127,17 +111,13 @@ export const updateScheduledWorkout = async ({
 }): Promise<ScheduledWorkout | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
+  const [updatedWorkout] = await db
     .update(scheduledWorkouts)
     .set(changes)
     .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
-    .run();
+    .returning(scheduledWorkoutSelection);
 
-  if (result.changes !== 1) {
-    return undefined;
-  }
-
-  return findScheduledWorkoutById(id, userId);
+  return updatedWorkout;
 };
 
 export const deleteScheduledWorkout = async (id: string, userId: string): Promise<boolean> => {

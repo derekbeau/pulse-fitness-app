@@ -219,7 +219,7 @@ describe('exercise routes', () => {
 
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
-    const [searchResponse, filterResponse, pagedResponse] = await Promise.all([
+    const [searchResponse, filterResponse, filtersResponse, pagedResponse] = await Promise.all([
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises?q=PRESS',
@@ -228,6 +228,11 @@ describe('exercise routes', () => {
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises?muscleGroup=lats&equipment=machine&category=compound',
+        headers: createAuthorizationHeader(authToken),
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/filters',
         headers: createAuthorizationHeader(authToken),
       }),
       context.app.inject({
@@ -257,6 +262,14 @@ describe('exercise routes', () => {
         page: 1,
         limit: 20,
         total: 1,
+      },
+    });
+
+    expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.json()).toEqual({
+      data: {
+        muscleGroups: ['chest', 'lats', 'triceps', 'upper back'],
+        equipment: ['barbell', 'cable machine', 'machine'],
       },
     });
 

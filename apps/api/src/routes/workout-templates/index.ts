@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import {
-  createWorkoutTemplateInputSchema,
-  updateWorkoutTemplateInputSchema,
-} from '@pulse/shared';
+import { createWorkoutTemplateInputSchema, updateWorkoutTemplateInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
@@ -30,9 +27,11 @@ const INVALID_TEMPLATE_EXERCISE_RESPONSE = {
 
 const getReferencedExerciseIds = (
   sections: Array<{ exercises: Array<{ exerciseId: string }> }>,
-): string[] => sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId));
+): string[] =>
+  sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId));
 
 export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
+  // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
   app.addHook('onRequest', requireUserAuth);
 
   app.get('/', async (request, reply) => {

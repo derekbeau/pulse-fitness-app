@@ -23,6 +23,12 @@ const paginationMetaSchema = z.object({
 type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 type WorkoutTemplateResponse = { data: WorkoutTemplate };
 type ExercisesResponse = { data: Exercise[]; meta: PaginationMeta };
+type ExerciseFiltersResponse = {
+  data: {
+    muscleGroups: string[];
+    equipment: string[];
+  };
+};
 type WorkoutSessionResponse = { data: WorkoutSession };
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -36,6 +42,13 @@ const exercisesResponseSchema = z.object({
   meta: paginationMetaSchema,
 }) as unknown as z.ZodType<ExercisesResponse>;
 
+const exerciseFiltersResponseSchema = z.object({
+  data: z.object({
+    muscleGroups: z.array(z.string()),
+    equipment: z.array(z.string()),
+  }),
+}) as z.ZodType<ExerciseFiltersResponse>;
+
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutSessionResponseSchema = z.object({
   data: workoutSessionSchema,
@@ -46,6 +59,7 @@ type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchem
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
   exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
+  exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   sessions: () => ['workouts', 'sessions'] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
 };
@@ -88,6 +102,13 @@ async function getExercises(params: ExerciseQueryParams) {
   });
 }
 
+async function getExerciseFilters() {
+  return apiRequest({
+    path: '/api/v1/exercises/filters',
+    schema: exerciseFiltersResponseSchema,
+  });
+}
+
 async function createWorkoutSession(input: CreateWorkoutSessionRequest) {
   const parsedInput = createWorkoutSessionInputSchema.parse(input);
   const payload = await apiRequest({
@@ -109,12 +130,17 @@ export function useWorkoutTemplate(id: string) {
 }
 
 export function useExercises(params: ExerciseQueryParams) {
-  const parsedParams = exerciseQueryParamsSchema.parse(params);
-
   return useQuery<ExercisesResponse>({
     placeholderData: (previousData) => previousData,
-    queryFn: () => getExercises(parsedParams),
-    queryKey: workoutQueryKeys.exercises(parsedParams),
+    queryFn: () => getExercises(params),
+    queryKey: workoutQueryKeys.exercises(params),
+  });
+}
+
+export function useExerciseFilters() {
+  return useQuery<ExerciseFiltersResponse>({
+    queryFn: getExerciseFilters,
+    queryKey: workoutQueryKeys.exerciseFilters(),
   });
 }
 

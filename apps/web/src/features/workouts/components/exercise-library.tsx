@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-import { useExercises } from '../api/workouts';
+import { useExerciseFilters, useExercises } from '../api/workouts';
 import { workoutExerciseHistory } from '../lib/mock-data';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 
@@ -82,34 +82,22 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
     q: currentQuery || undefined,
   });
 
-  const filterOptionsQuery = useExercises({
-    // Fetch a broad sample to populate filter dropdown options independently of active filters.
-    limit: 100,
-    page: 1,
-  });
-
-  const filterOptionExercises: Exercise[] =
-    filterOptionsQuery.data?.data ?? exercisesQuery.data?.data ?? [];
+  const exerciseFiltersQuery = useExerciseFilters();
   const filteredExercises: Exercise[] = exercisesQuery.data?.data ?? [];
   const totalResults = exercisesQuery.data?.meta.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
 
   const muscleGroupOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(filterOptionExercises.flatMap((exercise) => exercise.muscleGroups)),
-      ).sort(),
-    [filterOptionExercises],
+    () => exerciseFiltersQuery.data?.data.muscleGroups ?? [],
+    [exerciseFiltersQuery.data],
   );
   const equipmentOptions = useMemo(
-    () => Array.from(new Set(filterOptionExercises.map((exercise) => exercise.equipment))).sort(),
-    [filterOptionExercises],
+    () => exerciseFiltersQuery.data?.data.equipment ?? [],
+    [exerciseFiltersQuery.data],
   );
 
   const selectedExercise =
-    filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ??
-    filterOptionExercises.find((exercise) => exercise.id === selectedExerciseId) ??
-    null;
+    filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -282,6 +270,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
                 ) : null}
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
+                  // TODO: Replace mock history with a real session-history query when workout history APIs land.
                   history={workoutExerciseHistory[selectedExercise.id] ?? []}
                 />
               </div>

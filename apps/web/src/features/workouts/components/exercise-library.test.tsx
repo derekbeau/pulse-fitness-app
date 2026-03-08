@@ -270,6 +270,21 @@ function mockExerciseRequests() {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = new URL(String(input), 'https://pulse.test');
 
+    if (url.pathname === '/api/v1/exercises/filters') {
+      return Promise.resolve(
+        jsonResponse({
+          data: {
+            muscleGroups: Array.from(
+              new Set(exerciseFixtures.flatMap((exercise) => exercise.muscleGroups)),
+            ).sort(),
+            equipment: Array.from(
+              new Set(exerciseFixtures.map((exercise) => exercise.equipment)),
+            ).sort(),
+          },
+        }),
+      );
+    }
+
     if (url.pathname !== '/api/v1/exercises') {
       throw new Error(`Unhandled request: ${url.pathname}`);
     }

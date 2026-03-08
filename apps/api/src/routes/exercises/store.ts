@@ -23,6 +23,11 @@ type ExerciseOwnershipRecord = {
   userId: string | null;
 };
 
+export type ExerciseFilters = {
+  muscleGroups: string[];
+  equipment: string[];
+};
+
 const exerciseSelection = {
   id: exercises.id,
   userId: exercises.userId,
@@ -136,6 +141,26 @@ export const listExercises = async ({
   };
 };
 
+export const listExerciseFilters = async (userId: string): Promise<ExerciseFilters> => {
+  const { db } = await import('../../db/index.js');
+
+  const visibleExercises = await db
+    .select({
+      muscleGroups: exercises.muscleGroups,
+      equipment: exercises.equipment,
+    })
+    .from(exercises)
+    .where(or(isNull(exercises.userId), eq(exercises.userId, userId)))
+    .all();
+
+  return {
+    muscleGroups: Array.from(
+      new Set(visibleExercises.flatMap((exercise) => exercise.muscleGroups)),
+    ).sort(),
+    equipment: Array.from(new Set(visibleExercises.map((exercise) => exercise.equipment))).sort(),
+  };
+};
+
 export const findExerciseById = async (id: string): Promise<Exercise | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -169,22 +194,13 @@ export const updateOwnedExercise = async ({
 }): Promise<Exercise | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
+  const [updatedExercise] = await db
     .update(exercises)
     .set(changes)
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
-    .run();
+    .returning(exerciseSelection);
 
-  if (result.changes !== 1) {
-    return undefined;
-  }
-
-  return db
-    .select(exerciseSelection)
-    .from(exercises)
-    .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
-    .limit(1)
-    .get();
+  return updatedExercise;
 };
 
 export const deleteOwnedExercise = async (id: string, userId: string): Promise<boolean> => {

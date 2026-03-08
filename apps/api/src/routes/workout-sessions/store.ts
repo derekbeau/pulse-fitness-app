@@ -103,6 +103,7 @@ const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
     return leftSectionIndex - rightSectionIndex;
   }
 
+  // Session sets do not yet persist an exercise order index, so UUID order is the deterministic fallback.
   if (left.exerciseId !== right.exerciseId) {
     return left.exerciseId.localeCompare(right.exerciseId);
   }
@@ -158,22 +159,6 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     section: set.section,
     notes: set.notes,
   }));
-
-export const templateBelongsToUser = async (
-  templateId: string,
-  userId: string,
-): Promise<boolean> => {
-  const { db } = await import('../../db/index.js');
-
-  const template = db
-    .select({ id: workoutTemplates.id })
-    .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
-    .limit(1)
-    .get();
-
-  return Boolean(template);
-};
 
 export const allSessionExercisesAccessible = async ({
   userId,
@@ -320,7 +305,7 @@ export const updateWorkoutSession = async ({
 }: {
   id: string;
   userId: string;
-  input: CreateWorkoutSessionInput;
+  input: CreateWorkoutSessionInput; // Full snapshot; the route merges the partial patch first.
 }): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
   const setRows = buildSessionSetRows(id, input.sets);

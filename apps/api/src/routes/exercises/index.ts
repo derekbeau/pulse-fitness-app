@@ -5,15 +5,16 @@ import {
   exerciseQueryParamsSchema,
   updateExerciseInputSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireUserAuth } from '../../middleware/auth.js';
 
 import {
   createExercise,
   deleteOwnedExercise,
   findExerciseOwnership,
+  listExerciseFilters,
   listExercises,
   updateOwnedExercise,
 } from './store.js';
@@ -28,8 +29,42 @@ const GLOBAL_EXERCISE_READ_ONLY_RESPONSE = {
   message: 'Global exercises cannot be modified',
 } as const;
 
+const ensureOwnedMutableExercise = async ({
+  exerciseId,
+  reply,
+  userId,
+}: {
+  exerciseId: string;
+  reply: FastifyReply;
+  userId: string;
+}) => {
+  const exerciseOwnership = await findExerciseOwnership(exerciseId);
+  if (!exerciseOwnership) {
+    sendError(reply, 404, EXERCISE_NOT_FOUND_RESPONSE.code, EXERCISE_NOT_FOUND_RESPONSE.message);
+    return false;
+  }
+
+  if (exerciseOwnership.userId === null) {
+    sendError(
+      reply,
+      403,
+      GLOBAL_EXERCISE_READ_ONLY_RESPONSE.code,
+      GLOBAL_EXERCISE_READ_ONLY_RESPONSE.message,
+    );
+    return false;
+  }
+
+  if (exerciseOwnership.userId !== userId) {
+    sendError(reply, 404, EXERCISE_NOT_FOUND_RESPONSE.code, EXERCISE_NOT_FOUND_RESPONSE.message);
+    return false;
+  }
+
+  return true;
+};
+
 export const exerciseRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireAuth);
+  // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
+  app.addHook('onRequest', requireUserAuth);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createExerciseInputSchema.safeParse(request.body);
@@ -62,38 +97,27 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(result);
   });
 
+  app.get('/filters', async (request, reply) => {
+    const filters = await listExerciseFilters(request.userId);
+
+    return reply.send({
+      data: filters,
+    });
+  });
+
   app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const parsedBody = updateExerciseInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
     }
 
-    const exerciseOwnership = await findExerciseOwnership(request.params.id);
-    if (!exerciseOwnership) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    if (exerciseOwnership.userId === null) {
-      return sendError(
-        reply,
-        403,
-        GLOBAL_EXERCISE_READ_ONLY_RESPONSE.code,
-        GLOBAL_EXERCISE_READ_ONLY_RESPONSE.message,
-      );
-    }
-
-    if (exerciseOwnership.userId !== request.userId) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
+    const canMutate = await ensureOwnedMutableExercise({
+      exerciseId: request.params.id,
+      reply,
+      userId: request.userId,
+    });
+    if (!canMutate) {
+      return reply;
     }
 
     const exercise = await updateOwnedExercise({
@@ -117,32 +141,13 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const exerciseOwnership = await findExerciseOwnership(request.params.id);
-    if (!exerciseOwnership) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    if (exerciseOwnership.userId === null) {
-      return sendError(
-        reply,
-        403,
-        GLOBAL_EXERCISE_READ_ONLY_RESPONSE.code,
-        GLOBAL_EXERCISE_READ_ONLY_RESPONSE.message,
-      );
-    }
-
-    if (exerciseOwnership.userId !== request.userId) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
+    const canMutate = await ensureOwnedMutableExercise({
+      exerciseId: request.params.id,
+      reply,
+      userId: request.userId,
+    });
+    if (!canMutate) {
+      return reply;
     }
 
     const deleted = await deleteOwnedExercise(request.params.id, request.userId);

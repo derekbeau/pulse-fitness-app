@@ -8,14 +8,14 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireUserAuth } from '../../middleware/auth.js';
+import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 import {
   createScheduledWorkout,
   deleteScheduledWorkout,
   findScheduledWorkoutById,
   listScheduledWorkouts,
-  templateBelongsToUser,
   updateScheduledWorkout,
 } from './store.js';
 
@@ -30,7 +30,7 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
 } as const;
 
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireUserAuth);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createScheduledWorkoutInputSchema.safeParse(request.body);
@@ -38,7 +38,10 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
     }
 
-    const templateAccessible = await templateBelongsToUser(parsedBody.data.templateId, request.userId);
+    const templateAccessible = await templateBelongsToUser(
+      parsedBody.data.templateId,
+      request.userId,
+    );
     if (!templateAccessible) {
       return sendError(
         reply,
@@ -81,7 +84,10 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
     }
 
-    const existingScheduledWorkout = await findScheduledWorkoutById(request.params.id, request.userId);
+    const existingScheduledWorkout = await findScheduledWorkoutById(
+      request.params.id,
+      request.userId,
+    );
     if (!existingScheduledWorkout) {
       return sendError(
         reply,

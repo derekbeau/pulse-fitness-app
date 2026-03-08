@@ -9,7 +9,8 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireUserAuth } from '../../middleware/auth.js';
+import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 import {
   allSessionExercisesAccessible,
@@ -17,7 +18,6 @@ import {
   deleteWorkoutSession,
   findWorkoutSessionById,
   listWorkoutSessions,
-  templateBelongsToUser,
   updateWorkoutSession,
 } from './store.js';
 
@@ -70,7 +70,7 @@ const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireUserAuth);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createWorkoutSessionInputSchema.safeParse(request.body);
@@ -223,6 +223,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const deleted = await deleteWorkoutSession(request.params.id, request.userId);
     if (!deleted) {
+      // Return the same 404 for missing and non-owned sessions to avoid leaking ownership.
       return sendError(
         reply,
         404,
