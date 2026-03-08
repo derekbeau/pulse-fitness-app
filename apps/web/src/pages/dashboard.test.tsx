@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
+import { createQueryClientWrapper } from '@/test/query-client';
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
 import { DashboardPage } from './dashboard';
 
@@ -34,17 +35,72 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T10:00:00'));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/weight/latest')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  id: 'weight-latest',
+                  date: '2026-03-06',
+                  weight: 181.4,
+                  notes: null,
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 200 },
+            ),
+          );
+        }
+
+        if (url.includes('/api/v1/nutrition-targets/current')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  id: 'target-current',
+                  calories: 2300,
+                  protein: 190,
+                  carbs: 260,
+                  fat: 75,
+                  effectiveDate: '2026-03-06',
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 200 },
+            ),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: null }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }),
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('renders the dashboard title, greeting, and responsive column layout', () => {
+    const { wrapper } = createQueryClientWrapper();
     const { container } = render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>,
+      { wrapper },
     );
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
@@ -80,26 +136,30 @@ describe('DashboardPage', () => {
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
   });
 
-  it('updates snapshot content when a new calendar day is selected', () => {
+  it('updates snapshot content when a new calendar day is selected', async () => {
+    const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>,
+      { wrapper },
     );
 
-    const todaySnapshot = getMockSnapshotForDate(new Date('2026-03-06T00:00:00'));
     const selectedSnapshot = getMockSnapshotForDate(new Date('2026-03-04T00:00:00'));
     const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
 
     expect(bodyWeightCard).toBeInTheDocument();
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
     expect(
-      within(bodyWeightCard as HTMLElement).getByText(formatWeight(todaySnapshot.weight)),
+      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /select wednesday, march 4, 2026/i }));
 
     expect(
-      within(bodyWeightCard as HTMLElement).getByText(formatWeight(selectedSnapshot.weight)),
+      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
     ).toBeInTheDocument();
     expect(screen.getByText(`${selectedSnapshot.macros.calories.actual}kcal`)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();

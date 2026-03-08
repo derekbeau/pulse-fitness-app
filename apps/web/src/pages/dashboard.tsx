@@ -6,6 +6,8 @@ import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
+import { useNutritionTargets } from '@/features/nutrition/api/targets';
+import { useLatestWeight } from '@/features/weight/api/weight';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { getToday } from '@/lib/date';
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
@@ -13,7 +15,37 @@ import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
 export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const selectedSnapshot = useMemo(() => getMockSnapshotForDate(selectedDate), [selectedDate]);
+  const { data: currentTargets } = useNutritionTargets();
+  const { data: latestWeightEntry } = useLatestWeight();
   const greeting = getDashboardGreeting();
+  const dashboardSnapshot = useMemo(
+    () => ({
+      ...selectedSnapshot,
+      weight: latestWeightEntry?.weight ?? selectedSnapshot.weight,
+      weightYesterday: latestWeightEntry
+        ? latestWeightEntry.weight
+        : selectedSnapshot.weightYesterday,
+      macros: {
+        calories: {
+          ...selectedSnapshot.macros.calories,
+          target: currentTargets?.calories ?? selectedSnapshot.macros.calories.target,
+        },
+        protein: {
+          ...selectedSnapshot.macros.protein,
+          target: currentTargets?.protein ?? selectedSnapshot.macros.protein.target,
+        },
+        carbs: {
+          ...selectedSnapshot.macros.carbs,
+          target: currentTargets?.carbs ?? selectedSnapshot.macros.carbs.target,
+        },
+        fat: {
+          ...selectedSnapshot.macros.fat,
+          target: currentTargets?.fat ?? selectedSnapshot.macros.fat.target,
+        },
+      },
+    }),
+    [currentTargets, latestWeightEntry, selectedSnapshot],
+  );
 
   return (
     <main className="flex w-full flex-col gap-8 py-6">
@@ -39,11 +71,11 @@ export function DashboardPage() {
           </div>
 
           <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
-            <SnapshotCards snapshot={selectedSnapshot} />
+            <SnapshotCards snapshot={dashboardSnapshot} />
           </div>
 
           <div className="order-3 md:order-2" data-slot="dashboard-macro-panel">
-            <MacroRings snapshot={selectedSnapshot} />
+            <MacroRings snapshot={dashboardSnapshot} />
           </div>
         </div>
 

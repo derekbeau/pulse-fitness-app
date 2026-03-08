@@ -1,18 +1,22 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
+import { createQueryClientWrapper } from '@/test/query-client';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
 
 function renderSettingsPage() {
+  const { wrapper } = createQueryClientWrapper();
+
   return render(
     <MemoryRouter>
       <ThemeProvider>
         <SettingsPage />
       </ThemeProvider>
     </MemoryRouter>,
+    { wrapper },
   );
 }
 
@@ -22,6 +26,42 @@ describe('SettingsPage', () => {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/nutrition-targets/current')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: null }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: null }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the read-only profile field, theme options, and default prototype settings', () => {
@@ -114,7 +154,7 @@ describe('SettingsPage', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
-  it('saves nutrition targets and dashboard selections to localStorage', () => {
+  it('saves nutrition targets and dashboard selections to localStorage', async () => {
     renderSettingsPage();
 
     fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2250' } });
@@ -123,21 +163,81 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Steps/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
-    expect(
-      screen.getByText('Nutrition targets and dashboard preferences saved.'),
-    ).toBeInTheDocument();
-
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
-      dashboardConfig: {
-        habitChains: ['vitamins', 'protein'],
-        trendSparklines: ['Weight', 'Calories', 'Protein', 'Steps'],
-      },
-      nutritionTargets: {
-        calories: 2250,
-        carbs: 250,
-        fat: 65,
-        protein: 175,
-      },
+    await waitFor(() => {
+      expect(
+        screen.getByText('Nutrition targets and dashboard preferences saved.'),
+      ).toBeInTheDocument();
     });
+
+    await waitFor(() => {
+      expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
+        dashboardConfig: {
+          habitChains: ['vitamins', 'protein'],
+          trendSparklines: ['Weight', 'Calories', 'Protein', 'Steps'],
+        },
+        nutritionTargets: {
+          calories: 2250,
+          carbs: 250,
+          fat: 65,
+          protein: 175,
+        },
+      });
+    });
+  });
+
+  it('loads current nutrition targets from the API when they exist', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/nutrition-targets/current')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  id: 'target-current',
+                  calories: 2400,
+                  protein: 195,
+                  carbs: 280,
+                  fat: 80,
+                  effectiveDate: '2026-03-07',
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 200 },
+            ),
+          );
+        }
+
+        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: null }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }),
+    );
+
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Daily calories')).toHaveValue(2400);
+    });
+
+    expect(screen.getByLabelText('Protein (g)')).toHaveValue(195);
+    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(280);
+    expect(screen.getByLabelText('Fat (g)')).toHaveValue(80);
   });
 });

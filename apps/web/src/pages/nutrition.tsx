@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
+import { useNutritionTargets } from '@/features/nutrition/api/targets';
 import {
   formatDateKey,
   calculateMacroTotals,
@@ -35,9 +36,18 @@ const EMPTY_TOTALS = {
 
 export function NutritionPage() {
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const { data: currentTargets } = useNutritionTargets();
   const dateKey = formatDateKey(selectedDate);
   const selectedMeals = sortMeals(mockDailyMeals[dateKey] ?? []);
   const dailyTotals = selectedMeals.length > 0 ? calculateMacroTotals(selectedMeals) : EMPTY_TOTALS;
+  const dailyTargets = currentTargets
+    ? {
+        calories: currentTargets.calories,
+        protein: currentTargets.protein,
+        carbs: currentTargets.carbs,
+        fat: currentTargets.fat,
+      }
+    : mockDailyTargets;
 
   return (
     <section className="space-y-5">
@@ -69,7 +79,7 @@ export function NutritionPage() {
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           {MACRO_CONFIG.map((macro) => {
             const actual = dailyTotals[macro.key];
-            const target = mockDailyTargets[macro.key];
+            const target = dailyTargets[macro.key];
             const isOverTarget = actual > target;
 
             return (
@@ -102,7 +112,7 @@ export function NutritionPage() {
         </div>
       </section>
 
-      <NutritionMacroRings actuals={dailyTotals} targets={mockDailyTargets} />
+      <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
 
       <div className="space-y-3">
         {selectedMeals.length > 0 ? (
