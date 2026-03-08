@@ -7,6 +7,8 @@ import { workoutCompletedSessions } from '@/features/workouts';
 const sessionId = workoutCompletedSessions[0]?.id ?? 'session-upper-push-2026-03-02';
 
 const pageRoutes = [
+  { heading: 'Welcome back', path: '/login' },
+  { heading: 'Create account', path: '/register' },
   { heading: 'Dashboard', path: '/' },
   { heading: 'Design System', path: '/design-system' },
   { heading: 'Workouts', path: '/workouts' },
@@ -73,5 +75,17 @@ describe('App', () => {
     });
 
     expect(screen.queryByRole('link', { name: /^Settings$/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['/login', '/register'])('renders %s as a standalone auth page', (path) => {
+    window.history.pushState({}, '', path);
+
+    renderApp();
+
+    expect(screen.queryByRole('link', { name: /^Dashboard$/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Desktop navigation' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
   });
 });
