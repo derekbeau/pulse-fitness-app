@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
-import { habitEntryRoutes } from './routes/habit-entries/index.js';
+import { habitEntryCollectionRoutes } from './routes/habit-entries/index.js';
 import { habitRoutes } from './routes/habits/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
@@ -32,7 +32,7 @@ export const buildServer = () => {
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(habitRoutes, { prefix: '/api/v1/habits' });
-  app.register(habitEntryRoutes, { prefix: '/api/v1' });
+  app.register(habitEntryCollectionRoutes, { prefix: '/api/v1/habit-entries' });
 
   return app;
 };

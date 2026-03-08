@@ -254,7 +254,10 @@ describe('habit routes', () => {
       expect(vi.mocked(findHabitById)).toHaveBeenCalledWith('habit-1', 'user-1');
       expect(vi.mocked(updateHabit)).toHaveBeenCalledWith('habit-1', 'user-1', {
         name: 'Evening sleep',
+        emoji: '😴',
+        trackingType: 'time',
         target: 8.5,
+        unit: 'hours',
       });
     } finally {
       await app.close();

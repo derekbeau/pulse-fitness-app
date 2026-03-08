@@ -27,10 +27,8 @@ const sendHabitNotFound = (reply: Parameters<typeof sendError>[0]) =>
 const sendHabitEntryNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_ENTRY_NOT_FOUND', 'Habit entry not found');
 
-export const habitEntryRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireAuth);
-
-  app.post<{ Params: { id: string } }>('/habits/:id/entries', async (request, reply) => {
+export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
+  app.post<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
     const habitId = parseId(request.params.id);
     if (!habitId) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
@@ -58,24 +56,7 @@ export const habitEntryRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.get('/habit-entries', async (request, reply) => {
-    const parsedQuery = habitEntryQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry query params');
-    }
-
-    const entries = await listHabitEntriesByDateRange(
-      request.userId,
-      parsedQuery.data.from,
-      parsedQuery.data.to,
-    );
-
-    return reply.send({
-      data: entries,
-    });
-  });
-
-  app.get<{ Params: { id: string } }>('/habits/:id/entries', async (request, reply) => {
+  app.get<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
     const habitId = parseId(request.params.id);
     if (!habitId) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
@@ -102,8 +83,29 @@ export const habitEntryRoutes: FastifyPluginAsync = async (app) => {
       data: entries,
     });
   });
+};
 
-  app.patch<{ Params: { id: string } }>('/habit-entries/:id', async (request, reply) => {
+export const habitEntryCollectionRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook('onRequest', requireAuth);
+
+  app.get('/', async (request, reply) => {
+    const parsedQuery = habitEntryQueryParamsSchema.safeParse(request.query);
+    if (!parsedQuery.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry query params');
+    }
+
+    const entries = await listHabitEntriesByDateRange(
+      request.userId,
+      parsedQuery.data.from,
+      parsedQuery.data.to,
+    );
+
+    return reply.send({
+      data: entries,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const entryId = parseId(request.params.id);
     if (!entryId) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry id');

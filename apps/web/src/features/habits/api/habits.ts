@@ -62,7 +62,9 @@ const compareHabitEntries = (left: HabitEntry, right: HabitEntry) =>
   left.id.localeCompare(right.id);
 
 const compareHabits = (left: Habit, right: Habit) =>
-  left.sortOrder - right.sortOrder || left.createdAt - right.createdAt || left.id.localeCompare(right.id);
+  left.sortOrder - right.sortOrder ||
+  left.createdAt - right.createdAt ||
+  left.id.localeCompare(right.id);
 
 const isHabitEntriesParams = (value: unknown): value is HabitEntriesParams => {
   return (
@@ -177,7 +179,6 @@ export function useHabits() {
         signal,
       }),
     queryKey: habitKeys.list(),
-    select: (habits) => habits.filter((habit) => habit.active),
   });
 }
 
@@ -264,37 +265,39 @@ export function useDeleteHabit() {
 export function useReorderHabits() {
   const queryClient = useQueryClient();
 
-  return useMutation<{ success: true }, Error, ReorderHabitsInput['items'], ReorderMutationContext>({
-    mutationFn: (items) => {
-      const payload = reorderHabitsInputSchema.parse({ items });
+  return useMutation<{ success: true }, Error, ReorderHabitsInput['items'], ReorderMutationContext>(
+    {
+      mutationFn: (items) => {
+        const payload = reorderHabitsInputSchema.parse({ items });
 
-      return apiRequest('/api/v1/habits/reorder', {
-        body: payload,
-        method: 'PATCH',
-        schema: successSchema,
-      });
-    },
-    onMutate: async (items) => {
-      await queryClient.cancelQueries({ queryKey: habitKeys.list() });
+        return apiRequest('/api/v1/habits/reorder', {
+          body: payload,
+          method: 'PATCH',
+          schema: successSchema,
+        });
+      },
+      onMutate: async (items) => {
+        await queryClient.cancelQueries({ queryKey: habitKeys.list() });
 
-      const previousHabits = queryClient.getQueryData<Habit[]>(habitKeys.list());
-      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
-        reorderCachedHabits(currentHabits, items),
-      );
+        const previousHabits = queryClient.getQueryData<Habit[]>(habitKeys.list());
+        queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+          reorderCachedHabits(currentHabits, items),
+        );
 
-      return { previousHabits };
-    },
-    onError: (_error, _variables, context) => {
-      if (!context) {
-        return;
-      }
+        return { previousHabits };
+      },
+      onError: (_error, _variables, context) => {
+        if (!context) {
+          return;
+        }
 
-      queryClient.setQueryData(habitKeys.list(), context.previousHabits);
+        queryClient.setQueryData(habitKeys.list(), context.previousHabits);
+      },
+      onSettled: async () => {
+        await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+      },
     },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
-    },
-  });
+  );
 }
 
 export function useToggleHabit() {

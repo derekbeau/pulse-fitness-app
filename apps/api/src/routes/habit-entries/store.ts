@@ -69,32 +69,7 @@ export const upsertHabitEntry = async ({
 }: UpsertHabitEntryInput): Promise<HabitEntryRecord> => {
   const { db } = await import('../../db/index.js');
 
-  const existingEntry = await findHabitEntryByHabitAndDate(habitId, userId, date);
-
-  if (existingEntry) {
-    const result = db
-      .update(habitEntries)
-      .set({
-        completed,
-        value: value ?? null,
-      })
-      .where(and(eq(habitEntries.id, existingEntry.id), eq(habitEntries.userId, userId)))
-      .run();
-
-    if (result.changes !== 1) {
-      throw new Error('Failed to update habit entry');
-    }
-
-    const updatedEntry = await findHabitEntryById(existingEntry.id, userId);
-    if (!updatedEntry) {
-      throw new Error('Failed to load updated habit entry');
-    }
-
-    return updatedEntry;
-  }
-
-  const result = db
-    .insert(habitEntries)
+  db.insert(habitEntries)
     .values({
       id,
       habitId,
@@ -103,15 +78,18 @@ export const upsertHabitEntry = async ({
       completed,
       value: value ?? null,
     })
+    .onConflictDoUpdate({
+      target: [habitEntries.habitId, habitEntries.date],
+      set: {
+        completed,
+        value: value ?? null,
+      },
+    })
     .run();
 
-  if (result.changes !== 1) {
-    throw new Error('Failed to persist habit entry');
-  }
-
-  const entry = await findHabitEntryById(id, userId);
+  const entry = await findHabitEntryByHabitAndDate(habitId, userId, date);
   if (!entry) {
-    throw new Error('Failed to load created habit entry');
+    throw new Error('Failed to load upserted habit entry');
   }
 
   return entry;

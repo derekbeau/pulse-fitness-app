@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
+import type { CreateHabitInput, Habit } from '@pulse/shared';
 
 import { habits } from '../../db/schema/index.js';
 
@@ -106,21 +106,19 @@ export const findHabitById = async (
 export const updateHabit = async (
   id: string,
   userId: string,
-  updates: UpdateHabitInput,
+  updates: CreateHabitInput,
 ): Promise<HabitRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  const values = {
-    ...(updates.name !== undefined ? { name: updates.name } : {}),
-    ...(updates.emoji !== undefined ? { emoji: updates.emoji } : {}),
-    ...(updates.trackingType !== undefined ? { trackingType: updates.trackingType } : {}),
-    ...(updates.target !== undefined ? { target: updates.target } : {}),
-    ...(updates.unit !== undefined ? { unit: updates.unit } : {}),
-  };
-
   const result = db
     .update(habits)
-    .set(values)
+    .set({
+      name: updates.name,
+      emoji: updates.emoji ?? null,
+      trackingType: updates.trackingType,
+      target: updates.target ?? null,
+      unit: updates.unit ?? null,
+    })
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
     .run();
 
@@ -153,21 +151,24 @@ export const reorderHabits = async (
   const existingHabits = db
     .select({ id: habits.id })
     .from(habits)
-    .where(and(eq(habits.userId, userId), inArray(habits.id, ids)))
+    .where(and(eq(habits.userId, userId), eq(habits.active, true), inArray(habits.id, ids)))
     .all();
 
   if (existingHabits.length !== ids.length) {
     return false;
   }
 
-  db.transaction((tx) => {
-    for (const item of items) {
-      tx.update(habits)
-        .set({ sortOrder: item.sortOrder })
-        .where(and(eq(habits.id, item.id), eq(habits.userId, userId)))
-        .run();
-    }
-  });
+  const sortOrderCases = sql.join(
+    items.map((item) => sql`when ${habits.id} = ${item.id} then ${item.sortOrder}`),
+    sql.raw(' '),
+  );
+
+  db.update(habits)
+    .set({
+      sortOrder: sql<number>`case ${sortOrderCases} else ${habits.sortOrder} end`,
+    })
+    .where(and(eq(habits.userId, userId), eq(habits.active, true), inArray(habits.id, ids)))
+    .run();
 
   return true;
 };

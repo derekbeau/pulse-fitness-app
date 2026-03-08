@@ -9,6 +9,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { habitEntryNestedRoutes } from '../habit-entries/index.js';
 
 import {
   createHabit,
@@ -20,9 +21,6 @@ import {
   updateHabit,
 } from './store.js';
 
-const pickDefined = <T>(value: T | undefined, fallback: T): T =>
-  value === undefined ? fallback : value;
-
 const habitParamsSchema = {
   id: (value: unknown) =>
     typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined,
@@ -33,6 +31,7 @@ const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
 
 export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.register(habitEntryNestedRoutes);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createHabitInputSchema.safeParse(request.body);
@@ -78,18 +77,21 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const mergedHabitInput = createHabitInputSchema.safeParse({
-      name: pickDefined(parsedBody.data.name, existingHabit.name),
-      emoji: pickDefined(parsedBody.data.emoji, existingHabit.emoji),
-      trackingType: pickDefined(parsedBody.data.trackingType, existingHabit.trackingType),
-      target: pickDefined(parsedBody.data.target, existingHabit.target),
-      unit: pickDefined(parsedBody.data.unit, existingHabit.unit),
+      name: parsedBody.data.name === undefined ? existingHabit.name : parsedBody.data.name,
+      emoji: parsedBody.data.emoji === undefined ? existingHabit.emoji : parsedBody.data.emoji,
+      trackingType:
+        parsedBody.data.trackingType === undefined
+          ? existingHabit.trackingType
+          : parsedBody.data.trackingType,
+      target: parsedBody.data.target === undefined ? existingHabit.target : parsedBody.data.target,
+      unit: parsedBody.data.unit === undefined ? existingHabit.unit : parsedBody.data.unit,
     });
 
     if (!mergedHabitInput.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
     }
 
-    const habit = await updateHabit(habitId, request.userId, parsedBody.data);
+    const habit = await updateHabit(habitId, request.userId, mergedHabitInput.data);
     if (!habit) {
       return sendNotFound(reply);
     }

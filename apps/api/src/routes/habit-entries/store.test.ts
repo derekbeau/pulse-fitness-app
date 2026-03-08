@@ -4,6 +4,7 @@ const testState = vi.hoisted(() => {
   const getQueue: unknown[] = [];
   const allQueue: unknown[] = [];
   const insertValues: unknown[] = [];
+  const upsertConfigs: unknown[] = [];
   const updateSets: unknown[] = [];
   const insertRunResults: Array<{ changes: number }> = [];
   const updateRunResults: Array<{ changes: number }> = [];
@@ -28,7 +29,13 @@ const testState = vi.hoisted(() => {
         insertValues.push(values);
 
         return {
-          run: vi.fn(() => insertRunResults.shift() ?? { changes: 1 }),
+          onConflictDoUpdate: vi.fn((config: unknown) => {
+            upsertConfigs.push(config);
+
+            return {
+              run: vi.fn(() => insertRunResults.shift() ?? { changes: 1 }),
+            };
+          }),
         };
       }),
     })),
@@ -50,6 +57,7 @@ const testState = vi.hoisted(() => {
     getQueue,
     allQueue,
     insertValues,
+    upsertConfigs,
     updateSets,
     insertRunResults,
     updateRunResults,
@@ -57,6 +65,7 @@ const testState = vi.hoisted(() => {
       getQueue.length = 0;
       allQueue.length = 0;
       insertValues.length = 0;
+      upsertConfigs.length = 0;
       updateSets.length = 0;
       insertRunResults.length = 0;
       updateRunResults.length = 0;
@@ -79,7 +88,7 @@ describe('habit entry store', () => {
   it('inserts a new habit entry when no entry exists for the habit and date', async () => {
     const { upsertHabitEntry } = await import('./store.js');
 
-    testState.getQueue.push(undefined, {
+    testState.getQueue.push({
       id: 'entry-1',
       habitId: 'habit-1',
       userId: 'user-1',
@@ -119,31 +128,28 @@ describe('habit entry store', () => {
         value: 8,
       },
     ]);
+    expect(testState.upsertConfigs).toEqual([
+      expect.objectContaining({
+        set: {
+          completed: true,
+          value: 8,
+        },
+      }),
+    ]);
   });
 
-  it('updates an existing habit entry instead of inserting a duplicate for the same habit and date', async () => {
+  it('upserts an existing habit entry without issuing a separate update statement', async () => {
     const { upsertHabitEntry } = await import('./store.js');
 
-    testState.getQueue.push(
-      {
-        id: 'entry-1',
-        habitId: 'habit-1',
-        userId: 'user-1',
-        date: '2026-03-07',
-        completed: true,
-        value: 8,
-        createdAt: 1_700_000_000_000,
-      },
-      {
-        id: 'entry-1',
-        habitId: 'habit-1',
-        userId: 'user-1',
-        date: '2026-03-07',
-        completed: false,
-        value: null,
-        createdAt: 1_700_000_000_000,
-      },
-    );
+    testState.getQueue.push({
+      id: 'entry-1',
+      habitId: 'habit-1',
+      userId: 'user-1',
+      date: '2026-03-07',
+      completed: false,
+      value: null,
+      createdAt: 1_700_000_000_000,
+    });
 
     const entry = await upsertHabitEntry({
       id: 'entry-2',
@@ -162,13 +168,25 @@ describe('habit entry store', () => {
       value: null,
       createdAt: 1_700_000_000_000,
     });
-    expect(testState.db.update).toHaveBeenCalledOnce();
-    expect(testState.db.insert).not.toHaveBeenCalled();
-    expect(testState.updateSets).toEqual([
+    expect(testState.db.insert).toHaveBeenCalledOnce();
+    expect(testState.db.update).not.toHaveBeenCalled();
+    expect(testState.insertValues).toEqual([
       {
+        id: 'entry-2',
+        habitId: 'habit-1',
+        userId: 'user-1',
+        date: '2026-03-07',
         completed: false,
         value: null,
       },
+    ]);
+    expect(testState.upsertConfigs).toEqual([
+      expect.objectContaining({
+        set: {
+          completed: false,
+          value: null,
+        },
+      }),
     ]);
   });
 

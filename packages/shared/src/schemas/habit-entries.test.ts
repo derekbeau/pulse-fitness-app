@@ -90,6 +90,15 @@ describe('habitEntryQueryParamsSchema', () => {
     ).toThrow();
   });
 
+  it('rejects date ranges longer than 366 days', () => {
+    expect(() =>
+      habitEntryQueryParamsSchema.parse({
+        from: '2025-01-01',
+        to: '2026-01-03',
+      }),
+    ).toThrow();
+  });
+
   it('infers the HabitEntryQueryParams type from the schema', () => {
     const payload: HabitEntryQueryParams = {
       from: '2026-03-01',

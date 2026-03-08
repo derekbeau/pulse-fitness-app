@@ -4,7 +4,6 @@ import { Flame } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { addDays, formatDateKey, getToday, toDateKey } from '@/lib/date';
-import { type Habit, mockHabits } from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
 
 type HabitChainProps = {
@@ -61,23 +60,23 @@ const getVisibleHabits = (habits: HabitChainHabit[], habitIds?: string[]) => {
 };
 
 const buildHabitChainHabits = (
-  habits: HabitRecord[] | undefined,
-  entries: HabitEntryRecord[] | undefined,
-): HabitChainHabit[] | null => {
-  if (!habits || !entries) {
-    return null;
-  }
+  habits: HabitRecord[],
+  entries: HabitEntryRecord[],
+): HabitChainHabit[] => {
+  const entriesByHabit = new Map<string, Map<string, boolean>>();
+
+  entries.forEach((entry) => {
+    const entriesByDate = entriesByHabit.get(entry.habitId) ?? new Map<string, boolean>();
+    entriesByDate.set(entry.date, entry.completed);
+    entriesByHabit.set(entry.habitId, entriesByDate);
+  });
 
   const dates = Array.from({ length: DAYS_TO_DISPLAY }, (_, index) =>
     toDateKey(addDays(getToday(), index - (DAYS_TO_DISPLAY - 1))),
   );
 
   return habits.map((habit) => {
-    const entriesByDate = new Map(
-      entries
-        .filter((entry) => entry.habitId === habit.id)
-        .map((entry) => [entry.date, entry.completed] as const),
-    );
+    const entriesByDate = entriesByHabit.get(habit.id) ?? new Map<string, boolean>();
     const completedEntries = dates.map((date) => ({
       completed: entriesByDate.get(date) ?? false,
       date,
@@ -92,17 +91,8 @@ const buildHabitChainHabits = (
   });
 };
 
-const getFallbackHabits = (): HabitChainHabit[] => {
-  return mockHabits.map((habit: Habit) => ({
-    currentStreak: habit.currentStreak,
-    entries: habit.entries,
-    id: habit.id,
-    name: habit.name,
-  }));
-};
-
-export function HabitChain({ habitIds, habits, entries }: HabitChainProps) {
-  const resolvedHabits = buildHabitChainHabits(habits, entries) ?? getFallbackHabits();
+export function HabitChain({ habitIds, habits = [], entries = [] }: HabitChainProps) {
+  const resolvedHabits = buildHabitChainHabits(habits, entries);
   const visibleHabits = getVisibleHabits(resolvedHabits, habitIds);
   const todayKey = formatDateKey(getToday());
 
