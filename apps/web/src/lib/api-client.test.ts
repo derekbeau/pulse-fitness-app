@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY, ApiError, apiRequest } from './api-client';
+import { AUTH_STORAGE_KEY } from './auth-storage';
 
 describe('api-client', () => {
   const fetchMock = vi.fn<typeof fetch>();
@@ -102,6 +103,20 @@ describe('api-client', () => {
 
   it('clears the stored token on 401 responses', async () => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'expired-token');
+    window.localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          token: 'expired-token',
+          user: {
+            id: 'user-1',
+            username: 'derek',
+            name: 'Derek',
+          },
+        },
+        version: 0,
+      }),
+    );
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -117,6 +132,7 @@ describe('api-client', () => {
     await expect(apiRequest('/api/v1/profile')).rejects.toBeInstanceOf(ApiError);
 
     expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
 
   it('unwraps the data envelope', async () => {
@@ -133,6 +149,8 @@ describe('api-client', () => {
 
   it('auto-registers a dev user when no token exists in DEV mode', async () => {
     vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'pulse-dev-password');
     fetchMock
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ data: { token: 'dev-token' } }), {
@@ -154,7 +172,7 @@ describe('api-client', () => {
       JSON.stringify({
         username: 'pulse-dev',
         password: 'pulse-dev-password',
-        name: 'Pulse Dev',
+        name: 'pulse-dev',
       }),
     );
     expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBe('dev-token');
@@ -165,6 +183,8 @@ describe('api-client', () => {
 
   it('falls back to login when dev auto-register receives a 409', async () => {
     vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'pulse-dev-password');
     fetchMock
       .mockResolvedValueOnce(
         new Response(
@@ -198,5 +218,23 @@ describe('api-client', () => {
 
     const requestHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
     expect(requestHeaders.get('Authorization')).toBe('Bearer login-token');
+  });
+
+  it('allows empty success bodies for 204 responses', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(null, {
+        status: 204,
+      }),
+    );
+
+    await expect(apiRequest<null>('/api/v1/auth/logout', { method: 'POST' })).resolves.toBeNull();
+  });
+
+  it('requires explicit dev auto-session credentials when running in DEV mode', async () => {
+    vi.stubEnv('DEV', true);
+
+    await expect(apiRequest('/api/v1/profile')).rejects.toThrow(
+      'VITE_PULSE_DEV_USERNAME and VITE_PULSE_DEV_PASSWORD must be set for dev auto-session',
+    );
   });
 });

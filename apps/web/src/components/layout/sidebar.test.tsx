@@ -115,11 +115,11 @@ describe('Sidebar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
   });
 
-  it('keeps the collapsed avatar focusable for keyboard users', () => {
+  it('renders the collapsed avatar without adding it to the tab order', () => {
     window.localStorage.setItem('pulse-sidebar-collapsed', 'true');
 
     renderSidebar();
 
-    expect(screen.getByLabelText('Derek')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByLabelText('Derek')).not.toHaveAttribute('tabindex');
   });
 });

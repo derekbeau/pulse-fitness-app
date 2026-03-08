@@ -6,10 +6,16 @@ import {
 } from '@pulse/shared';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { create } from 'zustand/react';
-import { API_TOKEN_STORAGE_KEY, ApiError, apiRequest } from '@/lib/api-client';
+import { ApiError, apiRequest } from '@/lib/api-client';
+import {
+  AUTH_STORAGE_KEY,
+  clearStoredAuthState,
+  getStoredToken,
+  setStoredToken,
+} from '@/lib/auth-storage';
 import { createAppQueryClient } from '@/lib/query-client';
 
-export const AUTH_STORAGE_KEY = 'pulse-auth';
+export { AUTH_STORAGE_KEY };
 
 export type AuthUser = {
   id: string;
@@ -49,19 +55,6 @@ const initialAuthState: AuthState = {
   isLoading: false,
   error: null,
 };
-
-function setStoredToken(token: string | null): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (token) {
-    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
-    return;
-  }
-
-  window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
-}
 
 function getPersistStorage(): Storage {
   if (typeof window === 'undefined') {
@@ -162,17 +155,17 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
       logout() {
-        setStoredToken(null);
+        // Auth state lives outside React, so logout clears the shared singleton query cache here.
         createAppQueryClient().clear();
         set({ ...initialAuthState, hasHydrated: true });
+        clearStoredAuthState();
       },
       hydrate() {
-        const storedToken =
-          typeof window === 'undefined' ? null : window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
-        const token = storedToken ?? get().token;
+        const token = getStoredToken();
 
         set({
           token,
+          user: token ? get().user : null,
           isAuthenticated: Boolean(token),
           hasHydrated: true,
           isLoading: false,

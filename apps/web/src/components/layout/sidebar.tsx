@@ -141,13 +141,12 @@ export function Sidebar() {
             {collapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div
+                  <span
                     aria-label={displayName}
                     className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary"
-                    tabIndex={0}
                   >
                     {avatarLabel}
-                  </div>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
                   {displayName}

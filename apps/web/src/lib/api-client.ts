@@ -1,4 +1,4 @@
-export const API_TOKEN_STORAGE_KEY = 'pulse-auth-token';
+import { clearStoredAuthState, getStoredToken, setStoredToken } from './auth-storage';
 
 const JSON_CONTENT_TYPE = 'application/json';
 const AUTH_PATH_PREFIX = '/api/v1/auth/';
@@ -33,6 +33,8 @@ interface DevAuthResponse {
   token: string;
 }
 
+export { API_TOKEN_STORAGE_KEY } from './auth-storage';
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -60,10 +62,19 @@ function isDevMode(): boolean {
 }
 
 function getDevCredentials(): DevAuthPayload {
+  const username = import.meta.env.VITE_PULSE_DEV_USERNAME;
+  const password = import.meta.env.VITE_PULSE_DEV_PASSWORD;
+
+  if (!username || !password) {
+    throw new Error(
+      'VITE_PULSE_DEV_USERNAME and VITE_PULSE_DEV_PASSWORD must be set for dev auto-session',
+    );
+  }
+
   return {
-    username: import.meta.env.VITE_PULSE_DEV_USERNAME ?? 'pulse-dev',
-    password: import.meta.env.VITE_PULSE_DEV_PASSWORD ?? 'pulse-dev-password',
-    name: import.meta.env.VITE_PULSE_DEV_NAME ?? 'Pulse Dev',
+    username,
+    password,
+    name: import.meta.env.VITE_PULSE_DEV_NAME ?? username,
   };
 }
 
@@ -84,42 +95,6 @@ function buildUrl(path: string): string {
   const baseUrl = getApiBaseUrl().replace(/\/$/, '');
 
   return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
-}
-
-function getStoredToken(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function setStoredToken(token: string): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
-  } catch {
-    // Ignore storage failures so requests can still proceed with in-memory auth.
-  }
-}
-
-function clearStoredToken(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
-  } catch {
-    // Ignore storage failures so error handling still completes.
-  }
 }
 
 function isRawBody(body: ApiRequestInit['body']): body is BodyInit {
@@ -252,7 +227,7 @@ async function toApiError(response: Response): Promise<ApiError> {
   const message = payload?.error?.message ?? `Request failed with status ${response.status}`;
 
   if (response.status === 401) {
-    clearStoredToken();
+    clearStoredAuthState();
   }
 
   return new ApiError(response.status, message, code);
@@ -284,7 +259,7 @@ function createRequestInit(init: ApiRequestInit | undefined, token: string | nul
   };
 }
 
-async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T> {
+async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T | null> {
   const token = await resolveSessionToken({
     allowDevAutoSession: !normalizePath(path).startsWith(AUTH_PATH_PREFIX),
   });
@@ -297,6 +272,10 @@ async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T
   const payload = await parseJson<T>(response);
 
   if (payload == null) {
+    if (response.status === 204 || response.status === 205) {
+      return null;
+    }
+
     throw new ApiError(response.status, 'Missing response payload');
   }
 
@@ -309,7 +288,7 @@ export async function getSessionToken(): Promise<string> {
 
 export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promise<T> {
   const payload = await performRequest<ApiSuccessEnvelope<T>>(path, init);
-  return payload.data;
+  return payload?.data ?? (null as T);
 }
 
 export async function apiRequestWithMeta<T, M>(
@@ -317,6 +296,14 @@ export async function apiRequestWithMeta<T, M>(
   init?: ApiRequestInit,
 ): Promise<{ data: T; meta: M }> {
   const payload = await performRequest<ApiSuccessEnvelopeWithMeta<T, M>>(path, init);
+
+  if (payload == null) {
+    return {
+      data: null as T,
+      meta: null as M,
+    };
+  }
+
   return {
     data: payload.data,
     meta: payload.meta,

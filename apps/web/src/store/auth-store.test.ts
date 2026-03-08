@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { API_TOKEN_STORAGE_KEY, ApiError, apiRequest } from '@/lib/api-client';
+import { ApiError, apiRequest } from '@/lib/api-client';
+import { API_TOKEN_STORAGE_KEY } from '@/lib/auth-storage';
 import { createAppQueryClient } from '@/lib/query-client';
 import { AUTH_STORAGE_KEY, useAuthStore } from './auth-store';
 
@@ -156,6 +157,7 @@ describe('auth-store', () => {
       error: null,
     });
     expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
     expect(createAppQueryClient().getQueryData(['profile'])).toBeUndefined();
   });
 
@@ -210,6 +212,34 @@ describe('auth-store', () => {
       token: null,
       isAuthenticated: false,
       hasHydrated: true,
+    });
+  });
+
+  it('clears the persisted user when the raw token is missing during hydration', async () => {
+    resetAuthStore();
+    window.localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          token: 'stale-token',
+          user: {
+            id: 'user-3',
+            username: 'persisted-user',
+            name: null,
+          },
+        },
+        version: 0,
+      }),
+    );
+
+    await useAuthStore.persist.rehydrate();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      token: null,
+      user: null,
+      isAuthenticated: false,
+      hasHydrated: true,
+      isLoading: false,
     });
   });
 });

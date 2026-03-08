@@ -124,4 +124,24 @@ describe('LoginForm', () => {
 
     expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
   });
+
+  it('does not call onSuccess when login rejects', async () => {
+    const { onSuccess, store } = renderLoginForm(
+      createAuthStore({
+        login: vi.fn().mockRejectedValue(new Error('Invalid username or password')),
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'derek' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'supersecret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    await waitFor(() => {
+      expect(store.login).toHaveBeenCalledWith({
+        username: 'derek',
+        password: 'supersecret',
+      });
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
 });

@@ -129,4 +129,26 @@ describe('RegisterForm', () => {
 
     expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled();
   });
+
+  it('does not call onSuccess when registration rejects', async () => {
+    const { onSuccess, store } = renderRegisterForm(
+      createAuthStore({
+        register: vi.fn().mockRejectedValue(new Error('Username is already taken')),
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'derek' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'supersecret' } });
+    fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Derek' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => {
+      expect(store.register).toHaveBeenCalledWith({
+        username: 'derek',
+        password: 'supersecret',
+        name: 'Derek',
+      });
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
 });

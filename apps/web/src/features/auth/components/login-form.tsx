@@ -36,8 +36,12 @@ export function LoginForm({ onSuccess, registerHref }: LoginFormProps) {
   }, [clearError]);
 
   async function onSubmit(values: LoginInput) {
-    await login(values);
-    onSuccess();
+    try {
+      await login(values);
+      onSuccess();
+    } catch {
+      // Auth store state already exposes the API error for the form UI.
+    }
   }
 
   function handleInputChange() {

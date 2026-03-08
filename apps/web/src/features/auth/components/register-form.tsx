@@ -37,8 +37,12 @@ export function RegisterForm({ loginHref, onSuccess }: RegisterFormProps) {
   }, [clearError]);
 
   async function onSubmit(values: RegisterInput) {
-    await registerUser(values);
-    onSuccess();
+    try {
+      await registerUser(values);
+      onSuccess();
+    } catch {
+      // Auth store state already exposes the API error for the form UI.
+    }
   }
 
   function handleInputChange() {
