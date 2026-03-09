@@ -96,6 +96,7 @@ describe('WorkoutsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 
+    expect(screen.getByLabelText(/search templates by name/i)).toHaveAttribute('id', 'template-search');
     expect(screen.getByRole('button', { name: 'Upper Push' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lower Quad-Dominant' })).toBeInTheDocument();
 
