@@ -2,10 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 
-import { getDashboardSnapshot } from './dashboard-store.js';
+import {
+  getDashboardConsistencyTrend,
+  getDashboardMacrosTrend,
+  getDashboardSnapshot,
+  getDashboardWeightTrend,
+} from './dashboard-store.js';
 
 vi.mock('./dashboard-store.js', () => ({
   getDashboardSnapshot: vi.fn(),
+  getDashboardWeightTrend: vi.fn(),
+  getDashboardMacrosTrend: vi.fn(),
+  getDashboardConsistencyTrend: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -15,6 +23,9 @@ const createAuthorizationHeader = (token: string) => ({
 describe('dashboard routes', () => {
   beforeEach(() => {
     vi.mocked(getDashboardSnapshot).mockReset();
+    vi.mocked(getDashboardWeightTrend).mockReset();
+    vi.mocked(getDashboardMacrosTrend).mockReset();
+    vi.mocked(getDashboardConsistencyTrend).mockReset();
     process.env.JWT_SECRET = 'test-dashboard-routes-secret';
   });
 
@@ -156,6 +167,102 @@ describe('dashboard routes', () => {
     }
   });
 
+  it('returns weight trend points for an explicit date range', async () => {
+    vi.mocked(getDashboardWeightTrend).mockResolvedValue([
+      { date: '2026-03-07', value: 181.4 },
+      { date: '2026-03-08', value: 181.1 },
+      { date: '2026-03-09', value: 180.9 },
+    ]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/dashboard/trends/weight?from=2026-03-07&to=2026-03-09',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          { date: '2026-03-07', value: 181.4 },
+          { date: '2026-03-08', value: 181.1 },
+          { date: '2026-03-09', value: 180.9 },
+        ],
+      });
+      expect(vi.mocked(getDashboardWeightTrend)).toHaveBeenCalledWith(
+        'user-1',
+        '2026-03-07',
+        '2026-03-09',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('defaults trend ranges when omitted', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T17:04:11.000Z'));
+    vi.mocked(getDashboardMacrosTrend).mockResolvedValue([
+      {
+        date: '2026-02-08',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      {
+        date: '2026-03-10',
+        calories: 2200,
+        protein: 180,
+        carbs: 240,
+        fat: 70,
+      },
+    ]);
+    vi.mocked(getDashboardConsistencyTrend).mockResolvedValue([
+      { date: '2026-03-09', completed: true },
+      { date: '2026-03-10', completed: false },
+    ]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const [macrosResponse, consistencyResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/trends/macros',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/trends/consistency?from=2026-03-09',
+          headers: createAuthorizationHeader(authToken),
+        }),
+      ]);
+
+      expect(macrosResponse.statusCode).toBe(200);
+      expect(vi.mocked(getDashboardMacrosTrend)).toHaveBeenCalledWith(
+        'user-2',
+        '2026-02-08',
+        '2026-03-10',
+      );
+
+      expect(consistencyResponse.statusCode).toBe(200);
+      expect(vi.mocked(getDashboardConsistencyTrend)).toHaveBeenCalledWith(
+        'user-2',
+        '2026-03-09',
+        '2026-03-10',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects invalid query params', async () => {
     const app = buildServer();
 
@@ -196,6 +303,63 @@ describe('dashboard routes', () => {
     }
   });
 
+  it('rejects invalid trend query params', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-3' });
+      const [invalidShapeResponse, invalidCalendarDateResponse, oversizedRangeResponse] =
+        await Promise.all([
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/trends/weight?from=03-09-2026',
+            headers: createAuthorizationHeader(authToken),
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/trends/macros?from=2026-02-30&to=2026-03-01',
+            headers: createAuthorizationHeader(authToken),
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/trends/consistency?from=2025-01-01&to=2026-03-09',
+            headers: createAuthorizationHeader(authToken),
+          }),
+        ]);
+
+      expect(invalidShapeResponse.statusCode).toBe(400);
+      expect(invalidShapeResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid dashboard trend query',
+        },
+      });
+
+      expect(invalidCalendarDateResponse.statusCode).toBe(400);
+      expect(invalidCalendarDateResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid dashboard trend date range',
+        },
+      });
+
+      expect(oversizedRangeResponse.statusCode).toBe(400);
+      expect(oversizedRangeResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid dashboard trend query',
+        },
+      });
+
+      expect(vi.mocked(getDashboardWeightTrend)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardMacrosTrend)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardConsistencyTrend)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects unauthenticated requests', async () => {
     const app = buildServer();
 
@@ -205,6 +369,10 @@ describe('dashboard routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/dashboard/snapshot',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/trends/weight',
         }),
         app.inject({
           method: 'GET',
@@ -223,6 +391,9 @@ describe('dashboard routes', () => {
         });
       }
       expect(vi.mocked(getDashboardSnapshot)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardWeightTrend)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardMacrosTrend)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardConsistencyTrend)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

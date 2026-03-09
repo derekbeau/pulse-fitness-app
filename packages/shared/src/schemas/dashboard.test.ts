@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type DashboardConsistencyTrendPoint,
+  type DashboardMacrosTrendPoint,
   type DashboardSnapshot,
   type DashboardSnapshotQuery,
+  type DashboardTrendQuery,
+  type DashboardWeightTrendPoint,
+  dashboardConsistencyTrendSchema,
+  dashboardMacrosTrendSchema,
   dashboardSnapshotQuerySchema,
   dashboardSnapshotSchema,
+  dashboardTrendQuerySchema,
+  dashboardWeightTrendSchema,
 } from './dashboard';
 
 describe('dashboardSnapshotQuerySchema', () => {
@@ -24,6 +32,40 @@ describe('dashboardSnapshotQuerySchema', () => {
     };
 
     expect(query.date).toBe('2026-03-09');
+  });
+});
+
+describe('dashboardTrendQuerySchema', () => {
+  it('accepts empty query params for default trend range handling', () => {
+    expect(dashboardTrendQuerySchema.parse({})).toEqual({});
+  });
+
+  it('accepts a valid bounded range and infers DashboardTrendQuery', () => {
+    const parsed = dashboardTrendQuerySchema.parse({
+      from: '2026-02-01',
+      to: '2026-03-01',
+    });
+
+    const query: DashboardTrendQuery = parsed;
+    expect(query).toEqual({
+      from: '2026-02-01',
+      to: '2026-03-01',
+    });
+  });
+
+  it('rejects inverted and overly-long ranges', () => {
+    expect(() =>
+      dashboardTrendQuerySchema.parse({
+        from: '2026-03-09',
+        to: '2026-03-08',
+      }),
+    ).toThrow();
+    expect(() =>
+      dashboardTrendQuerySchema.parse({
+        from: '2025-01-01',
+        to: '2026-01-01',
+      }),
+    ).toThrow();
   });
 });
 
@@ -122,5 +164,46 @@ describe('dashboardSnapshotSchema', () => {
     };
 
     expect(snapshot.habits.completed).toBe(1);
+  });
+});
+
+describe('dashboard trend schemas', () => {
+  it('parses weight trend points', () => {
+    const points = dashboardWeightTrendSchema.parse([
+      {
+        date: '2026-03-07',
+        value: 181.2,
+      },
+    ]);
+
+    const point: DashboardWeightTrendPoint = points[0] as DashboardWeightTrendPoint;
+    expect(point.value).toBe(181.2);
+  });
+
+  it('parses macro trend points', () => {
+    const points = dashboardMacrosTrendSchema.parse([
+      {
+        date: '2026-03-07',
+        calories: 2100,
+        protein: 180,
+        carbs: 220,
+        fat: 70,
+      },
+    ]);
+
+    const point: DashboardMacrosTrendPoint = points[0] as DashboardMacrosTrendPoint;
+    expect(point.calories).toBe(2100);
+  });
+
+  it('parses consistency trend points', () => {
+    const points = dashboardConsistencyTrendSchema.parse([
+      {
+        date: '2026-03-07',
+        completed: true,
+      },
+    ]);
+
+    const point: DashboardConsistencyTrendPoint = points[0] as DashboardConsistencyTrendPoint;
+    expect(point.completed).toBe(true);
   });
 });

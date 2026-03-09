@@ -1,10 +1,13 @@
-import { and, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 
 import type {
+  DashboardConsistencyTrendPoint,
   DashboardHabitsSnapshot,
+  DashboardMacrosTrendPoint,
   DashboardMacroTotals,
   DashboardSnapshot,
   DashboardWeightSnapshot,
+  DashboardWeightTrendPoint,
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
 
@@ -50,6 +53,23 @@ const habitSummarySelection = {
   completed: sql<number>`coalesce(sum(case when ${habitEntries.completed} then 1 else 0 end), 0)`,
 };
 
+const weightTrendSelection = {
+  date: bodyWeight.date,
+  value: bodyWeight.weight,
+};
+
+const macrosTrendSelection = {
+  date: nutritionLogs.date,
+  calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
+  protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
+  carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
+  fat: sql<number>`coalesce(sum(${mealItems.fat}), 0)`,
+};
+
+const consistencyTrendSelection = {
+  date: workoutSessions.date,
+};
+
 const getDateRangeForUtcDay = (date: string) => {
   const start = new Date(`${date}T00:00:00.000Z`);
   const end = new Date(start);
@@ -59,6 +79,24 @@ const getDateRangeForUtcDay = (date: string) => {
     start: start.getTime(),
     end: end.getTime(),
   };
+};
+
+const addUtcDays = (date: string, days: number) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const getDatesInRange = (from: string, to: string) => {
+  const dates: string[] = [];
+
+  let current = from;
+  while (current <= to) {
+    dates.push(current);
+    current = addUtcDays(current, 1);
+  }
+
+  return dates;
 };
 
 // TODO: Source this from user preferences once kg/lb switching is introduced.
@@ -136,6 +174,21 @@ const toHabitSnapshot = (
   };
 };
 
+const toMacroTrendPoint = (
+  date: string,
+  value:
+    | {
+        calories: number | null;
+        protein: number | null;
+        carbs: number | null;
+        fat: number | null;
+      }
+    | undefined,
+): DashboardMacrosTrendPoint => ({
+  date,
+  ...toMacroTotals(value),
+});
+
 export const getDashboardSnapshot = async (
   userId: string,
   date: string,
@@ -208,4 +261,79 @@ export const getDashboardSnapshot = async (
     workout: toWorkoutSnapshot(workout),
     habits: toHabitSnapshot(habitsSummary),
   };
+};
+
+export const getDashboardWeightTrend = async (
+  userId: string,
+  from: string,
+  to: string,
+): Promise<DashboardWeightTrendPoint[]> => {
+  const entries = db
+    .select(weightTrendSelection)
+    .from(bodyWeight)
+    .where(and(eq(bodyWeight.userId, userId), between(bodyWeight.date, from, to)))
+    .orderBy(asc(bodyWeight.date))
+    .all();
+
+  return entries.map((entry) => ({
+    date: entry.date,
+    value: Number(entry.value),
+  }));
+};
+
+export const getDashboardMacrosTrend = async (
+  userId: string,
+  from: string,
+  to: string,
+): Promise<DashboardMacrosTrendPoint[]> => {
+  const rows = db
+    .select(macrosTrendSelection)
+    .from(nutritionLogs)
+    .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+    .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+    .where(and(eq(nutritionLogs.userId, userId), between(nutritionLogs.date, from, to)))
+    .groupBy(nutritionLogs.date)
+    .orderBy(asc(nutritionLogs.date))
+    .all();
+
+  const rowsByDate = new Map(
+    rows.map((row) => [
+      row.date,
+      {
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      },
+    ]),
+  );
+
+  return getDatesInRange(from, to).map((date) => toMacroTrendPoint(date, rowsByDate.get(date)));
+};
+
+export const getDashboardConsistencyTrend = async (
+  userId: string,
+  from: string,
+  to: string,
+): Promise<DashboardConsistencyTrendPoint[]> => {
+  const completedRows = db
+    .select(consistencyTrendSelection)
+    .from(workoutSessions)
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.status, 'completed'),
+        between(workoutSessions.date, from, to),
+      ),
+    )
+    .groupBy(workoutSessions.date)
+    .orderBy(asc(workoutSessions.date))
+    .all();
+
+  const completedDates = new Set(completedRows.map((row) => row.date));
+
+  return getDatesInRange(from, to).map((date) => ({
+    date,
+    completed: completedDates.has(date),
+  }));
 };

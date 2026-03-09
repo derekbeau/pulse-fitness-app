@@ -1,18 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testState = vi.hoisted(() => {
-  const selectResults: unknown[] = [];
+  const selectGetResults: unknown[] = [];
+  const selectAllResults: unknown[] = [];
 
   const select = vi.fn(() => {
-    const get = vi.fn(() => selectResults.shift());
-    const limit = vi.fn(() => ({ get }));
-    const orderBy = vi.fn(() => ({ limit, get }));
-    const where = vi.fn(() => ({ orderBy, limit, get }));
-    const leftJoin = vi.fn(() => ({ leftJoin, where, orderBy, limit, get }));
-    const from = vi.fn(() => ({ leftJoin, where, orderBy, limit, get }));
+    const chain = {
+      from: vi.fn(() => chain),
+      leftJoin: vi.fn(() => chain),
+      where: vi.fn(() => chain),
+      groupBy: vi.fn(() => chain),
+      orderBy: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      get: vi.fn(() => selectGetResults.shift()),
+      all: vi.fn(() => (selectAllResults.shift() as unknown[] | undefined) ?? []),
+    };
 
     return {
-      from,
+      from: chain.from,
     };
   });
 
@@ -23,9 +28,11 @@ const testState = vi.hoisted(() => {
   return {
     db,
     select,
-    selectResults,
+    selectGetResults,
+    selectAllResults,
     reset() {
-      selectResults.length = 0;
+      selectGetResults.length = 0;
+      selectAllResults.length = 0;
       select.mockClear();
     },
   };
@@ -41,7 +48,7 @@ describe('dashboard store', () => {
   });
 
   it('aggregates all dashboard snapshot sections from scoped query results', async () => {
-    testState.selectResults.push(
+    testState.selectGetResults.push(
       { value: 178.4, date: '2026-03-08' },
       {
         calories: 1850,
@@ -136,7 +143,7 @@ describe('dashboard store', () => {
   });
 
   it('rounds habit completion percentage to one decimal place', async () => {
-    testState.selectResults.push(undefined, undefined, undefined, undefined, {
+    testState.selectGetResults.push(undefined, undefined, undefined, undefined, {
       total: 3,
       completed: 2,
     });
@@ -149,5 +156,82 @@ describe('dashboard store', () => {
       completed: 2,
       percentage: 66.7,
     });
+  });
+
+  it('returns weight trend points in ascending date order', async () => {
+    testState.selectAllResults.push([
+      { date: '2026-03-07', value: 181.6 },
+      { date: '2026-03-09', value: 181.1 },
+    ]);
+
+    const { getDashboardWeightTrend } = await import('./dashboard-store.js');
+    const trend = await getDashboardWeightTrend('user-1', '2026-03-07', '2026-03-09');
+
+    expect(trend).toEqual([
+      { date: '2026-03-07', value: 181.6 },
+      { date: '2026-03-09', value: 181.1 },
+    ]);
+    expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('fills missing macro trend days with zero totals', async () => {
+    testState.selectAllResults.push([
+      {
+        date: '2026-03-07',
+        calories: 2100,
+        protein: 170,
+        carbs: 230,
+        fat: 68,
+      },
+      {
+        date: '2026-03-09',
+        calories: 2200,
+        protein: 180,
+        carbs: 240,
+        fat: 70,
+      },
+    ]);
+
+    const { getDashboardMacrosTrend } = await import('./dashboard-store.js');
+    const trend = await getDashboardMacrosTrend('user-1', '2026-03-07', '2026-03-09');
+
+    expect(trend).toEqual([
+      {
+        date: '2026-03-07',
+        calories: 2100,
+        protein: 170,
+        carbs: 230,
+        fat: 68,
+      },
+      {
+        date: '2026-03-08',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      {
+        date: '2026-03-09',
+        calories: 2200,
+        protein: 180,
+        carbs: 240,
+        fat: 70,
+      },
+    ]);
+    expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns consistency completion booleans for every day in range', async () => {
+    testState.selectAllResults.push([{ date: '2026-03-08' }]);
+
+    const { getDashboardConsistencyTrend } = await import('./dashboard-store.js');
+    const trend = await getDashboardConsistencyTrend('user-1', '2026-03-07', '2026-03-09');
+
+    expect(trend).toEqual([
+      { date: '2026-03-07', completed: false },
+      { date: '2026-03-08', completed: true },
+      { date: '2026-03-09', completed: false },
+    ]);
+    expect(testState.select).toHaveBeenCalledTimes(1);
   });
 });
