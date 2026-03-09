@@ -15,6 +15,7 @@ const nutritionTargetSelection = {
   updatedAt: nutritionTargets.updatedAt,
 };
 
+// Keep "current target" resolution aligned to UTC date-only semantics.
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 export const upsertNutritionTarget = async (

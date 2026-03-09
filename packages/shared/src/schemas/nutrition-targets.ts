@@ -13,6 +13,7 @@ export const createNutritionTargetInputSchema = z.object({
   protein: macroGramTargetSchema,
   carbs: macroGramTargetSchema,
   fat: macroGramTargetSchema,
+  // Effective date is interpreted as a UTC calendar date (YYYY-MM-DD).
   effectiveDate: dateSchema,
 });
 
