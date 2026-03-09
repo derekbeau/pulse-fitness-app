@@ -15,6 +15,7 @@ export * from './schemas/nutrition.js';
 export * from './schemas/nutrition-targets.js';
 export * from './schemas/resources.js';
 export * from './schemas/scheduled-workouts.js';
+export * from './schemas/session-set.js';
 export * from './schemas/weight.js';
 export * from './schemas/workout-sessions.js';
 export * from './schemas/workout-templates.js';
