@@ -1,9 +1,45 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { MealCard } from '@/features/nutrition/components/meal-card';
-import { mockDailyMeals } from '@/lib/mock-data/nutrition';
+import { describe, expect, it, vi } from 'vitest';
 
-const breakfastMeal = mockDailyMeals['2026-03-05'][0];
+import { MealCard } from '@/features/nutrition/components/meal-card';
+
+const breakfastMeal = {
+  id: 'meal-breakfast',
+  name: 'Breakfast',
+  time: '07:20',
+  items: [
+    {
+      id: 'item-eggs',
+      name: 'Large Eggs',
+      amount: 3,
+      unit: 'eggs',
+      calories: 210,
+      protein: 18,
+      carbs: 1,
+      fat: 15,
+    },
+    {
+      id: 'item-bread',
+      name: 'Whole Wheat Bread',
+      amount: 2,
+      unit: 'slices',
+      calories: 220,
+      protein: 10,
+      carbs: 44,
+      fat: 2,
+    },
+    {
+      id: 'item-shake',
+      name: 'Whey Protein',
+      amount: 1,
+      unit: 'scoop',
+      calories: 105,
+      protein: 1,
+      carbs: 27,
+      fat: 0,
+    },
+  ],
+};
 
 describe('MealCard', () => {
   it('renders the meal summary collapsed by default', () => {
@@ -43,5 +79,14 @@ describe('MealCard', () => {
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+  });
+
+  it('calls onDelete with the meal id when delete is clicked', () => {
+    const onDelete = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onDelete={onDelete} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Breakfast' }));
+
+    expect(onDelete).toHaveBeenCalledWith('meal-breakfast');
   });
 });

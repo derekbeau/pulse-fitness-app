@@ -1,9 +1,28 @@
-import type { DailyTargets, FoodItem, Meal } from '@/lib/mock-data/nutrition';
-
 export const MEAL_ORDER = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'] as const;
 
-export type MacroKey = keyof DailyTargets;
-export type MacroTotals = DailyTargets;
+export type MacroTotals = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+export type MacroKey = keyof MacroTotals;
+
+type MacroSource = Pick<MacroTotals, MacroKey>;
+type MealSource = {
+  items: MacroSource[];
+};
+
+type ServingSource =
+  | {
+      amount: number;
+      unit: string;
+    }
+  | {
+      quantity: number;
+      servingSize: number;
+      servingUnit: string;
+    };
 
 const DEFAULT_TOTALS: MacroTotals = {
   calories: 0,
@@ -13,7 +32,7 @@ const DEFAULT_TOTALS: MacroTotals = {
 };
 
 export function calculateMacroTotals(
-  sources: Array<Pick<FoodItem, MacroKey>> | Meal[],
+  sources: Array<MacroSource | MealSource>,
 ): MacroTotals {
   return sources.reduce<MacroTotals>((totals, source) => {
     const macrosToAdd = 'items' in source ? calculateMacroTotals(source.items) : source;
@@ -27,8 +46,33 @@ export function calculateMacroTotals(
   }, DEFAULT_TOTALS);
 }
 
-export function sortMeals(meals: Meal[]): Meal[] {
-  return [...meals].sort((left, right) => MEAL_ORDER.indexOf(left.name) - MEAL_ORDER.indexOf(right.name));
+function getMealSortIndex(name: string) {
+  const normalizedName = name.trim().toLowerCase();
+
+  switch (normalizedName) {
+    case 'breakfast':
+      return 0;
+    case 'lunch':
+      return 1;
+    case 'dinner':
+      return 2;
+    case 'snacks':
+      return 3;
+    default:
+      return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+export function sortMeals<T extends { name: string }>(meals: T[]): T[] {
+  return [...meals].sort((left, right) => {
+    const orderDifference = getMealSortIndex(left.name) - getMealSortIndex(right.name);
+
+    if (orderDifference !== 0) {
+      return orderDifference;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
 }
 
 export function formatCalories(value: number): string {
@@ -39,7 +83,11 @@ export function formatGrams(value: number): string {
   return `${Math.round(value)}g`;
 }
 
-export function formatServing(item: FoodItem): string {
+export function formatServing(item: ServingSource): string {
+  if ('amount' in item) {
+    return `${formatNumber(item.amount)} ${item.unit}`;
+  }
+
   return `${formatNumber(item.quantity * item.servingSize)} ${item.servingUnit}`;
 }
 
