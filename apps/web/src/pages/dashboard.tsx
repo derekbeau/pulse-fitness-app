@@ -110,18 +110,24 @@ export function DashboardPage() {
           data-slot="dashboard-sidebar-column"
         >
           <HabitChain />
-          <Card data-qa="dashboard-log-weight-card">
+          <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
             <CardHeader className="space-y-1">
               <CardTitle>Log Weight</CardTitle>
               <CardDescription>Track your body weight for the selected day.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-3" data-qa="dashboard-log-weight-form" onSubmit={handleWeightSubmit}>
+              <form
+                className="space-y-3"
+                data-qa="dashboard-log-weight-form"
+                data-testid="dashboard-log-weight-form"
+                onSubmit={handleWeightSubmit}
+              >
                 <div className="space-y-2">
                   <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
                   <Input
                     aria-describedby="dashboard-weight-status"
                     data-qa="dashboard-weight-input"
+                    data-testid="dashboard-weight-input"
                     id="dashboard-weight-input"
                     inputMode="decimal"
                     min="0.1"
@@ -138,6 +144,7 @@ export function DashboardPage() {
                 </div>
                 <Button
                   data-qa="dashboard-save-weight"
+                  data-testid="dashboard-save-weight"
                   id="dashboard-save-weight"
                   disabled={logWeightMutation.isPending}
                   type="submit"

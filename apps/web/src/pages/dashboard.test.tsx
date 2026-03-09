@@ -151,12 +151,21 @@ describe('DashboardPage', () => {
       'data-qa',
       'dashboard-log-weight-card',
     );
+    expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
       'data-qa',
       'dashboard-save-weight',
     );
     expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
       'id',
+      'dashboard-save-weight',
+    );
+    expect(screen.getByTestId('dashboard-weight-input')).toHaveAttribute(
+      'data-testid',
+      'dashboard-weight-input',
+    );
+    expect(screen.getByTestId('dashboard-save-weight')).toHaveAttribute(
+      'data-testid',
       'dashboard-save-weight',
     );
 
