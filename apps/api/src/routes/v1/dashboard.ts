@@ -8,6 +8,7 @@ import { getDashboardSnapshot } from './dashboard-store.js';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// TODO: Accept a user timezone (or offset) so omitted date defaults to the user's local day.
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 const isValidDateParam = (date: string) => {

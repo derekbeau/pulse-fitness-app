@@ -16,24 +16,17 @@ const testState = vi.hoisted(() => {
     };
   });
 
-  const tx = {
-    select,
-  };
-
-  const transaction = vi.fn((callback: (value: typeof tx) => unknown) => callback(tx));
   const db = {
-    transaction,
+    select,
   };
 
   return {
     db,
     select,
     selectResults,
-    transaction,
     reset() {
       selectResults.length = 0;
       select.mockClear();
-      transaction.mockClear();
     },
   };
 });
@@ -108,7 +101,6 @@ describe('dashboard store', () => {
         percentage: 66.7,
       },
     });
-    expect(testState.transaction).toHaveBeenCalledOnce();
     expect(testState.select).toHaveBeenCalledTimes(5);
   });
 

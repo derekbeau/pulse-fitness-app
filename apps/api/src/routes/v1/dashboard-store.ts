@@ -8,6 +8,7 @@ import type {
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
 
+import { db } from '../../db/index.js';
 import {
   bodyWeight,
   habitEntries,
@@ -60,6 +61,9 @@ const getDateRangeForUtcDay = (date: string) => {
   };
 };
 
+// TODO: Source this from user preferences once kg/lb switching is introduced.
+const DEFAULT_WEIGHT_UNIT: DashboardWeightSnapshot['unit'] = 'lb';
+
 const toMacroTotals = (
   value:
     | {
@@ -89,7 +93,7 @@ const toWeightSnapshot = (
   return {
     value: Number(value.value),
     date: value.date,
-    unit: 'lb',
+    unit: DEFAULT_WEIGHT_UNIT,
   };
 };
 
@@ -97,7 +101,7 @@ const toWorkoutSnapshot = (
   value:
     | {
         name: string;
-        status: 'scheduled' | 'in-progress' | 'completed';
+        status: DashboardWorkoutSnapshot['status'];
         duration: number | null;
       }
     | undefined,
@@ -136,75 +140,72 @@ export const getDashboardSnapshot = async (
   userId: string,
   date: string,
 ): Promise<DashboardSnapshot> => {
-  const { db } = await import('../../db/index.js');
   const dayRange = getDateRangeForUtcDay(date);
 
-  return db.transaction((tx) => {
-    const weight =
-      tx
-        .select(weightSelection)
-        .from(bodyWeight)
-        .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
-        .orderBy(desc(bodyWeight.date))
-        .limit(1)
-        .get() ?? null;
+  const weight =
+    db
+      .select(weightSelection)
+      .from(bodyWeight)
+      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
+      .orderBy(desc(bodyWeight.date))
+      .limit(1)
+      .get() ?? null;
 
-    const macrosActual =
-      tx
-        .select(macroActualSelection)
-        .from(nutritionLogs)
-        .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
-        .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
-        .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
-        .get() ?? undefined;
+  const macrosActual =
+    db
+      .select(macroActualSelection)
+      .from(nutritionLogs)
+      .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+      .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+      .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+      .get() ?? undefined;
 
-    const macrosTarget =
-      tx
-        .select(macroTargetSelection)
-        .from(nutritionTargets)
-        .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, date)))
-        .orderBy(desc(nutritionTargets.effectiveDate))
-        .limit(1)
-        .get() ?? undefined;
+  const macrosTarget =
+    db
+      .select(macroTargetSelection)
+      .from(nutritionTargets)
+      .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, date)))
+      .orderBy(desc(nutritionTargets.effectiveDate))
+      .limit(1)
+      .get() ?? undefined;
 
-    const workout = tx
-      .select(workoutSelection)
-      .from(workoutSessions)
-      .where(
+  const workout = db
+    .select(workoutSelection)
+    .from(workoutSessions)
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        gte(workoutSessions.startedAt, dayRange.start),
+        lt(workoutSessions.startedAt, dayRange.end),
+      ),
+    )
+    .orderBy(desc(workoutSessions.startedAt))
+    .limit(1)
+    .get();
+
+  const habitsSummary =
+    db
+      .select(habitSummarySelection)
+      .from(habits)
+      .leftJoin(
+        habitEntries,
         and(
-          eq(workoutSessions.userId, userId),
-          gte(workoutSessions.startedAt, dayRange.start),
-          lt(workoutSessions.startedAt, dayRange.end),
+          eq(habitEntries.habitId, habits.id),
+          eq(habitEntries.userId, userId),
+          eq(habitEntries.date, date),
         ),
       )
-      .orderBy(desc(workoutSessions.startedAt))
-      .limit(1)
-      .get();
+      .where(and(eq(habits.userId, userId), eq(habits.active, true)))
+      .get() ?? undefined;
 
-    const habitsSummary =
-      tx
-        .select(habitSummarySelection)
-        .from(habits)
-        .leftJoin(
-          habitEntries,
-          and(
-            eq(habitEntries.habitId, habits.id),
-            eq(habitEntries.userId, userId),
-            eq(habitEntries.date, date),
-          ),
-        )
-        .where(and(eq(habits.userId, userId), eq(habits.active, true)))
-        .get() ?? undefined;
-
-    return {
-      date,
-      weight: toWeightSnapshot(weight),
-      macros: {
-        actual: toMacroTotals(macrosActual),
-        target: toMacroTotals(macrosTarget),
-      },
-      workout: toWorkoutSnapshot(workout),
-      habits: toHabitSnapshot(habitsSummary),
-    };
-  });
+  return {
+    date,
+    weight: toWeightSnapshot(weight),
+    macros: {
+      actual: toMacroTotals(macrosActual),
+      target: toMacroTotals(macrosTarget),
+    },
+    workout: toWorkoutSnapshot(workout),
+    habits: toHabitSnapshot(habitsSummary),
+  };
 };

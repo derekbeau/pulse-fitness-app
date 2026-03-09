@@ -195,4 +195,36 @@ describe('dashboard routes', () => {
       await app.close();
     }
   });
+
+  it('rejects unauthenticated requests', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const [missingAuthResponse, invalidAuthResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/snapshot',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/snapshot',
+          headers: createAuthorizationHeader('not-a-valid-token'),
+        }),
+      ]);
+
+      for (const response of [missingAuthResponse, invalidAuthResponse]) {
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+      expect(vi.mocked(getDashboardSnapshot)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
 });
