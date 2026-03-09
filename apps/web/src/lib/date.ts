@@ -13,6 +13,8 @@ export const formatDateKey = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const formatUtcDateKey = (date: Date): string => date.toISOString().slice(0, 10);
+
 export const normalizeDate = (date: Date): Date => {
   const normalized = new Date(date);
   normalized.setHours(0, 0, 0, 0);

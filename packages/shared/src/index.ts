@@ -8,7 +8,9 @@ export * from './schemas/equipment.js';
 export * from './schemas/health-conditions.js';
 export * from './schemas/journal.js';
 export * from './schemas/foods.js';
+export * from './schemas/nutrition-targets.js';
 export * from './schemas/resources.js';
+export * from './schemas/weight.js';
 
 export const userSchema = z.object({
   id: z.string(),

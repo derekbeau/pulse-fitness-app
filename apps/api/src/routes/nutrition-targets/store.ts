@@ -1,0 +1,89 @@
+import { and, desc, eq, lte } from 'drizzle-orm';
+
+import type { CreateNutritionTargetInput, NutritionTarget } from '@pulse/shared';
+
+import { nutritionTargets } from '../../db/schema/index.js';
+
+const nutritionTargetSelection = {
+  id: nutritionTargets.id,
+  calories: nutritionTargets.calories,
+  protein: nutritionTargets.protein,
+  carbs: nutritionTargets.carbs,
+  fat: nutritionTargets.fat,
+  effectiveDate: nutritionTargets.effectiveDate,
+  createdAt: nutritionTargets.createdAt,
+  updatedAt: nutritionTargets.updatedAt,
+};
+
+// Keep "current target" resolution aligned to UTC date-only semantics.
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
+export const upsertNutritionTarget = async (
+  userId: string,
+  input: CreateNutritionTargetInput,
+): Promise<NutritionTarget> => {
+  const { db } = await import('../../db/index.js');
+
+  const updatedAt = Date.now();
+
+  const target = db
+    .insert(nutritionTargets)
+    .values({
+      userId,
+      calories: input.calories,
+      protein: input.protein,
+      carbs: input.carbs,
+      fat: input.fat,
+      effectiveDate: input.effectiveDate,
+    })
+    .onConflictDoUpdate({
+      target: [nutritionTargets.userId, nutritionTargets.effectiveDate],
+      set: {
+        calories: input.calories,
+        protein: input.protein,
+        carbs: input.carbs,
+        fat: input.fat,
+        updatedAt,
+      },
+    })
+    .returning(nutritionTargetSelection)
+    .get();
+
+  if (!target) {
+    throw new Error('Failed to persist nutrition target');
+  }
+
+  return target;
+};
+
+export const getCurrentNutritionTarget = async (
+  userId: string,
+): Promise<NutritionTarget | null> => {
+  const { db } = await import('../../db/index.js');
+
+  return (
+    db
+      .select(nutritionTargetSelection)
+      .from(nutritionTargets)
+      .where(
+        and(
+          eq(nutritionTargets.userId, userId),
+          lte(nutritionTargets.effectiveDate, getTodayDate()),
+        ),
+      )
+      .orderBy(desc(nutritionTargets.effectiveDate))
+      .limit(1)
+      .get() ?? null
+  );
+};
+
+export const listNutritionTargets = async (userId: string): Promise<NutritionTarget[]> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(nutritionTargetSelection)
+    .from(nutritionTargets)
+    .where(eq(nutritionTargets.userId, userId))
+    .orderBy(desc(nutritionTargets.effectiveDate))
+    .all();
+};

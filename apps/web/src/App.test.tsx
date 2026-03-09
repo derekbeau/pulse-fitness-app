@@ -48,6 +48,7 @@ const navRoutes = [
 
 function renderApp() {
   const queryClient = createAppQueryClient();
+  queryClient.clear();
 
   return render(
     <QueryClientProvider client={queryClient}>

@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
+import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
+import { weightRoutes } from './routes/weight/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 
@@ -31,6 +33,8 @@ export const buildServer = () => {
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(foodsRoutes, { prefix: '/api/v1/foods' });
+  app.register(nutritionTargetRoutes, { prefix: '/api/v1/nutrition-targets' });
+  app.register(weightRoutes, { prefix: '/api/v1/weight' });
 
   return app;
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import type { CreateNutritionTargetInput } from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { defaultHabitConfigs, HabitSettings } from '@/features/habits';
+import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { formatUtcDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type ThemePreview = {
@@ -248,8 +251,28 @@ function ThemeOptionCard({
 
 export function SettingsPage() {
   const { setTheme, theme } = useThemeContext();
-  const [settings, setSettings] = useState<SettingsFormState>(() => loadSettings());
+  const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
+  const [dashboardConfig, setDashboardConfig] = useState(storedSettings.dashboardConfig);
+  const [draftNutritionTargets, setDraftNutritionTargets] = useState<
+    SettingsFormState['nutritionTargets'] | null
+  >(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const { data: currentTargets } = useNutritionTargets();
+  const updateTargetsMutation = useUpdateTargets();
+  const nutritionTargets =
+    draftNutritionTargets ??
+    (currentTargets
+      ? {
+          calories: currentTargets.calories,
+          carbs: currentTargets.carbs,
+          fat: currentTargets.fat,
+          protein: currentTargets.protein,
+        }
+      : storedSettings.nutritionTargets);
+  const settings: SettingsFormState = {
+    dashboardConfig,
+    nutritionTargets,
+  };
 
   useEffect(() => {
     if (!saveMessage) {
@@ -280,25 +303,19 @@ export function SettingsPage() {
     const parsedValue = Number(value);
 
     setSaveMessage('');
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      nutritionTargets: {
-        ...currentSettings.nutritionTargets,
-        [field]: Number.isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue,
-      },
+    setDraftNutritionTargets((currentTargetsState) => ({
+      ...(currentTargetsState ?? nutritionTargets),
+      [field]: Number.isNaN(parsedValue) || parsedValue < 0 ? 0 : parsedValue,
     }));
   }
 
   function toggleHabitChain(habitId: string, checked: boolean) {
     setSaveMessage('');
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      dashboardConfig: {
-        ...currentSettings.dashboardConfig,
-        habitChains: checked
-          ? [...currentSettings.dashboardConfig.habitChains, habitId]
-          : currentSettings.dashboardConfig.habitChains.filter((value) => value !== habitId),
-      },
+    setDashboardConfig((currentDashboardConfig) => ({
+      ...currentDashboardConfig,
+      habitChains: checked
+        ? [...currentDashboardConfig.habitChains, habitId]
+        : currentDashboardConfig.habitChains.filter((value) => value !== habitId),
     }));
   }
 
@@ -307,24 +324,37 @@ export function SettingsPage() {
     checked: boolean,
   ) {
     setSaveMessage('');
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      dashboardConfig: {
-        ...currentSettings.dashboardConfig,
-        trendSparklines: checked
-          ? [...currentSettings.dashboardConfig.trendSparklines, metric]
-          : currentSettings.dashboardConfig.trendSparklines.filter((value) => value !== metric),
-      },
+    setDashboardConfig((currentDashboardConfig) => ({
+      ...currentDashboardConfig,
+      trendSparklines: checked
+        ? [...currentDashboardConfig.trendSparklines, metric]
+        : currentDashboardConfig.trendSparklines.filter((value) => value !== metric),
     }));
   }
 
-  function handleSave() {
+  async function handleSave() {
+    const nextTargets: CreateNutritionTargetInput = {
+      ...settings.nutritionTargets,
+      effectiveDate: formatUtcDateKey(new Date()),
+    };
+
     try {
       window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      setSaveMessage('Nutrition targets and dashboard preferences saved.');
     } catch {
-      setSaveMessage('Settings could not be saved on this device.');
+      // Local persistence is best-effort.
     }
+
+    try {
+      await updateTargetsMutation.mutateAsync(nextTargets);
+    } catch {
+      setSaveMessage(
+        'Nutrition targets could not be saved right now. Dashboard preferences were saved locally.',
+      );
+      return;
+    }
+
+    setDraftNutritionTargets(null);
+    setSaveMessage('Nutrition targets and dashboard preferences saved.');
   }
 
   return (
@@ -539,8 +569,8 @@ export function SettingsPage() {
             <p aria-live="polite" className="text-sm text-muted-foreground">
               {saveMessage || 'Save changes to keep these preferences on this device.'}
             </p>
-            <Button onClick={handleSave} type="button">
-              Save settings
+            <Button disabled={updateTargetsMutation.isPending} onClick={handleSave} type="button">
+              {updateTargetsMutation.isPending ? 'Saving...' : 'Save settings'}
             </Button>
           </div>
         </CardContent>

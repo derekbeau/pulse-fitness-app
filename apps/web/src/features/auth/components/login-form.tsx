@@ -113,7 +113,14 @@ export function LoginForm({ onSuccess, registerHref }: LoginFormProps) {
 
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
-            <Link className={cn('font-medium text-primary hover:underline')} to={registerHref}>
+            <Link
+              aria-label="Go to register"
+              className={cn('font-medium text-primary hover:underline')}
+              data-qa="auth-go-register"
+              data-testid="login-register-link"
+              id="login-register-link"
+              to={registerHref}
+            >
               Register
             </Link>
           </p>

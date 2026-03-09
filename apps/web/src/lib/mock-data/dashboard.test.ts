@@ -19,7 +19,7 @@ const formatDate = (date: Date): string => {
 
 const toDayTimestamp = (date: string): number => {
   const [year, month, day] = date.split('-').map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1).setHours(0, 0, 0, 0);
+  return Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1);
 };
 
 const getStreakFromEntries = (entries: { completed: boolean }[]): number => {

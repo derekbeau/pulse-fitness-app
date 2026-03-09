@@ -101,6 +101,20 @@ describe('api-client', () => {
     } satisfies Partial<ApiError>);
   });
 
+  it('throws a status-based ApiError when a non-2xx response is not JSON', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('<html><body>Server error</body></html>', {
+        headers: { 'Content-Type': 'text/html' },
+        status: 500,
+      }),
+    );
+
+    await expect(apiRequest('/api/v1/profile')).rejects.toMatchObject({
+      status: 500,
+      message: 'Request failed with status 500',
+    } satisfies Partial<ApiError>);
+  });
+
   it('clears the stored token on 401 responses', async () => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'expired-token');
     window.localStorage.setItem(
