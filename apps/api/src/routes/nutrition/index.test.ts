@@ -3,12 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../index.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
 
-import { createMealForDate, deleteMealForDate, getDailyNutritionForDate } from './store.js';
+import {
+  createMealForDate,
+  deleteMealForDate,
+  getDailyNutritionForDate,
+  getDailyNutritionSummaryForDate,
+} from './store.js';
 
 vi.mock('./store.js', () => ({
   createMealForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(),
+  getDailyNutritionSummaryForDate: vi.fn(),
 }));
 
 vi.mock('../foods/store.js', () => ({
@@ -62,11 +68,29 @@ const mealItems = [
   },
 ];
 
+const nutritionSummary = {
+  date: '2026-03-09',
+  meals: 1,
+  actual: {
+    calories: 494,
+    protein: 70,
+    carbs: 0,
+    fat: 22,
+  },
+  target: {
+    calories: 2200,
+    protein: 180,
+    carbs: 250,
+    fat: 70,
+  },
+};
+
 describe('nutrition routes', () => {
   beforeEach(() => {
     vi.mocked(createMealForDate).mockReset();
     vi.mocked(deleteMealForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
+    vi.mocked(getDailyNutritionSummaryForDate).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
@@ -283,17 +307,94 @@ describe('nutrition routes', () => {
     }
   });
 
+  it('gets a daily nutrition summary with actuals, target, and meal count', async () => {
+    vi.mocked(getDailyNutritionSummaryForDate)
+      .mockResolvedValueOnce(nutritionSummary)
+      .mockResolvedValueOnce({
+        date: '2026-03-10',
+        meals: 0,
+        actual: {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+        target: null,
+      });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+
+      const [foundResponse, emptyResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-10/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+      ]);
+
+      expect(foundResponse.statusCode).toBe(200);
+      expect(foundResponse.json()).toEqual({
+        data: nutritionSummary,
+      });
+      expect(emptyResponse.statusCode).toBe(200);
+      expect(emptyResponse.json()).toEqual({
+        data: {
+          date: '2026-03-10',
+          meals: 0,
+          actual: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+          target: null,
+        },
+      });
+      expect(vi.mocked(getDailyNutritionSummaryForDate)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '2026-03-09',
+      );
+      expect(vi.mocked(getDailyNutritionSummaryForDate)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        '2026-03-10',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it('validates date and meal payloads', async () => {
     const app = buildServer();
 
     try {
       await app.ready();
       const authToken = app.jwt.sign({ userId: 'user-1' });
-      const [invalidDateResponse, invalidPayloadResponse, invalidDeleteParamsResponse] =
+      const [
+        invalidDateResponse,
+        invalidSummaryDateResponse,
+        invalidPayloadResponse,
+        invalidDeleteParamsResponse,
+      ] =
         await Promise.all([
           app.inject({
             method: 'GET',
             url: '/api/v1/nutrition/03-09-2026',
+            headers: createAuthorizationHeader(authToken),
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/nutrition/03-09-2026/summary',
             headers: createAuthorizationHeader(authToken),
           }),
           app.inject({
@@ -315,6 +416,13 @@ describe('nutrition routes', () => {
 
       expect(invalidDateResponse.statusCode).toBe(400);
       expect(invalidDateResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid nutrition date',
+        },
+      });
+      expect(invalidSummaryDateResponse.statusCode).toBe(400);
+      expect(invalidSummaryDateResponse.json()).toEqual({
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid nutrition date',
@@ -368,6 +476,10 @@ describe('nutrition routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/nutrition/2026-03-09',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/summary',
         }),
         app.inject({
           method: 'DELETE',

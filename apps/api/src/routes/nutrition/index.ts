@@ -5,7 +5,12 @@ import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
 
-import { createMealForDate, deleteMealForDate, getDailyNutritionForDate } from './store.js';
+import {
+  createMealForDate,
+  deleteMealForDate,
+  getDailyNutritionForDate,
+  getDailyNutritionSummaryForDate,
+} from './store.js';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -46,6 +51,18 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       data: nutrition,
+    });
+  });
+
+  app.get<{ Params: { date: string } }>('/:date/summary', async (request, reply) => {
+    if (!isValidDateParam(request.params.date)) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition date');
+    }
+
+    const summary = await getDailyNutritionSummaryForDate(request.userId, request.params.date);
+
+    return reply.send({
+      data: summary,
     });
   });
 

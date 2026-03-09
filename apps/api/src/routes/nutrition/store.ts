@@ -1,8 +1,8 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
 import type { CreateMealInput } from '@pulse/shared';
 
-import { mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
+import { mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
 
 export type NutritionLogRecord = {
   id: string;
@@ -47,6 +47,23 @@ export type DailyNutritionRecord = {
   }>;
 };
 
+export type NutritionSummaryRecord = {
+  date: string;
+  meals: number;
+  actual: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  target: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  } | null;
+};
+
 const nutritionLogSelection = {
   id: nutritionLogs.id,
   userId: nutritionLogs.userId,
@@ -80,6 +97,21 @@ const mealItemSelection = {
   fiber: mealItems.fiber,
   sugar: mealItems.sugar,
   createdAt: mealItems.createdAt,
+};
+
+const nutritionSummarySelection = {
+  calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
+  protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
+  carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
+  fat: sql<number>`coalesce(sum(${mealItems.fat}), 0)`,
+  meals: sql<number>`count(distinct ${meals.id})`,
+};
+
+const nutritionTargetMacroSelection = {
+  calories: nutritionTargets.calories,
+  protein: nutritionTargets.protein,
+  carbs: nutritionTargets.carbs,
+  fat: nutritionTargets.fat,
 };
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
@@ -208,6 +240,56 @@ export const getDailyNutritionForDate = async (
       meal,
       items: itemsByMealId.get(meal.id) ?? [],
     })),
+  };
+};
+
+export const getDailyNutritionSummaryForDate = async (
+  userId: string,
+  date: string,
+): Promise<NutritionSummaryRecord> => {
+  const { db } = await import('../../db/index.js');
+
+  const actuals =
+    db
+      .select(nutritionSummarySelection)
+      .from(nutritionLogs)
+      .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+      .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+      .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+      .get() ?? {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      meals: 0,
+    };
+
+  const target =
+    db
+      .select(nutritionTargetMacroSelection)
+      .from(nutritionTargets)
+      .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, date)))
+      .orderBy(desc(nutritionTargets.effectiveDate))
+      .limit(1)
+      .get() ?? null;
+
+  return {
+    date,
+    meals: Number(actuals.meals ?? 0),
+    actual: {
+      calories: Number(actuals.calories ?? 0),
+      protein: Number(actuals.protein ?? 0),
+      carbs: Number(actuals.carbs ?? 0),
+      fat: Number(actuals.fat ?? 0),
+    },
+    target: target
+      ? {
+          calories: Number(target.calories),
+          protein: Number(target.protein),
+          carbs: Number(target.carbs),
+          fat: Number(target.fat),
+        }
+      : null,
   };
 };
 
