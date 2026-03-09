@@ -1,12 +1,13 @@
-import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateExerciseInput,
   Exercise,
   ExerciseCategory,
+  ExerciseLastPerformance,
   UpdateExerciseInput,
 } from '@pulse/shared';
 
-import { exercises } from '../../db/schema/index.js';
+import { exercises, sessionSets, workoutSessions } from '../../db/schema/index.js';
 
 type ListExercisesInput = {
   userId: string;
@@ -212,4 +213,92 @@ export const deleteOwnedExercise = async (id: string, userId: string): Promise<b
     .run();
 
   return result.changes === 1;
+};
+
+export const findVisibleExerciseById = async ({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}): Promise<ExerciseOwnershipRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select({
+      id: exercises.id,
+      userId: exercises.userId,
+    })
+    .from(exercises)
+    .where(and(eq(exercises.id, id), or(isNull(exercises.userId), eq(exercises.userId, userId))))
+    .limit(1)
+    .get();
+};
+
+export const findExerciseLastPerformance = async ({
+  exerciseId,
+  userId,
+}: {
+  exerciseId: string;
+  userId: string;
+}): Promise<ExerciseLastPerformance | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  const latestSession = db
+    .select({
+      id: workoutSessions.id,
+      date: workoutSessions.date,
+    })
+    .from(workoutSessions)
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.status, 'completed'),
+        sql`exists (
+          select 1
+          from ${sessionSets}
+          where ${sessionSets.sessionId} = ${workoutSessions.id}
+            and ${sessionSets.exerciseId} = ${exerciseId}
+        )`,
+      ),
+    )
+    .orderBy(
+      desc(workoutSessions.completedAt),
+      desc(workoutSessions.startedAt),
+      desc(workoutSessions.createdAt),
+    )
+    .limit(1)
+    .as('latest_session');
+
+  const latestSets = db
+    .select({
+      sessionId: latestSession.id,
+      date: latestSession.date,
+      setNumber: sessionSets.setNumber,
+      weight: sessionSets.weight,
+      reps: sessionSets.reps,
+    })
+    .from(latestSession)
+    .innerJoin(
+      sessionSets,
+      and(eq(sessionSets.sessionId, latestSession.id), eq(sessionSets.exerciseId, exerciseId)),
+    )
+    .orderBy(asc(sessionSets.setNumber), asc(sessionSets.createdAt))
+    .all();
+
+  if (latestSets.length === 0) {
+    return undefined;
+  }
+
+  const [{ sessionId, date }] = latestSets;
+
+  return {
+    sessionId,
+    date,
+    sets: latestSets.map((set) => ({
+      setNumber: set.setNumber,
+      weight: set.weight,
+      reps: set.reps,
+    })),
+  };
 };

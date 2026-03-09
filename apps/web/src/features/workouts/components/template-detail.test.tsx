@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
@@ -87,6 +88,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
   vi.restoreAllMocks();
 });
 
@@ -200,6 +202,38 @@ describe('WorkoutTemplateDetail', () => {
     });
     expect(requestBody.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(requestBody.startedAt).toEqual(expect.any(Number));
+    expect(requestBody.sets).toHaveLength(4);
+    expect(requestBody.sets).toEqual([
+      expect.objectContaining({
+        exerciseId: 'row-erg',
+        reps: null,
+        section: 'warmup',
+        setNumber: 1,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 1,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 2,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 3,
+        weight: null,
+      }),
+    ]);
+    expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

@@ -3,6 +3,10 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import {
+  WORKOUT_SESSION_COMPLETED_NOTICE,
+  WORKOUT_SESSION_NOTICE_QUERY_KEY,
+} from '@/features/workouts/lib/session-persistence';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { WorkoutsPage } from './workouts';
@@ -120,6 +124,20 @@ describe('WorkoutsPage', () => {
 
     expect(screen.getByRole('link', { name: 'Upper Push' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Lower Quad-Dominant' })).not.toBeInTheDocument();
+  });
+
+  it('shows a completion notice when redirected from an already-completed active session', () => {
+    renderWithQueryClient(
+      <MemoryRouter
+        initialEntries={[`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`]}
+      >
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Session was completed on another device.')).toBeInTheDocument();
   });
 });
 

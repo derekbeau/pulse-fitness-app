@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createWorkoutSessionInputSchema,
+  saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
+  type SaveWorkoutSessionAsTemplateInput,
   type UpdateWorkoutSessionInput,
   type WorkoutSession,
   type WorkoutSessionFeedback,
@@ -248,6 +250,30 @@ describe('updateWorkoutSessionInputSchema', () => {
 
   it('rejects empty updates', () => {
     expect(() => updateWorkoutSessionInputSchema.parse({})).toThrow();
+  });
+});
+
+describe('saveWorkoutSessionAsTemplateInputSchema', () => {
+  it('accepts an empty payload for default template metadata', () => {
+    const payload: SaveWorkoutSessionAsTemplateInput =
+      saveWorkoutSessionAsTemplateInputSchema.parse(undefined);
+
+    expect(payload).toEqual({});
+  });
+
+  it('normalizes and trims provided metadata fields', () => {
+    const payload: SaveWorkoutSessionAsTemplateInput =
+      saveWorkoutSessionAsTemplateInputSchema.parse({
+        name: ' Upper Push Snapshot ',
+        description: '  Heavy pressing focus  ',
+        tags: [' strength ', ' push '],
+      });
+
+    expect(payload).toEqual({
+      name: 'Upper Push Snapshot',
+      description: 'Heavy pressing focus',
+      tags: ['strength', 'push'],
+    });
   });
 });
 

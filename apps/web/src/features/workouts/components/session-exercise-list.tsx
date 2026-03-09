@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { useLastPerformance } from '@/hooks/use-last-performance';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -33,6 +34,7 @@ type RestTimerState = {
 };
 
 type SessionExerciseListProps = {
+  enableApiLastPerformance?: boolean;
   focusSetId?: string | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
@@ -74,6 +76,7 @@ const supersetAccentStyles = [
 ] as const;
 
 export function SessionExerciseList({
+  enableApiLastPerformance = false,
   focusSetId = null,
   onAddSet,
   onExerciseNotesChange,
@@ -206,6 +209,7 @@ export function SessionExerciseList({
                       <ExerciseCardItem
                         exercise={item.exercise}
                         exerciseNumber={exerciseNumberMap.get(item.exercise.id) ?? 0}
+                        enableApiLastPerformance={enableApiLastPerformance}
                         expandedExercises={expandedExercises}
                         focusTargetExerciseId={focusTarget?.exerciseId ?? null}
                         onAddSet={onAddSet}
@@ -264,6 +268,7 @@ export function SessionExerciseList({
                             <ExerciseCardItem
                               exercise={exercise}
                               exerciseNumber={exerciseNumberMap.get(exercise.id) ?? 0}
+                              enableApiLastPerformance={enableApiLastPerformance}
                               expandedExercises={expandedExercises}
                               focusTargetExerciseId={focusTarget?.exerciseId ?? null}
                               onAddSet={onAddSet}
@@ -295,6 +300,7 @@ export function SessionExerciseList({
 type ExerciseCardItemProps = {
   exercise: ActiveWorkoutExercise;
   exerciseNumber: number;
+  enableApiLastPerformance: boolean;
   expandedExercises: Record<string, boolean>;
   focusTargetExerciseId: string | null;
   onAddSet: (exerciseId: string) => void;
@@ -312,6 +318,7 @@ type ExerciseCardItemProps = {
 function ExerciseCardItem({
   exercise,
   exerciseNumber,
+  enableApiLastPerformance,
   expandedExercises,
   focusTargetExerciseId,
   onAddSet,
@@ -325,6 +332,10 @@ function ExerciseCardItem({
   visibleCuePanels,
   visibleNotesPanels,
 }: ExerciseCardItemProps) {
+  const lastPerformanceQuery = useLastPerformance(exercise.id, {
+    enabled: enableApiLastPerformance,
+  });
+  const lastPerformance = enableApiLastPerformance ? (lastPerformanceQuery.data ?? null) : exercise.lastPerformance;
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExpanded =
     focusTargetExerciseId === exercise.id
@@ -457,9 +468,9 @@ function ExerciseCardItem({
               {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
             </p>
 
-            {exercise.lastPerformance ? (
+            {lastPerformance ? (
               <LastPerformanceSummary
-                lastPerformance={exercise.lastPerformance}
+                lastPerformance={lastPerformance}
                 currentSets={exercise.sets}
                 prescribedReps={exercise.prescribedReps}
               />
@@ -555,7 +566,7 @@ function ExerciseCardItem({
               }}
               reps={set.reps}
               setNumber={set.number}
-              lastPerformance={exercise.lastPerformance?.sets.find(
+              lastPerformance={lastPerformance?.sets.find(
                 (previousSet) => previousSet.setNumber === set.number,
               )}
               target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}

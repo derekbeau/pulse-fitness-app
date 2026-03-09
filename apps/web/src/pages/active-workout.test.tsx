@@ -1,6 +1,10 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { jsonResponse } from '@/test/test-utils';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -12,6 +16,9 @@ describe('ActiveWorkoutPage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
   });
 
   it('renders the active workout UI and advances focus after the rest timer completes', () => {
@@ -154,10 +161,66 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
     expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
   });
+
+  it('loads API templates for UUID template ids instead of falling back to mock defaults', async () => {
+    vi.useRealTimers();
+
+    const apiTemplateId = '2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db';
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({
+          data: {
+            id: apiTemplateId,
+            userId: 'user-1',
+            name: 'API Full Body',
+            description: 'Loaded from API',
+            tags: ['strength'],
+            sections: [
+              {
+                type: 'warmup',
+                exercises: [],
+              },
+              {
+                type: 'main',
+                exercises: [
+                  {
+                    id: 'template-exercise-1',
+                    exerciseId: 'incline-dumbbell-press',
+                    exerciseName: 'Incline Dumbbell Press',
+                    sets: 3,
+                    repsMin: 8,
+                    repsMax: 10,
+                    tempo: '3110',
+                    restSeconds: 90,
+                    supersetGroup: null,
+                    notes: null,
+                    cues: ['Drive feet into the floor'],
+                  },
+                ],
+              },
+              {
+                type: 'cooldown',
+                exercises: [],
+              },
+            ],
+            createdAt: 100,
+            updatedAt: 100,
+          },
+        }),
+      ),
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    renderActiveWorkoutPage(`/workouts/active?template=${apiTemplateId}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'API Full Body' })).toBeVisible();
+    expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
+  });
 });
 
 function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
-  return render(
+  return renderWithQueryClient(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route element={<ActiveWorkoutPage />} path="/workouts/active" />

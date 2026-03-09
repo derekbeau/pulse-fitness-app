@@ -58,7 +58,7 @@ describe('SetRow', () => {
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
     expect(onUpdate).toHaveBeenCalledWith({ reps: null });
-    expect(screen.getByText('Last: 50x12')).toBeInTheDocument();
+    expect(screen.getByText('Last time: 50x12')).toBeInTheDocument();
     expect(screen.getByText('PR')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
   });

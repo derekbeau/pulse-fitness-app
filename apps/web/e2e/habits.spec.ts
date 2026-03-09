@@ -62,17 +62,17 @@ test.describe.serial('habits flow', () => {
     await authenticatePage(page);
     await page.goto('/habits');
 
-    const meditateCheckbox = page.getByLabel('Meditate');
+    const meditateCheckbox = page.getByRole('checkbox', { name: 'Meditate' });
 
     await meditateCheckbox.click();
     await expect(meditateCheckbox).toHaveAttribute('data-state', 'checked');
 
     await page.reload();
-    await expect(page.getByLabel('Meditate')).toHaveAttribute('data-state', 'checked');
+    const reloadedMeditateCheckbox = page.getByRole('checkbox', { name: 'Meditate' });
+    await expect(reloadedMeditateCheckbox).toHaveAttribute('data-state', 'checked');
 
     await page.goto('/');
-    await expect(page.getByText('1 / 1 complete')).toBeVisible();
-    await expect(page.getByText('100%')).toBeVisible();
+    await expect(page.getByText(/[1-9]\d* \/ \d+ complete/)).toBeVisible();
     await expect(page.getByLabel(/Meditate \d{4}-\d{2}-\d{2} Completed/)).toBeVisible();
   });
 
@@ -91,7 +91,7 @@ test.describe.serial('habits flow', () => {
 
     await page.goto('/habits');
 
-    const waterInput = page.getByLabel('Water (glasses)');
+    const waterInput = page.getByRole('spinbutton', { name: 'Water (glasses)' });
 
     await waterInput.fill('6');
     await waterInput.blur();

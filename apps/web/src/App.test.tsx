@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { workoutCompletedSessions } from '@/features/workouts';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
@@ -109,6 +110,7 @@ describe('App', () => {
   beforeEach(() => {
     createAppQueryClient().clear();
     window.localStorage.removeItem('pulse-theme');
+    window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
     window.history.pushState({}, '', '/');

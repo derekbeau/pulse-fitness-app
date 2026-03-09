@@ -190,6 +190,15 @@ export const updateWorkoutSessionInputSchema = z
     message: 'At least one workout session field must be provided',
   });
 
+export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
+  (value) => (value === null || value === undefined ? {} : value),
+  z.object({
+    name: requiredStringSchema.optional(),
+    description: nullableLongStringSchema.optional(),
+    tags: z.array(requiredStringSchema).max(20).optional(),
+  }),
+);
+
 export const workoutSessionQueryParamsSchema = z
   .object({
     from: dateSchema,
@@ -208,4 +217,7 @@ export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema
 export type SessionSetInput = z.infer<typeof sessionSetInputSchema>;
 export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
+export type SaveWorkoutSessionAsTemplateInput = z.infer<
+  typeof saveWorkoutSessionAsTemplateInputSchema
+>;
 export type WorkoutSessionQueryParams = z.infer<typeof workoutSessionQueryParamsSchema>;

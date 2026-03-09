@@ -1,7 +1,10 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createAppQueryClient } from '@/lib/query-client';
 import { mockTemplates } from '@/lib/mock-data/workouts';
+import { renderWithQueryClient } from '@/test/render-with-query-client';
 
 import {
   buildActiveWorkoutSession,
@@ -39,7 +42,7 @@ describe('SessionExerciseList', () => {
       },
     );
 
-    render(
+    renderWithQueryClient(
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
@@ -142,7 +145,7 @@ describe('SessionExerciseList', () => {
       createInitialWorkoutSetDrafts(lowerTemplate, new Set()),
     );
 
-    render(
+    renderWithQueryClient(
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
@@ -186,7 +189,7 @@ describe('SessionExerciseList', () => {
       sessionStartedAt: '2026-03-06T12:00:00Z',
     });
 
-    render(
+    renderWithQueryClient(
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
@@ -216,16 +219,21 @@ describe('SessionExerciseList', () => {
       createInitialWorkoutSetDrafts(activeTemplate, new Set()),
     );
 
+    const queryClient = createAppQueryClient();
+    queryClient.clear();
+
     const { rerender } = render(
-      <SessionExerciseList
-        focusSetId={createWorkoutSetId('row-erg', 1)}
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onFocusSetHandled={vi.fn()}
-        onRestTimerComplete={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          focusSetId={createWorkoutSetId('row-erg', 1)}
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onFocusSetHandled={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />
+      </QueryClientProvider>,
     );
 
     const rowErgCard = screen
@@ -237,14 +245,16 @@ describe('SessionExerciseList', () => {
     expect(rowErgInput).toHaveFocus();
 
     rerender(
-      <SessionExerciseList
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onFocusSetHandled={vi.fn()}
-        onRestTimerComplete={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onFocusSetHandled={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />
+      </QueryClientProvider>,
     );
 
     const warmupButton = screen.getByRole('button', { name: /Warmup/i });

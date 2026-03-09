@@ -116,7 +116,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
           />
           {lastPerformance ? (
             <div className="flex min-h-4 items-center gap-1 text-xs text-muted">
-              <span>{`Last: ${formatLastSet(lastPerformance)}`}</span>
+              <span>{`Last time: ${formatLastSet(lastPerformance)}`}</span>
               {hasPr ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
                   <ArrowUpRight aria-hidden="true" className="size-3" />

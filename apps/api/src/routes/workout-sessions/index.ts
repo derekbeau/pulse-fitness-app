@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  batchUpsertSetsSchema,
+  createSetSchema,
+  saveWorkoutSessionAsTemplateInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
+  updateSetSchema,
   updateWorkoutSessionInputSchema,
   workoutSessionQueryParamsSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
@@ -14,10 +18,17 @@ import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 import {
   allSessionExercisesAccessible,
+  batchUpsertSessionSets,
+  createSessionSet,
   createWorkoutSession,
   deleteWorkoutSession,
+  findWorkoutSessionAccess,
   findWorkoutSessionById,
+  listSessionSetGroups,
+  SessionSetNotFoundError,
   listWorkoutSessions,
+  saveCompletedSessionAsTemplate,
+  updateSessionSet,
   updateWorkoutSession,
 } from './store.js';
 
@@ -34,6 +45,21 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
 const INVALID_SESSION_EXERCISE_RESPONSE = {
   code: 'INVALID_SESSION_EXERCISE',
   message: 'Session references one or more unavailable exercises',
+} as const;
+
+const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
+  code: 'WORKOUT_SESSION_NOT_ACTIVE',
+  message: 'Workout session is not active',
+} as const;
+
+const WORKOUT_SESSION_NOT_COMPLETED_RESPONSE = {
+  code: 'WORKOUT_SESSION_NOT_COMPLETED',
+  message: 'Workout session must be completed before saving as template',
+} as const;
+
+const SESSION_SET_NOT_FOUND_RESPONSE = {
+  code: 'SESSION_SET_NOT_FOUND',
+  message: 'Session set not found',
 } as const;
 
 const toCreateWorkoutSessionInput = (
@@ -68,6 +94,56 @@ const toCreateWorkoutSessionInput = (
 
 const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
+
+const ensureOwnedSession = async ({
+  sessionId,
+  userId,
+  reply,
+}: {
+  sessionId: string;
+  userId: string;
+  reply: FastifyReply;
+}) => {
+  const session = await findWorkoutSessionAccess(sessionId, userId);
+  if (!session) {
+    sendError(
+      reply,
+      404,
+      WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+      WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+    );
+    return undefined;
+  }
+
+  return session;
+};
+
+const ensureOwnedActiveSession = async ({
+  sessionId,
+  userId,
+  reply,
+}: {
+  sessionId: string;
+  userId: string;
+  reply: FastifyReply;
+}) => {
+  const session = await ensureOwnedSession({ sessionId, userId, reply });
+  if (!session) {
+    return undefined;
+  }
+
+  if (session.status !== 'in-progress') {
+    sendError(
+      reply,
+      409,
+      WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+      WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.message,
+    );
+    return undefined;
+  }
+
+  return session;
+};
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireUserAuth);
@@ -130,6 +206,186 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       data: sessions,
+    });
+  });
+
+  app.post<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
+    const parsedBody = createSetSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
+    }
+
+    const session = await ensureOwnedActiveSession({
+      sessionId: request.params.sessionId,
+      userId: request.userId,
+      reply,
+    });
+    if (!session) {
+      return reply;
+    }
+
+    const exerciseAccessible = await allSessionExercisesAccessible({
+      userId: request.userId,
+      exerciseIds: [parsedBody.data.exerciseId],
+    });
+    if (!exerciseAccessible) {
+      return sendError(
+        reply,
+        400,
+        INVALID_SESSION_EXERCISE_RESPONSE.code,
+        INVALID_SESSION_EXERCISE_RESPONSE.message,
+      );
+    }
+
+    const set = await createSessionSet({
+      id: randomUUID(),
+      sessionId: session.id,
+      input: parsedBody.data,
+    });
+
+    return reply.code(201).send({
+      data: set,
+    });
+  });
+
+  app.patch<{ Params: { sessionId: string; setId: string } }>(
+    '/:sessionId/sets/:setId',
+    async (request, reply) => {
+      const parsedBody = updateSetSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
+      }
+
+      const session = await ensureOwnedActiveSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
+        reply,
+      });
+      if (!session) {
+        return reply;
+      }
+
+      const set = await updateSessionSet({
+        sessionId: session.id,
+        setId: request.params.setId,
+        input: parsedBody.data,
+      });
+      if (!set) {
+        return sendError(
+          reply,
+          404,
+          SESSION_SET_NOT_FOUND_RESPONSE.code,
+          SESSION_SET_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: set,
+      });
+    },
+  );
+
+  app.get<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
+    const session = await ensureOwnedSession({
+      sessionId: request.params.sessionId,
+      userId: request.userId,
+      reply,
+    });
+    if (!session) {
+      return reply;
+    }
+
+    const groupedSets = await listSessionSetGroups(session.id);
+
+    return reply.send({
+      data: groupedSets,
+    });
+  });
+
+  app.put<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
+    const parsedBody = batchUpsertSetsSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
+    }
+
+    const session = await ensureOwnedActiveSession({
+      sessionId: request.params.sessionId,
+      userId: request.userId,
+      reply,
+    });
+    if (!session) {
+      return reply;
+    }
+
+    const exercisesAccessible = await allSessionExercisesAccessible({
+      userId: request.userId,
+      exerciseIds: parsedBody.data.sets.map((set) => set.exerciseId),
+    });
+    if (!exercisesAccessible) {
+      return sendError(
+        reply,
+        400,
+        INVALID_SESSION_EXERCISE_RESPONSE.code,
+        INVALID_SESSION_EXERCISE_RESPONSE.message,
+      );
+    }
+
+    try {
+      const groupedSets = await batchUpsertSessionSets({
+        sessionId: session.id,
+        input: parsedBody.data,
+      });
+
+      return reply.send({
+        data: groupedSets,
+      });
+    } catch (error) {
+      if (error instanceof SessionSetNotFoundError) {
+        return sendError(
+          reply,
+          404,
+          SESSION_SET_NOT_FOUND_RESPONSE.code,
+          SESSION_SET_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      throw error;
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/:id/save-as-template', async (request, reply) => {
+    const parsedBody = saveWorkoutSessionAsTemplateInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid save as template payload');
+    }
+
+    const session = await findWorkoutSessionById(request.params.id, request.userId);
+    if (!session) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    if (session.status !== 'completed') {
+      return sendError(
+        reply,
+        409,
+        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.code,
+        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.message,
+      );
+    }
+
+    const template = await saveCompletedSessionAsTemplate({
+      input: parsedBody.data,
+      session,
+      userId: request.userId,
+    });
+
+    return reply.code(201).send({
+      data: template,
     });
   });
 
