@@ -22,6 +22,7 @@ const paginationMetaSchema = z.object({
 
 type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 type WorkoutTemplateResponse = { data: WorkoutTemplate };
+type WorkoutTemplatesResponse = { data: WorkoutTemplate[] };
 type ExercisesResponse = { data: Exercise[]; meta: PaginationMeta };
 type ExerciseFiltersResponse = {
   data: {
@@ -35,6 +36,11 @@ type WorkoutSessionResponse = { data: WorkoutSession };
 const workoutTemplateResponseSchema = z.object({
   data: workoutTemplateSchema,
 }) as unknown as z.ZodType<WorkoutTemplateResponse>;
+
+// Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
+const workoutTemplatesResponseSchema = z.object({
+  data: z.array(workoutTemplateSchema),
+}) as unknown as z.ZodType<WorkoutTemplatesResponse>;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const exercisesResponseSchema = z.object({
@@ -62,7 +68,15 @@ export const workoutQueryKeys = {
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   sessions: () => ['workouts', 'sessions'] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
+  templates: () => ['workouts', 'templates'] as const,
 };
+
+async function getWorkoutTemplates() {
+  const data = await apiRequest<unknown>('/api/v1/workout-templates');
+  const payload = workoutTemplatesResponseSchema.parse({ data });
+
+  return payload.data;
+}
 
 async function getWorkoutTemplate(id: string) {
   const data = await apiRequest<unknown>(`/api/v1/workout-templates/${id}`);
@@ -115,6 +129,13 @@ async function createWorkoutSession(input: CreateWorkoutSessionRequest) {
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
+}
+
+export function useWorkoutTemplates() {
+  return useQuery<WorkoutTemplate[]>({
+    queryFn: getWorkoutTemplates,
+    queryKey: workoutQueryKeys.templates(),
+  });
 }
 
 export function useWorkoutTemplate(id: string) {

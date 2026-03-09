@@ -7,11 +7,13 @@ import {
   WorkoutCalendar,
   WorkoutList,
 } from '@/features/workouts';
+import { useWorkoutTemplates } from '@/features/workouts/api/workouts';
 
 export function WorkoutsPage() {
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
+  const templatesQuery = useWorkoutTemplates();
 
   return (
     <section className="space-y-6">
@@ -78,7 +80,10 @@ export function WorkoutsPage() {
       ) : activeView === 'list' ? (
         <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
-        <TemplateBrowser buildTemplateHref={(templateId) => `/workouts/template/${templateId}`} />
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={templatesQuery.data ?? undefined}
+        />
       ) : (
         <ExerciseLibrary />
       )}

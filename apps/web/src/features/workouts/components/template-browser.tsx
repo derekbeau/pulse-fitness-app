@@ -5,19 +5,28 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { mockTemplates, type WorkoutTemplate } from '@/lib/mock-data/workouts';
+import { mockTemplates } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
+// Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
+interface TemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  sections: Array<{ exercises: unknown[] }>;
+}
+
 type TemplateBrowserProps = {
-  buildTemplateHref: (templateId: WorkoutTemplate['id']) => string;
+  buildTemplateHref: (templateId: string) => string;
   className?: string;
-  templates?: WorkoutTemplate[];
+  templates?: TemplateSummary[];
 };
 
 export function TemplateBrowser({
   buildTemplateHref,
   className,
-  templates = mockTemplates,
+  templates = mockTemplates as TemplateSummary[],
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -29,7 +38,7 @@ export function TemplateBrowser({
           return true;
         }
 
-        const searchableText = `${template.name} ${template.description} ${template.tags.join(' ')}`
+        const searchableText = `${template.name} ${template.description ?? ''} ${template.tags.join(' ')}`
           .trim()
           .toLowerCase();
 
@@ -93,7 +102,9 @@ export function TemplateBrowser({
                       <h3 className="text-xl font-semibold text-foreground">{template.name}</h3>
                       <ArrowRight aria-hidden="true" className="size-4 text-muted" />
                     </div>
-                    <p className="text-sm text-muted">{template.description}</p>
+                    {template.description ? (
+                      <p className="text-sm text-muted">{template.description}</p>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -124,7 +135,7 @@ export function TemplateBrowser({
   );
 }
 
-function countTemplateExercises(template: WorkoutTemplate) {
+function countTemplateExercises(template: TemplateSummary) {
   return template.sections.reduce((total, section) => total + section.exercises.length, 0);
 }
 
