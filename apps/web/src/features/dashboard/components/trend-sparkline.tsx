@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import type { DashboardTrendMetric } from '@pulse/shared';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
@@ -41,7 +42,10 @@ export type TrendSparklineProps = {
 
 export type TrendSparklinesProps = {
   endDate?: string;
+  metrics?: DashboardTrendMetric[];
 };
+
+const DEFAULT_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
 
 const CHANGE_ICONS = {
   up: ArrowUpRight,
@@ -225,7 +229,7 @@ function TrendMetricCardSkeleton() {
   );
 }
 
-export function TrendSparklines({ endDate }: TrendSparklinesProps) {
+export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const range = resolveTrendRange(endDate);
   const weightTrendQuery = useWeightTrend(range.from, range.to);
   const macroTrendQuery = useMacroTrend(range.from, range.to);
@@ -250,8 +254,8 @@ export function TrendSparklines({ endDate }: TrendSparklinesProps) {
   const latestCalories = getLatestValue(calorieSeries, 0);
   const latestProtein = getLatestValue(proteinSeries, 0);
 
-  const configs = [
-    {
+  const allConfigs = {
+    weight: {
       label: 'Weight Trend',
       currentValue: weightSeries.length > 0 ? `${latestWeight.toFixed(1)} lbs` : '--',
       changePercent:
@@ -266,7 +270,7 @@ export function TrendSparklines({ endDate }: TrendSparklinesProps) {
       className: accentCardStyles.cream,
       textClassName: 'text-on-cream',
     },
-    {
+    calories: {
       label: 'Calorie Trend',
       currentValue: calorieSeries.length > 0 ? `${latestCalories} kcal` : '--',
       changePercent:
@@ -281,7 +285,7 @@ export function TrendSparklines({ endDate }: TrendSparklinesProps) {
       className: accentCardStyles.pink,
       textClassName: 'text-on-pink',
     },
-    {
+    protein: {
       label: 'Protein Trend',
       currentValue: proteinSeries.length > 0 ? `${latestProtein} g` : '--',
       changePercent:
@@ -296,7 +300,22 @@ export function TrendSparklines({ endDate }: TrendSparklinesProps) {
       className: accentCardStyles.mint,
       textClassName: 'text-on-mint',
     },
-  ] satisfies TrendMetricCardProps[];
+  } satisfies Record<DashboardTrendMetric, TrendMetricCardProps>;
+
+  const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
+  const configs = resolvedMetrics.map((metric) => allConfigs[metric]);
+
+  if (configs.length === 0) {
+    return (
+      <section aria-label="Trend sparklines">
+        <Card className="gap-0 border-border/70 py-4 shadow-sm">
+          <CardContent className="px-5">
+            <p className="text-sm text-muted-foreground">No trend metrics selected.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
 
   return (
     <section aria-label="Trend sparklines">

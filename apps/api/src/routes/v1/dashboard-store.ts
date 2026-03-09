@@ -1,19 +1,23 @@
 import { and, asc, between, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
 
 import type {
+  DashboardConfig,
   DashboardConsistencyTrendPoint,
   DashboardHabitsSnapshot,
   DashboardMacrosTrendPoint,
   DashboardMacroTotals,
   DashboardSnapshot,
+  DashboardTrendMetric,
   DashboardWeightSnapshot,
   DashboardWeightTrendPoint,
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
+import { dashboardConfigSchema } from '@pulse/shared';
 
 import { db } from '../../db/index.js';
 import {
   bodyWeight,
+  dashboardConfig as dashboardConfigTable,
   habitEntries,
   habits,
   mealItems,
@@ -71,6 +75,16 @@ const consistencyTrendSelection = {
   date: workoutSessions.date,
 };
 
+const dashboardConfigSelection = {
+  habitChainIds: dashboardConfigTable.habitChainIds,
+  trendMetrics: dashboardConfigTable.trendMetrics,
+  widgetOrder: dashboardConfigTable.widgetOrder,
+};
+
+const activeHabitIdsSelection = {
+  id: habits.id,
+};
+
 const getDateRangeForUtcDay = (date: string) => {
   const start = new Date(`${date}T00:00:00.000Z`);
   const end = new Date(start);
@@ -84,6 +98,7 @@ const getDateRangeForUtcDay = (date: string) => {
 
 // TODO: Source this from user preferences once kg/lb switching is introduced.
 const DEFAULT_WEIGHT_UNIT: DashboardWeightSnapshot['unit'] = 'lb';
+const DEFAULT_DASHBOARD_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
 
 const toMacroTotals = (
   value:
@@ -171,6 +186,36 @@ const toMacroTrendPoint = (
   date,
   ...toMacroTotals(value),
 });
+
+const trendMetricSet = new Set<DashboardTrendMetric>(DEFAULT_DASHBOARD_TREND_METRICS);
+
+const isDashboardTrendMetric = (value: string): value is DashboardTrendMetric =>
+  trendMetricSet.has(value as DashboardTrendMetric);
+
+const toDashboardTrendMetrics = (metrics: string[] | null | undefined): DashboardTrendMetric[] => {
+  if (!metrics || metrics.length === 0) {
+    return DEFAULT_DASHBOARD_TREND_METRICS;
+  }
+
+  const validMetrics = metrics.filter(isDashboardTrendMetric);
+  return validMetrics.length > 0 ? validMetrics : DEFAULT_DASHBOARD_TREND_METRICS;
+};
+
+const toDashboardConfig = (
+  value: {
+    habitChainIds: string[] | null;
+    trendMetrics: string[] | null;
+    widgetOrder: string[] | null;
+  },
+): DashboardConfig => {
+  const parsed = dashboardConfigSchema.parse({
+    habitChainIds: value.habitChainIds ?? [],
+    trendMetrics: toDashboardTrendMetrics(value.trendMetrics),
+    widgetOrder: value.widgetOrder ?? undefined,
+  });
+
+  return parsed;
+};
 
 export const getDashboardSnapshot = async (
   userId: string,
@@ -319,4 +364,58 @@ export const getDashboardConsistencyTrend = async (
     date,
     completed: completedDates.has(date),
   }));
+};
+
+export const getDashboardConfig = async (userId: string): Promise<DashboardConfig> => {
+  const configRow =
+    db
+      .select(dashboardConfigSelection)
+      .from(dashboardConfigTable)
+      .where(eq(dashboardConfigTable.userId, userId))
+      .limit(1)
+      .get() ?? null;
+
+  if (configRow) {
+    return toDashboardConfig(configRow);
+  }
+
+  const activeHabitIds = db
+    .select(activeHabitIdsSelection)
+    .from(habits)
+    .where(and(eq(habits.userId, userId), eq(habits.active, true)))
+    .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
+    .all()
+    .map((habit) => habit.id);
+
+  return dashboardConfigSchema.parse({
+    habitChainIds: activeHabitIds,
+    trendMetrics: DEFAULT_DASHBOARD_TREND_METRICS,
+  });
+};
+
+export const upsertDashboardConfig = async (
+  userId: string,
+  input: DashboardConfig,
+): Promise<DashboardConfig> => {
+  const config = dashboardConfigSchema.parse(input);
+
+  db.insert(dashboardConfigTable)
+    .values({
+      userId,
+      habitChainIds: config.habitChainIds,
+      trendMetrics: config.trendMetrics,
+      widgetOrder: config.widgetOrder ?? null,
+    })
+    .onConflictDoUpdate({
+      target: dashboardConfigTable.userId,
+      set: {
+        habitChainIds: config.habitChainIds,
+        trendMetrics: config.trendMetrics,
+        widgetOrder: config.widgetOrder ?? null,
+        updatedAt: Date.now(),
+      },
+    })
+    .run();
+
+  return config;
 };

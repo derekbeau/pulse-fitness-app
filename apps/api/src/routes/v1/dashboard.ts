@@ -1,5 +1,6 @@
 import {
   MAX_DASHBOARD_TREND_RANGE_DAYS,
+  dashboardConfigSchema,
   dashboardSnapshotQuerySchema,
   dashboardTrendQuerySchema,
 } from '@pulse/shared';
@@ -9,10 +10,12 @@ import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
 
 import {
+  getDashboardConfig,
   getDashboardConsistencyTrend,
   getDashboardMacrosTrend,
   getDashboardSnapshot,
   getDashboardWeightTrend,
+  upsertDashboardConfig,
 } from './dashboard-store.js';
 import { addUtcDays, getUtcDateValue } from './dashboard-utils.js';
 
@@ -90,4 +93,28 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.get('/trends/weight', handleTrendRoute(getDashboardWeightTrend));
   app.get('/trends/macros', handleTrendRoute(getDashboardMacrosTrend));
   app.get('/trends/consistency', handleTrendRoute(getDashboardConsistencyTrend));
+
+  app.get('/config', async (request, reply) => {
+    const config = await getDashboardConfig(request.userId);
+
+    return reply.send({
+      data: config,
+    });
+  });
+
+  const handleConfigUpsert = async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsedBody = dashboardConfigSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid dashboard config payload');
+    }
+
+    const config = await upsertDashboardConfig(request.userId, parsedBody.data);
+
+    return reply.send({
+      data: config,
+    });
+  };
+
+  app.post('/config', handleConfigUpsert);
+  app.put('/config', handleConfigUpsert);
 };

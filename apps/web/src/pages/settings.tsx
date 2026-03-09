@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { CreateNutritionTargetInput } from '@pulse/shared';
+import type { CreateNutritionTargetInput, DashboardTrendMetric } from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,8 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { defaultHabitConfigs, HabitSettings } from '@/features/habits';
+import { HabitSettings } from '@/features/habits';
+import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
+import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { formatUtcDateKey } from '@/lib/date';
@@ -70,16 +72,33 @@ const THEME_OPTIONS: ThemeOption[] = [
 ];
 
 const SETTINGS_STORAGE_KEY = 'pulse-prototype-settings';
-const TREND_SPARKLINE_OPTIONS = ['Weight', 'Calories', 'Protein', 'Steps'] as const;
-const HABIT_CHAIN_OPTIONS = defaultHabitConfigs.map((habit) => ({
-  id: habit.id,
-  label: habit.name,
-}));
+const TREND_SPARKLINE_OPTIONS: Array<{
+  description: string;
+  id: DashboardTrendMetric;
+  label: string;
+}> = [
+  {
+    description: 'Track your recent body weight direction.',
+    id: 'weight',
+    label: 'Weight',
+  },
+  {
+    description: 'Track your daily calorie intake trend.',
+    id: 'calories',
+    label: 'Calories',
+  },
+  {
+    description: 'Track your daily protein intake trend.',
+    id: 'protein',
+    label: 'Protein',
+  },
+];
 
 type SettingsFormState = {
   dashboardConfig: {
-    habitChains: string[];
-    trendSparklines: string[];
+    habitChainIds: string[];
+    trendMetrics: DashboardTrendMetric[];
+    widgetOrder?: string[];
   };
   nutritionTargets: {
     calories: number;
@@ -91,8 +110,8 @@ type SettingsFormState = {
 
 const DEFAULT_SETTINGS: SettingsFormState = {
   dashboardConfig: {
-    habitChains: HABIT_CHAIN_OPTIONS.slice(0, 3).map((habit) => habit.id),
-    trendSparklines: ['Weight', 'Calories', 'Protein'],
+    habitChainIds: [],
+    trendMetrics: ['weight', 'calories', 'protein'],
   },
   nutritionTargets: {
     calories: 2000,
@@ -104,10 +123,6 @@ const DEFAULT_SETTINGS: SettingsFormState = {
 
 function isTheme(value: string): value is Theme {
   return THEME_OPTIONS.some((option) => option.value === value);
-}
-
-function isTrendSparkline(value: string): value is (typeof TREND_SPARKLINE_OPTIONS)[number] {
-  return TREND_SPARKLINE_OPTIONS.includes(value as (typeof TREND_SPARKLINE_OPTIONS)[number]);
 }
 
 function clampNumber(value: unknown, fallback: number) {
@@ -131,20 +146,10 @@ function loadSettings(): SettingsFormState {
     }
 
     const parsedSettings = JSON.parse(rawSettings) as Partial<SettingsFormState>;
-
     const savedNutritionTargets = parsedSettings.nutritionTargets;
-    const savedDashboardConfig = parsedSettings.dashboardConfig;
 
     return {
-      dashboardConfig: {
-        habitChains:
-          savedDashboardConfig?.habitChains?.filter((habitId) =>
-            HABIT_CHAIN_OPTIONS.some((habit) => habit.id === habitId),
-          ) ?? DEFAULT_SETTINGS.dashboardConfig.habitChains,
-        trendSparklines:
-          savedDashboardConfig?.trendSparklines?.filter(isTrendSparkline) ??
-          DEFAULT_SETTINGS.dashboardConfig.trendSparklines,
-      },
+      dashboardConfig: DEFAULT_SETTINGS.dashboardConfig,
       nutritionTargets: {
         calories: clampNumber(
           savedNutritionTargets?.calories,
@@ -252,13 +257,20 @@ function ThemeOptionCard({
 export function SettingsPage() {
   const { setTheme, theme } = useThemeContext();
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
-  const [dashboardConfig, setDashboardConfig] = useState(storedSettings.dashboardConfig);
+  const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
+    SettingsFormState['dashboardConfig'] | null
+  >(null);
   const [draftNutritionTargets, setDraftNutritionTargets] = useState<
     SettingsFormState['nutritionTargets'] | null
   >(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const { data: habits = [] } = useHabits();
+  const { data: persistedDashboardConfig } = useDashboardConfig();
+  const saveDashboardConfigMutation = useSaveDashboardConfig();
   const { data: currentTargets } = useNutritionTargets();
   const updateTargetsMutation = useUpdateTargets();
+  const dashboardConfig =
+    dashboardConfigDraft ?? persistedDashboardConfig ?? DEFAULT_SETTINGS.dashboardConfig;
   const nutritionTargets =
     draftNutritionTargets ??
     (currentTargets
@@ -311,25 +323,32 @@ export function SettingsPage() {
 
   function toggleHabitChain(habitId: string, checked: boolean) {
     setSaveMessage('');
-    setDashboardConfig((currentDashboardConfig) => ({
-      ...currentDashboardConfig,
-      habitChains: checked
-        ? [...currentDashboardConfig.habitChains, habitId]
-        : currentDashboardConfig.habitChains.filter((value) => value !== habitId),
-    }));
+    setDashboardConfigDraft((currentDashboardConfig) => {
+      const sourceConfig =
+        currentDashboardConfig ?? persistedDashboardConfig ?? DEFAULT_SETTINGS.dashboardConfig;
+
+      return {
+        ...sourceConfig,
+      habitChainIds: checked
+        ? Array.from(new Set([...sourceConfig.habitChainIds, habitId]))
+        : sourceConfig.habitChainIds.filter((value) => value !== habitId),
+      };
+    });
   }
 
-  function toggleTrendSparkline(
-    metric: (typeof TREND_SPARKLINE_OPTIONS)[number],
-    checked: boolean,
-  ) {
+  function toggleTrendSparkline(metric: DashboardTrendMetric, checked: boolean) {
     setSaveMessage('');
-    setDashboardConfig((currentDashboardConfig) => ({
-      ...currentDashboardConfig,
-      trendSparklines: checked
-        ? [...currentDashboardConfig.trendSparklines, metric]
-        : currentDashboardConfig.trendSparklines.filter((value) => value !== metric),
-    }));
+    setDashboardConfigDraft((currentDashboardConfig) => {
+      const sourceConfig =
+        currentDashboardConfig ?? persistedDashboardConfig ?? DEFAULT_SETTINGS.dashboardConfig;
+
+      return {
+        ...sourceConfig,
+      trendMetrics: checked
+        ? Array.from(new Set([...sourceConfig.trendMetrics, metric]))
+        : sourceConfig.trendMetrics.filter((value) => value !== metric),
+      };
+    });
   }
 
   async function handleSave() {
@@ -338,23 +357,40 @@ export function SettingsPage() {
       effectiveDate: formatUtcDateKey(new Date()),
     };
 
-    try {
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      // Local persistence is best-effort.
+    const [nutritionResult, dashboardConfigResult] = await Promise.allSettled([
+      updateTargetsMutation.mutateAsync(nextTargets),
+      saveDashboardConfigMutation.mutateAsync(settings.dashboardConfig),
+    ]);
+
+    if (nutritionResult.status === 'fulfilled') {
+      setDraftNutritionTargets(null);
+    }
+    if (dashboardConfigResult.status === 'fulfilled') {
+      setDashboardConfigDraft(null);
     }
 
-    try {
-      await updateTargetsMutation.mutateAsync(nextTargets);
-    } catch {
+    if (nutritionResult.status === 'fulfilled' && dashboardConfigResult.status === 'fulfilled') {
+      setSaveMessage('Nutrition targets and dashboard preferences saved.');
+      return;
+    }
+
+    if (nutritionResult.status === 'rejected' && dashboardConfigResult.status === 'rejected') {
       setSaveMessage(
-        'Nutrition targets could not be saved right now. Dashboard preferences were saved locally.',
+        'Nutrition targets and dashboard preferences could not be saved right now. Please try again.',
       );
       return;
     }
 
-    setDraftNutritionTargets(null);
-    setSaveMessage('Nutrition targets and dashboard preferences saved.');
+    if (nutritionResult.status === 'rejected') {
+      setSaveMessage(
+        'Nutrition targets could not be saved right now. Dashboard preferences were saved.',
+      );
+      return;
+    }
+
+    setSaveMessage(
+      'Dashboard preferences could not be saved right now. Nutrition targets were saved.',
+    );
   }
 
   return (
@@ -504,31 +540,37 @@ export function SettingsPage() {
                 Select the habit streaks to spotlight in the daily dashboard snapshot.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {HABIT_CHAIN_OPTIONS.map((habit) => {
-                const checkboxId = `habit-chain-${habit.id}`;
+            {habits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No active habits yet. Create habits to customize chain visibility.
+              </p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {habits.map((habit) => {
+                  const checkboxId = `habit-chain-${habit.id}`;
 
-                return (
-                  <Label
-                    key={habit.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
-                    htmlFor={checkboxId}
-                  >
-                    <Checkbox
-                      checked={settings.dashboardConfig.habitChains.includes(habit.id)}
-                      id={checkboxId}
-                      onCheckedChange={(checked) => toggleHabitChain(habit.id, checked === true)}
-                    />
-                    <div className="space-y-1">
-                      <span className="text-sm font-medium text-foreground">{habit.label}</span>
-                      <p className="text-sm text-muted-foreground">
-                        Show this streak chain in the dashboard summary row.
-                      </p>
-                    </div>
-                  </Label>
-                );
-              })}
-            </div>
+                  return (
+                    <Label
+                      key={habit.id}
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                      htmlFor={checkboxId}
+                    >
+                      <Checkbox
+                        checked={settings.dashboardConfig.habitChainIds.includes(habit.id)}
+                        id={checkboxId}
+                        onCheckedChange={(checked) => toggleHabitChain(habit.id, checked === true)}
+                      />
+                      <div className="space-y-1">
+                        <span className="text-sm font-medium text-foreground">{habit.name}</span>
+                        <p className="text-sm text-muted-foreground">
+                          Show this streak chain in the dashboard summary row.
+                        </p>
+                      </div>
+                    </Label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -540,24 +582,24 @@ export function SettingsPage() {
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {TREND_SPARKLINE_OPTIONS.map((metric) => {
-                const checkboxId = `trend-sparkline-${metric.toLowerCase()}`;
+                const checkboxId = `trend-sparkline-${metric.id}`;
 
                 return (
                   <Label
-                    key={metric}
+                    key={metric.id}
                     className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
                     htmlFor={checkboxId}
                   >
                     <Checkbox
-                      checked={settings.dashboardConfig.trendSparklines.includes(metric)}
+                      checked={settings.dashboardConfig.trendMetrics.includes(metric.id)}
                       id={checkboxId}
-                      onCheckedChange={(checked) => toggleTrendSparkline(metric, checked === true)}
+                      onCheckedChange={(checked) =>
+                        toggleTrendSparkline(metric.id, checked === true)
+                      }
                     />
                     <div className="space-y-1">
-                      <span className="text-sm font-medium text-foreground">{metric}</span>
-                      <p className="text-sm text-muted-foreground">
-                        Keep the {metric.toLowerCase()} sparkline visible on the dashboard.
-                      </p>
+                      <span className="text-sm font-medium text-foreground">{metric.label}</span>
+                      <p className="text-sm text-muted-foreground">{metric.description}</p>
                     </div>
                   </Label>
                 );
@@ -567,10 +609,16 @@ export function SettingsPage() {
 
           <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm text-muted-foreground">
-              {saveMessage || 'Save changes to keep these preferences on this device.'}
+              {saveMessage || 'Save changes to sync these preferences to your account.'}
             </p>
-            <Button disabled={updateTargetsMutation.isPending} onClick={handleSave} type="button">
-              {updateTargetsMutation.isPending ? 'Saving...' : 'Save settings'}
+            <Button
+              disabled={updateTargetsMutation.isPending || saveDashboardConfigMutation.isPending}
+              onClick={handleSave}
+              type="button"
+            >
+              {updateTargetsMutation.isPending || saveDashboardConfigMutation.isPending
+                ? 'Saving...'
+                : 'Save settings'}
             </Button>
           </div>
         </CardContent>

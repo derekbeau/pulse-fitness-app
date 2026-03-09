@@ -179,4 +179,39 @@ describe('TrendSparklines', () => {
     expect(container.querySelectorAll('[data-slot="trend-sparkline-card-skeleton"]')).toHaveLength(3);
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
   });
+
+  it('renders only selected trend metrics', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: sampleWeightTrend,
+      isLoading: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: sampleMacroTrend,
+      isLoading: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    const { container } = render(<TrendSparklines endDate="2026-03-07" metrics={['protein']} />);
+
+    const cards = container.querySelectorAll('[data-slot="trend-sparkline-card"]');
+    expect(cards).toHaveLength(1);
+    expect(screen.getByText('Protein Trend')).toBeInTheDocument();
+    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
+    expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
+  });
+
+  it('renders an empty state when no metrics are selected', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: sampleWeightTrend,
+      isLoading: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: sampleMacroTrend,
+      isLoading: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines metrics={[]} />);
+
+    expect(screen.getByText('No trend metrics selected.')).toBeInTheDocument();
+    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
+  });
 });

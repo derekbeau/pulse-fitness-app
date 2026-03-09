@@ -186,4 +186,10 @@ describe('HabitChain', () => {
 
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
+
+  it('renders an empty state when an explicit empty filter is provided', () => {
+    render(<HabitChain entries={habitEntryRecords} habitIds={[]} habits={habitRecords} />);
+
+    expect(screen.getByText('No matching habits.')).toBeInTheDocument();
+  });
 });

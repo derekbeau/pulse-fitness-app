@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const testState = vi.hoisted(() => {
   const selectGetResults: unknown[] = [];
   const selectAllResults: unknown[] = [];
+  const insertRunResults: unknown[] = [];
 
   const select = vi.fn(() => {
     const chain = {
@@ -22,6 +23,15 @@ const testState = vi.hoisted(() => {
   });
 
   const db = {
+    insert: vi.fn(() => {
+      const chain = {
+        values: vi.fn(() => chain),
+        onConflictDoUpdate: vi.fn(() => chain),
+        run: vi.fn(() => insertRunResults.shift()),
+      };
+
+      return chain;
+    }),
     select,
   };
 
@@ -30,10 +40,13 @@ const testState = vi.hoisted(() => {
     select,
     selectGetResults,
     selectAllResults,
+    insertRunResults,
     reset() {
       selectGetResults.length = 0;
       selectAllResults.length = 0;
+      insertRunResults.length = 0;
       select.mockClear();
+      db.insert.mockClear();
     },
   };
 });
@@ -233,5 +246,53 @@ describe('dashboard store', () => {
       { date: '2026-03-09', completed: false },
     ]);
     expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the stored dashboard config when one exists', async () => {
+    testState.selectGetResults.push({
+      habitChainIds: ['habit-1', 'habit-2'],
+      trendMetrics: ['weight', 'protein'],
+      widgetOrder: ['snapshot', 'trends', 'habits'],
+    });
+
+    const { getDashboardConfig } = await import('./dashboard-store.js');
+    const config = await getDashboardConfig('user-1');
+
+    expect(config).toEqual({
+      habitChainIds: ['habit-1', 'habit-2'],
+      trendMetrics: ['weight', 'protein'],
+      widgetOrder: ['snapshot', 'trends', 'habits'],
+    });
+    expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns default dashboard config with active habits when none is stored', async () => {
+    testState.selectGetResults.push(undefined);
+    testState.selectAllResults.push([{ id: 'habit-1' }, { id: 'habit-3' }]);
+
+    const { getDashboardConfig } = await import('./dashboard-store.js');
+    const config = await getDashboardConfig('user-1');
+
+    expect(config).toEqual({
+      habitChainIds: ['habit-1', 'habit-3'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+    });
+    expect(testState.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('upserts dashboard config by userId', async () => {
+    const { upsertDashboardConfig } = await import('./dashboard-store.js');
+    const config = await upsertDashboardConfig('user-1', {
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['calories'],
+      widgetOrder: ['trends', 'snapshot'],
+    });
+
+    expect(config).toEqual({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['calories'],
+      widgetOrder: ['trends', 'snapshot'],
+    });
+    expect(testState.db.insert).toHaveBeenCalledTimes(1);
   });
 });

@@ -52,7 +52,7 @@ const getCurrentStreak = (entries: HabitChainEntry[]) => {
 };
 
 const getVisibleHabits = (habits: HabitChainHabit[], habitIds?: string[]) => {
-  if (!habitIds || habitIds.length === 0) {
+  if (!habitIds) {
     return habits;
   }
 

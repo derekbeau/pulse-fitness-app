@@ -3,17 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../index.js';
 
 import {
+  getDashboardConfig,
   getDashboardConsistencyTrend,
   getDashboardMacrosTrend,
   getDashboardSnapshot,
   getDashboardWeightTrend,
+  upsertDashboardConfig,
 } from './dashboard-store.js';
 
 vi.mock('./dashboard-store.js', () => ({
+  getDashboardConfig: vi.fn(),
   getDashboardSnapshot: vi.fn(),
   getDashboardWeightTrend: vi.fn(),
   getDashboardMacrosTrend: vi.fn(),
   getDashboardConsistencyTrend: vi.fn(),
+  upsertDashboardConfig: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -22,10 +26,12 @@ const createAuthorizationHeader = (token: string) => ({
 
 describe('dashboard routes', () => {
   beforeEach(() => {
+    vi.mocked(getDashboardConfig).mockReset();
     vi.mocked(getDashboardSnapshot).mockReset();
     vi.mocked(getDashboardWeightTrend).mockReset();
     vi.mocked(getDashboardMacrosTrend).mockReset();
     vi.mocked(getDashboardConsistencyTrend).mockReset();
+    vi.mocked(upsertDashboardConfig).mockReset();
     process.env.JWT_SECRET = 'test-dashboard-routes-secret';
   });
 
@@ -115,6 +121,111 @@ describe('dashboard routes', () => {
         },
       });
       expect(vi.mocked(getDashboardSnapshot)).toHaveBeenCalledWith('user-1', '2026-03-09');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns the dashboard config payload for the authenticated user', async () => {
+    vi.mocked(getDashboardConfig).mockResolvedValue({
+      habitChainIds: ['habit-1', 'habit-2'],
+      trendMetrics: ['weight', 'protein'],
+      widgetOrder: ['snapshot', 'trends'],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/dashboard/config',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          habitChainIds: ['habit-1', 'habit-2'],
+          trendMetrics: ['weight', 'protein'],
+          widgetOrder: ['snapshot', 'trends'],
+        },
+      });
+      expect(vi.mocked(getDashboardConfig)).toHaveBeenCalledWith('user-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('upserts dashboard config via PUT and POST', async () => {
+    vi.mocked(upsertDashboardConfig).mockResolvedValue({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['calories'],
+      widgetOrder: ['trends', 'snapshot'],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const payload = {
+        habitChainIds: ['habit-1'],
+        trendMetrics: ['calories'],
+        widgetOrder: ['trends', 'snapshot'],
+      };
+
+      const [putResponse, postResponse] = await Promise.all([
+        app.inject({
+          method: 'PUT',
+          url: '/api/v1/dashboard/config',
+          payload,
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/dashboard/config',
+          payload,
+          headers: createAuthorizationHeader(authToken),
+        }),
+      ]);
+
+      expect(putResponse.statusCode).toBe(200);
+      expect(putResponse.json()).toEqual({ data: payload });
+      expect(postResponse.statusCode).toBe(200);
+      expect(postResponse.json()).toEqual({ data: payload });
+      expect(vi.mocked(upsertDashboardConfig)).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(upsertDashboardConfig)).toHaveBeenCalledWith('user-2', payload);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects invalid dashboard config payloads', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/dashboard/config',
+        payload: {
+          habitChainIds: ['habit-1'],
+          trendMetrics: ['steps'],
+        },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid dashboard config payload',
+        },
+      });
+      expect(vi.mocked(upsertDashboardConfig)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }
@@ -365,26 +476,36 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const [missingSnapshotAuthResponse, missingTrendAuthResponse, invalidSnapshotAuthResponse] =
+      const [
+        missingSnapshotAuthResponse,
+        missingTrendAuthResponse,
+        missingConfigAuthResponse,
+        invalidSnapshotAuthResponse,
+      ] =
         await Promise.all([
-        app.inject({
-          method: 'GET',
-          url: '/api/v1/dashboard/snapshot',
-        }),
-        app.inject({
-          method: 'GET',
-          url: '/api/v1/dashboard/trends/weight',
-        }),
-        app.inject({
-          method: 'GET',
-          url: '/api/v1/dashboard/snapshot',
-          headers: createAuthorizationHeader('not-a-valid-token'),
-        }),
-      ]);
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/snapshot',
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/trends/weight',
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/config',
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/dashboard/snapshot',
+            headers: createAuthorizationHeader('not-a-valid-token'),
+          }),
+        ]);
 
       for (const response of [
         missingSnapshotAuthResponse,
         missingTrendAuthResponse,
+        missingConfigAuthResponse,
         invalidSnapshotAuthResponse,
       ]) {
         expect(response.statusCode).toBe(401);
@@ -396,9 +517,11 @@ describe('dashboard routes', () => {
         });
       }
       expect(vi.mocked(getDashboardSnapshot)).not.toHaveBeenCalled();
+      expect(vi.mocked(getDashboardConfig)).not.toHaveBeenCalled();
       expect(vi.mocked(getDashboardWeightTrend)).not.toHaveBeenCalled();
       expect(vi.mocked(getDashboardMacrosTrend)).not.toHaveBeenCalled();
       expect(vi.mocked(getDashboardConsistencyTrend)).not.toHaveBeenCalled();
+      expect(vi.mocked(upsertDashboardConfig)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

@@ -15,6 +15,7 @@ import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline
 import { useHabits } from '@/features/habits/api/habits';
 import { useLogWeight } from '@/features/weight/api/weight';
 import { useDashboardSnapshot, dashboardSnapshotKeys } from '@/hooks/use-dashboard-snapshot';
+import { useDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
 import { addDays, getToday, toDateKey } from '@/lib/date';
 
@@ -29,6 +30,7 @@ export function DashboardPage() {
   const greeting = getDashboardGreeting();
 
   const snapshotQuery = useDashboardSnapshot(selectedDateKey);
+  const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
 
@@ -147,10 +149,14 @@ export function DashboardPage() {
         >
           <HabitChain
             endDate={selectedDateKey}
+            habitIds={dashboardConfigQuery.data?.habitChainIds}
             habits={habitsQuery.data ?? []}
             entries={habitChainEntriesQuery.data ?? []}
           />
-          <TrendSparklines endDate={selectedDateKey} />
+          <TrendSparklines
+            endDate={selectedDateKey}
+            metrics={dashboardConfigQuery.data?.trendMetrics}
+          />
         </div>
 
         <div

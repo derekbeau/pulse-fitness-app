@@ -1,4 +1,4 @@
-import type { DashboardSnapshot, Habit, HabitEntry } from '@pulse/shared';
+import type { DashboardConfig, DashboardSnapshot, Habit, HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -219,6 +219,7 @@ const recentWorkoutDetailsData = {
 
 describe('DashboardPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
+  let dashboardConfig: DashboardConfig;
   let snapshotsByDate: Record<string, DashboardSnapshot>;
 
   beforeEach(() => {
@@ -227,6 +228,10 @@ describe('DashboardPage', () => {
     snapshotsByDate = {
       [snapshotForToday.date]: snapshotForToday,
       [snapshotForMarch4.date]: snapshotForMarch4,
+    };
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
     };
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -240,6 +245,15 @@ describe('DashboardPage', () => {
 
         return Promise.resolve(
           new Response(JSON.stringify({ data: snapshot }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: dashboardConfig }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
@@ -524,6 +538,29 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(within(bodyWeightCard as HTMLElement).getByText('175.5 lbs')).toBeInTheDocument();
     });
+  });
+
+  it('renders only configured habit chains and trend metrics', async () => {
+    dashboardConfig = {
+      habitChainIds: [],
+      trendMetrics: ['protein'],
+    };
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Protein Trend')).toBeInTheDocument();
+    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
+    expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
+    expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
 });
 

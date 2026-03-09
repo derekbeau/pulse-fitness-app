@@ -19,6 +19,7 @@ export const dashboardConfig = sqliteTable(
       .notNull()
       .default([]),
     trendMetrics: text('trend_metrics', { mode: 'json' }).$type<string[]>().notNull().default([]),
+    widgetOrder: text('widget_order', { mode: 'json' }).$type<string[] | null>(),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
