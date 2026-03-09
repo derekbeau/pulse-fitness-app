@@ -75,6 +75,7 @@ describe('RegisterForm', () => {
     const signInLink = screen.getByTestId('register-signin-link');
     expect(signInLink).toHaveAttribute('id', 'register-signin-link');
     expect(signInLink).toHaveAttribute('href', '/login');
+    expect(signInLink).toHaveAttribute('data-qa', 'auth-go-signin');
   });
 
   it('shows validation errors for short username and password', async () => {

@@ -116,6 +116,7 @@ export function LoginForm({ onSuccess, registerHref }: LoginFormProps) {
             <Link
               aria-label="Go to register"
               className={cn('font-medium text-primary hover:underline')}
+              data-qa="auth-go-register"
               data-testid="login-register-link"
               id="login-register-link"
               to={registerHref}

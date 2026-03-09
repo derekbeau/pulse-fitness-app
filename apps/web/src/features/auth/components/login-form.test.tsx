@@ -74,6 +74,7 @@ describe('LoginForm', () => {
     const registerLink = screen.getByTestId('login-register-link');
     expect(registerLink).toHaveAttribute('id', 'login-register-link');
     expect(registerLink).toHaveAttribute('href', '/register');
+    expect(registerLink).toHaveAttribute('data-qa', 'auth-go-register');
   });
 
   it('shows validation errors when submitting an empty form', async () => {
