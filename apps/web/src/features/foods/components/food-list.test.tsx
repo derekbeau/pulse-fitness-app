@@ -341,8 +341,10 @@ describe('FoodList', () => {
 
     renderFoodList();
 
-    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
     expect(api.fetchMock).toHaveBeenCalledTimes(1);
+    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
+    expect(initialUrl.searchParams.get('sort')).toBe('recent');
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
       target: { value: 'fair' },
@@ -374,7 +376,9 @@ describe('FoodList', () => {
 
     renderFoodList();
 
-    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
+    expect(initialUrl.searchParams.get('sort')).toBe('recent');
 
     selectSortOption('Highest Protein');
 
@@ -427,7 +431,7 @@ describe('FoodList', () => {
 
     renderFoodList();
 
-    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
 
     selectSortOption('Highest Protein');
     expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
@@ -470,7 +474,7 @@ describe('FoodList', () => {
 
     renderFoodList();
 
-    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Broccoli' }));
     expect(screen.getByText('Are you sure you want to remove Broccoli?')).toBeInTheDocument();

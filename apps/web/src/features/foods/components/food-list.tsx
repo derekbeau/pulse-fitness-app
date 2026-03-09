@@ -108,7 +108,7 @@ function FoodCardSkeleton() {
 export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: FoodListProps) {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>('name');
+  const [sortBy, setSortBy] = useState<FoodSort>('recent');
   const [page, setPage] = useState(1);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
