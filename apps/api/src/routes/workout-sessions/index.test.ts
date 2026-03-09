@@ -1125,6 +1125,73 @@ describe('workout session routes', () => {
     });
   });
 
+  it('filters workout session listings by status and limit', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-completed-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-15',
+      status: 'completed',
+      startedAt: 1_700_100_000_000,
+      completedAt: 1_700_100_003_000,
+      duration: 50,
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push Volume',
+      date: '2026-03-14',
+      status: 'in-progress',
+      startedAt: 1_700_090_000_000,
+    });
+    seedWorkoutSession({
+      id: 'session-completed-2',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Lower Body',
+      date: '2026-03-13',
+      status: 'completed',
+      startedAt: 1_700_080_000_000,
+      completedAt: 1_700_080_003_000,
+      duration: 48,
+    });
+    seedWorkoutSession({
+      id: 'session-completed-3',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Lower Body Volume',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_070_000_000,
+      completedAt: 1_700_070_003_000,
+      duration: 45,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions?status=completed&limit=2',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'session-completed-1',
+          status: 'completed',
+        }),
+        expect.objectContaining({
+          id: 'session-completed-2',
+          status: 'completed',
+        }),
+      ],
+    });
+  });
+
   it('updates owned workout sessions by replacing nested set rows', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
@@ -1428,14 +1495,41 @@ describe('workout session routes', () => {
   it('rejects invalid list queries and malformed payloads', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
-    const invalidQueryResponse = await context.app.inject({
-      method: 'GET',
-      url: '/api/v1/workout-sessions?from=2026-03-12&to=2026-03-10',
-      headers: createAuthorizationHeader(authToken),
-    });
+    const [invalidRangeQueryResponse, invalidStatusQueryResponse, invalidLimitQueryResponse] =
+      await Promise.all([
+        context.app.inject({
+          method: 'GET',
+          url: '/api/v1/workout-sessions?from=2026-03-12&to=2026-03-10',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        context.app.inject({
+          method: 'GET',
+          url: '/api/v1/workout-sessions?status=finished',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        context.app.inject({
+          method: 'GET',
+          url: '/api/v1/workout-sessions?limit=0',
+          headers: createAuthorizationHeader(authToken),
+        }),
+      ]);
 
-    expect(invalidQueryResponse.statusCode).toBe(400);
-    expect(invalidQueryResponse.json()).toEqual({
+    expect(invalidRangeQueryResponse.statusCode).toBe(400);
+    expect(invalidRangeQueryResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session query',
+      },
+    });
+    expect(invalidStatusQueryResponse.statusCode).toBe(400);
+    expect(invalidStatusQueryResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session query',
+      },
+    });
+    expect(invalidLimitQueryResponse.statusCode).toBe(400);
+    expect(invalidLimitQueryResponse.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid workout session query',

@@ -150,7 +150,7 @@ export function DashboardPage() {
             habits={habitsQuery.data ?? []}
             entries={habitChainEntriesQuery.data ?? []}
           />
-          <TrendSparklines />
+          <TrendSparklines endDate={selectedDateKey} />
         </div>
 
         <div

@@ -299,16 +299,31 @@ describe('workoutSessionListItemSchema', () => {
 });
 
 describe('workoutSessionQueryParamsSchema', () => {
-  it('requires from to be before or equal to to', () => {
-    expect(workoutSessionQueryParamsSchema.parse({ from: '2026-03-10', to: '2026-03-12' })).toEqual(
-      {
+  it('parses optional range and filter params', () => {
+    expect(
+      workoutSessionQueryParamsSchema.parse({
         from: '2026-03-10',
         to: '2026-03-12',
-      },
-    );
+        status: 'completed',
+        limit: '5',
+      }),
+    ).toEqual({
+      from: '2026-03-10',
+      to: '2026-03-12',
+      status: 'completed',
+      limit: 5,
+    });
+    expect(workoutSessionQueryParamsSchema.parse({ status: 'in-progress', limit: 10 })).toEqual({
+      status: 'in-progress',
+      limit: 10,
+    });
+  });
 
+  it('rejects invalid ranges and limits', () => {
     expect(() =>
       workoutSessionQueryParamsSchema.parse({ from: '2026-03-12', to: '2026-03-10' }),
     ).toThrow();
+    expect(() => workoutSessionQueryParamsSchema.parse({ limit: 0 })).toThrow();
+    expect(() => workoutSessionQueryParamsSchema.parse({ limit: 99 })).toThrow();
   });
 });

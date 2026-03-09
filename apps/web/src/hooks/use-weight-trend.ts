@@ -1,0 +1,48 @@
+import { useQuery } from '@tanstack/react-query';
+import { dashboardWeightTrendSchema, type DashboardWeightTrendPoint } from '@pulse/shared';
+
+import { apiRequest } from '@/lib/api-client';
+import { addDays, getToday, parseDateInput, toDateKey } from '@/lib/date';
+
+const DEFAULT_TREND_DAYS = 30;
+
+export const weightTrendKeys = {
+  all: ['dashboard', 'weight-trend'] as const,
+  range: (from: string, to: string) => [...weightTrendKeys.all, from, to] as const,
+};
+
+const resolveDateRange = (from?: string, to?: string) => {
+  const resolvedTo = to ?? toDateKey(getToday());
+  const resolvedFrom = from ?? toDateKey(addDays(parseDateInput(resolvedTo), -(DEFAULT_TREND_DAYS - 1)));
+
+  return {
+    from: resolvedFrom,
+    to: resolvedTo,
+  };
+};
+
+const fetchWeightTrend = async (
+  from?: string,
+  to?: string,
+  signal?: AbortSignal,
+): Promise<DashboardWeightTrendPoint[]> => {
+  const range = resolveDateRange(from, to);
+  const trend = await apiRequest<DashboardWeightTrendPoint[]>(
+    `/api/v1/dashboard/trends/weight?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
+    {
+      method: 'GET',
+      signal,
+    },
+  );
+
+  return dashboardWeightTrendSchema.parse(trend);
+};
+
+export const useWeightTrend = (from?: string, to?: string) => {
+  const range = resolveDateRange(from, to);
+
+  return useQuery({
+    queryFn: ({ signal }) => fetchWeightTrend(range.from, range.to, signal),
+    queryKey: weightTrendKeys.range(range.from, range.to),
+  });
+};
