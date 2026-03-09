@@ -140,4 +140,37 @@ describe('ActiveSessionResumeGate', () => {
 
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBeNull();
   });
+
+  it('clears stored session id for non-active statuses without redirecting', async () => {
+    window.localStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, 'session-scheduled');
+    mockFetch.mockResolvedValue(
+      jsonResponse({
+        data: {
+          id: 'session-scheduled',
+          userId: 'user-1',
+          templateId: 'upper-push',
+          name: 'Upper Push',
+          date: '2026-03-09',
+          status: 'scheduled',
+          startedAt: 100,
+          completedAt: null,
+          duration: null,
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 100,
+          updatedAt: 100,
+        },
+      }),
+    );
+
+    renderGate('/workouts');
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBeNull();
+    expect(screen.getByText('/workouts')).toBeVisible();
+  });
 });

@@ -356,9 +356,11 @@ export const batchUpsertSessionSets = async ({
 }): Promise<SessionSetGroup[]> => {
   const { db } = await import('../../db/index.js');
 
-  db.transaction((tx) => {
+  const groupedSets = db.transaction((tx) => {
     for (const set of input.sets) {
       if (set.id) {
+        // Batch upsert intentionally syncs structural/performance fields only.
+        // `completed`, `skipped`, and `notes` are controlled via PATCH /sets/:setId.
         const updateResult = tx
           .update(sessionSets)
           .set({
@@ -390,9 +392,17 @@ export const batchUpsertSessionSets = async ({
         })
         .run();
     }
+
+    const sets = tx
+      .select(sessionSetSelection)
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, sessionId))
+      .all();
+
+    return buildSessionSetGroups(sets);
   });
 
-  return listSessionSetGroups(sessionId);
+  return groupedSets;
 };
 
 export const createWorkoutSession = async ({

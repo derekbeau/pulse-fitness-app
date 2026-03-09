@@ -268,28 +268,37 @@ export const findExerciseLastPerformance = async ({
       desc(workoutSessions.createdAt),
     )
     .limit(1)
-    .get();
+    .as('latest_session');
 
-  if (!latestSession) {
-    return undefined;
-  }
-
-  const sets = db
+  const latestSets = db
     .select({
+      sessionId: latestSession.id,
+      date: latestSession.date,
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
     })
-    .from(sessionSets)
-    .where(
+    .from(latestSession)
+    .innerJoin(
+      sessionSets,
       and(eq(sessionSets.sessionId, latestSession.id), eq(sessionSets.exerciseId, exerciseId)),
     )
     .orderBy(asc(sessionSets.setNumber), asc(sessionSets.createdAt))
     .all();
 
+  if (latestSets.length === 0) {
+    return undefined;
+  }
+
+  const [{ sessionId, date }] = latestSets;
+
   return {
-    sessionId: latestSession.id,
-    date: latestSession.date,
-    sets,
+    sessionId,
+    date,
+    sets: latestSets.map((set) => ({
+      setNumber: set.setNumber,
+      weight: set.weight,
+      reps: set.reps,
+    })),
   };
 };

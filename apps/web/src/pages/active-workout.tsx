@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
-import type { SessionSet, WorkoutSessionFeedback } from '@pulse/shared';
+import type {
+  SessionSet,
+  WorkoutSessionFeedback,
+  WorkoutTemplate as ApiWorkoutTemplate,
+  WorkoutTemplateSectionType,
+} from '@pulse/shared';
 
 import {
   SessionContext,
@@ -21,9 +26,9 @@ import {
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
+import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
-import { useSyncSets } from '@/hooks/use-sync-sets';
 import { useWorkoutSession } from '@/hooks/use-workout-session';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
@@ -33,15 +38,29 @@ import {
 } from '@/features/workouts/lib/session-persistence';
 import { ApiError } from '@/lib/api-client';
 import {
+  mockExercises,
   mockTemplates,
+  type WorkoutBadgeType as MockWorkoutBadgeType,
   type WorkoutTemplate as MockWorkoutTemplate,
 } from '@/lib/mock-data/workouts';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const defaultTemplate =
   mockTemplates.find((template) => template.id === 'upper-push') ??
   (() => {
     throw new Error('Expected upper-push template in mock data.');
   })();
+
+const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
+  warmup: 'Warmup',
+  main: 'Main',
+  cooldown: 'Cooldown',
+};
+
+const categoryBadgeByExerciseId = new Map(
+  mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
+);
 
 const completedSetIds = [
   createWorkoutSetId('row-erg', 1),
@@ -67,11 +86,16 @@ export function ActiveWorkoutPage() {
   const logSetMutation = useLogSet(sessionId);
   const updateSetMutation = useUpdateSet(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
+  const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
+  const shouldLoadApiTemplate = UUID_PATTERN.test(resolvedTemplateId);
+  const templateQuery = useWorkoutTemplate(shouldLoadApiTemplate ? resolvedTemplateId : '');
 
-  const selectedTemplate = mockTemplates.find(
-    (template) => template.id === (requestedTemplateId ?? sessionQuery.data?.templateId),
+  const selectedMockTemplate = mockTemplates.find((template) => template.id === resolvedTemplateId);
+  const apiTemplate = useMemo(
+    () => (templateQuery.data ? toMockWorkoutTemplate(templateQuery.data) : null),
+    [templateQuery.data],
   );
-  const template = selectedTemplate ?? defaultTemplate;
+  const template = apiTemplate ?? selectedMockTemplate ?? defaultTemplate;
 
   const [fallbackStartTime] = useState(() =>
     new Date(Date.now() - 16 * 60_000 - 23_000).toISOString(),
@@ -107,14 +131,6 @@ export function ActiveWorkoutPage() {
     });
   }, [navigate]);
 
-  const syncSets = useSyncSets({
-    sessionId: activeSessionId,
-    onSessionInactive: redirectToCompletedSessionNotice,
-    onSyncError: () => {
-      setSessionError('Unable to sync set update. Try again.');
-    },
-  });
-
   const templateExerciseById = useMemo(
     () =>
       new Map(
@@ -143,6 +159,19 @@ export function ActiveWorkoutPage() {
     setSetDrafts(createSessionSetDrafts(template, activeSession.sets));
     hydratedSessionIdRef.current = activeSession.id;
   }, [activeSession, template]);
+
+  useEffect(() => {
+    if (activeSession) {
+      return;
+    }
+
+    setSetDrafts(
+      createInitialWorkoutSetDrafts(
+        template,
+        requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
+      ),
+    );
+  }, [activeSession, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {
     if (!activeSession || !sessionId) {
@@ -183,10 +212,28 @@ export function ActiveWorkoutPage() {
     );
   }
 
+  if (shouldLoadApiTemplate && templateQuery.isPending) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Loading workout template</h1>
+        <p className="text-sm text-muted">Fetching template details...</p>
+      </section>
+    );
+  }
+
   if (sessionId && sessionQuery.isError) {
     return (
       <section className="space-y-3 pb-8">
         <h1 className="text-2xl font-semibold text-foreground">Unable to load session</h1>
+        <p className="text-sm text-muted">Refresh and try again.</p>
+      </section>
+    );
+  }
+
+  if (shouldLoadApiTemplate && templateQuery.isError) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Unable to load template</h1>
         <p className="text-sm text-muted">Refresh and try again.</p>
       </section>
     );
@@ -425,15 +472,6 @@ export function ActiveWorkoutPage() {
           },
         },
       );
-
-      syncSets.queueSetSync({
-        id: setId,
-        exerciseId,
-        reps: updatedSet.reps,
-        section: templateExercise.section,
-        setNumber: updatedSet.number,
-        weight: updatedSet.weight,
-      });
     }
 
     if (update.completed === false) {
@@ -620,4 +658,47 @@ function formatElapsedTime(totalSeconds: number) {
   const seconds = totalSeconds % 60;
 
   return `${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`;
+}
+
+function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplate {
+  return {
+    id: template.id,
+    name: template.name,
+    description: template.description ?? '',
+    tags: template.tags,
+    sections: template.sections.map((section) => ({
+      type: section.type,
+      title: sectionTitleByType[section.type],
+      exercises: section.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        sets: exercise.sets ?? 1,
+        reps: formatTemplateExerciseReps(exercise.repsMin, exercise.repsMax),
+        tempo: exercise.tempo ?? '2111',
+        restSeconds: exercise.restSeconds ?? 60,
+        formCues: exercise.cues,
+        badges: getDefaultExerciseBadges(exercise.exerciseId),
+      })),
+    })),
+  };
+}
+
+function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | null) {
+  if (repsMin !== null && repsMax !== null) {
+    return repsMin === repsMax ? String(repsMin) : `${repsMin}-${repsMax}`;
+  }
+
+  if (repsMin !== null) {
+    return String(repsMin);
+  }
+
+  if (repsMax !== null) {
+    return String(repsMax);
+  }
+
+  return '';
+}
+
+function getDefaultExerciseBadges(exerciseId: string): MockWorkoutBadgeType[] {
+  const categoryBadge = categoryBadgeByExerciseId.get(exerciseId);
+  return categoryBadge ? [categoryBadge] : [];
 }
