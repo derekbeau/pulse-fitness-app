@@ -8,6 +8,7 @@ import { exerciseRoutes } from './routes/exercises/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
 import { habitEntryCollectionRoutes } from './routes/habit-entries/index.js';
 import { habitRoutes } from './routes/habits/index.js';
+import { nutritionRoutes } from './routes/nutrition/index.js';
 import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
 import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
 import { weightRoutes } from './routes/weight/index.js';
@@ -42,6 +43,7 @@ export const buildServer = () => {
   app.register(foodsRoutes, { prefix: '/api/v1/foods' });
   app.register(habitRoutes, { prefix: '/api/v1/habits' });
   app.register(habitEntryCollectionRoutes, { prefix: '/api/v1/habit-entries' });
+  app.register(nutritionRoutes, { prefix: '/api/v1/nutrition' });
   app.register(nutritionTargetRoutes, { prefix: '/api/v1/nutrition-targets' });
   app.register(scheduledWorkoutRoutes, { prefix: '/api/v1/scheduled-workouts' });
   app.register(weightRoutes, { prefix: '/api/v1/weight' });

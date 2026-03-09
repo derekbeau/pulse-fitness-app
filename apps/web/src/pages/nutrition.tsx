@@ -1,19 +1,22 @@
 import { useState } from 'react';
 
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
-import { useNutritionTargets } from '@/features/nutrition/api/targets';
+import {
+  useDailyNutrition,
+  useDeleteMeal,
+  useNutritionSummary,
+} from '@/features/nutrition/api/nutrition';
 import {
   formatDateKey,
-  calculateMacroTotals,
   formatCalories,
   formatDayLabel,
   formatGrams,
   sortMeals,
   startOfDay,
+  type MacroTotals,
   type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
 import { accentCardStyles } from '@/lib/accent-card-styles';
-import { mockDailyMeals, mockDailyTargets } from '@/lib/mock-data/nutrition';
 import { cn } from '@/lib/utils';
 
 const MACRO_CONFIG: Array<{
@@ -27,7 +30,7 @@ const MACRO_CONFIG: Array<{
   { key: 'fat', label: 'Fat', formatValue: formatGrams },
 ];
 
-const EMPTY_TOTALS = {
+const EMPTY_TOTALS: MacroTotals = {
   calories: 0,
   protein: 0,
   carbs: 0,
@@ -36,18 +39,52 @@ const EMPTY_TOTALS = {
 
 export function NutritionPage() {
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
-  const { data: currentTargets } = useNutritionTargets();
   const dateKey = formatDateKey(selectedDate);
-  const selectedMeals = sortMeals(mockDailyMeals[dateKey] ?? []);
-  const dailyTotals = selectedMeals.length > 0 ? calculateMacroTotals(selectedMeals) : EMPTY_TOTALS;
-  const dailyTargets = currentTargets
-    ? {
-        calories: currentTargets.calories,
-        protein: currentTargets.protein,
-        carbs: currentTargets.carbs,
-        fat: currentTargets.fat,
-      }
-    : mockDailyTargets;
+
+  const dailyNutritionQuery = useDailyNutrition(dateKey);
+  const dailySummaryQuery = useNutritionSummary(dateKey);
+  const deleteMealMutation = useDeleteMeal();
+
+  const selectedMeals = sortMeals(
+    (dailyNutritionQuery.data?.meals ?? []).map(({ meal, items }) => ({
+      id: meal.id,
+      name: meal.name,
+      time: meal.time,
+      items: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+      })),
+    })),
+  );
+
+  const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
+  const dailyTargets = dailySummaryQuery.data?.target ?? null;
+  const isLoadingDay = dailyNutritionQuery.isPending || dailySummaryQuery.isPending;
+  const nutritionError =
+    (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
+    (dailySummaryQuery.isError && dailySummaryQuery.error) ||
+    null;
+  const deleteErrorMessage =
+    deleteMealMutation.isError && deleteMealMutation.error instanceof Error
+      ? deleteMealMutation.error.message
+      : null;
+
+  async function handleDeleteMeal(mealId: string) {
+    try {
+      await deleteMealMutation.mutateAsync({
+        date: dateKey,
+        mealId,
+      });
+    } catch {
+      return;
+    }
+  }
 
   return (
     <section className="space-y-5">
@@ -60,69 +97,171 @@ export function NutritionPage() {
 
       <DateNavBar selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
-      <section
-        aria-label="Daily macro totals"
-        className={cn('rounded-2xl border border-border/70 px-5 py-5', accentCardStyles.cream)}
-      >
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Daily totals</h2>
-            <p className="text-sm opacity-70 dark:text-muted dark:opacity-100">
-              Actual intake against your daily macro targets.
-            </p>
-          </div>
-          <p className="text-sm font-medium opacity-75 dark:text-muted dark:opacity-100">
-            {formatDayLabel(dateKey)}
+      {nutritionError ? (
+        <section className="rounded-2xl border border-destructive/30 px-5 py-6">
+          <h2 className="text-lg font-semibold text-foreground">Unable to load nutrition</h2>
+          <p className="mt-2 text-sm text-muted">
+            {nutritionError instanceof Error
+              ? nutritionError.message
+              : 'Could not load nutrition data.'}
           </p>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {MACRO_CONFIG.map((macro) => {
-            const actual = dailyTotals[macro.key];
-            const target = dailyTargets[macro.key];
-            const isOverTarget = actual > target;
-
-            return (
-              <div
-                key={macro.key}
-                className="rounded-xl border border-black/8 bg-white/30 px-4 py-4 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65 dark:text-muted dark:opacity-100">
-                  {macro.label}
-                </p>
-                <p className="mt-2 text-sm font-semibold">
-                  <span
-                    className={cn(
-                      isOverTarget
-                        ? 'text-red-900 dark:text-red-400'
-                        : 'text-emerald-950 dark:text-emerald-400',
-                      'text-lg tracking-tight',
-                    )}
-                  >
-                    {macro.formatValue(actual)}
-                  </span>
-                  <span className="opacity-70 dark:text-muted dark:opacity-100">
-                    {' '}
-                    / {macro.formatValue(target)}
-                  </span>
+        </section>
+      ) : (
+        <>
+          <section
+            aria-label="Daily macro totals"
+            className={cn('rounded-2xl border border-border/70 px-5 py-5', accentCardStyles.cream)}
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Daily totals</h2>
+                <p className="text-sm opacity-70 dark:text-muted dark:opacity-100">
+                  Actual intake against your daily macro targets.
                 </p>
               </div>
-            );
-          })}
-        </div>
-      </section>
+              <p className="text-sm font-medium opacity-75 dark:text-muted dark:opacity-100">
+                {formatDayLabel(dateKey)}
+              </p>
+            </div>
 
-      <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
+            {isLoadingDay ? (
+              <NutritionTotalsSkeleton />
+            ) : (
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {MACRO_CONFIG.map((macro) => {
+                  const actual = dailyTotals[macro.key];
+                  const target = dailyTargets?.[macro.key] ?? null;
+                  const isOverTarget = target !== null && actual > target;
 
-      <div className="space-y-3">
-        {selectedMeals.length > 0 ? (
-          selectedMeals.map((meal) => <MealCard key={meal.id} meal={meal} />)
-        ) : (
-          <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-10 text-center shadow-sm">
-            <p className="text-sm font-medium text-muted">No meals logged for this day</p>
+                  return (
+                    <div
+                      key={macro.key}
+                      className="rounded-xl border border-black/8 bg-white/30 px-4 py-4 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65 dark:text-muted dark:opacity-100">
+                        {macro.label}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold">
+                        <span
+                          className={cn(
+                            target === null
+                              ? 'text-foreground'
+                              : isOverTarget
+                              ? 'text-red-900 dark:text-red-400'
+                              : 'text-emerald-950 dark:text-emerald-400',
+                            'text-lg tracking-tight',
+                          )}
+                        >
+                          {macro.formatValue(actual)}
+                        </span>
+                        {target === null ? (
+                          <span className="opacity-70 dark:text-muted dark:opacity-100">
+                            {' '}
+                            / No target set
+                          </span>
+                        ) : (
+                          <span className="opacity-70 dark:text-muted dark:opacity-100">
+                            {' '}
+                            / {macro.formatValue(target)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {isLoadingDay ? (
+            <NutritionRingsSkeleton />
+          ) : dailyTargets ? (
+            <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
+          ) : (
+            <NutritionTargetsPlaceholder />
+          )}
+
+          {deleteErrorMessage ? (
+            <p className="text-sm text-destructive" role="alert">
+              {deleteErrorMessage}
+            </p>
+          ) : null}
+
+          <div className="space-y-3">
+            {isLoadingDay ? (
+              <NutritionMealSkeleton />
+            ) : selectedMeals.length > 0 ? (
+              selectedMeals.map((meal) => (
+                <MealCard
+                  key={meal.id}
+                  isDeleting={
+                    deleteMealMutation.isPending && deleteMealMutation.variables?.mealId === meal.id
+                  }
+                  meal={meal}
+                  onDelete={(mealId) => void handleDeleteMeal(mealId)}
+                />
+              ))
+            ) : (
+              <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-10 text-center shadow-sm">
+                <p className="text-sm font-medium text-muted">No meals logged for this day</p>
+              </div>
+            )}
           </div>
-        )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function NutritionTargetsPlaceholder() {
+  return (
+    <section className="rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-8 text-center shadow-sm">
+      <h2 className="text-lg font-semibold text-foreground">Macro progress</h2>
+      <p className="mt-2 text-sm text-muted">
+        No daily macro target is set yet. Add one in settings to enable progress rings.
+      </p>
+    </section>
+  );
+}
+
+function NutritionTotalsSkeleton() {
+  return (
+    <div aria-label="Loading nutrition" className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-20 animate-pulse rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
+        />
+      ))}
+    </div>
+  );
+}
+
+function NutritionRingsSkeleton() {
+  return (
+    <section className="space-y-4" aria-label="Loading nutrition rings">
+      <div className="h-5 w-40 animate-pulse rounded bg-muted/70" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-44 animate-pulse rounded-2xl border border-border/70 bg-card/90"
+          />
+        ))}
       </div>
     </section>
+  );
+}
+
+function NutritionMealSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 2 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-28 animate-pulse rounded-2xl border border-border/70 bg-card/90"
+        />
+      ))}
+    </>
   );
 }
