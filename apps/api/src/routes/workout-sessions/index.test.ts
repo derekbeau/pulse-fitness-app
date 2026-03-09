@@ -497,6 +497,91 @@ describe('workout session routes', () => {
     });
   });
 
+  it('applies save-as-template metadata overrides when provided', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-completed-overrides',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+      duration: 50,
+    });
+
+    seedSessionSet({
+      id: 'set-main-1',
+      sessionId: 'session-completed-overrides',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+      reps: 10,
+      weight: 140,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-completed-overrides/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: ' Upper Push Snapshot ',
+        description: '  Heavy pressing focus ',
+        tags: [' strength ', ' push '],
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const payload = response.json() as {
+      data: { id: string; name: string; description: string | null; tags: string[] };
+    };
+    expect(payload.data.name).toBe('Upper Push Snapshot');
+    expect(payload.data.description).toBe('Heavy pressing focus');
+    expect(payload.data.tags).toEqual(['strength', 'push']);
+
+    const persistedTemplate = context.db
+      .select({
+        id: workoutTemplates.id,
+        name: workoutTemplates.name,
+        description: workoutTemplates.description,
+        tags: workoutTemplates.tags,
+      })
+      .from(workoutTemplates)
+      .where(eq(workoutTemplates.id, payload.data.id))
+      .get();
+
+    expect(persistedTemplate).toEqual({
+      id: payload.data.id,
+      name: 'Upper Push Snapshot',
+      description: 'Heavy pressing focus',
+      tags: ['strength', 'push'],
+    });
+  });
+
+  it('returns a validation error for invalid save-as-template payload', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-1/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: '   ',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid save as template payload',
+      },
+    });
+  });
+
   it('creates, updates, lists, and batch-upserts sets for an active owned session', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

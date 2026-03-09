@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import {
   createExerciseInputSchema,
-  exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   updateExerciseInputSchema,
 } from '@pulse/shared';
@@ -135,10 +134,8 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const payload = exerciseLastPerformanceSchema.parse(lastPerformance);
-
     return reply.send({
-      data: payload,
+      data: lastPerformance,
     });
   });
 

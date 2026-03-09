@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   batchUpsertSetsSchema,
   createSetSchema,
+  saveWorkoutSessionAsTemplateInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
   updateSetSchema,
@@ -353,6 +354,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<{ Params: { id: string } }>('/:id/save-as-template', async (request, reply) => {
+    const parsedBody = saveWorkoutSessionAsTemplateInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid save as template payload');
+    }
+
     const session = await findWorkoutSessionById(request.params.id, request.userId);
     if (!session) {
       return sendError(
@@ -373,6 +379,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const template = await saveCompletedSessionAsTemplate({
+      input: parsedBody.data,
       session,
       userId: request.userId,
     });

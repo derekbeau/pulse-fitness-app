@@ -5,6 +5,7 @@ import type {
   BatchUpsertSetsInput,
   CreateSetInput,
   CreateWorkoutSessionInput,
+  SaveWorkoutSessionAsTemplateInput,
   SessionSet,
   UpdateSetInput,
   WorkoutSession,
@@ -568,9 +569,11 @@ const mapSessionSectionToTemplateSection = (
 ): WorkoutTemplateSectionType => section ?? 'main';
 
 export const saveCompletedSessionAsTemplate = async ({
+  input,
   userId,
   session,
 }: {
+  input: SaveWorkoutSessionAsTemplateInput;
   userId: string;
   session: WorkoutSession;
 }) => {
@@ -624,21 +627,30 @@ export const saveCompletedSessionAsTemplate = async ({
     cues: [],
   }));
 
-  db.transaction((tx) => {
-    tx.insert(workoutTemplates)
+  const result = db.transaction((tx) => {
+    const insertTemplateResult = tx
+      .insert(workoutTemplates)
       .values({
         id: templateId,
         userId,
-        name: session.name,
-        description: null,
-        tags: [],
+        name: input.name ?? session.name,
+        description: input.description ?? null,
+        tags: input.tags ?? [],
       })
       .run();
+    if (insertTemplateResult.changes !== 1) {
+      return false;
+    }
 
     if (templateExerciseRows.length > 0) {
       tx.insert(templateExercises).values(templateExerciseRows).run();
     }
+
+    return true;
   });
+  if (!result) {
+    throw new Error('Created workout template could not be saved');
+  }
 
   const createdTemplate = await findWorkoutTemplateById(templateId, userId);
   if (!createdTemplate) {

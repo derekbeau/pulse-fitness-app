@@ -218,7 +218,7 @@ export function SessionSummary({
                 };
 
                 if (sessionId) {
-                  saveAsTemplateMutation.mutate(undefined, {
+                  saveAsTemplateMutation.mutate(payload, {
                     onError: () => {
                       setSaveMessage('Unable to save this session as a template. Try again.');
                     },

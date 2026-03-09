@@ -69,15 +69,27 @@ describe('use-save-as-template hook', () => {
     const { result } = renderHook(() => useSaveAsTemplate('session-1'), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync(undefined);
+      await result.current.mutateAsync({
+        description: '  ',
+        name: ' Upper Push Snapshot ',
+        tags: [' strength ', ' push '],
+      });
     });
 
+    expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/workout-sessions/session-1/save-as-template',
       expect.objectContaining({
         method: 'POST',
       }),
     );
+
+    const requestInit = mockFetch.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(requestInit.body))).toEqual({
+      description: null,
+      name: 'Upper Push Snapshot',
+      tags: ['strength', 'push'],
+    });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutQueryKeys.templates() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
@@ -90,7 +102,7 @@ describe('use-save-as-template hook', () => {
     const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useSaveAsTemplate(null), { wrapper });
 
-    await expect(result.current.mutateAsync(undefined)).rejects.toThrow(
+    await expect(result.current.mutateAsync({})).rejects.toThrow(
       'Session id is required to save as template',
     );
   });
