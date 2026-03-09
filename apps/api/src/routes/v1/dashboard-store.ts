@@ -22,6 +22,7 @@ import {
   nutritionTargets,
   workoutSessions,
 } from '../../db/schema/index.js';
+import { getDatesInRange } from './dashboard-utils.js';
 
 const weightSelection = {
   value: bodyWeight.weight,
@@ -79,24 +80,6 @@ const getDateRangeForUtcDay = (date: string) => {
     start: start.getTime(),
     end: end.getTime(),
   };
-};
-
-const addUtcDays = (date: string, days: number) => {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + days);
-  return parsed.toISOString().slice(0, 10);
-};
-
-const getDatesInRange = (from: string, to: string) => {
-  const dates: string[] = [];
-
-  let current = from;
-  while (current <= to) {
-    dates.push(current);
-    current = addUtcDays(current, 1);
-  }
-
-  return dates;
 };
 
 // TODO: Source this from user preferences once kg/lb switching is introduced.

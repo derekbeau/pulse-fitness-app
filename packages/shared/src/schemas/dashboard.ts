@@ -5,7 +5,7 @@ import { workoutSessionStatusSchema } from './workout-sessions.js';
 
 const macroValueSchema = z.number().nonnegative().finite();
 const percentageSchema = z.number().min(0).max(100).finite();
-const MAX_TREND_RANGE_DAYS = 365;
+export const MAX_DASHBOARD_TREND_RANGE_DAYS = 365;
 
 const getUtcDateValue = (date: string) => {
   const [year, month, day] = date.split('-').map(Number);
@@ -33,10 +33,10 @@ export const dashboardTrendQuerySchema = z
 
       const diffDays =
         (getUtcDateValue(value.to) - getUtcDateValue(value.from)) / (1000 * 60 * 60 * 24) + 1;
-      return diffDays <= MAX_TREND_RANGE_DAYS;
+      return diffDays <= MAX_DASHBOARD_TREND_RANGE_DAYS;
     },
     {
-      message: `Date range cannot exceed ${MAX_TREND_RANGE_DAYS} days`,
+      message: `Date range cannot exceed ${MAX_DASHBOARD_TREND_RANGE_DAYS} days`,
       path: ['to'],
     },
   );

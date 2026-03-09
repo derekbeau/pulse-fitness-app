@@ -365,7 +365,8 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const [missingAuthResponse, invalidAuthResponse] = await Promise.all([
+      const [missingSnapshotAuthResponse, missingTrendAuthResponse, invalidSnapshotAuthResponse] =
+        await Promise.all([
         app.inject({
           method: 'GET',
           url: '/api/v1/dashboard/snapshot',
@@ -381,7 +382,11 @@ describe('dashboard routes', () => {
         }),
       ]);
 
-      for (const response of [missingAuthResponse, invalidAuthResponse]) {
+      for (const response of [
+        missingSnapshotAuthResponse,
+        missingTrendAuthResponse,
+        invalidSnapshotAuthResponse,
+      ]) {
         expect(response.statusCode).toBe(401);
         expect(response.json()).toEqual({
           error: {
