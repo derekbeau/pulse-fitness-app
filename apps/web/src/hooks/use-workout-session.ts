@@ -6,6 +6,7 @@ import {
 } from '@pulse/shared';
 import { z } from 'zod';
 
+import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { apiRequest } from '@/lib/api-client';
 
 const workoutSessionResponseSchema = z.object({
@@ -53,6 +54,7 @@ export function useStartSession() {
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: startSession,
     onSuccess: async (session) => {
+      setStoredActiveWorkoutSessionId(session.id);
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
 
       await Promise.all([

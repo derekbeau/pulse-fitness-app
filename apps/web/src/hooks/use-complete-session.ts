@@ -7,6 +7,7 @@ import {
 } from '@pulse/shared';
 import { z } from 'zod';
 
+import { clearStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { apiRequest } from '@/lib/api-client';
 
 import { workoutSessionQueryKeys } from './use-workout-session';
@@ -53,6 +54,10 @@ export function useCompleteSession(sessionId: string | null | undefined) {
       return completeSession(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
+      if (session.status === 'completed') {
+        clearStoredActiveWorkoutSessionId();
+      }
+
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
 
       await Promise.all([

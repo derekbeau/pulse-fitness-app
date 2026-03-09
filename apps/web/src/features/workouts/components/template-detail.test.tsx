@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
@@ -87,6 +88,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
   vi.restoreAllMocks();
 });
 
@@ -231,6 +233,7 @@ describe('WorkoutTemplateDetail', () => {
         weight: null,
       }),
     ]);
+    expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

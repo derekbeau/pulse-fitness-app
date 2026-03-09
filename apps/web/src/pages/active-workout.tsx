@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import type { SessionSet, WorkoutSessionFeedback } from '@pulse/shared';
@@ -23,7 +23,15 @@ import {
 } from '@/features/workouts';
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
+import { useSyncSets } from '@/hooks/use-sync-sets';
 import { useWorkoutSession } from '@/hooks/use-workout-session';
+import {
+  WORKOUT_SESSION_COMPLETED_NOTICE,
+  WORKOUT_SESSION_NOTICE_QUERY_KEY,
+  clearStoredActiveWorkoutSessionId,
+  setStoredActiveWorkoutSessionId,
+} from '@/features/workouts/lib/session-persistence';
+import { ApiError } from '@/lib/api-client';
 import {
   mockTemplates,
   type WorkoutTemplate as MockWorkoutTemplate,
@@ -92,6 +100,20 @@ export function ActiveWorkoutPage() {
   const startTime = activeSession
     ? new Date(activeSession.startedAt).toISOString()
     : fallbackStartTime;
+  const redirectToCompletedSessionNotice = useCallback(() => {
+    clearStoredActiveWorkoutSessionId();
+    navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
+      replace: true,
+    });
+  }, [navigate]);
+
+  const syncSets = useSyncSets({
+    sessionId: activeSessionId,
+    onSessionInactive: redirectToCompletedSessionNotice,
+    onSyncError: () => {
+      setSessionError('Unable to sync set update. Try again.');
+    },
+  });
 
   const templateExerciseById = useMemo(
     () =>
@@ -121,6 +143,23 @@ export function ActiveWorkoutPage() {
     setSetDrafts(createSessionSetDrafts(template, activeSession.sets));
     hydratedSessionIdRef.current = activeSession.id;
   }, [activeSession, template]);
+
+  useEffect(() => {
+    if (!activeSession || !sessionId) {
+      return;
+    }
+
+    if (activeSession.status === 'in-progress') {
+      setStoredActiveWorkoutSessionId(activeSession.id);
+      return;
+    }
+
+    clearStoredActiveWorkoutSessionId();
+
+    if (activeSession.status === 'completed' && stage === 'active') {
+      redirectToCompletedSessionNotice();
+    }
+  }, [activeSession, redirectToCompletedSessionNotice, sessionId, stage]);
 
   const session = useMemo(
     () =>
@@ -232,7 +271,12 @@ export function ActiveWorkoutPage() {
                 notes,
               },
               {
-                onError: () => {
+                onError: (error) => {
+                  if (isSessionNotActiveError(error)) {
+                    redirectToCompletedSessionNotice();
+                    return;
+                  }
+
                   setSessionError('Unable to complete this workout. Try again.');
                 },
                 onSuccess: () => {
@@ -283,7 +327,12 @@ export function ActiveWorkoutPage() {
           weight: null,
         },
         {
-          onError: () => {
+          onError: (error) => {
+            if (isSessionNotActiveError(error)) {
+              redirectToCompletedSessionNotice();
+              return;
+            }
+
             setSessionError('Unable to add set. Try again.');
           },
           onSuccess: (createdSet) => {
@@ -364,11 +413,25 @@ export function ActiveWorkoutPage() {
           update,
         },
         {
-          onError: () => {
+          onError: (error) => {
+            if (isSessionNotActiveError(error)) {
+              redirectToCompletedSessionNotice();
+              return;
+            }
+
             setSessionError('Unable to sync set update. Try again.');
           },
         },
       );
+
+      syncSets.queueSetSync({
+        id: setId,
+        exerciseId,
+        reps: updatedSet.reps,
+        section: templateExercise.section,
+        setNumber: updatedSet.number,
+        weight: updatedSet.weight,
+      });
     }
 
     if (update.completed === false) {
@@ -519,6 +582,14 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
   );
 
   return scaleFieldWithNotes?.notes?.trim() ?? null;
+}
+
+function isSessionNotActiveError(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    error.code === 'WORKOUT_SESSION_NOT_ACTIVE'
+  );
 }
 
 function findNextPendingSetId(session: ReturnType<typeof buildActiveWorkoutSession>) {

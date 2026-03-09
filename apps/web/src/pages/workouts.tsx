@@ -1,6 +1,11 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { Button } from '@/components/ui/button';
+import {
+  WORKOUT_SESSION_COMPLETED_NOTICE,
+  WORKOUT_SESSION_NOTICE_QUERY_KEY,
+} from '@/features/workouts/lib/session-persistence';
 import {
   ExerciseLibrary,
   TemplateBrowser,
@@ -13,7 +18,10 @@ export function WorkoutsPage() {
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
+  const [searchParams] = useSearchParams();
   const templatesQuery = useWorkoutTemplates();
+  const showCompletedSessionNotice =
+    searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
 
   return (
     <section className="space-y-6">
@@ -24,6 +32,12 @@ export function WorkoutsPage() {
           shared exercise library.
         </p>
       </div>
+
+      {showCompletedSessionNotice ? (
+        <p className="rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground">
+          Session was completed on another device.
+        </p>
+      ) : null}
 
       <div
         aria-label="Workout views"

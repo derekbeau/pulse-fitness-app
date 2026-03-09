@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import { useStartSession, useWorkoutSession, workoutSessionQueryKeys } from './use-workout-session';
@@ -36,6 +37,7 @@ describe('use-workout-session hooks', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     vi.stubGlobal('fetch', mockFetch);
+    window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
   });
 
   it('loads a workout session by id', async () => {
@@ -91,5 +93,6 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });
+    expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 });
