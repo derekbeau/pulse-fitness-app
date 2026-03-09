@@ -200,6 +200,37 @@ describe('WorkoutTemplateDetail', () => {
     });
     expect(requestBody.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(requestBody.startedAt).toEqual(expect.any(Number));
+    expect(requestBody.sets).toHaveLength(4);
+    expect(requestBody.sets).toEqual([
+      expect.objectContaining({
+        exerciseId: 'row-erg',
+        reps: null,
+        section: 'warmup',
+        setNumber: 1,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 1,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 2,
+        weight: null,
+      }),
+      expect.objectContaining({
+        exerciseId: 'incline-dumbbell-press',
+        reps: null,
+        section: 'main',
+        setNumber: 3,
+        weight: null,
+      }),
+    ]);
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

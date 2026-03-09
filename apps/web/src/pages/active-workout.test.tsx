@@ -1,6 +1,8 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { renderWithQueryClient } from '@/test/render-with-query-client';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -157,7 +159,7 @@ describe('ActiveWorkoutPage', () => {
 });
 
 function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
-  return render(
+  return renderWithQueryClient(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route element={<ActiveWorkoutPage />} path="/workouts/active" />

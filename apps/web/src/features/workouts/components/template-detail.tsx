@@ -1,14 +1,15 @@
 import { Link, useNavigate } from 'react-router';
 
-import type { WorkoutTemplateExercise } from '@pulse/shared';
+import type { WorkoutTemplate, WorkoutTemplateExercise } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
-import { useStartWorkoutSession, useWorkoutTemplate } from '../api/workouts';
+import { useWorkoutTemplate } from '../api/workouts';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -24,7 +25,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const navigate = useNavigate();
   const templateQuery = useWorkoutTemplate(templateId);
-  const startWorkoutMutation = useStartWorkoutSession();
+  const startWorkoutMutation = useStartSession();
 
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
@@ -189,6 +190,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               {
                 date: toDateKey(new Date(startedAt)),
                 name: template.name,
+                sets: buildInitialSessionSets(template),
                 startedAt,
                 templateId: template.id,
               },
@@ -289,4 +291,22 @@ function formatRepTarget(repsMin: number | null, repsMax: number | null) {
 
 function formatTempo(tempo: string) {
   return tempo.split('').join('-');
+}
+
+function buildInitialSessionSets(template: WorkoutTemplate) {
+  return template.sections.flatMap((section) =>
+    section.exercises.flatMap((exercise) => {
+      if (exercise.sets === null || exercise.sets < 1) {
+        return [];
+      }
+
+      return Array.from({ length: exercise.sets }, (_, index) => ({
+        exerciseId: exercise.exerciseId,
+        reps: null,
+        section: section.type,
+        setNumber: index + 1,
+        weight: null,
+      }));
+    }),
+  );
 }
