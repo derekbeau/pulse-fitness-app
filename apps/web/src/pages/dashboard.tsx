@@ -97,7 +97,62 @@ export function DashboardPage() {
           </div>
 
           <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
-            <SnapshotCards snapshot={dashboardSnapshot} />
+            <div className="flex flex-col gap-6">
+              <SnapshotCards snapshot={dashboardSnapshot} />
+              <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
+                <CardHeader className="space-y-1">
+                  <CardTitle>Log Weight</CardTitle>
+                  <CardDescription>Track your body weight for the selected day.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="space-y-3"
+                    data-qa="dashboard-log-weight-form"
+                    data-testid="dashboard-log-weight-form"
+                    onSubmit={handleWeightSubmit}
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                      <Input
+                        aria-describedby="dashboard-weight-status"
+                        data-qa="dashboard-weight-input"
+                        data-testid="dashboard-weight-input"
+                        id="dashboard-weight-input"
+                        inputMode="decimal"
+                        min="0.1"
+                        name="weight"
+                        onChange={(event) => {
+                          setWeightInput(event.currentTarget.value);
+                          setWeightMessage('');
+                        }}
+                        placeholder="e.g. 175.5"
+                        step="0.1"
+                        type="number"
+                        value={weightInput}
+                      />
+                    </div>
+                    <Button
+                      data-qa="dashboard-save-weight"
+                      data-testid="dashboard-save-weight"
+                      id="dashboard-save-weight"
+                      disabled={logWeightMutation.isPending}
+                      type="submit"
+                    >
+                      {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
+                    </Button>
+                    {weightMessage ? (
+                      <p
+                        className="text-sm text-muted-foreground"
+                        id="dashboard-weight-status"
+                        role="status"
+                      >
+                        {weightMessage}
+                      </p>
+                    ) : null}
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           <div className="order-3 md:order-2" data-slot="dashboard-macro-panel">
@@ -110,59 +165,6 @@ export function DashboardPage() {
           data-slot="dashboard-sidebar-column"
         >
           <HabitChain />
-          <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
-            <CardHeader className="space-y-1">
-              <CardTitle>Log Weight</CardTitle>
-              <CardDescription>Track your body weight for the selected day.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="space-y-3"
-                data-qa="dashboard-log-weight-form"
-                data-testid="dashboard-log-weight-form"
-                onSubmit={handleWeightSubmit}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
-                  <Input
-                    aria-describedby="dashboard-weight-status"
-                    data-qa="dashboard-weight-input"
-                    data-testid="dashboard-weight-input"
-                    id="dashboard-weight-input"
-                    inputMode="decimal"
-                    min="0.1"
-                    name="weight"
-                    onChange={(event) => {
-                      setWeightInput(event.currentTarget.value);
-                      setWeightMessage('');
-                    }}
-                    placeholder="e.g. 175.5"
-                    step="0.1"
-                    type="number"
-                    value={weightInput}
-                  />
-                </div>
-                <Button
-                  data-qa="dashboard-save-weight"
-                  data-testid="dashboard-save-weight"
-                  id="dashboard-save-weight"
-                  disabled={logWeightMutation.isPending}
-                  type="submit"
-                >
-                  {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
-                </Button>
-                {weightMessage ? (
-                  <p
-                    className="text-sm text-muted-foreground"
-                    id="dashboard-weight-status"
-                    role="status"
-                  >
-                    {weightMessage}
-                  </p>
-                ) : null}
-              </form>
-            </CardContent>
-          </Card>
           <TrendSparklines />
         </div>
 
