@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -32,27 +32,60 @@ vi.mock('recharts', async () => {
 });
 
 describe('DashboardPage', () => {
+  let latestWeightEntry = {
+    id: 'weight-latest',
+    date: '2026-03-06',
+    weight: 181.4,
+    notes: null,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T10:00:00'));
+    latestWeightEntry = {
+      id: 'weight-latest',
+      date: '2026-03-06',
+      weight: 181.4,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: string | URL | Request) => {
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/weight') && init?.method === 'POST') {
+          const body =
+            typeof init.body === 'string'
+              ? (JSON.parse(init.body) as { date: string; weight: number })
+              : null;
+
+          latestWeightEntry = {
+            id: 'weight-latest',
+            date: body?.date ?? latestWeightEntry.date,
+            weight: body?.weight ?? latestWeightEntry.weight,
+            notes: null,
+            createdAt: latestWeightEntry.createdAt,
+            updatedAt: latestWeightEntry.updatedAt + 1,
+          };
+
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: latestWeightEntry }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 201,
+            }),
+          );
+        }
 
         if (url.includes('/api/v1/weight/latest')) {
           return Promise.resolve(
             new Response(
               JSON.stringify({
-                data: {
-                  id: 'weight-latest',
-                  date: '2026-03-06',
-                  weight: 181.4,
-                  notes: null,
-                  createdAt: 1,
-                  updatedAt: 1,
-                },
+                data: latestWeightEntry,
               }),
               { headers: { 'Content-Type': 'application/json' }, status: 200 },
             ),
@@ -163,6 +196,34 @@ describe('DashboardPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(`${selectedSnapshot.macros.calories.actual}kcal`)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+  });
+
+  it('logs a new weight entry and refreshes the body weight card', async () => {
+    vi.useRealTimers();
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
+    expect(bodyWeightCard).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Weight (lbs)'), { target: { value: '175.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Weight' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Weight entry saved.')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(within(bodyWeightCard as HTMLElement).getByText('175.5 lbs')).toBeInTheDocument();
+    });
   });
 });
 

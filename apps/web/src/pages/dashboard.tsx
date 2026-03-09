@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
@@ -7,16 +11,19 @@ import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts'
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { useNutritionTargets } from '@/features/nutrition/api/targets';
-import { useLatestWeight } from '@/features/weight/api/weight';
+import { useLatestWeight, useLogWeight } from '@/features/weight/api/weight';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
-import { getToday } from '@/lib/date';
+import { formatDateKey, getToday } from '@/lib/date';
 import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
 
 export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
+  const [weightInput, setWeightInput] = useState('');
+  const [weightMessage, setWeightMessage] = useState('');
   const selectedSnapshot = useMemo(() => getMockSnapshotForDate(selectedDate), [selectedDate]);
   const { data: currentTargets } = useNutritionTargets();
   const { data: latestWeightEntry } = useLatestWeight();
+  const logWeightMutation = useLogWeight();
   const greeting = getDashboardGreeting();
   const dashboardSnapshot = useMemo(
     () => ({
@@ -44,6 +51,27 @@ export function DashboardPage() {
     }),
     [currentTargets, latestWeightEntry, selectedSnapshot],
   );
+
+  async function handleWeightSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const parsedWeight = Number(weightInput);
+    if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+      setWeightMessage('Enter a valid weight above 0.');
+      return;
+    }
+
+    try {
+      await logWeightMutation.mutateAsync({
+        date: formatDateKey(selectedDate),
+        weight: parsedWeight,
+      });
+      setWeightInput('');
+      setWeightMessage('Weight entry saved.');
+    } catch {
+      setWeightMessage('Unable to save weight. Please try again.');
+    }
+  }
 
   return (
     <main className="flex w-full flex-col gap-8 py-6">
@@ -82,6 +110,45 @@ export function DashboardPage() {
           data-slot="dashboard-sidebar-column"
         >
           <HabitChain />
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle>Log Weight</CardTitle>
+              <CardDescription>Track your body weight for the selected day.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-3" onSubmit={handleWeightSubmit}>
+                <div className="space-y-2">
+                  <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                  <Input
+                    aria-describedby="dashboard-weight-status"
+                    id="dashboard-weight-input"
+                    inputMode="decimal"
+                    min="0.1"
+                    onChange={(event) => {
+                      setWeightInput(event.currentTarget.value);
+                      setWeightMessage('');
+                    }}
+                    placeholder="e.g. 175.5"
+                    step="0.1"
+                    type="number"
+                    value={weightInput}
+                  />
+                </div>
+                <Button disabled={logWeightMutation.isPending} type="submit">
+                  {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
+                </Button>
+                {weightMessage ? (
+                  <p
+                    className="text-sm text-muted-foreground"
+                    id="dashboard-weight-status"
+                    role="status"
+                  >
+                    {weightMessage}
+                  </p>
+                ) : null}
+              </form>
+            </CardContent>
+          </Card>
           <TrendSparklines />
         </div>
 
