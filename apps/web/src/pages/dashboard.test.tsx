@@ -144,6 +144,13 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
+    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');
+    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('data-qa', 'dashboard-weight-input');
+    expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
+      'data-qa',
+      'dashboard-save-weight',
+    );
 
     const layout = container.querySelector('[data-slot="dashboard-layout"]');
     const mainColumn = container.querySelector('[data-slot="dashboard-main-column"]');

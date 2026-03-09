@@ -121,9 +121,11 @@ export function DashboardPage() {
                   <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
                   <Input
                     aria-describedby="dashboard-weight-status"
+                    data-qa="dashboard-weight-input"
                     id="dashboard-weight-input"
                     inputMode="decimal"
                     min="0.1"
+                    name="weight"
                     onChange={(event) => {
                       setWeightInput(event.currentTarget.value);
                       setWeightMessage('');
@@ -134,7 +136,11 @@ export function DashboardPage() {
                     value={weightInput}
                   />
                 </div>
-                <Button disabled={logWeightMutation.isPending} type="submit">
+                <Button
+                  data-qa="dashboard-save-weight"
+                  disabled={logWeightMutation.isPending}
+                  type="submit"
+                >
                   {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
                 </Button>
                 {weightMessage ? (
