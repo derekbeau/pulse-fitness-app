@@ -26,7 +26,23 @@ export const calculateWeightTrend = (weight: number, weightYesterday: number): S
   };
 };
 
+export const calculateHabitCompletionPercent = (
+  habitsCompleted: number,
+  habitsTotal: number,
+): number => {
+  if (habitsTotal <= 0) {
+    return 0;
+  }
+
+  return Math.round((habitsCompleted / habitsTotal) * 100);
+};
+
 export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsProps) {
+  const habitCompletionPercent = calculateHabitCompletionPercent(
+    snapshot.habitsCompleted,
+    snapshot.habitsTotal,
+  );
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       <StatCard
@@ -57,8 +73,17 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
       />
 
       <StatCard
-        className="border-primary/20 bg-secondary"
+        accentTextClassName="text-on-mint"
+        className={accentCardStyles.mint}
         data-stagger="3"
+        label="Habits"
+        trend={{ direction: 'neutral', value: habitCompletionPercent }}
+        value={`${snapshot.habitsCompleted} / ${snapshot.habitsTotal} complete`}
+      />
+
+      <StatCard
+        className="border-primary/20 bg-secondary"
+        data-stagger="4"
         label="Today's Workout"
         value={snapshot.workoutName ?? 'Rest Day'}
       />

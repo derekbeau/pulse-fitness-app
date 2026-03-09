@@ -1,92 +1,239 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { Habit, HabitEntry } from '@pulse/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyHabits } from '@/features/habits';
-import type { DailyHabit } from '@/features/habits';
+import {
+  useHabitEntries,
+  useHabits,
+  useToggleHabit,
+  useUpdateHabitEntry,
+} from '@/features/habits/api/habits';
 
-const habits: DailyHabit[] = [
+vi.mock('@/features/habits/api/habits', () => ({
+  useHabitEntries: vi.fn(),
+  useHabits: vi.fn(),
+  useToggleHabit: vi.fn(),
+  useUpdateHabitEntry: vi.fn(),
+}));
+
+const mockedUseHabits = vi.mocked(useHabits);
+const mockedUseHabitEntries = vi.mocked(useHabitEntries);
+const mockedUseToggleHabit = vi.mocked(useToggleHabit);
+const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
+
+const toggleMutate = vi.fn();
+const updateMutate = vi.fn();
+
+const habits: Habit[] = [
   {
-    id: 'mobility',
+    id: 'habit-mobility',
+    userId: 'user-1',
     name: 'Mobility',
     emoji: '🧘',
     trackingType: 'boolean',
     target: null,
     unit: null,
-    todayValue: false,
+    sortOrder: 0,
+    active: true,
+    createdAt: 1,
+    updatedAt: 1,
   },
   {
-    id: 'hydrate',
+    id: 'habit-hydrate',
+    userId: 'user-1',
     name: 'Hydrate',
     emoji: '💧',
     trackingType: 'numeric',
     target: 8,
     unit: 'glasses',
-    todayValue: 6,
+    sortOrder: 1,
+    active: true,
+    createdAt: 1,
+    updatedAt: 1,
   },
   {
-    id: 'sleep',
+    id: 'habit-sleep',
+    userId: 'user-1',
     name: 'Sleep',
     emoji: '😴',
     trackingType: 'time',
     target: 8,
     unit: 'hours',
-    todayValue: 7,
+    sortOrder: 2,
+    active: true,
+    createdAt: 1,
+    updatedAt: 1,
   },
 ];
 
-function getHabitCard(name: string) {
-  const card = screen.getByRole('heading', { name }).closest('[data-slot="card"]');
+const entries: HabitEntry[] = [
+  {
+    id: 'entry-mobility',
+    habitId: 'habit-mobility',
+    userId: 'user-1',
+    date: '2026-03-07',
+    completed: false,
+    value: null,
+    createdAt: 10,
+  },
+  {
+    id: 'entry-hydrate',
+    habitId: 'habit-hydrate',
+    userId: 'user-1',
+    date: '2026-03-07',
+    completed: false,
+    value: 6,
+    createdAt: 11,
+  },
+];
 
-  if (!(card instanceof HTMLElement)) {
-    throw new Error(`Habit card not found for ${name}.`);
-  }
+function mockUseHabitsResult(overrides: Partial<ReturnType<typeof useHabits>> = {}) {
+  mockedUseHabits.mockReturnValue({
+    data: habits,
+    error: null,
+    isError: false,
+    isPending: false,
+    refetch: vi.fn(),
+    ...overrides,
+  } as ReturnType<typeof useHabits>);
+}
 
-  return card;
+function mockUseHabitEntriesResult(overrides: Partial<ReturnType<typeof useHabitEntries>> = {}) {
+  mockedUseHabitEntries.mockReturnValue({
+    data: entries,
+    error: null,
+    isError: false,
+    isPending: false,
+    refetch: vi.fn(),
+    ...overrides,
+  } as ReturnType<typeof useHabitEntries>);
 }
 
 describe('DailyHabits', () => {
-  it('renders all provided habits with their tracking-type controls', () => {
-    render(<DailyHabits habits={habits} />);
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-07T12:00:00'));
 
-    expect(screen.getByText('Mobility')).toBeInTheDocument();
-    expect(screen.getByText('Hydrate')).toBeInTheDocument();
-    expect(screen.getByText('Sleep')).toBeInTheDocument();
+    toggleMutate.mockReset();
+    updateMutate.mockReset();
+
+    mockUseHabitsResult();
+    mockUseHabitEntriesResult();
+
+    mockedUseToggleHabit.mockReturnValue({
+      isPending: false,
+      mutate: toggleMutate,
+      variables: undefined,
+    } as unknown as ReturnType<typeof useToggleHabit>);
+    mockedUseUpdateHabitEntry.mockReturnValue({
+      isPending: false,
+      mutate: updateMutate,
+      variables: undefined,
+    } as unknown as ReturnType<typeof useUpdateHabitEntry>);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows a loading skeleton while habit queries are pending', () => {
+    mockUseHabitsResult({ isPending: true });
+    mockUseHabitEntriesResult({ isPending: true });
+
+    render(<DailyHabits />);
+
+    expect(screen.getByText("Loading today's habits.")).toBeInTheDocument();
+  });
+
+  it('shows an error state and retries both queries when loading fails', () => {
+    const refetchHabits = vi.fn();
+    const refetchEntries = vi.fn();
+
+    mockUseHabitsResult({
+      error: new Error('Habits API unavailable'),
+      isError: true,
+      refetch: refetchHabits,
+    });
+    mockUseHabitEntriesResult({
+      error: new Error('Entries API unavailable'),
+      isError: true,
+      refetch: refetchEntries,
+    });
+
+    render(<DailyHabits />);
+
+    expect(screen.getByText('Habits API unavailable')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(refetchHabits).toHaveBeenCalledTimes(1);
+    expect(refetchEntries).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders habits with the correct controls and current progress', () => {
+    render(<DailyHabits />);
+
     expect(screen.getByRole('checkbox', { name: 'Mobility' })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: 'Hydrate' })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: 'Sleep' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Hydrate' })).toHaveValue(6);
+    expect(screen.getByRole('spinbutton', { name: 'Sleep' })).toHaveValue(null);
+    expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
   });
 
-  it('toggles a boolean habit when the checkbox is clicked', () => {
-    render(<DailyHabits habits={habits} />);
+  it('toggles boolean habits through the upsert mutation', () => {
+    render(<DailyHabits />);
 
-    const checkbox = screen.getByRole('checkbox', { name: 'Mobility' });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mobility' }));
 
-    expect(checkbox).not.toBeChecked();
-
-    fireEvent.click(checkbox);
-
-    expect(checkbox).toBeChecked();
-    expect(screen.getByText('1 of 3 habits complete')).toBeInTheDocument();
-    expect(within(getHabitCard('Mobility')).getByText('Done')).toBeInTheDocument();
-  });
-
-  it('updates numeric habits when a number is entered', () => {
-    render(<DailyHabits habits={habits} />);
-
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Hydrate' }), {
-      target: { value: '8' },
+    expect(toggleMutate).toHaveBeenCalledWith({
+      completed: true,
+      date: '2026-03-07',
+      entryId: 'entry-mobility',
+      habitId: 'habit-mobility',
     });
-
-    expect(within(getHabitCard('Hydrate')).getAllByText('8 / 8 glasses')).toHaveLength(2);
   });
 
-  it('updates duration habits when a duration is entered', () => {
-    render(<DailyHabits habits={habits} />);
+  it('patches an existing numeric entry when the value is changed', () => {
+    render(<DailyHabits />);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Sleep' }), {
-      target: { value: '8.5' },
+    const input = screen.getByRole('spinbutton', { name: 'Hydrate' });
+
+    fireEvent.change(input, { target: { value: '8' } });
+    fireEvent.blur(input);
+
+    expect(updateMutate).toHaveBeenCalledWith({
+      completed: true,
+      date: '2026-03-07',
+      habitId: 'habit-hydrate',
+      id: 'entry-hydrate',
+      value: 8,
     });
+  });
 
-    expect(within(getHabitCard('Sleep')).getAllByText('8.5 / 8 hours')).toHaveLength(2);
+  it('reflects numeric progress from draft input before blur', () => {
+    render(<DailyHabits />);
+
+    const input = screen.getByRole('spinbutton', { name: 'Hydrate' });
+    fireEvent.change(input, { target: { value: '8' } });
+
+    expect(screen.getAllByText('8 / 8 glasses')).toHaveLength(2);
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
+  it('creates a numeric or time entry through the upsert mutation when none exists yet', () => {
+    render(<DailyHabits />);
+
+    const input = screen.getByRole('spinbutton', { name: 'Sleep' });
+
+    fireEvent.change(input, { target: { value: '8.5' } });
+    fireEvent.blur(input);
+
+    expect(toggleMutate).toHaveBeenCalledWith({
+      completed: true,
+      date: '2026-03-07',
+      entryId: null,
+      habitId: 'habit-sleep',
+      value: 8.5,
+    });
   });
 });

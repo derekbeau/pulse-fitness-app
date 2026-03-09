@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, PencilLine, Plus, Trash2 } from 'lucide-react';
+import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  defaultHabitConfigs,
-  trackingSurfaceClasses,
-  trackingTypeLabels,
-} from '@/features/habits/lib/habit-constants';
+  useCreateHabit,
+  useDeleteHabit,
+  useHabits,
+  useReorderHabits,
+  useUpdateHabit,
+} from '@/features/habits/api/habits';
+import { trackingSurfaceClasses, trackingTypeLabels } from '@/features/habits/lib/habit-constants';
 import type { HabitConfig, HabitConfigDraft } from '@/features/habits/types';
 import { cn } from '@/lib/utils';
 
@@ -22,20 +26,6 @@ type HabitEditorState =
       mode: 'edit';
     }
   | null;
-
-function createHabitId(name: string) {
-  const slug = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  if (globalThis.crypto?.randomUUID) {
-    return `${slug || 'habit'}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
-  }
-
-  return `${slug || 'habit'}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function describeHabit(habit: HabitConfig) {
   if (habit.trackingType === 'boolean') {
@@ -54,33 +44,73 @@ function moveHabit(list: HabitConfig[], fromIndex: number, toIndex: number) {
   return nextList;
 }
 
-export function HabitSettings() {
-  const [habits, setHabits] = useState<HabitConfig[]>(defaultHabitConfigs);
-  const [editorState, setEditorState] = useState<HabitEditorState>(null);
+function toHabitConfig(habit: Habit): HabitConfig {
+  return {
+    id: habit.id,
+    name: habit.name,
+    emoji: habit.emoji ?? '•',
+    trackingType: habit.trackingType,
+    target: habit.target,
+    unit: habit.unit,
+  };
+}
 
+function toCreateHabitInput(values: HabitConfigDraft): CreateHabitInput {
+  return {
+    emoji: values.emoji,
+    name: values.name,
+    target: values.target,
+    trackingType: values.trackingType,
+    unit: values.unit,
+  };
+}
+
+function toUpdateHabitInput(values: HabitConfigDraft): UpdateHabitInput {
+  return {
+    emoji: values.emoji,
+    name: values.name,
+    target: values.target,
+    trackingType: values.trackingType,
+    unit: values.unit,
+  };
+}
+
+export function HabitSettings() {
+  const [editorState, setEditorState] = useState<HabitEditorState>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const habitsQuery = useHabits();
+  const createHabitMutation = useCreateHabit();
+  const updateHabitMutation = useUpdateHabit();
+  const deleteHabitMutation = useDeleteHabit();
+  const reorderHabitsMutation = useReorderHabits();
+
+  const habits = (habitsQuery.data ?? []).map(toHabitConfig);
   const editingHabit =
     editorState?.mode === 'edit'
       ? (habits.find((habit) => habit.id === editorState.habitId) ?? null)
       : null;
 
-  function handleSave(values: HabitConfigDraft) {
-    if (editorState?.mode === 'edit') {
-      setHabits((currentHabits) =>
-        currentHabits.map((habit) =>
-          habit.id === editorState.habitId ? { ...habit, ...values } : habit,
-        ),
-      );
-    } else {
-      setHabits((currentHabits) => [
-        ...currentHabits,
-        { id: createHabitId(values.name), ...values },
-      ]);
-    }
+  async function handleSave(values: HabitConfigDraft) {
+    setErrorMessage('');
 
-    setEditorState(null);
+    try {
+      if (editorState?.mode === 'edit') {
+        await updateHabitMutation.mutateAsync({
+          id: editorState.habitId,
+          values: toUpdateHabitInput(values),
+        });
+      } else {
+        await createHabitMutation.mutateAsync(toCreateHabitInput(values));
+      }
+
+      setEditorState(null);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Habit changes could not be saved.');
+    }
   }
 
-  function handleDelete(habitId: string) {
+  async function handleDelete(habitId: string) {
     const habit = habits.find((item) => item.id === habitId);
 
     if (!habit) {
@@ -93,28 +123,44 @@ export function HabitSettings() {
       return;
     }
 
-    setHabits((currentHabits) => currentHabits.filter((item) => item.id !== habitId));
-    setEditorState((currentState) =>
-      currentState?.mode === 'edit' && currentState.habitId === habitId ? null : currentState,
-    );
+    setErrorMessage('');
+
+    try {
+      await deleteHabitMutation.mutateAsync({ id: habitId });
+      setEditorState((currentState) =>
+        currentState?.mode === 'edit' && currentState.habitId === habitId ? null : currentState,
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Habit changes could not be saved.');
+    }
   }
 
-  function handleMove(habitId: string, direction: 'up' | 'down') {
-    setHabits((currentHabits) => {
-      const currentIndex = currentHabits.findIndex((habit) => habit.id === habitId);
+  async function handleMove(habitId: string, direction: 'up' | 'down') {
+    const currentIndex = habits.findIndex((habit) => habit.id === habitId);
 
-      if (currentIndex === -1) {
-        return currentHabits;
-      }
+    if (currentIndex === -1) {
+      return;
+    }
 
-      const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-      if (nextIndex < 0 || nextIndex >= currentHabits.length) {
-        return currentHabits;
-      }
+    if (nextIndex < 0 || nextIndex >= habits.length) {
+      return;
+    }
 
-      return moveHabit(currentHabits, currentIndex, nextIndex);
-    });
+    setErrorMessage('');
+
+    try {
+      const reorderedHabits = moveHabit(habits, currentIndex, nextIndex);
+      await reorderHabitsMutation.mutateAsync(
+        reorderedHabits.map((habit, index) => ({
+          id: habit.id,
+          sortOrder: index,
+        })),
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Habit changes could not be saved.');
+    }
   }
 
   return (
@@ -139,10 +185,29 @@ export function HabitSettings() {
               Add habit
             </Button>
           </div>
+          {errorMessage ? (
+            <p className="text-sm text-destructive" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
         </CardHeader>
 
         <CardContent>
-          {habits.length > 0 ? (
+          {habitsQuery.isPending ? (
+            <div
+              aria-busy="true"
+              className="rounded-2xl border border-dashed border-border px-5 py-8 text-center"
+            >
+              <p className="text-base font-medium text-foreground">Loading habits...</p>
+            </div>
+          ) : habitsQuery.isError ? (
+            <div className="rounded-2xl border border-dashed border-destructive/40 px-5 py-8 text-center">
+              <p className="text-base font-medium text-foreground">Could not load habits.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Refresh the page or try again in a moment.
+              </p>
+            </div>
+          ) : habits.length > 0 ? (
             <ul aria-label="Habit list" className="space-y-3">
               {habits.map((habit, index) => (
                 <li key={habit.id}>
@@ -172,7 +237,7 @@ export function HabitSettings() {
                         <Button
                           aria-label={`Move ${habit.name} up`}
                           disabled={index === 0}
-                          onClick={() => handleMove(habit.id, 'up')}
+                          onClick={() => void handleMove(habit.id, 'up')}
                           size="icon-sm"
                           type="button"
                           variant="outline"
@@ -182,7 +247,7 @@ export function HabitSettings() {
                         <Button
                           aria-label={`Move ${habit.name} down`}
                           disabled={index === habits.length - 1}
-                          onClick={() => handleMove(habit.id, 'down')}
+                          onClick={() => void handleMove(habit.id, 'down')}
                           size="icon-sm"
                           type="button"
                           variant="outline"
@@ -201,7 +266,7 @@ export function HabitSettings() {
                         </Button>
                         <Button
                           aria-label={`Delete ${habit.name}`}
-                          onClick={() => handleDelete(habit.id)}
+                          onClick={() => void handleDelete(habit.id)}
                           size="sm"
                           type="button"
                           variant="ghost"
@@ -231,7 +296,7 @@ export function HabitSettings() {
           key={editorState.mode === 'edit' ? editorState.habitId : 'create'}
           initialHabit={editingHabit}
           onCancel={() => setEditorState(null)}
-          onSave={handleSave}
+          onSave={(values) => void handleSave(values)}
         />
       ) : (
         <Card className="gap-4 border-dashed border-border/80 shadow-sm">

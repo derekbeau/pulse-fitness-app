@@ -1,4 +1,4 @@
-import { DailyHabits, HabitHistory } from '@/features/habits';
+import { DailyHabits, HabitHistory, HabitSettings } from '@/features/habits';
 
 export function HabitsPage() {
   return (
@@ -9,6 +9,7 @@ export function HabitsPage() {
         trended over the last 90 days.
       </p>
       <DailyHabits />
+      <HabitSettings />
       <HabitHistory />
     </section>
   );

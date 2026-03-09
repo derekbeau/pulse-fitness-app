@@ -7,6 +7,15 @@ import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { createQueryClientWrapper } from '@/test/query-client';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
 
+vi.mock('@/features/habits', async () => {
+  const actual = await vi.importActual<typeof import('@/features/habits')>('@/features/habits');
+
+  return {
+    ...actual,
+    HabitSettings: () => <div data-testid="habit-settings" />,
+  };
+});
+
 function renderSettingsPage() {
   const { wrapper } = createQueryClientWrapper();
 
