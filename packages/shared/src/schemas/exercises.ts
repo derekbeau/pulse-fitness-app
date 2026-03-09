@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { dateSchema } from './common.js';
+
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
     return value;
@@ -74,8 +76,22 @@ export const exerciseQueryParamsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const exerciseLastPerformanceSetSchema = z.object({
+  setNumber: z.number().int().min(1),
+  weight: z.number().min(0).nullable(),
+  reps: z.number().int().min(0).nullable(),
+});
+
+export const exerciseLastPerformanceSchema = z.object({
+  sessionId: z.string(),
+  date: dateSchema,
+  sets: z.array(exerciseLastPerformanceSetSchema).max(100),
+});
+
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;
 export type Exercise = z.infer<typeof exerciseSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseInputSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseInputSchema>;
 export type ExerciseQueryParams = z.infer<typeof exerciseQueryParamsSchema>;
+export type ExerciseLastPerformance = z.infer<typeof exerciseLastPerformanceSchema>;
+export type ExerciseLastPerformanceSet = z.infer<typeof exerciseLastPerformanceSetSchema>;

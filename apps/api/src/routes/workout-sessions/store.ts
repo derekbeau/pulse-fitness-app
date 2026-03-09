@@ -17,9 +17,11 @@ import {
   parseWorkoutSessionFeedback,
   sessionSets,
   serializeWorkoutSessionFeedback,
+  templateExercises,
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
+import { findWorkoutTemplateById } from '../workout-templates/store.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
 
@@ -559,4 +561,89 @@ export const deleteWorkoutSession = async (id: string, userId: string): Promise<
     .run();
 
   return result.changes === 1;
+};
+
+const mapSessionSectionToTemplateSection = (
+  section: WorkoutTemplateSectionType | null,
+): WorkoutTemplateSectionType => section ?? 'main';
+
+export const saveCompletedSessionAsTemplate = async ({
+  userId,
+  session,
+}: {
+  userId: string;
+  session: WorkoutSession;
+}) => {
+  const { db } = await import('../../db/index.js');
+  const templateId = randomUUID();
+  const sectionOrderIndex = {
+    warmup: 0,
+    main: 0,
+    cooldown: 0,
+  } as Record<WorkoutTemplateSectionType, number>;
+
+  const groupedExercises = new Map<
+    string,
+    {
+      exerciseId: string;
+      section: WorkoutTemplateSectionType;
+      setCount: number;
+    }
+  >();
+
+  for (const set of session.sets) {
+    const section = mapSessionSectionToTemplateSection(set.section);
+    const groupKey = `${section}:${set.exerciseId}`;
+    const existing = groupedExercises.get(groupKey);
+
+    if (!existing) {
+      groupedExercises.set(groupKey, {
+        exerciseId: set.exerciseId,
+        section,
+        setCount: set.setNumber,
+      });
+      continue;
+    }
+
+    existing.setCount = Math.max(existing.setCount, set.setNumber);
+  }
+
+  const templateExerciseRows = Array.from(groupedExercises.values()).map((exercise) => ({
+    id: randomUUID(),
+    templateId,
+    exerciseId: exercise.exerciseId,
+    orderIndex: sectionOrderIndex[exercise.section]++,
+    sets: exercise.setCount,
+    repsMin: null,
+    repsMax: null,
+    tempo: null,
+    restSeconds: null,
+    supersetGroup: null,
+    section: exercise.section,
+    notes: null,
+    cues: [],
+  }));
+
+  db.transaction((tx) => {
+    tx.insert(workoutTemplates)
+      .values({
+        id: templateId,
+        userId,
+        name: session.name,
+        description: null,
+        tags: [],
+      })
+      .run();
+
+    if (templateExerciseRows.length > 0) {
+      tx.insert(templateExercises).values(templateExerciseRows).run();
+    }
+  });
+
+  const createdTemplate = await findWorkoutTemplateById(templateId, userId);
+  if (!createdTemplate) {
+    throw new Error('Created workout template could not be loaded');
+  }
+
+  return createdTemplate;
 };

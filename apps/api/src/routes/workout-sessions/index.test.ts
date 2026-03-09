@@ -13,6 +13,7 @@ import {
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
   sessionSets,
+  templateExercises,
   users,
   workoutSessions,
   workoutTemplates,
@@ -299,6 +300,10 @@ describe('workout session routes', () => {
           sets: [],
         },
       }),
+      context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions/session-1/save-as-template',
+      }),
     ]);
 
     for (const response of responses) {
@@ -310,6 +315,186 @@ describe('workout session routes', () => {
         },
       });
     }
+  });
+
+  it('saves a completed session as a template and allows duplicate saves', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-completed',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+      duration: 50,
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'In Progress Upper Push',
+      date: '2026-03-13',
+      status: 'in-progress',
+      startedAt: 1_700_000_100_000,
+    });
+    seedWorkoutSession({
+      id: 'other-user-session',
+      userId: 'user-2',
+      templateId: 'template-3',
+      name: 'Private Session',
+      date: '2026-03-13',
+      status: 'completed',
+      startedAt: 1_700_000_100_000,
+      completedAt: 1_700_000_103_000,
+    });
+
+    seedSessionSet({
+      id: 'set-warmup-1',
+      sessionId: 'session-completed',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'warmup',
+      reps: 10,
+    });
+    seedSessionSet({
+      id: 'set-main-1',
+      sessionId: 'session-completed',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+      reps: 10,
+      weight: 140,
+    });
+    seedSessionSet({
+      id: 'set-main-2',
+      sessionId: 'session-completed',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 2,
+      section: 'main',
+      reps: 9,
+      weight: 145,
+    });
+    seedSessionSet({
+      id: 'set-cooldown-1',
+      sessionId: 'session-completed',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      section: 'cooldown',
+      reps: 8,
+    });
+
+    const [firstSaveResponse, secondSaveResponse] = await Promise.all([
+      context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions/session-completed/save-as-template',
+        headers: createAuthorizationHeader(authToken),
+      }),
+      context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions/session-completed/save-as-template',
+        headers: createAuthorizationHeader(authToken),
+      }),
+    ]);
+
+    expect(firstSaveResponse.statusCode).toBe(201);
+    expect(secondSaveResponse.statusCode).toBe(201);
+
+    const firstPayload = firstSaveResponse.json() as { data: { id: string; name: string } };
+    const secondPayload = secondSaveResponse.json() as { data: { id: string; name: string } };
+
+    expect(firstPayload.data.id).not.toBe(secondPayload.data.id);
+    expect(firstPayload.data.name).toBe('Completed Upper Push');
+    expect(secondPayload.data.name).toBe('Completed Upper Push');
+
+    const persistedTemplates = context.db
+      .select({
+        id: workoutTemplates.id,
+        name: workoutTemplates.name,
+      })
+      .from(workoutTemplates)
+      .where(eq(workoutTemplates.name, 'Completed Upper Push'))
+      .all();
+
+    expect(persistedTemplates).toHaveLength(2);
+
+    const firstTemplateExercises = context.db
+      .select({
+        exerciseId: templateExercises.exerciseId,
+        orderIndex: templateExercises.orderIndex,
+        section: templateExercises.section,
+        sets: templateExercises.sets,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, firstPayload.data.id))
+      .all();
+
+    const sortedTemplateExercises = [...firstTemplateExercises].sort((left, right) => {
+      const sectionOrder = {
+        warmup: 0,
+        main: 1,
+        cooldown: 2,
+      };
+
+      const leftSection = sectionOrder[left.section];
+      const rightSection = sectionOrder[right.section];
+      if (leftSection !== rightSection) {
+        return leftSection - rightSection;
+      }
+
+      return left.orderIndex - right.orderIndex;
+    });
+
+    expect(sortedTemplateExercises).toEqual([
+      {
+        exerciseId: 'global-bench-press',
+        orderIndex: 0,
+        section: 'warmup',
+        sets: 1,
+      },
+      {
+        exerciseId: 'user-1-lat-pulldown',
+        orderIndex: 0,
+        section: 'main',
+        sets: 2,
+      },
+      {
+        exerciseId: 'global-bench-press',
+        orderIndex: 0,
+        section: 'cooldown',
+        sets: 2,
+      },
+    ]);
+
+    const inProgressResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-in-progress/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(inProgressResponse.statusCode).toBe(409);
+    expect(inProgressResponse.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_COMPLETED',
+        message: 'Workout session must be completed before saving as template',
+      },
+    });
+
+    const otherUserResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/other-user-session/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(otherUserResponse.statusCode).toBe(404);
+    expect(otherUserResponse.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_FOUND',
+        message: 'Workout session not found',
+      },
+    });
   });
 
   it('creates, updates, lists, and batch-upserts sets for an active owned session', async () => {

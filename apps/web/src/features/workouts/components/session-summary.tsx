@@ -4,6 +4,7 @@ import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { useSaveAsTemplate } from '@/hooks/use-save-as-template';
 import {
   Dialog,
   DialogClose,
@@ -27,6 +28,7 @@ type SessionSummaryProps = {
   exercisesCompleted: number;
   feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
+  sessionId?: string | null;
   totalReps: number;
   totalSets: number;
   workoutName: string;
@@ -40,10 +42,12 @@ export function SessionSummary({
   exercisesCompleted,
   feedback = [],
   onDone,
+  sessionId = null,
   totalReps,
   totalSets,
   workoutName,
 }: SessionSummaryProps) {
+  const saveAsTemplateMutation = useSaveAsTemplate(sessionId);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState(workoutName);
   const [templateDescription, setTemplateDescription] = useState(defaultDescription);
@@ -140,7 +144,7 @@ export function SessionSummary({
           {saveMessage ? (
             <p
               aria-live="polite"
-              className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100"
+              className="rounded-xl border border-black/15 bg-white/45 px-3 py-2 text-sm font-medium opacity-80 dark:border-border dark:bg-secondary/60 dark:text-muted dark:opacity-100"
             >
               {saveMessage}
             </p>
@@ -202,7 +206,7 @@ export function SessionSummary({
               </Button>
             </DialogClose>
             <Button
-              disabled={templateName.trim().length === 0}
+              disabled={templateName.trim().length === 0 || saveAsTemplateMutation.isPending}
               onClick={() => {
                 const payload = {
                   name: templateName.trim(),
@@ -213,13 +217,26 @@ export function SessionSummary({
                     .filter(Boolean),
                 };
 
+                if (sessionId) {
+                  saveAsTemplateMutation.mutate(undefined, {
+                    onError: () => {
+                      setSaveMessage('Unable to save this session as a template. Try again.');
+                    },
+                    onSuccess: (template) => {
+                      setSaveMessage(`Saved "${template.name}" as a template.`);
+                      setIsSaveDialogOpen(false);
+                    },
+                  });
+                  return;
+                }
+
                 console.log('Mock save workout template', payload);
                 setSaveMessage(`Saved "${payload.name}" to mock templates.`);
                 setIsSaveDialogOpen(false);
               }}
               type="button"
             >
-              Save
+              {saveAsTemplateMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

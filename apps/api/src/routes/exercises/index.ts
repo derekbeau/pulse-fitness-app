@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   createExerciseInputSchema,
+  exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   updateExerciseInputSchema,
 } from '@pulse/shared';
@@ -13,7 +14,9 @@ import { requireUserAuth } from '../../middleware/auth.js';
 import {
   createExercise,
   deleteOwnedExercise,
+  findExerciseLastPerformance,
   findExerciseOwnership,
+  findVisibleExerciseById,
   listExerciseFilters,
   listExercises,
   updateOwnedExercise,
@@ -102,6 +105,40 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       data: filters,
+    });
+  });
+
+  app.get<{ Params: { id: string } }>('/:id/last-performance', async (request, reply) => {
+    const exercise = await findVisibleExerciseById({
+      id: request.params.id,
+      userId: request.userId,
+    });
+    if (!exercise) {
+      return sendError(
+        reply,
+        404,
+        EXERCISE_NOT_FOUND_RESPONSE.code,
+        EXERCISE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const lastPerformance = await findExerciseLastPerformance({
+      exerciseId: request.params.id,
+      userId: request.userId,
+    });
+    if (!lastPerformance) {
+      return sendError(
+        reply,
+        404,
+        'EXERCISE_LAST_PERFORMANCE_NOT_FOUND',
+        'No completed performance found for this exercise',
+      );
+    }
+
+    const payload = exerciseLastPerformanceSchema.parse(lastPerformance);
+
+    return reply.send({
+      data: payload,
     });
   });
 

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createExerciseInputSchema,
+  exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
   type CreateExerciseInput,
   type Exercise,
   type ExerciseCategory,
+  type ExerciseLastPerformance,
   type ExerciseQueryParams,
   type UpdateExerciseInput,
   updateExerciseInputSchema,
@@ -156,5 +158,59 @@ describe('exerciseQueryParamsSchema', () => {
     };
 
     expect(payload.limit).toBe(10);
+  });
+});
+
+describe('exerciseLastPerformanceSchema', () => {
+  it('parses latest exercise performance payload', () => {
+    const payload: ExerciseLastPerformance = exerciseLastPerformanceSchema.parse({
+      sessionId: 'session-22',
+      date: '2026-03-08',
+      sets: [
+        {
+          setNumber: 1,
+          reps: 10,
+          weight: 60,
+        },
+        {
+          setNumber: 2,
+          reps: 8,
+          weight: null,
+        },
+      ],
+    });
+
+    expect(payload).toEqual({
+      sessionId: 'session-22',
+      date: '2026-03-08',
+      sets: [
+        {
+          setNumber: 1,
+          reps: 10,
+          weight: 60,
+        },
+        {
+          setNumber: 2,
+          reps: 8,
+          weight: null,
+        },
+      ],
+    });
+  });
+
+  it('rejects invalid set ordering fields', () => {
+    expect(() =>
+      exerciseLastPerformanceSchema.parse({
+        sessionId: 'session-22',
+        date: '2026-03-08',
+        sets: [
+          {
+            setNumber: 0,
+            reps: 8,
+            weight: 50,
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });

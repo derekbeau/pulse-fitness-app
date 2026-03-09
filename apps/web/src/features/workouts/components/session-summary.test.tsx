@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+
+import { renderWithQueryClient } from '@/test/render-with-query-client';
 
 import { SessionSummary } from './session-summary';
 
@@ -7,7 +9,7 @@ describe('SessionSummary', () => {
   it('opens the save-as-template dialog with prefilled fields and performs a mock save', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    render(
+    renderWithQueryClient(
       <SessionSummary
         defaultDescription="Chest, shoulders, and triceps emphasis with controlled tempo work."
         defaultTags={['strength', 'push', 'upper-body']}

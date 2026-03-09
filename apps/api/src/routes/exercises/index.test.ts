@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { exercises, users } from '../../db/schema/index.js';
+import { exercises, sessionSets, users, workoutSessions } from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -52,6 +52,56 @@ const seedExercise = (values: {
     })
     .run();
 
+const seedWorkoutSession = (values: {
+  id: string;
+  userId: string;
+  name: string;
+  date: string;
+  startedAt: number;
+  status?: 'scheduled' | 'in-progress' | 'completed';
+  completedAt?: number | null;
+}) =>
+  context.db
+    .insert(workoutSessions)
+    .values({
+      id: values.id,
+      userId: values.userId,
+      templateId: null,
+      name: values.name,
+      date: values.date,
+      status: values.status ?? 'in-progress',
+      startedAt: values.startedAt,
+      completedAt: values.completedAt ?? null,
+      duration: null,
+      feedback: null,
+      notes: null,
+    })
+    .run();
+
+const seedSessionSet = (values: {
+  id: string;
+  sessionId: string;
+  exerciseId: string;
+  setNumber: number;
+  weight?: number | null;
+  reps?: number | null;
+}) =>
+  context.db
+    .insert(sessionSets)
+    .values({
+      id: values.id,
+      sessionId: values.sessionId,
+      exerciseId: values.exerciseId,
+      setNumber: values.setNumber,
+      weight: values.weight ?? null,
+      reps: values.reps ?? null,
+      completed: false,
+      skipped: false,
+      section: 'main',
+      notes: null,
+    })
+    .run();
+
 describe('exercise routes', () => {
   beforeAll(async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'pulse-exercises-routes-'));
@@ -93,6 +143,8 @@ describe('exercise routes', () => {
   });
 
   beforeEach(() => {
+    context.db.delete(sessionSets).run();
+    context.db.delete(workoutSessions).run();
     context.db.delete(exercises).run();
     context.db.delete(users).run();
 
@@ -100,7 +152,7 @@ describe('exercise routes', () => {
     seedUser('user-2', 'alex');
   });
 
-  it('requires auth for create, list, update, and delete', async () => {
+  it('requires auth for create, list, last-performance, update, and delete', async () => {
     const responses = await Promise.all([
       context.app.inject({
         method: 'POST',
@@ -115,6 +167,10 @@ describe('exercise routes', () => {
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises',
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/exercise-1/last-performance',
       }),
       context.app.inject({
         method: 'PUT',
@@ -136,6 +192,161 @@ describe('exercise routes', () => {
         },
       });
     }
+  });
+
+  it('returns most recent completed last performance for a visible exercise', async () => {
+    seedExercise({
+      id: 'global-bench',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'user-1-no-data',
+      userId: 'user-1',
+      name: 'No Data Exercise',
+      muscleGroups: ['chest'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'user-2-private',
+      userId: 'user-2',
+      name: 'Private Exercise',
+      muscleGroups: ['back'],
+      equipment: 'cable',
+      category: 'compound',
+    });
+
+    seedWorkoutSession({
+      id: 'session-old',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-01',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+    });
+    seedWorkoutSession({
+      id: 'session-latest',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-08',
+      status: 'completed',
+      startedAt: 1_700_000_010_000,
+      completedAt: 1_700_000_015_000,
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-09',
+      status: 'in-progress',
+      startedAt: 1_700_000_020_000,
+    });
+    seedWorkoutSession({
+      id: 'session-other-user',
+      userId: 'user-2',
+      name: 'Private User Session',
+      date: '2026-03-09',
+      status: 'completed',
+      startedAt: 1_700_000_020_000,
+      completedAt: 1_700_000_025_000,
+    });
+
+    seedSessionSet({
+      id: 'set-old-1',
+      sessionId: 'session-old',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 100,
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'set-old-2',
+      sessionId: 'session-old',
+      exerciseId: 'global-bench',
+      setNumber: 2,
+      weight: 100,
+      reps: 7,
+    });
+    seedSessionSet({
+      id: 'set-latest-1',
+      sessionId: 'session-latest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 105,
+      reps: 9,
+    });
+    seedSessionSet({
+      id: 'set-in-progress',
+      sessionId: 'session-in-progress',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 115,
+      reps: 12,
+    });
+    seedSessionSet({
+      id: 'set-other-user',
+      sessionId: 'session-other-user',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 200,
+      reps: 20,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-bench/last-performance',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        sessionId: 'session-latest',
+        date: '2026-03-08',
+        sets: [
+          {
+            setNumber: 1,
+            weight: 105,
+            reps: 9,
+          },
+        ],
+      },
+    });
+
+    const noDataResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/user-1-no-data/last-performance',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(noDataResponse.statusCode).toBe(404);
+    expect(noDataResponse.json()).toEqual({
+      error: {
+        code: 'EXERCISE_LAST_PERFORMANCE_NOT_FOUND',
+        message: 'No completed performance found for this exercise',
+      },
+    });
+
+    const privateExerciseResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/user-2-private/last-performance',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(privateExerciseResponse.statusCode).toBe(404);
+    expect(privateExerciseResponse.json()).toEqual({
+      error: {
+        code: 'EXERCISE_NOT_FOUND',
+        message: 'Exercise not found',
+      },
+    });
   });
 
   it('creates a user-specific exercise for the authenticated user', async () => {

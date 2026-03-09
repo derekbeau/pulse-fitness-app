@@ -211,6 +211,7 @@ export function ActiveWorkoutPage() {
           <SessionContext context={workoutSessionContext} />
 
           <SessionExerciseList
+            enableApiLastPerformance={Boolean(activeSessionId)}
             focusSetId={focusSetId}
             onAddSet={handleAddSet}
             onExerciseNotesChange={(exerciseId, notes) =>
@@ -298,6 +299,7 @@ export function ActiveWorkoutPage() {
           exercisesCompleted={session.totalExercises}
           feedback={sessionFeedback}
           onDone={() => navigate('/workouts')}
+          sessionId={activeSessionId}
           totalReps={totalCompletedReps}
           totalSets={session.completedSets}
           workoutName={session.workoutName}

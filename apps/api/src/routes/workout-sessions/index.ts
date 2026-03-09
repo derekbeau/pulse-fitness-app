@@ -26,6 +26,7 @@ import {
   listSessionSetGroups,
   SessionSetNotFoundError,
   listWorkoutSessions,
+  saveCompletedSessionAsTemplate,
   updateSessionSet,
   updateWorkoutSession,
 } from './store.js';
@@ -48,6 +49,11 @@ const INVALID_SESSION_EXERCISE_RESPONSE = {
 const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_ACTIVE',
   message: 'Workout session is not active',
+} as const;
+
+const WORKOUT_SESSION_NOT_COMPLETED_RESPONSE = {
+  code: 'WORKOUT_SESSION_NOT_COMPLETED',
+  message: 'Workout session must be completed before saving as template',
 } as const;
 
 const SESSION_SET_NOT_FOUND_RESPONSE = {
@@ -344,6 +350,36 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       throw error;
     }
+  });
+
+  app.post<{ Params: { id: string } }>('/:id/save-as-template', async (request, reply) => {
+    const session = await findWorkoutSessionById(request.params.id, request.userId);
+    if (!session) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    if (session.status !== 'completed') {
+      return sendError(
+        reply,
+        409,
+        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.code,
+        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.message,
+      );
+    }
+
+    const template = await saveCompletedSessionAsTemplate({
+      session,
+      userId: request.userId,
+    });
+
+    return reply.code(201).send({
+      data: template,
+    });
   });
 
   app.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
