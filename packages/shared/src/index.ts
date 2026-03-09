@@ -11,6 +11,7 @@ export * from './schemas/habits.js';
 export * from './schemas/health-conditions.js';
 export * from './schemas/journal.js';
 export * from './schemas/foods.js';
+export * from './schemas/nutrition.js';
 export * from './schemas/nutrition-targets.js';
 export * from './schemas/resources.js';
 export * from './schemas/scheduled-workouts.js';
