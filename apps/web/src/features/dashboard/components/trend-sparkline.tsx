@@ -230,11 +230,15 @@ function TrendMetricCardSkeleton() {
 }
 
 export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
+  const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
+  const needsWeight = resolvedMetrics.includes('weight');
+  const needsMacros =
+    resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
   const range = resolveTrendRange(endDate);
-  const weightTrendQuery = useWeightTrend(range.from, range.to);
-  const macroTrendQuery = useMacroTrend(range.from, range.to);
+  const weightTrendQuery = useWeightTrend(range.from, range.to, { enabled: needsWeight });
+  const macroTrendQuery = useMacroTrend(range.from, range.to, { enabled: needsMacros });
 
-  if (weightTrendQuery.isLoading || macroTrendQuery.isLoading) {
+  if ((needsWeight && weightTrendQuery.isLoading) || (needsMacros && macroTrendQuery.isLoading)) {
     return (
       <section aria-label="Trend sparklines">
         <div className="grid gap-4">
@@ -246,9 +250,27 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     );
   }
 
-  const weightSeries = toMetricSeries(weightTrendQuery.data ?? [], (entry) => entry.value);
-  const calorieSeries = toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.calories);
-  const proteinSeries = toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein);
+  if ((needsWeight && weightTrendQuery.isError) || (needsMacros && macroTrendQuery.isError)) {
+    return (
+      <section aria-label="Trend sparklines">
+        <Card className="gap-0 border-border/70 py-4 shadow-sm">
+          <CardContent className="px-5">
+            <p className="text-sm text-muted-foreground">Unable to load trend data.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
+  const weightSeries = needsWeight
+    ? toMetricSeries(weightTrendQuery.data ?? [], (entry) => entry.value)
+    : [];
+  const calorieSeries = needsMacros
+    ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.calories)
+    : [];
+  const proteinSeries = needsMacros
+    ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein)
+    : [];
 
   const latestWeight = getLatestValue(weightSeries, 0);
   const latestCalories = getLatestValue(calorieSeries, 0);
@@ -302,7 +324,6 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
   } satisfies Record<DashboardTrendMetric, TrendMetricCardProps>;
 
-  const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
   const configs = resolvedMetrics.map((metric) => allConfigs[metric]);
 
   if (configs.length === 0) {

@@ -7,7 +7,7 @@ const macroValueSchema = z.number().nonnegative().finite();
 const percentageSchema = z.number().min(0).max(100).finite();
 export const MAX_DASHBOARD_TREND_RANGE_DAYS = 365;
 
-const getUtcDateValue = (date: string) => {
+export const getUtcDateValue = (date: string) => {
   const [year, month, day] = date.split('-').map(Number);
   return Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1);
 };

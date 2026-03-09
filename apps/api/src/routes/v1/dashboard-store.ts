@@ -202,7 +202,9 @@ const toDashboardTrendMetrics = (metrics: string[] | null | undefined): Dashboar
   }
 
   const validMetrics = metrics.filter(isDashboardTrendMetric);
-  return validMetrics.length > 0 ? validMetrics : DEFAULT_DASHBOARD_TREND_METRICS;
+  // Preserve explicit but stale/unknown values as "no selected metrics" instead of
+  // surprising callers with defaults they did not choose.
+  return validMetrics.length > 0 ? validMetrics : [];
 };
 
 const toDashboardConfig = (
@@ -419,5 +421,17 @@ export const upsertDashboardConfig = async (
     })
     .run();
 
-  return input;
+  const persisted =
+    db
+      .select(dashboardConfigSelection)
+      .from(dashboardConfigTable)
+      .where(eq(dashboardConfigTable.userId, userId))
+      .limit(1)
+      .get() ?? null;
+
+  if (!persisted) {
+    throw new Error('Upserted dashboard config could not be loaded');
+  }
+
+  return toDashboardConfig(persisted);
 };

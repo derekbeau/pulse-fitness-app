@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -97,6 +97,11 @@ const workoutSessionListSelection = {
   startedAt: workoutSessions.startedAt,
   completedAt: workoutSessions.completedAt,
   duration: workoutSessions.duration,
+  exerciseCount: sql<number>`coalesce((
+    select count(distinct ${sessionSets.exerciseId})
+    from ${sessionSets}
+    where ${sessionSets.sessionId} = ${workoutSessions.id}
+  ), 0)`,
   createdAt: workoutSessions.createdAt,
 };
 

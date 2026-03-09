@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/api-client';
 import { addDays, getToday, parseDateInput, toDateKey } from '@/lib/date';
 
 const DEFAULT_TREND_DAYS = 30;
+const DEFAULT_QUERY_ENABLED = true;
 
 export const macroTrendKeys = {
   all: ['dashboard', 'macro-trend'] as const,
@@ -38,10 +39,16 @@ const fetchMacroTrend = async (
   return dashboardMacrosTrendSchema.parse(trend);
 };
 
-export const useMacroTrend = (from?: string, to?: string) => {
+export const useMacroTrend = (
+  from?: string,
+  to?: string,
+  options: { enabled?: boolean } = {},
+) => {
   const range = resolveDateRange(from, to);
+  const enabled = options.enabled ?? DEFAULT_QUERY_ENABLED;
 
   return useQuery({
+    enabled,
     queryFn: ({ signal }) => fetchMacroTrend(range.from, range.to, signal),
     queryKey: macroTrendKeys.range(range.from, range.to),
   });

@@ -83,4 +83,22 @@ describe('useWeightTrend', () => {
       expect.any(Object),
     );
   });
+
+  it('does not fetch when query is disabled', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({
+      queries: { retry: false },
+      mutations: { retry: false },
+    });
+
+    const { result } = renderHook(() => useWeightTrend('2026-03-04', '2026-03-05', { enabled: false }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.fetchStatus).toBe('idle');
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });

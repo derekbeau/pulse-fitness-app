@@ -169,53 +169,10 @@ const recentWorkoutsListData = [
     startedAt: 1,
     completedAt: 2,
     duration: 62,
+    exerciseCount: 2,
     createdAt: 3,
   },
 ];
-
-const recentWorkoutDetailsData = {
-  'recent-workout-1': {
-    id: 'recent-workout-1',
-    userId: 'user-1',
-    templateId: 'template-1',
-    name: 'Upper Push A',
-    date: '2026-03-05',
-    status: 'completed',
-    startedAt: 1,
-    completedAt: 2,
-    duration: 62,
-    feedback: null,
-    notes: null,
-    sets: [
-      {
-        id: 'set-1',
-        exerciseId: 'bench-press',
-        setNumber: 1,
-        weight: 185,
-        reps: 8,
-        completed: true,
-        skipped: false,
-        section: 'main',
-        notes: null,
-        createdAt: 1,
-      },
-      {
-        id: 'set-2',
-        exerciseId: 'incline-dumbbell-press',
-        setNumber: 1,
-        weight: 75,
-        reps: 10,
-        completed: true,
-        skipped: false,
-        section: 'main',
-        notes: null,
-        createdAt: 2,
-      },
-    ],
-    createdAt: 4,
-    updatedAt: 5,
-  },
-} as const;
 
 describe('DashboardPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -307,20 +264,6 @@ describe('DashboardPage', () => {
             status: 200,
           }),
         );
-      }
-
-      if (url.pathname.startsWith('/api/v1/workout-sessions/') && init?.method === 'GET') {
-        const sessionId = url.pathname.replace('/api/v1/workout-sessions/', '');
-        const detail = recentWorkoutDetailsData[sessionId as keyof typeof recentWorkoutDetailsData];
-
-        if (detail) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ data: detail }), {
-              headers: { 'Content-Type': 'application/json' },
-              status: 200,
-            }),
-          );
-        }
       }
 
       if (url.pathname === '/api/v1/weight' && init?.method === 'POST') {

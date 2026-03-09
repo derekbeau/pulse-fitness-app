@@ -283,6 +283,23 @@ describe('dashboard store', () => {
     expect(testState.select).toHaveBeenCalledTimes(1);
   });
 
+  it('treats all-invalid stored trend metrics as an empty selection', async () => {
+    testState.selectGetResults.push({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['unknown-metric'],
+      widgetOrder: null,
+    });
+
+    const { getDashboardConfig } = await import('./dashboard-store.js');
+    const config = await getDashboardConfig('user-1');
+
+    expect(config).toEqual({
+      habitChainIds: ['habit-1'],
+      trendMetrics: [],
+    });
+    expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
   it('returns default dashboard config with active habits when none is stored', async () => {
     testState.selectGetResults.push(undefined);
     testState.selectAllResults.push([{ id: 'habit-1' }, { id: 'habit-3' }]);
@@ -298,6 +315,12 @@ describe('dashboard store', () => {
   });
 
   it('upserts dashboard config by userId', async () => {
+    testState.selectGetResults.push({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['calories'],
+      widgetOrder: ['trends', 'snapshot'],
+    });
+
     const { upsertDashboardConfig } = await import('./dashboard-store.js');
     const config = await upsertDashboardConfig('user-1', {
       habitChainIds: ['habit-1'],
@@ -311,5 +334,6 @@ describe('dashboard store', () => {
       widgetOrder: ['trends', 'snapshot'],
     });
     expect(testState.db.insert).toHaveBeenCalledTimes(1);
+    expect(testState.select).toHaveBeenCalledTimes(1);
   });
 });

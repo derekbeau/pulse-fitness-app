@@ -289,6 +289,7 @@ describe('workoutSessionListItemSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: null,
       duration: null,
+      exerciseCount: 0,
       createdAt: 1_700_000_000_000,
     });
 

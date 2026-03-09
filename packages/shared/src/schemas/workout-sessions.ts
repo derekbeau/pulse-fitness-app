@@ -138,6 +138,7 @@ export const workoutSessionListItemSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
+    exerciseCount: z.number().int().nonnegative(),
     createdAt: z.number().int(),
   })
   .superRefine(validateWorkoutSessionTiming);

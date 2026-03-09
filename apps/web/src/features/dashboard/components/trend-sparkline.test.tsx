@@ -162,6 +162,16 @@ describe('TrendSparklines', () => {
     expect(
       within(weightCard as HTMLElement).getByRole('img', { name: 'Weight Trend sparkline' }),
     ).toBeInTheDocument();
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: true },
+    );
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: true },
+    );
   });
 
   it('shows skeleton cards while trend queries are loading', () => {
@@ -197,6 +207,16 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
     expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: false },
+    );
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: true },
+    );
   });
 
   it('renders an empty state when no metrics are selected', () => {
@@ -212,6 +232,34 @@ describe('TrendSparklines', () => {
     render(<TrendSparklines metrics={[]} />);
 
     expect(screen.getByText('No trend metrics selected.')).toBeInTheDocument();
+    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: false },
+    );
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { enabled: false },
+    );
+  });
+
+  it('renders an error state when a required trend query fails', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: sampleMacroTrend,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines metrics={['weight']} />);
+
+    expect(screen.getByText('Unable to load trend data.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
   });
 });

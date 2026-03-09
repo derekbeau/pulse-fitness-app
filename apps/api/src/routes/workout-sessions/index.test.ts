@@ -1096,6 +1096,7 @@ describe('workout session routes', () => {
           startedAt: 1_700_000_100_000,
           completedAt: 1_700_000_103_000,
           duration: 50,
+          exerciseCount: 2,
           createdAt: createdPayload.data.createdAt,
         },
         {
@@ -1108,6 +1109,7 @@ describe('workout session routes', () => {
           startedAt: 1_700_000_000_000,
           completedAt: 1_700_000_002_700,
           duration: 45,
+          exerciseCount: 0,
           createdAt: expect.any(Number),
         },
       ],
