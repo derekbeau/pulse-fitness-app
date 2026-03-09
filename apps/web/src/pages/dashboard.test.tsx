@@ -147,14 +147,23 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('data-qa', 'dashboard-weight-input');
+    expect(screen.getByText('Log Weight').closest('[data-qa]')).toHaveAttribute(
+      'data-qa',
+      'dashboard-log-weight-card',
+    );
     expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
       'data-qa',
+      'dashboard-save-weight',
+    );
+    expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
+      'id',
       'dashboard-save-weight',
     );
 
     const layout = container.querySelector('[data-slot="dashboard-layout"]');
     const mainColumn = container.querySelector('[data-slot="dashboard-main-column"]');
     const sidebarColumn = container.querySelector('[data-slot="dashboard-sidebar-column"]');
+    const logWeightForm = container.querySelector('[data-qa="dashboard-log-weight-form"]');
     const recentColumn = container.querySelector('[data-slot="dashboard-recent-workouts-column"]');
     const calendarPanel = container.querySelector('[data-slot="dashboard-calendar-panel"]');
     const snapshotPanel = container.querySelector('[data-slot="dashboard-snapshot-panel"]');
@@ -170,6 +179,7 @@ describe('DashboardPage', () => {
     );
     expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
     expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');
+    expect(logWeightForm).toBeInTheDocument();
     expect(recentColumn).toHaveClass('order-3', 'md:col-start-2', 'xl:col-start-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
