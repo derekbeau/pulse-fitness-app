@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import { eq } from 'drizzle-orm';
 
-import { users } from '../../db/schema/index.js';
+import { habits, users } from '../../db/schema/index.js';
 
 export type AuthUserRecord = {
   id: string;
@@ -15,6 +17,36 @@ type CreateUserInput = {
   name?: string;
   passwordHash: string;
 };
+
+const starterHabitDefinitions: Array<{
+  emoji: string;
+  name: string;
+  target: number | null;
+  trackingType: 'boolean' | 'numeric' | 'time';
+  unit: string | null;
+}> = [
+  {
+    emoji: '💧',
+    name: 'Hydrate',
+    trackingType: 'numeric',
+    target: 8,
+    unit: 'glasses',
+  },
+  {
+    emoji: '💊',
+    name: 'Take vitamins',
+    trackingType: 'boolean',
+    target: null,
+    unit: null,
+  },
+  {
+    emoji: '😴',
+    name: 'Sleep',
+    trackingType: 'time',
+    target: 8,
+    unit: 'hours',
+  },
+];
 
 export const findUserByUsername = async (username: string): Promise<AuthUserRecord | undefined> => {
   const { db } = await import('../../db/index.js');
@@ -40,15 +72,40 @@ export const createUser = async ({
 }: CreateUserInput): Promise<Omit<AuthUserRecord, 'passwordHash'>> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
-    .insert(users)
-    .values({
-      id,
-      username,
-      name,
-      passwordHash,
-    })
-    .run();
+  const result = db.transaction((tx) => {
+    const userInsertResult = tx
+      .insert(users)
+      .values({
+        id,
+        username,
+        name,
+        passwordHash,
+      })
+      .run();
+
+    if (userInsertResult.changes !== 1) {
+      throw new Error('Failed to persist auth user');
+    }
+
+    const starterHabits = starterHabitDefinitions.map((habit, index) => ({
+      id: randomUUID(),
+      userId: id,
+      name: habit.name,
+      emoji: habit.emoji,
+      trackingType: habit.trackingType,
+      target: habit.target,
+      unit: habit.unit,
+      sortOrder: index,
+      active: true,
+    }));
+
+    const habitInsertResult = tx.insert(habits).values(starterHabits).run();
+    if (habitInsertResult.changes !== starterHabits.length) {
+      throw new Error('Failed to persist starter habits');
+    }
+
+    return userInsertResult;
+  });
 
   if (result.changes !== 1) {
     throw new Error('Failed to persist auth user');
