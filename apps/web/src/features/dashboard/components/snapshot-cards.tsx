@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
+import type { DashboardSnapshot, DashboardWorkoutSnapshot } from '@pulse/shared';
+
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
-import { mockDailySnapshot, type DailySnapshot } from '@/lib/mock-data/dashboard';
 
 type SnapshotCardsProps = {
-  snapshot?: DailySnapshot;
+  snapshot?: DashboardSnapshot;
 };
 
 export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
@@ -37,11 +38,40 @@ export const calculateHabitCompletionPercent = (
   return Math.round((habitsCompleted / habitsTotal) * 100);
 };
 
-export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsProps) {
-  const habitCompletionPercent = calculateHabitCompletionPercent(
-    snapshot.habitsCompleted,
-    snapshot.habitsTotal,
-  );
+const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
+  if (!snapshot?.weight) {
+    return '--';
+  }
+
+  return `${snapshot.weight.value.toFixed(1)} lbs`;
+};
+
+const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {
+  return status
+    .split('_')
+    .map((part) => `${part[0]?.toUpperCase() ?? ''}${part.slice(1)}`)
+    .join(' ');
+};
+
+export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
+  const habitCompletionPercent = snapshot
+    ? calculateHabitCompletionPercent(snapshot.habits.completed, snapshot.habits.total)
+    : 0;
+  const weightValue = formatWeightValue(snapshot);
+  const caloriesValue = snapshot
+    ? `${snapshot.macros.actual.calories} / ${snapshot.macros.target.calories}`
+    : '--';
+  const proteinValue = snapshot
+    ? `${snapshot.macros.actual.protein}g / ${snapshot.macros.target.protein}g`
+    : '--';
+  const habitsValue = snapshot
+    ? `${snapshot.habits.completed} / ${snapshot.habits.total} complete`
+    : '--';
+  const workoutValue = snapshot?.workout
+    ? `${snapshot.workout.name} (${formatWorkoutStatus(snapshot.workout.status)})`
+    : snapshot
+      ? 'Rest Day'
+      : '--';
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -50,8 +80,8 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
         className={accentCardStyles.cream}
         data-stagger="0"
         label="Body Weight"
-        trend={calculateWeightTrend(snapshot.weight, snapshot.weightYesterday)}
-        value={`${snapshot.weight.toFixed(1)} lbs`}
+        trend={{ direction: 'neutral', value: 0 }}
+        value={weightValue}
       />
 
       <StatCard
@@ -60,7 +90,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
         data-stagger="1"
         label="Calories"
         trend={{ direction: 'neutral', value: 0 }}
-        value={`${snapshot.macros.calories.actual} / ${snapshot.macros.calories.target}`}
+        value={caloriesValue}
       />
 
       <StatCard
@@ -69,7 +99,7 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
         data-stagger="2"
         label="Protein"
         trend={{ direction: 'neutral', value: 0 }}
-        value={`${snapshot.macros.protein.actual}g / ${snapshot.macros.protein.target}g`}
+        value={proteinValue}
       />
 
       <StatCard
@@ -78,14 +108,14 @@ export function SnapshotCards({ snapshot = mockDailySnapshot }: SnapshotCardsPro
         data-stagger="3"
         label="Habits"
         trend={{ direction: 'neutral', value: habitCompletionPercent }}
-        value={`${snapshot.habitsCompleted} / ${snapshot.habitsTotal} complete`}
+        value={habitsValue}
       />
 
       <StatCard
         className="border-primary/20 bg-secondary"
         data-stagger="4"
         label="Today's Workout"
-        value={snapshot.workoutName ?? 'Rest Day'}
+        value={workoutValue}
       />
     </div>
   );

@@ -1,20 +1,14 @@
-import type { Habit, HabitEntry } from '@pulse/shared';
+import type { DashboardSnapshot, Habit, HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { createQueryClientWrapper } from '@/test/query-client';
-import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
+
 import { DashboardPage } from './dashboard';
 
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
-
-vi.mock('@/features/habits/api/habits', () => ({
-  useHabitEntries: vi.fn(),
-  useHabits: vi.fn(),
-}));
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
@@ -38,9 +32,6 @@ vi.mock('recharts', async () => {
   };
 });
 
-const mockedUseHabitEntries = vi.mocked(useHabitEntries);
-const mockedUseHabits = vi.mocked(useHabits);
-
 const habits: Habit[] = [
   {
     active: true,
@@ -57,121 +48,195 @@ const habits: Habit[] = [
   },
 ];
 
-const todayEntry: HabitEntry = {
-  completed: true,
-  createdAt: 1,
+const habitEntries: HabitEntry[] = [
+  {
+    completed: false,
+    createdAt: 1,
+    date: '2026-03-04',
+    habitId: 'habit-meditate',
+    id: 'entry-2026-03-04',
+    userId: 'user-1',
+    value: null,
+  },
+  {
+    completed: true,
+    createdAt: 2,
+    date: '2026-03-05',
+    habitId: 'habit-meditate',
+    id: 'entry-2026-03-05',
+    userId: 'user-1',
+    value: null,
+  },
+  {
+    completed: true,
+    createdAt: 3,
+    date: '2026-03-06',
+    habitId: 'habit-meditate',
+    id: 'entry-2026-03-06',
+    userId: 'user-1',
+    value: null,
+  },
+];
+
+const snapshotForToday: DashboardSnapshot = {
   date: '2026-03-06',
-  habitId: 'habit-meditate',
-  id: 'entry-1',
-  userId: 'user-1',
-  value: null,
+  weight: {
+    date: '2026-03-06',
+    unit: 'lb',
+    value: 181.4,
+  },
+  macros: {
+    actual: {
+      calories: 1900,
+      protein: 170,
+      carbs: 210,
+      fat: 70,
+    },
+    target: {
+      calories: 2300,
+      protein: 190,
+      carbs: 260,
+      fat: 75,
+    },
+  },
+  workout: {
+    name: 'Upper Push A',
+    status: 'completed',
+    duration: 62,
+  },
+  habits: {
+    total: 1,
+    completed: 1,
+    percentage: 100,
+  },
+};
+
+const snapshotForMarch4: DashboardSnapshot = {
+  date: '2026-03-04',
+  weight: null,
+  macros: {
+    actual: {
+      calories: 1725,
+      protein: 150,
+      carbs: 180,
+      fat: 60,
+    },
+    target: {
+      calories: 2300,
+      protein: 190,
+      carbs: 260,
+      fat: 75,
+    },
+  },
+  workout: null,
+  habits: {
+    total: 1,
+    completed: 0,
+    percentage: 0,
+  },
 };
 
 describe('DashboardPage', () => {
-  let latestWeightEntry = {
-    id: 'weight-latest',
-    date: '2026-03-06',
-    weight: 181.4,
-    notes: null,
-    createdAt: 1,
-    updatedAt: 1,
-  };
+  let mockFetch: ReturnType<typeof vi.fn>;
+  let snapshotsByDate: Record<string, DashboardSnapshot>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T10:00:00'));
-    latestWeightEntry = {
-      id: 'weight-latest',
-      date: '2026-03-06',
-      weight: 181.4,
-      notes: null,
-      createdAt: 1,
-      updatedAt: 1,
+    snapshotsByDate = {
+      [snapshotForToday.date]: snapshotForToday,
+      [snapshotForMarch4.date]: snapshotForMarch4,
     };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
 
-        if (url.includes('/api/v1/weight') && init?.method === 'POST') {
-          const body =
-            typeof init.body === 'string'
-              ? (JSON.parse(init.body) as { date: string; weight: number })
-              : null;
+    mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
 
-          latestWeightEntry = {
-            id: 'weight-latest',
-            date: body?.date ?? latestWeightEntry.date,
-            weight: body?.weight ?? latestWeightEntry.weight,
-            notes: null,
-            createdAt: latestWeightEntry.createdAt,
-            updatedAt: latestWeightEntry.updatedAt + 1,
-          };
-
-          return Promise.resolve(
-            new Response(JSON.stringify({ data: latestWeightEntry }), {
-              headers: { 'Content-Type': 'application/json' },
-              status: 201,
-            }),
-          );
-        }
-
-        if (url.includes('/api/v1/weight/latest')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                data: latestWeightEntry,
-              }),
-              { headers: { 'Content-Type': 'application/json' }, status: 200 },
-            ),
-          );
-        }
-
-        if (url.includes('/api/v1/nutrition-targets/current')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                data: {
-                  id: 'target-current',
-                  calories: 2300,
-                  protein: 190,
-                  carbs: 260,
-                  fat: 75,
-                  effectiveDate: '2026-03-06',
-                  createdAt: 1,
-                  updatedAt: 1,
-                },
-              }),
-              { headers: { 'Content-Type': 'application/json' }, status: 200 },
-            ),
-          );
-        }
+      if (url.pathname === '/api/v1/dashboard/snapshot' && init?.method === 'GET') {
+        const requestedDate = url.searchParams.get('date') ?? snapshotForToday.date;
+        const snapshot = snapshotsByDate[requestedDate] ?? snapshotForToday;
 
         return Promise.resolve(
-          new Response(JSON.stringify({ data: null }), {
+          new Response(JSON.stringify({ data: snapshot }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
         );
-      }),
-    );
+      }
 
-    mockedUseHabits.mockReturnValue({
-      data: habits,
-      error: null,
-      isError: false,
-      isPending: false,
-    } as ReturnType<typeof useHabits>);
-    mockedUseHabitEntries.mockImplementation(
-      (from, to) =>
-        ({
-          data: from === '2026-03-06' && to === '2026-03-06' ? [todayEntry] : [todayEntry],
-          error: null,
-          isError: false,
-          isPending: false,
-        }) as ReturnType<typeof useHabitEntries>,
-    );
+      if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: habits }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/habit-entries' && init?.method === 'GET') {
+        const from = url.searchParams.get('from') ?? '';
+        const to = url.searchParams.get('to') ?? '';
+        const entriesInRange = habitEntries.filter((entry) => entry.date >= from && entry.date <= to);
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: entriesInRange }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'POST') {
+        const body = typeof init.body === 'string' ? (JSON.parse(init.body) as { date: string; weight: number }) : null;
+        const nextDate = body?.date ?? snapshotForToday.date;
+        const nextWeight = body?.weight ?? snapshotForToday.weight?.value ?? 0;
+        const previousSnapshot = snapshotsByDate[nextDate] ?? snapshotForToday;
+
+        snapshotsByDate[nextDate] = {
+          ...previousSnapshot,
+          date: nextDate,
+          weight: {
+            date: nextDate,
+            unit: 'lb',
+            value: nextWeight,
+          },
+        };
+
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: `weight-${nextDate}`,
+                date: nextDate,
+                weight: nextWeight,
+                notes: null,
+                createdAt: 1,
+                updatedAt: 2,
+              },
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+              status: 201,
+            },
+          ),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Not found',
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' }, status: 404 },
+        ),
+      );
+    });
+
+    vi.stubGlobal('fetch', mockFetch);
   });
 
   afterEach(() => {
@@ -179,7 +244,7 @@ describe('DashboardPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the dashboard title, greeting, and responsive column layout', () => {
+  it('renders the dashboard title, greeting, and responsive column layout with API snapshot data', async () => {
     const { wrapper } = createQueryClientWrapper();
     const { container } = render(
       <MemoryRouter>
@@ -188,15 +253,25 @@ describe('DashboardPage', () => {
       { wrapper },
     );
 
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
+    expect(bodyWeightCard).toBeInTheDocument();
+    expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
+
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByText('Good morning')).toBeInTheDocument();
     expect(screen.getByLabelText('Calendar day picker')).toBeInTheDocument();
-    expect(screen.getByText('Body Weight')).toBeInTheDocument();
     expect(screen.getByText('Habits')).toBeInTheDocument();
     expect(screen.getByLabelText('Macro display mode')).toBeInTheDocument();
     expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+    expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
+    expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
+    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
+    expect(screen.getByText('1 / 1 complete')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute(
@@ -251,47 +326,54 @@ describe('DashboardPage', () => {
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
   });
 
-  it('updates snapshot content when a new calendar day is selected', async () => {
-    mockedUseHabitEntries.mockImplementation(
-      (from, to) =>
-        ({
-          data: from === '2026-03-04' && to === '2026-03-04' ? [] : [todayEntry],
-          error: null,
-          isError: false,
-          isPending: false,
-        }) as ReturnType<typeof useHabitEntries>,
-    );
-
+  it('updates snapshot and habit chain windows when a new calendar day is selected', async () => {
     const { wrapper } = createQueryClientWrapper();
-    render(
+    const { container } = render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>,
       { wrapper },
     );
 
-    const selectedSnapshot = getMockSnapshotForDate(new Date('2026-03-04T00:00:00'));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
     const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
 
     expect(bodyWeightCard).toBeInTheDocument();
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
     expect(habitsCard).toBeInTheDocument();
-    expect(
-      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
-    ).toBeInTheDocument();
+    expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByText('1 / 1 complete')).toBeInTheDocument();
+
+    const initialSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
+    expect(initialSquares[29]).toHaveAttribute('data-date', '2026-03-06');
 
     fireEvent.click(screen.getByRole('button', { name: /select wednesday, march 4, 2026/i }));
 
-    expect(
-      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
-    ).toBeInTheDocument();
-    expect(screen.getByText(`${selectedSnapshot.macros.calories.actual}kcal`)).toBeInTheDocument();
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(within(bodyWeightCard as HTMLElement).getByText('--')).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByText('0 / 1 complete')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+    expect(screen.getByText('Rest Day')).toBeInTheDocument();
+
+    const updatedSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
+    expect(updatedSquares[29]).toHaveAttribute('data-date', '2026-03-04');
+    expect(updatedSquares[29]).toHaveAttribute('data-today', 'true');
+    expect(
+      mockFetch.mock.calls.some((call) => {
+        const rawInput = call[0];
+        const rawUrl =
+          typeof rawInput === 'string'
+            ? rawInput
+            : rawInput instanceof URL
+              ? rawInput.toString()
+              : rawInput.url;
+
+        return rawUrl.includes('/api/v1/dashboard/snapshot?date=2026-03-04');
+      }),
+    ).toBe(true);
   });
 
   it('logs a new weight entry and refreshes the body weight card', async () => {
@@ -308,9 +390,7 @@ describe('DashboardPage', () => {
     const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     await waitFor(() => {
-      expect(
-        within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
-      ).toBeInTheDocument();
+      expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText('Weight (lbs)'), { target: { value: '175.5' } });

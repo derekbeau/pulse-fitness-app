@@ -96,6 +96,34 @@ describe('HabitChain', () => {
     expect(todaySquares[0]).toHaveClass('border-[var(--color-primary)]');
   });
 
+  it('renders a 30-day window ending at the provided end date', () => {
+    const habit = getHabitByIndex(0);
+    const endDate = habit.entries[20]?.date;
+
+    if (!endDate) {
+      throw new Error('Expected a valid end date in mock habit entries.');
+    }
+
+    const { container } = render(
+      <HabitChain
+        endDate={endDate}
+        entries={habitEntryRecords}
+        habitIds={[habit.id]}
+        habits={habitRecords}
+      />,
+    );
+
+    const squares = container.querySelectorAll('[data-slot="habit-chain-day"]');
+    expect(squares).toHaveLength(30);
+    expect(squares[29]).toHaveAttribute('data-date', endDate);
+
+    const highlightedSquares = container.querySelectorAll(
+      '[data-slot="habit-chain-day"][data-today="true"]',
+    );
+    expect(highlightedSquares).toHaveLength(1);
+    expect(highlightedSquares[0]).toHaveAttribute('data-date', endDate);
+  });
+
   it('uses mint squares for completed days and gray squares for missed days', () => {
     const habit = getHabitByIndex(0);
     const { container } = render(

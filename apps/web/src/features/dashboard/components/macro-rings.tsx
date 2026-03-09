@@ -1,20 +1,28 @@
 /* eslint-disable react-refresh/only-export-components */
+import type { DashboardSnapshot } from '@pulse/shared';
 import { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ui/progress-ring';
-import { mockDailySnapshot, type DailySnapshot, type MacroStat } from '@/lib/mock-data/dashboard';
 
 type MacroRingsProps = {
-  snapshot?: DailySnapshot;
+  snapshot?: DashboardSnapshot;
 };
 
 type MacroMode = 'eaten' | 'remaining';
 
+type MacroKey = keyof DashboardSnapshot['macros']['actual'];
+
 type MacroConfig = {
-  key: keyof DailySnapshot['macros'];
+  key: MacroKey;
   label: string;
   color: string;
   unit: 'kcal' | 'g';
+};
+
+type MacroStat = {
+  actual: number;
+  target: number;
 };
 
 type MacroRingState = {
@@ -65,7 +73,18 @@ export const getMacroRingState = (
   };
 };
 
-export function MacroRings({ snapshot = mockDailySnapshot }: MacroRingsProps) {
+const getMacroStat = (snapshot: DashboardSnapshot | undefined, key: MacroKey): MacroStat => {
+  if (!snapshot) {
+    return { actual: 0, target: 0 };
+  }
+
+  return {
+    actual: snapshot.macros.actual[key],
+    target: snapshot.macros.target[key],
+  };
+};
+
+export function MacroRings({ snapshot }: MacroRingsProps) {
   const [mode, setMode] = useState<MacroMode>('eaten');
 
   return (
@@ -101,12 +120,7 @@ export function MacroRings({ snapshot = mockDailySnapshot }: MacroRingsProps) {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
-          const state = getMacroRingState(
-            snapshot.macros[macro.key],
-            mode,
-            macro.color,
-            macro.unit,
-          );
+          const state = getMacroRingState(getMacroStat(snapshot, macro.key), mode, macro.color, macro.unit);
 
           return (
             <div
