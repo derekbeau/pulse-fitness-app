@@ -231,4 +231,56 @@ describe('WorkoutTemplateDetail', () => {
       '/workouts',
     );
   });
+
+  it('treats legacy slug template IDs as not found when the request fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(
+          {
+            error: {
+              code: 'UPSTREAM_ERROR',
+              message: 'unexpected error',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Template not found' }, { timeout: 4_000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps generic error messaging for UUID template IDs on non-404 failures', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(
+          {
+            error: {
+              code: 'UPSTREAM_ERROR',
+              message: 'unexpected error',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db" />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Unable to load template' }, { timeout: 4_000 }),
+    ).toBeInTheDocument();
+  });
 });

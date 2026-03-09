@@ -218,12 +218,6 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
 
       {exercisesQuery.isPending ? (
         <ExerciseLibrarySkeleton />
-      ) : exercisesQuery.isError ? (
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-muted">Unable to load exercises right now.</p>
-          </CardContent>
-        </Card>
       ) : filteredExercises.length === 0 ? (
         <Card>
           <CardContent className="py-6">

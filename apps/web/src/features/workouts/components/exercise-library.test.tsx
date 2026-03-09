@@ -259,6 +259,52 @@ describe('ExerciseLibrary', () => {
     expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
     expect(screen.getByText('No history yet')).toBeInTheDocument();
   });
+
+  it('falls back to the no-results state when the exercises request fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'UPSTREAM_ERROR',
+                message: 'API unavailable',
+              },
+            },
+            { status: 500 },
+          ),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderExerciseLibrary();
+
+    expect(
+      await screen.findByText(
+        'No exercises match the current search and filter combination.',
+        undefined,
+        {
+          timeout: 4_000,
+        },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Unable to load exercises right now.')).not.toBeInTheDocument();
+  });
 });
 
 function renderExerciseLibrary() {

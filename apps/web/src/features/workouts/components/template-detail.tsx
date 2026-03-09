@@ -19,6 +19,8 @@ const sectionLabels = {
   main: 'Main',
   cooldown: 'Cooldown',
 } as const;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const navigate = useNavigate();
@@ -30,8 +32,10 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   }
 
   if (templateQuery.isError) {
+    const isLegacyMockTemplate = !UUID_PATTERN.test(templateId);
     const isNotFound =
-      templateQuery.error instanceof ApiError && templateQuery.error.status === 404;
+      isLegacyMockTemplate ||
+      (templateQuery.error instanceof ApiError && templateQuery.error.status === 404);
 
     return (
       <Card>
