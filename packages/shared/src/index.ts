@@ -3,6 +3,7 @@ import { z } from 'zod';
 export * from './schemas/auth.js';
 export * from './schemas/activities.js';
 export * from './schemas/agent-tokens.js';
+export * from './schemas/dashboard.js';
 export * from './schemas/entity-links.js';
 export * from './schemas/equipment.js';
 export * from './schemas/exercises.js';
