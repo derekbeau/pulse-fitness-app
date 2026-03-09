@@ -20,6 +20,29 @@ function renderSettingsPage() {
   );
 }
 
+function getLatestNutritionTargetsPostPayload() {
+  const postCall = vi
+    .mocked(fetch)
+    .mock.calls.filter(([, init]) => {
+      const method = init?.method?.toUpperCase();
+      return method === 'POST';
+    })
+    .at(-1);
+
+  if (!postCall) {
+    throw new Error('No nutrition target POST request was captured.');
+  }
+
+  const [, init] = postCall;
+  return JSON.parse(String(init?.body)) as {
+    calories: number;
+    carbs: number;
+    effectiveDate: string;
+    fat: number;
+    protein: number;
+  };
+}
+
 describe('SettingsPage', () => {
   beforeEach(() => {
     window.localStorage.removeItem(THEME_STORAGE_KEY);
@@ -182,6 +205,30 @@ describe('SettingsPage', () => {
           protein: 175,
         },
       });
+    });
+  });
+
+  it('posts all nutrition targets with a UTC effective date when saving', async () => {
+    renderSettingsPage();
+
+    fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2200' } });
+    fireEvent.change(screen.getByLabelText('Protein (g)'), { target: { value: '180' } });
+    fireEvent.change(screen.getByLabelText('Carbs (g)'), { target: { value: '220' } });
+    fireEvent.change(screen.getByLabelText('Fat (g)'), { target: { value: '70' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Nutrition targets and dashboard preferences saved.'),
+      ).toBeInTheDocument();
+    });
+
+    expect(getLatestNutritionTargetsPostPayload()).toEqual({
+      calories: 2200,
+      carbs: 220,
+      effectiveDate: new Date().toISOString().slice(0, 10),
+      fat: 70,
+      protein: 180,
     });
   });
 

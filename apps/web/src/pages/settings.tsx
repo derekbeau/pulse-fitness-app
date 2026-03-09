@@ -12,7 +12,7 @@ import { defaultHabitConfigs, HabitSettings } from '@/features/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { formatDateKey } from '@/lib/date';
+import { formatUtcDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type ThemePreview = {
@@ -335,7 +335,7 @@ export function SettingsPage() {
   async function handleSave() {
     const nextTargets: CreateNutritionTargetInput = {
       ...settings.nutritionTargets,
-      effectiveDate: formatDateKey(new Date()),
+      effectiveDate: formatUtcDateKey(new Date()),
     };
 
     try {

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getToday, getWeekStart, isSameDay, parseDateInput, toDateKey } from './date';
+import {
+  formatUtcDateKey,
+  getToday,
+  getWeekStart,
+  isSameDay,
+  parseDateInput,
+  toDateKey,
+} from './date';
 
 describe('date utilities', () => {
   it('parses date-only strings at local midnight', () => {
@@ -28,5 +35,9 @@ describe('date utilities', () => {
   it('returns Monday as the start of the week', () => {
     expect(toDateKey(getWeekStart(new Date('2026-03-06T09:15:00')))).toBe('2026-03-02');
     expect(toDateKey(getWeekStart(new Date('2026-03-08T09:15:00')))).toBe('2026-03-02');
+  });
+
+  it('formats UTC calendar dates for API date-only fields', () => {
+    expect(formatUtcDateKey(new Date('2026-03-09T01:30:00-05:00'))).toBe('2026-03-09');
   });
 });
