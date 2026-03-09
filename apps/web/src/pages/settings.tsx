@@ -353,6 +353,7 @@ export function SettingsPage() {
       return;
     }
 
+    setDraftNutritionTargets(null);
     setSaveMessage('Nutrition targets and dashboard preferences saved.');
   }
 

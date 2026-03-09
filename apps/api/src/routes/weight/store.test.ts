@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bodyWeight } from '../../db/schema/index.js';
 
 const testState = vi.hoisted(() => {
-  const insertRun = vi.fn();
+  const insertReturningGet = vi.fn();
+  const insertReturning = vi.fn(() => ({
+    get: insertReturningGet,
+  }));
   const insertOnConflictDoUpdate = vi.fn(() => ({
-    run: insertRun,
+    returning: insertReturning,
   }));
   const insertValues = vi.fn(() => ({
     onConflictDoUpdate: insertOnConflictDoUpdate,
@@ -43,7 +46,8 @@ const testState = vi.hoisted(() => {
       insert.mockClear();
       insertValues.mockClear();
       insertOnConflictDoUpdate.mockClear();
-      insertRun.mockClear();
+      insertReturning.mockClear();
+      insertReturningGet.mockClear();
       select.mockClear();
       selectFrom.mockClear();
       selectWhere.mockClear();
@@ -55,7 +59,8 @@ const testState = vi.hoisted(() => {
     insert,
     insertValues,
     insertOnConflictDoUpdate,
-    insertRun,
+    insertReturning,
+    insertReturningGet,
     select,
     selectFrom,
     selectWhere,
@@ -82,7 +87,7 @@ describe('weight store', () => {
   it('upserts by user and date and returns the persisted entry', async () => {
     const updatedAt = 1_700_000_000_123;
     vi.spyOn(Date, 'now').mockReturnValue(updatedAt);
-    testState.selectGet.mockReturnValue({
+    testState.insertReturningGet.mockReturnValue({
       id: 'entry-1',
       date: '2026-03-05',
       weight: 182.8,
@@ -121,7 +126,7 @@ describe('weight store', () => {
         updatedAt,
       },
     });
-    expect(testState.insertRun).toHaveBeenCalledOnce();
+    expect(testState.insertReturning).toHaveBeenCalledOnce();
   });
 
   it('finds a body weight entry by user and date or returns null', async () => {
@@ -150,7 +155,7 @@ describe('weight store', () => {
   });
 
   it('throws when an upsert does not yield a persisted row', async () => {
-    testState.selectGet.mockReturnValue(undefined);
+    testState.insertReturningGet.mockReturnValue(undefined);
 
     const { upsertBodyWeightEntry } = await import('./store.js');
 

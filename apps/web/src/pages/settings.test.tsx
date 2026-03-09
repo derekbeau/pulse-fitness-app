@@ -232,6 +232,83 @@ describe('SettingsPage', () => {
     });
   });
 
+  it('clears nutrition draft state after save so refreshed API targets drive the form', async () => {
+    let currentTargetsRequestCount = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+
+        if (url.includes('/api/v1/nutrition-targets/current')) {
+          currentTargetsRequestCount += 1;
+
+          if (currentTargetsRequestCount === 1) {
+            return Promise.resolve(
+              new Response(JSON.stringify({ data: null }), {
+                headers: { 'Content-Type': 'application/json' },
+                status: 200,
+              }),
+            );
+          }
+
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  id: 'target-current',
+                  calories: 2300,
+                  protein: 190,
+                  carbs: 260,
+                  fat: 75,
+                  effectiveDate: '2026-03-07',
+                  createdAt: 1,
+                  updatedAt: 2,
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 200 },
+            ),
+          );
+        }
+
+        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: null }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }),
+    );
+
+    renderSettingsPage();
+
+    fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2200' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Nutrition targets and dashboard preferences saved.'),
+      ).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Daily calories')).toHaveValue(2300);
+    });
+
+    expect(screen.getByLabelText('Protein (g)')).toHaveValue(190);
+    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(260);
+    expect(screen.getByLabelText('Fat (g)')).toHaveValue(75);
+  });
+
   it('preserves dashboard preference saves locally when the targets API call fails', async () => {
     vi.stubGlobal(
       'fetch',

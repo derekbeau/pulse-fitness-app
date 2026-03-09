@@ -37,7 +37,8 @@ export const upsertBodyWeightEntry = async (
 
   const updatedAt = Date.now();
 
-  db.insert(bodyWeight)
+  const entry = db
+    .insert(bodyWeight)
     .values({
       userId,
       date: input.date,
@@ -52,9 +53,8 @@ export const upsertBodyWeightEntry = async (
         updatedAt,
       },
     })
-    .run();
-
-  const entry = await findBodyWeightEntryByDate(userId, input.date);
+    .returning(bodyWeightEntrySelection)
+    .get();
 
   if (!entry) {
     throw new Error('Failed to persist body weight entry');

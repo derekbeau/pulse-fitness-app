@@ -25,7 +25,8 @@ export const upsertNutritionTarget = async (
 
   const updatedAt = Date.now();
 
-  db.insert(nutritionTargets)
+  const target = db
+    .insert(nutritionTargets)
     .values({
       userId,
       calories: input.calories,
@@ -44,18 +45,7 @@ export const upsertNutritionTarget = async (
         updatedAt,
       },
     })
-    .run();
-
-  const target = db
-    .select(nutritionTargetSelection)
-    .from(nutritionTargets)
-    .where(
-      and(
-        eq(nutritionTargets.userId, userId),
-        eq(nutritionTargets.effectiveDate, input.effectiveDate),
-      ),
-    )
-    .limit(1)
+    .returning(nutritionTargetSelection)
     .get();
 
   if (!target) {

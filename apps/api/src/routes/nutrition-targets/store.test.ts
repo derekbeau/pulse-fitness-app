@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nutritionTargets } from '../../db/schema/index.js';
 
 const testState = vi.hoisted(() => {
-  const insertRun = vi.fn();
+  const insertReturningGet = vi.fn();
+  const insertReturning = vi.fn(() => ({
+    get: insertReturningGet,
+  }));
   const insertOnConflictDoUpdate = vi.fn(() => ({
-    run: insertRun,
+    returning: insertReturning,
   }));
   const insertValues = vi.fn(() => ({
     onConflictDoUpdate: insertOnConflictDoUpdate,
@@ -43,7 +46,8 @@ const testState = vi.hoisted(() => {
       insert.mockClear();
       insertValues.mockClear();
       insertOnConflictDoUpdate.mockClear();
-      insertRun.mockClear();
+      insertReturning.mockClear();
+      insertReturningGet.mockClear();
       select.mockClear();
       selectFrom.mockClear();
       selectWhere.mockClear();
@@ -55,7 +59,8 @@ const testState = vi.hoisted(() => {
     insert,
     insertValues,
     insertOnConflictDoUpdate,
-    insertRun,
+    insertReturning,
+    insertReturningGet,
     select,
     selectFrom,
     selectWhere,
@@ -83,7 +88,7 @@ describe('nutrition targets store', () => {
   it('upserts by user and effective date and returns the persisted target', async () => {
     const updatedAt = 1_700_000_000_123;
     vi.spyOn(Date, 'now').mockReturnValue(updatedAt);
-    testState.selectGet.mockReturnValue({
+    testState.insertReturningGet.mockReturnValue({
       id: 'target-1',
       calories: 2200,
       protein: 180,
@@ -132,11 +137,11 @@ describe('nutrition targets store', () => {
         updatedAt,
       },
     });
-    expect(testState.insertRun).toHaveBeenCalledOnce();
+    expect(testState.insertReturning).toHaveBeenCalledOnce();
   });
 
   it('throws when an upsert does not yield a persisted row', async () => {
-    testState.selectGet.mockReturnValue(undefined);
+    testState.insertReturningGet.mockReturnValue(undefined);
 
     const { upsertNutritionTarget } = await import('./store.js');
 
