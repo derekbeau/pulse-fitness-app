@@ -68,6 +68,14 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   });
 
+  it('renders a stable register navigation link', () => {
+    renderLoginForm();
+
+    const registerLink = screen.getByTestId('login-register-link');
+    expect(registerLink).toHaveAttribute('id', 'login-register-link');
+    expect(registerLink).toHaveAttribute('href', '/register');
+  });
+
   it('shows validation errors when submitting an empty form', async () => {
     renderLoginForm();
 

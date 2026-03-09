@@ -69,6 +69,14 @@ describe('RegisterForm', () => {
     expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument();
   });
 
+  it('renders a stable sign-in navigation link', () => {
+    renderRegisterForm();
+
+    const signInLink = screen.getByTestId('register-signin-link');
+    expect(signInLink).toHaveAttribute('id', 'register-signin-link');
+    expect(signInLink).toHaveAttribute('href', '/login');
+  });
+
   it('shows validation errors for short username and password', async () => {
     renderRegisterForm();
 
