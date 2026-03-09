@@ -1,68 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DailyNutrition, DeleteMealResult, NutritionSummary } from '@pulse/shared';
 
 import { apiRequest } from '@/lib/api-client';
 
 import { nutritionKeys } from './keys';
-
-export type NutritionLog = {
-  id: string;
-  userId: string;
-  date: string;
-  notes: string | null;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type NutritionMealRecord = {
-  id: string;
-  nutritionLogId: string;
-  name: string;
-  time: string | null;
-  notes: string | null;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type NutritionMealItem = {
-  id: string;
-  mealId: string;
-  foodId: string | null;
-  name: string;
-  amount: number;
-  unit: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber: number | null;
-  sugar: number | null;
-  createdAt: number;
-};
-
-export type DailyNutrition = {
-  log: NutritionLog;
-  meals: Array<{
-    meal: NutritionMealRecord;
-    items: NutritionMealItem[];
-  }>;
-} | null;
-
-export type NutritionSummary = {
-  date: string;
-  meals: number;
-  actual: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
-  target: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  } | null;
-};
 
 export type DeleteMealInput = {
   date: string;
@@ -82,7 +23,7 @@ const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
   });
 
 const deleteMeal = ({ date, mealId }: DeleteMealInput) =>
-  apiRequest<{ success: true }>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
+  apiRequest<DeleteMealResult>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
     method: 'DELETE',
   });
 

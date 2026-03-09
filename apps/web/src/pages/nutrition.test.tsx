@@ -1,63 +1,16 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NutritionPage } from '@/pages/nutrition';
 import { createQueryClientWrapper } from '@/test/query-client';
 
-type ApiMealItem = {
-  id: string;
-  mealId: string;
-  foodId: string | null;
-  name: string;
-  amount: number;
-  unit: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber: number | null;
-  sugar: number | null;
-  createdAt: number;
-};
-
-type ApiMeal = {
-  meal: {
-    id: string;
-    nutritionLogId: string;
-    name: string;
-    time: string | null;
-    notes: string | null;
-    createdAt: number;
-    updatedAt: number;
-  };
-  items: ApiMealItem[];
-};
-
-type ApiDailyNutrition = {
-  log: {
-    id: string;
-    userId: string;
-    date: string;
-    notes: string | null;
-    createdAt: number;
-    updatedAt: number;
-  };
-  meals: ApiMeal[];
-} | null;
-
-type MacroTotals = {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
-
 type DateState = {
-  daily: ApiDailyNutrition;
-  target: MacroTotals | null;
+  daily: DailyNutrition;
+  target: NutritionMacroTotals | null;
 };
 
-const TARGETS: MacroTotals = {
+const TARGETS: NutritionMacroTotals = {
   calories: 2300,
   protein: 190,
   carbs: 260,
@@ -71,11 +24,11 @@ function createJsonResponse(data: unknown, status = 200) {
   });
 }
 
-function cloneDaily(daily: ApiDailyNutrition): ApiDailyNutrition {
-  return daily ? (JSON.parse(JSON.stringify(daily)) as ApiDailyNutrition) : null;
+function cloneDaily(daily: DailyNutrition): DailyNutrition {
+  return daily ? (JSON.parse(JSON.stringify(daily)) as DailyNutrition) : null;
 }
 
-function calculateActuals(daily: ApiDailyNutrition): MacroTotals {
+function calculateActuals(daily: DailyNutrition): NutritionMacroTotals {
   if (!daily) {
     return {
       calories: 0,
@@ -117,7 +70,7 @@ function createMeal(args: {
     carbs: number;
     fat: number;
   }>;
-}): ApiMeal {
+}): DailyNutritionMeal {
   return {
     meal: {
       id: args.id,
@@ -532,5 +485,27 @@ describe('NutritionPage', () => {
 
     expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
+  });
+
+  it('shows no-target copy and hides macro rings when no daily target is configured', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: null,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const dailyTotals = screen.getByLabelText('Daily macro totals');
+
+    expect(within(dailyTotals).getAllByText('/ No target set')).toHaveLength(4);
+    expect(screen.getByText(/No daily macro target is set yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eaten' })).not.toBeInTheDocument();
   });
 });

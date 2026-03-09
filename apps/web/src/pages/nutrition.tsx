@@ -64,7 +64,7 @@ export function NutritionPage() {
   );
 
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
-  const dailyTargets = dailySummaryQuery.data?.target ?? EMPTY_TOTALS;
+  const dailyTargets = dailySummaryQuery.data?.target ?? null;
   const isLoadingDay = dailyNutritionQuery.isPending || dailySummaryQuery.isPending;
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
@@ -130,8 +130,8 @@ export function NutritionPage() {
               <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
                 {MACRO_CONFIG.map((macro) => {
                   const actual = dailyTotals[macro.key];
-                  const target = dailyTargets[macro.key];
-                  const isOverTarget = actual > target;
+                  const target = dailyTargets?.[macro.key] ?? null;
+                  const isOverTarget = target !== null && actual > target;
 
                   return (
                     <div
@@ -144,7 +144,9 @@ export function NutritionPage() {
                       <p className="mt-2 text-sm font-semibold">
                         <span
                           className={cn(
-                            isOverTarget
+                            target === null
+                              ? 'text-foreground'
+                              : isOverTarget
                               ? 'text-red-900 dark:text-red-400'
                               : 'text-emerald-950 dark:text-emerald-400',
                             'text-lg tracking-tight',
@@ -152,10 +154,17 @@ export function NutritionPage() {
                         >
                           {macro.formatValue(actual)}
                         </span>
-                        <span className="opacity-70 dark:text-muted dark:opacity-100">
-                          {' '}
-                          / {macro.formatValue(target)}
-                        </span>
+                        {target === null ? (
+                          <span className="opacity-70 dark:text-muted dark:opacity-100">
+                            {' '}
+                            / No target set
+                          </span>
+                        ) : (
+                          <span className="opacity-70 dark:text-muted dark:opacity-100">
+                            {' '}
+                            / {macro.formatValue(target)}
+                          </span>
+                        )}
                       </p>
                     </div>
                   );
@@ -166,8 +175,10 @@ export function NutritionPage() {
 
           {isLoadingDay ? (
             <NutritionRingsSkeleton />
-          ) : (
+          ) : dailyTargets ? (
             <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
+          ) : (
+            <NutritionTargetsPlaceholder />
           )}
 
           {deleteErrorMessage ? (
@@ -198,6 +209,17 @@ export function NutritionPage() {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+function NutritionTargetsPlaceholder() {
+  return (
+    <section className="rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-8 text-center shadow-sm">
+      <h2 className="text-lg font-semibold text-foreground">Macro progress</h2>
+      <p className="mt-2 text-sm text-muted">
+        No daily macro target is set yet. Add one in settings to enable progress rings.
+      </p>
     </section>
   );
 }

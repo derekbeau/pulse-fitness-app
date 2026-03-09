@@ -1,5 +1,3 @@
-export const MEAL_ORDER = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'] as const;
-
 export type MacroTotals = {
   calories: number;
   protein: number;
@@ -13,16 +11,10 @@ type MealSource = {
   items: MacroSource[];
 };
 
-type ServingSource =
-  | {
-      amount: number;
-      unit: string;
-    }
-  | {
-      quantity: number;
-      servingSize: number;
-      servingUnit: string;
-    };
+type ServingSource = {
+  amount: number;
+  unit: string;
+};
 
 const DEFAULT_TOTALS: MacroTotals = {
   calories: 0,
@@ -84,11 +76,7 @@ export function formatGrams(value: number): string {
 }
 
 export function formatServing(item: ServingSource): string {
-  if ('amount' in item) {
-    return `${formatNumber(item.amount)} ${item.unit}`;
-  }
-
-  return `${formatNumber(item.quantity * item.servingSize)} ${item.servingUnit}`;
+  return `${formatNumber(item.amount)} ${item.unit}`;
 }
 
 export function formatDayLabel(date: string): string {

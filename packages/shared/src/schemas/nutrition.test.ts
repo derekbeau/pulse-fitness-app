@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CreateMealInput,
+  type DailyNutrition,
+  type DeleteMealResult,
   type MealItemInput,
+  type NutritionSummary,
   createMealInputSchema,
+  dailyNutritionSchema,
+  deleteMealResultSchema,
   mealItemInputSchema,
+  nutritionSummarySchema,
 } from './nutrition';
 
 describe('mealItemInputSchema', () => {
@@ -125,5 +131,125 @@ describe('createMealInputSchema', () => {
     };
 
     expect(meal.name).toBe('Breakfast');
+  });
+});
+
+describe('dailyNutritionSchema', () => {
+  it('parses a valid daily nutrition payload', () => {
+    const payload = dailyNutritionSchema.parse({
+      log: {
+        id: 'log-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      meals: [
+        {
+          meal: {
+            id: 'meal-1',
+            nutritionLogId: 'log-1',
+            name: 'Breakfast',
+            time: '07:20',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          items: [
+            {
+              id: 'item-1',
+              mealId: 'meal-1',
+              foodId: null,
+              name: 'Large Eggs',
+              amount: 3,
+              unit: 'eggs',
+              calories: 210,
+              protein: 18,
+              carbs: 1,
+              fat: 15,
+              fiber: null,
+              sugar: null,
+              createdAt: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(payload?.meals).toHaveLength(1);
+    expect(payload?.meals[0]?.items[0]?.name).toBe('Large Eggs');
+  });
+
+  it('accepts null when no log exists for the date', () => {
+    expect(dailyNutritionSchema.parse(null)).toBeNull();
+  });
+
+  it('infers DailyNutrition from the schema', () => {
+    const daily: DailyNutrition = null;
+    expect(daily).toBeNull();
+  });
+});
+
+describe('nutritionSummarySchema', () => {
+  it('parses summary payloads with and without target', () => {
+    const withTarget = nutritionSummarySchema.parse({
+      date: '2026-03-09',
+      meals: 3,
+      actual: {
+        calories: 2100,
+        protein: 180,
+        carbs: 220,
+        fat: 70,
+      },
+      target: {
+        calories: 2300,
+        protein: 190,
+        carbs: 260,
+        fat: 75,
+      },
+    });
+
+    const withoutTarget = nutritionSummarySchema.parse({
+      date: '2026-03-09',
+      meals: 0,
+      actual: {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      target: null,
+    });
+
+    expect(withTarget.target?.calories).toBe(2300);
+    expect(withoutTarget.target).toBeNull();
+  });
+
+  it('infers NutritionSummary from the schema', () => {
+    const summary: NutritionSummary = {
+      date: '2026-03-09',
+      meals: 1,
+      actual: {
+        calories: 210,
+        protein: 18,
+        carbs: 1,
+        fat: 15,
+      },
+      target: null,
+    };
+
+    expect(summary.actual.protein).toBe(18);
+  });
+});
+
+describe('deleteMealResultSchema', () => {
+  it('parses successful delete payloads', () => {
+    expect(deleteMealResultSchema.parse({ success: true })).toEqual({ success: true });
+  });
+
+  it('infers DeleteMealResult from the schema', () => {
+    const result: DeleteMealResult = { success: true };
+    expect(result.success).toBe(true);
   });
 });
