@@ -1,43 +1,51 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, ListChecks, Tag } from 'lucide-react';
+import { ArrowRight, ListChecks, Search, Tag } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription as DialogBody,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { mockTemplates, type WorkoutTemplate } from '@/lib/mock-data/workouts';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { mockTemplates } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
+// Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
+interface TemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  sections: Array<{ exercises: unknown[] }>;
+}
+
 type TemplateBrowserProps = {
+  buildTemplateHref: (templateId: string) => string;
   className?: string;
-  onStartTemplate: (templateId: WorkoutTemplate['id']) => void;
-  templates?: WorkoutTemplate[];
+  templates?: TemplateSummary[];
 };
 
 export function TemplateBrowser({
+  buildTemplateHref,
   className,
-  onStartTemplate,
-  templates = mockTemplates,
+  templates = mockTemplates as TemplateSummary[],
 }: TemplateBrowserProps) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<WorkoutTemplate['id'] | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
-  const selectedTemplate = useMemo(
-    () => templates.find((template) => template.id === selectedTemplateId) ?? null,
-    [selectedTemplateId, templates],
+  const filteredTemplates = useMemo(
+    () =>
+      templates.filter((template) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        const searchableText =
+          `${template.name} ${template.description ?? ''} ${template.tags.join(' ')}`
+            .trim()
+            .toLowerCase();
+
+        return searchableText.includes(normalizedQuery);
+      }),
+    [normalizedQuery, templates],
   );
 
   return (
@@ -49,24 +57,45 @@ export function TemplateBrowser({
         </p>
       </div>
 
+      <label className="relative block" htmlFor="template-search">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+        />
+        <Input
+          aria-label="Search templates by name"
+          autoComplete="off"
+          id="template-search"
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search templates by name"
+          type="search"
+          value={searchQuery}
+        />
+      </label>
+
       {templates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted">No workout templates are available yet.</p>
           </CardContent>
         </Card>
+      ) : filteredTemplates.length === 0 ? (
+        <Card>
+          <CardContent className="py-6">
+            <p className="text-sm text-muted">No templates match that search.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {templates.map((template) => {
+          {filteredTemplates.map((template) => {
             const exerciseCount = countTemplateExercises(template);
 
             return (
-              <button
+              <Link
                 aria-label={template.name}
                 className="cursor-pointer rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                to={buildTemplateHref(template.id)}
                 key={template.id}
-                onClick={() => setSelectedTemplateId(template.id)}
-                type="button"
               >
                 <div className="flex flex-col gap-4">
                   <div className="space-y-2">
@@ -74,7 +103,9 @@ export function TemplateBrowser({
                       <h3 className="text-xl font-semibold text-foreground">{template.name}</h3>
                       <ArrowRight aria-hidden="true" className="size-4 text-muted" />
                     </div>
-                    <p className="text-sm text-muted">{template.description}</p>
+                    {template.description ? (
+                      <p className="text-sm text-muted">{template.description}</p>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -96,76 +127,16 @@ export function TemplateBrowser({
                     </div>
                   </div>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
       )}
-
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedTemplateId(null);
-          }
-        }}
-        open={selectedTemplate !== null}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedTemplate ? `Start ${selectedTemplate.name}?` : 'Start template?'}</DialogTitle>
-            <DialogBody>
-              {selectedTemplate
-                ? `This mock flow will open an active workout using the ${selectedTemplate.name} template.`
-                : 'Choose a workout template to start.'}
-            </DialogBody>
-          </DialogHeader>
-
-          {selectedTemplate ? (
-            <Card className="gap-3 bg-secondary/35 py-0">
-              <CardHeader className="pb-0 pt-5">
-                <CardTitle className="text-base">{selectedTemplate.name}</CardTitle>
-                <CardDescription>{selectedTemplate.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2 pb-5">
-                <Badge className="border-border bg-card" variant="outline">
-                  {`${countTemplateExercises(selectedTemplate)} exercises`}
-                </Badge>
-                {selectedTemplate.tags.map((tag) => (
-                  <Badge className="border-border bg-card" key={tag} variant="outline">
-                    {formatLabel(tag)}
-                  </Badge>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              onClick={() => {
-                if (!selectedTemplate) {
-                  return;
-                }
-
-                onStartTemplate(selectedTemplate.id);
-                setSelectedTemplateId(null);
-              }}
-              type="button"
-            >
-              Start workout
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
 
-function countTemplateExercises(template: WorkoutTemplate) {
+function countTemplateExercises(template: TemplateSummary) {
   return template.sections.reduce((total, section) => total + section.exercises.length, 0);
 }
 

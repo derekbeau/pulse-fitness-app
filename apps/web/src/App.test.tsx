@@ -1,12 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
 import { workoutCompletedSessions } from '@/features/workouts';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/store/auth-store';
+import { jsonResponse } from '@/test/test-utils';
 
 const sessionId = workoutCompletedSessions[0]?.id ?? 'session-upper-push-2026-03-02';
 
@@ -45,6 +46,23 @@ const navRoutes = [
   { heading: 'Journal', path: '/journal' },
   { heading: 'Profile', path: '/profile' },
 ] as const;
+
+const workoutTemplatePayload = {
+  data: {
+    id: 'upper-push',
+    userId: 'user-1',
+    name: 'Upper Push',
+    description: 'Chest, shoulders, and triceps emphasis with controlled tempo work.',
+    tags: ['upper body', 'push'],
+    sections: [
+      { type: 'warmup', exercises: [] },
+      { type: 'main', exercises: [] },
+      { type: 'cooldown', exercises: [] },
+    ],
+    createdAt: 1,
+    updatedAt: 1,
+  },
+};
 
 function renderApp() {
   const queryClient = createAppQueryClient();
@@ -94,7 +112,35 @@ describe('App', () => {
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
     window.history.pushState({}, '', '/');
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(workoutTemplatePayload));
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
     setGuestState();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it.each(guestRoutes)(

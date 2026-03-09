@@ -4,11 +4,15 @@ import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
+import { exerciseRoutes } from './routes/exercises/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
 import { habitEntryCollectionRoutes } from './routes/habit-entries/index.js';
 import { habitRoutes } from './routes/habits/index.js';
 import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
+import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
 import { weightRoutes } from './routes/weight/index.js';
+import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
+import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 
@@ -34,11 +38,15 @@ export const buildServer = () => {
   app.get('/health', async () => ({ status: 'ok' }));
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
+  app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });
   app.register(foodsRoutes, { prefix: '/api/v1/foods' });
   app.register(habitRoutes, { prefix: '/api/v1/habits' });
   app.register(habitEntryCollectionRoutes, { prefix: '/api/v1/habit-entries' });
   app.register(nutritionTargetRoutes, { prefix: '/api/v1/nutrition-targets' });
+  app.register(scheduledWorkoutRoutes, { prefix: '/api/v1/scheduled-workouts' });
   app.register(weightRoutes, { prefix: '/api/v1/weight' });
+  app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });
+  app.register(workoutTemplateRoutes, { prefix: '/api/v1/workout-templates' });
 
   return app;
 };

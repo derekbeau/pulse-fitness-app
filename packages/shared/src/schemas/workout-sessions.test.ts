@@ -1,0 +1,288 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  createWorkoutSessionInputSchema,
+  sessionSetInputSchema,
+  type CreateWorkoutSessionInput,
+  type UpdateWorkoutSessionInput,
+  type WorkoutSession,
+  type WorkoutSessionFeedback,
+  type WorkoutSessionListItem,
+  workoutSessionFeedbackSchema,
+  workoutSessionListItemSchema,
+  workoutSessionQueryParamsSchema,
+  workoutSessionSchema,
+  updateWorkoutSessionInputSchema,
+} from './workout-sessions';
+
+describe('workoutSessionFeedbackSchema', () => {
+  it('normalizes optional notes and infers the feedback type', () => {
+    const feedback: WorkoutSessionFeedback = workoutSessionFeedbackSchema.parse({
+      energy: 4,
+      recovery: 3,
+      technique: 5,
+      notes: ' Strong focus today. ',
+    });
+
+    expect(feedback).toEqual({
+      energy: 4,
+      recovery: 3,
+      technique: 5,
+      notes: 'Strong focus today.',
+    });
+  });
+});
+
+describe('sessionSetInputSchema', () => {
+  it('applies defaults for optional set fields', () => {
+    expect(
+      sessionSetInputSchema.parse({
+        exerciseId: 'bench-press',
+        setNumber: 1,
+      }),
+    ).toEqual({
+      exerciseId: 'bench-press',
+      setNumber: 1,
+      weight: null,
+      reps: null,
+      completed: false,
+      skipped: false,
+      section: null,
+      notes: null,
+    });
+  });
+
+  it('rejects conflicting completion flags', () => {
+    expect(() =>
+      sessionSetInputSchema.parse({
+        exerciseId: 'bench-press',
+        setNumber: 1,
+        completed: true,
+        skipped: true,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('workoutSessionSchema', () => {
+  it('parses a persisted workout session with nested sets', () => {
+    const session: WorkoutSession = workoutSessionSchema.parse({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: ' Upper Push ',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_600,
+      duration: 60,
+      feedback: {
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        notes: ' Strong lockout ',
+      },
+      notes: ' Great session overall. ',
+      sets: [
+        {
+          id: 'set-1',
+          exerciseId: 'bench-press',
+          setNumber: 1,
+          weight: 185,
+          reps: 8,
+          completed: true,
+          skipped: false,
+          section: 'main',
+          notes: ' Smooth bar path ',
+          createdAt: 1_700_000_000_500,
+        },
+      ],
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_004_000,
+    });
+
+    expect(session).toEqual({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_600,
+      duration: 60,
+      feedback: {
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        notes: 'Strong lockout',
+      },
+      notes: 'Great session overall.',
+      sets: [
+        {
+          id: 'set-1',
+          exerciseId: 'bench-press',
+          setNumber: 1,
+          weight: 185,
+          reps: 8,
+          completed: true,
+          skipped: false,
+          section: 'main',
+          notes: 'Smooth bar path',
+          createdAt: 1_700_000_000_500,
+        },
+      ],
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_004_000,
+    });
+  });
+
+  it('rejects inconsistent completion timing', () => {
+    expect(() =>
+      workoutSessionSchema.parse({
+        id: 'session-1',
+        userId: 'user-1',
+        templateId: null,
+        name: 'Conditioning',
+        date: '2026-03-12',
+        status: 'completed',
+        startedAt: 10,
+        completedAt: null,
+        duration: null,
+        feedback: null,
+        notes: null,
+        sets: [],
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('createWorkoutSessionInputSchema', () => {
+  it('normalizes optional fields and infers the create input type', () => {
+    const payload: CreateWorkoutSessionInput = createWorkoutSessionInputSchema.parse({
+      templateId: ' template-1 ',
+      name: ' Lower Body ',
+      date: '2026-03-13',
+      status: 'completed',
+      startedAt: 2000,
+      completedAt: 2600,
+      duration: 45,
+      feedback: {
+        energy: 5,
+        recovery: 4,
+        technique: 4,
+        notes: ' Strong positions ',
+      },
+      notes: ' Hit depth consistently ',
+      sets: [
+        {
+          exerciseId: 'high-bar-back-squat',
+          setNumber: 1,
+          reps: 5,
+          weight: 275,
+          completed: true,
+          section: 'main',
+          notes: ' Fast concentric ',
+        },
+      ],
+    });
+
+    expect(payload).toEqual({
+      templateId: 'template-1',
+      name: 'Lower Body',
+      date: '2026-03-13',
+      status: 'completed',
+      startedAt: 2000,
+      completedAt: 2600,
+      duration: 45,
+      feedback: {
+        energy: 5,
+        recovery: 4,
+        technique: 4,
+        notes: 'Strong positions',
+      },
+      notes: 'Hit depth consistently',
+      sets: [
+        {
+          exerciseId: 'high-bar-back-squat',
+          setNumber: 1,
+          reps: 5,
+          weight: 275,
+          completed: true,
+          skipped: false,
+          section: 'main',
+          notes: 'Fast concentric',
+        },
+      ],
+    });
+  });
+
+  it('rejects completed sessions without completedAt', () => {
+    expect(() =>
+      createWorkoutSessionInputSchema.parse({
+        name: 'Upper Push',
+        date: '2026-03-12',
+        status: 'completed',
+        startedAt: 10,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('updateWorkoutSessionInputSchema', () => {
+  it('allows nullable field clearing in partial updates', () => {
+    const payload: UpdateWorkoutSessionInput = updateWorkoutSessionInputSchema.parse({
+      templateId: null,
+      feedback: null,
+      notes: '   ',
+    });
+
+    expect(payload).toEqual({
+      templateId: null,
+      feedback: null,
+      notes: null,
+    });
+  });
+
+  it('rejects empty updates', () => {
+    expect(() => updateWorkoutSessionInputSchema.parse({})).toThrow();
+  });
+});
+
+describe('workoutSessionListItemSchema', () => {
+  it('parses nullable template metadata in list items', () => {
+    const item: WorkoutSessionListItem = workoutSessionListItemSchema.parse({
+      id: 'session-1',
+      name: ' Conditioning ',
+      date: '2026-03-12',
+      status: 'in-progress',
+      templateId: null,
+      templateName: null,
+      startedAt: 1_700_000_000_000,
+      completedAt: null,
+      duration: null,
+      createdAt: 1_700_000_000_000,
+    });
+
+    expect(item.templateId).toBeNull();
+    expect(item.templateName).toBeNull();
+    expect(item.name).toBe('Conditioning');
+  });
+});
+
+describe('workoutSessionQueryParamsSchema', () => {
+  it('requires from to be before or equal to to', () => {
+    expect(workoutSessionQueryParamsSchema.parse({ from: '2026-03-10', to: '2026-03-12' })).toEqual(
+      {
+        from: '2026-03-10',
+        to: '2026-03-12',
+      },
+    );
+
+    expect(() =>
+      workoutSessionQueryParamsSchema.parse({ from: '2026-03-12', to: '2026-03-10' }),
+    ).toThrow();
+  });
+});
