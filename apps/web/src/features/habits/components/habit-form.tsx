@@ -178,42 +178,42 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
             </select>
           </div>
 
-          {requiresGoal ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="habit-target">
-                  Target
-                </label>
-                <Input
-                  id="habit-target"
-                  min="0"
-                  name="target"
-                  step="any"
-                  type="number"
-                  className={cn(errors.target && 'border-destructive')}
-                  onChange={(event) => updateField('target', event.target.value)}
-                  placeholder="8"
-                  value={formState.target}
-                />
-                {errors.target ? <p className="text-sm text-destructive">{errors.target}</p> : null}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="habit-unit">
-                  Unit
-                </label>
-                <Input
-                  id="habit-unit"
-                  name="unit"
-                  className={cn(errors.unit && 'border-destructive')}
-                  onChange={(event) => updateField('unit', event.target.value)}
-                  placeholder="glasses"
-                  value={formState.unit}
-                />
-                {errors.unit ? <p className="text-sm text-destructive">{errors.unit}</p> : null}
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="habit-target">
+                Target
+              </label>
+              <Input
+                id="habit-target"
+                min="0"
+                name="target"
+                step="any"
+                type="number"
+                className={cn(errors.target && 'border-destructive')}
+                disabled={!requiresGoal}
+                onChange={(event) => updateField('target', event.target.value)}
+                placeholder="8"
+                value={formState.target}
+              />
+              {errors.target ? <p className="text-sm text-destructive">{errors.target}</p> : null}
             </div>
-          ) : null}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="habit-unit">
+                Unit
+              </label>
+              <Input
+                id="habit-unit"
+                name="unit"
+                className={cn(errors.unit && 'border-destructive')}
+                disabled={!requiresGoal}
+                onChange={(event) => updateField('unit', event.target.value)}
+                placeholder="glasses"
+                value={formState.unit}
+              />
+              {errors.unit ? <p className="text-sm text-destructive">{errors.unit}</p> : null}
+            </div>
+          </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <Button className="sm:order-2" type="submit">

@@ -294,7 +294,10 @@ export function DailyHabits() {
       ) : (
         <div className="grid gap-4">
           {dailyHabits.map((habit) => {
-            const value = habit.todayValue;
+            const value =
+              habit.trackingType === 'boolean' || draftValues[habit.id] === undefined
+                ? habit.todayValue
+                : parseInputValue(draftValues[habit.id]);
             const isComplete = getHabitCompletion(habit, value);
             const progressText = getProgressText(habit, value);
             const progressPercent = getProgressPercent(habit, value);

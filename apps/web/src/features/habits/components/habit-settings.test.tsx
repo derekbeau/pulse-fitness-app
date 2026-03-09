@@ -214,7 +214,7 @@ describe('HabitSettings', () => {
     );
   });
 
-  it('hides target and unit fields for boolean habits', () => {
+  it('shows target and unit fields for boolean habits in a disabled state', () => {
     render(<HabitSettings />);
 
     const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
@@ -226,8 +226,8 @@ describe('HabitSettings', () => {
     fireEvent.click(addHabitButton);
 
     expect(screen.getByLabelText('Tracking type')).toHaveValue('boolean');
-    expect(screen.queryByLabelText('Target')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Unit')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Target')).toBeDisabled();
+    expect(screen.getByLabelText('Unit')).toBeDisabled();
   });
 
   it('closes the form when cancel is pressed', () => {

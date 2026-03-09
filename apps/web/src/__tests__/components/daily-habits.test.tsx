@@ -210,6 +210,16 @@ describe('DailyHabits', () => {
     });
   });
 
+  it('reflects numeric progress from draft input before blur', () => {
+    render(<DailyHabits />);
+
+    const input = screen.getByRole('spinbutton', { name: 'Hydrate' });
+    fireEvent.change(input, { target: { value: '8' } });
+
+    expect(screen.getAllByText('8 / 8 glasses')).toHaveLength(2);
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
   it('creates a numeric or time entry through the upsert mutation when none exists yet', () => {
     render(<DailyHabits />);
 
