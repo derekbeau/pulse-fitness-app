@@ -5,7 +5,7 @@ import { dateSchema } from './common.js';
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 const nonnegativeNumber = z.number().nonnegative().finite();
 
-const mealTimeSchema = z.string().regex(/^\d{2}:\d{2}$/);
+const mealTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 export const nutritionMacroTotalsSchema = z.object({
   calories: nonnegativeNumber,

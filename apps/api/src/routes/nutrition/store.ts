@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
 import type { CreateMealInput } from '@pulse/shared';
 
-import { mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
+import { foods, mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
 
 export type NutritionLogRecord = {
   id: string;
@@ -173,6 +173,21 @@ export const createMealForDate = async (
       fiber: toNullable(item.fiber),
       sugar: toNullable(item.sugar),
     }));
+
+    const foodIds = [
+      ...new Set(itemValues.map((item) => item.foodId).filter((foodId): foodId is string => foodId !== null)),
+    ];
+    if (foodIds.length > 0) {
+      const ownedFoods = tx
+        .select({ id: foods.id })
+        .from(foods)
+        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId)))
+        .all();
+
+      if (ownedFoods.length !== foodIds.length) {
+        throw new Error('One or more foodIds do not belong to this user');
+      }
+    }
 
     const items = tx.insert(mealItems).values(itemValues).returning(mealItemSelection).all();
 

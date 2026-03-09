@@ -402,10 +402,6 @@ const parseData = <T>(response: { json: () => unknown }) => {
   return (response.json() as { data: T }).data;
 };
 
-const waitForClockTick = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 5));
-};
-
 const createTestApp = async () => {
   process.env.JWT_SECRET = 'integration-test-jwt-secret';
 
@@ -474,6 +470,8 @@ const createMealViaApi = async (
 
 describe('foods and nutrition integration', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-01T00:00:00.000Z'));
     testState.reset();
   });
 
@@ -565,7 +563,7 @@ describe('foods and nutrition integration', () => {
         ],
       });
 
-      await waitForClockTick();
+      vi.advanceTimersByTime(5);
       await createMealViaApi(app, userToken, '2026-03-09', {
         name: 'Snack',
         items: [
@@ -861,7 +859,7 @@ describe('foods and nutrition integration', () => {
       const firstUseFood = parseData<StoredFood[]>(afterFirstUseResponse)[0];
       expect(firstUseFood?.lastUsedAt).not.toBeNull();
 
-      await waitForClockTick();
+      vi.advanceTimersByTime(5);
       await createMealViaApi(app, userToken, '2026-03-14', {
         name: 'Breakfast',
         items: [
