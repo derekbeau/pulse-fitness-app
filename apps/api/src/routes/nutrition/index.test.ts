@@ -128,6 +128,8 @@ describe('nutrition routes', () => {
               protein: 70,
               carbs: 0,
               fat: 8,
+              fiber: 0,
+              sugar: 0,
             },
             {
               name: 'Olive Oil',
@@ -162,6 +164,8 @@ describe('nutrition routes', () => {
             protein: 70,
             carbs: 0,
             fat: 8,
+            fiber: 0,
+            sugar: 0,
           },
           {
             name: 'Olive Oil',
@@ -175,6 +179,52 @@ describe('nutrition routes', () => {
         ],
       });
       expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledWith('food-1', 'user-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('does not fail meal creation when recency updates fail', async () => {
+    vi.mocked(createMealForDate).mockResolvedValue({
+      meal,
+      items: mealItems,
+    });
+    vi.mocked(updateFoodLastUsedAt).mockRejectedValueOnce(new Error('transient update failure'));
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/nutrition/2026-03-09/meals',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: 'Lunch',
+          items: [
+            {
+              foodId: 'food-1',
+              name: 'Chicken Breast',
+              amount: 8,
+              unit: 'oz',
+              calories: 374,
+              protein: 70,
+              carbs: 0,
+              fat: 8,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        data: {
+          meal,
+          items: mealItems,
+        },
+      });
       expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
@@ -382,6 +432,7 @@ describe('nutrition routes', () => {
       const authToken = app.jwt.sign({ userId: 'user-1' });
       const [
         invalidDateResponse,
+        invalidCalendarDateResponse,
         invalidSummaryDateResponse,
         invalidPayloadResponse,
         invalidDeleteParamsResponse,
@@ -390,6 +441,11 @@ describe('nutrition routes', () => {
           app.inject({
             method: 'GET',
             url: '/api/v1/nutrition/03-09-2026',
+            headers: createAuthorizationHeader(authToken),
+          }),
+          app.inject({
+            method: 'GET',
+            url: '/api/v1/nutrition/2026-02-30',
             headers: createAuthorizationHeader(authToken),
           }),
           app.inject({
@@ -416,6 +472,13 @@ describe('nutrition routes', () => {
 
       expect(invalidDateResponse.statusCode).toBe(400);
       expect(invalidDateResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid nutrition date',
+        },
+      });
+      expect(invalidCalendarDateResponse.statusCode).toBe(400);
+      expect(invalidCalendarDateResponse.json()).toEqual({
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid nutrition date',

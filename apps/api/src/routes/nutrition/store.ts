@@ -160,29 +160,25 @@ export const createMealForDate = async (
       throw new Error('Failed to persist meal');
     }
 
-    const items = input.items.map((item) => {
-      const mealItem = tx
-        .insert(mealItems)
-        .values({
-          mealId: meal.id,
-          foodId: toNullable(item.foodId),
-          name: item.name,
-          amount: item.amount,
-          unit: item.unit,
-          calories: item.calories,
-          protein: item.protein,
-          carbs: item.carbs,
-          fat: item.fat,
-        })
-        .returning(mealItemSelection)
-        .get();
+    const itemValues = input.items.map((item) => ({
+      mealId: meal.id,
+      foodId: toNullable(item.foodId),
+      name: item.name,
+      amount: item.amount,
+      unit: item.unit,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: toNullable(item.fiber),
+      sugar: toNullable(item.sugar),
+    }));
 
-      if (!mealItem) {
-        throw new Error('Failed to persist meal item');
-      }
+    const items = tx.insert(mealItems).values(itemValues).returning(mealItemSelection).all();
 
-      return mealItem;
-    });
+    if (items.length !== input.items.length) {
+      throw new Error('Failed to persist meal items');
+    }
 
     return { meal, items };
   });

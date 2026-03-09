@@ -14,7 +14,14 @@ import {
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-const isValidDateParam = (date: string) => DATE_PATTERN.test(date);
+const isValidDateParam = (date: string) => {
+  if (!DATE_PATTERN.test(date)) {
+    return false;
+  }
+
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
+};
 const isValidMealIdParam = (mealId: string) => mealId.trim().length > 0;
 const isNonEmptyString = (value: string | null): value is string =>
   typeof value === 'string' && value.length > 0;
@@ -35,7 +42,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     const created = await createMealForDate(request.userId, request.params.date, parsedBody.data);
 
     const foodIds = [...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString))];
-    await Promise.all(foodIds.map((foodId) => updateFoodLastUsedAt(foodId, request.userId)));
+    await Promise.allSettled(foodIds.map((foodId) => updateFoodLastUsedAt(foodId, request.userId)));
 
     return reply.code(201).send({
       data: created,

@@ -24,6 +24,8 @@ describe('mealItemInputSchema', () => {
       protein: 6,
       carbs: 65,
       fat: 1,
+      fiber: 2.5,
+      sugar: 1,
     });
 
     expect(item).toEqual({
@@ -35,6 +37,8 @@ describe('mealItemInputSchema', () => {
       protein: 6,
       carbs: 65,
       fat: 1,
+      fiber: 2.5,
+      sugar: 1,
     });
   });
 
@@ -48,6 +52,7 @@ describe('mealItemInputSchema', () => {
         protein: 6,
         carbs: 65,
         fat: 1,
+        fiber: -1,
       }),
     ).toThrow();
   });
@@ -61,6 +66,8 @@ describe('mealItemInputSchema', () => {
       protein: 14,
       carbs: 0,
       fat: 0,
+      fiber: 0,
+      sugar: 0,
     };
 
     expect(item.protein).toBe(14);

@@ -81,6 +81,8 @@ export const mealItemInputSchema = z.object({
   protein: nonnegativeNumber,
   carbs: nonnegativeNumber,
   fat: nonnegativeNumber,
+  fiber: nonnegativeNumber.optional(),
+  sugar: nonnegativeNumber.optional(),
 });
 
 export const createMealInputSchema = z.object({
