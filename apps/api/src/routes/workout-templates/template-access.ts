@@ -6,6 +6,7 @@ export const templateBelongsToUser = async (
   templateId: string,
   userId: string,
 ): Promise<boolean> => {
+  // Shared by scheduled-workouts and workout-sessions routes to keep ownership checks consistent.
   const { db } = await import('../../db/index.js');
 
   const template = db

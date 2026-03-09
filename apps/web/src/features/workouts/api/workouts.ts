@@ -149,6 +149,7 @@ export function useWorkoutTemplate(id: string) {
 export function useExercises(params: ExerciseQueryParams) {
   return useQuery<ExercisesResponse>({
     placeholderData: (previousData) => previousData,
+    // getExercises already validates/normalizes with the shared schema.
     queryFn: () => getExercises(params),
     queryKey: workoutQueryKeys.exercises(params),
   });
