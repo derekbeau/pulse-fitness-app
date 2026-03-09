@@ -103,6 +103,7 @@ const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
     return leftSectionIndex - rightSectionIndex;
   }
 
+  // TODO(pr-12): Persist session-set exercise order explicitly (orderIndex) once session editing supports reordering.
   // Session sets do not yet persist an exercise order index, so UUID order is the deterministic fallback.
   if (left.exerciseId !== right.exerciseId) {
     return left.exerciseId.localeCompare(right.exerciseId);
