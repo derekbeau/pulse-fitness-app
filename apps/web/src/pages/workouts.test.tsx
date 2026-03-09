@@ -27,6 +27,17 @@ describe('WorkoutsPage', () => {
         );
       }
 
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
       throw new Error(`Unhandled request: ${url.pathname}`);
     });
   });
@@ -78,7 +89,7 @@ describe('WorkoutsPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lower Quad-Dominant' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Lower Quad-Dominant' }));
 
     expect(
       screen.getByRole('heading', { name: 'Template lower-quad-dominant' }),
@@ -96,16 +107,19 @@ describe('WorkoutsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 
-    expect(screen.getByLabelText(/search templates by name/i)).toHaveAttribute('id', 'template-search');
-    expect(screen.getByRole('button', { name: 'Upper Push' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Lower Quad-Dominant' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: /search templates by name/i })).toHaveAttribute(
+      'id',
+      'template-search',
+    );
+    expect(screen.getByRole('link', { name: 'Upper Push' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lower Quad-Dominant' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('textbox', { name: /search templates by name/i }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: /search templates by name/i }), {
       target: { value: 'upper' },
     });
 
-    expect(screen.getByRole('button', { name: 'Upper Push' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Lower Quad-Dominant' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upper Push' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Lower Quad-Dominant' })).not.toBeInTheDocument();
   });
 });
 

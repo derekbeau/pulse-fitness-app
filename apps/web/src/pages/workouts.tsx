@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +9,6 @@ import {
 } from '@/features/workouts';
 
 export function WorkoutsPage() {
-  const navigate = useNavigate();
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
@@ -80,9 +78,7 @@ export function WorkoutsPage() {
       ) : activeView === 'list' ? (
         <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
-        <TemplateBrowser
-          onOpenTemplate={(templateId) => navigate(`/workouts/template/${templateId}`)}
-        />
+        <TemplateBrowser buildTemplateHref={(templateId) => `/workouts/template/${templateId}`} />
       ) : (
         <ExerciseLibrary />
       )}

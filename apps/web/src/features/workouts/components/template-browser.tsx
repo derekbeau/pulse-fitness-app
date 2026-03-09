@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, Search, Tag } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,14 +9,14 @@ import { mockTemplates, type WorkoutTemplate } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
 type TemplateBrowserProps = {
+  buildTemplateHref: (templateId: WorkoutTemplate['id']) => string;
   className?: string;
-  onOpenTemplate: (templateId: WorkoutTemplate['id']) => void;
   templates?: WorkoutTemplate[];
 };
 
 export function TemplateBrowser({
+  buildTemplateHref,
   className,
-  onOpenTemplate,
   templates = mockTemplates,
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,7 +29,11 @@ export function TemplateBrowser({
           return true;
         }
 
-        return template.name.toLowerCase().includes(normalizedQuery);
+        const searchableText = `${template.name} ${template.description} ${template.tags.join(' ')}`
+          .trim()
+          .toLowerCase();
+
+        return searchableText.includes(normalizedQuery);
       }),
     [normalizedQuery, templates],
   );
@@ -49,9 +54,11 @@ export function TemplateBrowser({
         />
         <Input
           aria-label="Search templates by name"
+          autoComplete="off"
           id="template-search"
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search templates by name"
+          type="search"
           value={searchQuery}
         />
       </label>
@@ -74,12 +81,11 @@ export function TemplateBrowser({
             const exerciseCount = countTemplateExercises(template);
 
             return (
-              <button
+              <Link
                 aria-label={template.name}
                 className="cursor-pointer rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                to={buildTemplateHref(template.id)}
                 key={template.id}
-                onClick={() => onOpenTemplate(template.id)}
-                type="button"
               >
                 <div className="flex flex-col gap-4">
                   <div className="space-y-2">
@@ -109,7 +115,7 @@ export function TemplateBrowser({
                     </div>
                   </div>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
