@@ -193,8 +193,12 @@ const isDashboardTrendMetric = (value: string): value is DashboardTrendMetric =>
   trendMetricSet.has(value as DashboardTrendMetric);
 
 const toDashboardTrendMetrics = (metrics: string[] | null | undefined): DashboardTrendMetric[] => {
-  if (!metrics || metrics.length === 0) {
+  if (!metrics) {
     return DEFAULT_DASHBOARD_TREND_METRICS;
+  }
+
+  if (metrics.length === 0) {
+    return [];
   }
 
   const validMetrics = metrics.filter(isDashboardTrendMetric);
@@ -397,25 +401,23 @@ export const upsertDashboardConfig = async (
   userId: string,
   input: DashboardConfig,
 ): Promise<DashboardConfig> => {
-  const config = dashboardConfigSchema.parse(input);
-
   db.insert(dashboardConfigTable)
     .values({
       userId,
-      habitChainIds: config.habitChainIds,
-      trendMetrics: config.trendMetrics,
-      widgetOrder: config.widgetOrder ?? null,
+      habitChainIds: input.habitChainIds,
+      trendMetrics: input.trendMetrics,
+      widgetOrder: input.widgetOrder ?? null,
     })
     .onConflictDoUpdate({
       target: dashboardConfigTable.userId,
       set: {
-        habitChainIds: config.habitChainIds,
-        trendMetrics: config.trendMetrics,
-        widgetOrder: config.widgetOrder ?? null,
+        habitChainIds: input.habitChainIds,
+        trendMetrics: input.trendMetrics,
+        widgetOrder: input.widgetOrder ?? null,
         updatedAt: Date.now(),
       },
     })
     .run();
 
-  return config;
+  return input;
 };

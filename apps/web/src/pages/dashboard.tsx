@@ -30,6 +30,7 @@ export function DashboardPage() {
   const greeting = getDashboardGreeting();
 
   const snapshotQuery = useDashboardSnapshot(selectedDateKey);
+  // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);

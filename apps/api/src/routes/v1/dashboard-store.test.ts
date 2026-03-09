@@ -266,6 +266,23 @@ describe('dashboard store', () => {
     expect(testState.select).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves an explicitly empty stored trend-metric selection', async () => {
+    testState.selectGetResults.push({
+      habitChainIds: ['habit-1'],
+      trendMetrics: [],
+      widgetOrder: null,
+    });
+
+    const { getDashboardConfig } = await import('./dashboard-store.js');
+    const config = await getDashboardConfig('user-1');
+
+    expect(config).toEqual({
+      habitChainIds: ['habit-1'],
+      trendMetrics: [],
+    });
+    expect(testState.select).toHaveBeenCalledTimes(1);
+  });
+
   it('returns default dashboard config with active habits when none is stored', async () => {
     testState.selectGetResults.push(undefined);
     testState.selectAllResults.push([{ id: 'habit-1' }, { id: 'habit-3' }]);

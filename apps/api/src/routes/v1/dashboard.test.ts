@@ -480,6 +480,8 @@ describe('dashboard routes', () => {
         missingSnapshotAuthResponse,
         missingTrendAuthResponse,
         missingConfigAuthResponse,
+        missingConfigPutAuthResponse,
+        missingConfigPostAuthResponse,
         invalidSnapshotAuthResponse,
       ] =
         await Promise.all([
@@ -496,6 +498,22 @@ describe('dashboard routes', () => {
             url: '/api/v1/dashboard/config',
           }),
           app.inject({
+            method: 'PUT',
+            url: '/api/v1/dashboard/config',
+            payload: {
+              habitChainIds: ['habit-1'],
+              trendMetrics: ['weight'],
+            },
+          }),
+          app.inject({
+            method: 'POST',
+            url: '/api/v1/dashboard/config',
+            payload: {
+              habitChainIds: ['habit-1'],
+              trendMetrics: ['weight'],
+            },
+          }),
+          app.inject({
             method: 'GET',
             url: '/api/v1/dashboard/snapshot',
             headers: createAuthorizationHeader('not-a-valid-token'),
@@ -506,6 +524,8 @@ describe('dashboard routes', () => {
         missingSnapshotAuthResponse,
         missingTrendAuthResponse,
         missingConfigAuthResponse,
+        missingConfigPutAuthResponse,
+        missingConfigPostAuthResponse,
         invalidSnapshotAuthResponse,
       ]) {
         expect(response.statusCode).toBe(401);
