@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -67,12 +67,12 @@ describe('WorkoutsPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Exercise Library' })).toBeInTheDocument();
   });
 
-  it('starts a selected template from the templates view', () => {
+  it('opens template detail when selecting a template card from the templates view', () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
-          <Route element={<TemplateRouteProbe />} path="/workouts/active" />
+          <Route element={<TemplateRouteProbe />} path="/workouts/template/:templateId" />
         </Routes>
       </MemoryRouter>,
     );
@@ -80,19 +80,36 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Lower Quad-Dominant' }));
 
-    expect(screen.getByRole('heading', { name: 'Start Lower Quad-Dominant?' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start workout' }));
-
     expect(
       screen.getByRole('heading', { name: 'Template lower-quad-dominant' }),
     ).toBeInTheDocument();
   });
+
+  it('filters templates by name with the search input', () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+
+    expect(screen.getByRole('button', { name: 'Upper Push' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lower Quad-Dominant' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: /search templates by name/i }), {
+      target: { value: 'upper' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Upper Push' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lower Quad-Dominant' })).not.toBeInTheDocument();
+  });
 });
 
 function TemplateRouteProbe() {
-  const location = useLocation();
-  const templateId = new URLSearchParams(location.search).get('template');
+  const { templateId } = useParams();
 
   return <h1>{`Template ${templateId}`}</h1>;
 }

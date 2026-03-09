@@ -81,7 +81,7 @@ export function WorkoutsPage() {
         <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
         <TemplateBrowser
-          onStartTemplate={(templateId) => navigate(`/workouts/active?template=${templateId}`)}
+          onOpenTemplate={(templateId) => navigate(`/workouts/template/${templateId}`)}
         />
       ) : (
         <ExerciseLibrary />
