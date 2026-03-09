@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ui/progress-ring';
@@ -108,7 +109,11 @@ export function MacroRings({ snapshot = mockDailySnapshot }: MacroRingsProps) {
           );
 
           return (
-            <div className="flex flex-col items-center gap-2" data-slot="macro-ring-item" key={macro.key}>
+            <div
+              className="flex flex-col items-center gap-2"
+              data-slot="macro-ring-item"
+              key={macro.key}
+            >
               <div className="w-full max-w-[106px] px-1">
                 <ProgressRing
                   aria-label={`${macro.label} progress`}

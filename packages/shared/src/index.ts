@@ -7,6 +7,7 @@ export * from './schemas/entity-links.js';
 export * from './schemas/equipment.js';
 export * from './schemas/health-conditions.js';
 export * from './schemas/journal.js';
+export * from './schemas/foods.js';
 export * from './schemas/resources.js';
 
 export const userSchema = z.object({
