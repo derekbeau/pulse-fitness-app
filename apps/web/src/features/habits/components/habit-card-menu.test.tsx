@@ -232,6 +232,23 @@ describe('HabitCardMenu', () => {
     expect(screen.getByRole('button', { name: 'Save pause' })).toBeDisabled();
   });
 
+  it('disables pause dialog actions while a mutation is pending', async () => {
+    const sleepHabit = getHabitById('sleep');
+    const updateMutation = createMutationMock();
+    updateMutation.isPending = true;
+    mockedUseUpdateHabit.mockReturnValue(
+      updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
+    );
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
+
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pause indefinitely' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save pause' })).toBeDisabled();
+  });
+
   it('shows resume scheduling for paused habits and clears pausedUntil', async () => {
     const pausedHabit = {
       ...getHabitById('sleep'),

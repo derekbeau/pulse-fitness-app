@@ -29,8 +29,6 @@ const toDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const getWeekEndKey = (weekStart: Date) => toDateKey(new Date(weekStart.getTime() + 6 * MS_PER_DAY));
-
 export function isHabitScheduledForDate(
   habit: SchedulableHabit,
   date: string,
@@ -45,20 +43,18 @@ export function isHabitScheduledForDate(
   }
 
   if (habit.frequency === 'specific_days') {
-    const dayOfWeek = parseUtcDate(date).getUTCDay();
+    const dayOfWeek = (parseUtcDate(date).getUTCDay() + 6) % 7;
     return habit.scheduledDays?.includes(dayOfWeek) ?? false;
   }
 
   const weeklyTarget = habit.frequencyTarget ?? 1;
   const weekStartKey = toDateKey(getWeekStartUtc(date));
-  const weekEndKey = getWeekEndKey(getWeekStartUtc(date));
   const completionsThisWeek = entries.filter(
     (entry) =>
       entry.habitId === habit.id &&
       entry.completed &&
       entry.date >= weekStartKey &&
-      entry.date <= weekEndKey &&
-      entry.date <= date,
+      entry.date < date,
   ).length;
 
   return completionsThisWeek < weeklyTarget;

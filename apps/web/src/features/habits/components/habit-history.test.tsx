@@ -45,7 +45,7 @@ const habits: Habit[] = [
     unit: null,
     frequency: 'specific_days',
     frequencyTarget: null,
-    scheduledDays: [2],
+    scheduledDays: [1],
     pausedUntil: null,
     updatedAt: 2,
     userId: 'user-1',

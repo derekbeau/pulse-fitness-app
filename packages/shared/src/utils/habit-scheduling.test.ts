@@ -22,14 +22,13 @@ describe('isHabitScheduledForDate', () => {
       id: 'habit-2',
       frequency: 'specific_days' as const,
       frequencyTarget: null,
-      scheduledDays: [1, 3, 5],
+      scheduledDays: [0],
       pausedUntil: null,
     };
 
     expect(isHabitScheduledForDate(habit, '2026-03-09')).toBe(true);
     expect(isHabitScheduledForDate(habit, '2026-03-10')).toBe(false);
-    expect(isHabitScheduledForDate(habit, '2026-03-11')).toBe(true);
-    expect(isHabitScheduledForDate(habit, '2026-03-13')).toBe(true);
+    expect(isHabitScheduledForDate(habit, '2026-03-08')).toBe(false);
   });
 
   it('does not schedule paused habits when pausedUntil is in the future', () => {
@@ -57,7 +56,7 @@ describe('isHabitScheduledForDate', () => {
     expect(isHabitScheduledForDate(habit, '2026-03-02')).toBe(true);
   });
 
-  it('stops scheduling weekly habits after meeting target in the same week', () => {
+  it('keeps weekly habits scheduled on the completing day and stops after target is met', () => {
     const habit = {
       id: 'habit-5',
       frequency: 'weekly' as const,
@@ -73,7 +72,7 @@ describe('isHabitScheduledForDate', () => {
       { habitId: 'habit-6', date: '2026-03-10', completed: true },
     ];
 
-    expect(isHabitScheduledForDate(habit, '2026-03-10', entries)).toBe(false);
+    expect(isHabitScheduledForDate(habit, '2026-03-10', entries)).toBe(true);
     expect(isHabitScheduledForDate(habit, '2026-03-11', entries)).toBe(false);
   });
 });

@@ -246,10 +246,16 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button onClick={() => setIsPauseDialogOpen(false)} type="button" variant="outline">
+            <Button
+              disabled={isPending}
+              onClick={() => setIsPauseDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
               Cancel
             </Button>
             <Button
+              disabled={isPending}
               onClick={() => void handlePauseScheduling(INDEFINITE_PAUSE_DATE)}
               type="button"
               variant="secondary"
@@ -257,7 +263,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
               Pause indefinitely
             </Button>
             <Button
-              disabled={pauseUntil.trim().length === 0 || pauseUntil < todayKey}
+              disabled={isPending || pauseUntil.trim().length === 0 || pauseUntil < todayKey}
               onClick={() => void handlePauseScheduling(pauseUntil)}
               type="button"
             >
