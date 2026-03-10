@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { PREVIEW_BANNER_DEFAULT_MESSAGE } from '@/components/ui/preview-banner';
 import { mockActivities, sortActivitiesByDateDesc } from '@/features/activity';
 import { toDateKey } from '@/lib/date-utils';
 import { ActivityPage } from '@/pages/activity';
@@ -8,10 +9,15 @@ import { ActivityPage } from '@/pages/activity';
 const sortedActivities = sortActivitiesByDateDesc(mockActivities);
 
 describe('ActivityPage', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('renders the activity list sorted newest first with formatted metadata', () => {
     render(<ActivityPage />);
 
     expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.getByText(PREVIEW_BANNER_DEFAULT_MESSAGE)).toBeInTheDocument();
     expect(
       screen.getByText(
         /Review recent movement sessions outside structured workouts, with quick filtering by activity type and linked journal context\./,
