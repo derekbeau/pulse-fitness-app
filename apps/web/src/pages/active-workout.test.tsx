@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
+import {
+  buildSessionSetInputs,
+  extractExerciseNotes,
+} from '@/features/workouts/lib/session-notes';
 
-import { ActiveWorkoutPage, buildSessionSetInputs, extractExerciseNotes } from './active-workout';
+import { ActiveWorkoutPage } from './active-workout';
 
 describe('ActiveWorkoutPage', () => {
   beforeEach(() => {
@@ -282,18 +286,6 @@ describe('ActiveWorkoutPage', () => {
       extractExerciseNotes([
         {
           completed: true,
-          createdAt: 1,
-          exerciseId: 'incline-dumbbell-press',
-          id: 'set-1',
-          notes: ' Keep shoulders packed ',
-          reps: 10,
-          section: 'main',
-          setNumber: 1,
-          skipped: false,
-          weight: 50,
-        },
-        {
-          completed: true,
           createdAt: 2,
           exerciseId: 'incline-dumbbell-press',
           id: 'set-2',
@@ -303,6 +295,18 @@ describe('ActiveWorkoutPage', () => {
           setNumber: 2,
           skipped: false,
           weight: 45,
+        },
+        {
+          completed: true,
+          createdAt: 1,
+          exerciseId: 'incline-dumbbell-press',
+          id: 'set-1',
+          notes: ' Keep shoulders packed ',
+          reps: 10,
+          section: 'main',
+          setNumber: 1,
+          skipped: false,
+          weight: 50,
         },
         {
           completed: true,

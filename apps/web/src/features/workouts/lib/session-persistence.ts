@@ -1,3 +1,5 @@
+import type { ActiveWorkoutSetDrafts } from '@/features/workouts/types';
+
 export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'pulse.active-workout-session-id';
 export const ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX = 'pulse.active-workout-draft';
 export const WORKOUT_SESSION_NOTICE_QUERY_KEY = 'sessionNotice';
@@ -5,18 +7,7 @@ export const WORKOUT_SESSION_COMPLETED_NOTICE = 'completed';
 
 type ActiveWorkoutDraft = {
   exerciseNotes: Record<string, string>;
-  setDrafts: Record<
-    string,
-    Array<{
-      completed: boolean;
-      distance: number | null;
-      id: string;
-      number: number;
-      reps: number | null;
-      seconds: number | null;
-      weight: number | null;
-    }>
-  >;
+  setDrafts: ActiveWorkoutSetDrafts;
 };
 
 function canUseLocalStorage() {

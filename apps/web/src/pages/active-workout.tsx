@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import type {
   ExerciseTrackingType,
-  SessionSetInput,
   SessionSet,
   WorkoutSessionFeedback,
   WorkoutTemplate as ApiWorkoutTemplate,
@@ -61,6 +60,10 @@ import {
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
+import {
+  buildSessionSetInputs,
+  extractExerciseNotes,
+} from '@/features/workouts/lib/session-notes';
 import { ApiError } from '@/lib/api-client';
 import {
   mockExercises,
@@ -202,11 +205,20 @@ export function ActiveWorkoutPage() {
     );
     const serverExerciseNotes = extractExerciseNotes(activeSession.sets);
     const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+    const previousDraftKey = hydratedDraftKeyRef.current;
 
     setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
     hydratedSessionIdRef.current = activeSession.id;
     hydratedDraftKeyRef.current = activeSession.id;
+
+    if (previousDraftKey && previousDraftKey !== activeSession.id) {
+      clearStoredActiveWorkoutDraft(previousDraftKey);
+    }
+
+    if (template.id !== activeSession.id) {
+      clearStoredActiveWorkoutDraft(template.id);
+    }
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -820,66 +832,6 @@ function createSessionSetDrafts(
   return drafts;
 }
 
-export function extractExerciseNotes(sessionSets: SessionSet[]) {
-  const exerciseNotes: Record<string, string> = {};
-
-  for (const set of sessionSets) {
-    const normalizedNotes = normalizeExerciseNote(set.notes);
-    if (!normalizedNotes || exerciseNotes[set.exerciseId]) {
-      continue;
-    }
-
-    exerciseNotes[set.exerciseId] = normalizedNotes;
-  }
-
-  return exerciseNotes;
-}
-
-export function buildSessionSetInputs(
-  setDrafts: ActiveWorkoutSetDrafts,
-  templateExerciseById: Map<
-    string,
-    {
-      exercise: MockWorkoutTemplate['sections'][number]['exercises'][number];
-      section: WorkoutTemplateSectionType;
-      trackingType: ExerciseTrackingType;
-    }
-  >,
-  exerciseNotes: Record<string, string>,
-): SessionSetInput[] {
-  const sessionSets: SessionSetInput[] = [];
-
-  for (const [exerciseId, draftSets] of Object.entries(setDrafts)) {
-    const templateExercise = templateExerciseById.get(exerciseId);
-    const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[exerciseId]);
-    const trackingType = templateExercise?.trackingType ?? 'weight_reps';
-    const isTimeBased =
-      trackingType === 'weight_seconds' ||
-      trackingType === 'reps_seconds' ||
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio';
-
-    for (const draftSet of [...draftSets].sort((left, right) => left.number - right.number)) {
-      sessionSets.push({
-        completed: draftSet.completed,
-        exerciseId,
-        notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
-        reps: isTimeBased ? draftSet.seconds : draftSet.reps,
-        section: templateExercise?.section ?? null,
-        setNumber: draftSet.number,
-        skipped: false,
-        weight: draftSet.weight,
-      });
-    }
-  }
-
-  return sessionSets;
-}
-
-function normalizeExerciseNote(note: string | null | undefined) {
-  const normalized = note?.trim();
-  return normalized ? normalized : null;
-}
 function mapFeedbackDraftToSessionFeedback(
   draft: ActiveWorkoutFeedbackDraft,
 ): WorkoutSessionFeedback {
