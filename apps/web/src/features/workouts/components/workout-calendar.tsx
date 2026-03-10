@@ -230,7 +230,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
 
         <aside
           className={cn(
-            'flex min-h-0 flex-col gap-4 rounded-3xl border p-5 shadow-sm',
+            'order-first flex min-h-0 flex-col gap-4 rounded-3xl border p-5 shadow-sm lg:order-none',
             accentPanel,
           )}
           id="workout-day-details"

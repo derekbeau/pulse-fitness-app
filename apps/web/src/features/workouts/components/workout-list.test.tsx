@@ -1,57 +1,48 @@
 import { screen } from '@testing-library/react';
 import type { WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
-import { parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
-import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutList } from './workout-list';
 
-beforeEach(() => {
-  window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
-});
-
-afterEach(() => {
-  window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
-  vi.restoreAllMocks();
-});
-
 describe('WorkoutList', () => {
-  it('groups completed sessions by Monday-based week in reverse chronological order', async () => {
+  it('groups sessions into upcoming and completed sections with status-specific indicators', async () => {
     const sessions = [
       createSession({
-        id: 'session-1',
-        date: '2026-03-08',
+        id: 'session-upcoming',
+        date: '2026-03-14',
+        status: 'scheduled',
         templateId: 'template-push',
         templateName: 'Upper Push',
       }),
       createSession({
-        id: 'session-2',
-        date: '2026-03-04',
+        id: 'session-in-progress',
+        date: '2026-03-12',
+        status: 'in-progress',
         templateId: 'template-push',
         templateName: 'Upper Push',
       }),
       createSession({
-        id: 'session-3',
-        date: '2026-02-26',
+        id: 'session-completed',
+        date: '2026-03-10',
+        status: 'completed',
         templateId: 'template-legs',
         templateName: 'Lower Body',
+        duration: 49,
       }),
     ];
 
-    mockWorkoutListRequests({ sessions });
-    renderWorkoutList();
+    renderWorkoutList(sessions);
 
-    expect((await screen.findAllByRole('link', { name: /upper push/i })).length).toBeGreaterThan(0);
-
-    const headings = screen
-      .getAllByRole('heading', { level: 2 })
-      .map((heading) => heading.textContent);
-
-    expect(headings).toEqual(getExpectedWeekHeadings(sessions));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
+    expect(screen.getByText('Planned')).toBeInTheDocument();
+    expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Scheduled /)).toBeInTheDocument();
+    expect(screen.getByText('49 min')).toBeInTheDocument();
   });
 
   it('renders a workout card with summary stats and session detail link', async () => {
@@ -59,6 +50,7 @@ describe('WorkoutList', () => {
       createSession({
         id: 'session-10',
         date: '2026-03-10',
+        status: 'completed',
         templateId: 'template-push',
         templateName: 'Upper Push',
         exerciseCount: 7,
@@ -66,8 +58,7 @@ describe('WorkoutList', () => {
       }),
     ];
 
-    mockWorkoutListRequests({ sessions });
-    renderWorkoutList();
+    renderWorkoutList(sessions);
 
     expect(await screen.findByRole('link', { name: /upper push/i })).toHaveAttribute(
       'href',
@@ -77,86 +68,39 @@ describe('WorkoutList', () => {
     expect(screen.getByText('7 exercises')).toBeInTheDocument();
   });
 
-  it('shows an empty state when no completed sessions are returned', async () => {
-    mockWorkoutListRequests({ sessions: [] });
-    renderWorkoutList();
+  it('shows planned-workout onboarding when no scheduled sessions exist', async () => {
+    renderWorkoutList([
+      createSession({
+        id: 'session-11',
+        status: 'completed',
+        date: '2026-03-01',
+      }),
+    ]);
 
-    expect(await screen.findByText('No completed workouts yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No workouts planned')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Plan a workout' })).toHaveAttribute(
+      'href',
+      '/workouts?view=templates',
+    );
+    expect(screen.getByRole('link', { name: 'Browse templates' })).toHaveAttribute(
+      'href',
+      '/workouts?view=templates',
+    );
+  });
+
+  it('shows an empty state when no workout sessions are returned', async () => {
+    renderWorkoutList([]);
+
+    expect(await screen.findByText('No workouts yet. Plan one to get started.')).toBeInTheDocument();
   });
 });
 
-function renderWorkoutList() {
+function renderWorkoutList(sessions: WorkoutSessionListItem[]) {
   return renderWithQueryClient(
     <MemoryRouter>
-      <WorkoutList />
+      <WorkoutList sessions={sessions} />
     </MemoryRouter>,
   );
-}
-
-function mockWorkoutListRequests({ sessions }: { sessions: WorkoutSessionListItem[] }) {
-  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-    const url = String(input);
-
-    if (url.includes('/api/v1/workout-sessions?status=completed')) {
-      return Promise.resolve(jsonResponse({ data: sessions }));
-    }
-
-    if (url.includes('/api/v1/workout-templates')) {
-      return Promise.resolve(
-        jsonResponse({
-          data: [
-            {
-              id: 'template-push',
-              userId: 'user-1',
-              name: 'Upper Push',
-              description: null,
-              tags: ['push'],
-              sections: [
-                { type: 'warmup', exercises: [] },
-                { type: 'main', exercises: [] },
-                { type: 'cooldown', exercises: [] },
-              ],
-              createdAt: 1,
-              updatedAt: 1,
-            },
-            {
-              id: 'template-legs',
-              userId: 'user-1',
-              name: 'Lower Body',
-              description: null,
-              tags: ['legs'],
-              sections: [
-                { type: 'warmup', exercises: [] },
-                { type: 'main', exercises: [] },
-                { type: 'cooldown', exercises: [] },
-              ],
-              createdAt: 1,
-              updatedAt: 1,
-            },
-          ],
-        }),
-      );
-    }
-
-    throw new Error(`Unhandled request: ${url}`);
-  });
-}
-
-function getExpectedWeekHeadings(sessions: WorkoutSessionListItem[]) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-
-  const weekStarts = [...new Set(sessions.map((session) => toWeekKey(session.date)))]
-    .map(parseDateKey)
-    .sort((left, right) => right.getTime() - left.getTime());
-
-  return weekStarts.map((weekStart) => `Week of ${formatter.format(weekStart)}`);
-}
-
-function toWeekKey(dateKey: string) {
-  return toDateKey(startOfWeek(parseDateKey(dateKey)));
 }
 
 function createSession(overrides: Partial<WorkoutSessionListItem>): WorkoutSessionListItem {

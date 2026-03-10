@@ -117,6 +117,7 @@ describe('WorkoutCalendar', () => {
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect(screen.queryByLabelText('Completed workout')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No workout planned' })).toBeInTheDocument();
+    expect(document.getElementById('workout-day-details')).toHaveClass('order-first');
   });
 
   it('navigates between months', async () => {

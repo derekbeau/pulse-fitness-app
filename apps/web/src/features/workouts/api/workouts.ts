@@ -7,7 +7,9 @@ import {
   type ExerciseQueryParams,
   type WorkoutSession,
   type WorkoutSessionListItem,
+  type WorkoutSessionQueryParams,
   type WorkoutTemplate,
+  workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
   workoutSessionSchema,
   workoutTemplateSchema,
@@ -72,6 +74,7 @@ export const workoutQueryKeys = {
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   session: (id: string) => ['workouts', 'session', id] as const,
   sessions: () => ['workouts', 'sessions'] as const,
+  sessionsList: (params: WorkoutSessionQueryParams = {}) => ['workouts', 'sessions', params] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
 };
@@ -92,6 +95,35 @@ async function getCompletedSessions(signal?: AbortSignal) {
     '/api/v1/workout-sessions?status=completed',
     { method: 'GET', signal },
   );
+  const payload = completedSessionsResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal?: AbortSignal) {
+  const parsedParams = workoutSessionQueryParamsSchema.parse(params);
+  const searchParams = new URLSearchParams();
+
+  if (parsedParams.from) {
+    searchParams.set('from', parsedParams.from);
+  }
+
+  if (parsedParams.to) {
+    searchParams.set('to', parsedParams.to);
+  }
+
+  if (parsedParams.status) {
+    searchParams.set('status', parsedParams.status);
+  }
+
+  if (parsedParams.limit) {
+    searchParams.set('limit', String(parsedParams.limit));
+  }
+
+  const url = searchParams.size
+    ? `/api/v1/workout-sessions?${searchParams.toString()}`
+    : '/api/v1/workout-sessions';
+  const data = await apiRequest<unknown>(url, { method: 'GET', signal });
   const payload = completedSessionsResponseSchema.parse({ data });
 
   return payload.data;
@@ -174,6 +206,17 @@ export function useCompletedSessions() {
   return useQuery<WorkoutSessionListItem[]>({
     queryFn: ({ signal }) => getCompletedSessions(signal),
     queryKey: workoutQueryKeys.completedSessions(),
+  });
+}
+
+export function useWorkoutSessions(
+  params: WorkoutSessionQueryParams = {},
+  options?: { enabled?: boolean },
+) {
+  return useQuery<WorkoutSessionListItem[]>({
+    enabled: options?.enabled,
+    queryFn: ({ signal }) => getWorkoutSessions(params, signal),
+    queryKey: workoutQueryKeys.sessionsList(params),
   });
 }
 
