@@ -23,6 +23,10 @@ const existingHabit: Habit = {
   target: 8,
   trackingType: 'time',
   unit: 'hours',
+  frequency: 'daily',
+  frequencyTarget: null,
+  scheduledDays: null,
+  pausedUntil: null,
   updatedAt: 1,
   userId: 'user-1',
 };

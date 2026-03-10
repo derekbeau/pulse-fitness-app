@@ -1,4 +1,10 @@
-import { type DashboardConfig, DASHBOARD_WIDGET_IDS, type DashboardSnapshot, type Habit, type HabitEntry } from '@pulse/shared';
+import {
+  type DashboardConfig,
+  DASHBOARD_WIDGET_IDS,
+  type DashboardSnapshot,
+  type Habit,
+  type HabitEntry,
+} from '@pulse/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,6 +60,10 @@ const habits: Habit[] = [
     target: null,
     trackingType: 'boolean',
     unit: null,
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
     updatedAt: 1,
     userId: 'user-1',
   },
@@ -494,12 +504,7 @@ describe('DashboardPage', () => {
     expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
     expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');
     expect(logWeightForm).toBeInTheDocument();
-    expect(recentColumn).toHaveClass(
-      'order-3',
-      'md:col-span-2',
-      'xl:col-span-1',
-      'xl:col-start-3',
-    );
+    expect(recentColumn).toHaveClass('order-3', 'md:col-span-2', 'xl:col-span-1', 'xl:col-start-3');
     expect(weightTrendRow).toHaveClass('order-4', 'md:col-span-2', 'xl:col-span-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
@@ -768,7 +773,9 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     expect(screen.queryByRole('heading', { name: 'Weight Trend' })).not.toBeInTheDocument();
-    expect(container.querySelector('[data-slot="dashboard-weight-trend-row"]')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-slot="dashboard-weight-trend-row"]'),
+    ).not.toBeInTheDocument();
   });
 
   it('supports dashboard widget edit mode with save and cancel behavior', async () => {

@@ -763,6 +763,10 @@ describe('habits schema', () => {
       'trackingType',
       'target',
       'unit',
+      'frequency',
+      'frequencyTarget',
+      'scheduledDays',
+      'pausedUntil',
       'sortOrder',
       'active',
       'createdAt',
@@ -783,6 +787,7 @@ describe('habits schema', () => {
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['habits_user_id_idx']);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'habits_frequency_check',
       'habits_tracking_type_check',
     ]);
   });

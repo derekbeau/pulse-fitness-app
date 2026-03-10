@@ -18,6 +18,10 @@ function createHabit(id: string, name: string): Habit {
     trackingType: 'boolean',
     target: null,
     unit: null,
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
     sortOrder: 0,
     active: true,
     createdAt: 1,
@@ -179,7 +183,9 @@ describe('HabitsPage', () => {
 
     if (!selectedDayIsInCurrentWeek) {
       fireEvent.click(screen.getByRole('button', { name: 'Previous week' }));
-      expect(habitEntriesRequests).toContain(`from=${previousWeekStartKey}&to=${previousWeekEndKey}`);
+      expect(habitEntriesRequests).toContain(
+        `from=${previousWeekStartKey}&to=${previousWeekEndKey}`,
+      );
     }
 
     const selectedDayButton = document.querySelector(

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const habitTrackingTypeSchema = z.enum(['boolean', 'numeric', 'time']);
+export const habitFrequencySchema = z.enum(['daily', 'weekly', 'specific_days']);
 
 const nullableTrimmedString = (maxLength: number) =>
   z.string().trim().min(1).max(maxLength).nullable();
@@ -13,6 +14,14 @@ const habitDefinitionFieldsSchema = z.object({
   trackingType: habitTrackingTypeSchema,
   target: targetSchema.optional(),
   unit: nullableTrimmedString(50).optional(),
+  frequency: habitFrequencySchema.optional(),
+  frequencyTarget: z.number().int().min(1).max(7).nullable().optional(),
+  scheduledDays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  pausedUntil: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
 });
 
 const validateHabitDefinition = (
@@ -22,6 +31,9 @@ const validateHabitDefinition = (
   const requiresTarget = value.trackingType !== 'boolean';
   const target = value.target ?? null;
   const unit = value.unit ?? null;
+  const frequency = value.frequency ?? 'daily';
+  const frequencyTarget = value.frequencyTarget ?? null;
+  const scheduledDays = value.scheduledDays ?? null;
 
   if (requiresTarget) {
     if (target === null) {
@@ -39,24 +51,40 @@ const validateHabitDefinition = (
         path: ['unit'],
       });
     }
+  } else {
+    if (target !== null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Boolean habits cannot define a target',
+        path: ['target'],
+      });
+    }
 
-    return;
+    if (unit !== null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Boolean habits cannot define a unit',
+        path: ['unit'],
+      });
+    }
   }
 
-  if (target !== null) {
+  if (frequency === 'weekly' && frequencyTarget === null) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Boolean habits cannot define a target',
-      path: ['target'],
+      message: 'Weekly habits require frequencyTarget',
+      path: ['frequencyTarget'],
     });
   }
 
-  if (unit !== null) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Boolean habits cannot define a unit',
-      path: ['unit'],
-    });
+  if (frequency === 'specific_days') {
+    if (scheduledDays === null || scheduledDays.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Specific-day habits require scheduledDays',
+        path: ['scheduledDays'],
+      });
+    }
   }
 };
 
@@ -68,6 +96,28 @@ export const updateHabitInputSchema = habitDefinitionFieldsSchema
   .partial()
   .extend({
     active: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.frequency === 'weekly' && value.frequencyTarget === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Weekly habits require frequencyTarget',
+        path: ['frequencyTarget'],
+      });
+    }
+
+    if (
+      value.frequency === 'specific_days' &&
+      (value.scheduledDays === undefined ||
+        value.scheduledDays === null ||
+        value.scheduledDays.length === 0)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Specific-day habits require scheduledDays',
+        path: ['scheduledDays'],
+      });
+    }
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one field is required',
@@ -95,6 +145,13 @@ export const habitSchema = z.object({
   trackingType: habitTrackingTypeSchema,
   target: z.number().nullable(),
   unit: z.string().nullable(),
+  frequency: habitFrequencySchema,
+  frequencyTarget: z.number().int().min(1).max(7).nullable(),
+  scheduledDays: z.array(z.number().int().min(0).max(6)).nullable(),
+  pausedUntil: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
   sortOrder: z.number().int().nonnegative(),
   active: z.boolean(),
   createdAt: z.number().int(),
@@ -102,6 +159,7 @@ export const habitSchema = z.object({
 });
 
 export type HabitTrackingType = z.infer<typeof habitTrackingTypeSchema>;
+export type HabitFrequency = z.infer<typeof habitFrequencySchema>;
 export type CreateHabitInput = z.infer<typeof createHabitInputSchema>;
 export type UpdateHabitInput = z.infer<typeof updateHabitInputSchema>;
 export type ReorderHabitsInput = z.infer<typeof reorderHabitsInputSchema>;

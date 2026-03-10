@@ -3,11 +3,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  useDeleteHabit,
-  useReorderHabits,
-  useUpdateHabit,
-} from '@/features/habits/api/habits';
+import { useDeleteHabit, useReorderHabits, useUpdateHabit } from '@/features/habits/api/habits';
 import { HabitCardMenu } from '@/features/habits/components/habit-card-menu';
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
@@ -67,6 +63,10 @@ const habits: Habit[] = [
     target: 8,
     trackingType: 'numeric',
     unit: 'glasses',
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
     updatedAt: 1,
     userId: 'user-1',
   },
@@ -80,6 +80,10 @@ const habits: Habit[] = [
     target: 8,
     trackingType: 'time',
     unit: 'hours',
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
     updatedAt: 2,
     userId: 'user-1',
   },
@@ -93,6 +97,10 @@ const habits: Habit[] = [
     target: null,
     trackingType: 'boolean',
     unit: null,
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
     updatedAt: 3,
     userId: 'user-1',
   },
