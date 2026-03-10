@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { UtensilsCrossed } from 'lucide-react';
 
 import { MealCardSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
@@ -208,9 +210,15 @@ export function NutritionPage() {
                 />
               ))
             ) : (
-              <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-10 text-center shadow-sm">
-                <p className="text-sm font-medium text-muted">No meals logged for this day</p>
-              </div>
+              <EmptyState
+                action={{
+                  label: 'Log Meal',
+                  onClick: () => setSelectedDate(startOfDay(new Date())),
+                }}
+                description="Ask your agent to log a meal."
+                icon={UtensilsCrossed}
+                title="No meals logged today"
+              />
             )}
           </div>
         </>

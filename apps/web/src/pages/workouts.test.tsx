@@ -282,6 +282,63 @@ describe('WorkoutsPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
   });
 
+  it('renders the templates empty state and navigates to workout creation flow', async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+          <Route element={<ActiveWorkoutRouteProbe />} path="/workouts/active" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+
+    expect(await screen.findByRole('heading', { name: 'No workouts yet' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create Template' }));
+
+    expect(await screen.findByRole('heading', { name: 'Active workout page' })).toBeInTheDocument();
+  });
+
   it('shows a completion notice when redirected from an already-completed active session', () => {
     renderWithQueryClient(
       <MemoryRouter
@@ -301,6 +358,10 @@ function TemplateRouteProbe() {
   const { templateId } = useParams();
 
   return <h1>{`Template ${templateId}`}</h1>;
+}
+
+function ActiveWorkoutRouteProbe() {
+  return <h1>Active workout page</h1>;
 }
 
 function createDeferredResponse() {

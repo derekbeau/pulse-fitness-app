@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Dumbbell } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -19,10 +21,15 @@ export function WorkoutsPage() {
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templatesQuery = useWorkoutTemplates();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
+  const shouldShowTemplatesEmptyState =
+    !templatesQuery.isLoading &&
+    !templatesQuery.isError &&
+    (templatesQuery.data?.length ?? 0) === 0;
 
   return (
     <section className="space-y-6">
@@ -101,6 +108,16 @@ export function WorkoutsPage() {
               <WorkoutCardSkeleton key={index} />
             ))}
           </div>
+        ) : shouldShowTemplatesEmptyState ? (
+          <EmptyState
+            action={{
+              label: 'Create Template',
+              onClick: () => navigate('/workouts/active'),
+            }}
+            description="Create a template or ask your agent to build one."
+            icon={Dumbbell}
+            title="No workouts yet"
+          />
         ) : (
           <TemplateBrowser
             buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}

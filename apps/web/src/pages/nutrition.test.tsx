@@ -354,7 +354,8 @@ describe('NutritionPage', () => {
     expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
     expect(screen.getByText('Friday, Mar 6')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to next day' })).toBeDisabled();
-    expect(screen.getByText('No meals logged for this day')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log Meal' })).toBeInTheDocument();
     expect(within(dailyTotals).getByText(/\/ 2300 cal/)).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/nutrition/2026-03-06', expect.any(Object));

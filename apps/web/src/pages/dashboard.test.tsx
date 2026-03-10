@@ -633,6 +633,131 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
+
+  it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {
+    const emptySnapshot: DashboardSnapshot = {
+      date: '2026-03-06',
+      weight: null,
+      macros: {
+        actual: {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+        target: {
+          calories: 2300,
+          protein: 190,
+          carbs: 260,
+          fat: 75,
+        },
+      },
+      workout: null,
+      habits: {
+        total: 0,
+        completed: 0,
+        percentage: 0,
+      },
+    };
+
+    mockFetch.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
+
+      if (url.pathname === '/api/v1/dashboard/snapshot' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: emptySnapshot }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: dashboardConfig }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/habit-entries' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Not found',
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' }, status: 404 },
+        ),
+      );
+    });
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByRole('heading', { name: 'Welcome to Pulse!' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Start by setting up your habits and logging your first workout.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+  });
 });
 
 describe('getDashboardGreeting', () => {
