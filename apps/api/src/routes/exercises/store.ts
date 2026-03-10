@@ -235,6 +235,30 @@ export const findVisibleExerciseById = async ({
     .get();
 };
 
+export const findVisibleExerciseByName = async ({
+  name,
+  userId,
+}: {
+  name: string;
+  userId: string;
+}): Promise<Exercise | undefined> => {
+  const { db } = await import('../../db/index.js');
+  const normalizedName = name.trim().toLowerCase();
+
+  return db
+    .select(exerciseSelection)
+    .from(exercises)
+    .where(
+      and(
+        sql`lower(${exercises.name}) = ${normalizedName}`,
+        or(isNull(exercises.userId), eq(exercises.userId, userId)),
+      ),
+    )
+    .orderBy(sql`case when ${exercises.userId} is null then 1 else 0 end asc`, asc(exercises.name))
+    .limit(1)
+    .get();
+};
+
 export const findExerciseLastPerformance = async ({
   exerciseId,
   userId,

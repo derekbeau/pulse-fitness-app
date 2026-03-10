@@ -151,21 +151,9 @@ const createTestApp = async () => {
 
   vi.resetModules();
 
-  const [{ buildServer }, { requireAuth }] = await Promise.all([
-    import('../index.js'),
-    import('../middleware/auth.js'),
-  ]);
+  const { buildServer } = await import('../index.js');
 
   const app = buildServer();
-
-  await app.register(async (instance) => {
-    instance.addHook('onRequest', requireAuth);
-    instance.get('/api/agent/ping', async (request) => ({
-      data: {
-        userId: request.userId,
-      },
-    }));
-  });
 
   await app.ready();
 

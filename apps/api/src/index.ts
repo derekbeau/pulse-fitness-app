@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
+import { agentRoutes } from './routes/agent/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { exerciseRoutes } from './routes/exercises/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
@@ -38,6 +39,7 @@ export const buildServer = () => {
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
+  app.register(agentRoutes, { prefix: '/api/agent' });
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });

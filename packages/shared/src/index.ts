@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+export * from './schemas/agent.js';
 export * from './schemas/auth.js';
 export * from './schemas/activities.js';
 export * from './schemas/agent-tokens.js';
