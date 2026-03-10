@@ -77,10 +77,10 @@ const fetchWeightEntries = async (days: number | null) => {
 const formatWeight = (value: number) => `${numberFormatter.format(value)} lbs`;
 
 const formatInsightChange = (change: number) => {
-  const roundedChange = Number(change.toFixed(INSIGHT_PRECISION));
-  const signPrefix = roundedChange > 0 ? '+' : '';
-
-  return `${signPrefix}${roundedChange.toFixed(INSIGHT_PRECISION)} lbs`;
+  const formatted = change.toFixed(INSIGHT_PRECISION);
+  const numeric = Number(formatted);
+  const signPrefix = numeric > 0 ? '+' : '';
+  return `${signPrefix}${formatted} lbs`;
 };
 
 const getDirectionGlyph = (direction: 'up' | 'down' | 'stable') => {
@@ -230,77 +230,83 @@ export function WeightTrendChart() {
           </div>
         ) : (
           <>
-            <div aria-label="Weight trend chart" className="h-[280px] w-full sm:h-[320px]" role="img">
-              <ResponsiveContainer height="100%" width="100%">
-                <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 6, left: 2 }}>
-                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
-                  <XAxis
-                    axisLine={false}
-                    dataKey="date"
-                    minTickGap={20}
-                    tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: string) => axisDateFormatter.format(new Date(`${value}T12:00:00`))}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    domain={yDomain}
-                    tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => numberFormatter.format(value)}
-                    tickLine={false}
-                    width={50}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--color-card)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '14px',
-                      color: 'var(--color-foreground)',
-                    }}
-                    formatter={(value: number | undefined, name: string | undefined) => {
-                      if (name === 'scale') {
-                        return [formatWeight(value ?? 0), 'Scale Weight'];
-                      }
+            {!visibleSeries.scale && !visibleSeries.trend ? (
+              <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground sm:h-[320px]">
+                Enable at least one series to display the chart.
+              </div>
+            ) : (
+              <div aria-label="Weight trend chart" className="h-[280px] w-full sm:h-[320px]" role="img">
+                <ResponsiveContainer height="100%" width="100%">
+                  <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 6, left: 2 }}>
+                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+                    <XAxis
+                      axisLine={false}
+                      dataKey="date"
+                      minTickGap={20}
+                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      tickFormatter={(value: string) => axisDateFormatter.format(new Date(`${value}T12:00:00`))}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      domain={yDomain}
+                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      tickFormatter={(value: number) => numberFormatter.format(value)}
+                      tickLine={false}
+                      width={50}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '14px',
+                        color: 'var(--color-foreground)',
+                      }}
+                      formatter={(value: number | undefined, name: string | undefined) => {
+                        if (name === 'scale') {
+                          return [formatWeight(value ?? 0), 'Scale Weight'];
+                        }
 
-                      return [formatWeight(value ?? 0), 'Trend Weight'];
-                    }}
-                    labelFormatter={(label) =>
-                      typeof label === 'string'
-                        ? tooltipDateFormatter.format(new Date(`${label}T12:00:00`))
-                        : ''
-                    }
-                    separator=": "
-                  />
-                  {visibleSeries.scale ? (
-                    <Line
-                      dataKey="scale"
-                      dot={{ fill: SERIES_COLORS.scale, r: 3.5, strokeWidth: 0 }}
-                      isAnimationActive={false}
-                      name="scale"
-                      stroke={SERIES_COLORS.scale}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      type="monotone"
+                        return [formatWeight(value ?? 0), 'Trend Weight'];
+                      }}
+                      labelFormatter={(label) =>
+                        typeof label === 'string'
+                          ? tooltipDateFormatter.format(new Date(`${label}T12:00:00`))
+                          : ''
+                      }
+                      separator=": "
                     />
-                  ) : null}
-                  {visibleSeries.trend ? (
-                    <Line
-                      dataKey="trend"
-                      dot={{ fill: SERIES_COLORS.trend, r: 4, stroke: 'var(--color-card)', strokeWidth: 1.5 }}
-                      isAnimationActive={false}
-                      name="trend"
-                      stroke={SERIES_COLORS.trend}
-                      strokeDasharray="6 4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      type="monotone"
-                    />
-                  ) : null}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+                    {visibleSeries.scale ? (
+                      <Line
+                        dataKey="scale"
+                        dot={{ fill: SERIES_COLORS.scale, r: 3.5, strokeWidth: 0 }}
+                        isAnimationActive={false}
+                        name="scale"
+                        stroke={SERIES_COLORS.scale}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        type="monotone"
+                      />
+                    ) : null}
+                    {visibleSeries.trend ? (
+                      <Line
+                        dataKey="trend"
+                        dot={{ fill: SERIES_COLORS.trend, r: 4, stroke: 'var(--color-card)', strokeWidth: 1.5 }}
+                        isAnimationActive={false}
+                        name="trend"
+                        stroke={SERIES_COLORS.trend}
+                        strokeDasharray="6 4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        type="monotone"
+                      />
+                    ) : null}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-2" data-slot="weight-trend-legend">
               <LegendToggle

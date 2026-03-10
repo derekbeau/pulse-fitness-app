@@ -106,6 +106,7 @@ export function DashboardPage() {
   const [weightMessage, setWeightMessage] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
+  const [widgetVisibilityMessage, setWidgetVisibilityMessage] = useState('');
   const logWeightMutation = useLogWeight();
   const saveDashboardConfigMutation = useSaveDashboardConfig();
   const selectedDateKey = toDateKey(selectedDate);
@@ -147,25 +148,30 @@ export function DashboardPage() {
 
   function handleStartEditMode() {
     setVisibleWidgetsDraft(persistedVisibleWidgets);
+    setWidgetVisibilityMessage('');
     setIsEditMode(true);
   }
 
   function handleCancelEditMode() {
     setVisibleWidgetsDraft(null);
+    setWidgetVisibilityMessage('');
     setIsEditMode(false);
   }
 
   async function handleSaveWidgetVisibility() {
     const sourceConfig = dashboardConfigQuery.data ?? DEFAULT_DASHBOARD_CONFIG;
-
-    await saveDashboardConfigMutation.mutateAsync({
-      ...sourceConfig,
-      trendMetrics: [...sourceConfig.trendMetrics],
-      visibleWidgets,
-    });
-
-    setVisibleWidgetsDraft(null);
-    setIsEditMode(false);
+    try {
+      await saveDashboardConfigMutation.mutateAsync({
+        ...sourceConfig,
+        trendMetrics: [...sourceConfig.trendMetrics],
+        visibleWidgets,
+      });
+      setVisibleWidgetsDraft(null);
+      setWidgetVisibilityMessage('');
+      setIsEditMode(false);
+    } catch {
+      setWidgetVisibilityMessage('Unable to save widget visibility. Please try again.');
+    }
   }
 
   useEffect(() => {
@@ -262,7 +268,15 @@ export function DashboardPage() {
           </div>
         </div>
         {isEditMode ? (
-          <p className="text-sm text-muted-foreground">Hide or restore widgets, then save changes.</p>
+          <p
+            className={cn(
+              'text-sm',
+              widgetVisibilityMessage ? 'text-destructive' : 'text-muted-foreground',
+            )}
+            role="status"
+          >
+            {widgetVisibilityMessage || 'Hide or restore widgets, then save changes.'}
+          </p>
         ) : null}
         <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
       </header>

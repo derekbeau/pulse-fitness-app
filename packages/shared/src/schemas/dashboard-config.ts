@@ -15,19 +15,12 @@ export const DASHBOARD_WIDGET_IDS = {
   'weight-trend': 'Weight Trend',
 } as const;
 
+export const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
+
 export const dashboardConfigSchema = z.object({
   habitChainIds: nonEmptyStringArraySchema,
   trendMetrics: z.array(trendMetricSchema),
-  visibleWidgets: z.array(z.string().min(1)).default([
-    'snapshot-cards',
-    'macro-rings',
-    'habit-chain',
-    'trend-sparklines',
-    'recent-workouts',
-    'calendar',
-    'log-weight',
-    'weight-trend',
-  ]),
+  visibleWidgets: z.array(z.string().min(1)).default(() => [...DEFAULT_VISIBLE_WIDGETS]),
   widgetOrder: nonEmptyStringArraySchema.optional(),
 });
 

@@ -128,9 +128,17 @@ describe('weightQueryParamsSchema', () => {
     ).toThrow();
   });
 
+  it('rejects combined from and days params', () => {
+    expect(() =>
+      weightQueryParamsSchema.parse({
+        from: '2026-03-01',
+        days: 30,
+      }),
+    ).toThrow();
+  });
+
   it('infers the WeightQueryParams type from the schema', () => {
     const params: WeightQueryParams = {
-      from: '2026-03-01',
       to: '2026-03-07',
       days: 30,
     };

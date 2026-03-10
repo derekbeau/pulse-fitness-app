@@ -49,19 +49,23 @@ export function computeWeightInsights(
   const sortedResults = [...ewmaResults].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
-  const latestDate = new Date(sortedResults[sortedResults.length - 1].date);
-  const startDate = new Date(latestDate);
-  startDate.setDate(startDate.getDate() - Math.max(periodDays - 1, 0));
+  const startDate = new Date();
+  startDate.setUTCDate(startDate.getUTCDate() - Math.max(periodDays - 1, 0));
+  const periodStartDate = startDate.toISOString().slice(0, 10);
 
-  const periodResults = sortedResults.filter(
-    (result) => new Date(result.date).getTime() >= startDate.getTime(),
-  );
-  const scopedResults = periodResults.length > 0 ? periodResults : sortedResults;
+  const periodResults = sortedResults.filter((result) => result.date >= periodStartDate);
+  if (periodResults.length === 0) {
+    return {
+      avgWeight: 0,
+      periodChange: 0,
+      direction: 'stable',
+    };
+  }
 
-  const totalTrend = scopedResults.reduce((sum, result) => sum + result.trend, 0);
-  const avgWeight = totalTrend / scopedResults.length;
-  const firstTrend = scopedResults[0].trend;
-  const lastTrend = scopedResults[scopedResults.length - 1].trend;
+  const totalTrend = periodResults.reduce((sum, result) => sum + result.trend, 0);
+  const avgWeight = totalTrend / periodResults.length;
+  const firstTrend = periodResults[0].trend;
+  const lastTrend = periodResults[periodResults.length - 1].trend;
   const periodChange = lastTrend - firstTrend;
 
   const direction: 'up' | 'down' | 'stable' =

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { computeEWMA, computeWeightInsights, type WeightEntry } from './ewma';
 
@@ -66,6 +66,15 @@ describe('computeEWMA', () => {
 });
 
 describe('computeWeightInsights', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-04T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('computes average, change, and direction for a lookback period', () => {
     const ewmaResults = [
       { date: '2026-01-01', scale: 180, trend: 180 },
@@ -90,7 +99,24 @@ describe('computeWeightInsights', () => {
 
     const insights = computeWeightInsights(ewmaResults, 3);
 
-    expect(insights.periodChange).toBeCloseTo(0.07);
+    expect(insights.periodChange).toBeCloseTo(0.03);
     expect(insights.direction).toBe('stable');
+  });
+
+  it('returns zeroed insights when no entries fall within the requested period', () => {
+    const ewmaResults = [
+      { date: '2026-01-01', scale: 180, trend: 180 },
+      { date: '2026-01-02', scale: 181, trend: 180.4 },
+      { date: '2026-01-03', scale: 182, trend: 180.9 },
+    ];
+
+    vi.setSystemTime(new Date('2026-03-10T12:00:00.000Z'));
+    const insights = computeWeightInsights(ewmaResults, 7);
+
+    expect(insights).toEqual({
+      avgWeight: 0,
+      periodChange: 0,
+      direction: 'stable',
+    });
   });
 });

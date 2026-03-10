@@ -118,7 +118,7 @@ describe('WeightTrendChart', () => {
     expect(screen.getByText('Period average')).toBeInTheDocument();
     expect(screen.getByText(/3-day change:/)).toBeInTheDocument();
     expect(screen.getByText(/7-day change:/)).toBeInTheDocument();
-    expect(screen.getByLabelText('3-day direction down')).toBeInTheDocument();
+    expect(screen.getByLabelText('3-day direction stable')).toBeInTheDocument();
     expect(screen.getByLabelText('7-day direction down')).toBeInTheDocument();
   });
 
@@ -160,6 +160,10 @@ describe('WeightTrendChart', () => {
 
     expect(scaleToggle).toHaveAttribute('aria-pressed', 'false');
     expect(trendToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      screen.getByText('Enable at least one series to display the chart.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Weight trend chart' })).not.toBeInTheDocument();
   });
 
   it('renders empty state when no weight entries exist', async () => {

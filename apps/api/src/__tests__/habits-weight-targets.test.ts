@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { addUtcDays, getTodayDate } from '../lib/date.js';
+
 type StoredUser = {
   id: string;
   username: string;
@@ -98,16 +100,6 @@ const withoutUserId = <T extends { userId: string }>(value: T) => {
   void userId;
 
   return rest;
-};
-
-const getTodayDate = () => {
-  return new Date().toISOString().slice(0, 10);
-};
-
-const addUtcDays = (date: string, days: number) => {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + days);
-  return parsed.toISOString().slice(0, 10);
 };
 
 vi.mock('../routes/auth/store.js', () => ({

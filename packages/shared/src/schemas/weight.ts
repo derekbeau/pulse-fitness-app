@@ -36,6 +36,10 @@ export const weightQueryParamsSchema = z
   .refine(({ from, to }) => !from || !to || from <= to, {
     message: '`from` must be on or before `to`',
     path: ['from'],
+  })
+  .refine(({ from, days }) => from === undefined || days === undefined, {
+    message: '`from` and `days` cannot be used together',
+    path: ['from'],
   });
 
 export type BodyWeightEntry = z.infer<typeof bodyWeightEntrySchema>;

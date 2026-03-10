@@ -282,10 +282,10 @@ describe('SettingsPage', () => {
       screen.getByRole('checkbox', { name: /Track your daily protein intake trend/i }),
     ).toBeChecked();
     expect(
-      screen.getByRole('checkbox', { name: /Daily Snapshot Dashboard widget visibility/i }),
+      screen.getByRole('checkbox', { name: /Daily Snapshot.*daily body weight/i }),
     ).toBeChecked();
     expect(
-      screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }),
+      screen.getByRole('checkbox', { name: /Date Picker.*date picker for navigating/i }),
     ).toBeChecked();
   });
 
@@ -296,16 +296,16 @@ describe('SettingsPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('checkbox', { name: /Daily Snapshot Dashboard widget visibility/i }),
+        screen.getByRole('checkbox', { name: /Daily Snapshot.*daily body weight/i }),
       ).not.toBeChecked();
     });
 
     expect(screen.getByRole('checkbox', { name: /Weight Trend/i })).toBeChecked();
     expect(
-      screen.getByRole('checkbox', { name: /Recent Workouts Dashboard widget visibility/i }),
+      screen.getByRole('checkbox', { name: /Recent Workouts.*latest workout sessions/i }),
     ).toBeChecked();
     expect(
-      screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }),
+      screen.getByRole('checkbox', { name: /Date Picker.*date picker for navigating/i }),
     ).not.toBeChecked();
   });
 
@@ -329,7 +329,7 @@ describe('SettingsPage', () => {
     fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2250' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /Sleep/i }));
     fireEvent.click(screen.getByRole('checkbox', { name: /Track your recent body weight direction/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Date Picker.*date picker for navigating/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => {

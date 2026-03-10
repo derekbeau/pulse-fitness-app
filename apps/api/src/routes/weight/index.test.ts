@@ -288,6 +288,31 @@ describe('weight routes', () => {
     }
   });
 
+  it('rejects from and days query params when both are provided', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?from=2026-03-01&days=30',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid weight query params',
+        },
+      });
+      expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it('returns the latest body weight entry or null', async () => {
     vi.mocked(getLatestBodyWeightEntry)
       .mockResolvedValueOnce({

@@ -216,6 +216,7 @@ describe('DashboardPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
   let dashboardConfig: DashboardConfig;
   let snapshotsByDate: Record<string, DashboardSnapshot>;
+  let shouldFailDashboardConfigSave: boolean;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -229,6 +230,7 @@ describe('DashboardPage', () => {
       trendMetrics: ['weight', 'calories', 'protein'],
       visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
+    shouldFailDashboardConfigSave = false;
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const rawUrl =
@@ -257,6 +259,20 @@ describe('DashboardPage', () => {
       }
 
       if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'PUT') {
+        if (shouldFailDashboardConfigSave) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: 'SERVER_ERROR',
+                  message: 'Unavailable',
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 503 },
+            ),
+          );
+        }
+
         dashboardConfig = JSON.parse(String(init.body)) as DashboardConfig;
 
         return Promise.resolve(
@@ -807,6 +823,32 @@ describe('DashboardPage', () => {
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
       visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
     });
+  });
+
+  it('stays in edit mode and shows an error when widget visibility save fails', async () => {
+    shouldFailDashboardConfigSave = true;
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(
+      screen.getByText('Unable to save widget visibility. Please try again.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
   });
 
   it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {

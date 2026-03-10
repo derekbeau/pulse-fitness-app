@@ -94,6 +94,20 @@ const TREND_SPARKLINE_OPTIONS: Array<{
   },
 ];
 
+const DASHBOARD_WIDGET_DESCRIPTIONS: Record<keyof typeof DASHBOARD_WIDGET_IDS, string> = {
+  'snapshot-cards': 'Daily body weight, macros, workout, and habit completion snapshot.',
+  'macro-rings': 'Macro progress rings against your current daily targets.',
+  'habit-chain': 'Streak chains for habits selected in this settings page.',
+  'trend-sparklines': 'Compact trend charts for your chosen dashboard metrics.',
+  'recent-workouts': 'Latest workout sessions with completion status and duration.',
+  calendar: 'Date picker for navigating historical dashboard data.',
+  'log-weight': 'Quick form to log body weight for the selected date.',
+  'weight-trend': 'Detailed chart with raw scale and smoothed trend lines.',
+};
+const DASHBOARD_WIDGET_ENTRIES = Object.entries(DASHBOARD_WIDGET_IDS) as Array<
+  [keyof typeof DASHBOARD_WIDGET_IDS, string]
+>;
+
 type SettingsFormState = {
   dashboardConfig: {
     habitChainIds: string[];
@@ -711,7 +725,7 @@ export function SettingsPage() {
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              {Object.entries(DASHBOARD_WIDGET_IDS).map(([widgetId, widgetName]) => {
+              {DASHBOARD_WIDGET_ENTRIES.map(([widgetId, widgetName]) => {
                 const checkboxId = `widget-visibility-${widgetId}`;
 
                 return (
@@ -727,7 +741,7 @@ export function SettingsPage() {
                     />
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">{widgetName}</span>
-                      <p className="text-sm text-muted-foreground">Dashboard widget visibility</p>
+                      <p className="text-sm text-muted-foreground">{DASHBOARD_WIDGET_DESCRIPTIONS[widgetId]}</p>
                     </div>
                   </Label>
                 );

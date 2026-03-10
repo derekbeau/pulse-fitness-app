@@ -2,20 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DASHBOARD_WIDGET_IDS,
+  DEFAULT_VISIBLE_WIDGETS,
   type DashboardConfig,
   dashboardConfigSchema,
 } from './dashboard-config';
-
-const DEFAULT_VISIBLE_WIDGETS = [
-  'snapshot-cards',
-  'macro-rings',
-  'habit-chain',
-  'trend-sparklines',
-  'recent-workouts',
-  'calendar',
-  'log-weight',
-  'weight-trend',
-];
 
 describe('dashboardConfigSchema', () => {
   it('parses a complete dashboard config payload', () => {
