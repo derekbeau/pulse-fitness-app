@@ -15,6 +15,7 @@ import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts'
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
+import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
 import { useHabits } from '@/features/habits/api/habits';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { useLogWeight } from '@/features/weight/api/weight';
@@ -220,6 +221,7 @@ export function DashboardPage() {
               endDate={selectedDateKey}
               metrics={dashboardConfigQuery.data?.trendMetrics}
             />
+            <WeightTrendChart />
           </div>
 
           <div

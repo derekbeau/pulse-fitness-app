@@ -168,6 +168,33 @@ const macroTrendData = [
   },
 ];
 
+const weightEntriesData = [
+  {
+    id: 'weight-entry-1',
+    date: '2026-03-04',
+    weight: 181.8,
+    notes: null,
+    createdAt: 1,
+    updatedAt: 1,
+  },
+  {
+    id: 'weight-entry-2',
+    date: '2026-03-05',
+    weight: 181.2,
+    notes: null,
+    createdAt: 2,
+    updatedAt: 2,
+  },
+  {
+    id: 'weight-entry-3',
+    date: '2026-03-06',
+    weight: 181.4,
+    notes: null,
+    createdAt: 3,
+    updatedAt: 3,
+  },
+];
+
 const recentWorkoutsListData = [
   {
     id: 'recent-workout-1',
@@ -263,6 +290,15 @@ describe('DashboardPage', () => {
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: macroTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: weightEntriesData }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
@@ -374,6 +410,7 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Macro display mode')).toBeInTheDocument();
     expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Weight Trend' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
@@ -489,6 +526,15 @@ describe('DashboardPage', () => {
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: macroTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: weightEntriesData }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
@@ -663,9 +709,11 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
+    const trendSparklinesSection = screen.getByLabelText('Trend sparklines');
+
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
-    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
-    expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
+    expect(within(trendSparklinesSection).queryByText('Weight Trend')).not.toBeInTheDocument();
+    expect(within(trendSparklinesSection).queryByText('Calorie Trend')).not.toBeInTheDocument();
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
 
@@ -755,6 +803,15 @@ describe('DashboardPage', () => {
       }
 
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: [] }), {
             headers: { 'Content-Type': 'application/json' },
