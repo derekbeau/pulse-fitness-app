@@ -105,7 +105,14 @@ export function SessionSummary({
             <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
               Session notes
             </h2>
+            <label
+              className="text-xs font-medium text-muted"
+              htmlFor="session-summary-notes"
+            >
+              Session notes
+            </label>
             <Textarea
+              id="session-summary-notes"
               className="rounded-2xl border-black/10 bg-card dark:border-border"
               onChange={(event) => {
                 const nextValue = event.target.value;

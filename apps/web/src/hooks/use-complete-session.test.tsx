@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { createQueryClientWrapper } from '@/test/query-client';
 
@@ -96,6 +97,7 @@ describe('use-complete-session hook', () => {
       status: 'completed',
     });
 
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),

@@ -9,6 +9,7 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { clearStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { apiRequest } from '@/lib/api-client';
 
@@ -67,6 +68,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
 
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(session.id) }),
       ]);
