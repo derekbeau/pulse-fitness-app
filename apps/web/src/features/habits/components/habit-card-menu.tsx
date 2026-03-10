@@ -70,21 +70,29 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
     }
 
     const reorderedHabits = moveHabit(habits, currentIndex, nextIndex);
-    await reorderHabitsMutation.mutateAsync(
-      reorderedHabits.map((item, index) => ({
-        id: item.id,
-        sortOrder: index,
-      })),
-    );
+    try {
+      await reorderHabitsMutation.mutateAsync(
+        reorderedHabits.map((item, index) => ({
+          id: item.id,
+          sortOrder: index,
+        })),
+      );
+    } catch {
+      // Mutation hook handles toasts and query recovery.
+    }
   }
 
   async function handleToggleActive() {
-    await updateHabitMutation.mutateAsync({
-      id: habit.id,
-      values: {
-        active: !habit.active,
-      },
-    });
+    try {
+      await updateHabitMutation.mutateAsync({
+        id: habit.id,
+        values: {
+          active: !habit.active,
+        },
+      });
+    } catch {
+      // Mutation hook handles toasts and query recovery.
+    }
   }
 
   async function handleDelete() {
@@ -147,8 +155,8 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete habit?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will pause tracking for <strong>{habit.name}</strong> and remove it from your
-              daily habits list.
+              This will permanently remove <strong>{habit.name}</strong> from your daily habits
+              list. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

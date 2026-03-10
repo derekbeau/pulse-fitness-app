@@ -59,7 +59,6 @@ export function WeeklyHabitDatePicker({
   onWeekChange,
 }: WeeklyHabitDatePickerProps) {
   const today = getToday();
-  const activeSelectedDate = selectedDate;
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => addDays(visibleWeekStart, index));
@@ -109,7 +108,7 @@ export function WeeklyHabitDatePicker({
           const dayKey = formatDateKey(day);
           const completion = completionByDate[dayKey];
           const isToday = isSameDay(day, today);
-          const isSelected = isSameDay(day, activeSelectedDate);
+          const isSelected = isSameDay(day, selectedDate);
 
           return (
             <button

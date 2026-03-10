@@ -29,6 +29,7 @@ type DailyHabitsProps = {
 };
 
 export type DailyHabit = HabitConfig & {
+  sourceHabit: Habit;
   entryId: string | null;
   todayValue: HabitValue;
 };
@@ -154,6 +155,7 @@ function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] 
       trackingType: habit.trackingType,
       target: habit.target,
       unit: habit.unit,
+      sourceHabit: habit,
       entryId: entry?.id ?? null,
       todayValue,
     };
@@ -383,11 +385,6 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         <>
           <div className="grid gap-4">
             {dailyHabits.map((habit) => {
-              const sourceHabit = activeHabits.find((item) => item.id === habit.id);
-              if (!sourceHabit) {
-                return null;
-              }
-
               const value =
                 habit.trackingType === 'boolean' || draftValues[habit.id] === undefined
                   ? habit.todayValue
@@ -448,7 +445,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                         <span>{isComplete ? 'Done' : 'In progress'}</span>
                       </div>
                       <HabitCardMenu
-                        habit={sourceHabit}
+                        habit={habit.sourceHabit}
                         habits={activeHabits}
                         onEdit={(selectedHabit) => {
                           setEditingHabitId(selectedHabit.id);

@@ -276,7 +276,7 @@ async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T
   const allowDevAutoSession = !isAuthPath;
   const token = await resolveSessionToken({ allowDevAutoSession });
   let response = await fetch(buildUrl(path), createRequestInit(init, token));
-  let errorPayload: ApiErrorEnvelope | null = null;
+  let errorPayload: ApiErrorEnvelope | null | undefined;
 
   if (!response.ok && !getEnvToken()) {
     errorPayload = await parseJson<ApiErrorEnvelope>(response);
@@ -323,7 +323,9 @@ async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T
       }
     }
 
-    throw toApiErrorFromPayload(response.status, errorPayload ?? (await parseJson<ApiErrorEnvelope>(response)));
+    const resolvedErrorPayload =
+      errorPayload === undefined ? await parseJson<ApiErrorEnvelope>(response) : errorPayload;
+    throw toApiErrorFromPayload(response.status, resolvedErrorPayload);
   }
 
   const payload = await parseJson<T>(response);
