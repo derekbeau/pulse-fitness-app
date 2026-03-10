@@ -52,6 +52,57 @@ describe('createHabitInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts daily habits without explicit frequency fields', () => {
+    const payload = createHabitInputSchema.parse({
+      name: 'Read',
+      trackingType: 'boolean',
+    });
+
+    expect(payload.name).toBe('Read');
+  });
+
+  it('accepts weekly habits with a frequency target', () => {
+    const payload = createHabitInputSchema.parse({
+      name: 'Strength sessions',
+      trackingType: 'boolean',
+      frequency: 'weekly',
+      frequencyTarget: 3,
+    });
+
+    expect(payload.frequencyTarget).toBe(3);
+  });
+
+  it('accepts specific-day habits with scheduled days', () => {
+    const payload = createHabitInputSchema.parse({
+      name: 'Yoga',
+      trackingType: 'boolean',
+      frequency: 'specific_days',
+      scheduledDays: [1, 3, 5],
+    });
+
+    expect(payload.scheduledDays).toEqual([1, 3, 5]);
+  });
+
+  it('rejects weekly habits without frequencyTarget', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Swim',
+        trackingType: 'boolean',
+        frequency: 'weekly',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects specific-day habits without scheduledDays', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Meditate',
+        trackingType: 'boolean',
+        frequency: 'specific_days',
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateHabitInputSchema', () => {
@@ -69,6 +120,24 @@ describe('updateHabitInputSchema', () => {
 
   it('rejects empty update payloads', () => {
     expect(() => updateHabitInputSchema.parse({})).toThrow();
+  });
+
+  it('rejects weekly updates with null frequencyTarget', () => {
+    expect(() =>
+      updateHabitInputSchema.parse({
+        frequency: 'weekly',
+        frequencyTarget: null,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects specific-day updates with null scheduledDays', () => {
+    expect(() =>
+      updateHabitInputSchema.parse({
+        frequency: 'specific_days',
+        scheduledDays: null,
+      }),
+    ).toThrow();
   });
 
   it('infers the UpdateHabitInput type from the schema', () => {
@@ -123,6 +192,10 @@ describe('habitSchema', () => {
       trackingType: 'numeric',
       target: 8,
       unit: 'glasses',
+      frequency: 'weekly',
+      frequencyTarget: 3,
+      scheduledDays: null,
+      pausedUntil: null,
       sortOrder: 0,
       active: true,
       createdAt: 1_700_000_000_000,
@@ -141,6 +214,10 @@ describe('habitSchema', () => {
       trackingType: 'boolean',
       target: null,
       unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
       sortOrder: 1,
       active: true,
       createdAt: 1_700_000_000_000,

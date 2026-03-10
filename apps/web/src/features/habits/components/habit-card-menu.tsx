@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, MoreVertical, Pause, PencilLine, Play, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarCheck,
+  CalendarX,
+  MoreVertical,
+  Pause,
+  PencilLine,
+  Play,
+  Trash2,
+} from 'lucide-react';
 import type { Habit } from '@pulse/shared';
 
 import {
@@ -14,17 +24,29 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   useDeleteHabit,
   useReorderHabits,
   useUpdateHabit,
 } from '@/features/habits/api/habits';
+import { INDEFINITE_PAUSE_DATE } from '@/features/habits/lib/habit-constants';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 
 type HabitCardMenuProps = {
   habit: Habit;
@@ -42,7 +64,12 @@ function moveHabit(list: Habit[], fromIndex: number, toIndex: number) {
 }
 
 export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
+  const today = getToday();
+  const todayKey = toDateKey(today);
+  const defaultPauseUntil = toDateKey(addDays(today, 7));
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPauseDialogOpen, setIsPauseDialogOpen] = useState(false);
+  const [pauseUntil, setPauseUntil] = useState(defaultPauseUntil);
 
   const updateHabitMutation = useUpdateHabit();
   const deleteHabitMutation = useDeleteHabit();
@@ -104,6 +131,33 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
     }
   }
 
+  async function handlePauseScheduling(nextPausedUntil: string) {
+    try {
+      await updateHabitMutation.mutateAsync({
+        id: habit.id,
+        values: {
+          pausedUntil: nextPausedUntil,
+        },
+      });
+      setIsPauseDialogOpen(false);
+    } catch {
+      // Mutation hook handles toasts and query recovery.
+    }
+  }
+
+  async function handleResumeScheduling() {
+    try {
+      await updateHabitMutation.mutateAsync({
+        id: habit.id,
+        values: {
+          pausedUntil: null,
+        },
+      });
+    } catch {
+      // Mutation hook handles toasts and query recovery.
+    }
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -134,8 +188,26 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => void handleToggleActive()}>
             {habit.active ? <Pause /> : <Play />}
-            {habit.active ? 'Pause' : 'Unpause'}
+            {habit.active ? 'Deactivate' : 'Activate'}
           </DropdownMenuItem>
+          {habit.pausedUntil === null ? (
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                setPauseUntil(defaultPauseUntil);
+                setIsPauseDialogOpen(true);
+              }}
+            >
+              <CalendarX />
+              Pause scheduling
+            </DropdownMenuItem>
+          ) : null}
+          {habit.pausedUntil !== null ? (
+            <DropdownMenuItem onClick={() => void handleResumeScheduling()}>
+              <CalendarCheck />
+              Resume scheduling
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={(event) => {
@@ -149,6 +221,57 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog onOpenChange={setIsPauseDialogOpen} open={isPauseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause scheduling</DialogTitle>
+            <DialogDescription>
+              Keep this habit visible, but remove it from expected scheduling until the selected
+              date.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor={`pause-until-${habit.id}`}>Pause until</Label>
+              <Input
+                id={`pause-until-${habit.id}`}
+                min={todayKey}
+                onChange={(event) => setPauseUntil(event.currentTarget.value)}
+                type="date"
+                value={pauseUntil}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              disabled={isPending}
+              onClick={() => setIsPauseDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isPending}
+              onClick={() => void handlePauseScheduling(INDEFINITE_PAUSE_DATE)}
+              type="button"
+              variant="secondary"
+            >
+              Pause indefinitely
+            </Button>
+            <Button
+              disabled={isPending || pauseUntil.trim().length === 0 || pauseUntil < todayKey}
+              onClick={() => void handlePauseScheduling(pauseUntil)}
+              type="button"
+            >
+              Save pause
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog onOpenChange={setIsDeleteDialogOpen} open={isDeleteDialogOpen}>
         <AlertDialogContent>

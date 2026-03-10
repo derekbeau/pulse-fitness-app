@@ -22,23 +22,25 @@ type TestState = {
     trackingType: 'boolean' | 'numeric' | 'time';
     target: number | null;
     unit: string | null;
+    frequency: 'daily' | 'weekly' | 'specific_days';
+    frequencyTarget: number | null;
+    scheduledDays: number[] | null;
+    pausedUntil: string | null;
     sortOrder: number;
     active: boolean;
     createdAt: number;
     updatedAt: number;
   }>;
-  nutritionCurrent:
-    | {
-        id: string;
-        calories: number;
-        protein: number;
-        carbs: number;
-        fat: number;
-        effectiveDate: string;
-        createdAt: number;
-        updatedAt: number;
-      }
-    | null;
+  nutritionCurrent: {
+    id: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    effectiveDate: string;
+    createdAt: number;
+    updatedAt: number;
+  } | null;
   shouldFailDashboardSave: boolean;
   shouldFailNutritionSave: boolean;
   shouldFailProfileSave: boolean;
@@ -99,6 +101,10 @@ describe('SettingsPage', () => {
           trackingType: 'numeric',
           target: 8,
           unit: 'glasses',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
           sortOrder: 0,
           active: true,
           createdAt: 1,
@@ -112,6 +118,10 @@ describe('SettingsPage', () => {
           trackingType: 'time',
           target: 8,
           unit: 'hours',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
           sortOrder: 1,
           active: true,
           createdAt: 2,
@@ -328,8 +338,12 @@ describe('SettingsPage', () => {
 
     fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2250' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /Sleep/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Track your recent body weight direction/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Date Picker.*date picker for navigating/i }));
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /Track your recent body weight direction/i }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /Date Picker.*date picker for navigating/i }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => {
@@ -441,9 +455,7 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Could not save profile. Please try again.'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Could not save profile. Please try again.')).toBeInTheDocument();
     });
   });
 });

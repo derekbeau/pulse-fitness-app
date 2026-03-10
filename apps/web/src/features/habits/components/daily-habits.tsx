@@ -14,7 +14,11 @@ import {
   useToggleHabit,
   useUpdateHabitEntry,
 } from '@/features/habits/api/habits';
-import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
+import {
+  INDEFINITE_PAUSE_DATE,
+  trackingSurfaceClasses,
+  weekdayLabels,
+} from '@/features/habits/lib/habit-constants';
 import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { getToday, isSameDay, normalizeDate, toDateKey } from '@/lib/date';
@@ -130,6 +134,34 @@ function getProgressBarTone(percent: number) {
   return 'bg-rose-500';
 }
 
+function getFrequencySummary(habit: Habit): string | null {
+  if (habit.frequency === 'weekly') {
+    const target = habit.frequencyTarget ?? 1;
+    return `${target}x per week`;
+  }
+
+  if (habit.frequency === 'specific_days') {
+    if (!habit.scheduledDays || habit.scheduledDays.length === 0) {
+      return null;
+    }
+
+    return habit.scheduledDays
+      .filter((dayIndex) => dayIndex >= 0 && dayIndex <= 6)
+      .map((dayIndex) => weekdayLabels[dayIndex])
+      .join(', ');
+  }
+
+  return null;
+}
+
+function formatPausedUntilLabel(pausedUntil: string): string {
+  if (pausedUntil === INDEFINITE_PAUSE_DATE) {
+    return 'Paused indefinitely';
+  }
+
+  return `Paused until ${new Date(`${pausedUntil}T00:00:00`).toLocaleDateString()}`;
+}
+
 function parseInputValue(rawValue: string) {
   if (rawValue.trim() === '') {
     return null;
@@ -232,6 +264,7 @@ function DailyHabitsErrorState({ titleDate, message, onRetry }: DailyHabitsError
 export function DailyHabits({ selectedDate }: DailyHabitsProps) {
   const activeDate = normalizeDate(selectedDate ?? getToday());
   const activeDateKey = toDateKey(activeDate);
+  const todayKey = toDateKey(getToday());
   const isSelectedDateToday = isSameDay(activeDate, getToday());
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -385,6 +418,13 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         <>
           <div className="grid gap-4">
             {dailyHabits.map((habit) => {
+              const frequencySummary = getFrequencySummary(habit.sourceHabit);
+              const isPaused =
+                habit.sourceHabit.pausedUntil !== null && habit.sourceHabit.pausedUntil >= todayKey;
+              const pausedLabel =
+                isPaused && habit.sourceHabit.pausedUntil
+                  ? formatPausedUntilLabel(habit.sourceHabit.pausedUntil)
+                  : null;
               const value =
                 habit.trackingType === 'boolean' || draftValues[habit.id] === undefined
                   ? habit.todayValue
@@ -412,6 +452,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                     'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
                     trackingSurfaceClasses[habit.trackingType],
                     isComplete && 'ring-2 ring-emerald-500/40',
+                    isPaused && 'border-dashed opacity-80',
                   )}
                 >
                   <CardHeader className="flex flex-row items-start justify-between gap-4 pb-0">
@@ -424,11 +465,24 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                           {habit.name}
                         </CardTitle>
                       </div>
+                      {frequencySummary ? (
+                        <p className="pl-12 text-xs font-semibold uppercase tracking-[0.16em] opacity-70 dark:text-muted dark:opacity-100">
+                          {frequencySummary}
+                        </p>
+                      ) : null}
+                      {pausedLabel ? (
+                        <p className="pl-12 text-xs font-medium text-muted">{pausedLabel}</p>
+                      ) : null}
                       <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
                         {progressText}
                       </CardDescription>
                     </div>
                     <div className="flex items-start gap-2">
+                      {isPaused ? (
+                        <div className="inline-flex items-center rounded-full bg-black/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] dark:bg-secondary dark:text-foreground">
+                          Paused
+                        </div>
+                      ) : null}
                       <div
                         className={cn(
                           'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',

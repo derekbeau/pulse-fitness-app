@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { findHabitEntryByHabitAndDate, listHabitEntriesByDateRange, upsertHabitEntry } from '../habit-entries/store.js';
+import {
+  findHabitEntryByHabitAndDate,
+  listHabitEntriesByDateRange,
+  upsertHabitEntry,
+} from '../habit-entries/store.js';
 import { findHabitById, listActiveHabits } from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
@@ -233,6 +237,10 @@ describe('agent daily routes', () => {
             trackingType: 'boolean',
             target: null,
             unit: null,
+            frequency: 'daily',
+            frequencyTarget: null,
+            scheduledDays: null,
+            pausedUntil: null,
             sortOrder: 0,
             active: true,
             createdAt: 1,
@@ -246,6 +254,10 @@ describe('agent daily routes', () => {
             trackingType: 'time',
             target: 8,
             unit: 'hours',
+            frequency: 'daily',
+            frequencyTarget: null,
+            scheduledDays: null,
+            pausedUntil: null,
             sortOrder: 1,
             active: true,
             createdAt: 1,
@@ -338,6 +350,10 @@ describe('agent daily routes', () => {
           trackingType: 'time',
           target: 8,
           unit: 'hours',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
           sortOrder: 0,
           active: true,
           createdAt: 1,
@@ -395,6 +411,10 @@ describe('agent daily routes', () => {
           trackingType: 'time',
           target: 8,
           unit: 'hours',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
           sortOrder: 0,
           active: true,
           createdAt: 1,

@@ -23,6 +23,10 @@ const existingHabit: Habit = {
   target: 8,
   trackingType: 'time',
   unit: 'hours',
+  frequency: 'daily',
+  frequencyTarget: null,
+  scheduledDays: null,
+  pausedUntil: null,
   updatedAt: 1,
   userId: 'user-1',
 };
@@ -64,7 +68,11 @@ describe('HabitFormDialog', () => {
     await waitFor(() =>
       expect(createMutation.mutateAsync).toHaveBeenCalledWith({
         emoji: '💧',
+        frequency: 'daily',
+        frequencyTarget: null,
         name: 'Hydrate',
+        pausedUntil: null,
+        scheduledDays: null,
         target: 8,
         trackingType: 'numeric',
         unit: 'glasses',
@@ -96,7 +104,11 @@ describe('HabitFormDialog', () => {
         id: 'sleep',
         values: {
           emoji: '😴',
+          frequency: 'daily',
+          frequencyTarget: null,
           name: 'Sleep 8+',
+          pausedUntil: null,
+          scheduledDays: null,
           target: 8,
           trackingType: 'time',
           unit: 'hours',
@@ -136,6 +148,49 @@ describe('HabitFormDialog', () => {
 
     expect(screen.getByLabelText('Target')).toHaveAttribute('placeholder', '8');
     expect(screen.getByLabelText('Unit')).toHaveAttribute('placeholder', 'hours');
+  });
+
+  it('shows weekly target input only when weekly frequency is selected', () => {
+    render(<HabitFormDialog onOpenChange={vi.fn()} open />);
+
+    expect(screen.getByLabelText('Frequency')).toHaveValue('daily');
+    expect(screen.queryByLabelText('Times per week')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Frequency'), { target: { value: 'weekly' } });
+    expect(screen.getByLabelText('Times per week')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Frequency'), { target: { value: 'daily' } });
+    expect(screen.queryByLabelText('Times per week')).not.toBeInTheDocument();
+  });
+
+  it('shows specific-day toggles and submits selected weekdays', async () => {
+    const createMutation = createMutationMock();
+    mockedUseCreateHabit.mockReturnValue(
+      createMutation as unknown as ReturnType<typeof useCreateHabit>,
+    );
+
+    render(<HabitFormDialog onOpenChange={vi.fn()} open />);
+
+    fireEvent.change(screen.getByLabelText('Habit name'), { target: { value: 'Mobility' } });
+    fireEvent.change(screen.getByLabelText('Frequency'), { target: { value: 'specific_days' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Mon' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Wed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fri' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(createMutation.mutateAsync).toHaveBeenCalledWith({
+        emoji: '💧',
+        frequency: 'specific_days',
+        frequencyTarget: null,
+        name: 'Mobility',
+        pausedUntil: null,
+        scheduledDays: [0, 2, 4],
+        target: null,
+        trackingType: 'boolean',
+        unit: null,
+      }),
+    );
   });
 
   it('validates required fields using zod schema rules', async () => {

@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { useCreateHabit, useUpdateHabit } from '@/features/habits/api/habits';
 import {
   habitEmojiOptions,
+  weekdayLabels,
   trackingSurfaceClasses,
   trackingTypeLabels,
 } from '@/features/habits/lib/habit-constants';
@@ -26,6 +27,12 @@ const trackingTypeOptions = [
   { label: 'Check off', value: 'boolean' },
   { label: 'Count', value: 'numeric' },
   { label: 'Time', value: 'time' },
+] as const;
+
+const frequencyOptions = [
+  { label: 'Every day', value: 'daily' },
+  { label: 'X times per week', value: 'weekly' },
+  { label: 'Specific days', value: 'specific_days' },
 ] as const;
 
 type HabitFormDialogProps = {
@@ -41,6 +48,10 @@ function createDefaultValues(habit?: Habit): CreateHabitInput {
     target: habit?.target ?? null,
     trackingType: habit?.trackingType ?? 'boolean',
     unit: habit?.unit ?? null,
+    frequency: habit?.frequency ?? 'daily',
+    frequencyTarget: habit?.frequencyTarget ?? null,
+    scheduledDays: habit?.scheduledDays ?? null,
+    pausedUntil: habit?.pausedUntil ?? null,
   };
 }
 
@@ -67,7 +78,10 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
 
   const selectedEmoji = useWatch({ control, name: 'emoji' }) ?? habitEmojiOptions[0];
   const trackingType = useWatch({ control, name: 'trackingType' }) ?? 'boolean';
+  const frequency = useWatch({ control, name: 'frequency' }) ?? 'daily';
   const showTargetFields = trackingType !== 'boolean';
+  const showWeeklyTarget = frequency === 'weekly';
+  const showSpecificDays = frequency === 'specific_days';
   const unitPlaceholder = trackingType === 'time' ? 'hours' : 'glasses';
 
   useEffect(() => {
@@ -87,6 +101,24 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
     setValue('target', null, { shouldDirty: true, shouldValidate: true });
     setValue('unit', null, { shouldDirty: true, shouldValidate: true });
   }, [clearErrors, setValue, trackingType]);
+
+  useEffect(() => {
+    if (frequency === 'daily') {
+      clearErrors(['frequencyTarget', 'scheduledDays']);
+      setValue('frequencyTarget', null, { shouldDirty: true, shouldValidate: true });
+      setValue('scheduledDays', null, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    if (frequency === 'weekly') {
+      clearErrors('scheduledDays');
+      setValue('scheduledDays', null, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    clearErrors('frequencyTarget');
+    setValue('frequencyTarget', null, { shouldDirty: true, shouldValidate: true });
+  }, [clearErrors, frequency, setValue]);
 
   async function onSubmit(values: CreateHabitInput) {
     setErrorMessage('');
@@ -194,6 +226,108 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="habit-frequency">Frequency</Label>
+              <p className="text-sm text-muted">Choose how often this habit should be scheduled.</p>
+            </div>
+            <select
+              id="habit-frequency"
+              className={cn(
+                'flex min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30',
+                errors.frequency && 'border-destructive',
+              )}
+              disabled={isSaving}
+              {...register('frequency')}
+            >
+              {frequencyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            {showWeeklyTarget ? (
+              <div className="space-y-2">
+                <Label htmlFor="habit-frequency-target">Times per week</Label>
+                <Controller
+                  control={control}
+                  name="frequencyTarget"
+                  render={({ field }) => (
+                    <Input
+                      disabled={isSaving}
+                      id="habit-frequency-target"
+                      max="7"
+                      min="1"
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        field.onChange(nextValue.length === 0 ? null : Number(nextValue));
+                      }}
+                      placeholder="3"
+                      ref={field.ref}
+                      step="1"
+                      type="number"
+                      value={field.value ?? ''}
+                    />
+                  )}
+                />
+                {errors.frequencyTarget?.message ? (
+                  <p className="text-sm text-destructive">{errors.frequencyTarget.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {showSpecificDays ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Days of week</p>
+                <Controller
+                  control={control}
+                  name="scheduledDays"
+                  render={({ field }) => {
+                    const selectedDays = field.value ?? [];
+
+                    return (
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                        {weekdayLabels.map((label, index) => {
+                          const isSelected = selectedDays.includes(index);
+
+                          return (
+                            <button
+                              key={label}
+                              aria-label={label}
+                              aria-pressed={isSelected}
+                              className={cn(
+                                'min-h-[44px] rounded-md border px-2 text-sm font-medium transition-colors',
+                                isSelected
+                                  ? 'border-slate-950 bg-slate-950 text-white'
+                                  : 'border-border bg-background hover:border-slate-950/30 hover:bg-accent',
+                              )}
+                              disabled={isSaving}
+                              onClick={() => {
+                                const nextValues = isSelected
+                                  ? selectedDays.filter((value) => value !== index)
+                                  : [...selectedDays, index];
+                                field.onChange(nextValues.sort((left, right) => left - right));
+                              }}
+                              type="button"
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  }}
+                />
+                {errors.scheduledDays?.message ? (
+                  <p className="text-sm text-destructive">{errors.scheduledDays.message}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {showTargetFields ? (

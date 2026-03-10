@@ -47,6 +47,9 @@ export const trackingSurfaceClasses: Record<HabitTrackingType, string> = {
   time: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-card dark:text-foreground dark:border-l-4 dark:border-l-emerald-500',
 };
 
+export const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+export const INDEFINITE_PAUSE_DATE = '9999-12-31';
+
 export const defaultHabitConfigs: HabitConfig[] = [
   {
     id: 'hydrate',

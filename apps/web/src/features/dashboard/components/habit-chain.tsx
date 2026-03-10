@@ -1,4 +1,8 @@
-import type { Habit as HabitRecord, HabitEntry as HabitEntryRecord } from '@pulse/shared';
+import {
+  isHabitScheduledForDate,
+  type Habit as HabitRecord,
+  type HabitEntry as HabitEntryRecord,
+} from '@pulse/shared';
 import { Flame } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,8 +18,8 @@ type HabitChainProps = {
 };
 
 type HabitChainEntry = {
-  completed: boolean;
   date: string;
+  status: 'completed' | 'missed' | 'not_scheduled';
 };
 
 type HabitChainHabit = {
@@ -41,11 +45,19 @@ const getCurrentStreak = (entries: HabitChainEntry[]) => {
   let streak = 0;
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
-    if (!entries[index]?.completed) {
+    const entry = entries[index];
+
+    if (!entry) {
+      continue;
+    }
+
+    if (entry.status === 'missed') {
       break;
     }
 
-    streak += 1;
+    if (entry.status === 'completed') {
+      streak += 1;
+    }
   }
 
   return streak;
@@ -65,29 +77,56 @@ const buildHabitChainHabits = (
   entries: HabitEntryRecord[],
   endDate: string,
 ): HabitChainHabit[] => {
-  const entriesByHabit = new Map<string, Map<string, boolean>>();
+  const entriesByHabit = new Map<string, HabitEntryRecord[]>();
+  const entriesByHabitByDate = new Map<string, Map<string, boolean>>();
 
   entries.forEach((entry) => {
-    const entriesByDate = entriesByHabit.get(entry.habitId) ?? new Map<string, boolean>();
+    const existingEntries = entriesByHabit.get(entry.habitId) ?? [];
+    existingEntries.push(entry);
+    entriesByHabit.set(entry.habitId, existingEntries);
+
+    const entriesByDate = entriesByHabitByDate.get(entry.habitId) ?? new Map<string, boolean>();
     entriesByDate.set(entry.date, entry.completed);
-    entriesByHabit.set(entry.habitId, entriesByDate);
+    entriesByHabitByDate.set(entry.habitId, entriesByDate);
   });
 
   const rangeEndDate = new Date(`${endDate}T00:00:00`);
+  const todayKey = formatDateKey(getToday());
   const dates = Array.from({ length: DAYS_TO_DISPLAY }, (_, index) =>
     toDateKey(addDays(rangeEndDate, index - (DAYS_TO_DISPLAY - 1))),
   );
 
   return habits.map((habit) => {
-    const entriesByDate = entriesByHabit.get(habit.id) ?? new Map<string, boolean>();
-    const completedEntries = dates.map((date) => ({
-      completed: entriesByDate.get(date) ?? false,
-      date,
-    }));
+    const entriesByDate = entriesByHabitByDate.get(habit.id) ?? new Map<string, boolean>();
+    const entriesForHabit = entriesByHabit.get(habit.id) ?? [];
+    const createdAtDateKey = toDateKey(new Date(habit.createdAt));
+    const chainEntries = dates.map((date) => {
+      const isFutureDate = date > todayKey;
+
+      if (date < createdAtDateKey || isFutureDate) {
+        return { date, status: 'not_scheduled' as const };
+      }
+
+      const isScheduled = isHabitScheduledForDate(habit, date, entriesForHabit);
+
+      if (!isScheduled) {
+        return { date, status: 'not_scheduled' as const };
+      }
+
+      if (entriesByDate.get(date) === true) {
+        return { date, status: 'completed' as const };
+      }
+
+      if (date === todayKey) {
+        return { date, status: 'not_scheduled' as const };
+      }
+
+      return { date, status: 'missed' as const };
+    });
 
     return {
-      currentStreak: getCurrentStreak(completedEntries),
-      entries: completedEntries,
+      currentStreak: getCurrentStreak(chainEntries),
+      entries: chainEntries,
       id: habit.id,
       name: habit.name,
     };
@@ -123,7 +162,18 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
               <div className="grid grid-cols-10 gap-[5px]" data-slot="habit-chain-grid">
                 {habit.entries.map((entry) => {
                   const isSelectedDay = entry.date === selectedDateKey;
-                  const statusLabel = entry.completed ? 'Completed' : 'Missed';
+                  const statusLabel =
+                    entry.status === 'completed'
+                      ? 'Completed'
+                      : entry.status === 'missed'
+                        ? 'Missed'
+                        : 'Not scheduled';
+                  const statusClass =
+                    entry.status === 'completed'
+                      ? 'bg-[var(--color-accent-mint)]'
+                      : entry.status === 'missed'
+                        ? 'bg-red-400/70 dark:bg-red-500/50'
+                        : 'bg-[var(--color-muted)]/40';
 
                   return (
                     <Tooltip key={`${habit.id}-${entry.date}`}>
@@ -132,23 +182,22 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
                           aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
                           className={cn(
                             'aspect-square w-full cursor-pointer rounded-full border',
-                            entry.completed
-                              ? 'bg-[var(--color-accent-mint)]'
-                              : 'bg-[var(--color-muted)]/40',
+                            statusClass,
                             isSelectedDay
                               ? 'border-[var(--color-primary)]'
                               : 'border-transparent',
                           )}
-                          data-completed={entry.completed ? 'true' : 'false'}
                           data-date={entry.date}
+                          data-status={entry.status}
                           data-slot="habit-chain-day"
                           data-today={isSelectedDay ? 'true' : 'false'}
-                          title={formatDateLabel(entry.date)}
+                          title={`${formatDateLabel(entry.date)} — ${statusLabel}`}
                           type="button"
                         />
                       </TooltipTrigger>
                       <TooltipContent side="top" sideOffset={6}>
-                        {formatDateLabel(entry.date)}
+                        <p>{formatDateLabel(entry.date)}</p>
+                        <p className="text-xs text-muted-foreground">{statusLabel}</p>
                       </TooltipContent>
                     </Tooltip>
                   );
