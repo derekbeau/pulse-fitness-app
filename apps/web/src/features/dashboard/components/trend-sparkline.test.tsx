@@ -95,19 +95,42 @@ describe('TrendSparkline', () => {
     expect(container.querySelector('.recharts-legend-wrapper')).not.toBeInTheDocument();
   });
 
-  it('renders empty state text when no trend data exists', () => {
+  it('renders empty state text when no real trend data exists', () => {
     render(
       <TrendSparkline
         changePercent={0}
         color="#3B82F6"
         currentValue="--"
-        data={[]}
+        data={[
+          { date: '2026-03-06', value: 0 },
+          { date: '2026-03-07', value: null },
+        ]}
         label="Weight Trend"
       />,
     );
 
-    expect(screen.getByText('No trend data yet.')).toBeInTheDocument();
+    expect(screen.getByText('No data')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Weight Trend sparkline' })).not.toBeInTheDocument();
+  });
+
+  it('shows a single dot and hides the line when exactly one real point exists', () => {
+    const { container } = render(
+      <TrendSparkline
+        changePercent={0}
+        color="#3B82F6"
+        currentValue="175.2 lbs"
+        data={[
+          { date: '2026-03-05', value: 0 },
+          { date: '2026-03-06', value: 175.2 },
+          { date: '2026-03-07', value: 0 },
+        ]}
+        label="Weight Trend"
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
+    expect(container.querySelector('.recharts-line-dots .recharts-dot')).toBeInTheDocument();
+    expect(container.querySelector('.recharts-line .recharts-curve')).not.toBeInTheDocument();
   });
 });
 
@@ -136,7 +159,7 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('2050 kcal')).toBeInTheDocument();
+    expect(screen.getByText('2,050 kcal')).toBeInTheDocument();
     expect(screen.getByText('170 g')).toBeInTheDocument();
 
     const weightCard = screen
@@ -261,5 +284,111 @@ describe('TrendSparklines', () => {
 
     expect(screen.getByText('Unable to load trend data.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
+  });
+
+  it('shows no current macro value when selected date has no logged entries', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: sampleWeightTrend,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: [
+        {
+          date: '2026-03-06',
+          calories: 1900,
+          protein: 160,
+          carbs: 210,
+          fat: 70,
+        },
+        {
+          date: '2026-03-07',
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines endDate="2026-03-07" />);
+
+    const calorieCard = screen
+      .getByText('Calorie Trend')
+      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
+    const proteinCard = screen
+      .getByText('Protein Trend')
+      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
+
+    expect(within(calorieCard).getByText('--')).toBeInTheDocument();
+    expect(within(proteinCard).getByText('--')).toBeInTheDocument();
+    expect(within(calorieCard).getByRole('img', { name: 'Calorie Trend sparkline' })).toBeInTheDocument();
+    expect(within(proteinCard).getByRole('img', { name: 'Protein Trend sparkline' })).toBeInTheDocument();
+  });
+
+  it('shows the selected date weight value instead of the latest in-range value', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: [
+        { date: '2026-03-05', value: 174.8 },
+        { date: '2026-03-06', value: 175.2 },
+        { date: '2026-03-07', value: 176.1 },
+      ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: sampleMacroTrend,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines endDate="2026-03-06" />);
+
+    const weightCard = screen
+      .getByText('Weight Trend')
+      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
+
+    expect(within(weightCard).getByText('175.2 lbs')).toBeInTheDocument();
+    expect(within(weightCard).queryByText('176.1 lbs')).not.toBeInTheDocument();
+  });
+
+  it('renders a no-data chart state when all macro points in range are zero', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: sampleWeightTrend,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: [
+        {
+          date: '2026-03-06',
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+        {
+          date: '2026-03-07',
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines endDate="2026-03-07" metrics={['calories']} />);
+
+    const calorieCard = screen
+      .getByText('Calorie Trend')
+      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
+
+    expect(within(calorieCard).getByText('--')).toBeInTheDocument();
+    expect(within(calorieCard).getByText('No data')).toBeInTheDocument();
+    expect(within(calorieCard).queryByRole('img', { name: 'Calorie Trend sparkline' })).not.toBeInTheDocument();
   });
 });

@@ -25,7 +25,14 @@ import {
 } from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
-import { addDays, getToday, toDateKey } from '@/lib/date';
+import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+
+const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
@@ -35,6 +42,8 @@ export function DashboardPage() {
   const logWeightMutation = useLogWeight();
   const selectedDateKey = toDateKey(selectedDate);
   const habitRangeStart = toDateKey(addDays(selectedDate, -29));
+  const selectedDateLabel = dashboardDateFormatter.format(selectedDate);
+  const isViewingToday = isSameDay(selectedDate, getToday());
   const greeting = getDashboardGreeting();
 
   const snapshotQuery = useDashboardSnapshot(selectedDateKey);
@@ -86,13 +95,21 @@ export function DashboardPage() {
 
   return (
     <main className="flex w-full flex-col gap-8 py-6">
-      <header className="animate-fade-in space-y-1">
+      <header className="animate-fade-in space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
         </p>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-          Dashboard
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Dashboard
+          </h1>
+          {!isViewingToday ? (
+            <Button onClick={() => setSelectedDate(getToday())} size="sm" type="button" variant="outline">
+              Back to today
+            </Button>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
       </header>
 
       {shouldShowEmptyState ? (
@@ -206,7 +223,7 @@ export function DashboardPage() {
           </div>
 
           <div
-            className="order-3 min-w-0 md:col-start-2 xl:col-start-3"
+            className="order-3 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-3"
             data-slot="dashboard-recent-workouts-column"
           >
             <RecentWorkouts />

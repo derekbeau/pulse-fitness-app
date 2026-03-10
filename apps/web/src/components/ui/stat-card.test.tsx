@@ -68,8 +68,13 @@ describe('StatCard', () => {
     const value = screen.getByText(
       'This is an extremely long value that should be truncated to avoid overflow',
     );
+    const header = label.closest('[data-slot="card-header"]');
+    const content = value.closest('[data-slot="card-content"]');
+
+    expect(header).toHaveClass('min-w-0');
+    expect(content).toHaveClass('min-w-0');
     expect(label).toHaveClass('truncate');
-    expect(value).toHaveClass('overflow-hidden', 'text-ellipsis', 'whitespace-nowrap');
+    expect(value).toHaveClass('min-w-0', 'overflow-hidden', 'text-ellipsis', 'whitespace-nowrap');
   });
 
   it('applies accentTextClassName to label, value, and trend', () => {

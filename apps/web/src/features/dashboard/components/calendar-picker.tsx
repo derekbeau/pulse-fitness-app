@@ -111,11 +111,9 @@ export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, cla
               aria-pressed={isSelected}
               className={cn(
                 'flex min-w-0 flex-1 cursor-pointer flex-col items-center rounded-lg border px-1 py-2 transition-colors sm:px-2 sm:py-2.5',
-                isToday
+                isSelected
                   ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-accent)]'
-                  : 'text-foreground',
-                isSelected && !isToday ? 'border-[var(--color-primary)] bg-card' : 'border-transparent',
-                !isToday && 'hover:border-border hover:bg-secondary/50',
+                  : 'border-transparent text-foreground hover:border-border hover:bg-secondary/50',
                 isFuture && 'opacity-45',
               )}
               data-date={formatDateKey(day)}
@@ -144,7 +142,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, cla
                 className={cn(
                   'mt-1 size-1.5 rounded-full',
                   hasActivity ? 'visible' : 'invisible',
-                  isToday
+                  isSelected
                     ? 'bg-[var(--color-on-accent)]'
                     : activity.hasWorkout && activity.hasMeals
                       ? 'bg-[var(--color-primary)]'

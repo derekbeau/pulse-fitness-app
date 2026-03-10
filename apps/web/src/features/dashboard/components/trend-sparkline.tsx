@@ -11,6 +11,7 @@ import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-spar
 import { cn } from '@/lib/utils';
 
 const TREND_DAYS = 30;
+const numberFormatter = new Intl.NumberFormat('en-US');
 
 type ChangeDirection = 'up' | 'down' | 'neutral';
 
@@ -19,14 +20,14 @@ type TrendMetricCardProps = {
   currentValue: string;
   changePercent: number;
   color: string;
-  data: TrendSparklineDatum[];
+  data: TrendSparklineRealDatum[];
   className?: string;
   textClassName?: string;
 };
 
 export type TrendSparklineDatum = {
   date: string;
-  value: number;
+  value: number | null;
 };
 
 export type TrendSparklineProps = {
@@ -53,9 +54,14 @@ const CHANGE_ICONS = {
   neutral: Minus,
 } satisfies Record<ChangeDirection, typeof ArrowUpRight>;
 
+type TrendSparklineRealDatum = {
+  date: string;
+  value: number;
+};
+
 const toMetricSeries = <TEntry extends { date: string }>(
   entries: TEntry[],
-  valueSelector: (entry: TEntry) => number,
+  valueSelector: (entry: TEntry) => number | null,
 ): TrendSparklineDatum[] => {
   return entries.map((entry) => ({
     date: entry.date,
@@ -63,11 +69,20 @@ const toMetricSeries = <TEntry extends { date: string }>(
   }));
 };
 
-const getLatestValue = (series: TrendSparklineDatum[], fallback: number): number => {
+const isTrendValuePresent = (value: number | null | undefined): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+const filterSeriesWithData = (series: TrendSparklineDatum[]): TrendSparklineRealDatum[] =>
+  series.filter((entry): entry is TrendSparklineRealDatum => isTrendValuePresent(entry.value));
+
+const getValueForDate = (series: TrendSparklineDatum[], date: string): number | null | undefined =>
+  series.find((entry) => entry.date === date)?.value;
+
+const getLatestValue = (series: TrendSparklineRealDatum[], fallback: number): number => {
   return series.at(-1)?.value ?? fallback;
 };
 
-const getPreviousValue = (series: TrendSparklineDatum[], fallback: number): number => {
+const getPreviousValue = (series: TrendSparklineRealDatum[], fallback: number): number => {
   return series.at(-2)?.value ?? fallback;
 };
 
@@ -109,11 +124,13 @@ export function TrendSparkline({
   changePercent,
   className,
   textClassName,
-  emptyMessage = 'No trend data yet.',
+  emptyMessage = 'No data',
 }: TrendSparklineProps) {
   const direction = getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
   const textClass = textClassName ?? 'text-on-accent';
+  const plottedData = filterSeriesWithData(data);
+  const hasSingleDataPoint = plottedData.length === 1;
 
   return (
     <div className={cn('flex h-full flex-col gap-4', className)} data-slot="trend-sparkline">
@@ -147,7 +164,7 @@ export function TrendSparkline({
         </div>
       </div>
 
-      {data.length === 0 ? (
+      {plottedData.length === 0 ? (
         <div className="flex h-[60px] items-center justify-center rounded-md bg-muted/35" data-slot="trend-sparkline-empty">
           <p className="text-sm text-muted">{emptyMessage}</p>
         </div>
@@ -159,15 +176,15 @@ export function TrendSparkline({
           role="img"
         >
           <ResponsiveContainer height="100%" width="100%">
-            <LineChart data={data} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
+            <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
               <Line
                 dataKey="value"
-                dot={false}
+                dot={hasSingleDataPoint ? { fill: color, r: 4, stroke: color, strokeWidth: 0 } : false}
                 isAnimationActive={false}
                 stroke={color}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={3}
+                strokeWidth={hasSingleDataPoint ? 0 : 3}
                 type="monotone"
               />
             </LineChart>
@@ -262,24 +279,32 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     );
   }
 
-  const weightSeries = needsWeight
+  const weightSeriesRaw = needsWeight
     ? toMetricSeries(weightTrendQuery.data ?? [], (entry) => entry.value)
     : [];
-  const calorieSeries = needsMacros
+  const calorieSeriesRaw = needsMacros
     ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.calories)
     : [];
-  const proteinSeries = needsMacros
+  const proteinSeriesRaw = needsMacros
     ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein)
     : [];
-
+  const calorieSeries = filterSeriesWithData(calorieSeriesRaw);
+  const proteinSeries = filterSeriesWithData(proteinSeriesRaw);
+  const weightSeries = filterSeriesWithData(weightSeriesRaw);
   const latestWeight = getLatestValue(weightSeries, 0);
   const latestCalories = getLatestValue(calorieSeries, 0);
   const latestProtein = getLatestValue(proteinSeries, 0);
+  const selectedCalorieValue = getValueForDate(calorieSeriesRaw, range.to);
+  const selectedProteinValue = getValueForDate(proteinSeriesRaw, range.to);
+  const selectedWeightValue = getValueForDate(weightSeriesRaw, range.to);
+  const hasSelectedCalorieValue = isTrendValuePresent(selectedCalorieValue);
+  const hasSelectedProteinValue = isTrendValuePresent(selectedProteinValue);
+  const hasSelectedWeightValue = isTrendValuePresent(selectedWeightValue);
 
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
-      currentValue: weightSeries.length > 0 ? `${latestWeight.toFixed(1)} lbs` : '--',
+      currentValue: hasSelectedWeightValue ? `${selectedWeightValue.toFixed(1)} lbs` : '--',
       changePercent:
         weightSeries.length > 1
           ? calculateTrendChangePercent(
@@ -294,7 +319,9 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     calories: {
       label: 'Calorie Trend',
-      currentValue: calorieSeries.length > 0 ? `${latestCalories} kcal` : '--',
+      currentValue: hasSelectedCalorieValue
+        ? `${numberFormatter.format(selectedCalorieValue)} kcal`
+        : '--',
       changePercent:
         calorieSeries.length > 1
           ? calculateTrendChangePercent(
@@ -309,7 +336,9 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     protein: {
       label: 'Protein Trend',
-      currentValue: proteinSeries.length > 0 ? `${latestProtein} g` : '--',
+      currentValue: hasSelectedProteinValue
+        ? `${numberFormatter.format(selectedProteinValue)} g`
+        : '--',
       changePercent:
         proteinSeries.length > 1
           ? calculateTrendChangePercent(
