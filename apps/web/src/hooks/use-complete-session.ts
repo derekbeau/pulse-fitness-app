@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   type SessionSetInput,
   type WorkoutSession,
+  type WorkoutSessionListItem,
   type WorkoutSessionFeedback,
   updateWorkoutSessionInputSchema,
   workoutSessionSchema,
@@ -48,6 +49,25 @@ async function completeSession(sessionId: string, input: CompleteSessionInput) {
   return payload.data;
 }
 
+function mergeSessionListItem(
+  session: WorkoutSession,
+  item?: WorkoutSessionListItem,
+): WorkoutSessionListItem {
+  return {
+    id: session.id,
+    name: session.name,
+    date: session.date,
+    status: session.status,
+    templateId: session.templateId,
+    templateName: item?.templateName ?? null,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt,
+    duration: session.duration,
+    exerciseCount: item?.exerciseCount ?? session.sets.length,
+    createdAt: item?.createdAt ?? session.createdAt,
+  };
+}
+
 export function useCompleteSession(sessionId: string | null | undefined) {
   const queryClient = useQueryClient();
   const normalizedSessionId = sessionId?.trim() ?? '';
@@ -66,6 +86,30 @@ export function useCompleteSession(sessionId: string | null | undefined) {
       }
 
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      queryClient.setQueriesData<WorkoutSessionListItem[]>(
+        {
+          queryKey: workoutQueryKeys.sessions(),
+        },
+        (current) =>
+          current?.map((item) =>
+            item.id === session.id ? mergeSessionListItem(session, item) : item,
+          ) ?? current,
+      );
+      queryClient.setQueryData<WorkoutSessionListItem[]>(
+        workoutQueryKeys.completedSessions(),
+        (current) => {
+          const existing = current?.find((item) => item.id === session.id);
+          const nextItem = mergeSessionListItem(session, existing);
+          const withoutCurrent = current?.filter((item) => item.id !== session.id) ?? [];
+
+          return [nextItem, ...withoutCurrent].sort(
+            (left, right) =>
+              right.date.localeCompare(left.date) ||
+              right.startedAt - left.startedAt ||
+              right.createdAt - left.createdAt,
+          );
+        },
+      );
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),

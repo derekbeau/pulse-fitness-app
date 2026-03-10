@@ -90,6 +90,7 @@ describe('SessionSummary', () => {
       screen.getByPlaceholderText('How did it feel? What would you change?'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Session notes')).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Session notes' })).toHaveValue('');
 
     fireEvent.change(screen.getByPlaceholderText('How did it feel? What would you change?'), {
       target: { value: 'Tempo was good but shoulders fatigued early.' },
