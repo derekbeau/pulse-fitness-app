@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { requireAuth } from '../../middleware/auth.js';
 
+import { agentContextRoutes } from './context.js';
 import { agentDailyRoutes } from './daily.js';
 import { agentExerciseRoutes } from './exercises.js';
 import { agentFoodsRoutes } from './foods.js';
@@ -22,4 +23,5 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
   app.register(agentExerciseRoutes, { prefix: '/exercises' });
   app.register(agentWorkoutRoutes);
   app.register(agentDailyRoutes);
+  app.register(agentContextRoutes);
 };

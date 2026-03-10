@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { exerciseCategorySchema } from './exercises.js';
+import { habitTrackingTypeSchema } from './habits.js';
 import { workoutSessionStatusSchema } from './workout-sessions.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
@@ -148,6 +149,75 @@ export const agentNutritionSummaryParamsSchema = z.object({
   date: dateSchema,
 });
 
+const agentContextMacroTotalsSchema = z.object({
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+
+export const agentContextMealItemSchema = z.object({
+  name: z.string(),
+  amount: z.number(),
+  unit: z.string(),
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+
+export const agentContextMealSchema = z.object({
+  name: z.string(),
+  items: z.array(agentContextMealItemSchema),
+});
+
+export const agentContextRecentWorkoutExerciseSchema = z.object({
+  name: z.string(),
+  sets: z.object({
+    total: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+  }),
+});
+
+export const agentContextRecentWorkoutSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  date: dateSchema,
+  completedAt: z.number().int().nullable(),
+  exercises: z.array(agentContextRecentWorkoutExerciseSchema),
+});
+
+export const agentContextHabitSchema = z.object({
+  name: z.string(),
+  trackingType: habitTrackingTypeSchema,
+  streak: z.number().int().nonnegative(),
+  todayCompleted: z.boolean(),
+});
+
+export const agentContextScheduledWorkoutSchema = z.object({
+  date: dateSchema,
+  templateName: z.string(),
+});
+
+export const agentContextResponseSchema = z.object({
+  user: z.object({
+    name: z.string().nullable(),
+  }),
+  recentWorkouts: z.array(agentContextRecentWorkoutSchema),
+  todayNutrition: z.object({
+    actual: agentContextMacroTotalsSchema,
+    target: agentContextMacroTotalsSchema,
+    meals: z.array(agentContextMealSchema),
+  }),
+  weight: z.object({
+    current: z.number(),
+    trend7d: z.number(),
+  }),
+  habits: z.array(agentContextHabitSchema),
+  scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),
+});
+
 export type AgentFoodSearchParams = z.infer<typeof agentFoodSearchParamsSchema>;
 export type AgentFoodResult = z.infer<typeof agentFoodResultSchema>;
 export type AgentCreateFoodInput = z.infer<typeof agentCreateFoodInputSchema>;
@@ -169,3 +239,12 @@ export type AgentExerciseSearchParams = z.infer<typeof agentExerciseSearchParams
 export type AgentCreateWeightInput = z.infer<typeof agentCreateWeightInputSchema>;
 export type AgentUpdateHabitEntryInput = z.infer<typeof agentUpdateHabitEntryInputSchema>;
 export type AgentNutritionSummaryParams = z.infer<typeof agentNutritionSummaryParamsSchema>;
+export type AgentContextMealItem = z.infer<typeof agentContextMealItemSchema>;
+export type AgentContextMeal = z.infer<typeof agentContextMealSchema>;
+export type AgentContextRecentWorkoutExercise = z.infer<
+  typeof agentContextRecentWorkoutExerciseSchema
+>;
+export type AgentContextRecentWorkout = z.infer<typeof agentContextRecentWorkoutSchema>;
+export type AgentContextHabit = z.infer<typeof agentContextHabitSchema>;
+export type AgentContextScheduledWorkout = z.infer<typeof agentContextScheduledWorkoutSchema>;
+export type AgentContextResponse = z.infer<typeof agentContextResponseSchema>;
