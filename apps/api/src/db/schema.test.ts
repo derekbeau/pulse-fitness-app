@@ -808,6 +808,7 @@ describe('exercises schema', () => {
       'muscleGroups',
       'equipment',
       'category',
+      'trackingType',
       'instructions',
       'createdAt',
       'updatedAt',
@@ -815,6 +816,7 @@ describe('exercises schema', () => {
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.userId.notNull).toBe(false);
+    expect(columns.trackingType.default).toBe('weight_reps');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
