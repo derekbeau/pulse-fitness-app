@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { MealCardSkeleton } from '@/components/skeletons';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
   useDailyNutrition,
@@ -65,7 +67,7 @@ export function NutritionPage() {
 
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
-  const isLoadingDay = dailyNutritionQuery.isPending || dailySummaryQuery.isPending;
+  const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
@@ -189,7 +191,11 @@ export function NutritionPage() {
 
           <div className="space-y-3">
             {isLoadingDay ? (
-              <NutritionMealSkeleton />
+              <div aria-label="Loading nutrition meals" className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <MealCardSkeleton key={index} />
+                ))}
+              </div>
             ) : selectedMeals.length > 0 ? (
               selectedMeals.map((meal) => (
                 <MealCard
@@ -228,9 +234,9 @@ function NutritionTotalsSkeleton() {
   return (
     <div aria-label="Loading nutrition" className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div
+        <Skeleton
           key={index}
-          className="h-20 animate-pulse rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
+          className="h-20 rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
         />
       ))}
     </div>
@@ -240,28 +246,12 @@ function NutritionTotalsSkeleton() {
 function NutritionRingsSkeleton() {
   return (
     <section className="space-y-4" aria-label="Loading nutrition rings">
-      <div className="h-5 w-40 animate-pulse rounded bg-muted/70" />
+      <Skeleton className="h-5 w-40 bg-muted/70" />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-44 animate-pulse rounded-2xl border border-border/70 bg-card/90"
-          />
+          <Skeleton key={index} className="h-44 rounded-2xl border border-border/70 bg-card/90" />
         ))}
       </div>
     </section>
-  );
-}
-
-function NutritionMealSkeleton() {
-  return (
-    <>
-      {Array.from({ length: 2 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-28 animate-pulse rounded-2xl border border-border/70 bg-card/90"
-        />
-      ))}
-    </>
   );
 }

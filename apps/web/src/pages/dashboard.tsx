@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 
+import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,7 +83,18 @@ export function DashboardPage() {
 
           <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
             <div className="flex flex-col gap-6">
-              <SnapshotCards snapshot={snapshotQuery.data} />
+              {snapshotQuery.isLoading ? (
+                <div
+                  aria-label="Loading dashboard snapshots"
+                  className="grid grid-cols-2 gap-3 sm:gap-4"
+                >
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <StatCardSkeleton key={index} showTrend={index !== 4} />
+                  ))}
+                </div>
+              ) : (
+                <SnapshotCards snapshot={snapshotQuery.data} />
+              )}
               <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
                 <CardHeader className="space-y-1">
                   <CardTitle>Log Weight</CardTitle>

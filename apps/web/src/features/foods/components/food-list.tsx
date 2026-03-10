@@ -1,6 +1,7 @@
 import { CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
 import { useEffect, useRef, useState } from 'react';
+import { FoodCardSkeleton } from '@/components/skeletons';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,30 +80,6 @@ function formatServing(food: Food) {
   }
 
   return 'Not provided';
-}
-
-function FoodCardSkeleton() {
-  return (
-    <Card className="gap-4 border-border bg-card py-5 shadow-none">
-      <CardHeader className="gap-3 px-5 sm:px-6">
-        <div className="space-y-3">
-          <div className="h-5 w-40 animate-pulse rounded bg-muted/70" />
-          <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-          <div className="h-4 w-48 animate-pulse rounded bg-muted/60" />
-        </div>
-      </CardHeader>
-      <CardContent className="px-5 sm:px-6">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-16 animate-pulse rounded-lg border border-border/70 bg-background/70"
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: FoodListProps) {
@@ -212,8 +189,8 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     }
   }
 
-  const isInitialLoading = foodsQuery.isPending;
-  const isRefreshing = foodsQuery.isFetching && !foodsQuery.isPending;
+  const isInitialLoading = foodsQuery.isLoading;
+  const isRefreshing = foodsQuery.isFetching && !foodsQuery.isLoading;
 
   return (
     <div className="space-y-4">
@@ -301,7 +278,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
           </CardHeader>
         </Card>
       ) : isInitialLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div aria-label="Loading foods" className="grid gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <FoodCardSkeleton key={index} />
           ))}

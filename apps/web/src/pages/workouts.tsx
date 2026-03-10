@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
@@ -94,10 +95,18 @@ export function WorkoutsPage() {
       ) : activeView === 'list' ? (
         <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
-        <TemplateBrowser
-          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
-          templates={templatesQuery.data ?? undefined}
-        />
+        templatesQuery.isLoading ? (
+          <div aria-label="Loading workout templates" className="grid gap-4 xl:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <WorkoutCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : (
+          <TemplateBrowser
+            buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+            templates={templatesQuery.data ?? undefined}
+          />
+        )
       ) : (
         <ExerciseLibrary />
       )}

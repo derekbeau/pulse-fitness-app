@@ -485,6 +485,8 @@ describe('NutritionPage', () => {
 
     expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
+    expect(screen.getByLabelText('Loading nutrition meals')).toBeInTheDocument();
+    expect(screen.getAllByTestId('meal-card-skeleton')).toHaveLength(4);
   });
 
   it('shows no-target copy and hides macro rings when no daily target is configured', async () => {

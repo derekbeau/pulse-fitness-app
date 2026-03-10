@@ -10,6 +10,16 @@ import { DashboardPage } from './dashboard';
 
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
 
+function createDeferredResponse() {
+  let resolve: (value: Response) => void = () => {};
+
+  const promise = new Promise<Response>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
   const React = await vi.importActual<typeof import('react')>('react');
@@ -405,6 +415,108 @@ describe('DashboardPage', () => {
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
   });
 
+  it('renders stat-card skeletons while the dashboard snapshot request is pending', async () => {
+    const deferredSnapshot = createDeferredResponse();
+
+    mockFetch.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
+
+      if (url.pathname === '/api/v1/dashboard/snapshot' && init?.method === 'GET') {
+        return deferredSnapshot.promise;
+      }
+
+      if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: dashboardConfig }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: habits }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/habit-entries' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: habitEntries }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: weightTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: macroTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: recentWorkoutsListData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Not found',
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' }, status: 404 },
+        ),
+      );
+    });
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    expect(screen.getByLabelText('Loading dashboard snapshots')).toBeInTheDocument();
+    expect(screen.getAllByTestId('stat-card-skeleton')).toHaveLength(5);
+
+    deferredSnapshot.resolve(
+      new Response(JSON.stringify({ data: snapshotForToday }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      }),
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.getByText('Body Weight')).toBeInTheDocument();
+  });
+
   it('updates snapshot and habit chain windows when a new calendar day is selected', async () => {
     const { wrapper } = createQueryClientWrapper();
     const { container } = render(
@@ -433,8 +545,15 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(within(bodyWeightCard as HTMLElement).getByText('--')).toBeInTheDocument();
-    expect(within(habitsCard as HTMLElement).getByText('0 / 1 complete')).toBeInTheDocument();
+    const refreshedBodyWeightCard = screen
+      .getByText('Body Weight')
+      .closest('[data-slot="stat-card"]') as HTMLElement;
+    const refreshedHabitsCard = screen
+      .getByText('Habits')
+      .closest('[data-slot="stat-card"]') as HTMLElement;
+
+    expect(within(refreshedBodyWeightCard).getByText('--')).toBeInTheDocument();
+    expect(within(refreshedHabitsCard).getByText('0 / 1 complete')).toBeInTheDocument();
     expect(screen.getByText('Rest Day')).toBeInTheDocument();
 
     const updatedSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
@@ -466,10 +585,15 @@ describe('DashboardPage', () => {
       { wrapper },
     );
 
-    const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
-    expect(bodyWeightCard).toBeInTheDocument();
     await waitFor(() => {
-      expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
+      expect(screen.getByText('Body Weight')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const initialBodyWeightCard = screen
+        .getByText('Body Weight')
+        .closest('[data-slot="stat-card"]') as HTMLElement;
+
+      expect(within(initialBodyWeightCard).getByText(formatWeight(181.4))).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText('Weight (lbs)'), { target: { value: '175.5' } });
@@ -479,7 +603,11 @@ describe('DashboardPage', () => {
       expect(screen.getByText('Weight entry saved.')).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(within(bodyWeightCard as HTMLElement).getByText('175.5 lbs')).toBeInTheDocument();
+      const refreshedBodyWeightCard = screen
+        .getByText('Body Weight')
+        .closest('[data-slot="stat-card"]') as HTMLElement;
+
+      expect(within(refreshedBodyWeightCard).getByText('175.5 lbs')).toBeInTheDocument();
     });
   });
 
