@@ -10,7 +10,7 @@ import {
   Scale,
   TrendingUp,
 } from 'lucide-react';
-import { getWeightLabel, type SessionSet, type WeightUnit, type WorkoutSession, type WorkoutTemplate, type WorkoutTemplateSectionType } from '@pulse/shared';
+import { type SessionSet, type WeightUnit, type WorkoutSession, type WorkoutTemplate, type WorkoutTemplateSectionType } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -234,7 +234,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         <StatCard
           icon={<Scale aria-hidden="true" className="size-4" />}
           label="Volume"
-          value={`${formatNumber(summary.totalVolume)} ${getWeightLabel(weightUnit)}`}
+          value={`${formatNumber(summary.totalVolume)} ${weightUnit}`}
         />
       </div>
 
@@ -609,8 +609,7 @@ function formatSetLabel(set: SessionSet, weightUnit: WeightUnit) {
   }
 
   const repsLabel = set.reps != null ? `${integerFormatter.format(set.reps)} reps` : 'No reps';
-  const weightLabel =
-    set.weight != null ? `${formatNumber(set.weight)} ${getWeightLabel(weightUnit)} × ` : '';
+  const weightLabel = set.weight != null ? `${formatNumber(set.weight)} ${weightUnit} × ` : '';
 
   return `Set ${set.setNumber}: ${weightLabel}${repsLabel}`;
 }

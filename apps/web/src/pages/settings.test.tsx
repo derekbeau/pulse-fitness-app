@@ -445,7 +445,6 @@ describe('SettingsPage', () => {
 
     expect(getLatestPostBody('/api/v1/users/me')).toEqual({
       name: 'Jordan Updated',
-      weightUnit: 'lbs',
     });
   });
 
@@ -464,7 +463,26 @@ describe('SettingsPage', () => {
     });
 
     expect(getLatestPostBody('/api/v1/users/me')).toEqual({
-      name: 'Jordan Lee',
+      weightUnit: 'kg',
+    });
+  });
+
+  it('allows users without a display name to save weight unit changes', async () => {
+    state.user.name = null;
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Display name')).toHaveValue('');
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'kg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated.')).toBeInTheDocument();
+    });
+
+    expect(getLatestPostBody('/api/v1/users/me')).toEqual({
       weightUnit: 'kg',
     });
   });

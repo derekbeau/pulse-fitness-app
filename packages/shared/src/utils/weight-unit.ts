@@ -13,7 +13,3 @@ function formatNumber(value: number) {
 export function formatWeight(value: number, unit: WeightUnit): string {
   return `${formatNumber(value)} ${unit}`;
 }
-
-export function getWeightLabel(unit: WeightUnit): string {
-  return unit;
-}

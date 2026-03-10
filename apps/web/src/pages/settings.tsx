@@ -4,6 +4,7 @@ import {
   DASHBOARD_WIDGET_IDS,
   type CreateNutritionTargetInput,
   type DashboardTrendMetric,
+  type UpdateUserInput,
   type WeightUnit,
 } from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
@@ -350,15 +351,24 @@ export function SettingsPage() {
       return;
     }
 
-    const nextName = displayName.trim();
+    const payload: UpdateUserInput = {};
 
-    if (!nextName) {
-      setProfileMessage('Display name cannot be empty.');
-      return;
+    if (displayNameDraft !== null) {
+      const nextName = displayName.trim();
+      if (!nextName) {
+        setProfileMessage('Display name cannot be empty.');
+        return;
+      }
+
+      payload.name = nextName;
+    }
+
+    if (weightUnitDraft !== null) {
+      payload.weightUnit = weightUnitDraft;
     }
 
     try {
-      await updateUserMutation.mutateAsync({ name: nextName, weightUnit });
+      await updateUserMutation.mutateAsync(payload);
       setDisplayNameDraft(null);
       setWeightUnitDraft(null);
       setProfileMessage('Profile updated.');

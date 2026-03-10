@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getWeightLabel, type WeightUnit } from '@pulse/shared';
+import { type WeightUnit } from '@pulse/shared';
 import {
   CartesianGrid,
   Line,
@@ -116,7 +116,7 @@ export function ExerciseTrendChart({
               <MetricCard
                 accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
                 label="Latest weight"
-                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} ${getWeightLabel(weightUnit)}`}
+                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} ${weightUnit}`}
               />
               <MetricCard
                 accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
@@ -144,9 +144,7 @@ export function ExerciseTrendChart({
                     axisLine={false}
                     orientation="left"
                     tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) =>
-                      `${numberFormatter.format(value)} ${getWeightLabel(weightUnit)}`
-                    }
+                    tickFormatter={(value: number) => `${numberFormatter.format(value)} ${weightUnit}`}
                     tickLine={false}
                     yAxisId="weight"
                     width={56}
@@ -171,7 +169,7 @@ export function ExerciseTrendChart({
                       const formattedValue = numberFormatter.format(value ?? 0);
 
                       if (name === 'weight') {
-                        return [`${formattedValue} ${getWeightLabel(weightUnit)}`, 'Weight'];
+                        return [`${formattedValue} ${weightUnit}`, 'Weight'];
                       }
 
                       return [`${formattedValue} reps`, 'Reps'];

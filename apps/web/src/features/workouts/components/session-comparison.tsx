@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { formatWeight, getWeightLabel, type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/shared';
+import { formatWeight, type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,7 +105,7 @@ export function SessionComparison({
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
               direction={getDirection(volumeDelta)}
-              label={`${formatSignedNumber(volumeDelta)} ${getWeightLabel(weightUnit)}`}
+              label={`${formatSignedNumber(volumeDelta)} ${weightUnit}`}
             />
             {percentChange != null ? (
               <span className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100">
@@ -141,7 +141,7 @@ export function SessionExerciseComparison({
           <span className="text-muted">{`Volume vs ${comparison.previousSessionDate}`}</span>
           <DeltaIndicator
             direction={getDirection(comparison.volumeDelta)}
-            label={`${formatSignedNumber(comparison.volumeDelta)} ${getWeightLabel(weightUnit)}`}
+            label={`${formatSignedNumber(comparison.volumeDelta)} ${weightUnit}`}
           />
         </div>
       </div>
@@ -156,7 +156,7 @@ export function SessionExerciseComparison({
             {set.currentWeight != null && set.weightDelta != null ? (
               <DeltaIndicator
                 direction={getDirection(set.weightDelta)}
-                label={`Weight ${formatSignedNumber(set.weightDelta)} ${getWeightLabel(weightUnit)}`}
+                label={`Weight ${formatSignedNumber(set.weightDelta)} ${weightUnit}`}
               />
             ) : null}
             <DeltaIndicator
