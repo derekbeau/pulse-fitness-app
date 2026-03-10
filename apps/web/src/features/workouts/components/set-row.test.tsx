@@ -99,4 +99,37 @@ describe('SetRow', () => {
 
     expect(onUpdate).toHaveBeenCalledWith({ completed: true, seconds: 45 });
   });
+
+  it('shows reps-only target text for reps-seconds tracking', () => {
+    render(
+      <SetRow
+        completed={false}
+        isLast={false}
+        onUpdate={vi.fn()}
+        reps={10}
+        setNumber={2}
+        target={{ maxReps: 12, minReps: 8, weight: 0 }}
+        trackingType="reps_seconds"
+      />,
+    );
+
+    expect(screen.getByText('Target: 8-12 reps')).toBeInTheDocument();
+  });
+
+  it('uses km distance suffix for metric users', () => {
+    render(
+      <SetRow
+        completed={false}
+        distance={5}
+        isLast={false}
+        onUpdate={vi.fn()}
+        reps={null}
+        setNumber={1}
+        trackingType="distance"
+        weightUnit="kg"
+      />,
+    );
+
+    expect(screen.getByText('km')).toBeInTheDocument();
+  });
 });

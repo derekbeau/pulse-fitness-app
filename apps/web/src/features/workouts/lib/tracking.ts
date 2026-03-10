@@ -66,7 +66,7 @@ export function resolveTrackingType({
 }
 
 export function getDistanceUnit(weightUnit: WeightUnit) {
-  return weightUnit === 'kg' ? 'm' : 'mi';
+  return weightUnit === 'kg' ? 'km' : 'mi';
 }
 
 export function getSetSeconds(set: SetMetrics) {

@@ -221,6 +221,8 @@ function getLastPerformance(
 }
 
 export function countCompletedReps(setDrafts: ActiveWorkoutSetDrafts) {
+  // Note: For time-based exercises, `set.reps` may contain bridged seconds data
+  // (see getSetSeconds fallback). This aggregate is only used for progress UI.
   return Object.values(setDrafts)
     .flat()
     .reduce((total, set) => total + (set.completed ? (set.reps ?? 0) : 0), 0);

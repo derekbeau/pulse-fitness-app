@@ -49,5 +49,9 @@ export const exercises = sqliteTable(
       'exercises_category_check',
       sql`${table.category} in ('compound', 'isolation', 'cardio', 'mobility')`,
     ),
+    check(
+      'exercises_tracking_type_check',
+      sql`${table.trackingType} in ('weight_reps', 'weight_seconds', 'bodyweight_reps', 'reps_only', 'reps_seconds', 'seconds_only', 'distance', 'cardio')`,
+    ),
   ],
 );

@@ -796,7 +796,7 @@ describe('habits schema', () => {
 });
 
 describe('exercises schema', () => {
-  it('defines the expected table, optional user scope, and category constraint', () => {
+  it('defines the expected table, optional user scope, and tracking constraints', () => {
     const category: WorkoutExerciseCategory = 'compound';
 
     expect(getTableName(exercises)).toBe('exercises');
@@ -829,8 +829,9 @@ describe('exercises schema', () => {
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['exercises_user_id_idx']);
-    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'exercises_category_check',
+      'exercises_tracking_type_check',
     ]);
   });
 });

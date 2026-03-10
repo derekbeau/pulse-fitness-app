@@ -369,6 +369,23 @@ function exceedsLastPerformance(
     return currentSeconds > previousReps;
   }
 
+  if (trackingType === 'distance') {
+    const currentDistance = current.distance ?? 0;
+    return currentDistance > previousReps;
+  }
+
+  if (trackingType === 'cardio') {
+    return currentSeconds > previousReps;
+  }
+
+  if (
+    trackingType === 'reps_only' ||
+    trackingType === 'bodyweight_reps' ||
+    trackingType === 'reps_seconds'
+  ) {
+    return currentReps > previousReps;
+  }
+
   if (trackingType === 'weight_seconds') {
     const currentWeight = current.weight;
     const previousWeight = previous.weight;
@@ -447,7 +464,7 @@ function formatTargetLabel({
     case 'reps_only':
       return `Target: ${repRange}`;
     case 'reps_seconds':
-      return `Target: ${repRange} x ${repRange} sec`;
+      return `Target: ${repRange} reps`;
     case 'seconds_only':
       return `Target: ${repRange} sec`;
     case 'distance':

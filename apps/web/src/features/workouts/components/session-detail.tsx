@@ -36,7 +36,14 @@ import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { cn } from '@/lib/utils';
 
 import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
-import { getSetSeconds, getSetVolume, getTrackingVolumeLabel, resolveTrackingType } from '../lib/tracking';
+import {
+  getDistanceUnit,
+  getSetDistance,
+  getSetSeconds,
+  getSetVolume,
+  getTrackingVolumeLabel,
+  resolveTrackingType,
+} from '../lib/tracking';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
 import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
@@ -696,13 +703,15 @@ function formatSetLabel(set: SessionSet, trackingType: ExerciseTrackingType, wei
 
   const repsValue = set.reps != null ? integerFormatter.format(set.reps) : '0';
   const secondsValue = integerFormatter.format(getSetSeconds(set) ?? 0);
+  const distanceUnit = getDistanceUnit(weightUnit);
 
   if (trackingType === 'seconds_only') {
     return `Set ${set.setNumber}: ${secondsValue} sec`;
   }
 
   if (trackingType === 'cardio') {
-    return `Set ${set.setNumber}: ${secondsValue} sec`;
+    const distanceValue = formatNumber(getSetDistance(set) ?? 0);
+    return `Set ${set.setNumber}: ${secondsValue} sec / ${distanceValue} ${distanceUnit}`;
   }
 
   if (trackingType === 'weight_seconds') {

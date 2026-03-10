@@ -159,3 +159,82 @@ describe('migration 0013_lazy_bromley', () => {
     }
   });
 });
+
+describe('migration 0014_parched_katie_power', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds tracking_type check constraint for exercises', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0014-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+    try {
+      db.exec(`
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY NOT NULL
+        );
+      `);
+
+      db.exec(`
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT,
+          name TEXT NOT NULL,
+          muscle_groups TEXT NOT NULL,
+          equipment TEXT NOT NULL,
+          category TEXT NOT NULL,
+          tracking_type TEXT DEFAULT 'weight_reps' NOT NULL,
+          instructions TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0014_parched_katie_power.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      expect(() =>
+        db.prepare(
+          `
+            INSERT INTO exercises (
+              id,
+              user_id,
+              name,
+              muscle_groups,
+              equipment,
+              category,
+              tracking_type,
+              instructions,
+              created_at,
+              updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        ).run(
+          'exercise-invalid-tracking',
+          null,
+          'Bench Press',
+          JSON.stringify(['chest']),
+          'barbell',
+          'compound',
+          'invalid_type',
+          null,
+          Date.now(),
+          Date.now(),
+        ),
+      ).toThrow(/CHECK constraint failed/);
+    } finally {
+      db.close();
+    }
+  });
+});
