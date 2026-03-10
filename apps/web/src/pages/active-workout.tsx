@@ -491,10 +491,17 @@ export function ActiveWorkoutPage() {
 
     if (activeSessionId) {
       setSessionError(null);
+      const isTimeBased = [
+        'weight_seconds',
+        'reps_seconds',
+        'seconds_only',
+        'cardio',
+      ].includes(templateExercise.trackingType);
       const persistedUpdate = {
-        completed: normalizedUpdate.completed,
-        reps: normalizedUpdate.reps,
-        weight: normalizedUpdate.weight,
+        completed: updatedSet.completed,
+        // Bridge for time-based exercises: store seconds in the `reps` column until DB support lands.
+        reps: isTimeBased ? updatedSet.seconds : updatedSet.reps,
+        weight: updatedSet.weight,
       };
       updateSetMutation.mutate(
         {
