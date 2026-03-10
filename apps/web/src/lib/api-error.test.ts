@@ -38,6 +38,10 @@ describe('api-error', () => {
     );
   });
 
+  it('does not treat generic TypeError instances as network failures', () => {
+    expect(isNetworkError(new TypeError('Cannot read properties of null'))).toBe(false);
+  });
+
   it('falls back to a generic internal error message when no details are available', () => {
     expect(toUserFriendlyApiErrorMessage({})).toBe(API_ERROR_MESSAGE_BY_CODE.INTERNAL_ERROR);
   });

@@ -120,6 +120,8 @@ describe('Sidebar', () => {
 
     const menuButton = screen.getByRole('button', { name: 'Open navigation menu' });
     expect(menuButton).toHaveClass('min-h-[44px]', 'min-w-[44px]');
+    menuButton.focus();
+    expect(menuButton).toHaveFocus();
 
     fireEvent.click(menuButton);
 
@@ -128,11 +130,13 @@ describe('Sidebar', () => {
     const mobileNav = screen.getByRole('dialog', { name: 'Mobile navigation' });
     expect(mobileNav).toBeInTheDocument();
     expect(mobileNav).toHaveAttribute('aria-modal', 'true');
-    expect(screen.getByRole('button', { name: 'Close sidebar panel' })).toBeInTheDocument();
+    const closeButton = screen.getByRole('button', { name: 'Close sidebar panel' });
+    expect(closeButton).toBeInTheDocument();
+    expect(closeButton).toHaveFocus();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close sidebar panel' }));
+    fireEvent.click(closeButton);
     expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus();
   });
 
   it('renders the collapsed avatar without adding it to the tab order', () => {

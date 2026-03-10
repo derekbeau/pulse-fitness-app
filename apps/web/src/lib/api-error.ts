@@ -41,7 +41,7 @@ function hasNetworkFailureMessage(message: string): boolean {
 }
 
 export function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError) {
+  if (error instanceof TypeError && hasNetworkFailureMessage(error.message)) {
     return true;
   }
 

@@ -21,9 +21,12 @@ function redirectToLogin(): void {
 }
 
 function handleGlobalError(error: unknown): void {
-  toast.error(toUserFriendlyApiErrorMessage(error));
+  if (!isUnauthorizedApiError(error)) {
+    toast.error(toUserFriendlyApiErrorMessage(error));
+    return;
+  }
 
-  if (!isUnauthorizedApiError(error) || isHandlingUnauthorized) {
+  if (isHandlingUnauthorized) {
     return;
   }
 
@@ -33,6 +36,11 @@ function handleGlobalError(error: unknown): void {
   window.setTimeout(() => {
     isHandlingUnauthorized = false;
   }, 100);
+}
+
+export function resetAppQueryClient(): void {
+  appQueryClient = null;
+  isHandlingUnauthorized = false;
 }
 
 export function createAppQueryClient(): QueryClient {

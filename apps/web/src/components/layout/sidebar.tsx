@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
 
@@ -19,6 +19,9 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobilePanelId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldRestoreFocusRef = useRef(false);
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const displayName = user?.name?.trim() || user?.username || 'Account';
@@ -39,16 +42,33 @@ export function Sidebar() {
     });
   }
 
-  function handleLogout() {
+  function openMobileMenu() {
+    shouldRestoreFocusRef.current = true;
+    setMobileMenuOpen(true);
+  }
+
+  function closeMobileMenu() {
     setMobileMenuOpen(false);
+  }
+
+  function handleLogout() {
+    shouldRestoreFocusRef.current = false;
+    closeMobileMenu();
     logout();
     navigate('/login', { replace: true });
   }
 
   useEffect(() => {
     if (!mobileMenuOpen) {
+      if (shouldRestoreFocusRef.current) {
+        menuButtonRef.current?.focus();
+        shouldRestoreFocusRef.current = false;
+      }
+
       return;
     }
+
+    closeButtonRef.current?.focus();
 
     const previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -75,7 +95,8 @@ export function Sidebar() {
           aria-expanded={mobileMenuOpen}
           aria-label="Open navigation menu"
           className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] left-4 z-40 flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl border border-border/70 bg-card/95 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary md:hidden"
-          onClick={() => setMobileMenuOpen(true)}
+          onClick={openMobileMenu}
+          ref={menuButtonRef}
           type="button"
         >
           <Menu aria-hidden="true" className="size-5" />
@@ -87,7 +108,7 @@ export function Sidebar() {
           <button
             aria-label="Close navigation overlay"
             className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={closeMobileMenu}
             type="button"
           />
 
@@ -103,7 +124,8 @@ export function Sidebar() {
               <button
                 aria-label="Close sidebar panel"
                 className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl text-muted transition-colors hover:bg-secondary hover:text-foreground"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
+                ref={closeButtonRef}
                 type="button"
               >
                 <X className="size-4" aria-hidden="true" />
@@ -129,7 +151,7 @@ export function Sidebar() {
                       )
                     }
                     end={item.end}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     to={item.to}
                   >
                     <Icon className="size-[18px]" aria-hidden="true" />

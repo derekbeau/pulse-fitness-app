@@ -21,11 +21,11 @@ vi.mock('@/store/auth-store', () => ({
   },
 }));
 
-import { createAppQueryClient } from './query-client';
+import { createAppQueryClient, resetAppQueryClient } from './query-client';
 
 describe('query-client', () => {
   beforeEach(() => {
-    createAppQueryClient().clear();
+    resetAppQueryClient();
     toastErrorMock.mockReset();
     logoutMock.mockReset();
     window.history.pushState({}, '', '/');
@@ -68,5 +68,16 @@ describe('query-client', () => {
     expect(logoutMock).toHaveBeenCalledTimes(1);
     expect(replaceStateSpy).toHaveBeenCalledWith({}, '', '/login');
     expect(dispatchEventSpy).toHaveBeenCalledWith(expect.any(PopStateEvent));
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
+  it('recreates the singleton after reset', () => {
+    const firstClient = createAppQueryClient();
+
+    resetAppQueryClient();
+
+    const secondClient = createAppQueryClient();
+
+    expect(secondClient).not.toBe(firstClient);
   });
 });
