@@ -234,6 +234,117 @@ describe('api-client', () => {
     expect(requestHeaders.get('Authorization')).toBe('Bearer login-token');
   });
 
+  it('recovers stale sessions when /api/v1/users/me returns NOT_FOUND in DEV mode', async () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'pulse-dev-password');
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'stale-token');
+    window.localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          token: 'stale-token',
+          user: {
+            id: 'stale-user',
+            username: 'stale',
+            name: 'Stale User',
+          },
+        },
+        version: 0,
+      }),
+    );
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'NOT_FOUND',
+              message: 'User not found',
+            },
+          }),
+          { status: 404 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'USERNAME_TAKEN',
+              message: 'Username is already taken',
+            },
+          }),
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { token: 'fresh-token' } }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: 'user-1',
+              username: 'pulse-dev',
+              name: 'Pulse Dev',
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const payload = await apiRequest<{ id: string; username: string; name: string }>(
+      '/api/v1/users/me',
+      { method: 'GET' },
+    );
+
+    expect(payload).toEqual({
+      id: 'user-1',
+      username: 'pulse-dev',
+      name: 'Pulse Dev',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/users/me');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/v1/auth/register');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/v1/auth/login');
+    expect(fetchMock.mock.calls[3]?.[0]).toBe('/api/v1/users/me');
+    expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBe('fresh-token');
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+
+    const firstHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(firstHeaders.get('Authorization')).toBe('Bearer stale-token');
+    const secondUserHeaders = new Headers(fetchMock.mock.calls[3]?.[1]?.headers);
+    expect(secondUserHeaders.get('Authorization')).toBe('Bearer fresh-token');
+  });
+
+  it('does not retry non-user NOT_FOUND responses', async () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'pulse-dev-password');
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'stale-token');
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Missing',
+          },
+        }),
+        { status: 404 },
+      ),
+    );
+
+    await expect(apiRequest('/api/v1/habits/habit-1')).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: 'Missing',
+    } satisfies Partial<ApiError>);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('allows empty success bodies for 204 responses', async () => {
     fetchMock.mockResolvedValue(
       new Response(null, {
