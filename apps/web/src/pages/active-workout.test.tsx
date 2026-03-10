@@ -18,7 +18,7 @@ describe('ActiveWorkoutPage', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    window.localStorage.clear();
   });
 
   it('renders the active workout UI and advances focus after the rest timer completes', () => {
@@ -26,9 +26,13 @@ describe('ActiveWorkoutPage', () => {
 
     const heading = screen.getByRole('heading', { level: 1, name: 'Upper Push' });
     const headerCard = heading.closest('[data-slot="card"]');
+    const progressBar = screen.getByRole('progressbar', { name: 'Workout progress' });
+    const stickyProgressStrip = progressBar.closest('.sticky');
 
-    expect(headerCard).toHaveClass('sticky');
+    expect(headerCard).not.toHaveClass('sticky');
+    expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
     expect(screen.getByText('Recovery Status')).toBeInTheDocument();
@@ -43,10 +47,14 @@ describe('ActiveWorkoutPage', () => {
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
     expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
 
-    fireEvent.click(within(inclineCard).getByLabelText('Complete set 3'));
+    fireEvent.change(within(inclineCard).getByLabelText('Weight for set 3'), {
+      target: { value: '40' },
+    });
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 3'), {
+      target: { value: '9' },
+    });
 
-    expect(screen.getByText('Rest Timer')).toBeInTheDocument();
-    expect(screen.getByText('After Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByText('After Incline Dumbbell Press set 3')).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(90_100);
@@ -54,7 +62,7 @@ describe('ActiveWorkoutPage', () => {
 
     const nextExerciseCard = getExerciseCard('Seated Dumbbell Shoulder Press');
     expect(within(nextExerciseCard).getByLabelText('Reps for set 1')).toHaveFocus();
-    expect(screen.queryByText('Rest Timer')).not.toBeInTheDocument();
+    expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
@@ -101,7 +109,9 @@ describe('ActiveWorkoutPage', () => {
     completeSet('Rope Triceps Pushdown', 3);
     completeSet('Couch Stretch', 1);
 
-    fireEvent.click(within(getExerciseCard('Couch Stretch')).getByLabelText('Complete set 2'));
+    fireEvent.change(within(getExerciseCard('Couch Stretch')).getByLabelText('Seconds for set 2'), {
+      target: { value: '65' },
+    });
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -160,6 +170,42 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
     expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
     expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
+  });
+
+  it('starts fallback elapsed time from now for unsaved sessions', () => {
+    renderActiveWorkoutPage('/workouts/active');
+
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('supports manually finishing an active workout with confirmation and set summary ratio', () => {
+    renderActiveWorkoutPage();
+
+    const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
+    const finishFooter = finishButton.closest('div');
+    expect(finishFooter).not.toBeNull();
+    expect(within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i)).toBeInTheDocument();
+
+    fireEvent.click(finishButton);
+    expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText(/End workout with \d+ sets remaining\?/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();
+    const setsCompletedLabel = screen.getByText('Sets completed');
+    const setsCompletedStat = setsCompletedLabel.closest('div')?.parentElement ?? null;
+    expect(setsCompletedStat).not.toBeNull();
+    expect(within(setsCompletedStat as HTMLElement).getByText(/\d+\/\d+/)).toBeInTheDocument();
   });
 
   it('loads API templates for UUID template ids instead of falling back to mock defaults', async () => {
@@ -231,7 +277,21 @@ function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
 }
 
 function getExerciseCard(name: string) {
-  const card = screen.getByRole('heading', { level: 3, name }).closest('[data-slot="card"]');
+  let heading = screen.queryByRole('heading', { level: 3, name });
+
+  if (!heading) {
+    for (const sectionLabel of ['Warmup', 'Main', 'Cooldown']) {
+      const sectionToggle = screen.queryByRole('button', { name: new RegExp(`^${sectionLabel}`) });
+
+      if (sectionToggle?.getAttribute('aria-expanded') === 'false') {
+        fireEvent.click(sectionToggle);
+      }
+    }
+
+    heading = screen.queryByRole('heading', { level: 3, name });
+  }
+
+  const card = heading?.closest('[data-slot="card"]');
 
   if (!card) {
     throw new Error(`Expected exercise card for ${name}.`);
@@ -241,9 +301,34 @@ function getExerciseCard(name: string) {
 }
 
 function completeSet(exerciseName: string, setNumber: number) {
-  fireEvent.click(
-    within(getExerciseCard(exerciseName)).getByLabelText(`Complete set ${setNumber}`),
-  );
+  const card = getExerciseCard(exerciseName);
+  const weightInput = within(card).queryByLabelText(`Weight for set ${setNumber}`) as
+    | HTMLInputElement
+    | null;
+
+  if (weightInput && weightInput.value === '') {
+    fireEvent.change(weightInput, {
+      target: {
+        value: '10',
+      },
+    });
+  }
+
+  const input =
+    within(card).queryByLabelText(`Reps for set ${setNumber}`) ??
+    within(card).queryByLabelText(`Seconds for set ${setNumber}`) ??
+    within(card).queryByLabelText(`Distance for set ${setNumber}`) ??
+    weightInput;
+
+  if (!input) {
+    throw new Error(`Expected a set input for ${exerciseName} set ${setNumber}.`);
+  }
+
+  fireEvent.change(input, {
+    target: {
+      value: '1',
+    },
+  });
 
   const skipButton = screen.queryByRole('button', { name: 'Skip' });
 

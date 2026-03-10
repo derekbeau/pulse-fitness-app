@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -6,12 +7,18 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { AlertTriangle, ArrowUpRight, ChevronDown, Check, Circle, Dot } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Check, Circle, Dot, MoreVertical, Plus } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
@@ -19,18 +26,25 @@ import { cn } from '@/lib/utils';
 
 import type {
   ActiveWorkoutExercise,
-  ActiveWorkoutLastPerformance,
   ActiveWorkoutPhaseBadge,
-  ActiveWorkoutReversePyramidTarget,
   ActiveWorkoutSessionData,
 } from '../types';
+import {
+  estimateExerciseTime,
+  estimateSectionTime,
+  formatEstimateMinutes,
+  formatRestDuration,
+  formatTempo,
+} from '../lib/time-estimates';
 import { getDistanceUnit } from '../lib/tracking';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
 type RestTimerState = {
   duration: number;
+  exerciseId: string;
   exerciseName: string;
+  setId: string;
   setNumber: number;
   token: number;
 };
@@ -41,6 +55,7 @@ type SessionExerciseListProps = {
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onFocusSetHandled?: () => void;
+  onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
@@ -84,6 +99,7 @@ export function SessionExerciseList({
   onAddSet,
   onExerciseNotesChange,
   onFocusSetHandled,
+  onRemoveSet,
   onRestTimerComplete,
   onSetUpdate,
   restTimer = null,
@@ -128,33 +144,12 @@ export function SessionExerciseList({
 
   return (
     <div className="space-y-4">
-      {restTimer ? (
-        <section
-          className={`rounded-3xl border px-5 py-5 ${accentCardStyles.mint}`}
-          data-slot="rest-timer-panel"
-        >
-          <div className="mb-4 space-y-1">
-            <p className="text-xs font-semibold tracking-[0.22em] uppercase opacity-70 dark:text-muted dark:opacity-100">
-              Rest Timer
-            </p>
-            <h2 className="text-xl font-semibold">{`After ${restTimer.exerciseName}`}</h2>
-            <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">{`Set ${restTimer.setNumber} logged. Start the next set when you're ready.`}</p>
-          </div>
-
-          <RestTimer
-            autoStart
-            duration={restTimer.duration}
-            key={restTimer.token}
-            onComplete={onRestTimerComplete}
-          />
-        </section>
-      ) : null}
-
       {session.sections.map((section) => {
         const completedExercises = section.exercises.filter(
-          (exercise) => exercise.completedSets === exercise.targetSets,
+          (exercise) => exercise.completedSets >= exercise.targetSets,
         ).length;
         const sectionLabel = sectionLabels[section.type];
+        const sectionEstimate = formatEstimateMinutes(estimateSectionTime(section));
         const sectionSummary = `${sectionLabel} (${completedExercises}/${section.exercises.length} exercises done)`;
         const isOpen =
           focusTarget?.sectionId === section.id
@@ -183,7 +178,7 @@ export function SessionExerciseList({
               type="button"
             >
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">{sectionLabel}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{`${sectionLabel} — ${sectionEstimate}`}</h2>
                 <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
@@ -216,8 +211,13 @@ export function SessionExerciseList({
                         enableApiLastPerformance={enableApiLastPerformance}
                         expandedExercises={expandedExercises}
                         focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                        inlineRestTimer={
+                          restTimer && restTimer.exerciseId === item.exercise.id ? restTimer : null
+                        }
                         onAddSet={onAddSet}
                         onExerciseNotesChange={onExerciseNotesChange}
+                        onRemoveSet={onRemoveSet}
+                        onRestTimerComplete={onRestTimerComplete}
                         onSetUpdate={onSetUpdate}
                         repsInputRefs={repsInputRefs}
                         sessionCurrentExerciseId={session.currentExerciseId}
@@ -276,8 +276,11 @@ export function SessionExerciseList({
                               enableApiLastPerformance={enableApiLastPerformance}
                               expandedExercises={expandedExercises}
                               focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                              inlineRestTimer={null}
                               onAddSet={onAddSet}
                               onExerciseNotesChange={onExerciseNotesChange}
+                              onRemoveSet={onRemoveSet}
+                              onRestTimerComplete={onRestTimerComplete}
                               onSetUpdate={onSetUpdate}
                               repsInputRefs={repsInputRefs}
                               sessionCurrentExerciseId={session.currentExerciseId}
@@ -288,6 +291,17 @@ export function SessionExerciseList({
                               visibleNotesPanels={visibleNotesPanels}
                               weightUnit={weightUnit}
                             />
+                            {restTimer &&
+                            restTimer.exerciseId === exercise.id &&
+                            exercise.supersetGroup ? (
+                              <InlineRestTimer
+                                duration={restTimer.duration}
+                                exerciseName={restTimer.exerciseName}
+                                key={restTimer.token}
+                                onComplete={onRestTimerComplete}
+                                setNumber={restTimer.setNumber}
+                              />
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -309,8 +323,11 @@ type ExerciseCardItemProps = {
   enableApiLastPerformance: boolean;
   expandedExercises: Record<string, boolean>;
   focusTargetExerciseId: string | null;
+  inlineRestTimer: RestTimerState | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onRemoveSet: (exerciseId: string) => void;
+  onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCurrentExerciseId: string | null;
@@ -328,8 +345,11 @@ function ExerciseCardItem({
   enableApiLastPerformance,
   expandedExercises,
   focusTargetExerciseId,
+  inlineRestTimer,
   onAddSet,
   onExerciseNotesChange,
+  onRemoveSet,
+  onRestTimerComplete,
   onSetUpdate,
   repsInputRefs,
   sessionCurrentExerciseId,
@@ -343,8 +363,11 @@ function ExerciseCardItem({
   const lastPerformanceQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
   });
-  const lastPerformance = enableApiLastPerformance ? (lastPerformanceQuery.data ?? null) : exercise.lastPerformance;
+  const lastPerformance = enableApiLastPerformance
+    ? (lastPerformanceQuery.data ?? null)
+    : exercise.lastPerformance;
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
+  const isExerciseComplete = state === 'completed';
   const isExpanded =
     focusTargetExerciseId === exercise.id
       ? true
@@ -358,72 +381,127 @@ function ExerciseCardItem({
     exercise.priority === 'required'
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
+  const exerciseEstimate = formatEstimateMinutes(estimateExerciseTime(exercise));
+  const canRemoveSet = exercise.sets.length > 1;
 
   return (
     <Card
       className={cn(
         'gap-0 overflow-hidden py-0 transition-colors',
         priorityAccentClass,
+        state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
         state === 'in-progress' && 'border-primary/35 shadow-md',
       )}
     >
-      <button
-        aria-controls={`exercise-panel-${exercise.id}`}
-        aria-expanded={isExpanded}
-        className="flex w-full cursor-pointer items-start justify-between gap-4 px-4 py-5 text-left sm:px-5"
-        onClick={() =>
-          setExpandedExercises((current) => ({
-            ...current,
-            [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
-          }))
-        }
-        type="button"
-      >
-        <div className="flex min-w-0 items-start gap-3">
-          <ExerciseStatusIndicator priority={exercise.priority} state={state} />
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-foreground">{exercise.name}</h3>
-              <Badge
-                className={cn(
-                  'border-transparent capitalize',
-                  phaseBadgeStyles[exercise.phaseBadge],
-                )}
-                variant="outline"
-              >
-                {formatPhaseBadge(exercise.phaseBadge)}
-              </Badge>
-              <Badge
-                className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
-                variant="outline"
-              >
-                {exercise.category}
-              </Badge>
-              {exercise.priority === 'optional' ? (
-                <span className="text-sm font-medium text-muted">Optional</span>
-              ) : null}
-              {state === 'in-progress' ? (
-                <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
-                  Current
+      <div className="flex items-start gap-2 px-4 py-5 sm:px-5">
+        <button
+          aria-controls={`exercise-panel-${exercise.id}`}
+          aria-expanded={isExpanded}
+          className="flex min-w-0 flex-1 cursor-pointer items-start justify-between gap-4 text-left"
+          onClick={() =>
+            setExpandedExercises((current) => ({
+              ...current,
+              [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
+            }))
+          }
+          type="button"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <ExerciseStatusIndicator priority={exercise.priority} state={state} />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3
+                  className={cn(
+                    'text-lg font-semibold text-foreground',
+                    isExerciseComplete && 'text-muted line-through',
+                  )}
+                >
+                  {exercise.name}
+                </h3>
+                {isExerciseComplete ? (
+                  <Check aria-hidden="true" className="size-4 text-emerald-600" />
+                ) : null}
+                <Badge
+                  className={cn(
+                    'border-transparent capitalize',
+                    phaseBadgeStyles[exercise.phaseBadge],
+                  )}
+                  variant="outline"
+                >
+                  {formatPhaseBadge(exercise.phaseBadge)}
                 </Badge>
-              ) : null}
+                <Badge
+                  className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
+                  variant="outline"
+                >
+                  {exercise.category}
+                </Badge>
+                {exercise.priority === 'optional' ? (
+                  <span className="text-sm font-medium text-muted">Optional</span>
+                ) : null}
+                {state === 'in-progress' ? (
+                  <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
+                    Current
+                  </Badge>
+                ) : null}
+                <Badge
+                  className="border-transparent bg-secondary text-secondary-foreground"
+                  variant="outline"
+                >
+                  {exerciseEstimate}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {exercise.tempo ? (
+                  <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
+                ) : null}
+                {exercise.restSeconds > 0 ? (
+                  <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
+                ) : null}
+              </div>
+              <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
+              <p className="text-sm text-muted">
+                {formatExerciseSubtitle({
+                  exercise,
+                  lastPerformance,
+                  weightUnit,
+                })}
+              </p>
             </div>
-            <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
-            <p className="text-sm text-muted">{`Target ${exercise.prescribedReps} • Rest ${exercise.restSeconds}s`}</p>
           </div>
-        </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="text-sm font-medium text-muted">{`#${exerciseNumber}`}</span>
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              'mt-1 size-4 text-muted transition-transform',
-              isExpanded && 'rotate-180',
-            )}
-          />
-        </div>
-      </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="text-sm font-medium text-muted">{`#${exerciseNumber}`}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                'mt-1 size-4 text-muted transition-transform',
+                isExpanded && 'rotate-180',
+              )}
+            />
+          </div>
+        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Exercise actions for ${exercise.name}`}
+              className="mt-0.5 size-8 shrink-0"
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MoreVertical aria-hidden="true" className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
+            <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
+              Remove Last Set
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <CardContent
         className="border-t border-border bg-secondary/25 px-4 py-4 sm:px-5"
@@ -475,16 +553,6 @@ function ExerciseCardItem({
             <p className="text-sm text-muted">
               {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
             </p>
-
-            {lastPerformance ? (
-              <LastPerformanceSummary
-                lastPerformance={lastPerformance}
-                currentSets={exercise.sets}
-                prescribedReps={exercise.prescribedReps}
-                trackingType={exercise.trackingType}
-                weightUnit={weightUnit}
-              />
-            ) : null}
 
             {hasInjuryCues ? (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/12 p-4 text-amber-950 dark:text-amber-100">
@@ -564,90 +632,54 @@ function ExerciseCardItem({
             </div>
           </div>
 
-          {exercise.sets.map((set, setIndex) => (
-            <SetRow
-              completed={set.completed}
-              isLast={setIndex === exercise.sets.length - 1}
-              key={set.id}
-              onAddSet={() => onAddSet(exercise.id)}
-              onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
-              ref={(element) => {
-                repsInputRefs.current[set.id] = element;
-              }}
-              reps={set.reps}
-              setNumber={set.number}
-              lastPerformance={lastPerformance?.sets.find(
-                (previousSet) => previousSet.setNumber === set.number,
-              )}
-              target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
-              trackingType={exercise.trackingType}
-              distance={set.distance}
-              weight={set.weight}
-              weightUnit={weightUnit}
-              seconds={set.seconds}
-            />
-          ))}
+          <div
+            className="grid grid-cols-2 gap-2"
+            data-slot="set-grid"
+            data-testid={`set-grid-${exercise.id}`}
+          >
+            {exercise.sets.map((set) => (
+              <Fragment key={set.id}>
+                <SetRow
+                  completed={set.completed}
+                  onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
+                  ref={(element) => {
+                    repsInputRefs.current[set.id] = element;
+                  }}
+                  reps={set.reps}
+                  setNumber={set.number}
+                  trackingType={exercise.trackingType}
+                  distance={set.distance}
+                  weight={set.weight}
+                  weightUnit={weightUnit}
+                  seconds={set.seconds}
+                />
+                {inlineRestTimer && inlineRestTimer.setId === set.id && !exercise.supersetGroup ? (
+                  <div className="col-span-2">
+                    <InlineRestTimer
+                      duration={inlineRestTimer.duration}
+                      exerciseName={inlineRestTimer.exerciseName}
+                      key={inlineRestTimer.token}
+                      onComplete={onRestTimerComplete}
+                      setNumber={inlineRestTimer.setNumber}
+                    />
+                  </div>
+                ) : null}
+              </Fragment>
+            ))}
+            <Button
+              className="col-span-2 border-dashed"
+              onClick={() => onAddSet(exercise.id)}
+              size="xs"
+              type="button"
+              variant="outline"
+            >
+              <Plus aria-hidden="true" className="size-3.5" />
+              Add Set
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function LastPerformanceSummary({
-  currentSets,
-  lastPerformance,
-  prescribedReps,
-  trackingType,
-  weightUnit,
-}: {
-  currentSets: ActiveWorkoutExercise['sets'];
-  lastPerformance: ActiveWorkoutLastPerformance;
-  prescribedReps: ActiveWorkoutExercise['prescribedReps'];
-  trackingType: ExerciseTrackingType;
-  weightUnit: WeightUnit;
-}) {
-  const formattedDate = new Date(`${lastPerformance.date}T12:00:00`).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-  });
-  const exceededSetNumbers = new Set(
-    currentSets
-      .filter((set) =>
-        exceedsPreviousSet(
-          set,
-          lastPerformance.sets.find((previousSet) => previousSet.setNumber === set.number) ?? null,
-          trackingType,
-        ),
-      )
-      .map((set) => set.number),
-  );
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-      <span className="font-medium">{`Last: ${formattedDate}`}</span>
-      <span aria-hidden="true">•</span>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {lastPerformance.sets.map((set, index) => (
-            <span className="inline-flex items-center gap-1" key={set.setNumber}>
-              <span>
-                {formatCompactPerformanceSetByTrackingType(
-                  trackingType,
-                  set.weight,
-                  set.reps,
-                  prescribedReps,
-                  weightUnit,
-                )}
-              {index < lastPerformance.sets.length - 1 ? ',' : ''}
-              </span>
-            {exceededSetNumbers.has(set.setNumber) ? (
-              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
-                <ArrowUpRight aria-hidden="true" className="size-3" />
-              </span>
-            ) : null}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -663,6 +695,33 @@ function CueList({ items, title }: { items: string[]; title: string }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function MetadataPill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-foreground">
+      {label}
+    </span>
+  );
+}
+
+function InlineRestTimer({
+  duration,
+  exerciseName,
+  onComplete,
+  setNumber,
+}: {
+  duration: number;
+  exerciseName: string;
+  onComplete: () => void;
+  setNumber: number;
+}) {
+  return (
+    <div className={`space-y-2 rounded-2xl border px-3 py-2 ${accentCardStyles.mint}`}>
+      <p className="text-xs text-muted">{`After ${exerciseName} set ${setNumber}`}</p>
+      <RestTimer autoStart duration={duration} onComplete={onComplete} />
     </div>
   );
 }
@@ -728,7 +787,7 @@ function getExerciseState(
   exercise: ActiveWorkoutExercise,
   currentExerciseId: string | null,
 ): 'completed' | 'in-progress' | 'upcoming' {
-  if (exercise.completedSets === exercise.targetSets) {
+  if (exercise.completedSets >= exercise.targetSets) {
     return 'completed';
   }
 
@@ -757,7 +816,7 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
 function formatCompactPerformanceSetByTrackingType(
   trackingType: ExerciseTrackingType,
   weight: number | null,
-  reps: number,
+  value: number,
   prescribedReps: string,
   weightUnit: WeightUnit,
 ) {
@@ -765,126 +824,71 @@ function formatCompactPerformanceSetByTrackingType(
 
   switch (trackingType) {
     case 'weight_reps':
-      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
+      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
     case 'weight_seconds':
-      return weight != null ? `${formatWeight(weight)}x${reps} sec` : `${reps} sec`;
+      return weight != null ? `${formatWeight(weight)}x${value} sec` : `${value} sec`;
     case 'bodyweight_reps':
     case 'reps_only':
-      return formatPerformedReps(reps, prescribedReps);
+      return formatPerformedReps(value, prescribedReps);
     case 'seconds_only':
-      return `${reps} sec`;
+      return `${value} sec`;
     case 'reps_seconds':
-      return `${reps} reps`;
+      return `${value} reps`;
     case 'distance':
-      return `${reps} ${distanceUnit}`;
+      return `${value} ${distanceUnit}`;
     case 'cardio':
-      return `${reps} sec`;
+      return `${value} sec`;
     default:
-      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
+      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
   }
 }
 
-function getSetTarget(
-  reversePyramid: ActiveWorkoutReversePyramidTarget[],
-  setNumber: number,
-  prescribedReps: string,
-) {
-  const currentTarget = reversePyramid.find((target) => target.setNumber === setNumber);
+function formatExerciseSubtitle({
+  exercise,
+  lastPerformance,
+  weightUnit,
+}: {
+  exercise: ActiveWorkoutExercise;
+  lastPerformance: ActiveWorkoutExercise['lastPerformance'];
+  weightUnit: WeightUnit;
+}) {
+  const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
+  const canShowWeightLadder =
+    (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
+    exercise.reversePyramid.some((target) => target.targetWeight > 0);
+  const targetText = canShowWeightLadder
+    ? `${exercise.targetSets} × ${repTarget} | ${exercise.reversePyramid
+        .map((target) => formatWeight(target.targetWeight))
+        .join(' → ')} ${weightUnit}`
+    : `${exercise.targetSets} × ${repTarget}`;
 
-  if (!currentTarget) {
-    return null;
+  if (!lastPerformance || lastPerformance.sets.length === 0) {
+    return targetText;
   }
 
-  const previousTarget = reversePyramid.find((target) => target.setNumber === setNumber - 1);
-  const prescribedRange = parseRepRange(prescribedReps);
-  const minReps =
-    setNumber === 1 ? (prescribedRange?.min ?? currentTarget.targetReps) : currentTarget.targetReps;
-  const maxReps =
-    setNumber === 1
-      ? (prescribedRange?.max ?? currentTarget.targetReps)
-      : (previousTarget?.targetReps ?? currentTarget.targetReps);
+  const lastText = lastPerformance.sets
+    .map((set) =>
+      formatCompactPerformanceSetByTrackingType(
+        exercise.trackingType,
+        set.weight,
+        set.reps,
+        exercise.prescribedReps,
+        weightUnit,
+      ),
+    )
+    .join(', ');
 
-  return {
-    maxReps,
-    minReps,
-    weight: currentTarget.targetWeight,
-  };
+  return `${targetText} • Last: ${lastText}`;
 }
 
-function parseRepRange(prescribedReps: string) {
-  const match = prescribedReps.match(/(\d+)\s*-\s*(\d+)/);
+function parsePrescribedRepTarget(prescribedReps: string) {
+  const range = prescribedReps.match(/(\d+\s*-\s*\d+)/);
 
-  if (!match) {
-    return null;
+  if (range) {
+    return range[1].replace(/\s+/g, '');
   }
 
-  return {
-    max: Number(match[2]),
-    min: Number(match[1]),
-  };
-}
-
-function exceedsPreviousSet(
-  currentSet: ActiveWorkoutExercise['sets'][number],
-  previousSet: ActiveWorkoutLastPerformance['sets'][number] | null,
-  trackingType: ExerciseTrackingType,
-) {
-  if (!previousSet) {
-    return false;
-  }
-
-  if (trackingType === 'distance') {
-    return false;
-  }
-
-  const currentReps = currentSet.reps;
-  const previousReps = previousSet.reps;
-  const currentSeconds = currentSet.seconds ?? currentSet.reps;
-  const previousSeconds = previousSet.reps;
-
-  if (trackingType === 'seconds_only' || trackingType === 'cardio') {
-    if (currentSeconds === null) {
-      return false;
-    }
-
-    return currentSeconds > previousSeconds;
-  }
-
-  if (trackingType === 'weight_seconds') {
-    if (currentSeconds === null) {
-      return false;
-    }
-
-    if (currentSet.weight !== null && previousSet.weight !== null) {
-      return (
-        currentSet.weight > previousSet.weight ||
-        (currentSet.weight === previousSet.weight && currentSeconds > previousSeconds)
-      );
-    }
-
-    if (currentSet.weight !== null && previousSet.weight === null) {
-      return true;
-    }
-
-    return currentSeconds > previousSeconds;
-  }
-
-  if (currentReps === null) {
-    return false;
-  }
-
-  if (currentSet.weight !== null && previousSet.weight !== null) {
-    return (
-      currentSet.weight > previousSet.weight ||
-      (currentSet.weight === previousSet.weight && currentReps > previousReps)
-    );
-  }
-
-  if (currentSet.weight !== null && previousSet.weight === null) {
-    return true;
-  }
-
-  return currentReps > previousReps;
+  return prescribedReps;
 }
 
 function formatSetPrescription(prescribedReps: string, restSeconds: number) {

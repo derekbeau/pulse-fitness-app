@@ -46,6 +46,7 @@ export type ActiveWorkoutExerciseMetadata = {
   restSeconds: number;
   reversePyramid: ActiveWorkoutReversePyramidTarget[];
   supersetGroup: string | null;
+  tempo: string | null;
   trackingType: ExerciseTrackingType;
 };
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, SkipForward } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ProgressBar } from '@/components/ui/progress-bar';
 
 type RestTimerProps = {
   autoStart?: boolean;
@@ -65,97 +66,59 @@ export function RestTimer({ autoStart = false, duration = 60, onComplete }: Rest
   }, [isRunning]);
 
   const remainingSeconds = Math.ceil(remainingMs / 1000);
-  const progress = duration > 0 ? (remainingMs / (duration * 1000)) * 100 : 0;
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (clampPercent(progress) / 100) * circumference;
+  const progress = duration > 0 ? ((duration - remainingMs / 1000) / duration) * 100 : 100;
+  const clampedProgress = clampPercent(progress);
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div
-        aria-label="Rest countdown"
-        aria-valuemax={duration}
-        aria-valuemin={0}
-        aria-valuenow={remainingSeconds}
-        className="relative inline-flex items-center justify-center"
-        role="progressbar"
+    <div className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white/45 px-3 py-2 dark:border-border dark:bg-secondary/60">
+      <span className="text-sm font-medium text-foreground">{`Rest: ${remainingSeconds}s`}</span>
+      <div className="flex-1">
+        <ProgressBar
+          aria-label="Rest countdown"
+          className="[&_[data-slot=progress-bar-track]]:h-2"
+          color="var(--color-primary)"
+          max={100}
+          value={clampedProgress}
+        />
+      </div>
+      <Button
+        aria-label={isRunning ? 'Pause' : 'Resume'}
+        className="size-8 cursor-pointer rounded-full"
+        onClick={() => {
+          if (isRunning) {
+            const pausedRemainingMs =
+              deadlineRef.current === null ? remainingMs : Math.max(deadlineRef.current - Date.now(), 0);
+            setRemainingMs(pausedRemainingMs);
+          }
+
+          setIsRunning((current) => !current);
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
       >
-        <svg
-          aria-hidden="true"
-          className="-rotate-90 drop-shadow-sm"
-          height="132"
-          viewBox="0 0 132 132"
-          width="132"
-        >
-          <circle
-            cx="66"
-            cy="66"
-            data-slot="rest-timer-track"
-            fill="none"
-            r={radius}
-            stroke="color-mix(in srgb, var(--color-on-accent) 18%, transparent)"
-            strokeWidth="10"
-          />
-          <circle
-            cx="66"
-            cy="66"
-            data-slot="rest-timer-indicator"
-            fill="none"
-            r={radius}
-            stroke="var(--color-primary)"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            strokeWidth="10"
-          />
-        </svg>
+        {isRunning ? <Pause aria-hidden="true" className="size-4" /> : <Play aria-hidden="true" className="size-4" />}
+      </Button>
 
-        <div className="absolute flex flex-col items-center">
-          <span className="text-[11px] font-semibold tracking-[0.18em] text-[var(--color-on-accent)]/70 uppercase">
-            Rest
-          </span>
-          <span className="text-3xl font-semibold text-[var(--color-on-accent)]">{`${remainingSeconds}s`}</span>
-        </div>
-      </div>
-
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-44">
-        <Button
-          className="h-11 cursor-pointer rounded-2xl border-[var(--color-on-accent)]/25 bg-white/55 text-[var(--color-on-accent)] hover:bg-white/70"
-          onClick={() => {
-            if (isRunning) {
-              const pausedRemainingMs =
-                deadlineRef.current === null ? remainingMs : Math.max(deadlineRef.current - Date.now(), 0);
-              setRemainingMs(pausedRemainingMs);
-            }
-
-            setIsRunning((current) => !current);
-          }}
-          type="button"
-          variant="ghost"
-        >
-          {isRunning ? <Pause aria-hidden="true" className="size-4" /> : <Play aria-hidden="true" className="size-4" />}
-          {isRunning ? 'Pause' : 'Resume'}
-        </Button>
-
-        <Button
-          className="h-11 cursor-pointer rounded-2xl border-[var(--color-on-accent)]/25 bg-white/45 text-[var(--color-on-accent)] hover:bg-white/60"
-          onClick={() => {
-            if (intervalIdRef.current !== null) {
-              window.clearInterval(intervalIdRef.current);
-              intervalIdRef.current = null;
-            }
-            deadlineRef.current = null;
-            setIsRunning(false);
-            setRemainingMs(0);
-            finishTimer(false);
-          }}
-          type="button"
-          variant="ghost"
-        >
-          <SkipForward aria-hidden="true" className="size-4" />
-          Skip
-        </Button>
-      </div>
+      <Button
+        aria-label="Skip"
+        className="size-8 cursor-pointer rounded-full"
+        onClick={() => {
+          if (intervalIdRef.current !== null) {
+            window.clearInterval(intervalIdRef.current);
+            intervalIdRef.current = null;
+          }
+          deadlineRef.current = null;
+          setIsRunning(false);
+          setRemainingMs(0);
+          finishTimer(false);
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <SkipForward aria-hidden="true" className="size-4" />
+      </Button>
     </div>
   );
 

@@ -84,6 +84,7 @@ export function buildActiveWorkoutSession(
         reversePyramid: enhancedExercise?.reversePyramid ?? [],
         sets,
         supersetGroup: enhancedExercise?.supersetGroup ?? null,
+        tempo: templateExercise.tempo ?? null,
         targetSets: sets.length,
         trackingType,
       };

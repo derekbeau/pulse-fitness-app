@@ -34,6 +34,7 @@ describe('SessionSummary', () => {
           },
         ]}
         onDone={() => {}}
+        completedSets={14}
         totalReps={124}
         totalSets={14}
         workoutName="Upper Push"

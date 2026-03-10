@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkoutSessionInputSchema,
   type WorkoutSession,
+  updateWorkoutSessionInputSchema,
   workoutSessionSchema,
 } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -15,6 +16,9 @@ const workoutSessionResponseSchema = z.object({
 }) as unknown as z.ZodType<{ data: WorkoutSession }>;
 
 type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchema>;
+type UpdateSessionStartTimeRequest = {
+  startedAt: number;
+};
 
 export const workoutSessionQueryKeys = {
   all: ['workout-sessions'] as const,
@@ -33,6 +37,19 @@ async function startSession(input: CreateWorkoutSessionRequest) {
   const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
     body: JSON.stringify(parsedInput),
     method: 'POST',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function updateSessionStartTime(sessionId: string, input: UpdateSessionStartTimeRequest) {
+  const parsedInput = updateWorkoutSessionInputSchema.parse({
+    startedAt: input.startedAt,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
   });
   const payload = workoutSessionResponseSchema.parse({ data });
 
@@ -67,6 +84,28 @@ export function useStartSession() {
         }),
       ]);
       toast.success('Workout started');
+    },
+  });
+}
+
+export function useUpdateSessionStartTime(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<WorkoutSession, Error, UpdateSessionStartTimeRequest>({
+    mutationFn: async (input) => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to update session start time');
+      }
+
+      return updateSessionStartTime(normalizedSessionId, input);
+    },
+    onSuccess: async (session) => {
+      queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+
+      await queryClient.invalidateQueries({
+        queryKey: workoutSessionQueryKeys.detail(session.id),
+      });
     },
   });
 }

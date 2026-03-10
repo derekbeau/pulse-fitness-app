@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import type { MouseEvent, ReactNode } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,11 +15,30 @@ import {
 import type { ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
 
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    disabled,
+    onClick,
+  }: {
+    children: ReactNode;
+    disabled?: boolean;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  }) => (
+    <button disabled={disabled} onClick={onClick} type="button">
+      {children}
+    </button>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
 
 describe('SessionExerciseList', () => {
-  it('shows editable set rows for the current exercise and can render the rest timer panel', () => {
+  it('shows editable set rows and renders an inline rest timer after the completed set', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
@@ -47,9 +67,17 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
-        restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
+        restTimer={{
+          duration: 90,
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          setId: createWorkoutSetId('incline-dumbbell-press', 2),
+          setNumber: 2,
+          token: 1,
+        }}
         session={session}
         weightUnit="kg"
       />,
@@ -57,8 +85,8 @@ describe('SessionExerciseList', () => {
 
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
     expect(screen.getByText('Main (0/4 exercises done)')).toBeInTheDocument();
-    expect(screen.getByText('Rest Timer')).toBeInTheDocument();
-    expect(screen.getByText('After Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Main — ~\d+ min/i })).toBeInTheDocument();
+    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByText('Alternate exercises, then rest 60s after each round.'),
@@ -78,29 +106,20 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByLabelText('Reps for set 3')).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByRole('button', { name: 'Add Set' }),
-    ).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
+      within(currentCard as HTMLElement).getAllByRole('button', { name: 'Add Set' }).length,
+    ).toBeGreaterThan(0);
     expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === '50x12,45x10,40x9',
-      ),
+      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('Rest: 1:30')).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('~5 min')).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 50 kg x 8-10',
-      ),
+      within(currentCard as HTMLElement).getByText(/Last: 50x12, 45x10, 40x9/i),
     ).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 45 kg x 10-12',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 40 kg x 9-10',
-      ),
-    ).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press')).toHaveClass(
+      'grid-cols-2',
+    );
 
     fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
     expect(within(currentCard as HTMLElement).getByText('Technique')).toBeVisible();
@@ -137,6 +156,46 @@ describe('SessionExerciseList', () => {
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
   });
 
+  it('opens exercise menu actions and disables remove when only one set remains', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onAddSet = vi.fn();
+    const onRemoveSet = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={onAddSet}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={onRemoveSet}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    const rowErgCardElement = rowErgCard as HTMLElement;
+    const addSetItem = within(rowErgCardElement).getAllByRole('button', { name: 'Add Set' })[0];
+    fireEvent.click(addSetItem);
+    expect(onAddSet).toHaveBeenCalledWith('row-erg');
+
+    expect(within(rowErgCardElement).getByRole('button', { name: 'Remove Last Set' })).toBeDisabled();
+    expect(onRemoveSet).not.toHaveBeenCalled();
+  });
+
   it('omits cue toggles and injury warnings when enhanced cue data is unavailable', () => {
     if (!lowerTemplate) {
       throw new Error('Expected lower-quad-dominant template in mock data.');
@@ -151,6 +210,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -170,22 +230,57 @@ describe('SessionExerciseList', () => {
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
-    expect(within(squatCard as HTMLElement).queryByText(/^Last:/)).not.toBeInTheDocument();
-    expect(within(squatCard as HTMLElement).queryByText(/^Target:/)).not.toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).getByText(/4 × 5-6/i)).toBeInTheDocument();
   });
 
-  it('shows a PR indicator when the current set exceeds the last performance', () => {
+  it('renders superset rest timers between exercises in the superset group', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      {
+        sessionStartedAt: '2026-03-06T12:00:00Z',
+      },
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        restTimer={{
+          duration: 60,
+          exerciseId: 'cable-lateral-raise',
+          exerciseName: 'Cable Lateral Raise',
+          setId: createWorkoutSetId('cable-lateral-raise', 1),
+          setNumber: 1,
+          token: 2,
+        }}
+        session={session}
+      />,
+    );
+
+    const superset = screen.getByLabelText('Superset Pump A');
+    expect(within(superset).getByText('After Cable Lateral Raise set 1')).toBeInTheDocument();
+  });
+
+  it('shows completed exercises with strike-through treatment', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
 
     const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
-    drafts['incline-dumbbell-press'][0] = {
-      ...drafts['incline-dumbbell-press'][0],
+    drafts['incline-dumbbell-press'] = drafts['incline-dumbbell-press'].map((set, index) => ({
+      ...set,
       completed: true,
-      reps: 13,
-      weight: 50,
-    };
+      reps: 13 - index,
+      weight: 50 - index * 5,
+    }));
 
     const session = buildActiveWorkoutSession(activeTemplate, drafts, {
       sessionStartedAt: '2026-03-06T12:00:00Z',
@@ -195,6 +290,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -208,7 +304,12 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
-    expect(within(currentCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
+    expect(
+      within(currentCard as HTMLElement).getByRole('heading', {
+        level: 3,
+        name: 'Incline Dumbbell Press',
+      }),
+    ).toHaveClass('line-through');
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
@@ -231,6 +332,7 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
+          onRemoveSet={vi.fn()}
           onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
@@ -252,6 +354,7 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
+          onRemoveSet={vi.fn()}
           onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
@@ -265,13 +368,20 @@ describe('SessionExerciseList', () => {
 
     fireEvent.click(warmupButton);
 
-    const exerciseButton = screen.getByRole('button', { name: /Row Erg/i });
-    fireEvent.click(exerciseButton);
-
     const reopenedRowErgCard = screen
       .getByRole('heading', { level: 3, name: 'Row Erg' })
       .closest('[data-slot="card"]');
     expect(reopenedRowErgCard).not.toBeNull();
+
+    const reopenedRowErgCardHeaderToggle = within(reopenedRowErgCard as HTMLElement)
+      .getAllByRole('button')
+      .find((button) => button.getAttribute('aria-controls') === 'exercise-panel-row-erg');
+
+    if (!reopenedRowErgCardHeaderToggle) {
+      throw new Error('Expected Row Erg exercise header toggle.');
+    }
+
+    fireEvent.click(reopenedRowErgCardHeaderToggle);
     expect(
       within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
     ).not.toBeInTheDocument();
@@ -316,6 +426,7 @@ describe('SessionExerciseList', () => {
                 },
               ],
               supersetGroup: null,
+              tempo: null,
               targetSets: 1,
               trackingType: 'reps_seconds',
             },
@@ -334,6 +445,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -344,17 +456,15 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Tempo Squat' })
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
     expect(
-      within(card as HTMLElement).getAllByText((_, element) => element?.textContent === '10 reps')
-        .length,
-    ).toBeGreaterThan(0);
+      within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold • Last: 10 reps/i),
+    ).toBeInTheDocument();
     expect(
       within(card as HTMLElement).queryByText((_, element) => element?.textContent === '10 x 10 sec'),
     ).not.toBeInTheDocument();
   });
 
-  it('shows a PR indicator for time-based sets using seconds when reps is null', () => {
+  it('renders a compact subtitle for time-based exercises', () => {
     const session: ActiveWorkoutSessionData = {
       completedSets: 1,
       currentExercise: 1,
@@ -393,6 +503,7 @@ describe('SessionExerciseList', () => {
                 },
               ],
               supersetGroup: null,
+              tempo: null,
               targetSets: 1,
               trackingType: 'seconds_only',
             },
@@ -411,6 +522,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -421,6 +533,7 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Plank Hold' })
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
-    expect(within(rowErgCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
+    expect(within(rowErgCard as HTMLElement).getByText(/1 × 30 sec/i)).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).getByText(/Last: 30 sec/i)).toBeInTheDocument();
   });
 });
