@@ -1,3 +1,4 @@
+// Preview data — replace with API calls when feature is implemented
 import type { JournalEntry, LinkedEntity } from '../types';
 
 const workouts = {

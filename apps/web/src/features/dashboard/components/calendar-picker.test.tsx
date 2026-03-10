@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CalendarPicker } from './calendar-picker';
+import { CalendarPicker, type DayActivity } from './calendar-picker';
 
 const formatDate = (date: Date): string => {
   const year = date.getFullYear();
@@ -61,13 +61,18 @@ describe('CalendarPicker', () => {
   });
 
   it('shows activity dots for days with workout or meal data', () => {
-    const { container } = render(<CalendarPicker />);
+    const getDayActivity = (date: Date): DayActivity => {
+      const day = date.getDate();
+      return { hasWorkout: day === 3 || day === 5, hasMeals: day === 3 };
+    };
+
+    const { container } = render(<CalendarPicker getDayActivity={getDayActivity} />);
 
     const activityDots = container.querySelectorAll(
       '[data-slot="calendar-day"] [data-slot="calendar-activity-dot"][data-has-activity="true"]',
     );
 
-    expect(activityDots.length).toBeGreaterThan(0);
+    expect(activityDots.length).toBe(2);
   });
 
   it('navigates weeks with arrow buttons and updates month/year label', () => {

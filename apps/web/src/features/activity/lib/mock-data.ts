@@ -1,3 +1,4 @@
+// Preview data — replace with API calls when feature is implemented
 import type { LucideIcon } from 'lucide-react';
 import {
   Bike,

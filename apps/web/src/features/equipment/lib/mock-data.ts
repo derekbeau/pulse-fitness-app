@@ -1,3 +1,4 @@
+// Preview data — replace with API calls when feature is implemented
 import { Activity, Dumbbell, Layers3, Settings, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 

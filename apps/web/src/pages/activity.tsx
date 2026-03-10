@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Activity as ActivityGlyph } from 'lucide-react';
 
+import { PreviewBanner } from '@/components/ui/preview-banner';
 import {
   ActivityForm,
   ActivityList,
@@ -16,6 +17,9 @@ export function ActivityPage() {
 
   return (
     <section className="space-y-6">
+      <div className="mx-auto w-full max-w-6xl">
+        <PreviewBanner />
+      </div>
       <header className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="rounded-2xl bg-[var(--color-accent-mint)] p-3 text-on-mint shadow-sm dark:bg-emerald-500/20 dark:text-emerald-400">

@@ -1,11 +1,16 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { PREVIEW_BANNER_DEFAULT_MESSAGE } from '@/components/ui/preview-banner';
 import { mockJournalEntries } from '@/features/journal';
 import { JournalPage } from '@/pages/journal';
 
 describe('JournalPage', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('renders the chronological feed with badges, previews, and entity chips', () => {
     const { container } = render(
       <MemoryRouter>
@@ -14,6 +19,7 @@ describe('JournalPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Journal' })).toBeInTheDocument();
+    expect(screen.getByText(PREVIEW_BANNER_DEFAULT_MESSAGE)).toBeInTheDocument();
     expect(
       screen.getByText(
         'Review coaching notes, milestones, observations, and injury updates in one chronological feed.',

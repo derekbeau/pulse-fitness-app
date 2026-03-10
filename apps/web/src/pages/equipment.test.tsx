@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { PREVIEW_BANNER_DEFAULT_MESSAGE } from '@/components/ui/preview-banner';
 import { EquipmentRoutePage } from '@/pages/equipment';
 
 function renderEquipmentPage() {
@@ -34,10 +35,15 @@ function selectEquipmentCategory(label: string) {
 }
 
 describe('EquipmentRoutePage', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('renders the inventory summary and collapsed location cards', () => {
     renderEquipmentPage();
 
     expect(screen.getByRole('heading', { name: 'Equipment' })).toBeInTheDocument();
+    expect(screen.getByText(PREVIEW_BANNER_DEFAULT_MESSAGE)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Back to Profile/i })).toHaveAttribute(
       'href',
       '/profile',
