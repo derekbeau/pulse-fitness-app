@@ -30,6 +30,7 @@ function isValidSetDraft(value: unknown): boolean {
     return false;
   }
 
+  // Keep this in sync with required ActiveWorkoutSetDraft fields when that type changes.
   return (
     typeof value.id === 'string' &&
     typeof value.completed === 'boolean' &&

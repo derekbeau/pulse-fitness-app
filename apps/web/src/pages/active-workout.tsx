@@ -251,6 +251,10 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    if (sessionId && hydratedSessionIdRef.current === null) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       saveExerciseNotes(persistedSessionId, exerciseNotes);
     }, 500);
@@ -258,7 +262,7 @@ export function ActiveWorkoutPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [exerciseNotes, persistedSessionId, stage]);
+  }, [exerciseNotes, persistedSessionId, sessionId, stage]);
 
   useEffect(() => {
     if (!activeSession || !sessionId) {
