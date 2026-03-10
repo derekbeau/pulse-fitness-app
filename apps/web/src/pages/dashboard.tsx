@@ -1,3 +1,4 @@
+import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { LayoutDashboard } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -34,8 +35,7 @@ const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-const DEFAULT_VISIBLE_WIDGETS = ['weight-trend'] as const;
-const WEIGHT_TREND_WIDGET_ID = 'weight-trend';
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
@@ -56,7 +56,7 @@ export function DashboardPage() {
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
   const visibleWidgets = dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS;
-  const showWeightTrendChart = visibleWidgets.includes(WEIGHT_TREND_WIDGET_ID);
+  const showWeightTrendChart = visibleWidgets.includes('weight-trend');
 
   useEffect(() => {
     const previousDateKey = toDateKey(addDays(selectedDate, -1));

@@ -78,6 +78,7 @@ const consistencyTrendSelection = {
 const dashboardConfigSelection = {
   habitChainIds: dashboardConfigTable.habitChainIds,
   trendMetrics: dashboardConfigTable.trendMetrics,
+  visibleWidgets: dashboardConfigTable.visibleWidgets,
   widgetOrder: dashboardConfigTable.widgetOrder,
 };
 
@@ -99,7 +100,6 @@ const getDateRangeForUtcDay = (date: string) => {
 // TODO: Source this from user preferences once kg/lb switching is introduced.
 const DEFAULT_WEIGHT_UNIT: DashboardWeightSnapshot['unit'] = 'lb';
 const DEFAULT_DASHBOARD_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
-const DEFAULT_DASHBOARD_VISIBLE_WIDGETS = ['weight-trend'];
 
 const toMacroTotals = (
   value:
@@ -212,12 +212,14 @@ const toDashboardConfig = (
   value: {
     habitChainIds: string[] | null;
     trendMetrics: string[] | null;
+    visibleWidgets: string[] | null;
     widgetOrder: string[] | null;
   },
 ): DashboardConfig => {
   const parsed = dashboardConfigSchema.parse({
     habitChainIds: value.habitChainIds ?? [],
     trendMetrics: toDashboardTrendMetrics(value.trendMetrics),
+    visibleWidgets: value.visibleWidgets ?? undefined,
     widgetOrder: value.widgetOrder ?? undefined,
   });
 
@@ -397,7 +399,6 @@ export const getDashboardConfig = async (userId: string): Promise<DashboardConfi
   return dashboardConfigSchema.parse({
     habitChainIds: activeHabitIds,
     trendMetrics: DEFAULT_DASHBOARD_TREND_METRICS,
-    visibleWidgets: DEFAULT_DASHBOARD_VISIBLE_WIDGETS,
   });
 };
 
@@ -410,6 +411,7 @@ export const upsertDashboardConfig = async (
       userId,
       habitChainIds: input.habitChainIds,
       trendMetrics: input.trendMetrics,
+      visibleWidgets: input.visibleWidgets ?? null,
       widgetOrder: input.widgetOrder ?? null,
     })
     .onConflictDoUpdate({
@@ -417,6 +419,7 @@ export const upsertDashboardConfig = async (
       set: {
         habitChainIds: input.habitChainIds,
         trendMetrics: input.trendMetrics,
+        visibleWidgets: input.visibleWidgets ?? null,
         widgetOrder: input.widgetOrder ?? null,
         updatedAt: Date.now(),
       },

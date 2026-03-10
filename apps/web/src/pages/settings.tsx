@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { CreateNutritionTargetInput, DashboardTrendMetric } from '@pulse/shared';
+import { DASHBOARD_WIDGET_IDS, type CreateNutritionTargetInput, type DashboardTrendMetric } from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -98,7 +98,7 @@ type SettingsFormState = {
   dashboardConfig: {
     habitChainIds: string[];
     trendMetrics: DashboardTrendMetric[];
-    visibleWidgets?: string[];
+    visibleWidgets: string[];
     widgetOrder?: string[];
   };
   nutritionTargets: {
@@ -113,7 +113,7 @@ const DEFAULT_SETTINGS: SettingsFormState = {
   dashboardConfig: {
     habitChainIds: [],
     trendMetrics: ['weight', 'calories', 'protein'],
-    visibleWidgets: ['weight-trend'],
+    visibleWidgets: Object.keys(DASHBOARD_WIDGET_IDS),
   },
   nutritionTargets: {
     calories: 2000,

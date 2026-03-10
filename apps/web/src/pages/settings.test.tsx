@@ -316,6 +316,7 @@ describe('SettingsPage', () => {
     expect(getLatestPostBody('/api/v1/dashboard/config')).toEqual({
       habitChainIds: ['habit-hydrate', 'habit-sleep'],
       trendMetrics: ['calories', 'protein'],
+      visibleWidgets: DEFAULT_SETTINGS.dashboardConfig.visibleWidgets,
     });
   });
 

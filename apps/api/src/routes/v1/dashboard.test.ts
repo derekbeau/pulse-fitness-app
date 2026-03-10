@@ -1,3 +1,4 @@
+import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
@@ -23,6 +24,7 @@ vi.mock('./dashboard-store.js', () => ({
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 describe('dashboard routes', () => {
   beforeEach(() => {
@@ -130,6 +132,7 @@ describe('dashboard routes', () => {
     vi.mocked(getDashboardConfig).mockResolvedValue({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
       widgetOrder: ['snapshot', 'trends'],
     });
 
@@ -149,6 +152,7 @@ describe('dashboard routes', () => {
         data: {
           habitChainIds: ['habit-1', 'habit-2'],
           trendMetrics: ['weight', 'protein'],
+          visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
           widgetOrder: ['snapshot', 'trends'],
         },
       });
@@ -162,6 +166,7 @@ describe('dashboard routes', () => {
     vi.mocked(upsertDashboardConfig).mockResolvedValue({
       habitChainIds: ['habit-1'],
       trendMetrics: ['calories'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
       widgetOrder: ['trends', 'snapshot'],
     });
 
@@ -173,6 +178,7 @@ describe('dashboard routes', () => {
       const payload = {
         habitChainIds: ['habit-1'],
         trendMetrics: ['calories'],
+        visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
         widgetOrder: ['trends', 'snapshot'],
       };
 
@@ -214,6 +220,69 @@ describe('dashboard routes', () => {
         payload: {
           habitChainIds: ['habit-1'],
           trendMetrics: ['steps'],
+        },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid dashboard config payload',
+        },
+      });
+      expect(vi.mocked(upsertDashboardConfig)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('accepts PUT dashboard config payloads with an empty visibleWidgets array', async () => {
+    vi.mocked(upsertDashboardConfig).mockResolvedValue({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['weight'],
+      visibleWidgets: [],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const payload = {
+        habitChainIds: ['habit-1'],
+        trendMetrics: ['weight'],
+        visibleWidgets: [],
+      };
+
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/dashboard/config',
+        payload,
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: payload });
+      expect(vi.mocked(upsertDashboardConfig)).toHaveBeenCalledWith('user-2', payload);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects dashboard configs containing empty widget ids', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/dashboard/config',
+        payload: {
+          habitChainIds: ['habit-1'],
+          trendMetrics: ['weight'],
+          visibleWidgets: [''],
         },
         headers: createAuthorizationHeader(authToken),
       });

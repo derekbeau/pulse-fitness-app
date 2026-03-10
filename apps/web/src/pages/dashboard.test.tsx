@@ -1,4 +1,4 @@
-import type { DashboardConfig, DashboardSnapshot, Habit, HabitEntry } from '@pulse/shared';
+import { type DashboardConfig, DASHBOARD_WIDGET_IDS, type DashboardSnapshot, type Habit, type HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +9,7 @@ import { createQueryClientWrapper } from '@/test/query-client';
 import { DashboardPage } from './dashboard';
 
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 function createDeferredResponse() {
   let resolve: (value: Response) => void = () => {};
@@ -226,6 +227,7 @@ describe('DashboardPage', () => {
     dashboardConfig = {
       habitChainIds: ['habit-meditate'],
       trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -698,6 +700,7 @@ describe('DashboardPage', () => {
     dashboardConfig = {
       habitChainIds: [],
       trendMetrics: ['protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
 
     const { wrapper } = createQueryClientWrapper();

@@ -1,4 +1,7 @@
+import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 const testState = vi.hoisted(() => {
   const selectGetResults: unknown[] = [];
@@ -252,6 +255,7 @@ describe('dashboard store', () => {
     testState.selectGetResults.push({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'protein'],
+      visibleWidgets: ['weight-trend'],
       widgetOrder: ['snapshot', 'trends', 'habits'],
     });
 
@@ -261,6 +265,7 @@ describe('dashboard store', () => {
     expect(config).toEqual({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'protein'],
+      visibleWidgets: ['weight-trend'],
       widgetOrder: ['snapshot', 'trends', 'habits'],
     });
     expect(testState.select).toHaveBeenCalledTimes(1);
@@ -270,6 +275,7 @@ describe('dashboard store', () => {
     testState.selectGetResults.push({
       habitChainIds: ['habit-1'],
       trendMetrics: [],
+      visibleWidgets: null,
       widgetOrder: null,
     });
 
@@ -279,6 +285,7 @@ describe('dashboard store', () => {
     expect(config).toEqual({
       habitChainIds: ['habit-1'],
       trendMetrics: [],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     });
     expect(testState.select).toHaveBeenCalledTimes(1);
   });
@@ -287,6 +294,7 @@ describe('dashboard store', () => {
     testState.selectGetResults.push({
       habitChainIds: ['habit-1'],
       trendMetrics: ['unknown-metric'],
+      visibleWidgets: null,
       widgetOrder: null,
     });
 
@@ -296,6 +304,7 @@ describe('dashboard store', () => {
     expect(config).toEqual({
       habitChainIds: ['habit-1'],
       trendMetrics: [],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     });
     expect(testState.select).toHaveBeenCalledTimes(1);
   });
@@ -310,7 +319,7 @@ describe('dashboard store', () => {
     expect(config).toEqual({
       habitChainIds: ['habit-1', 'habit-3'],
       trendMetrics: ['weight', 'calories', 'protein'],
-      visibleWidgets: ['weight-trend'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     });
     expect(testState.select).toHaveBeenCalledTimes(2);
   });
@@ -319,6 +328,7 @@ describe('dashboard store', () => {
     testState.selectGetResults.push({
       habitChainIds: ['habit-1'],
       trendMetrics: ['calories'],
+      visibleWidgets: ['weight-trend'],
       widgetOrder: ['trends', 'snapshot'],
     });
 
@@ -326,12 +336,14 @@ describe('dashboard store', () => {
     const config = await upsertDashboardConfig('user-1', {
       habitChainIds: ['habit-1'],
       trendMetrics: ['calories'],
+      visibleWidgets: ['weight-trend'],
       widgetOrder: ['trends', 'snapshot'],
     });
 
     expect(config).toEqual({
       habitChainIds: ['habit-1'],
       trendMetrics: ['calories'],
+      visibleWidgets: ['weight-trend'],
       widgetOrder: ['trends', 'snapshot'],
     });
     expect(testState.db.insert).toHaveBeenCalledTimes(1);

@@ -1,25 +1,40 @@
 import { describe, expect, it } from 'vitest';
 
-import { type DashboardConfig, dashboardConfigSchema } from './dashboard-config';
+import {
+  DASHBOARD_WIDGET_IDS,
+  type DashboardConfig,
+  dashboardConfigSchema,
+} from './dashboard-config';
+
+const DEFAULT_VISIBLE_WIDGETS = [
+  'snapshot-cards',
+  'macro-rings',
+  'habit-chain',
+  'trend-sparklines',
+  'recent-workouts',
+  'calendar',
+  'log-weight',
+  'weight-trend',
+];
 
 describe('dashboardConfigSchema', () => {
   it('parses a complete dashboard config payload', () => {
     const config = dashboardConfigSchema.parse({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories', 'protein'],
-      visibleWidgets: ['snapshot', 'macro-rings', 'weight-trend'],
+      visibleWidgets: ['snapshot-cards', 'macro-rings', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits', 'trends'],
     });
 
     expect(config).toEqual({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories', 'protein'],
-      visibleWidgets: ['snapshot', 'macro-rings', 'weight-trend'],
+      visibleWidgets: ['snapshot-cards', 'macro-rings', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits', 'trends'],
     });
   });
 
-  it('accepts config without widget order', () => {
+  it('defaults visible widgets when omitted', () => {
     expect(
       dashboardConfigSchema.parse({
         habitChainIds: ['habit-1'],
@@ -28,7 +43,46 @@ describe('dashboardConfigSchema', () => {
     ).toEqual({
       habitChainIds: ['habit-1'],
       trendMetrics: ['weight'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     });
+  });
+
+  it('preserves custom visible widget ids', () => {
+    expect(
+      dashboardConfigSchema.parse({
+        habitChainIds: ['habit-1'],
+        trendMetrics: ['weight'],
+        visibleWidgets: ['recent-workouts', 'weight-trend'],
+      }),
+    ).toEqual({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['weight'],
+      visibleWidgets: ['recent-workouts', 'weight-trend'],
+    });
+  });
+
+  it('accepts an empty visible widget list', () => {
+    expect(
+      dashboardConfigSchema.parse({
+        habitChainIds: ['habit-1'],
+        trendMetrics: ['weight'],
+        visibleWidgets: [],
+      }),
+    ).toEqual({
+      habitChainIds: ['habit-1'],
+      trendMetrics: ['weight'],
+      visibleWidgets: [],
+    });
+  });
+
+  it('rejects empty visible widget ids', () => {
+    expect(() =>
+      dashboardConfigSchema.parse({
+        habitChainIds: ['habit-1'],
+        trendMetrics: ['weight'],
+        visibleWidgets: [''],
+      }),
+    ).toThrow();
   });
 
   it('rejects unsupported trend metrics', () => {
@@ -40,10 +94,16 @@ describe('dashboardConfigSchema', () => {
     ).toThrow();
   });
 
+  it('exports dashboard widget labels by id', () => {
+    expect(DASHBOARD_WIDGET_IDS['weight-trend']).toBe('Weight Trend');
+    expect(Object.keys(DASHBOARD_WIDGET_IDS)).toEqual(DEFAULT_VISIBLE_WIDGETS);
+  });
+
   it('infers DashboardConfig from the schema', () => {
     const config: DashboardConfig = {
       habitChainIds: ['habit-1'],
       trendMetrics: ['protein'],
+      visibleWidgets: ['weight-trend'],
     };
 
     expect(config.trendMetrics).toEqual(['protein']);
