@@ -1,31 +1,45 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-
-import type { ActiveWorkoutCompletedSession } from '../types';
+import type { WorkoutSession } from '@pulse/shared';
 
 import { SessionExerciseComparison } from './session-comparison';
 
-function createSession(
-  overrides: Partial<ActiveWorkoutCompletedSession>,
-): ActiveWorkoutCompletedSession {
+function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
   return {
-    customFeedback: [],
-    duration: 48,
-    exercises: [],
-    feedback: {
-      energy: 4,
-      notes: '',
-      recovery: 4,
-      technique: 4,
-    },
     id: 'session-id',
-    name: 'Session',
-    notes: '',
-    startedAt: '2026-03-01T18:00:00Z',
-    status: 'completed',
-    supplemental: [],
+    userId: 'user-1',
     templateId: 'template-1',
+    name: 'Session',
+    date: '2026-03-01',
+    status: 'completed',
+    startedAt: Date.parse('2026-03-01T18:00:00Z'),
+    completedAt: Date.parse('2026-03-01T19:00:00Z'),
+    duration: 60,
+    feedback: {
+      energy: 4 as const,
+      recovery: 4 as const,
+      technique: 4 as const,
+    },
+    notes: null,
+    sets: [],
+    createdAt: 1,
+    updatedAt: 1,
     ...overrides,
+  };
+}
+
+function createSet(exerciseId: string, setNumber: number, reps: number, weight: number | null = null) {
+  return {
+    id: `set-${exerciseId}-${setNumber}`,
+    exerciseId,
+    setNumber,
+    weight,
+    reps,
+    completed: true,
+    skipped: false,
+    section: 'main' as const,
+    notes: null,
+    createdAt: 1,
   };
 }
 
@@ -33,26 +47,18 @@ describe('SessionExerciseComparison', () => {
   it('matches comparison rows by set number and supports reps-only PRs', () => {
     const previousSession = createSession({
       id: 'previous-session',
-      startedAt: '2026-02-20T18:00:00Z',
-      exercises: [
-        {
-          exerciseId: 'bodyweight-row',
-          sets: [
-            { completed: true, reps: 7, setNumber: 1, timestamp: '2026-02-20T18:05:00Z' },
-            { completed: true, reps: 8, setNumber: 3, timestamp: '2026-02-20T18:10:00Z' },
-          ],
-        },
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      completedAt: Date.parse('2026-02-20T19:00:00Z'),
+      sets: [
+        createSet('bodyweight-row', 1, 7),
+        createSet('bodyweight-row', 3, 8),
       ],
     });
     const currentSession = createSession({
       id: 'current-session',
-      startedAt: '2026-03-01T18:00:00Z',
-      exercises: [
-        {
-          exerciseId: 'bodyweight-row',
-          sets: [{ completed: true, reps: 10, setNumber: 3, timestamp: '2026-03-01T18:12:00Z' }],
-        },
-      ],
+      startedAt: Date.parse('2026-03-01T18:00:00Z'),
+      completedAt: Date.parse('2026-03-01T19:00:00Z'),
+      sets: [createSet('bodyweight-row', 3, 10)],
     });
 
     render(

@@ -102,6 +102,22 @@ const templatesResponse = [
   },
 ];
 
+const completedSessionsResponse = [
+  {
+    id: 'session-1',
+    name: 'Upper Push',
+    date: '2026-03-02',
+    status: 'completed',
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-02T18:00:00Z'),
+    completedAt: Date.parse('2026-03-02T19:00:00Z'),
+    duration: 60,
+    exerciseCount: 6,
+    createdAt: 1,
+  },
+];
+
 describe('WorkoutsPage', () => {
   beforeEach(() => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
@@ -137,6 +153,17 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: templatesResponse,
+          }),
+        );
+      }
+
+      if (
+        url.pathname === '/api/v1/workout-sessions' &&
+        url.searchParams.get('status') === 'completed'
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: completedSessionsResponse,
           }),
         );
       }
@@ -197,7 +224,7 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
 
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
+    expect(await screen.findByRole('heading', { level: 2, name: /week of/i })).toBeInTheDocument();
     expect(screen.queryByText('Workout Calendar')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
@@ -265,6 +292,17 @@ describe('WorkoutsPage', () => {
         return deferredTemplates.promise;
       }
 
+      if (
+        url.pathname === '/api/v1/workout-sessions' &&
+        url.searchParams.get('status') === 'completed'
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: completedSessionsResponse,
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/exercises') {
         return Promise.resolve(
           jsonResponse({
@@ -319,6 +357,17 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: [],
+          }),
+        );
+      }
+
+      if (
+        url.pathname === '/api/v1/workout-sessions' &&
+        url.searchParams.get('status') === 'completed'
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: completedSessionsResponse,
           }),
         );
       }

@@ -1,20 +1,19 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
+import type { SessionSet, WorkoutSession } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import type { ActiveWorkoutCompletedSession } from '../types';
-
 type SessionComparisonProps = {
-  currentSession: ActiveWorkoutCompletedSession;
-  previousSession: ActiveWorkoutCompletedSession | null;
+  currentSession: WorkoutSession;
+  previousSession: WorkoutSession | null;
 };
 
 type SessionExerciseComparisonProps = {
-  currentSession: ActiveWorkoutCompletedSession;
+  currentSession: WorkoutSession;
   exerciseId: string;
-  previousSession: ActiveWorkoutCompletedSession | null;
+  previousSession: WorkoutSession | null;
 };
 
 type ComparisonDirection = 'down' | 'flat' | 'up';
@@ -25,7 +24,7 @@ type DeltaIndicatorProps = {
 };
 
 type SetComparison = {
-  currentReps: number;
+  currentReps: number | null;
   currentWeight: number | null;
   hasPr: boolean;
   repsDelta: number;
@@ -187,52 +186,56 @@ function DeltaIndicator({ direction, label }: DeltaIndicatorProps) {
   );
 }
 
+function getSetsForExercise(session: WorkoutSession, exerciseId: string): SessionSet[] {
+  return session.sets
+    .filter((set) => set.exerciseId === exerciseId)
+    .sort((left, right) => left.setNumber - right.setNumber);
+}
+
 function getExerciseComparison(
-  currentSession: ActiveWorkoutCompletedSession,
-  previousSession: ActiveWorkoutCompletedSession | null,
+  currentSession: WorkoutSession,
+  previousSession: WorkoutSession | null,
   exerciseId: string,
 ) {
   if (!previousSession) {
     return null;
   }
 
-  const currentExercise = currentSession.exercises.find((exercise) => exercise.exerciseId === exerciseId);
-  const previousExercise = previousSession.exercises.find(
-    (exercise) => exercise.exerciseId === exerciseId,
-  );
+  const currentSets = getSetsForExercise(currentSession, exerciseId);
+  const previousSets = getSetsForExercise(previousSession, exerciseId);
 
-  if (!currentExercise || !previousExercise) {
+  if (currentSets.length === 0 || previousSets.length === 0) {
     return null;
   }
 
   return {
     previousSessionDate: dateFormatter.format(new Date(previousSession.startedAt)),
-    setComparisons: currentExercise.sets.map((set) => {
+    setComparisons: currentSets.map((set) => {
       const previousSet =
-        previousExercise.sets.find((candidate) => candidate.setNumber === set.setNumber) ?? null;
+        previousSets.find((candidate) => candidate.setNumber === set.setNumber) ?? null;
 
       return {
         currentReps: set.reps,
         currentWeight: set.weight ?? null,
         hasPr: isPersonalRecord(
           set.weight ?? null,
-          set.reps,
+          set.reps ?? 0,
           previousSet
             ? [
                 {
-                  reps: previousSet.reps,
+                  reps: previousSet.reps ?? 0,
                   weight: previousSet.weight ?? null,
                 },
               ]
             : [],
         ),
-        repsDelta: previousSet ? set.reps - previousSet.reps : 0,
+        repsDelta: previousSet ? (set.reps ?? 0) - (previousSet.reps ?? 0) : 0,
         setNumber: set.setNumber,
         weightDelta:
           set.weight != null && previousSet?.weight != null ? set.weight - previousSet.weight : null,
       };
     }),
-    volumeDelta: getExerciseVolume(currentExercise) - getExerciseVolume(previousExercise),
+    volumeDelta: getExerciseVolumeFromSets(currentSets) - getExerciseVolumeFromSets(previousSets),
   } satisfies ExerciseComparison;
 }
 
@@ -267,14 +270,18 @@ function isPersonalRecord(
   return currentReps > maxPreviousReps;
 }
 
-function getSessionVolume(session: ActiveWorkoutCompletedSession) {
-  return session.exercises.reduce((total, exercise) => total + getExerciseVolume(exercise), 0);
+function getSessionVolume(session: WorkoutSession) {
+  return session.sets.reduce(
+    (total, set) => total + (set.weight != null && set.reps != null ? set.weight * set.reps : 0),
+    0,
+  );
 }
 
-function getExerciseVolume(
-  exercise: ActiveWorkoutCompletedSession['exercises'][number],
-) {
-  return exercise.sets.reduce((total, set) => total + (set.weight != null ? set.weight * set.reps : 0), 0);
+function getExerciseVolumeFromSets(sets: SessionSet[]) {
+  return sets.reduce(
+    (total, set) => total + (set.weight != null && set.reps != null ? set.weight * set.reps : 0),
+    0,
+  );
 }
 
 function getDirection(value: number): ComparisonDirection {

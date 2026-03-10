@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { WorkoutSessionListItem } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,14 +12,8 @@ import {
   toDateKey,
 } from '@/lib/date-utils';
 import { accentCardStyles } from '@/lib/accent-card-styles';
-import {
-  mockSchedule,
-  mockTemplates,
-  type WorkoutScheduleEntry,
-} from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
-import { workoutCompletedSessions } from '../lib/mock-data';
-import type { ActiveWorkoutCompletedSession } from '../types';
+import { useCompletedSessions, useWorkoutTemplates } from '../api/workouts';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const TODAY_KEY = toDateKey(new Date());
@@ -32,53 +27,70 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
+const timeFormatter = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  minute: '2-digit',
+});
 
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
   buildSessionHref?: (sessionId: string) => string;
 };
 
-type DayStatus = 'completed' | 'scheduled' | 'rest' | 'none';
+type DayStatus = 'completed' | 'none';
 
 type DayDetails = {
   date: Date;
   dateKey: string;
-  schedule?: WorkoutScheduleEntry;
-  session?: ActiveWorkoutCompletedSession;
+  session?: WorkoutSessionListItem;
   status: DayStatus;
   templateName: string | null;
   notes: string | null;
 };
 
-const templateNameById = new Map(mockTemplates.map((template) => [template.id, template.name]));
-const scheduleByDate = new Map(mockSchedule.map((entry) => [entry.date, entry]));
-const sessionByDate = new Map(
-  workoutCompletedSessions.map((session) => [session.startedAt.slice(0, 10), session]),
-);
+type DayLookupContext = {
+  sessionByDate: Map<string, WorkoutSessionListItem>;
+  templateNameById: Map<string, string>;
+};
 
 export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalendarProps) {
+  const completedQuery = useCompletedSessions();
+  const templatesQuery = useWorkoutTemplates();
   const initialMonth = startOfMonth(parseDateKey(TODAY_KEY));
   const [visibleMonth, setVisibleMonth] = useState(initialMonth);
-  const [selectedDateKey, setSelectedDateKey] = useState(getDefaultSelectedDateKey(initialMonth));
+
+  const templateNameById = useMemo(
+    () => new Map((templatesQuery.data ?? []).map((template) => [template.id, template.name])),
+    [templatesQuery.data],
+  );
+  const sessionByDate = useMemo(
+    () => new Map((completedQuery.data ?? []).map((session) => [session.date, session])),
+    [completedQuery.data],
+  );
+  const lookupContext = useMemo(
+    () => ({
+      sessionByDate,
+      templateNameById,
+    }),
+    [sessionByDate, templateNameById],
+  );
+
+  const [selectedDateKey, setSelectedDateKey] = useState(getDefaultSelectedDateKey(initialMonth, sessionByDate));
 
   const calendarDays = buildCalendarDays(visibleMonth);
-  const selectedDay = getDayDetails(selectedDateKey);
+  const selectedDay = getDayDetails(selectedDateKey, lookupContext);
   const detailHref = selectedDay.session
     ? (buildSessionHref?.(selectedDay.session.id) ?? `/workouts/session/${selectedDay.session.id}`)
     : (buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`);
   const detailStats = getDetailStats(selectedDay);
-  const hasWorkout = selectedDay.status === 'completed' || selectedDay.status === 'scheduled';
+  const hasWorkout = selectedDay.status === 'completed';
 
-  const accentPanel = hasWorkout
-    ? selectedDay.status === 'completed'
-      ? accentCardStyles.mint
-      : accentCardStyles.cream
-    : 'bg-card text-foreground';
+  const accentPanel = hasWorkout ? accentCardStyles.mint : 'bg-card text-foreground';
 
   function handleMonthChange(offset: number) {
     const nextMonth = addMonths(visibleMonth, offset);
     setVisibleMonth(nextMonth);
-    setSelectedDateKey(getDefaultSelectedDateKey(nextMonth));
+    setSelectedDateKey(getDefaultSelectedDateKey(nextMonth, sessionByDate));
   }
 
   return (
@@ -88,7 +100,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
           <div className="space-y-1">
             <CardTitle>Workout Calendar</CardTitle>
             <p className="text-sm text-muted">
-              Track completed sessions, upcoming plans, and recovery days in one monthly view.
+              Track completed sessions and review workout activity in one monthly view.
             </p>
           </div>
 
@@ -119,7 +131,6 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
           <LegendDot className="bg-emerald-500" label="Completed workout" />
-          <LegendDot className="bg-blue-500" label="Scheduled workout" />
           <span className="rounded-full border border-primary/30 px-2 py-1 text-foreground">
             Today
           </span>
@@ -142,11 +153,11 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
           <div className="grid grid-cols-7 gap-2">
             {calendarDays.map((day) => {
               const dateKey = toDateKey(day);
-              const details = getDayDetails(dateKey);
+              const details = getDayDetails(dateKey, lookupContext);
               const isSelected = selectedDateKey === dateKey;
               const isToday = dateKey === TODAY_KEY;
               const isInMonth = day.getMonth() === visibleMonth.getMonth();
-              const isWorkoutDay = details.status === 'completed' || details.status === 'scheduled';
+              const isWorkoutDay = details.status === 'completed';
 
               return (
                 <button
@@ -177,15 +188,8 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
                       {day.getDate()}
                     </span>
                     {isWorkoutDay ? (
-                      <span
-                        className={cn(
-                          'hidden shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide sm:inline',
-                          details.status === 'completed'
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
-                        )}
-                      >
-                        {details.status === 'completed' ? 'Done' : 'Plan'}
+                      <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-emerald-700 dark:text-emerald-400 sm:inline">
+                        Done
                       </span>
                     ) : null}
                   </div>
@@ -197,8 +201,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
                         isInMonth ? 'text-foreground' : 'text-muted',
                       )}
                     >
-                      {details.templateName ??
-                        (details.status === 'rest' ? 'Rest day' : 'No workout')}
+                      {details.templateName ?? 'No workout'}
                     </p>
                     <p className="truncate text-[10px] leading-snug text-muted">
                       {details.notes ?? (isWorkoutDay ? 'Tap for details' : '')}
@@ -210,12 +213,6 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
                       <span
                         aria-label="Completed workout"
                         className="size-2 rounded-full bg-emerald-500 sm:size-2.5"
-                      />
-                    ) : null}
-                    {details.status === 'scheduled' ? (
-                      <span
-                        aria-label="Scheduled workout"
-                        className="size-2 rounded-full bg-blue-500 sm:size-2.5"
                       />
                     ) : null}
                     {isToday ? (
@@ -247,8 +244,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
               Day details
             </p>
             <h3 className="text-2xl font-semibold">
-              {selectedDay.templateName ??
-                (selectedDay.status === 'rest' ? 'Recovery day' : 'No workout planned')}
+              {selectedDay.templateName ?? 'No workout planned'}
             </h3>
             <p
               className={cn(
@@ -291,9 +287,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
             )}
           >
             {selectedDay.notes ??
-              (selectedDay.status === 'rest'
-                ? 'Recovery focus: keep steps up, get meals in, and stay ready for the next lift.'
-                : 'No workout is attached to this day yet. Navigate months or select a marked day to inspect the plan.')}
+              'No workout is attached to this day yet. Complete a session to see it on the calendar.'}
           </p>
 
           {hasWorkout ? (
@@ -303,7 +297,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
               size="sm"
               variant="secondary"
             >
-              <a href={detailHref}>{selectedDay.session ? 'View Session' : 'View Details'}</a>
+              <a href={detailHref}>View Session</a>
             </Button>
           ) : null}
         </aside>
@@ -321,72 +315,45 @@ function LegendDot({ className, label }: { className: string; label: string }) {
   );
 }
 
-function getDayDetails(dateKey: string): DayDetails {
+function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
   const date = parseDateKey(dateKey);
-  const schedule = scheduleByDate.get(dateKey);
-  const session = sessionByDate.get(dateKey);
-
-  let status: DayStatus = 'none';
-
-  if (session || schedule?.status === 'completed') {
-    status = 'completed';
-  } else if (schedule?.status === 'scheduled') {
-    status = 'scheduled';
-  } else if (schedule?.status === 'rest') {
-    status = 'rest';
-  }
-
+  const session = context.sessionByDate.get(dateKey);
   const templateName =
-    schedule?.templateName ?? (session ? (templateNameById.get(session.templateId) ?? null) : null);
+    session?.templateName ??
+    (session?.templateId ? (context.templateNameById.get(session.templateId) ?? null) : null);
+  const status: DayStatus = session ? 'completed' : 'none';
+  const notes =
+    session != null
+      ? `${session.exerciseCount} exercise${session.exerciseCount === 1 ? '' : 's'} logged`
+      : null;
 
   return {
     date,
     dateKey,
-    schedule,
     session,
     status,
     templateName,
-    notes: schedule?.notes ?? session?.notes ?? session?.feedback?.notes ?? null,
+    notes,
   };
 }
 
 function getDetailStats(selectedDay: DayDetails) {
   if (selectedDay.session) {
-    const exerciseCount = selectedDay.session.exercises.length;
-    const completedSets = selectedDay.session.exercises.reduce((total, exercise) => {
-      return total + exercise.sets.filter((set) => set.completed).length;
-    }, 0);
-    const feedback = selectedDay.session.feedback;
-    const averageFeedback = feedback
-      ? ((feedback.energy + feedback.recovery + feedback.technique) / 3).toFixed(1)
-      : null;
-
     return [
       { label: 'Status', value: 'Completed' },
-      { label: 'Duration', value: `${selectedDay.session.duration} min` },
-      { label: 'Volume', value: `${exerciseCount} exercises / ${completedSets} sets` },
-      { label: 'Feedback', value: averageFeedback ? `${averageFeedback}/5` : 'Not rated' },
-    ];
-  }
-
-  if (selectedDay.status === 'scheduled') {
-    return [
-      { label: 'Status', value: 'Scheduled' },
-      { label: 'Plan', value: '1 session queued' },
-      { label: 'Focus', value: selectedDay.templateName ?? 'Workout block' },
       {
-        label: 'Day',
-        value: fullDateFormatter.format(selectedDay.date).split(',')[0] ?? 'Planned',
+        label: 'Duration',
+        value:
+          selectedDay.session.duration != null ? `${selectedDay.session.duration} min` : 'Not tracked',
       },
-    ];
-  }
-
-  if (selectedDay.status === 'rest') {
-    return [
-      { label: 'Status', value: 'Recovery' },
-      { label: 'Focus', value: 'Walking + mobility' },
-      { label: 'Plan', value: 'No lifting block' },
-      { label: 'Readiness', value: 'Reset for next session' },
+      {
+        label: 'Exercises',
+        value: `${selectedDay.session.exerciseCount}`,
+      },
+      {
+        label: 'Started',
+        value: timeFormatter.format(new Date(selectedDay.session.startedAt)),
+      },
     ];
   }
 
@@ -398,13 +365,13 @@ function getDetailStats(selectedDay: DayDetails) {
   ];
 }
 
-function getDefaultSelectedDateKey(month: Date): string {
-  const monthActivity = [...new Set([...scheduleByDate.keys(), ...sessionByDate.keys()])]
+function getDefaultSelectedDateKey(month: Date, sessionByDate: Map<string, WorkoutSessionListItem>): string {
+  const monthActivity = [...sessionByDate.keys()]
     .map((dateKey) => parseDateKey(dateKey))
     .filter((date) => isSameMonth(date, month))
     .sort((left, right) => left.getTime() - right.getTime());
 
-  if (isSameMonth(parseDateKey(TODAY_KEY), month) && hasWorkoutEntry(TODAY_KEY)) {
+  if (isSameMonth(parseDateKey(TODAY_KEY), month) && hasWorkoutEntry(TODAY_KEY, sessionByDate)) {
     return TODAY_KEY;
   }
 
@@ -415,9 +382,8 @@ function getDefaultSelectedDateKey(month: Date): string {
   return isSameMonth(parseDateKey(TODAY_KEY), month) ? TODAY_KEY : toDateKey(month);
 }
 
-function hasWorkoutEntry(dateKey: string) {
-  const details = getDayDetails(dateKey);
-  return details.status === 'completed' || details.status === 'scheduled';
+function hasWorkoutEntry(dateKey: string, sessionByDate: Map<string, WorkoutSessionListItem>) {
+  return sessionByDate.has(dateKey);
 }
 
 function buildCalendarDays(month: Date): Date[] {

@@ -1,15 +1,12 @@
-import { CalendarDays, Dumbbell, Layers3, ListChecks } from 'lucide-react';
+import { CalendarDays, Dumbbell, Timer } from 'lucide-react';
 import { Link } from 'react-router';
+import type { WorkoutSessionListItem, WorkoutTemplate } from '@pulse/shared';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
-import {
-  mockTemplates,
-  type WorkoutTemplate,
-} from '@/lib/mock-data/workouts';
-import { workoutCompletedSessions } from '../lib/mock-data';
-import type { ActiveWorkoutCompletedSession } from '../types';
+
+import { useCompletedSessions, useWorkoutTemplates } from '../api/workouts';
 
 const weekOfFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -24,35 +21,50 @@ const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 type WorkoutListProps = {
   buildSessionHref?: (sessionId: string) => string;
-  sessions?: ActiveWorkoutCompletedSession[];
+  sessions?: WorkoutSessionListItem[];
 };
 
 type WorkoutWeekGroup = {
   weekKey: string;
   weekStart: Date;
   weekEnd: Date;
-  sessions: WorkoutListItem[];
+  sessions: WorkoutListViewItem[];
 };
 
-type WorkoutListItem = {
+type WorkoutListViewItem = {
   accentColor: string;
   badgeClass: string;
   date: Date;
+  duration: number | null;
   exerciseCount: number;
   id: string;
   name: string;
-  sectionCount: number;
-  totalSets: number;
   typeLabel: string;
 };
 
-const templateById = new Map(mockTemplates.map((template) => [template.id, template]));
-
 export function WorkoutList({
   buildSessionHref = (sessionId) => `/workouts/session/${sessionId}`,
-  sessions = workoutCompletedSessions,
+  sessions,
 }: WorkoutListProps) {
-  const weekGroups = groupSessionsByWeek(sessions);
+  const completedQuery = useCompletedSessions();
+  const templatesQuery = useWorkoutTemplates();
+
+  const resolvedSessions = sessions ?? completedQuery.data ?? [];
+  const templateById = new Map(
+    (templatesQuery.data ?? []).map((template) => [template.id, template]),
+  );
+
+  const weekGroups = groupSessionsByWeek(resolvedSessions, templateById);
+
+  if (completedQuery.isLoading && !sessions) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted">Loading completed workouts…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (weekGroups.length === 0) {
     return (
@@ -118,11 +130,12 @@ export function WorkoutList({
                     <ul className="flex flex-wrap gap-3 text-sm text-muted">
                       <WorkoutStat
                         icon={CalendarDays}
-                        label={`${sessionDateFormatter.format(session.date)}`}
+                        label={sessionDateFormatter.format(session.date)}
                       />
-                      <WorkoutStat icon={Layers3} label={`${session.sectionCount} sections`} />
+                      {session.duration != null ? (
+                        <WorkoutStat icon={Timer} label={`${session.duration} min`} />
+                      ) : null}
                       <WorkoutStat icon={Dumbbell} label={`${session.exerciseCount} exercises`} />
-                      <WorkoutStat icon={ListChecks} label={`${session.totalSets} sets`} />
                     </ul>
                   </CardContent>
                 </Card>
@@ -144,11 +157,14 @@ function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: 
   );
 }
 
-function groupSessionsByWeek(sessions: ActiveWorkoutCompletedSession[]): WorkoutWeekGroup[] {
+function groupSessionsByWeek(
+  sessions: WorkoutSessionListItem[],
+  templateById: Map<string, WorkoutTemplate>,
+): WorkoutWeekGroup[] {
   const groups = new Map<string, WorkoutWeekGroup>();
 
   for (const session of sessions) {
-    const sessionDate = parseDateKey(session.startedAt.slice(0, 10));
+    const sessionDate = parseDateKey(session.date);
     const weekStart = startOfWeek(sessionDate);
     const weekKey = toDateKey(weekStart);
     const weekEnd = addDays(weekStart, 6);
@@ -159,7 +175,7 @@ function groupSessionsByWeek(sessions: ActiveWorkoutCompletedSession[]): Workout
       sessions: [],
     };
 
-    group.sessions.push(buildWorkoutListItem(session));
+    group.sessions.push(buildWorkoutListItem(session, templateById));
     groups.set(weekKey, group);
   }
 
@@ -171,22 +187,22 @@ function groupSessionsByWeek(sessions: ActiveWorkoutCompletedSession[]): Workout
     .sort((left, right) => right.weekStart.getTime() - left.weekStart.getTime());
 }
 
-function buildWorkoutListItem(session: ActiveWorkoutCompletedSession): WorkoutListItem {
-  const template = templateById.get(session.templateId);
-  const date = parseDateKey(session.startedAt.slice(0, 10));
-  const exerciseCount = session.exercises.length;
-  const totalSets = session.exercises.reduce((count, exercise) => count + exercise.sets.length, 0);
+function buildWorkoutListItem(
+  session: WorkoutSessionListItem,
+  templateById: Map<string, WorkoutTemplate>,
+): WorkoutListViewItem {
+  const template = session.templateId ? templateById.get(session.templateId) : undefined;
+  const date = parseDateKey(session.date);
   const presentation = getWorkoutPresentation(template);
 
   return {
     accentColor: presentation.accentColor,
     badgeClass: presentation.badgeClass,
     date,
-    exerciseCount,
+    duration: session.duration,
+    exerciseCount: session.exerciseCount,
     id: session.id,
-    name: template?.name ?? 'Workout Session',
-    sectionCount: template?.sections.length ?? 0,
-    totalSets,
+    name: session.templateName ?? session.name,
     typeLabel: presentation.typeLabel,
   };
 }

@@ -65,6 +65,61 @@ const workoutTemplatePayload = {
   },
 };
 
+const completedSessionsPayload = {
+  data: [
+    {
+      id: sessionId,
+      name: 'Upper Push',
+      date: '2026-03-02',
+      status: 'completed',
+      templateId: 'upper-push',
+      templateName: 'Upper Push',
+      startedAt: Date.parse('2026-03-02T18:00:00Z'),
+      completedAt: Date.parse('2026-03-02T19:00:00Z'),
+      duration: 60,
+      exerciseCount: 3,
+      createdAt: 1,
+    },
+  ],
+};
+
+const workoutSessionPayload = {
+  data: {
+    id: sessionId,
+    userId: 'user-1',
+    templateId: 'upper-push',
+    name: 'Upper Push',
+    date: '2026-03-02',
+    status: 'completed',
+    startedAt: Date.parse('2026-03-02T18:00:00Z'),
+    completedAt: Date.parse('2026-03-02T19:00:00Z'),
+    duration: 60,
+    feedback: {
+      energy: 4,
+      recovery: 4,
+      technique: 4,
+      notes: 'Solid session',
+    },
+    notes: 'Felt good.',
+    sets: [
+      {
+        id: 'set-1',
+        exerciseId: 'incline-dumbbell-press',
+        setNumber: 1,
+        weight: 50,
+        reps: 10,
+        completed: true,
+        skipped: false,
+        section: 'main',
+        notes: null,
+        createdAt: 1,
+      },
+    ],
+    createdAt: 1,
+    updatedAt: 1,
+  },
+};
+
 function renderApp() {
   const queryClient = createAppQueryClient();
   queryClient.clear();
@@ -120,6 +175,22 @@ describe('App', () => {
 
       if (url.pathname === '/api/v1/workout-templates/upper-push') {
         return Promise.resolve(jsonResponse(workoutTemplatePayload));
+      }
+
+      if (url.pathname === '/api/v1/workout-templates') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [workoutTemplatePayload.data],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && url.searchParams.get('status') === 'completed') {
+        return Promise.resolve(jsonResponse(completedSessionsPayload));
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-sessions/')) {
+        return Promise.resolve(jsonResponse(workoutSessionPayload));
       }
 
       if (url.pathname === '/api/v1/exercises') {

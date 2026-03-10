@@ -1,21 +1,21 @@
-import { workoutCompletedSessions } from './mock-data';
-
-import type { ActiveWorkoutCompletedSession } from '../types';
+import type { WorkoutSession, WorkoutSessionListItem } from '@pulse/shared';
 
 export function findPreviousTemplateSession(
-  currentSession: ActiveWorkoutCompletedSession,
-): ActiveWorkoutCompletedSession | null {
-  const currentTime = new Date(currentSession.startedAt).getTime();
+  currentSession: WorkoutSession,
+  completedSessions: WorkoutSessionListItem[],
+): WorkoutSessionListItem | null {
+  if (!currentSession.templateId) {
+    return null;
+  }
 
   return (
-    [...workoutCompletedSessions]
-    .filter(
-      (session) =>
-        session.id !== currentSession.id &&
-        session.templateId === currentSession.templateId &&
-        new Date(session.startedAt).getTime() < currentTime,
-    )
-    .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())[0] ??
-    null
+    [...completedSessions]
+      .filter(
+        (session) =>
+          session.id !== currentSession.id &&
+          session.templateId === currentSession.templateId &&
+          session.startedAt < currentSession.startedAt,
+      )
+      .sort((left, right) => right.startedAt - left.startedAt)[0] ?? null
   );
 }
