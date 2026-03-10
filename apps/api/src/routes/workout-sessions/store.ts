@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -97,6 +97,11 @@ const workoutSessionListSelection = {
   startedAt: workoutSessions.startedAt,
   completedAt: workoutSessions.completedAt,
   duration: workoutSessions.duration,
+  exerciseCount: sql<number>`coalesce((
+    select count(distinct ${sessionSets.exerciseId})
+    from ${sessionSets}
+    where ${sessionSets.sessionId} = ${workoutSessions.id}
+  ), 0)`,
   createdAt: workoutSessions.createdAt,
 };
 
@@ -462,30 +467,46 @@ export const listWorkoutSessions = async ({
   userId,
   from,
   to,
+  status,
+  limit,
 }: {
   userId: string;
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
+  status?: WorkoutSession['status'];
+  limit?: number;
 }): Promise<WorkoutSessionListItem[]> => {
   const { db } = await import('../../db/index.js');
+  const whereClauses = [eq(workoutSessions.userId, userId)];
 
-  return db
+  if (from) {
+    whereClauses.push(gte(workoutSessions.date, from));
+  }
+
+  if (to) {
+    whereClauses.push(lte(workoutSessions.date, to));
+  }
+
+  if (status) {
+    whereClauses.push(eq(workoutSessions.status, status));
+  }
+
+  const query = db
     .select(workoutSessionListSelection)
     .from(workoutSessions)
     .leftJoin(workoutTemplates, eq(workoutTemplates.id, workoutSessions.templateId))
-    .where(
-      and(
-        eq(workoutSessions.userId, userId),
-        gte(workoutSessions.date, from),
-        lte(workoutSessions.date, to),
-      ),
-    )
+    .where(and(...whereClauses))
     .orderBy(
       desc(workoutSessions.date),
       desc(workoutSessions.startedAt),
       desc(workoutSessions.createdAt),
-    )
-    .all();
+    );
+
+  if (typeof limit === 'number') {
+    return query.limit(limit).all();
+  }
+
+  return query.all();
 };
 
 export const findWorkoutSessionById = async (

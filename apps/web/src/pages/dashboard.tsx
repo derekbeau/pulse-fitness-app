@@ -1,4 +1,5 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { type FormEvent, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,69 +11,29 @@ import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
-import { useNutritionTargets } from '@/features/nutrition/api/targets';
-import { useLatestWeight, useLogWeight } from '@/features/weight/api/weight';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
-import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
-import { addDays, formatDateKey, getToday, toDateKey } from '@/lib/date';
-import { getMockSnapshotForDate } from '@/lib/mock-data/dashboard';
+import { useHabits } from '@/features/habits/api/habits';
+import { useLogWeight } from '@/features/weight/api/weight';
+import { useDashboardSnapshot, dashboardSnapshotKeys } from '@/hooks/use-dashboard-snapshot';
+import { useDashboardConfig } from '@/hooks/use-dashboard-config';
+import { useHabitChains } from '@/hooks/use-habit-chains';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 
 export function DashboardPage() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
   const [weightMessage, setWeightMessage] = useState('');
-  const { data: currentTargets } = useNutritionTargets();
-  const { data: latestWeightEntry } = useLatestWeight();
   const logWeightMutation = useLogWeight();
   const selectedDateKey = toDateKey(selectedDate);
-  const today = getToday();
-  const todayKey = toDateKey(today);
-  const habitRangeStart = toDateKey(addDays(today, -29));
+  const habitRangeStart = toDateKey(addDays(selectedDate, -29));
   const greeting = getDashboardGreeting();
 
+  const snapshotQuery = useDashboardSnapshot(selectedDateKey);
+  // TODO: apply widgetOrder to section layout once ordering UI is added.
+  const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits();
-  const selectedHabitEntriesQuery = useHabitEntries(selectedDateKey, selectedDateKey);
-  const habitChainEntriesQuery = useHabitEntries(habitRangeStart, todayKey);
-
-  const selectedSnapshot = useMemo(() => {
-    const baseSnapshot = getMockSnapshotForDate(selectedDate);
-    const habits = habitsQuery.data ?? [];
-    const entries = selectedHabitEntriesQuery.data ?? [];
-    const completedCount = entries.filter((entry) => entry.completed).length;
-
-    return {
-      ...baseSnapshot,
-      habitsCompleted: completedCount,
-      habitsTotal: habits.length,
-    };
-  }, [habitsQuery.data, selectedDate, selectedHabitEntriesQuery.data]);
-
-  const dashboardSnapshot = useMemo(
-    () => ({
-      ...selectedSnapshot,
-      weight: latestWeightEntry?.weight ?? selectedSnapshot.weight,
-      weightYesterday: selectedSnapshot.weightYesterday,
-      macros: {
-        calories: {
-          ...selectedSnapshot.macros.calories,
-          target: currentTargets?.calories ?? selectedSnapshot.macros.calories.target,
-        },
-        protein: {
-          ...selectedSnapshot.macros.protein,
-          target: currentTargets?.protein ?? selectedSnapshot.macros.protein.target,
-        },
-        carbs: {
-          ...selectedSnapshot.macros.carbs,
-          target: currentTargets?.carbs ?? selectedSnapshot.macros.carbs.target,
-        },
-        fat: {
-          ...selectedSnapshot.macros.fat,
-          target: currentTargets?.fat ?? selectedSnapshot.macros.fat.target,
-        },
-      },
-    }),
-    [currentTargets, latestWeightEntry, selectedSnapshot],
-  );
+  const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
 
   async function handleWeightSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,9 +46,10 @@ export function DashboardPage() {
 
     try {
       await logWeightMutation.mutateAsync({
-        date: formatDateKey(selectedDate),
+        date: selectedDateKey,
         weight: parsedWeight,
       });
+      await queryClient.invalidateQueries({ queryKey: dashboardSnapshotKeys.all });
       setWeightInput('');
       setWeightMessage('Weight entry saved.');
     } catch {
@@ -120,7 +82,7 @@ export function DashboardPage() {
 
           <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
             <div className="flex flex-col gap-6">
-              <SnapshotCards snapshot={dashboardSnapshot} />
+              <SnapshotCards snapshot={snapshotQuery.data} />
               <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
                 <CardHeader className="space-y-1">
                   <CardTitle>Log Weight</CardTitle>
@@ -178,7 +140,7 @@ export function DashboardPage() {
           </div>
 
           <div className="order-3 md:order-2" data-slot="dashboard-macro-panel">
-            <MacroRings snapshot={dashboardSnapshot} />
+            <MacroRings snapshot={snapshotQuery.data} />
           </div>
         </div>
 
@@ -186,8 +148,16 @@ export function DashboardPage() {
           className="order-2 flex min-w-0 flex-col gap-6 md:order-2 xl:order-1"
           data-slot="dashboard-sidebar-column"
         >
-          <HabitChain habits={habitsQuery.data ?? []} entries={habitChainEntriesQuery.data ?? []} />
-          <TrendSparklines />
+          <HabitChain
+            endDate={selectedDateKey}
+            habitIds={dashboardConfigQuery.data?.habitChainIds}
+            habits={habitsQuery.data ?? []}
+            entries={habitChainEntriesQuery.data ?? []}
+          />
+          <TrendSparklines
+            endDate={selectedDateKey}
+            metrics={dashboardConfigQuery.data?.trendMetrics}
+          />
         </div>
 
         <div

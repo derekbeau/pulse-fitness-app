@@ -71,6 +71,13 @@
       "when": 1772921155210,
       "tag": "0009_groovy_spacker_dave",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1773098400000,
+      "tag": "0010_equal_stingray",
+      "breakpoints": true
     }
   ]
 }

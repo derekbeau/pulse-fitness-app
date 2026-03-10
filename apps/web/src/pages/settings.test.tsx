@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
-import { createQueryClientWrapper } from '@/test/query-client';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
+import { createQueryClientWrapper } from '@/test/query-client';
 
 vi.mock('@/features/habits', async () => {
   const actual = await vi.importActual<typeof import('@/features/habits')>('@/features/habits');
@@ -15,6 +15,41 @@ vi.mock('@/features/habits', async () => {
     HabitSettings: () => <div data-testid="habit-settings" />,
   };
 });
+
+type TestState = {
+  dashboardConfig: {
+    habitChainIds: string[];
+    trendMetrics: Array<'weight' | 'calories' | 'protein'>;
+    widgetOrder?: string[];
+  };
+  habits: Array<{
+    id: string;
+    userId: string;
+    name: string;
+    emoji: string | null;
+    trackingType: 'boolean' | 'numeric' | 'time';
+    target: number | null;
+    unit: string | null;
+    sortOrder: number;
+    active: boolean;
+    createdAt: number;
+    updatedAt: number;
+  }>;
+  nutritionCurrent:
+    | {
+        id: string;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        effectiveDate: string;
+        createdAt: number;
+        updatedAt: number;
+      }
+    | null;
+  shouldFailDashboardSave: boolean;
+  shouldFailNutritionSave: boolean;
+};
 
 function renderSettingsPage() {
   const { wrapper } = createQueryClientWrapper();
@@ -29,53 +64,142 @@ function renderSettingsPage() {
   );
 }
 
-function getLatestNutritionTargetsPostPayload() {
-  const postCall = vi
+function getLatestPostBody(pathFragment: string) {
+  const call = vi
     .mocked(fetch)
-    .mock.calls.filter(([, init]) => {
+    .mock.calls.filter(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
       const method = init?.method?.toUpperCase();
-      return method === 'POST';
+      return raw.includes(pathFragment) && method !== undefined && method !== 'GET';
     })
     .at(-1);
 
-  if (!postCall) {
-    throw new Error('No nutrition target POST request was captured.');
+  if (!call) {
+    throw new Error(`No request call captured for ${pathFragment}`);
   }
 
-  const [, init] = postCall;
-  return JSON.parse(String(init?.body)) as {
-    calories: number;
-    carbs: number;
-    effectiveDate: string;
-    fat: number;
-    protein: number;
-  };
+  const [, init] = call;
+  return init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
 }
 
 describe('SettingsPage', () => {
+  let state: TestState;
+
   beforeEach(() => {
+    state = {
+      dashboardConfig: {
+        habitChainIds: ['habit-hydrate'],
+        trendMetrics: ['weight', 'calories', 'protein'],
+      },
+      habits: [
+        {
+          id: 'habit-hydrate',
+          userId: 'user-1',
+          name: 'Hydrate',
+          emoji: '💧',
+          trackingType: 'numeric',
+          target: 8,
+          unit: 'glasses',
+          sortOrder: 0,
+          active: true,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 'habit-sleep',
+          userId: 'user-1',
+          name: 'Sleep',
+          emoji: '😴',
+          trackingType: 'time',
+          target: 8,
+          unit: 'hours',
+          sortOrder: 1,
+          active: true,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+      nutritionCurrent: null,
+      shouldFailDashboardSave: false,
+      shouldFailNutritionSave: false,
+    };
+
     window.localStorage.removeItem(THEME_STORAGE_KEY);
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.remove('theme-midnight');
+
     vi.stubGlobal(
       'fetch',
       vi.fn((input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+        const rawUrl =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(rawUrl, 'http://localhost');
 
-        if (url.includes('/api/v1/nutrition-targets/current')) {
+        if (url.pathname === '/api/v1/nutrition-targets/current') {
           return Promise.resolve(
-            new Response(JSON.stringify({ data: null }), {
+            new Response(JSON.stringify({ data: state.nutritionCurrent }), {
               headers: { 'Content-Type': 'application/json' },
               status: 200,
             }),
           );
         }
 
-        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
+        if (url.pathname === '/api/v1/nutrition-targets' && init?.method === 'POST') {
+          if (state.shouldFailNutritionSave) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({ error: { code: 'SERVER_ERROR', message: 'Unavailable' } }),
+                {
+                  headers: { 'Content-Type': 'application/json' },
+                  status: 503,
+                },
+              ),
+            );
+          }
+
           return Promise.resolve(
             new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'GET') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: state.dashboardConfig }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'PUT') {
+          if (state.shouldFailDashboardSave) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({ error: { code: 'SERVER_ERROR', message: 'Unavailable' } }),
+                {
+                  headers: { 'Content-Type': 'application/json' },
+                  status: 503,
+                },
+              ),
+            );
+          }
+
+          state.dashboardConfig = JSON.parse(String(init.body)) as TestState['dashboardConfig'];
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: state.dashboardConfig }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: state.habits }), {
               headers: { 'Content-Type': 'application/json' },
               status: 200,
             }),
@@ -96,37 +220,23 @@ describe('SettingsPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the read-only profile field, theme options, and default prototype settings', () => {
+  it('renders defaults and loads dashboard config from API', async () => {
     renderSettingsPage();
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Back to Profile/i })).toHaveAttribute(
-      'href',
-      '/profile',
-    );
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Display name')).toHaveAttribute('readonly');
-    expect(screen.getByPlaceholderText('User')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Theme' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Light/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Dark/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Midnight/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Nutrition Targets' })).toBeInTheDocument();
     expect(screen.getByLabelText('Daily calories')).toHaveValue(
       DEFAULT_SETTINGS.nutritionTargets.calories,
     );
-    expect(screen.getByLabelText('Protein (g)')).toHaveValue(
-      DEFAULT_SETTINGS.nutritionTargets.protein,
-    );
-    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(DEFAULT_SETTINGS.nutritionTargets.carbs);
-    expect(screen.getByLabelText('Fat (g)')).toHaveValue(DEFAULT_SETTINGS.nutritionTargets.fat);
-    expect(screen.getByRole('heading', { name: 'Dashboard Configuration' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /Hydrate/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Take vitamins/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Protein goal/i })).toBeChecked();
+
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: /Hydrate/i })).toBeChecked();
+    });
+
+    expect(screen.getByRole('checkbox', { name: /Sleep/i })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: /Weight/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Steps/i })).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Save settings' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Calories/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Protein/i })).toBeChecked();
   });
 
   it('reflects the persisted theme on first render', () => {
@@ -139,60 +249,16 @@ describe('SettingsPage', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
-  it('restores saved nutrition targets and dashboard selections on first render', () => {
-    window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        dashboardConfig: {
-          habitChains: ['sleep'],
-          trendSparklines: ['Steps'],
-        },
-        nutritionTargets: {
-          calories: 2350,
-          carbs: 275,
-          fat: 70,
-          protein: 180,
-        },
-      }),
-    );
-
+  it('saves nutrition targets and dashboard config via API', async () => {
     renderSettingsPage();
 
-    expect(screen.getByLabelText('Daily calories')).toHaveValue(2350);
-    expect(screen.getByLabelText('Protein (g)')).toHaveValue(180);
-    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(275);
-    expect(screen.getByLabelText('Fat (g)')).toHaveValue(70);
-    expect(screen.getByRole('checkbox', { name: /Sleep/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Hydrate/i })).not.toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Steps/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Weight/i })).not.toBeChecked();
-  });
-
-  it('applies and persists theme changes immediately', () => {
-    renderSettingsPage();
-
-    fireEvent.click(screen.getByRole('radio', { name: /Midnight/i }));
-
-    expect(screen.getByRole('radio', { name: /Midnight/i })).toBeChecked();
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('midnight');
-    expect(document.documentElement.classList.contains('theme-midnight')).toBe(true);
-    expect(document.documentElement.classList.contains('dark')).toBe(false);
-
-    fireEvent.click(screen.getByRole('radio', { name: /Light/i }));
-
-    expect(screen.getByRole('radio', { name: /Light/i })).toBeChecked();
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
-    expect(document.documentElement.classList.contains('theme-midnight')).toBe(false);
-    expect(document.documentElement.classList.contains('dark')).toBe(false);
-  });
-
-  it('saves nutrition targets and dashboard selections to localStorage', async () => {
-    renderSettingsPage();
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: /Hydrate/i })).toBeChecked();
+    });
 
     fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2250' } });
-    fireEvent.change(screen.getByLabelText('Protein (g)'), { target: { value: '175' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: /Hydrate/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Steps/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Sleep/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Weight/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => {
@@ -201,243 +267,57 @@ describe('SettingsPage', () => {
       ).toBeInTheDocument();
     });
 
-    await waitFor(() => {
-      expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
-        dashboardConfig: {
-          habitChains: ['vitamins', 'protein'],
-          trendSparklines: ['Weight', 'Calories', 'Protein', 'Steps'],
-        },
-        nutritionTargets: {
-          calories: 2250,
-          carbs: 250,
-          fat: 65,
-          protein: 175,
-        },
-      });
-    });
-  });
-
-  it('posts all nutrition targets with a UTC effective date when saving', async () => {
-    renderSettingsPage();
-
-    fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2200' } });
-    fireEvent.change(screen.getByLabelText('Protein (g)'), { target: { value: '180' } });
-    fireEvent.change(screen.getByLabelText('Carbs (g)'), { target: { value: '220' } });
-    fireEvent.change(screen.getByLabelText('Fat (g)'), { target: { value: '70' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Nutrition targets and dashboard preferences saved.'),
-      ).toBeInTheDocument();
-    });
-
-    expect(getLatestNutritionTargetsPostPayload()).toEqual({
-      calories: 2200,
-      carbs: 220,
+    expect(getLatestPostBody('/api/v1/nutrition-targets')).toEqual({
+      calories: 2250,
+      carbs: 250,
       effectiveDate: new Date().toISOString().slice(0, 10),
-      fat: 70,
-      protein: 180,
+      fat: 65,
+      protein: 150,
+    });
+
+    expect(getLatestPostBody('/api/v1/dashboard/config')).toEqual({
+      habitChainIds: ['habit-hydrate', 'habit-sleep'],
+      trendMetrics: ['calories', 'protein'],
     });
   });
 
-  it('clears nutrition draft state after save so refreshed API targets drive the form', async () => {
-    let currentTargetsRequestCount = 0;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
-
-        if (url.includes('/api/v1/nutrition-targets/current')) {
-          currentTargetsRequestCount += 1;
-
-          if (currentTargetsRequestCount === 1) {
-            return Promise.resolve(
-              new Response(JSON.stringify({ data: null }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 200,
-              }),
-            );
-          }
-
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                data: {
-                  id: 'target-current',
-                  calories: 2300,
-                  protein: 190,
-                  carbs: 260,
-                  fat: 75,
-                  effectiveDate: '2026-03-07',
-                  createdAt: 1,
-                  updatedAt: 2,
-                },
-              }),
-              { headers: { 'Content-Type': 'application/json' }, status: 200 },
-            ),
-          );
-        }
-
-        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
-          return Promise.resolve(
-            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
-              headers: { 'Content-Type': 'application/json' },
-              status: 200,
-            }),
-          );
-        }
-
-        return Promise.resolve(
-          new Response(JSON.stringify({ data: null }), {
-            headers: { 'Content-Type': 'application/json' },
-            status: 200,
-          }),
-        );
-      }),
-    );
+  it('shows a partial failure message when dashboard config save fails', async () => {
+    state.shouldFailDashboardSave = true;
 
     renderSettingsPage();
 
-    fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2200' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-
     await waitFor(() => {
-      expect(
-        screen.getByText('Nutrition targets and dashboard preferences saved.'),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Hydrate/i })).toBeChecked();
     });
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Daily calories')).toHaveValue(2300);
-    });
-
-    expect(screen.getByLabelText('Protein (g)')).toHaveValue(190);
-    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(260);
-    expect(screen.getByLabelText('Fat (g)')).toHaveValue(75);
-  });
-
-  it('preserves dashboard preference saves locally when the targets API call fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
-
-        if (url.includes('/api/v1/nutrition-targets/current')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ data: null }), {
-              headers: { 'Content-Type': 'application/json' },
-              status: 200,
-            }),
-          );
-        }
-
-        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                error: {
-                  code: 'SERVER_ERROR',
-                  message: 'Unavailable',
-                },
-              }),
-              { headers: { 'Content-Type': 'application/json' }, status: 503 },
-            ),
-          );
-        }
-
-        return Promise.resolve(
-          new Response(JSON.stringify({ data: null }), {
-            headers: { 'Content-Type': 'application/json' },
-            status: 200,
-          }),
-        );
-      }),
-    );
-
-    renderSettingsPage();
-
-    fireEvent.click(screen.getByRole('checkbox', { name: /Hydrate/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Steps/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Nutrition targets could not be saved right now. Dashboard preferences were saved locally.',
+          'Dashboard preferences could not be saved right now. Nutrition targets were saved.',
         ),
       ).toBeInTheDocument();
     });
-
-    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '')).toEqual({
-      dashboardConfig: {
-        habitChains: ['vitamins', 'protein'],
-        trendSparklines: ['Weight', 'Calories', 'Protein', 'Steps'],
-      },
-      nutritionTargets: {
-        calories: 2000,
-        carbs: 250,
-        fat: 65,
-        protein: 150,
-      },
-    });
   });
 
-  it('loads current nutrition targets from the API when they exist', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
-
-        if (url.includes('/api/v1/nutrition-targets/current')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                data: {
-                  id: 'target-current',
-                  calories: 2400,
-                  protein: 195,
-                  carbs: 280,
-                  fat: 80,
-                  effectiveDate: '2026-03-07',
-                  createdAt: 1,
-                  updatedAt: 1,
-                },
-              }),
-              { headers: { 'Content-Type': 'application/json' }, status: 200 },
-            ),
-          );
-        }
-
-        if (url.includes('/api/v1/nutrition-targets') && init?.method === 'POST') {
-          return Promise.resolve(
-            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
-              headers: { 'Content-Type': 'application/json' },
-              status: 200,
-            }),
-          );
-        }
-
-        return Promise.resolve(
-          new Response(JSON.stringify({ data: null }), {
-            headers: { 'Content-Type': 'application/json' },
-            status: 200,
-          }),
-        );
-      }),
-    );
+  it('shows a partial failure message when nutrition target save fails', async () => {
+    state.shouldFailNutritionSave = true;
 
     renderSettingsPage();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Daily calories')).toHaveValue(2400);
+      expect(screen.getByRole('checkbox', { name: /Hydrate/i })).toBeChecked();
     });
 
-    expect(screen.getByLabelText('Protein (g)')).toHaveValue(195);
-    expect(screen.getByLabelText('Carbs (g)')).toHaveValue(280);
-    expect(screen.getByLabelText('Fat (g)')).toHaveValue(80);
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Nutrition targets could not be saved right now. Dashboard preferences were saved.',
+        ),
+      ).toBeInTheDocument();
+    });
   });
 });

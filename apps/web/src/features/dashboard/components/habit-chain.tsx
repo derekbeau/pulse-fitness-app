@@ -10,6 +10,7 @@ type HabitChainProps = {
   habitIds?: string[];
   habits?: HabitRecord[];
   entries?: HabitEntryRecord[];
+  endDate?: string;
 };
 
 type HabitChainEntry = {
@@ -51,7 +52,7 @@ const getCurrentStreak = (entries: HabitChainEntry[]) => {
 };
 
 const getVisibleHabits = (habits: HabitChainHabit[], habitIds?: string[]) => {
-  if (!habitIds || habitIds.length === 0) {
+  if (!habitIds) {
     return habits;
   }
 
@@ -62,6 +63,7 @@ const getVisibleHabits = (habits: HabitChainHabit[], habitIds?: string[]) => {
 const buildHabitChainHabits = (
   habits: HabitRecord[],
   entries: HabitEntryRecord[],
+  endDate: string,
 ): HabitChainHabit[] => {
   const entriesByHabit = new Map<string, Map<string, boolean>>();
 
@@ -71,8 +73,9 @@ const buildHabitChainHabits = (
     entriesByHabit.set(entry.habitId, entriesByDate);
   });
 
+  const rangeEndDate = new Date(`${endDate}T00:00:00`);
   const dates = Array.from({ length: DAYS_TO_DISPLAY }, (_, index) =>
-    toDateKey(addDays(getToday(), index - (DAYS_TO_DISPLAY - 1))),
+    toDateKey(addDays(rangeEndDate, index - (DAYS_TO_DISPLAY - 1))),
   );
 
   return habits.map((habit) => {
@@ -91,10 +94,10 @@ const buildHabitChainHabits = (
   });
 };
 
-export function HabitChain({ habitIds, habits = [], entries = [] }: HabitChainProps) {
-  const resolvedHabits = buildHabitChainHabits(habits, entries);
+export function HabitChain({ habitIds, habits = [], entries = [], endDate }: HabitChainProps) {
+  const selectedDateKey = endDate ?? formatDateKey(getToday());
+  const resolvedHabits = buildHabitChainHabits(habits, entries, selectedDateKey);
   const visibleHabits = getVisibleHabits(resolvedHabits, habitIds);
-  const todayKey = formatDateKey(getToday());
 
   if (visibleHabits.length === 0) {
     return <p className="text-sm text-muted">No matching habits.</p>;
@@ -119,7 +122,7 @@ export function HabitChain({ habitIds, habits = [], entries = [] }: HabitChainPr
 
               <div className="grid grid-cols-10 gap-[5px]" data-slot="habit-chain-grid">
                 {habit.entries.map((entry) => {
-                  const isToday = entry.date === todayKey;
+                  const isSelectedDay = entry.date === selectedDateKey;
                   const statusLabel = entry.completed ? 'Completed' : 'Missed';
 
                   return (
@@ -132,12 +135,14 @@ export function HabitChain({ habitIds, habits = [], entries = [] }: HabitChainPr
                             entry.completed
                               ? 'bg-[var(--color-accent-mint)]'
                               : 'bg-[var(--color-muted)]/40',
-                            isToday ? 'border-[var(--color-primary)]' : 'border-transparent',
+                            isSelectedDay
+                              ? 'border-[var(--color-primary)]'
+                              : 'border-transparent',
                           )}
                           data-completed={entry.completed ? 'true' : 'false'}
                           data-date={entry.date}
                           data-slot="habit-chain-day"
-                          data-today={isToday ? 'true' : 'false'}
+                          data-today={isSelectedDay ? 'true' : 'false'}
                           title={formatDateLabel(entry.date)}
                           type="button"
                         />

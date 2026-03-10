@@ -1,7 +1,33 @@
+import type { DashboardSnapshot } from '@pulse/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockDailySnapshot } from '@/lib/mock-data/dashboard';
+
 import { getMacroRingState, MacroRings } from './macro-rings';
+
+const snapshotFixture: DashboardSnapshot = {
+  date: '2026-03-06',
+  weight: null,
+  macros: {
+    actual: {
+      calories: 1850,
+      protein: 145,
+      carbs: 200,
+      fat: 65,
+    },
+    target: {
+      calories: 2200,
+      protein: 180,
+      carbs: 250,
+      fat: 73,
+    },
+  },
+  workout: null,
+  habits: {
+    total: 3,
+    completed: 2,
+    percentage: 66.7,
+  },
+};
 
 const getMacroItem = (label: string): HTMLElement => {
   const macroLabel = screen.getByText(label);
@@ -34,7 +60,7 @@ describe('getMacroRingState', () => {
 
 describe('MacroRings', () => {
   it('renders four macro rings with distinct colors and eaten values', () => {
-    const { container } = render(<MacroRings />);
+    const { container } = render(<MacroRings snapshot={snapshotFixture} />);
 
     const grid = container.querySelector('div.grid.grid-cols-2.gap-4.lg\\:grid-cols-4');
     expect(grid).toBeInTheDocument();
@@ -45,10 +71,10 @@ describe('MacroRings', () => {
     expect(screen.getByText('Carbs')).toBeInTheDocument();
     expect(screen.getByText('Fat')).toBeInTheDocument();
 
-    expect(screen.getByText(`${mockDailySnapshot.macros.calories.actual}kcal`)).toBeInTheDocument();
-    expect(screen.getByText(`${mockDailySnapshot.macros.protein.actual}g`)).toBeInTheDocument();
-    expect(screen.getByText(`${mockDailySnapshot.macros.carbs.actual}g`)).toBeInTheDocument();
-    expect(screen.getByText(`${mockDailySnapshot.macros.fat.actual}g`)).toBeInTheDocument();
+    expect(screen.getByText('1850kcal')).toBeInTheDocument();
+    expect(screen.getByText('145g')).toBeInTheDocument();
+    expect(screen.getByText('200g')).toBeInTheDocument();
+    expect(screen.getByText('65g')).toBeInTheDocument();
 
     const caloriesRingIndicator = getMacroItem('Calories').querySelector(
       '[data-slot="progress-ring-indicator"]',
@@ -65,8 +91,15 @@ describe('MacroRings', () => {
     expect(fatRingIndicator).toHaveAttribute('stroke', '#A855F7');
   });
 
-  it('toggles to remaining mode and shows inverse progress labels', () => {
+  it('shows zeroed values when snapshot data is unavailable', () => {
     render(<MacroRings />);
+
+    expect(screen.getByText('0kcal')).toBeInTheDocument();
+    expect(screen.getAllByText('0g')).toHaveLength(3);
+  });
+
+  it('toggles to remaining mode and shows inverse progress labels', () => {
+    render(<MacroRings snapshot={snapshotFixture} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
@@ -86,10 +119,13 @@ describe('MacroRings', () => {
     render(
       <MacroRings
         snapshot={{
-          ...mockDailySnapshot,
+          ...snapshotFixture,
           macros: {
-            ...mockDailySnapshot.macros,
-            protein: { actual: 200, target: 180 },
+            ...snapshotFixture.macros,
+            actual: {
+              ...snapshotFixture.macros.actual,
+              protein: 200,
+            },
           },
         }}
       />,

@@ -1,16 +1,28 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import type { DashboardTrendMetric } from '@pulse/shared';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { useMacroTrend } from '@/hooks/use-macro-trend';
+import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { addDays, parseDateInput, toDateKey } from '@/lib/date';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
-import {
-  mockMacroTrend,
-  mockWeightTrend,
-  type MacroTrendEntry,
-  type WeightTrendEntry,
-} from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
+
+const TREND_DAYS = 30;
+
+type ChangeDirection = 'up' | 'down' | 'neutral';
+
+type TrendMetricCardProps = {
+  label: string;
+  currentValue: string;
+  changePercent: number;
+  color: string;
+  data: TrendSparklineDatum[];
+  className?: string;
+  textClassName?: string;
+};
 
 export type TrendSparklineDatum = {
   date: string;
@@ -25,19 +37,15 @@ export type TrendSparklineProps = {
   changePercent: number;
   className?: string;
   textClassName?: string;
+  emptyMessage?: string;
 };
 
-type ChangeDirection = 'up' | 'down' | 'neutral';
-
-type TrendMetricCardProps = {
-  label: string;
-  currentValue: string;
-  changePercent: number;
-  color: string;
-  data: TrendSparklineDatum[];
-  className?: string;
-  textClassName?: string;
+export type TrendSparklinesProps = {
+  endDate?: string;
+  metrics?: DashboardTrendMetric[];
 };
+
+const DEFAULT_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
 
 const CHANGE_ICONS = {
   up: ArrowUpRight,
@@ -83,48 +91,15 @@ const getChangeDirection = (changePercent: number): ChangeDirection => {
   return 'neutral';
 };
 
-const weightSeries = toMetricSeries(mockWeightTrend, (entry: WeightTrendEntry) => entry.value);
-const calorieSeries = toMetricSeries(mockMacroTrend, (entry: MacroTrendEntry) => entry.calories);
-const proteinSeries = toMetricSeries(mockMacroTrend, (entry: MacroTrendEntry) => entry.protein);
+const resolveTrendRange = (endDate?: string) => {
+  const resolvedEndDate = endDate ?? toDateKey(new Date());
+  const startDate = toDateKey(addDays(parseDateInput(resolvedEndDate), -(TREND_DAYS - 1)));
 
-const TREND_CARD_CONFIGS = [
-  {
-    label: 'Weight Trend',
-    currentValue: `${getLatestValue(weightSeries, 0).toFixed(1)} lbs`,
-    changePercent: calculateTrendChangePercent(
-      getLatestValue(weightSeries, 0),
-      getPreviousValue(weightSeries, getLatestValue(weightSeries, 0)),
-    ),
-    color: 'var(--color-on-cream)',
-    data: weightSeries,
-    className: accentCardStyles.cream,
-    textClassName: 'text-on-cream',
-  },
-  {
-    label: 'Calorie Trend',
-    currentValue: `${getLatestValue(calorieSeries, 0)} kcal`,
-    changePercent: calculateTrendChangePercent(
-      getLatestValue(calorieSeries, 0),
-      getPreviousValue(calorieSeries, getLatestValue(calorieSeries, 0)),
-    ),
-    color: 'var(--color-on-pink)',
-    data: calorieSeries,
-    className: accentCardStyles.pink,
-    textClassName: 'text-on-pink',
-  },
-  {
-    label: 'Protein Trend',
-    currentValue: `${getLatestValue(proteinSeries, 0)} g`,
-    changePercent: calculateTrendChangePercent(
-      getLatestValue(proteinSeries, 0),
-      getPreviousValue(proteinSeries, getLatestValue(proteinSeries, 0)),
-    ),
-    color: 'var(--color-on-mint)',
-    data: proteinSeries,
-    className: accentCardStyles.mint,
-    textClassName: 'text-on-mint',
-  },
-] satisfies TrendMetricCardProps[];
+  return {
+    from: startDate,
+    to: resolvedEndDate,
+  };
+};
 
 export function TrendSparkline({
   data,
@@ -134,6 +109,7 @@ export function TrendSparkline({
   changePercent,
   className,
   textClassName,
+  emptyMessage = 'No trend data yet.',
 }: TrendSparklineProps) {
   const direction = getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
@@ -171,27 +147,33 @@ export function TrendSparkline({
         </div>
       </div>
 
-      <div
-        aria-label={`${label} sparkline`}
-        className="h-[60px] w-full"
-        data-slot="trend-sparkline-chart"
-        role="img"
-      >
-        <ResponsiveContainer height="100%" width="100%">
-          <LineChart data={data} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
-            <Line
-              dataKey="value"
-              dot={false}
-              isAnimationActive={false}
-              stroke={color}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={3}
-              type="monotone"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {data.length === 0 ? (
+        <div className="flex h-[60px] items-center justify-center rounded-md bg-muted/35" data-slot="trend-sparkline-empty">
+          <p className="text-sm text-muted">{emptyMessage}</p>
+        </div>
+      ) : (
+        <div
+          aria-label={`${label} sparkline`}
+          className="h-[60px] w-full"
+          data-slot="trend-sparkline-chart"
+          role="img"
+        >
+          <ResponsiveContainer height="100%" width="100%">
+            <LineChart data={data} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
+              <Line
+                dataKey="value"
+                dot={false}
+                isAnimationActive={false}
+                stroke={color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                type="monotone"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
@@ -228,11 +210,138 @@ function TrendMetricCard({
   );
 }
 
-export function TrendSparklines() {
+function TrendMetricCardSkeleton() {
+  return (
+    <Card className="gap-0 border-transparent py-5 shadow-sm" data-slot="trend-sparkline-card-skeleton">
+      <CardContent className="h-full px-5">
+        <div className="flex h-full flex-col gap-4" data-slot="trend-sparkline-skeleton">
+          <div className="flex items-start justify-between gap-4">
+            <div className="h-4 w-28 animate-pulse rounded bg-muted/50" />
+            <div className="space-y-2">
+              <div className="ml-auto h-8 w-20 animate-pulse rounded bg-muted/50" />
+              <div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted/50" />
+            </div>
+          </div>
+          <div className="h-[60px] w-full animate-pulse rounded bg-muted/50" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
+  const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
+  const needsWeight = resolvedMetrics.includes('weight');
+  const needsMacros =
+    resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
+  const range = resolveTrendRange(endDate);
+  const weightTrendQuery = useWeightTrend(range.from, range.to, { enabled: needsWeight });
+  const macroTrendQuery = useMacroTrend(range.from, range.to, { enabled: needsMacros });
+
+  if ((needsWeight && weightTrendQuery.isLoading) || (needsMacros && macroTrendQuery.isLoading)) {
+    return (
+      <section aria-label="Trend sparklines">
+        <div className="grid gap-4">
+          <TrendMetricCardSkeleton />
+          <TrendMetricCardSkeleton />
+          <TrendMetricCardSkeleton />
+        </div>
+      </section>
+    );
+  }
+
+  if ((needsWeight && weightTrendQuery.isError) || (needsMacros && macroTrendQuery.isError)) {
+    return (
+      <section aria-label="Trend sparklines">
+        <Card className="gap-0 border-border/70 py-4 shadow-sm">
+          <CardContent className="px-5">
+            <p className="text-sm text-muted-foreground">Unable to load trend data.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
+  const weightSeries = needsWeight
+    ? toMetricSeries(weightTrendQuery.data ?? [], (entry) => entry.value)
+    : [];
+  const calorieSeries = needsMacros
+    ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.calories)
+    : [];
+  const proteinSeries = needsMacros
+    ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein)
+    : [];
+
+  const latestWeight = getLatestValue(weightSeries, 0);
+  const latestCalories = getLatestValue(calorieSeries, 0);
+  const latestProtein = getLatestValue(proteinSeries, 0);
+
+  const allConfigs = {
+    weight: {
+      label: 'Weight Trend',
+      currentValue: weightSeries.length > 0 ? `${latestWeight.toFixed(1)} lbs` : '--',
+      changePercent:
+        weightSeries.length > 1
+          ? calculateTrendChangePercent(
+              latestWeight,
+              getPreviousValue(weightSeries, latestWeight),
+            )
+          : 0,
+      color: 'var(--color-on-cream)',
+      data: weightSeries,
+      className: accentCardStyles.cream,
+      textClassName: 'text-on-cream',
+    },
+    calories: {
+      label: 'Calorie Trend',
+      currentValue: calorieSeries.length > 0 ? `${latestCalories} kcal` : '--',
+      changePercent:
+        calorieSeries.length > 1
+          ? calculateTrendChangePercent(
+              latestCalories,
+              getPreviousValue(calorieSeries, latestCalories),
+            )
+          : 0,
+      color: 'var(--color-on-pink)',
+      data: calorieSeries,
+      className: accentCardStyles.pink,
+      textClassName: 'text-on-pink',
+    },
+    protein: {
+      label: 'Protein Trend',
+      currentValue: proteinSeries.length > 0 ? `${latestProtein} g` : '--',
+      changePercent:
+        proteinSeries.length > 1
+          ? calculateTrendChangePercent(
+              latestProtein,
+              getPreviousValue(proteinSeries, latestProtein),
+            )
+          : 0,
+      color: 'var(--color-on-mint)',
+      data: proteinSeries,
+      className: accentCardStyles.mint,
+      textClassName: 'text-on-mint',
+    },
+  } satisfies Record<DashboardTrendMetric, TrendMetricCardProps>;
+
+  const configs = resolvedMetrics.map((metric) => allConfigs[metric]);
+
+  if (configs.length === 0) {
+    return (
+      <section aria-label="Trend sparklines">
+        <Card className="gap-0 border-border/70 py-4 shadow-sm">
+          <CardContent className="px-5">
+            <p className="text-sm text-muted-foreground">No trend metrics selected.</p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Trend sparklines">
       <div className="grid gap-4">
-        {TREND_CARD_CONFIGS.map((config) => (
+        {configs.map((config) => (
           <TrendMetricCard key={config.label} {...config} />
         ))}
       </div>

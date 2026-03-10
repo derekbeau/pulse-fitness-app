@@ -138,6 +138,7 @@ export const workoutSessionListItemSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
+    exerciseCount: z.number().int().nonnegative(),
     createdAt: z.number().int(),
   })
   .superRefine(validateWorkoutSessionTiming);
@@ -201,10 +202,12 @@ export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
 
 export const workoutSessionQueryParamsSchema = z
   .object({
-    from: dateSchema,
-    to: dateSchema,
+    from: dateSchema.optional(),
+    to: dateSchema.optional(),
+    status: workoutSessionStatusSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(50).optional(),
   })
-  .refine((value) => value.from <= value.to, {
+  .refine((value) => !value.from || !value.to || value.from <= value.to, {
     message: 'from must be less than or equal to to',
     path: ['to'],
   });
