@@ -10,7 +10,7 @@ export const userProfileSchema = z.object({
 export type UserProfile = z.infer<typeof userProfileSchema>;
 
 export const updateUserInputSchema = z.object({
-  name: z.string().min(1).max(100).trim(),
+  name: z.string().trim().min(1).max(100),
 });
 
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>;

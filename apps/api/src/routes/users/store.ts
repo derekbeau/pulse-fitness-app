@@ -15,7 +15,16 @@ export async function getUserById(userId: string) {
 }
 
 export async function updateUser(userId: string, data: { name: string }) {
-  await db.update(users).set({ name: data.name }).where(eq(users.id, userId));
+  const [row] = await db
+    .update(users)
+    .set({ name: data.name })
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      username: users.username,
+      name: users.name,
+      createdAt: users.createdAt,
+    });
 
-  return getUserById(userId);
+  return row ?? null;
 }

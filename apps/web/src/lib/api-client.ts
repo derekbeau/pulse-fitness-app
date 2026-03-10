@@ -272,10 +272,8 @@ function createRequestInit(init: ApiRequestInit | undefined, token: string | nul
 }
 
 async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T | null> {
-  const token = await resolveSessionToken({
-    allowDevAutoSession: !normalizePath(path).startsWith(AUTH_PATH_PREFIX),
-  });
   const allowDevAutoSession = !normalizePath(path).startsWith(AUTH_PATH_PREFIX);
+  const token = await resolveSessionToken({ allowDevAutoSession });
   let response = await fetch(buildUrl(path), createRequestInit(init, token));
 
   if (!response.ok && !getEnvToken()) {

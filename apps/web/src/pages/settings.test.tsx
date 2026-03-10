@@ -407,6 +407,9 @@ describe('SettingsPage', () => {
       expect(screen.getByLabelText('Display name')).toHaveValue('Jordan Lee');
     });
 
+    fireEvent.change(screen.getByLabelText('Display name'), {
+      target: { value: 'Jordan With Error' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() => {

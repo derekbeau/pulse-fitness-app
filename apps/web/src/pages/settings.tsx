@@ -262,6 +262,7 @@ export function SettingsPage() {
   const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
   const [profileMessage, setProfileMessage] = useState('');
   const displayName = displayNameDraft ?? user?.name ?? '';
+  const isProfileDirty = displayNameDraft !== null && displayName.trim() !== (user?.name ?? '');
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
   const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
     SettingsFormState['dashboardConfig'] | null
@@ -321,6 +322,10 @@ export function SettingsPage() {
   }, [profileMessage]);
 
   async function handleProfileSave() {
+    if (!isProfileDirty) {
+      return;
+    }
+
     const trimmed = displayName.trim();
 
     if (!trimmed) {
@@ -490,7 +495,7 @@ export function SettingsPage() {
               {profileMessage || '\u00A0'}
             </p>
             <Button
-              disabled={updateUserMutation.isPending}
+              disabled={updateUserMutation.isPending || !isProfileDirty}
               onClick={handleProfileSave}
               type="button"
             >
