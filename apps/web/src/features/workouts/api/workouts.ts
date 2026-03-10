@@ -6,7 +6,11 @@ import {
   type Exercise,
   type ExerciseQueryParams,
   type WorkoutSession,
+  type WorkoutSessionListItem,
+  type WorkoutSessionQueryParams,
   type WorkoutTemplate,
+  workoutSessionQueryParamsSchema,
+  workoutSessionListItemSchema,
   workoutSessionSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
@@ -65,9 +69,12 @@ type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchem
 
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
+  completedSessions: () => ['workouts', 'completed-sessions'] as const,
   exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
+  session: (id: string) => ['workouts', 'session', id] as const,
   sessions: () => ['workouts', 'sessions'] as const,
+  sessionsList: (params: WorkoutSessionQueryParams = {}) => ['workouts', 'sessions', params] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
 };
@@ -79,12 +86,65 @@ async function getWorkoutTemplates() {
   return payload.data;
 }
 
+const sessionListResponseSchema = z.object({
+  data: z.array(workoutSessionListItemSchema),
+}) as unknown as z.ZodType<{ data: WorkoutSessionListItem[] }>;
+
+async function getCompletedSessions(signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(
+    '/api/v1/workout-sessions?status=completed',
+    { method: 'GET', signal },
+  );
+  const payload = sessionListResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal?: AbortSignal) {
+  const parsedParams = workoutSessionQueryParamsSchema.parse(params);
+  const searchParams = new URLSearchParams();
+
+  if (parsedParams.from) {
+    searchParams.set('from', parsedParams.from);
+  }
+
+  if (parsedParams.to) {
+    searchParams.set('to', parsedParams.to);
+  }
+
+  if (parsedParams.status) {
+    searchParams.set('status', parsedParams.status);
+  }
+
+  if (parsedParams.limit) {
+    searchParams.set('limit', String(parsedParams.limit));
+  }
+
+  const url = searchParams.size
+    ? `/api/v1/workout-sessions?${searchParams.toString()}`
+    : '/api/v1/workout-sessions';
+  const data = await apiRequest<unknown>(url, { method: 'GET', signal });
+  const payload = sessionListResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
 async function getWorkoutTemplate(id: string, signal?: AbortSignal) {
   const data = await apiRequest<unknown>(`/api/v1/workout-templates/${id}`, {
     method: 'GET',
     signal,
   });
   const payload = workoutTemplateResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function getWorkoutSession(id: string, signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${id}`, {
+    method: 'GET',
+    signal,
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
 }
@@ -142,11 +202,37 @@ export function useWorkoutTemplates() {
   });
 }
 
+export function useCompletedSessions() {
+  return useQuery<WorkoutSessionListItem[]>({
+    queryFn: ({ signal }) => getCompletedSessions(signal),
+    queryKey: workoutQueryKeys.completedSessions(),
+  });
+}
+
+export function useWorkoutSessions(
+  params: WorkoutSessionQueryParams = {},
+  options?: { enabled?: boolean },
+) {
+  return useQuery<WorkoutSessionListItem[]>({
+    enabled: options?.enabled,
+    queryFn: ({ signal }) => getWorkoutSessions(params, signal),
+    queryKey: workoutQueryKeys.sessionsList(params),
+  });
+}
+
 export function useWorkoutTemplate(id: string) {
   return useQuery<WorkoutTemplate>({
     enabled: id.trim().length > 0,
     queryFn: ({ signal }) => getWorkoutTemplate(id, signal),
     queryKey: workoutQueryKeys.template(id),
+  });
+}
+
+export function useWorkoutSession(id: string, options?: { enabled?: boolean }) {
+  return useQuery<WorkoutSession>({
+    enabled: (options?.enabled ?? true) && id.trim().length > 0,
+    queryFn: ({ signal }) => getWorkoutSession(id, signal),
+    queryKey: workoutQueryKeys.session(id),
   });
 }
 
@@ -178,6 +264,7 @@ export function useStartWorkoutSession() {
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: createWorkoutSession,
     onSuccess: async () => {
+      // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionsList(params)` caches.
       await queryClient.invalidateQueries({
         queryKey: workoutQueryKeys.sessions(),
       });

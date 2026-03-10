@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { Link } from 'react-router';
+import { useId, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ChevronDown,
@@ -10,6 +10,12 @@ import {
   Scale,
   TrendingUp,
 } from 'lucide-react';
+import type {
+  SessionSet,
+  WorkoutSession,
+  WorkoutTemplate,
+  WorkoutTemplateSectionType,
+} from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,16 +30,11 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
-import { mockExercises, mockTemplates, type WorkoutTemplateSectionType } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
-import {
-  workoutCompletedSessions,
-  workoutEnhancedExercises,
-  workoutExerciseHistory,
-} from '../lib/mock-data';
+import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
-import type { ActiveWorkoutCompletedSession } from '../types';
+import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
@@ -48,7 +49,7 @@ type SessionDetailExercise = {
   name: string;
   notes: string | null;
   phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
-  sets: ActiveWorkoutCompletedSession['exercises'][number]['sets'];
+  sets: SessionSet[];
 };
 
 type SessionDetailSection = {
@@ -75,12 +76,6 @@ const decimalFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
 });
 
-const templateById = new Map(mockTemplates.map((template) => [template.id, template]));
-const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
-const enhancedExerciseById = new Map(
-  workoutEnhancedExercises.map((exercise) => [exercise.exerciseId, exercise]),
-);
-
 const sectionLabels: Record<SessionDetailSectionType, string> = {
   warmup: 'Warmup',
   main: 'Main',
@@ -103,7 +98,39 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-  const session = workoutCompletedSessions.find((candidate) => candidate.id === sessionId);
+  const [searchParams] = useSearchParams();
+  const sessionQuery = useWorkoutSession(sessionId);
+  const completedSessionsQuery = useCompletedSessions();
+  const session = sessionQuery.data;
+  const templateQuery = useWorkoutTemplate(session?.templateId ?? '');
+  const template = templateQuery.data;
+  const viewParam = searchParams.get('view');
+  const backView = viewParam === 'list' || viewParam === 'calendar' ? viewParam : 'calendar';
+  const backToWorkoutsHref = `/workouts?view=${backView}`;
+
+  const previousSessionItem = useMemo(() => {
+    if (!session || !completedSessionsQuery.data) {
+      return null;
+    }
+
+    return findPreviousTemplateSession(session, completedSessionsQuery.data);
+  }, [completedSessionsQuery.data, session]);
+
+  const previousSessionQuery = useWorkoutSession(previousSessionItem?.id ?? '', {
+    enabled: showComparison && previousSessionItem != null,
+  });
+  const previousSession = previousSessionQuery.data ?? null;
+  const comparisonToggleDisabled = completedSessionsQuery.isLoading;
+
+  if (sessionQuery.isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted">Loading session…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!session) {
     return (
@@ -111,31 +138,37 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         <CardHeader className="space-y-2">
           <h1 className="text-2xl font-semibold text-foreground">Session not found</h1>
           <p className="text-sm text-muted">
-            The requested completed workout session is not available in the prototype data.
+            The requested completed workout session could not be loaded.
           </p>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full sm:w-auto">
-            <Link to="/workouts">Back to Workouts</Link>
+            <Link to={backToWorkoutsHref}>Back to Workouts</Link>
           </Button>
         </CardContent>
       </Card>
     );
   }
 
-  const template = templateById.get(session.templateId);
-  const previousSession = findPreviousTemplateSession(session);
   const sessionDate = new Date(session.startedAt);
   const summary = getSessionSummary(session);
-  const sections = buildSections(session);
+  const sections = buildSections(session, template);
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
     .find((exercise) => exercise.exerciseId === selectedExerciseId);
+  const selectedExerciseHistory =
+    selectedExercise != null
+      ? buildExerciseHistory({
+          currentSession: session,
+          exerciseId: selectedExercise.exerciseId,
+          previousSession,
+        })
+      : [];
 
   return (
     <section className="space-y-6">
       <Button asChild className="gap-2" size="sm" variant="ghost">
-        <Link to="/workouts">
+        <Link to={backToWorkoutsHref}>
           <ArrowLeft aria-hidden="true" className="size-4" />
           Back to Workouts
         </Link>
@@ -157,12 +190,12 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 </Badge>
               </div>
               <h1 className="text-3xl font-semibold tracking-tight">
-                {session.name ?? template?.name ?? 'Workout Session'}
+                {session.name || template?.name || 'Workout Session'}
               </h1>
               <p className="max-w-3xl text-sm opacity-80 sm:text-base dark:text-muted dark:opacity-100">
                 {dateFormatter.format(sessionDate)}
                 {' · '}
-                {`${session.duration} min`}
+                {session.duration != null ? `${session.duration} min` : 'Duration not tracked'}
                 {' · '}
                 {`Started ${timeFormatter.format(sessionDate)}`}
               </p>
@@ -220,6 +253,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           <div className="flex items-center gap-3">
             <Checkbox
               checked={showComparison}
+              disabled={comparisonToggleDisabled}
               id={comparisonToggleId}
               onCheckedChange={(checked) => setShowComparison(checked === true)}
             />
@@ -230,7 +264,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </CardContent>
       </Card>
 
-      {showComparison ? (
+      {showComparison && !comparisonToggleDisabled ? (
         <SessionComparison currentSession={session} previousSession={previousSession} />
       ) : null}
 
@@ -302,9 +336,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                       {exercise.sets.map((set) => (
                         <span
                           className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
-                          key={set.setNumber}
+                          key={set.id}
                         >
-                          {`Set ${set.setNumber}: ${set.weight != null ? `${formatNumber(set.weight)} kg × ` : ''}${integerFormatter.format(set.reps)} reps`}
+                          {formatSetLabel(set)}
                         </span>
                       ))}
                     </div>
@@ -338,40 +372,26 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           <CardTitle>Feedback</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {session.customFeedback.map((field) => (
-              <div className="rounded-2xl border border-border bg-secondary/35 p-4" key={field.id}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                  {field.label}
-                </p>
-                <p className="mt-2 text-base font-semibold text-foreground">
-                  {field.type === 'scale'
-                    ? field.value != null
-                      ? `${field.value}/${field.max}`
-                      : 'Not rated'
-                    : field.value?.trim() || 'No response'}
-                </p>
-                {field.notes?.trim() ? (
-                  <p className="mt-2 text-sm leading-6 text-muted">{field.notes}</p>
-                ) : null}
+          {session.feedback ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <FeedbackScore label="Energy" score={session.feedback.energy} />
+                <FeedbackScore label="Recovery" score={session.feedback.recovery} />
+                <FeedbackScore label="Technique" score={session.feedback.technique} />
               </div>
-            ))}
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <FeedbackScore label="Energy" score={session.feedback.energy} />
-            <FeedbackScore label="Recovery" score={session.feedback.recovery} />
-            <FeedbackScore label="Technique" score={session.feedback.technique} />
-          </div>
-
-          {session.feedback.notes ? (
-            <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                Reflection
-              </p>
-              <p>{session.feedback.notes}</p>
-            </div>
-          ) : null}
+              {session.feedback.notes ? (
+                <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                    Reflection
+                  </p>
+                  <p>{session.feedback.notes}</p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm text-muted">No feedback captured for this session.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -391,9 +411,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </Card>
       ) : null}
 
-      <Button asChild className="w-full sm:w-auto" size="lg">
-        <Link to={`/workouts/active?template=${session.templateId}`}>Repeat Workout</Link>
-      </Button>
+      {session.templateId ? (
+        <Button asChild className="w-full sm:w-auto" size="lg">
+          <Link to={`/workouts/active?template=${session.templateId}`}>Repeat Workout</Link>
+        </Button>
+      ) : null}
 
       <Dialog onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)} open={selectedExercise != null}>
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
@@ -408,7 +430,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
-                  history={workoutExerciseHistory[selectedExercise.exerciseId] ?? []}
+                  history={selectedExerciseHistory}
                 />
               </div>
             </div>
@@ -419,46 +441,48 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   );
 }
 
-function buildSections(session: ActiveWorkoutCompletedSession): SessionDetailSection[] {
-  const template = templateById.get(session.templateId);
+function buildSections(session: WorkoutSession, template?: WorkoutTemplate): SessionDetailSection[] {
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
+  const templateExerciseNameById = new Map<string, string>();
 
   template?.sections.forEach((section) => {
     section.exercises.forEach((exercise) => {
       templateSectionByExerciseId.set(exercise.exerciseId, section.type);
+      templateExerciseNameById.set(exercise.exerciseId, exercise.exerciseName);
     });
   });
 
-  const supplementalByExerciseId = new Map(
-    session.supplemental.map((exercise) => [exercise.exerciseId, exercise.details]),
+  const sectionBuckets = new Map<SessionDetailSectionType, Map<string, SessionSet[]>>([
+    ['warmup', new Map()],
+    ['main', new Map()],
+    ['cooldown', new Map()],
+    ['supplemental', new Map()],
+  ]);
+  const sortedSets = [...session.sets].sort(
+    (left, right) => left.setNumber - right.setNumber || left.createdAt - right.createdAt,
   );
 
-  const exercisesBySection = new Map<SessionDetailSectionType, SessionDetailExercise[]>([
-    ['warmup', []],
-    ['main', []],
-    ['cooldown', []],
-    ['supplemental', []],
-  ]);
+  for (const set of sortedSets) {
+    const derivedSection =
+      set.section ?? templateSectionByExerciseId.get(set.exerciseId) ?? 'supplemental';
+    const sectionMap = sectionBuckets.get(derivedSection) ?? new Map<string, SessionSet[]>();
+    const exerciseSets = sectionMap.get(set.exerciseId) ?? [];
 
-  session.exercises.forEach((exerciseLog) => {
-    const sectionType = supplementalByExerciseId.has(exerciseLog.exerciseId)
-      ? 'supplemental'
-      : (templateSectionByExerciseId.get(exerciseLog.exerciseId) ?? 'main');
-    const catalogExercise = exerciseById.get(exerciseLog.exerciseId);
-    const enhancedExercise = enhancedExerciseById.get(exerciseLog.exerciseId);
-
-    exercisesBySection.get(sectionType)?.push({
-      exerciseId: exerciseLog.exerciseId,
-      name: catalogExercise?.name ?? formatLabel(exerciseLog.exerciseId),
-      notes: supplementalByExerciseId.get(exerciseLog.exerciseId) ?? null,
-      phaseBadge: enhancedExercise?.phaseBadge ?? inferPhaseBadge(sectionType),
-      sets: exerciseLog.sets,
-    });
-  });
+    exerciseSets.push(set);
+    sectionMap.set(set.exerciseId, exerciseSets);
+    sectionBuckets.set(derivedSection, sectionMap);
+  }
 
   return (['warmup', 'main', 'cooldown', 'supplemental'] as const)
     .map((sectionType) => {
-      const exercises = exercisesBySection.get(sectionType) ?? [];
+      const groupedExercises = sectionBuckets.get(sectionType) ?? new Map<string, SessionSet[]>();
+      const exercises = [...groupedExercises.entries()].map(([exerciseId, sets]) => ({
+        exerciseId,
+        name: templateExerciseNameById.get(exerciseId) ?? formatLabel(exerciseId),
+        notes: sets.find((set) => set.notes)?.notes ?? null,
+        phaseBadge: inferPhaseBadge(sectionType),
+        sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
+      }));
 
       return {
         exercises,
@@ -477,18 +501,22 @@ function buildSectionSubtitle(sectionType: SessionDetailSectionType, count: numb
   return `${count} exercise${count === 1 ? '' : 's'} logged`;
 }
 
-function getSessionSummary(session: ActiveWorkoutCompletedSession) {
-  return session.exercises.reduce(
-    (summary, exercise) => {
-      summary.totalExercises += 1;
-      summary.totalSets += exercise.sets.length;
+function getSessionSummary(session: WorkoutSession) {
+  const exerciseIds = new Set<string>();
 
-      exercise.sets.forEach((set) => {
+  return session.sets.reduce(
+    (summary, set) => {
+      exerciseIds.add(set.exerciseId);
+      summary.totalSets += 1;
+      summary.totalExercises = exerciseIds.size;
+
+      if (set.reps != null) {
         summary.totalReps += set.reps;
-        if (set.weight != null) {
-          summary.totalVolume += set.weight * set.reps;
-        }
-      });
+      }
+
+      if (set.weight != null && set.reps != null) {
+        summary.totalVolume += set.weight * set.reps;
+      }
 
       return summary;
     },
@@ -505,7 +533,7 @@ function FeedbackScore({ label, score }: { label: string; score: number }) {
   );
 }
 
-function inferPhaseBadge(sectionType: SessionDetailSectionType) {
+function inferPhaseBadge(sectionType: SessionDetailSectionType): SessionDetailExercise['phaseBadge'] {
   switch (sectionType) {
     case 'warmup':
     case 'cooldown':
@@ -515,6 +543,72 @@ function inferPhaseBadge(sectionType: SessionDetailSectionType) {
     default:
       return 'moderate';
   }
+}
+
+function buildExerciseHistory({
+  currentSession,
+  exerciseId,
+  previousSession,
+}: {
+  currentSession: WorkoutSession;
+  exerciseId: string;
+  previousSession: WorkoutSession | null;
+}): ActiveWorkoutExerciseHistoryPoint[] {
+  const history: ActiveWorkoutExerciseHistoryPoint[] = [];
+
+  const previousPoint =
+    previousSession != null ? buildHistoryPoint(previousSession, exerciseId) : null;
+  const currentPoint = buildHistoryPoint(currentSession, exerciseId);
+
+  if (previousPoint) {
+    history.push(previousPoint);
+  }
+
+  if (currentPoint) {
+    history.push(currentPoint);
+  }
+
+  return history;
+}
+
+function buildHistoryPoint(session: WorkoutSession, exerciseId: string): ActiveWorkoutExerciseHistoryPoint | null {
+  const sets = session.sets.filter((set) => set.exerciseId === exerciseId && set.reps != null);
+
+  if (sets.length === 0) {
+    return null;
+  }
+
+  const topSet = sets.reduce<SessionSet>((best, current) => {
+    const bestWeight = best.weight ?? 0;
+    const currentWeight = current.weight ?? 0;
+
+    if (currentWeight > bestWeight) {
+      return current;
+    }
+
+    if (currentWeight === bestWeight && (current.reps ?? 0) > (best.reps ?? 0)) {
+      return current;
+    }
+
+    return best;
+  }, sets[0]);
+
+  return {
+    date: session.date,
+    reps: topSet.reps ?? 0,
+    weight: topSet.weight ?? 0,
+  };
+}
+
+function formatSetLabel(set: SessionSet) {
+  if (set.skipped) {
+    return `Set ${set.setNumber}: Skipped`;
+  }
+
+  const repsLabel = set.reps != null ? `${integerFormatter.format(set.reps)} reps` : 'No reps';
+  const weightLabel = set.weight != null ? `${formatNumber(set.weight)} kg × ` : '';
+
+  return `Set ${set.setNumber}: ${weightLabel}${repsLabel}`;
 }
 
 function formatLabel(value: string) {

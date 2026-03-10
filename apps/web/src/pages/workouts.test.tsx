@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useParams } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -10,6 +10,8 @@ import {
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { WorkoutsPage } from './workouts';
+
+const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
 
 const templatesResponse = [
   {
@@ -102,9 +104,56 @@ const templatesResponse = [
   },
 ];
 
+const completedSessionsResponse = [
+  {
+    id: 'session-1',
+    name: 'Upper Push',
+    date: '2026-03-02',
+    status: 'completed',
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-02T18:00:00Z'),
+    completedAt: Date.parse('2026-03-02T19:00:00Z'),
+    duration: 60,
+    exerciseCount: 6,
+    createdAt: 1,
+  },
+];
+
+const allSessionsResponse = [
+  ...completedSessionsResponse,
+  {
+    id: 'session-2',
+    name: 'Lower Quad-Dominant',
+    date: '2026-03-12',
+    status: 'in-progress',
+    templateId: 'lower-quad-dominant',
+    templateName: 'Lower Quad-Dominant',
+    startedAt: Date.parse('2026-03-12T18:00:00Z'),
+    completedAt: null,
+    duration: null,
+    exerciseCount: 4,
+    createdAt: 2,
+  },
+  {
+    id: 'session-3',
+    name: 'Upper Push',
+    date: '2026-03-14',
+    status: 'scheduled',
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-14T18:00:00Z'),
+    completedAt: null,
+    duration: null,
+    exerciseCount: 5,
+    createdAt: 3,
+  },
+];
+
 describe('WorkoutsPage', () => {
   beforeEach(() => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    window.localStorage.removeItem(WORKOUTS_ONBOARDING_DISMISSED_KEY);
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
@@ -137,6 +186,17 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: templatesResponse,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data:
+              url.searchParams.get('status') === 'completed'
+                ? completedSessionsResponse
+                : allSessionsResponse,
           }),
         );
       }
@@ -175,12 +235,14 @@ describe('WorkoutsPage', () => {
 
   afterEach(() => {
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(WORKOUTS_ONBOARDING_DISMISSED_KEY);
     vi.restoreAllMocks();
   });
 
   it('switches between the workouts views', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
+        <LocationProbe />
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
         </Routes>
@@ -192,12 +254,14 @@ describe('WorkoutsPage', () => {
       'aria-pressed',
       'true',
     );
+    expect(await screen.findByTestId('location-search')).toHaveTextContent('?view=calendar');
     expect(screen.getByText('Workout Calendar')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
 
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=list');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
     expect(screen.queryByText('Workout Calendar')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
@@ -207,6 +271,29 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Exercises' }));
 
     expect(screen.getByRole('heading', { level: 2, name: 'Exercise Library' })).toBeInTheDocument();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=exercises');
+  });
+
+  it('includes the current view in session detail links', async () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts?view=list']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'List' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const detailsLink = (await screen.findAllByRole('link')).find(
+      (link) => link.getAttribute('href') === '/workouts/session/session-1?view=list',
+    );
+    if (!detailsLink) {
+      throw new Error('Expected session detail link with view=list query param');
+    }
+    expect(detailsLink).toHaveAttribute('href', '/workouts/session/session-1?view=list');
   });
 
   it('opens template detail when selecting a template card from the templates view', async () => {
@@ -265,6 +352,17 @@ describe('WorkoutsPage', () => {
         return deferredTemplates.promise;
       }
 
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data:
+              url.searchParams.get('status') === 'completed'
+                ? completedSessionsResponse
+                : allSessionsResponse,
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/exercises') {
         return Promise.resolve(
           jsonResponse({
@@ -319,6 +417,17 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data:
+              url.searchParams.get('status') === 'completed'
+                ? completedSessionsResponse
+                : allSessionsResponse,
           }),
         );
       }
@@ -381,6 +490,140 @@ describe('WorkoutsPage', () => {
     expect(screen.getByText('Session was completed on another device.')).toBeInTheDocument();
   });
 
+  it('shows onboarding for users with no completed workouts and persists dismissal', async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates') {
+        return Promise.resolve(jsonResponse({ data: templatesResponse }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: url.searchParams.get('status') === 'completed' ? [] : [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    const view = renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <LocationProbe />
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Browse templates' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=templates');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Calendar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss workouts onboarding' }));
+    expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
+
+    view.unmount();
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
+  });
+
+  it('navigates to active workout flow from onboarding create CTA', async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates') {
+        return Promise.resolve(jsonResponse({ data: templatesResponse }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: url.searchParams.get('status') === 'completed' ? [] : [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+          <Route element={<ActiveWorkoutRouteProbe />} path="/workouts/active" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create a template' }));
+
+    expect(await screen.findByRole('heading', { name: 'Active workout page' })).toBeInTheDocument();
+  });
+
   it('prefetches top template details when the list view is active', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
@@ -417,6 +660,11 @@ function TemplateRouteProbe() {
 
 function ActiveWorkoutRouteProbe() {
   return <h1>Active workout page</h1>;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <p data-testid="location-search">{location.search}</p>;
 }
 
 function createDeferredResponse() {

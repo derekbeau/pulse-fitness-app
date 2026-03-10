@@ -5,7 +5,6 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { mockTemplates } from '@/lib/mock-data/workouts';
 import { cn } from '@/lib/utils';
 
 // Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
@@ -26,7 +25,7 @@ type TemplateBrowserProps = {
 export function TemplateBrowser({
   buildTemplateHref,
   className,
-  templates = mockTemplates as TemplateSummary[],
+  templates = [],
 }: TemplateBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -53,7 +52,7 @@ export function TemplateBrowser({
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold text-foreground">Templates</h2>
         <p className="max-w-2xl text-sm text-muted">
-          Launch one of the saved mock templates and jump straight into an active workout.
+          Launch one of your saved templates and jump straight into an active workout.
         </p>
       </div>
 
@@ -65,6 +64,7 @@ export function TemplateBrowser({
         <Input
           aria-label="Search templates by name"
           autoComplete="off"
+          className="pl-9"
           id="template-search"
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search templates by name"
@@ -76,7 +76,7 @@ export function TemplateBrowser({
       {templates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
-            <p className="text-sm text-muted">No workout templates are available yet.</p>
+            <p className="text-sm text-muted">No templates yet — create your first one.</p>
           </CardContent>
         </Card>
       ) : filteredTemplates.length === 0 ? (

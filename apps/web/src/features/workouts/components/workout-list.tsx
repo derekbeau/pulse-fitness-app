@@ -1,20 +1,12 @@
-import { CalendarDays, Dumbbell, Layers3, ListChecks } from 'lucide-react';
+import { Activity, CalendarCheck2, CalendarDays, CalendarPlus2, CheckCircle2, Dumbbell, Timer } from 'lucide-react';
 import { Link } from 'react-router';
+import type { WorkoutSessionListItem, WorkoutSessionStatus } from '@pulse/shared';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
-import {
-  mockTemplates,
-  type WorkoutTemplate,
-} from '@/lib/mock-data/workouts';
-import { workoutCompletedSessions } from '../lib/mock-data';
-import type { ActiveWorkoutCompletedSession } from '../types';
 
-const weekOfFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-});
+import { useWorkoutSessions } from '../api/workouts';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -24,41 +16,59 @@ const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
 
 type WorkoutListProps = {
   buildSessionHref?: (sessionId: string) => string;
-  sessions?: ActiveWorkoutCompletedSession[];
+  buildTemplatesHref?: () => string;
+  buildPlanWorkoutHref?: () => string;
+  sessions?: WorkoutSessionListItem[];
 };
 
-type WorkoutWeekGroup = {
-  weekKey: string;
-  weekStart: Date;
-  weekEnd: Date;
-  sessions: WorkoutListItem[];
-};
-
-type WorkoutListItem = {
+type WorkoutListViewItem = {
   accentColor: string;
-  badgeClass: string;
+  cardClass: string;
   date: Date;
+  duration: number | null;
   exerciseCount: number;
   id: string;
   name: string;
-  sectionCount: number;
-  totalSets: number;
-  typeLabel: string;
+  status: WorkoutSessionStatus;
+  statusBadgeClass: string;
+  statusLabel: string;
 };
-
-const templateById = new Map(mockTemplates.map((template) => [template.id, template]));
 
 export function WorkoutList({
   buildSessionHref = (sessionId) => `/workouts/session/${sessionId}`,
-  sessions = workoutCompletedSessions,
+  buildTemplatesHref = () => '/workouts?view=templates',
+  buildPlanWorkoutHref = () => '/workouts?view=templates',
+  sessions,
 }: WorkoutListProps) {
-  const weekGroups = groupSessionsByWeek(sessions);
+  const sessionsQuery = useWorkoutSessions({}, { enabled: sessions === undefined });
 
-  if (weekGroups.length === 0) {
+  const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
+  const listItems = resolvedSessions.map((session) => buildWorkoutListItem(session));
+  const upcomingSessions = listItems
+    .filter((session) => session.status !== 'completed')
+    .sort((left, right) => left.date.getTime() - right.date.getTime());
+  const completedSessions = listItems
+    .filter((session) => session.status === 'completed')
+    .sort((left, right) => right.date.getTime() - left.date.getTime());
+  const hasPlannedWorkouts = listItems.some(
+    (session) => session.status === 'scheduled' || session.status === 'in-progress',
+  );
+
+  if (sessionsQuery.isLoading && !sessions) {
     return (
       <Card>
         <CardContent className="py-6">
-          <p className="text-sm text-muted">No completed workouts yet.</p>
+          <p className="text-sm text-muted">Loading workouts…</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (listItems.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted">No workouts yet. Plan one to get started.</p>
         </CardContent>
       </Card>
     );
@@ -66,72 +76,121 @@ export function WorkoutList({
 
   return (
     <div className="space-y-6">
-      {weekGroups.map((group) => (
-        <section className="space-y-3" key={group.weekKey}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <h2 className="text-xl font-semibold text-foreground">
-                {`Week of ${weekOfFormatter.format(group.weekStart)}`}
-              </h2>
-              <p className="text-sm text-muted">
-                {formatWeekRange(group.weekStart, group.weekEnd)}
-              </p>
-            </div>
-
-            <span className="inline-flex w-fit rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-on-cream uppercase dark:bg-amber-500/20 dark:text-amber-400">
-              {`${group.sessions.length} workout${group.sessions.length === 1 ? '' : 's'}`}
-            </span>
-          </div>
-
+      <section className="space-y-3">
+        <SectionHeading count={upcomingSessions.length} title="Upcoming" />
+        {!hasPlannedWorkouts ? (
+          <Card className="border-dashed">
+            <CardContent className="space-y-4 py-5">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">No workouts planned</h3>
+                <p className="text-sm text-muted">
+                  Start by picking a template and scheduling your next session.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild size="sm">
+                  <Link to={buildPlanWorkoutHref()}>Plan a workout</Link>
+                </Button>
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={buildTemplatesHref()}>Browse templates</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+        {upcomingSessions.length > 0 ? (
           <div className="grid gap-3">
-            {group.sessions.map((session) => (
-              <Link
-                className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            {upcomingSessions.map((session) => (
+              <WorkoutListCard
+                buildSessionHref={buildSessionHref}
                 key={session.id}
-                to={buildSessionHref(session.id)}
-              >
-                <Card
-                  className="h-full gap-4 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                  style={{ borderLeftColor: session.accentColor }}
-                >
-                  <CardHeader className="gap-3 py-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1">
-                        <CardTitle>{session.name}</CardTitle>
-                        <p className="text-sm text-muted">
-                          {sessionDateFormatter.format(session.date)}
-                        </p>
-                      </div>
-
-                      <span
-                        className={cn(
-                          'inline-flex w-fit rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
-                          session.badgeClass,
-                        )}
-                      >
-                        {session.typeLabel}
-                      </span>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pb-5">
-                    <ul className="flex flex-wrap gap-3 text-sm text-muted">
-                      <WorkoutStat
-                        icon={CalendarDays}
-                        label={`${sessionDateFormatter.format(session.date)}`}
-                      />
-                      <WorkoutStat icon={Layers3} label={`${session.sectionCount} sections`} />
-                      <WorkoutStat icon={Dumbbell} label={`${session.exerciseCount} exercises`} />
-                      <WorkoutStat icon={ListChecks} label={`${session.totalSets} sets`} />
-                    </ul>
-                  </CardContent>
-                </Card>
-              </Link>
+                session={session}
+              />
             ))}
           </div>
-        </section>
-      ))}
+        ) : (
+          <p className="text-sm text-muted">No upcoming sessions right now.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionHeading count={completedSessions.length} title="Completed" />
+        {completedSessions.length > 0 ? (
+          <div className="grid gap-3">
+            {completedSessions.map((session) => (
+              <WorkoutListCard
+                buildSessionHref={buildSessionHref}
+                key={session.id}
+                session={session}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No completed workouts yet.</p>
+        )}
+      </section>
     </div>
+  );
+}
+
+function SectionHeading({ count, title }: { count: number; title: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      <span className="rounded-full border border-border bg-secondary/50 px-2.5 py-1 text-xs font-semibold text-muted">
+        {`${count} workout${count === 1 ? '' : 's'}`}
+      </span>
+    </div>
+  );
+}
+
+function WorkoutListCard({
+  buildSessionHref,
+  session,
+}: {
+  buildSessionHref: (sessionId: string) => string;
+  session: WorkoutListViewItem;
+}) {
+  return (
+    <Link
+      className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      to={buildSessionHref(session.id)}
+    >
+      <Card
+        className={cn(
+          'h-full gap-4 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
+          session.cardClass,
+        )}
+        style={{ borderLeftColor: session.accentColor }}
+      >
+        <CardHeader className="gap-3 py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle>{session.name}</CardTitle>
+              <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
+            </div>
+
+            <span
+              className={cn(
+                'inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
+                session.statusBadgeClass,
+              )}
+            >
+              {getStatusBadgeIcon(session.status)}
+              {session.statusLabel}
+            </span>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pb-5">
+          <ul className="flex flex-wrap gap-3 text-sm text-muted">
+            {buildStatusStats(session).map((stat) => (
+              <WorkoutStat icon={stat.icon} key={`${session.id}-${stat.label}`} label={stat.label} />
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -144,87 +203,84 @@ function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: 
   );
 }
 
-function groupSessionsByWeek(sessions: ActiveWorkoutCompletedSession[]): WorkoutWeekGroup[] {
-  const groups = new Map<string, WorkoutWeekGroup>();
-
-  for (const session of sessions) {
-    const sessionDate = parseDateKey(session.startedAt.slice(0, 10));
-    const weekStart = startOfWeek(sessionDate);
-    const weekKey = toDateKey(weekStart);
-    const weekEnd = addDays(weekStart, 6);
-    const group = groups.get(weekKey) ?? {
-      weekKey,
-      weekStart,
-      weekEnd,
-      sessions: [],
-    };
-
-    group.sessions.push(buildWorkoutListItem(session));
-    groups.set(weekKey, group);
-  }
-
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      sessions: group.sessions.sort((left, right) => right.date.getTime() - left.date.getTime()),
-    }))
-    .sort((left, right) => right.weekStart.getTime() - left.weekStart.getTime());
-}
-
-function buildWorkoutListItem(session: ActiveWorkoutCompletedSession): WorkoutListItem {
-  const template = templateById.get(session.templateId);
-  const date = parseDateKey(session.startedAt.slice(0, 10));
-  const exerciseCount = session.exercises.length;
-  const totalSets = session.exercises.reduce((count, exercise) => count + exercise.sets.length, 0);
-  const presentation = getWorkoutPresentation(template);
+function buildWorkoutListItem(session: WorkoutSessionListItem): WorkoutListViewItem {
+  const date = new Date(`${session.date}T12:00:00`);
+  const presentation = getWorkoutPresentation(session.status);
 
   return {
     accentColor: presentation.accentColor,
-    badgeClass: presentation.badgeClass,
+    cardClass: presentation.cardClass,
     date,
-    exerciseCount,
+    duration: session.duration,
+    exerciseCount: session.exerciseCount,
     id: session.id,
-    name: template?.name ?? 'Workout Session',
-    sectionCount: template?.sections.length ?? 0,
-    totalSets,
-    typeLabel: presentation.typeLabel,
+    name: session.templateName ?? session.name,
+    status: session.status,
+    statusBadgeClass: presentation.statusBadgeClass,
+    statusLabel: presentation.statusLabel,
   };
 }
 
-function getWorkoutPresentation(template?: WorkoutTemplate) {
-  if (template?.tags.includes('legs')) {
+function getWorkoutPresentation(status: WorkoutSessionStatus) {
+  if (status === 'completed') {
     return {
-      accentColor: 'var(--color-accent-mint)',
-      badgeClass:
-        'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
-      typeLabel: 'Legs',
+      accentColor: 'rgb(16 185 129)',
+      cardClass: 'border-emerald-500/40',
+      statusBadgeClass:
+        'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+      statusLabel: 'Completed',
     };
   }
 
-  if (template?.tags.includes('push')) {
+  if (status === 'in-progress') {
     return {
-      accentColor: 'var(--color-accent-pink)',
-      badgeClass:
-        'bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
-      typeLabel: 'Push',
+      accentColor: 'rgb(249 115 22)',
+      cardClass: 'border-orange-500/40',
+      statusBadgeClass:
+        'bg-orange-500/15 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
+      statusLabel: 'In Progress',
     };
   }
 
   return {
-    accentColor: 'var(--color-accent-cream)',
-    badgeClass:
-      'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
-    typeLabel: 'Full Body',
+    accentColor: 'rgb(148 163 184)',
+    cardClass: 'border-slate-300/70 dark:border-slate-700/70',
+    statusBadgeClass: 'bg-secondary text-muted-foreground',
+    statusLabel: 'Planned',
   };
 }
 
-function formatWeekRange(weekStart: Date, weekEnd: Date) {
-  const startLabel = weekOfFormatter.format(weekStart);
-  const endLabel = weekOfFormatter.format(weekEnd);
-
-  if (weekStart.getFullYear() === weekEnd.getFullYear()) {
-    return `${startLabel} - ${endLabel}, ${weekEnd.getFullYear()}`;
+function buildStatusStats(session: WorkoutListViewItem) {
+  if (session.status === 'completed') {
+    return [
+      { icon: CalendarCheck2, label: sessionDateFormatter.format(session.date) },
+      { icon: Timer, label: session.duration != null ? `${session.duration} min` : 'Duration n/a' },
+      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+    ];
   }
 
-  return `${startLabel}, ${weekStart.getFullYear()} - ${endLabel}, ${weekEnd.getFullYear()}`;
+  if (session.status === 'in-progress') {
+    return [
+      { icon: CalendarDays, label: sessionDateFormatter.format(session.date) },
+      { icon: Activity, label: 'In Progress' },
+      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+    ];
+  }
+
+  return [
+    { icon: CalendarPlus2, label: `Scheduled ${sessionDateFormatter.format(session.date)}` },
+    { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+  ];
+}
+
+function getStatusBadgeIcon(status: WorkoutSessionStatus) {
+  if (status === 'completed') {
+    return <CheckCircle2 aria-hidden="true" className="size-3.5" />;
+  }
+
+  if (status === 'in-progress') {
+    return <span aria-hidden="true" className="size-2 rounded-full bg-current animate-pulse" />;
+  }
+
+  return <CalendarDays aria-hidden="true" className="size-3.5" />;
 }
