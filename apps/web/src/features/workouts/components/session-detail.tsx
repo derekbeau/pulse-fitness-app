@@ -632,7 +632,22 @@ function buildHistoryPoint(
   exerciseId: string,
   trackingType: ExerciseTrackingType,
 ): ActiveWorkoutExerciseHistoryPoint | null {
-  const sets = session.sets.filter((set) => set.exerciseId === exerciseId && set.reps != null);
+  const sets = session.sets.filter((set) => {
+    if (set.exerciseId !== exerciseId) {
+      return false;
+    }
+
+    if (
+      trackingType === 'seconds_only' ||
+      trackingType === 'cardio' ||
+      trackingType === 'weight_seconds'
+    ) {
+      // Time-based sets currently come back via `reps` until session-set seconds persistence lands.
+      return getSetSeconds(set) != null;
+    }
+
+    return set.reps != null;
+  });
 
   if (sets.length === 0) {
     return null;

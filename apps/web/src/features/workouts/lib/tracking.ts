@@ -74,6 +74,8 @@ export function getSetSeconds(set: SetMetrics) {
     return set.seconds;
   }
 
+  // Temporary bridge: persisted session sets still store time values in `reps`.
+  // Remove this fallback once session-set `seconds` is migrated end-to-end.
   return set.reps;
 }
 

@@ -616,6 +616,7 @@ function LastPerformanceSummary({
         exceedsPreviousSet(
           set,
           lastPerformance.sets.find((previousSet) => previousSet.setNumber === set.number) ?? null,
+          trackingType,
         ),
       )
       .map((set) => set.number),
@@ -773,7 +774,7 @@ function formatCompactPerformanceSetByTrackingType(
     case 'seconds_only':
       return `${reps} sec`;
     case 'reps_seconds':
-      return `${reps} x ${reps} sec`;
+      return `${reps} reps`;
     case 'distance':
       return `${reps} ${distanceUnit}`;
     case 'cardio':
@@ -826,15 +827,56 @@ function parseRepRange(prescribedReps: string) {
 function exceedsPreviousSet(
   currentSet: ActiveWorkoutExercise['sets'][number],
   previousSet: ActiveWorkoutLastPerformance['sets'][number] | null,
+  trackingType: ExerciseTrackingType,
 ) {
-  if (!previousSet || currentSet.reps === null) {
+  if (!previousSet) {
+    return false;
+  }
+
+  if (trackingType === 'distance') {
+    return false;
+  }
+
+  const currentReps = currentSet.reps;
+  const previousReps = previousSet.reps;
+  const currentSeconds = currentSet.seconds ?? currentSet.reps;
+  const previousSeconds = previousSet.reps;
+
+  if (trackingType === 'seconds_only' || trackingType === 'cardio') {
+    if (currentSeconds === null) {
+      return false;
+    }
+
+    return currentSeconds > previousSeconds;
+  }
+
+  if (trackingType === 'weight_seconds') {
+    if (currentSeconds === null) {
+      return false;
+    }
+
+    if (currentSet.weight !== null && previousSet.weight !== null) {
+      return (
+        currentSet.weight > previousSet.weight ||
+        (currentSet.weight === previousSet.weight && currentSeconds > previousSeconds)
+      );
+    }
+
+    if (currentSet.weight !== null && previousSet.weight === null) {
+      return true;
+    }
+
+    return currentSeconds > previousSeconds;
+  }
+
+  if (currentReps === null) {
     return false;
   }
 
   if (currentSet.weight !== null && previousSet.weight !== null) {
     return (
       currentSet.weight > previousSet.weight ||
-      (currentSet.weight === previousSet.weight && currentSet.reps > previousSet.reps)
+      (currentSet.weight === previousSet.weight && currentReps > previousReps)
     );
   }
 
@@ -842,7 +884,7 @@ function exceedsPreviousSet(
     return true;
   }
 
-  return currentSet.reps > previousSet.reps;
+  return currentReps > previousReps;
 }
 
 function formatSetPrescription(prescribedReps: string, restSeconds: number) {
