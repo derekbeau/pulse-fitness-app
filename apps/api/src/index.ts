@@ -61,13 +61,17 @@ const start = async () => {
   const app = buildServer();
 
   try {
-    const [{ db }, { migrate }] = await Promise.all([
+    const [{ db, sqlite }, { migrate }] = await Promise.all([
       import('./db/index.js'),
       import('drizzle-orm/better-sqlite3/migrator'),
     ]);
     const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
 
+    // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
+    // inside transactions, and Drizzle wraps each migration in one.
+    sqlite.pragma('foreign_keys = OFF');
     migrate(db, { migrationsFolder });
+    sqlite.pragma('foreign_keys = ON');
 
     const address = await app.listen({
       host: process.env.HOST || '0.0.0.0',
