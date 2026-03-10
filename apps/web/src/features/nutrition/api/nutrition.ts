@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DailyNutrition, DeleteMealResult, NutritionSummary } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -39,6 +39,19 @@ export const useNutritionSummary = (date: string) =>
     queryKey: nutritionKeys.summary(date),
     queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
   });
+
+export const prefetchNutritionDay = async (queryClient: QueryClient, date: string) => {
+  await Promise.all([
+    queryClient.prefetchQuery({
+      queryKey: nutritionKeys.daily(date),
+      queryFn: ({ signal }) => fetchDailyNutrition(date, signal),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: nutritionKeys.summary(date),
+      queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
+    }),
+  ]);
+};
 
 export const useDeleteMeal = () => {
   const queryClient = useQueryClient();

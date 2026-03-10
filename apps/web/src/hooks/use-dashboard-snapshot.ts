@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { dashboardSnapshotSchema, type DashboardSnapshot } from '@pulse/shared';
 
 import { apiRequest } from '@/lib/api-client';
@@ -28,4 +28,10 @@ export const useDashboardSnapshot = (date: string) =>
     enabled: date.length > 0,
     queryFn: ({ signal }) => fetchDashboardSnapshot(date, signal),
     queryKey: dashboardSnapshotKeys.detail(date),
+  });
+
+export const prefetchDashboardSnapshot = (queryClient: QueryClient, date: string) =>
+  queryClient.prefetchQuery({
+    queryKey: dashboardSnapshotKeys.detail(date),
+    queryFn: ({ signal }) => fetchDashboardSnapshot(date, signal),
   });

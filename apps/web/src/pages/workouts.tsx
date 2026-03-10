@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 
@@ -15,9 +16,13 @@ import {
   WorkoutCalendar,
   WorkoutList,
 } from '@/features/workouts';
-import { useWorkoutTemplates } from '@/features/workouts/api/workouts';
+import {
+  prefetchWorkoutTemplate,
+  useWorkoutTemplates,
+} from '@/features/workouts/api/workouts';
 
 export function WorkoutsPage() {
+  const queryClient = useQueryClient();
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
@@ -30,6 +35,17 @@ export function WorkoutsPage() {
     !templatesQuery.isLoading &&
     !templatesQuery.isError &&
     (templatesQuery.data?.length ?? 0) === 0;
+
+  useEffect(() => {
+    if (activeView !== 'list') {
+      return;
+    }
+
+    const topTemplateIds = (templatesQuery.data ?? []).slice(0, 3).map((template) => template.id);
+    for (const templateId of topTemplateIds) {
+      void prefetchWorkoutTemplate(queryClient, templateId);
+    }
+  }, [activeView, queryClient, templatesQuery.data]);
 
   return (
     <section className="space-y-6">

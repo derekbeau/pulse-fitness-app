@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
@@ -79,8 +79,11 @@ async function getWorkoutTemplates() {
   return payload.data;
 }
 
-async function getWorkoutTemplate(id: string) {
-  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${id}`);
+async function getWorkoutTemplate(id: string, signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${id}`, {
+    method: 'GET',
+    signal,
+  });
   const payload = workoutTemplateResponseSchema.parse({ data });
 
   return payload.data;
@@ -142,10 +145,16 @@ export function useWorkoutTemplates() {
 export function useWorkoutTemplate(id: string) {
   return useQuery<WorkoutTemplate>({
     enabled: id.trim().length > 0,
-    queryFn: () => getWorkoutTemplate(id),
+    queryFn: ({ signal }) => getWorkoutTemplate(id, signal),
     queryKey: workoutQueryKeys.template(id),
   });
 }
+
+export const prefetchWorkoutTemplate = (queryClient: QueryClient, id: string) =>
+  queryClient.prefetchQuery({
+    queryKey: workoutQueryKeys.template(id),
+    queryFn: ({ signal }) => getWorkoutTemplate(id, signal),
+  });
 
 export function useExercises(params: ExerciseQueryParams) {
   return useQuery<ExercisesResponse>({

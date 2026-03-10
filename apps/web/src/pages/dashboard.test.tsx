@@ -345,6 +345,15 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/dashboard/snapshot?date=2026-03-05'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/dashboard/snapshot?date=2026-03-07'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+
     const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();

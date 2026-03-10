@@ -64,6 +64,7 @@ const handleTrendRoute =
     }
 
     const trend = await getTrend(request.userId, range.from, range.to);
+    reply.header('Cache-Control', 'private, max-age=3600');
     return reply.send({
       data: trend,
     });

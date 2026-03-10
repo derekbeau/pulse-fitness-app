@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -137,6 +137,34 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: templatesResponse,
+          }),
+        );
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        const templateId = url.pathname.split('/').at(-1);
+        const template = templatesResponse.find((entry) => entry.id === templateId) ?? null;
+
+        if (!template) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: 'TEMPLATE_NOT_FOUND',
+                  message: 'Template not found',
+                },
+              }),
+              {
+                headers: { 'Content-Type': 'application/json' },
+                status: 404,
+              },
+            ),
+          );
+        }
+
+        return Promise.resolve(
+          jsonResponse({
+            data: template,
           }),
         );
       }
@@ -351,6 +379,33 @@ describe('WorkoutsPage', () => {
     );
 
     expect(screen.getByText('Session was completed on another device.')).toBeInTheDocument();
+  });
+
+  it('prefetches top template details when the list view is active', async () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+
+    expect(await screen.findByRole('button', { name: 'List' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await waitFor(() => {
+      const requestUrls = vi
+        .mocked(globalThis.fetch)
+        .mock.calls.map(([request]) => String(request))
+        .filter((request) => request.startsWith('/api/v1/workout-templates/'));
+
+      expect(requestUrls).toContain('/api/v1/workout-templates/upper-push');
+      expect(requestUrls).toContain('/api/v1/workout-templates/lower-quad-dominant');
+    });
   });
 });
 

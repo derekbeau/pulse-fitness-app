@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 
 type LoginFormProps = {
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
   registerHref: string;
 };
 
@@ -38,7 +38,7 @@ export function LoginForm({ onSuccess, registerHref }: LoginFormProps) {
   async function onSubmit(values: LoginInput) {
     try {
       await login(values);
-      onSuccess();
+      await onSuccess();
     } catch {
       // Auth store state already exposes the API error for the form UI.
     }

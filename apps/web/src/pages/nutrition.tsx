@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { UtensilsCrossed } from 'lucide-react';
 
 import { MealCardSkeleton } from '@/components/skeletons';
@@ -6,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
+  prefetchNutritionDay,
   useDailyNutrition,
   useDeleteMeal,
   useNutritionSummary,
@@ -16,6 +18,7 @@ import {
   formatDayLabel,
   formatGrams,
   isSameDay,
+  addDays,
   sortMeals,
   startOfDay,
   type MacroTotals,
@@ -43,6 +46,7 @@ const EMPTY_TOTALS: MacroTotals = {
 };
 
 export function NutritionPage() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const dateKey = formatDateKey(selectedDate);
 
@@ -80,6 +84,14 @@ export function NutritionPage() {
     deleteMealMutation.isError && deleteMealMutation.error instanceof Error
       ? deleteMealMutation.error.message
       : null;
+
+  useEffect(() => {
+    const previousDateKey = formatDateKey(addDays(selectedDate, -1));
+    const nextDateKey = formatDateKey(addDays(selectedDate, 1));
+
+    void prefetchNutritionDay(queryClient, previousDateKey);
+    void prefetchNutritionDay(queryClient, nextDateKey);
+  }, [queryClient, selectedDate]);
 
   async function handleDeleteMeal(mealId: string) {
     try {

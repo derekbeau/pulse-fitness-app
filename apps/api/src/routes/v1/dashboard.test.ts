@@ -297,6 +297,7 @@ describe('dashboard routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, max-age=3600');
       expect(response.json()).toEqual({
         data: [
           { date: '2026-03-07', value: 181.4 },
@@ -357,6 +358,7 @@ describe('dashboard routes', () => {
       ]);
 
       expect(macrosResponse.statusCode).toBe(200);
+      expect(macrosResponse.headers['cache-control']).toBe('private, max-age=3600');
       expect(vi.mocked(getDashboardMacrosTrend)).toHaveBeenCalledWith(
         'user-2',
         '2026-02-08',
@@ -364,6 +366,7 @@ describe('dashboard routes', () => {
       );
 
       expect(consistencyResponse.statusCode).toBe(200);
+      expect(consistencyResponse.headers['cache-control']).toBe('private, max-age=3600');
       expect(vi.mocked(getDashboardConsistencyTrend)).toHaveBeenCalledWith(
         'user-2',
         '2026-03-09',

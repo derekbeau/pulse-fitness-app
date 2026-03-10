@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { LayoutDashboard } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,11 @@ import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline
 import { useHabits } from '@/features/habits/api/habits';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { useLogWeight } from '@/features/weight/api/weight';
-import { useDashboardSnapshot, dashboardSnapshotKeys } from '@/hooks/use-dashboard-snapshot';
+import {
+  prefetchDashboardSnapshot,
+  useDashboardSnapshot,
+  dashboardSnapshotKeys,
+} from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
 import { addDays, getToday, toDateKey } from '@/lib/date';
@@ -39,6 +43,14 @@ export function DashboardPage() {
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
+
+  useEffect(() => {
+    const previousDateKey = toDateKey(addDays(selectedDate, -1));
+    const nextDateKey = toDateKey(addDays(selectedDate, 1));
+
+    void prefetchDashboardSnapshot(queryClient, previousDateKey);
+    void prefetchDashboardSnapshot(queryClient, nextDateKey);
+  }, [queryClient, selectedDate]);
 
   async function handleWeightSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
