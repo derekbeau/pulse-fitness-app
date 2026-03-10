@@ -30,7 +30,7 @@ describe('SessionHeader', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Upper Push' })).toBeInTheDocument();
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
-    expect(screen.getByText('~33 min remaining (~50 min total)')).toBeInTheDocument();
+    expect(screen.getByText('~50 min total estimate')).toBeInTheDocument();
     expect(screen.getByText('01:20')).toBeInTheDocument();
     expect(screen.getByText('5 / 17')).toBeInTheDocument();
     expect(screen.getByText('Start time')).toBeInTheDocument();

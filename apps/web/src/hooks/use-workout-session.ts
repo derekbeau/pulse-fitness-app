@@ -103,14 +103,9 @@ export function useUpdateSessionStartTime(sessionId: string | null | undefined) 
     onSuccess: async (session) => {
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
 
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutSessionQueryKeys.all,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutSessionQueryKeys.detail(session.id),
-        }),
-      ]);
+      await queryClient.invalidateQueries({
+        queryKey: workoutSessionQueryKeys.detail(session.id),
+      });
     },
   });
 }

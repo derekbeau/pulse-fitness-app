@@ -577,6 +577,11 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    if (activeSessionId) {
+      // API does not yet expose set deletion for active sessions.
+      setSessionError('Removing sets is local-only right now and may not sync across devices.');
+    }
+
     setSetDrafts((current) => ({
       ...current,
       [exerciseId]: nextExerciseSets,
@@ -805,6 +810,7 @@ function createSessionSetDrafts(
         : null;
     const nextReps =
       trackingType === 'weight_seconds' ||
+      trackingType === 'reps_seconds' ||
       trackingType === 'seconds_only' ||
       trackingType === 'cardio'
         ? null

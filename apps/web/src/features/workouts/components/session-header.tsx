@@ -94,7 +94,9 @@ export function SessionHeader({
                 <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">
                   {`Exercise ${currentExercise} of ${totalExercises}`}
                 </p>
-                <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">{`${remainingEstimateLabel} remaining (${totalEstimateLabel} total)`}</p>
+                <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">
+                  {`${totalEstimateLabel} total estimate`}
+                </p>
               </div>
             </div>
 

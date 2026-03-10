@@ -136,7 +136,6 @@ describe('use-workout-session hooks', () => {
       startedAt: 200,
     });
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });

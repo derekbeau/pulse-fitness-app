@@ -32,7 +32,7 @@ describe('ActiveWorkoutPage', () => {
     expect(headerCard).not.toHaveClass('sticky');
     expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/remaining \(~\d+ min total\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
     expect(screen.getByText('Recovery Status')).toBeInTheDocument();
