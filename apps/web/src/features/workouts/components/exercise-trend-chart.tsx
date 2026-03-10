@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { type WeightUnit } from '@pulse/shared';
+import { type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
 import {
   CartesianGrid,
   Line,
@@ -14,16 +14,28 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+import { getDistanceUnit } from '../lib/tracking';
 import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
 
 type ExerciseTrendChartProps = {
   className?: string;
   exerciseName: string;
   history: ActiveWorkoutExerciseHistoryPoint[];
+  trackingType?: ExerciseTrackingType;
   weightUnit?: WeightUnit;
 };
 
 type DateRange = '30d' | '90d' | 'all';
+
+type MetricKey = 'distance' | 'reps' | 'seconds' | 'weight';
+
+type MetricConfig = {
+  color: string;
+  key: MetricKey;
+  label: string;
+  unit: string;
+  yAxisId: 'primary' | 'secondary';
+};
 
 type ChartDatum = ActiveWorkoutExerciseHistoryPoint & {
   dateLabel: string;
@@ -55,9 +67,11 @@ export function ExerciseTrendChart({
   className,
   exerciseName,
   history,
+  trackingType = 'weight_reps',
   weightUnit = 'lbs',
 }: ExerciseTrendChartProps) {
   const [selectedRange, setSelectedRange] = useState<DateRange>('90d');
+  const metricConfig = getMetricConfig(trackingType, weightUnit);
 
   const chartData = useMemo(() => {
     const sortedHistory = [...history].sort((left, right) => left.date.localeCompare(right.date));
@@ -65,6 +79,10 @@ export function ExerciseTrendChart({
     return filterHistoryByRange(sortedHistory, selectedRange).map((point) => ({
       ...point,
       dateLabel: axisDateFormatter.format(new Date(`${point.date}T12:00:00`)),
+      distance: point.distance ?? 0,
+      reps: point.reps ?? 0,
+      seconds: point.seconds ?? point.reps ?? 0,
+      weight: point.weight ?? 0,
     }));
   }, [history, selectedRange]);
 
@@ -74,7 +92,7 @@ export function ExerciseTrendChart({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">{exerciseName}</CardTitle>
-            <p className="text-sm text-muted">Top-set load and reps across completed sessions.</p>
+            <p className="text-sm text-muted">Track progression across completed sessions.</p>
           </div>
 
           <div
@@ -112,17 +130,19 @@ export function ExerciseTrendChart({
           </div>
         ) : (
           <div className="mx-auto w-full max-w-4xl space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={cn('grid gap-3', metricConfig.secondary ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
               <MetricCard
                 accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
-                label="Latest weight"
-                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} ${weightUnit}`}
+                label={`Latest ${metricConfig.primary.label.toLowerCase()}`}
+                value={formatMetricValue(chartData.at(-1), metricConfig.primary)}
               />
-              <MetricCard
-                accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
-                label="Latest reps"
-                value={`${numberFormatter.format(chartData.at(-1)?.reps ?? 0)} reps`}
-              />
+              {metricConfig.secondary ? (
+                <MetricCard
+                  accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
+                  label={`Latest ${metricConfig.secondary.label.toLowerCase()}`}
+                  value={formatMetricValue(chartData.at(-1), metricConfig.secondary)}
+                />
+              ) : null}
             </div>
 
             <div
@@ -144,20 +164,24 @@ export function ExerciseTrendChart({
                     axisLine={false}
                     orientation="left"
                     tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => `${numberFormatter.format(value)} ${weightUnit}`}
+                    tickFormatter={(value: number) => formatAxisTick(value, metricConfig.primary.unit)}
                     tickLine={false}
-                    yAxisId="weight"
+                    yAxisId="primary"
                     width={56}
                   />
-                  <YAxis
-                    axisLine={false}
-                    orientation="right"
-                    tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => `${numberFormatter.format(value)}`}
-                    tickLine={false}
-                    yAxisId="reps"
-                    width={40}
-                  />
+                  {metricConfig.secondary ? (
+                    <YAxis
+                      axisLine={false}
+                      orientation="right"
+                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      tickFormatter={(value: number) =>
+                        formatAxisTick(value, metricConfig.secondary?.unit ?? '')
+                      }
+                      tickLine={false}
+                      yAxisId="secondary"
+                      width={56}
+                    />
+                  ) : null}
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--color-card)',
@@ -166,13 +190,13 @@ export function ExerciseTrendChart({
                       color: 'var(--color-foreground)',
                     }}
                     formatter={(value: number | undefined, name: string | undefined) => {
-                      const formattedValue = numberFormatter.format(value ?? 0);
+                      let metric = metricConfig.primary;
 
-                      if (name === 'weight') {
-                        return [`${formattedValue} ${weightUnit}`, 'Weight'];
+                      if (metricConfig.secondary && metricConfig.secondary.key === name) {
+                        metric = metricConfig.secondary;
                       }
 
-                      return [`${formattedValue} reps`, 'Reps'];
+                      return [`${numberFormatter.format(value ?? 0)} ${metric.unit}`.trim(), metric.label];
                     }}
                     labelFormatter={(_label, payload) => {
                       const point = payload?.[0]?.payload as ChartDatum | undefined;
@@ -184,29 +208,31 @@ export function ExerciseTrendChart({
                     separator=": "
                   />
                   <Line
-                    dataKey="weight"
-                    dot={{ fill: 'var(--color-primary)', r: 4, strokeWidth: 0 }}
+                    dataKey={metricConfig.primary.key}
+                    dot={{ fill: metricConfig.primary.color, r: 4, strokeWidth: 0 }}
                     isAnimationActive={false}
-                    name="weight"
-                    stroke="var(--color-primary)"
+                    name={metricConfig.primary.key}
+                    stroke={metricConfig.primary.color}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={3}
                     type="monotone"
-                    yAxisId="weight"
+                    yAxisId={metricConfig.primary.yAxisId}
                   />
-                  <Line
-                    dataKey="reps"
-                    dot={{ fill: 'var(--color-accent-cream)', r: 4, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                    name="reps"
-                    stroke="var(--color-accent-cream)"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={3}
-                    type="monotone"
-                    yAxisId="reps"
-                  />
+                  {metricConfig.secondary ? (
+                    <Line
+                      dataKey={metricConfig.secondary.key}
+                      dot={{ fill: metricConfig.secondary.color, r: 4, strokeWidth: 0 }}
+                      isAnimationActive={false}
+                      name={metricConfig.secondary.key}
+                      stroke={metricConfig.secondary.color}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      type="monotone"
+                      yAxisId={metricConfig.secondary.yAxisId}
+                    />
+                  ) : null}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -232,6 +258,77 @@ function MetricCard({
       <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
     </div>
   );
+}
+
+function getMetricConfig(trackingType: ExerciseTrackingType, weightUnit: WeightUnit) {
+  const distanceUnit = getDistanceUnit(weightUnit);
+
+  const weightMetric: MetricConfig = {
+    color: 'var(--color-primary)',
+    key: 'weight',
+    label: 'Weight',
+    unit: weightUnit,
+    yAxisId: 'primary',
+  };
+
+  const repsMetric: MetricConfig = {
+    color: 'var(--color-accent-cream)',
+    key: 'reps',
+    label: 'Reps',
+    unit: 'reps',
+    yAxisId: 'secondary',
+  };
+
+  const secondsMetric: MetricConfig = {
+    color: 'var(--color-accent-cream)',
+    key: 'seconds',
+    label: 'Duration',
+    unit: 'sec',
+    yAxisId: 'secondary',
+  };
+
+  const distanceMetric: MetricConfig = {
+    color: 'var(--color-primary)',
+    key: 'distance',
+    label: 'Distance',
+    unit: distanceUnit,
+    yAxisId: 'primary',
+  };
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return { primary: weightMetric, secondary: repsMetric };
+    case 'weight_seconds':
+      return { primary: weightMetric, secondary: secondsMetric };
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return { primary: { ...repsMetric, yAxisId: 'primary' as const }, secondary: null };
+    case 'reps_seconds':
+      return {
+        primary: { ...repsMetric, yAxisId: 'primary' as const },
+        secondary: secondsMetric,
+      };
+    case 'seconds_only':
+      return { primary: { ...secondsMetric, yAxisId: 'primary' as const }, secondary: null };
+    case 'distance':
+      return { primary: distanceMetric, secondary: null };
+    case 'cardio':
+      return {
+        primary: { ...secondsMetric, yAxisId: 'primary' as const },
+        secondary: { ...distanceMetric, yAxisId: 'secondary' as const },
+      };
+    default:
+      return { primary: weightMetric, secondary: repsMetric };
+  }
+}
+
+function formatMetricValue(point: ChartDatum | undefined, metric: MetricConfig) {
+  const value = point ? Number(point[metric.key] ?? 0) : 0;
+  return `${numberFormatter.format(value)} ${metric.unit}`.trim();
+}
+
+function formatAxisTick(value: number, unit: string) {
+  return `${numberFormatter.format(value)} ${unit}`.trim();
 }
 
 function filterHistoryByRange(history: ActiveWorkoutExerciseHistoryPoint[], range: DateRange) {

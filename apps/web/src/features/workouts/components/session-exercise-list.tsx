@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from 'react';
 import { AlertTriangle, ArrowUpRight, ChevronDown, Check, Circle, Dot } from 'lucide-react';
-import type { WeightUnit } from '@pulse/shared';
+import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import type {
   ActiveWorkoutReversePyramidTarget,
   ActiveWorkoutSessionData,
 } from '../types';
+import { getDistanceUnit } from '../lib/tracking';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
@@ -480,6 +481,8 @@ function ExerciseCardItem({
                 lastPerformance={lastPerformance}
                 currentSets={exercise.sets}
                 prescribedReps={exercise.prescribedReps}
+                trackingType={exercise.trackingType}
+                weightUnit={weightUnit}
               />
             ) : null}
 
@@ -577,8 +580,11 @@ function ExerciseCardItem({
                 (previousSet) => previousSet.setNumber === set.number,
               )}
               target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
+              trackingType={exercise.trackingType}
+              distance={set.distance}
               weight={set.weight}
               weightUnit={weightUnit}
+              seconds={set.seconds}
             />
           ))}
         </div>
@@ -591,10 +597,14 @@ function LastPerformanceSummary({
   currentSets,
   lastPerformance,
   prescribedReps,
+  trackingType,
+  weightUnit,
 }: {
   currentSets: ActiveWorkoutExercise['sets'];
   lastPerformance: ActiveWorkoutLastPerformance;
   prescribedReps: ActiveWorkoutExercise['prescribedReps'];
+  trackingType: ExerciseTrackingType;
+  weightUnit: WeightUnit;
 }) {
   const formattedDate = new Date(`${lastPerformance.date}T12:00:00`).toLocaleDateString('en-US', {
     day: 'numeric',
@@ -617,11 +627,17 @@ function LastPerformanceSummary({
       <span aria-hidden="true">•</span>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {lastPerformance.sets.map((set, index) => (
-          <span className="inline-flex items-center gap-1" key={set.setNumber}>
-            <span>
-              {formatCompactPerformanceSet(set.weight, set.reps, prescribedReps)}
+            <span className="inline-flex items-center gap-1" key={set.setNumber}>
+              <span>
+                {formatCompactPerformanceSetByTrackingType(
+                  trackingType,
+                  set.weight,
+                  set.reps,
+                  prescribedReps,
+                  weightUnit,
+                )}
               {index < lastPerformance.sets.length - 1 ? ',' : ''}
-            </span>
+              </span>
             {exceededSetNumbers.has(set.setNumber) ? (
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRight aria-hidden="true" className="size-3" />
@@ -737,16 +753,34 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
   return null;
 }
 
-function formatCompactPerformanceSet(weight: number | null, reps: number, prescribedReps: string) {
-  if (weight === null) {
-    return formatPerformedReps(reps, prescribedReps);
-  }
+function formatCompactPerformanceSetByTrackingType(
+  trackingType: ExerciseTrackingType,
+  weight: number | null,
+  reps: number,
+  prescribedReps: string,
+  weightUnit: WeightUnit,
+) {
+  const distanceUnit = getDistanceUnit(weightUnit);
 
-  if (prescribedReps.includes('min') || prescribedReps.includes('sec')) {
-    return `${formatWeight(weight)}x${formatPerformedReps(reps, prescribedReps)}`;
+  switch (trackingType) {
+    case 'weight_reps':
+      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
+    case 'weight_seconds':
+      return weight != null ? `${formatWeight(weight)}x${reps} sec` : `${reps} sec`;
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return formatPerformedReps(reps, prescribedReps);
+    case 'seconds_only':
+      return `${reps} sec`;
+    case 'reps_seconds':
+      return `${reps} x ${reps} sec`;
+    case 'distance':
+      return `${reps} ${distanceUnit}`;
+    case 'cardio':
+      return `${reps} sec`;
+    default:
+      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
   }
-
-  return `${formatWeight(weight)}x${reps}`;
 }
 
 function getSetTarget(

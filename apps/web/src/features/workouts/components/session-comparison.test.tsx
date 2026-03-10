@@ -99,4 +99,22 @@ describe('SessionComparison', () => {
     expect(screen.getByText('850 kg')).toBeInTheDocument();
     expect(screen.getByText('640 kg')).toBeInTheDocument();
   });
+
+  it('uses seconds metric labels for time-based sessions', () => {
+    const previousSession = createSession({
+      id: 'previous-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [createSet('couch-stretch', 1, 60)],
+    });
+    const currentSession = createSession({
+      id: 'current-session',
+      sets: [createSet('couch-stretch', 1, 90)],
+    });
+
+    render(<SessionComparison currentSession={currentSession} previousSession={previousSession} />);
+
+    expect(screen.getByText('Seconds progression')).toBeInTheDocument();
+    expect(screen.getByText('90 sec')).toBeInTheDocument();
+    expect(screen.getByText('60 sec')).toBeInTheDocument();
+  });
 });

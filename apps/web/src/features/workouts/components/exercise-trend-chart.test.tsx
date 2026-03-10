@@ -69,4 +69,21 @@ describe('ExerciseTrendChart', () => {
       screen.getByText(/complete a few sessions for air bike to unlock progression trends/i),
     ).toBeInTheDocument();
   });
+
+  it('renders reps-only trend cards for bodyweight tracking', () => {
+    render(
+      <ExerciseTrendChart
+        exerciseName="Bodyweight Squat"
+        history={[
+          { date: '2026-02-01', reps: 12, weight: 0 },
+          { date: '2026-03-01', reps: 15, weight: 0 },
+        ]}
+        trackingType="reps_only"
+      />,
+    );
+
+    expect(screen.getByText('Latest reps')).toBeInTheDocument();
+    expect(screen.getByText('15 reps')).toBeInTheDocument();
+    expect(screen.queryByText('Latest weight')).not.toBeInTheDocument();
+  });
 });

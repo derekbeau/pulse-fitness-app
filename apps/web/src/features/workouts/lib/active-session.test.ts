@@ -120,16 +120,20 @@ describe('active-session helpers', () => {
     drafts['incline-dumbbell-press'] = [
       {
         completed: true,
+        distance: null,
         id: createWorkoutSetId('incline-dumbbell-press', 1),
         number: 1,
         reps: 10,
+        seconds: null,
         weight: 50,
       },
       {
         completed: false,
+        distance: null,
         id: createWorkoutSetId('incline-dumbbell-press', 2),
         number: 2,
         reps: 9,
+        seconds: null,
         weight: 50,
       },
     ];
