@@ -682,7 +682,7 @@ function getExerciseState(
   exercise: ActiveWorkoutExercise,
   currentExerciseId: string | null,
 ): 'completed' | 'in-progress' | 'upcoming' {
-  if (exercise.completedSets === exercise.targetSets) {
+  if (exercise.completedSets >= exercise.targetSets) {
     return 'completed';
   }
 
@@ -711,7 +711,7 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
 function formatCompactPerformanceSetByTrackingType(
   trackingType: ExerciseTrackingType,
   weight: number | null,
-  reps: number,
+  value: number,
   prescribedReps: string,
   weightUnit: WeightUnit,
 ) {
@@ -719,22 +719,22 @@ function formatCompactPerformanceSetByTrackingType(
 
   switch (trackingType) {
     case 'weight_reps':
-      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
+      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
     case 'weight_seconds':
-      return weight != null ? `${formatWeight(weight)}x${reps} sec` : `${reps} sec`;
+      return weight != null ? `${formatWeight(weight)}x${value} sec` : `${value} sec`;
     case 'bodyweight_reps':
     case 'reps_only':
-      return formatPerformedReps(reps, prescribedReps);
+      return formatPerformedReps(value, prescribedReps);
     case 'seconds_only':
-      return `${reps} sec`;
+      return `${value} sec`;
     case 'reps_seconds':
-      return `${reps} reps`;
+      return `${value} reps`;
     case 'distance':
-      return `${reps} ${distanceUnit}`;
+      return `${value} ${distanceUnit}`;
     case 'cardio':
-      return `${reps} sec`;
+      return `${value} sec`;
     default:
-      return weight != null ? `${formatWeight(weight)}x${reps}` : `${reps}`;
+      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
   }
 }
 
@@ -777,7 +777,7 @@ function formatExerciseSubtitle({
 }
 
 function parsePrescribedRepTarget(prescribedReps: string) {
-  const range = prescribedReps.match(/(\\d+\\s*-\\s*\\d+)/);
+  const range = prescribedReps.match(/(\d+\s*-\s*\d+)/);
 
   if (range) {
     return range[1].replace(/\s+/g, '');
