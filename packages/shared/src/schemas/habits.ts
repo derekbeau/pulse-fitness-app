@@ -1,11 +1,20 @@
 import { z } from 'zod';
 
 export const habitTrackingTypeSchema = z.enum(['boolean', 'numeric', 'time']);
+export const habitFrequencySchema = z.enum(['daily', 'weekly', 'specific_days']);
 
 const nullableTrimmedString = (maxLength: number) =>
   z.string().trim().min(1).max(maxLength).nullable();
 
 const targetSchema = z.number().positive().nullable();
+const scheduledDaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .min(1)
+  .max(7)
+  .refine((days) => new Set(days).size === days.length, {
+    message: 'Scheduled days must be unique',
+  })
+  .nullable();
 
 const habitDefinitionFieldsSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -13,6 +22,10 @@ const habitDefinitionFieldsSchema = z.object({
   trackingType: habitTrackingTypeSchema,
   target: targetSchema.optional(),
   unit: nullableTrimmedString(50).optional(),
+  frequency: habitFrequencySchema.optional(),
+  frequencyTarget: z.number().int().positive().nullable().optional(),
+  scheduledDays: scheduledDaysSchema.optional(),
+  pausedUntil: z.string().date().nullable().optional(),
 });
 
 const validateHabitDefinition = (
@@ -22,6 +35,9 @@ const validateHabitDefinition = (
   const requiresTarget = value.trackingType !== 'boolean';
   const target = value.target ?? null;
   const unit = value.unit ?? null;
+  const frequency = value.frequency ?? 'daily';
+  const frequencyTarget = value.frequencyTarget ?? null;
+  const scheduledDays = value.scheduledDays ?? null;
 
   if (requiresTarget) {
     if (target === null) {
@@ -58,6 +74,38 @@ const validateHabitDefinition = (
       path: ['unit'],
     });
   }
+
+  if (frequency === 'weekly' && frequencyTarget === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Weekly habits require a frequency target',
+      path: ['frequencyTarget'],
+    });
+  }
+
+  if (frequency !== 'weekly' && frequencyTarget !== null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only weekly habits can define a frequency target',
+      path: ['frequencyTarget'],
+    });
+  }
+
+  if (frequency === 'specific_days' && scheduledDays === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Specific-day habits require scheduled days',
+      path: ['scheduledDays'],
+    });
+  }
+
+  if (frequency !== 'specific_days' && scheduledDays !== null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only specific-day habits can define scheduled days',
+      path: ['scheduledDays'],
+    });
+  }
 };
 
 const habitDefinitionSchema = habitDefinitionFieldsSchema.superRefine(validateHabitDefinition);
@@ -92,6 +140,10 @@ export const habitSchema = z.object({
   trackingType: habitTrackingTypeSchema,
   target: z.number().nullable(),
   unit: z.string().nullable(),
+  frequency: habitFrequencySchema.optional(),
+  frequencyTarget: z.number().int().positive().nullable().optional(),
+  scheduledDays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  pausedUntil: z.string().date().nullable().optional(),
   sortOrder: z.number().int().nonnegative(),
   active: z.boolean(),
   createdAt: z.number().int(),
@@ -99,6 +151,7 @@ export const habitSchema = z.object({
 });
 
 export type HabitTrackingType = z.infer<typeof habitTrackingTypeSchema>;
+export type HabitFrequency = z.infer<typeof habitFrequencySchema>;
 export type CreateHabitInput = z.infer<typeof createHabitInputSchema>;
 export type UpdateHabitInput = z.infer<typeof updateHabitInputSchema>;
 export type ReorderHabitsInput = z.infer<typeof reorderHabitsInputSchema>;

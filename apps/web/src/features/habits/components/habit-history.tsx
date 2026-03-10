@@ -1,279 +1,249 @@
 import type { CSSProperties } from 'react';
-import { Fragment, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { isHabitScheduledForDate, type Habit, type HabitEntry } from '@pulse/shared';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { defaultHabitConfigs } from '@/features/habits/lib/habit-constants';
-import type { HabitConfig } from '@/features/habits/types';
+import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
+import { formatFrequencyLabel, mapHabitFrequency } from '@/features/habits/lib/habit-scheduling';
+import { toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 const HISTORY_DAYS = 90;
-const CELL_SIZE_PX = 14;
-const CELL_GAP_PX = 4;
-const LABEL_COLUMN_WIDTH_PX = 176;
 
-type HabitHistoryValue = boolean | number;
+type HistoryStatus = 'completed' | 'missed' | 'not_scheduled';
 
-type HabitHistoryEntry = {
+type HistoryCell = {
   completionPercent: number;
-  date: Date;
-  isComplete: boolean;
-  tooltipLabel: string;
-  value: HabitHistoryValue;
+  date: string;
+  hasLoggedValue: boolean;
+  label: string;
+  status: HistoryStatus;
 };
 
-type HabitHistoryRow = HabitConfig & {
-  history: HabitHistoryEntry[];
-  streakCount: number;
+type HistoryRow = {
+  hasEntries: boolean;
+  completionRate: number;
+  habit: Habit;
+  cells: HistoryCell[];
 };
 
-const monthFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-});
+function getDateRange(dayCount: number, endDate: Date) {
+  const end = new Date(endDate);
+  end.setHours(12, 0, 0, 0);
 
-const tooltipDateFormatter = new Intl.DateTimeFormat('en-US', {
-  day: 'numeric',
-  month: 'short',
-});
+  const days = Array.from({ length: dayCount }, (_, index) => {
+    const date = new Date(end);
+    date.setDate(end.getDate() - (dayCount - index - 1));
+    return toDateKey(date);
+  });
+
+  const from = days[0] ?? toDateKey(end);
+  const to = days[days.length - 1] ?? toDateKey(end);
+
+  return {
+    days,
+    from,
+    to,
+  };
+}
+
+function getCreatedDateKey(habit: Habit) {
+  return toDateKey(new Date(habit.createdAt));
+}
 
 function clampPercent(percent: number) {
   return Math.max(0, Math.min(percent, 100));
 }
 
-function formatNumber(value: number) {
+function formatValue(value: number) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 }
 
-function createHistoryDate(baseDate: Date, daysAgo: number) {
-  const nextDate = new Date(baseDate);
-
-  nextDate.setHours(12, 0, 0, 0);
-  nextDate.setDate(baseDate.getDate() - daysAgo);
-
-  return nextDate;
-}
-
-function getLastNDays(count: number, baseDate: Date) {
-  return Array.from({ length: count }, (_, index) =>
-    createHistoryDate(baseDate, count - index - 1),
-  );
-}
-
-function getCompletionPercent(habit: HabitConfig, value: HabitHistoryValue) {
+function getCompletionPercent(habit: Habit, entry: HabitEntry | undefined, completed: boolean) {
   if (habit.trackingType === 'boolean') {
-    return value === true ? 100 : 0;
+    return completed ? 100 : 0;
   }
 
-  if (habit.target === null || habit.target <= 0 || typeof value !== 'number') {
+  if (typeof entry?.value !== 'number' || habit.target === null || habit.target <= 0) {
     return 0;
   }
 
-  return clampPercent((value / habit.target) * 100);
+  return clampPercent((entry.value / habit.target) * 100);
 }
 
-function isEntryComplete(habit: HabitConfig, value: HabitHistoryValue) {
+function getCellLabel(habit: Habit, status: HistoryStatus, entry: HabitEntry | undefined) {
   if (habit.trackingType === 'boolean') {
-    return value === true;
-  }
-
-  return typeof value === 'number' && habit.target !== null && value >= habit.target;
-}
-
-function getBooleanValue(habitId: string, daysAgo: number) {
-  switch (habitId) {
-    case 'vitamins':
-      if (daysAgo <= 3) {
-        return true;
-      }
-
-      if (daysAgo === 4) {
-        return false;
-      }
-
-      return [true, false, true, true, true, false, true][daysAgo % 7];
-    case 'mobility':
-      if (daysAgo === 0) {
-        return false;
-      }
-
-      return [true, true, false, true, false, true][daysAgo % 6];
-    default:
-      return [true, false, true, true, false][daysAgo % 5];
-  }
-}
-
-function getNumericValue(habitId: string, daysAgo: number) {
-  switch (habitId) {
-    case 'hydrate':
-      if (daysAgo === 0) {
-        return 8;
-      }
-
-      if (daysAgo === 1) {
-        return 9;
-      }
-
-      if (daysAgo === 2) {
-        return 8;
-      }
-
-      if (daysAgo === 3) {
-        return 6;
-      }
-
-      return [5, 7, 8, 9, 6, 8, 4, 10, 7, 8, 6, 9][daysAgo % 12];
-    case 'protein':
-      if (daysAgo === 0) {
-        return 110;
-      }
-
-      if (daysAgo === 1) {
-        return 125;
-      }
-
-      if (daysAgo === 2) {
-        return 130;
-      }
-
-      if (daysAgo === 3) {
-        return 118;
-      }
-
-      return [95, 100, 120, 140, 110, 125, 90, 130][daysAgo % 8];
-    default:
-      return [1, 2, 3, 4, 2, 3][daysAgo % 6];
-  }
-}
-
-function getTimeValue(habitId: string, daysAgo: number) {
-  switch (habitId) {
-    case 'sleep':
-      if (daysAgo <= 6) {
-        return [8.25, 8, 9, 8.5, 8.25, 8, 8.75][daysAgo];
-      }
-
-      if (daysAgo === 7) {
-        return 7.5;
-      }
-
-      return [7.25, 8, 8.5, 6.5, 9, 7.75, 8][daysAgo % 7];
-    default:
-      return [0.5, 1, 1.25, 0.75, 1.5][daysAgo % 5];
-  }
-}
-
-function getMockHistoryValue(habit: HabitConfig, daysAgo: number) {
-  switch (habit.trackingType) {
-    case 'boolean':
-      return getBooleanValue(habit.id, daysAgo);
-    case 'numeric':
-      return getNumericValue(habit.id, daysAgo);
-    case 'time':
-      return getTimeValue(habit.id, daysAgo);
-  }
-}
-
-function getTooltipLabel(habit: HabitConfig, date: Date, value: HabitHistoryValue) {
-  const formattedDate = tooltipDateFormatter.format(date);
-
-  if (habit.trackingType === 'boolean') {
-    return `${formattedDate} - ${value === true ? 'Completed' : 'Not completed'}`;
-  }
-
-  return `${formattedDate} - ${formatNumber(Number(value))}/${formatNumber(habit.target ?? 0)} ${habit.unit}`;
-}
-
-function getCurrentStreakCount(history: HabitHistoryEntry[]) {
-  let streakCount = 0;
-
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (!history[index]?.isComplete) {
-      break;
+    if (status === 'completed') {
+      return 'Completed';
     }
 
-    streakCount += 1;
+    if (status === 'missed') {
+      return 'Not completed';
+    }
+
+    return 'Not scheduled';
   }
 
-  return streakCount;
+  if (status === 'not_scheduled') {
+    return 'Not scheduled';
+  }
+
+  if (typeof entry?.value === 'number' && habit.target !== null && habit.target > 0 && habit.unit) {
+    return `Logged ${formatValue(entry.value)}/${formatValue(habit.target)} ${habit.unit}`;
+  }
+
+  if (typeof entry?.value === 'number') {
+    return `Logged ${formatValue(entry.value)}`;
+  }
+
+  return 'No entry';
 }
 
-function buildHabitHistoryRows(baseDate: Date) {
-  return defaultHabitConfigs.map<HabitHistoryRow>((habit) => {
-    const history = getLastNDays(HISTORY_DAYS, baseDate).map((date, index, dates) => {
-      const daysAgo = dates.length - index - 1;
-      const value = getMockHistoryValue(habit, daysAgo);
-      const completionPercent = getCompletionPercent(habit, value);
-      const isComplete = isEntryComplete(habit, value);
+function buildHistoryRows(habits: Habit[], entries: HabitEntry[], dates: string[], today: string) {
+  const entriesByHabitId = entries.reduce<Map<string, HabitEntry[]>>((map, entry) => {
+    const current = map.get(entry.habitId) ?? [];
+    current.push(entry);
+    map.set(entry.habitId, current);
+    return map;
+  }, new Map());
+
+  return habits
+    .map<HistoryRow>((habit) => {
+      const habitEntries = entriesByHabitId.get(habit.id) ?? [];
+      const entryByDate = new Map(habitEntries.map((entry) => [entry.date, entry]));
+      const createdDate = getCreatedDateKey(habit);
+
+      let scheduledDays = 0;
+      let completedDays = 0;
+
+      const cells = dates.map<HistoryCell>((date) => {
+        const entry = entryByDate.get(date);
+        const completed = entry?.completed === true;
+        const shouldSchedule =
+          date >= createdDate &&
+          date <= today &&
+          isHabitScheduledForDate(habit, date, { entries: habitEntries });
+
+        if (completed) {
+          completedDays += 1;
+        }
+
+        if (shouldSchedule) {
+          scheduledDays += 1;
+        }
+
+        const status: HistoryStatus = completed
+          ? 'completed'
+          : shouldSchedule
+            ? 'missed'
+            : 'not_scheduled';
+
+        const completionPercent = getCompletionPercent(habit, entry, completed);
+
+        return {
+          completionPercent,
+          date,
+          hasLoggedValue: typeof entry?.value === 'number',
+          label: getCellLabel(habit, status, entry),
+          status,
+        };
+      });
 
       return {
-        completionPercent,
-        date,
-        isComplete,
-        tooltipLabel: getTooltipLabel(habit, date, value),
-        value,
+        hasEntries: habitEntries.length > 0,
+        habit,
+        cells,
+        completionRate: scheduledDays > 0 ? Math.round((completedDays / scheduledDays) * 100) : 0,
       };
-    });
-
-    return {
-      ...habit,
-      history,
-      streakCount: getCurrentStreakCount(history),
-    };
-  });
-}
-
-function getMonthMarkers(dates: Date[]) {
-  return dates.reduce<Array<{ index: number; label: string }>>((markers, date, index) => {
-    const previousDate = dates[index - 1];
-
-    if (!previousDate || previousDate.getMonth() !== date.getMonth()) {
-      markers.push({
-        index,
-        label: monthFormatter.format(date),
-      });
-    }
-
-    return markers;
-  }, []);
+    })
+    .filter((row) => row.cells.some((cell) => cell.status !== 'not_scheduled'));
 }
 
 function getProgressCellColor(percent: number) {
   return `color-mix(in srgb, #10b981 ${Math.round(clampPercent(percent))}%, var(--color-border))`;
 }
 
-function getCellPresentation(habit: HabitConfig, entry: HabitHistoryEntry) {
-  if (habit.trackingType === 'boolean') {
+function getCellPresentation(habit: Habit, cell: HistoryCell) {
+  if (habit.trackingType !== 'boolean' && cell.hasLoggedValue) {
     return {
-      className: entry.isComplete
-        ? 'border-emerald-700/20 bg-emerald-500'
-        : 'border-slate-400/50 bg-slate-300/70 dark:border-slate-600/60 dark:bg-slate-600/45',
+      className: 'border-black/5 dark:border-white/10',
+      style: {
+        backgroundColor: getProgressCellColor(cell.completionPercent),
+      } satisfies CSSProperties,
+    };
+  }
+
+  if (cell.status === 'completed') {
+    return {
+      className: 'border-emerald-700/20 bg-emerald-500',
+      style: undefined,
+    };
+  }
+
+  if (cell.status === 'missed') {
+    return {
+      className:
+        'border-slate-400/50 bg-slate-300/70 dark:border-slate-600/60 dark:bg-slate-600/45',
       style: undefined,
     };
   }
 
   return {
-    className: 'border-black/5 dark:border-white/10',
-    style: {
-      backgroundColor: getProgressCellColor(entry.completionPercent),
-    } satisfies CSSProperties,
+    className: 'border-border/60 bg-muted/60',
+    style: undefined,
   };
 }
 
-function getHistoryGridStyle(dayCount: number) {
-  return {
-    gridTemplateColumns: `repeat(${dayCount}, ${CELL_SIZE_PX}px)`,
-  } satisfies CSSProperties;
-}
+function useTodayKey() {
+  const [today, setToday] = useState(() => toDateKey(new Date()));
 
-function getGridWidth(dayCount: number) {
-  return dayCount * CELL_SIZE_PX + (dayCount - 1) * CELL_GAP_PX;
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now);
+
+    nextMidnight.setHours(24, 0, 5, 0);
+
+    const timeoutId = window.setTimeout(() => {
+      setToday(toDateKey(new Date()));
+    }, nextMidnight.getTime() - now.getTime());
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [today]);
+
+  return today;
 }
 
 export function HabitHistory() {
-  const historyRows = useMemo(() => buildHabitHistoryRows(new Date()), []);
-  const historyDates = historyRows[0]?.history.map((entry) => entry.date) ?? [];
-  const monthMarkers = getMonthMarkers(historyDates);
-  const gridWidth = getGridWidth(historyDates.length);
+  const today = useTodayKey();
+  const { days, from, to } = useMemo(
+    () => getDateRange(HISTORY_DAYS, new Date(`${today}T12:00:00`)),
+    [today],
+  );
+  const habitsQuery = useHabits();
+  const entriesQuery = useHabitEntries(from, to);
+
+  if (habitsQuery.isLoading || entriesQuery.isLoading) {
+    return (
+      <Card className="gap-5 border-border/70 shadow-sm">
+        <CardHeader>
+          <CardTitle
+            aria-level={2}
+            className="text-2xl font-semibold text-foreground"
+            role="heading"
+          >
+            Last 90 days
+          </CardTitle>
+          <CardDescription>Loading habit history...</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const habits = habitsQuery.data ?? [];
+  const entries = entriesQuery.data ?? [];
+  const rows = buildHistoryRows(habits, entries, days, today);
 
   return (
     <Card className="gap-5 border-border/70 shadow-sm">
@@ -291,115 +261,82 @@ export function HabitHistory() {
               Last 90 days
             </CardTitle>
             <CardDescription className="max-w-2xl">
-              Scan streaks across every habit, compare quiet misses against stronger runs, and hover
-              any day for the exact value that was logged.
+              Wrapped daily cells for each habit. Green means completed; gray means not completed or
+              not scheduled.
             </CardDescription>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex rounded-full bg-[var(--color-accent-pink)] px-3 py-1 text-xs font-semibold text-on-pink dark:bg-pink-500/20 dark:text-pink-400">
-              Boolean habits: gray or green
+            <span className="inline-flex rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              Completed
+            </span>
+            <span className="inline-flex rounded-full bg-slate-300/70 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Not completed
             </span>
             <span className="inline-flex rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
-              Numeric/time habits: intensity by target %
+              Numeric/time intensity by target %
             </span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="overflow-x-auto pb-2">
-          <div className="min-w-max rounded-3xl border border-border/70 bg-card/40 p-4">
-            <div
-              className="grid gap-x-4 gap-y-3"
-              style={{
-                gridTemplateColumns: `${LABEL_COLUMN_WIDTH_PX}px max-content`,
-              }}
-            >
-              <div className="sticky left-0 z-20 rounded-2xl bg-card/95 px-3 py-2 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  Newest on the right
-                </p>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  Current streaks update from today&apos;s cell backward.
-                </p>
-              </div>
-
-              <div className="relative h-10" style={{ width: gridWidth }}>
-                {monthMarkers.map((marker) => (
-                  <span
-                    key={`${marker.label}-${marker.index}`}
-                    className="absolute top-0 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-                    style={{
-                      left: marker.index * (CELL_SIZE_PX + CELL_GAP_PX),
-                    }}
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted">No history yet.</p>
+        ) : (
+          rows.map((row) => {
+            const schedule = mapHabitFrequency(row.habit);
+            return (
+              <article key={row.habit.id} className="rounded-2xl border border-border/70 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">{row.habit.name}</h3>
+                    <p className="text-xs text-muted">
+                      {formatFrequencyLabel(
+                        schedule.frequency,
+                        schedule.frequencyTarget,
+                        schedule.scheduledDays,
+                      )}
+                    </p>
+                  </div>
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.08em] text-muted"
+                    data-testid={`habit-completion-rate-${row.habit.id}`}
                   >
-                    {marker.label}
-                  </span>
-                ))}
-              </div>
+                    {row.completionRate}% completion rate (last 90 days)
+                  </p>
+                </div>
 
-              <TooltipProvider>
-                {historyRows.map((habit) => (
-                  <Fragment key={habit.id}>
-                    <div className="sticky left-0 z-10 flex items-center rounded-2xl bg-card/95 px-3 py-3 shadow-sm">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          <span aria-hidden="true" className="mr-2 text-base">
-                            {habit.emoji}
-                          </span>
-                          {habit.name}
-                        </p>
-                        <p
-                          className="text-xs font-medium text-muted-foreground"
-                          data-testid={`habit-streak-${habit.id}`}
-                        >
-                          {habit.streakCount}-day streak
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      aria-label={`${habit.name} history`}
-                      className="grid gap-1"
-                      style={getHistoryGridStyle(habit.history.length)}
-                    >
-                      {habit.history.map((entry) => {
-                        const presentation = getCellPresentation(habit, entry);
-
-                        return (
-                          <Tooltip key={`${habit.id}-${entry.date.toISOString()}`}>
-                            <TooltipTrigger asChild>
-                              <button
-                                aria-label={`${habit.name}: ${entry.tooltipLabel}`}
-                                className={cn(
-                                  'size-3.5 cursor-pointer rounded-[4px] border transition-transform duration-150 hover:scale-110 focus-visible:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
-                                  presentation.className,
-                                )}
-                                data-percent={Math.round(entry.completionPercent)}
-                                data-testid="habit-history-cell"
-                                style={presentation.style}
-                                title={entry.tooltipLabel}
-                                type="button"
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={8}>
-                              {entry.tooltipLabel}
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  </Fragment>
-                ))}
-              </TooltipProvider>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Day cells stay compact so the full 90-day run fits inside one scrollable lane.
-        </p>
+                {!row.hasEntries ? (
+                  <p className="text-sm text-muted">No history yet.</p>
+                ) : (
+                  <div
+                    className="flex flex-wrap gap-1"
+                    data-testid={`habit-history-grid-${row.habit.id}`}
+                  >
+                    {row.cells.map((cell) => {
+                      const presentation = getCellPresentation(row.habit, cell);
+                      return (
+                        <button
+                          key={`${row.habit.id}-${cell.date}`}
+                          aria-label={`${row.habit.name}: ${cell.date} - ${cell.label}`}
+                          className={cn(
+                            'h-3.5 w-3.5 rounded-sm border transition-opacity hover:opacity-90',
+                            presentation.className,
+                          )}
+                          data-status={cell.status}
+                          style={presentation.style}
+                          title={`${cell.date} - ${cell.label}`}
+                          type="button"
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </article>
+            );
+          })
+        )}
       </CardContent>
     </Card>
   );

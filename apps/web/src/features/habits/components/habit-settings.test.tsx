@@ -116,7 +116,7 @@ describe('HabitSettings', () => {
 
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
+    const addHabitButton = screen.getAllByRole('button', { name: 'Add Habit' })[0];
 
     if (!addHabitButton) {
       throw new Error('Expected add habit button.');
@@ -132,7 +132,11 @@ describe('HabitSettings', () => {
     await waitFor(() =>
       expect(createMutation.mutateAsync).toHaveBeenCalledWith({
         emoji: '💧',
+        frequency: 'daily',
+        frequencyTarget: null,
         name: 'Stretch',
+        pausedUntil: null,
+        scheduledDays: null,
         target: 15,
         trackingType: 'numeric',
         unit: 'minutes',
@@ -166,7 +170,11 @@ describe('HabitSettings', () => {
         id: 'hydrate',
         values: {
           emoji: '💧',
+          frequency: 'daily',
+          frequencyTarget: null,
           name: 'Hydration',
+          pausedUntil: null,
+          scheduledDays: null,
           target: 8,
           trackingType: 'numeric',
           unit: 'glasses',
@@ -219,7 +227,7 @@ describe('HabitSettings', () => {
   it('shows target and unit fields for boolean habits in a disabled state', () => {
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
+    const addHabitButton = screen.getAllByRole('button', { name: 'Add Habit' })[0];
 
     if (!addHabitButton) {
       throw new Error('Expected add habit button.');
@@ -235,7 +243,7 @@ describe('HabitSettings', () => {
   it('closes the form when cancel is pressed', () => {
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
+    const addHabitButton = screen.getAllByRole('button', { name: 'Add Habit' })[0];
 
     if (!addHabitButton) {
       throw new Error('Expected add habit button.');

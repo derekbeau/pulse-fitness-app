@@ -12,6 +12,7 @@ import {
   useUpdateHabit,
 } from '@/features/habits/api/habits';
 import { trackingSurfaceClasses, trackingTypeLabels } from '@/features/habits/lib/habit-constants';
+import { formatFrequencyLabel, mapHabitFrequency } from '@/features/habits/lib/habit-scheduling';
 import type { HabitConfig, HabitConfigDraft } from '@/features/habits/types';
 import { cn } from '@/lib/utils';
 
@@ -29,10 +30,14 @@ type HabitEditorState =
 
 function describeHabit(habit: HabitConfig) {
   if (habit.trackingType === 'boolean') {
-    return 'Check off once per day';
+    return formatFrequencyLabel(habit.frequency, habit.frequencyTarget, habit.scheduledDays);
   }
 
-  return `${habit.target} ${habit.unit} target`;
+  return `${habit.target} ${habit.unit} target • ${formatFrequencyLabel(
+    habit.frequency,
+    habit.frequencyTarget,
+    habit.scheduledDays,
+  )}`;
 }
 
 function moveHabit(list: HabitConfig[], fromIndex: number, toIndex: number) {
@@ -52,6 +57,7 @@ function toHabitConfig(habit: Habit): HabitConfig {
     trackingType: habit.trackingType,
     target: habit.target,
     unit: habit.unit,
+    ...mapHabitFrequency(habit),
   };
 }
 
@@ -62,6 +68,10 @@ function toCreateHabitInput(values: HabitConfigDraft): CreateHabitInput {
     target: values.target,
     trackingType: values.trackingType,
     unit: values.unit,
+    frequency: values.frequency,
+    frequencyTarget: values.frequencyTarget,
+    pausedUntil: values.pausedUntil,
+    scheduledDays: values.scheduledDays,
   };
 }
 
@@ -72,6 +82,10 @@ function toUpdateHabitInput(values: HabitConfigDraft): UpdateHabitInput {
     target: values.target,
     trackingType: values.trackingType,
     unit: values.unit,
+    frequency: values.frequency,
+    frequencyTarget: values.frequencyTarget,
+    pausedUntil: values.pausedUntil,
+    scheduledDays: values.scheduledDays,
   };
 }
 
@@ -182,7 +196,7 @@ export function HabitSettings() {
               type="button"
             >
               <Plus />
-              Add habit
+              Add Habit
             </Button>
           </div>
           {errorMessage ? (
@@ -317,7 +331,7 @@ export function HabitSettings() {
             </div>
             <Button onClick={() => setEditorState({ mode: 'create' })} type="button">
               <Plus />
-              Add habit
+              Add Habit
             </Button>
           </CardContent>
         </Card>

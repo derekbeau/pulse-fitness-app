@@ -7,8 +7,14 @@ import {
   habitEmojiOptions,
   trackingSurfaceClasses,
   trackingTypeLabels,
+  WEEKDAY_LABELS,
 } from '@/features/habits/lib/habit-constants';
-import type { HabitConfig, HabitConfigDraft, HabitTrackingType } from '@/features/habits/types';
+import type {
+  HabitConfig,
+  HabitConfigDraft,
+  HabitFrequency,
+  HabitTrackingType,
+} from '@/features/habits/types';
 import { cn } from '@/lib/utils';
 
 type HabitFormState = {
@@ -17,9 +23,14 @@ type HabitFormState = {
   trackingType: HabitTrackingType;
   target: string;
   unit: string;
+  frequency: HabitFrequency;
+  frequencyTarget: string;
+  scheduledDays: number[];
 };
 
-type HabitFormErrors = Partial<Record<'name' | 'target' | 'unit', string>>;
+type HabitFormErrors = Partial<
+  Record<'frequencyTarget' | 'name' | 'scheduledDays' | 'target' | 'unit', string>
+>;
 
 type HabitFormProps = {
   initialHabit?: HabitConfig | null;
@@ -34,6 +45,9 @@ function createFormState(initialHabit?: HabitConfig | null): HabitFormState {
     trackingType: initialHabit?.trackingType ?? 'boolean',
     target: initialHabit?.target?.toString() ?? '',
     unit: initialHabit?.unit ?? '',
+    frequency: initialHabit?.frequency ?? 'daily',
+    frequencyTarget: initialHabit?.frequencyTarget?.toString() ?? '',
+    scheduledDays: initialHabit?.scheduledDays ?? [],
   };
 }
 
@@ -42,6 +56,8 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
   const [errors, setErrors] = useState<HabitFormErrors>({});
 
   const requiresGoal = formState.trackingType !== 'boolean';
+  const requiresFrequencyTarget = formState.frequency === 'weekly';
+  const requiresScheduledDays = formState.frequency === 'specific_days';
   const modeLabel = initialHabit ? 'Edit habit' : 'Add habit';
 
   function updateField<Key extends keyof HabitFormState>(key: Key, value: HabitFormState[Key]) {
@@ -55,6 +71,7 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
     const trimmedName = formState.name.trim();
     const trimmedUnit = formState.unit.trim();
     const parsedTarget = Number(formState.target);
+    const parsedFrequencyTarget = Number(formState.frequencyTarget);
 
     if (trimmedName.length === 0) {
       nextErrors.name = 'Give this habit a name.';
@@ -70,6 +87,17 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
       }
     }
 
+    if (
+      requiresFrequencyTarget &&
+      (!Number.isInteger(parsedFrequencyTarget) || parsedFrequencyTarget <= 0)
+    ) {
+      nextErrors.frequencyTarget = 'Enter a weekly target greater than 0.';
+    }
+
+    if (requiresScheduledDays && formState.scheduledDays.length === 0) {
+      nextErrors.scheduledDays = 'Select at least one day.';
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
 
@@ -82,6 +110,10 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
       trackingType: formState.trackingType,
       target: requiresGoal ? parsedTarget : null,
       unit: requiresGoal ? trimmedUnit : null,
+      frequency: formState.frequency,
+      frequencyTarget: requiresFrequencyTarget ? parsedFrequencyTarget : null,
+      scheduledDays: requiresScheduledDays ? [...formState.scheduledDays].sort() : null,
+      pausedUntil: initialHabit?.pausedUntil ?? null,
     });
   }
 
@@ -177,6 +209,83 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
               <option value="time">Time</option>
             </select>
           </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="habit-frequency">
+              Frequency
+            </label>
+            <select
+              id="habit-frequency"
+              className="flex min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              onChange={(event) => updateField('frequency', event.target.value as HabitFrequency)}
+              value={formState.frequency}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Times per week</option>
+              <option value="specific_days">Specific days</option>
+            </select>
+          </div>
+
+          {requiresFrequencyTarget ? (
+            <div className="space-y-2">
+              <label
+                className="text-sm font-medium text-foreground"
+                htmlFor="habit-frequency-target"
+              >
+                Times per week
+              </label>
+              <Input
+                id="habit-frequency-target"
+                min="1"
+                step="1"
+                type="number"
+                className={cn(errors.frequencyTarget && 'border-destructive')}
+                onChange={(event) => updateField('frequencyTarget', event.target.value)}
+                value={formState.frequencyTarget}
+              />
+              {errors.frequencyTarget ? (
+                <p className="text-sm text-destructive">{errors.frequencyTarget}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {requiresScheduledDays ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Scheduled days</p>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAY_LABELS.map((label, dayIndex) => {
+                  const isSelected = formState.scheduledDays.includes(dayIndex);
+                  return (
+                    <button
+                      key={label}
+                      aria-label={label}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-sm transition-colors',
+                        isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-foreground',
+                      )}
+                      onClick={() =>
+                        updateField(
+                          'scheduledDays',
+                          isSelected
+                            ? formState.scheduledDays.filter((day) => day !== dayIndex)
+                            : [...formState.scheduledDays, dayIndex],
+                        )
+                      }
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.scheduledDays ? (
+                <p className="text-sm text-destructive">{errors.scheduledDays}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

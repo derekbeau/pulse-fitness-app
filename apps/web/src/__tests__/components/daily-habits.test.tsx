@@ -7,6 +7,7 @@ import {
   useHabitEntries,
   useHabits,
   useToggleHabit,
+  useUpdateHabit,
   useUpdateHabitEntry,
 } from '@/features/habits/api/habits';
 
@@ -14,16 +15,19 @@ vi.mock('@/features/habits/api/habits', () => ({
   useHabitEntries: vi.fn(),
   useHabits: vi.fn(),
   useToggleHabit: vi.fn(),
+  useUpdateHabit: vi.fn(),
   useUpdateHabitEntry: vi.fn(),
 }));
 
 const mockedUseHabits = vi.mocked(useHabits);
 const mockedUseHabitEntries = vi.mocked(useHabitEntries);
 const mockedUseToggleHabit = vi.mocked(useToggleHabit);
+const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
 const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
 
 const toggleMutate = vi.fn();
 const updateMutate = vi.fn();
+const updateHabitMutate = vi.fn();
 
 const habits: Habit[] = [
   {
@@ -119,6 +123,7 @@ describe('DailyHabits', () => {
 
     toggleMutate.mockReset();
     updateMutate.mockReset();
+    updateHabitMutate.mockReset();
 
     mockUseHabitsResult();
     mockUseHabitEntriesResult();
@@ -133,6 +138,11 @@ describe('DailyHabits', () => {
       mutate: updateMutate,
       variables: undefined,
     } as unknown as ReturnType<typeof useUpdateHabitEntry>);
+    mockedUseUpdateHabit.mockReturnValue({
+      isPending: false,
+      mutate: updateHabitMutate,
+      variables: undefined,
+    } as unknown as ReturnType<typeof useUpdateHabit>);
   });
 
   afterEach(() => {

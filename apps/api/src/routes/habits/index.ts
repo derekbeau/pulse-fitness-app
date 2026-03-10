@@ -85,6 +85,22 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
           : parsedBody.data.trackingType,
       target: parsedBody.data.target === undefined ? existingHabit.target : parsedBody.data.target,
       unit: parsedBody.data.unit === undefined ? existingHabit.unit : parsedBody.data.unit,
+      frequency:
+        parsedBody.data.frequency === undefined
+          ? existingHabit.frequency
+          : parsedBody.data.frequency,
+      frequencyTarget:
+        parsedBody.data.frequencyTarget === undefined
+          ? existingHabit.frequencyTarget
+          : parsedBody.data.frequencyTarget,
+      scheduledDays:
+        parsedBody.data.scheduledDays === undefined
+          ? existingHabit.scheduledDays
+          : parsedBody.data.scheduledDays,
+      pausedUntil:
+        parsedBody.data.pausedUntil === undefined
+          ? existingHabit.pausedUntil
+          : parsedBody.data.pausedUntil,
     });
 
     if (!mergedHabitInput.success) {

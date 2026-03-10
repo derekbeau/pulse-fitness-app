@@ -22,6 +22,7 @@ export * from './schemas/session-set.js';
 export * from './schemas/weight.js';
 export * from './schemas/workout-sessions.js';
 export * from './schemas/workout-templates.js';
+export * from './lib/habit-scheduling.js';
 
 export const userSchema = z.object({
   id: z.string(),

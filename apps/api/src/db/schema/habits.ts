@@ -1,24 +1,19 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  unique,
-} from 'drizzle-orm/sqlite-core';
+import { check, index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 import { users } from './users.js';
 
 export type HabitTrackingType = 'boolean' | 'numeric' | 'time';
+export type HabitFrequency = 'daily' | 'weekly' | 'specific_days';
 
 export const habits = sqliteTable(
   'habits',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -27,6 +22,10 @@ export const habits = sqliteTable(
     trackingType: text('tracking_type').$type<HabitTrackingType>().notNull(),
     target: real('target'),
     unit: text('unit'),
+    frequency: text('frequency').$type<HabitFrequency>().notNull().default('daily'),
+    frequencyTarget: integer('frequency_target'),
+    scheduledDays: text('scheduled_days'),
+    pausedUntil: text('paused_until'),
     sortOrder: integer('sort_order').notNull().default(0),
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
     createdAt: integer('created_at', { mode: 'number' })
@@ -51,7 +50,9 @@ export const habits = sqliteTable(
 export const habitEntries = sqliteTable(
   'habit_entries',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     habitId: text('habit_id')
       .notNull()
       .references(() => habits.id, { onDelete: 'cascade' }),

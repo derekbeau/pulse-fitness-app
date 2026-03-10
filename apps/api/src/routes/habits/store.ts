@@ -11,6 +11,35 @@ type CreateHabitRecordInput = CreateHabitInput & {
   sortOrder: number;
 };
 
+function parseScheduledDays(rawValue: string | null): number[] | null {
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    const days = parsed.filter(
+      (day): day is number => Number.isInteger(day) && day >= 0 && day <= 6,
+    );
+    return days.length === parsed.length ? days : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapHabitRecord(
+  record: Omit<HabitRecord, 'scheduledDays'> & { scheduledDays: string | null },
+) {
+  return {
+    ...record,
+    scheduledDays: parseScheduledDays(record.scheduledDays),
+  };
+}
+
 const habitSelection = {
   id: habits.id,
   userId: habits.userId,
@@ -19,6 +48,10 @@ const habitSelection = {
   trackingType: habits.trackingType,
   target: habits.target,
   unit: habits.unit,
+  frequency: habits.frequency,
+  frequencyTarget: habits.frequencyTarget,
+  scheduledDays: habits.scheduledDays,
+  pausedUntil: habits.pausedUntil,
   sortOrder: habits.sortOrder,
   active: habits.active,
   createdAt: habits.createdAt,
@@ -47,6 +80,10 @@ export const createHabit = async ({
   trackingType,
   target,
   unit,
+  frequency,
+  frequencyTarget,
+  scheduledDays,
+  pausedUntil,
   sortOrder,
 }: CreateHabitRecordInput): Promise<HabitRecord> => {
   const { db } = await import('../../db/index.js');
@@ -61,6 +98,10 @@ export const createHabit = async ({
       trackingType,
       target: target ?? null,
       unit: unit ?? null,
+      frequency: frequency ?? 'daily',
+      frequencyTarget: frequencyTarget ?? null,
+      scheduledDays: scheduledDays ? JSON.stringify(scheduledDays) : null,
+      pausedUntil: pausedUntil ?? null,
       sortOrder,
       active: true,
     })
@@ -81,12 +122,14 @@ export const createHabit = async ({
 export const listActiveHabits = async (userId: string): Promise<HabitRecord[]> => {
   const { db } = await import('../../db/index.js');
 
-  return db
+  const rows = db
     .select(habitSelection)
     .from(habits)
     .where(and(eq(habits.userId, userId), eq(habits.active, true)))
     .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
     .all();
+
+  return rows.map((row) => mapHabitRecord(row));
 };
 
 export const findHabitById = async (
@@ -95,12 +138,14 @@ export const findHabitById = async (
 ): Promise<HabitRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  return db
+  const row = db
     .select(habitSelection)
     .from(habits)
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
     .limit(1)
     .get();
+
+  return row ? mapHabitRecord(row) : undefined;
 };
 
 export const updateHabit = async (
@@ -118,6 +163,10 @@ export const updateHabit = async (
       trackingType: updates.trackingType,
       target: updates.target ?? null,
       unit: updates.unit ?? null,
+      frequency: updates.frequency ?? 'daily',
+      frequencyTarget: updates.frequencyTarget ?? null,
+      scheduledDays: updates.scheduledDays ? JSON.stringify(updates.scheduledDays) : null,
+      pausedUntil: updates.pausedUntil ?? null,
     })
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
     .run();

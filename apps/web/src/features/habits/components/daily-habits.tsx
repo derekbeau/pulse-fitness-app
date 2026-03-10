@@ -1,8 +1,18 @@
 import { useMemo, useState } from 'react';
-import { CheckCheck, CircleDashed } from 'lucide-react';
+import { CheckCheck, CircleDashed, Ellipsis } from 'lucide-react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
 import { HabitRowSkeleton } from '@/components/skeletons';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,9 +22,19 @@ import {
   useHabitEntries,
   useHabits,
   useToggleHabit,
+  useUpdateHabit,
   useUpdateHabitEntry,
 } from '@/features/habits/api/habits';
-import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
+import {
+  INDEFINITE_PAUSE_DATE,
+  trackingSurfaceClasses,
+} from '@/features/habits/lib/habit-constants';
+import {
+  formatFrequencyLabel,
+  formatPausedLabel,
+  isPaused,
+  mapHabitFrequency,
+} from '@/features/habits/lib/habit-scheduling';
 import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { toDateKey } from '@/lib/date';
@@ -93,6 +113,7 @@ function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] 
       trackingType: habit.trackingType,
       target: habit.target,
       unit: habit.unit,
+      ...mapHabitFrequency(habit),
       entryId: entry?.id ?? null,
       todayValue,
     };
@@ -168,11 +189,15 @@ function DailyHabitsErrorState({ message, onRetry }: DailyHabitsErrorStateProps)
 export function DailyHabits() {
   const today = toDateKey(new Date());
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [openMenuHabitId, setOpenMenuHabitId] = useState<string | null>(null);
+  const [confirmPauseHabitId, setConfirmPauseHabitId] = useState<string | null>(null);
+  const [confirmPauseIndefinite, setConfirmPauseIndefinite] = useState(true);
 
   const habitsQuery = useHabits();
   const habitEntriesQuery = useHabitEntries(today, today);
   const toggleHabitMutation = useToggleHabit();
   const updateHabitEntryMutation = useUpdateHabitEntry();
+  const updateHabitMutation = useUpdateHabit();
 
   const dailyHabits = useMemo(
     () => buildDailyHabits(habitsQuery.data ?? [], habitEntriesQuery.data ?? []),
@@ -182,6 +207,8 @@ export function DailyHabits() {
   const completedCount = dailyHabits.filter((habit) =>
     getHabitCompletion(habit, habit.todayValue),
   ).length;
+
+  const confirmPauseHabit = dailyHabits.find((habit) => habit.id === confirmPauseHabitId) ?? null;
 
   const clearDraftValue = (habitId: string) => {
     setDraftValues((currentValues) => {
@@ -227,6 +254,28 @@ export function DailyHabits() {
       completed,
       ...(nextValue === null ? {} : { value: nextValue }),
     });
+  };
+
+  const handlePauseHabit = (habit: DailyHabit) => {
+    const pausedUntil = confirmPauseIndefinite ? INDEFINITE_PAUSE_DATE : today;
+    updateHabitMutation.mutate({
+      id: habit.id,
+      values: {
+        pausedUntil,
+      },
+    });
+    setConfirmPauseHabitId(null);
+    setConfirmPauseIndefinite(true);
+  };
+
+  const handleResumeHabit = (habit: DailyHabit) => {
+    updateHabitMutation.mutate({
+      id: habit.id,
+      values: {
+        pausedUntil: null,
+      },
+    });
+    setOpenMenuHabitId(null);
   };
 
   if (habitsQuery.isLoading || habitEntriesQuery.isLoading) {
@@ -292,6 +341,13 @@ export function DailyHabits() {
               habit.trackingType === 'boolean' || draftValues[habit.id] === undefined
                 ? habit.todayValue
                 : parseInputValue(draftValues[habit.id]);
+            const habitIsPaused = isPaused(habit.pausedUntil, today);
+            const frequencyLabel = formatFrequencyLabel(
+              habit.frequency,
+              habit.frequencyTarget,
+              habit.scheduledDays,
+            );
+            const pausedLabel = formatPausedLabel(habit.pausedUntil);
             const isComplete = getHabitCompletion(habit, value);
             const progressText = getProgressText(habit, value);
             const progressPercent = getProgressPercent(habit, value);
@@ -307,6 +363,7 @@ export function DailyHabits() {
                 className={cn(
                   'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
                   trackingSurfaceClasses[habit.trackingType],
+                  habitIsPaused && 'opacity-70',
                   isComplete && 'ring-2 ring-emerald-500/40',
                 )}
               >
@@ -316,28 +373,82 @@ export function DailyHabits() {
                       <span className="text-3xl leading-none" aria-hidden="true">
                         {habit.emoji}
                       </span>
-                      <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
-                        {habit.name}
-                      </CardTitle>
+                      <div className="space-y-1">
+                        <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
+                          {habit.name}
+                        </CardTitle>
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
+                          <span>{frequencyLabel}</span>
+                          {habitIsPaused ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] tracking-[0.08em]">
+                              Paused
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                     <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
                       {progressText}
                     </CardDescription>
+                    {habitIsPaused && pausedLabel ? (
+                      <CardDescription className="pl-12 text-sm opacity-80">
+                        {pausedLabel}
+                      </CardDescription>
+                    ) : null}
                   </div>
-                  <div
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
-                      isComplete
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCheck className="size-3.5" />
-                    ) : (
-                      <CircleDashed className="size-3.5" />
-                    )}
-                    <span>{isComplete ? 'Done' : 'In progress'}</span>
+                  <div className="flex items-start gap-2">
+                    <div
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
+                        isComplete
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
+                      )}
+                    >
+                      {isComplete ? (
+                        <CheckCheck className="size-3.5" />
+                      ) : (
+                        <CircleDashed className="size-3.5" />
+                      )}
+                      <span>{isComplete ? 'Done' : 'In progress'}</span>
+                    </div>
+                    <div className="relative">
+                      <Button
+                        aria-label={`Open menu for ${habit.name}`}
+                        onClick={() =>
+                          setOpenMenuHabitId((current) => (current === habit.id ? null : habit.id))
+                        }
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Ellipsis />
+                      </Button>
+                      {openMenuHabitId === habit.id ? (
+                        <div className="absolute right-0 z-20 mt-1 min-w-44 rounded-md border bg-popover p-1 shadow">
+                          {habit.pausedUntil === null ? (
+                            <button
+                              className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent"
+                              onClick={() => {
+                                setConfirmPauseHabitId(habit.id);
+                                setOpenMenuHabitId(null);
+                              }}
+                              type="button"
+                            >
+                              Pause scheduling
+                            </button>
+                          ) : (
+                            <button
+                              className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent"
+                              onClick={() => handleResumeHabit(habit)}
+                              type="button"
+                            >
+                              Resume scheduling
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -352,7 +463,7 @@ export function DailyHabits() {
                         aria-label={habit.name}
                         checked={value === true}
                         className="border-border bg-white dark:bg-background"
-                        disabled={isSavingToggle}
+                        disabled={isSavingToggle || habitIsPaused}
                         onCheckedChange={(checked) => {
                           toggleHabitMutation.mutate({
                             habitId: habit.id,
@@ -379,7 +490,7 @@ export function DailyHabits() {
                           id={`habit-${habit.id}`}
                           aria-label={habit.name}
                           className="h-11 border-border bg-white/75 text-lg font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
-                          disabled={isSavingValue || isSavingToggle}
+                          disabled={isSavingValue || isSavingToggle || habitIsPaused}
                           inputMode="decimal"
                           min="0"
                           step={habit.trackingType === 'time' ? '0.25' : '1'}
@@ -428,6 +539,60 @@ export function DailyHabits() {
           })}
         </div>
       )}
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmPauseHabitId(null);
+            setConfirmPauseIndefinite(true);
+          }
+        }}
+        open={confirmPauseHabitId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pause scheduling</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmPauseHabit
+                ? `Pause scheduling for ${confirmPauseHabit.name}?`
+                : 'Pause this habit schedule?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                checked={confirmPauseIndefinite}
+                name="pause-until"
+                onChange={() => setConfirmPauseIndefinite(true)}
+                type="radio"
+              />
+              Pause indefinitely
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                checked={!confirmPauseIndefinite}
+                name="pause-until"
+                onChange={() => setConfirmPauseIndefinite(false)}
+                type="radio"
+              />
+              Pause for today
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmPauseHabit) {
+                  handlePauseHabit(confirmPauseHabit);
+                }
+              }}
+              type="button"
+            >
+              Pause
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

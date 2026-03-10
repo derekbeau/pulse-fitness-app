@@ -52,6 +52,26 @@ describe('createHabitInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('requires frequencyTarget for weekly habits', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Meditation',
+        trackingType: 'boolean',
+        frequency: 'weekly',
+      }),
+    ).toThrow();
+  });
+
+  it('requires scheduledDays for specific-day habits', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Mobility',
+        trackingType: 'boolean',
+        frequency: 'specific_days',
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateHabitInputSchema', () => {

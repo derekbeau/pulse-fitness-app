@@ -1,5 +1,8 @@
 import type { HabitConfig, HabitTrackingType } from '../types';
 
+export const INDEFINITE_PAUSE_DATE = '9999-12-31';
+export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
 export const habitEmojiOptions = [
   '💧',
   '💊',
@@ -55,6 +58,10 @@ export const defaultHabitConfigs: HabitConfig[] = [
     trackingType: 'numeric',
     target: 8,
     unit: 'glasses',
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
   },
   {
     id: 'vitamins',
@@ -63,6 +70,10 @@ export const defaultHabitConfigs: HabitConfig[] = [
     trackingType: 'boolean',
     target: null,
     unit: null,
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
   },
   {
     id: 'protein',
@@ -71,6 +82,10 @@ export const defaultHabitConfigs: HabitConfig[] = [
     trackingType: 'numeric',
     target: 120,
     unit: 'grams',
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
   },
   {
     id: 'sleep',
@@ -79,6 +94,10 @@ export const defaultHabitConfigs: HabitConfig[] = [
     trackingType: 'time',
     target: 8,
     unit: 'hours',
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
   },
   {
     id: 'mobility',
@@ -87,5 +106,9 @@ export const defaultHabitConfigs: HabitConfig[] = [
     trackingType: 'boolean',
     target: null,
     unit: null,
+    frequency: 'daily',
+    frequencyTarget: null,
+    scheduledDays: null,
+    pausedUntil: null,
   },
 ];
