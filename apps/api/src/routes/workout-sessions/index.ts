@@ -145,7 +145,9 @@ const ensureOwnedActiveSession = async ({
   return session;
 };
 
-const isValidTimestamp = (value: number) => Number.isFinite(new Date(value).getTime());
+const MIN_VALID_STARTED_AT_TIMESTAMP = Date.UTC(2020, 0, 1);
+const isValidTimestamp = (value: number) =>
+  Number.isFinite(new Date(value).getTime()) && value >= MIN_VALID_STARTED_AT_TIMESTAMP;
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireUserAuth);
@@ -417,8 +419,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (parsedBody.data.startedAt !== undefined) {
-      if (!isValidTimestamp(parsedBody.data.startedAt) || parsedBody.data.startedAt > Date.now()) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      if (!isValidTimestamp(parsedBody.data.startedAt)) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid startedAt timestamp');
+      }
+
+      if (parsedBody.data.startedAt > Date.now()) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'startedAt cannot be in the future');
       }
     }
 

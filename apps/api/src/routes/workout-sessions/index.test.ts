@@ -1344,7 +1344,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('patches workout session startedAt and rejects invalid or future timestamps', async () => {
+  it('patches workout session startedAt and rejects invalid, too-old, or future timestamps', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
     const now = Date.now();
 
@@ -1374,7 +1374,7 @@ describe('workout session routes', () => {
       }),
     });
 
-    const [futureResponse, invalidResponse] = await Promise.all([
+    const [futureResponse, invalidResponse, tooOldResponse] = await Promise.all([
       context.app.inject({
         method: 'PATCH',
         url: '/api/v1/workout-sessions/session-1',
@@ -1391,13 +1391,21 @@ describe('workout session routes', () => {
           startedAt: Number.MAX_SAFE_INTEGER,
         },
       }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          startedAt: 1_000,
+        },
+      }),
     ]);
 
     expect(futureResponse.statusCode).toBe(400);
     expect(futureResponse.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
+        message: 'startedAt cannot be in the future',
       },
     });
 
@@ -1405,7 +1413,15 @@ describe('workout session routes', () => {
     expect(invalidResponse.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
+        message: 'Invalid startedAt timestamp',
+      },
+    });
+
+    expect(tooOldResponse.statusCode).toBe(400);
+    expect(tooOldResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid startedAt timestamp',
       },
     });
   });

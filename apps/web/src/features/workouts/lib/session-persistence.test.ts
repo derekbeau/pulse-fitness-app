@@ -84,4 +84,17 @@ describe('session-persistence', () => {
     window.localStorage.setItem('pulse.workout-notes.session-a', '{bad json');
     expect(loadExerciseNotes('session-a')).toBeNull();
   });
+
+  it('returns null for tampered notes payload shapes', () => {
+    window.localStorage.setItem(
+      'pulse.workout-notes.session-a',
+      JSON.stringify({
+        'incline-dumbbell-press': 42,
+      }),
+    );
+    expect(loadExerciseNotes('session-a')).toBeNull();
+
+    window.localStorage.setItem('pulse.workout-notes.session-a', JSON.stringify([]));
+    expect(loadExerciseNotes('session-a')).toBeNull();
+  });
 });

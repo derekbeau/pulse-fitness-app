@@ -166,7 +166,12 @@ export function loadExerciseNotes(sessionId: string): Record<string, string> | n
 
   try {
     const parsed = JSON.parse(serializedNotes);
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, string>) : null;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const isValid = Object.values(parsed).every((value) => typeof value === 'string');
+    return isValid ? (parsed as Record<string, string>) : null;
   } catch {
     return null;
   }
