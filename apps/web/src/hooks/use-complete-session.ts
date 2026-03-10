@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  type SessionSetInput,
   type WorkoutSession,
   type WorkoutSessionFeedback,
   updateWorkoutSessionInputSchema,
@@ -22,6 +23,7 @@ type CompleteSessionInput = {
   duration?: number | null;
   feedback: WorkoutSessionFeedback;
   notes?: string | null;
+  sets?: SessionSetInput[];
 };
 
 async function completeSession(sessionId: string, input: CompleteSessionInput) {
@@ -30,6 +32,7 @@ async function completeSession(sessionId: string, input: CompleteSessionInput) {
     duration: input.duration ?? null,
     feedback: input.feedback,
     notes: input.notes ?? null,
+    sets: input.sets,
     status: 'completed',
   });
 

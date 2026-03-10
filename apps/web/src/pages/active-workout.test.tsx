@@ -6,7 +6,7 @@ import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
-import { ActiveWorkoutPage } from './active-workout';
+import { ActiveWorkoutPage, buildSessionSetInputs, extractExerciseNotes } from './active-workout';
 
 describe('ActiveWorkoutPage', () => {
   beforeEach(() => {
@@ -18,7 +18,17 @@ describe('ActiveWorkoutPage', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    window.localStorage.clear();
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    const draftKeys: string[] = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith('pulse.active-workout-draft:')) {
+        draftKeys.push(key);
+      }
+    }
+    for (const key of draftKeys) {
+      window.localStorage.removeItem(key);
+    }
   });
 
   it('renders the active workout UI and advances focus after the rest timer completes', () => {
@@ -89,7 +99,7 @@ describe('ActiveWorkoutPage', () => {
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
 
-    fireEvent.click(within(inclineCard).getByRole('button', { name: 'Notes' }));
+    fireEvent.click(within(inclineCard).getByRole('button', { name: /Notes/i }));
     fireEvent.change(within(inclineCard).getByLabelText('Session notes'), {
       target: { value: 'Lower the bench by one notch before the top set.' },
     });
@@ -107,6 +117,9 @@ describe('ActiveWorkoutPage', () => {
     completeSet('Rope Triceps Pushdown', 1);
     completeSet('Rope Triceps Pushdown', 2);
     completeSet('Rope Triceps Pushdown', 3);
+    if (!screen.queryByRole('heading', { level: 3, name: 'Couch Stretch' })) {
+      fireEvent.click(screen.getByRole('button', { name: /Cooldown/i }));
+    }
     completeSet('Couch Stretch', 1);
 
     fireEvent.change(within(getExerciseCard('Couch Stretch')).getByLabelText('Seconds for set 2'), {
@@ -262,6 +275,121 @@ describe('ActiveWorkoutPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'API Full Body' })).toBeVisible();
     expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
+  });
+
+  it('extracts one exercise note per exercise from persisted session set rows', () => {
+    expect(
+      extractExerciseNotes([
+        {
+          completed: true,
+          createdAt: 1,
+          exerciseId: 'incline-dumbbell-press',
+          id: 'set-1',
+          notes: ' Keep shoulders packed ',
+          reps: 10,
+          section: 'main',
+          setNumber: 1,
+          skipped: false,
+          weight: 50,
+        },
+        {
+          completed: true,
+          createdAt: 2,
+          exerciseId: 'incline-dumbbell-press',
+          id: 'set-2',
+          notes: 'ignored later note',
+          reps: 9,
+          section: 'main',
+          setNumber: 2,
+          skipped: false,
+          weight: 45,
+        },
+        {
+          completed: true,
+          createdAt: 3,
+          exerciseId: 'row-erg',
+          id: 'set-3',
+          notes: null,
+          reps: 240,
+          section: 'warmup',
+          setNumber: 1,
+          skipped: false,
+          weight: null,
+        },
+      ]),
+    ).toEqual({
+      'incline-dumbbell-press': 'Keep shoulders packed',
+    });
+  });
+
+  it('maps exercise notes into completion payload session sets', () => {
+    const payloadSets = buildSessionSetInputs(
+      {
+        'incline-dumbbell-press': [
+          {
+            completed: true,
+            distance: null,
+            id: 'set-1',
+            number: 1,
+            reps: 10,
+            seconds: null,
+            weight: 50,
+          },
+          {
+            completed: true,
+            distance: null,
+            id: 'set-2',
+            number: 2,
+            reps: 9,
+            seconds: null,
+            weight: 45,
+          },
+        ],
+      },
+      new Map([
+        [
+          'incline-dumbbell-press',
+          {
+            exercise: {
+              badges: ['compound', 'push'],
+              exerciseId: 'incline-dumbbell-press',
+              exerciseName: 'Incline Dumbbell Press',
+              formCues: [],
+              reps: '8-10',
+              restSeconds: 90,
+              sets: 2,
+              tempo: '3110',
+            },
+            section: 'main',
+            trackingType: 'weight_reps',
+          },
+        ],
+      ]),
+      { 'incline-dumbbell-press': ' Keep shoulders packed ' },
+    );
+
+    expect(payloadSets).toEqual([
+      {
+        completed: true,
+        exerciseId: 'incline-dumbbell-press',
+        notes: 'Keep shoulders packed',
+        reps: 10,
+        section: 'main',
+        setNumber: 1,
+        skipped: false,
+        weight: 50,
+      },
+      {
+        completed: true,
+        exerciseId: 'incline-dumbbell-press',
+        notes: null,
+        reps: 9,
+        section: 'main',
+        setNumber: 2,
+        skipped: false,
+        weight: 45,
+      },
+    ]);
   });
 });
 

@@ -89,12 +89,7 @@ describe('active-session helpers', () => {
       .find((exercise) => exercise.id === 'incline-dumbbell-press');
 
     expect(incline).toMatchObject({
-      formCues: {
-        commonMistakes: ['Flared elbows at the bottom', 'Losing the shoulder blade set-up'],
-        mentalCues: ['Crack the handles', 'Drive upper back into the bench'],
-        technique:
-          'Press with a slight neutral grip, keep forearms stacked, and control a 3-second eccentric into the upper chest.',
-      },
+      formCues: ['Drive feet into the floor', 'Keep wrists stacked over elbows'],
       injuryCues: [
         'Avoid the last 10 degrees of lockout if the left shoulder feels unstable.',
         'Cap the top set at RPE 8 while the SLAP tear is still active.',
@@ -141,7 +136,7 @@ describe('active-session helpers', () => {
     expect(countCompletedReps(drafts)).toBe(10);
   });
 
-  it('leaves enhanced cue fields empty when an exercise has no enhanced mock entry', () => {
+  it('uses template cue arrays even when enhanced injury metadata is unavailable', () => {
     const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
 
     if (!lowerTemplate) {
@@ -157,7 +152,7 @@ describe('active-session helpers', () => {
       .flatMap((section) => section.exercises)
       .find((exercise) => exercise.id === 'high-bar-back-squat');
 
-    expect(squat?.formCues).toBeNull();
+    expect(squat?.formCues.length).toBeGreaterThan(0);
     expect(squat?.injuryCues).toEqual([]);
   });
 
@@ -182,7 +177,8 @@ describe('active-session helpers', () => {
       unknownExerciseTemplate,
       createInitialWorkoutSetDrafts(unknownExerciseTemplate, new Set()),
     );
-    const firstMainExercise = session.sections.find((section) => section.type === 'main')?.exercises[0];
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')
+      ?.exercises[0];
 
     expect(firstMainExercise?.name).toBe('DB Bench Press QA');
   });
@@ -210,7 +206,8 @@ describe('active-session helpers', () => {
       unknownExerciseTemplate,
       createInitialWorkoutSetDrafts(unknownExerciseTemplate, new Set()),
     );
-    const firstMainExercise = session.sections.find((section) => section.type === 'main')?.exercises[0];
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')
+      ?.exercises[0];
 
     expect(firstMainExercise?.trackingType).toBe('seconds_only');
   });

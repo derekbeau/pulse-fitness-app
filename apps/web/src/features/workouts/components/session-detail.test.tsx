@@ -50,7 +50,9 @@ describe('SessionDetail', () => {
 
     renderSessionDetail('missing-session');
 
-    expect(await screen.findByText('Session not found', {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Session not found', {}, { timeout: 5_000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
       'href',
       '/workouts?view=calendar',
@@ -81,6 +83,7 @@ describe('SessionDetail', () => {
           id: 'set-press-1',
           exerciseId: 'incline-dumbbell-press',
           setNumber: 1,
+          notes: 'Bench at setting 5; keep elbows tucked.',
           reps: 10,
           weight: 50,
           section: 'main',
@@ -121,6 +124,7 @@ describe('SessionDetail', () => {
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
+    expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
   it('shows volume progression, deltas, and PR badges when comparison is enabled', async () => {
@@ -253,7 +257,9 @@ describe('SessionDetail', () => {
     renderSessionDetail(currentSession.id);
     await screen.findByText('Workout receipt');
 
-    fireEvent.click(screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }),
+    );
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
@@ -404,7 +410,9 @@ function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
   };
 }
 
-function createSet(overrides: Partial<WorkoutSession['sets'][number]>): WorkoutSession['sets'][number] {
+function createSet(
+  overrides: Partial<WorkoutSession['sets'][number]>,
+): WorkoutSession['sets'][number] {
   return {
     id: 'set-default',
     exerciseId: 'incline-dumbbell-press',
@@ -420,9 +428,7 @@ function createSet(overrides: Partial<WorkoutSession['sets'][number]>): WorkoutS
   };
 }
 
-function createSessionListItem(
-  overrides: Partial<WorkoutSessionListItem>,
-): WorkoutSessionListItem {
+function createSessionListItem(overrides: Partial<WorkoutSessionListItem>): WorkoutSessionListItem {
   return {
     id: 'session-item-default',
     name: 'Upper Push',

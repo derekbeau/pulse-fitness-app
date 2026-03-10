@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import type {
   ExerciseTrackingType,
+  SessionSetInput,
   SessionSet,
   WorkoutSessionFeedback,
   WorkoutTemplate as ApiWorkoutTemplate,
@@ -54,14 +55,11 @@ import { useUpdateSessionStartTime, useWorkoutSession } from '@/hooks/use-workou
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
-  clearExerciseNotes,
-  clearSetDrafts,
+  clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
-  loadExerciseNotes,
-  loadSetDrafts,
-  saveExerciseNotes,
-  saveSetDrafts,
+  getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
+  setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
 import { ApiError } from '@/lib/api-client';
 import {
@@ -149,29 +147,22 @@ export function ActiveWorkoutPage() {
   const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
+  const hydratedDraftKeyRef = useRef<string | null>(null);
   const supplementalExercises = workoutSupplementalExercises;
 
   const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
-  const persistedSessionId = activeSessionId ?? sessionId;
+  const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
-  const clearSessionDraftPersistence = useCallback((targetSessionId: string | null) => {
-    if (!targetSessionId) {
-      return;
-    }
-
-    clearSetDrafts(targetSessionId);
-    clearExerciseNotes(targetSessionId);
-  }, []);
   const redirectToCompletedSessionNotice = useCallback(() => {
-    clearSessionDraftPersistence(activeSessionId ?? sessionId);
+    clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
     clearStoredActiveWorkoutSessionId();
     navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
       replace: true,
     });
-  }, [activeSessionId, clearSessionDraftPersistence, navigate, sessionId]);
+  }, [activeWorkoutDraftId, navigate]);
 
   const templateExerciseById = useMemo(
     () =>
@@ -204,14 +195,18 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const restoredDrafts = loadSetDrafts(activeSession.id);
-    const restoredNotes = loadExerciseNotes(activeSession.id);
-
-    setSetDrafts(
-      restoredDrafts ?? createSessionSetDrafts(template, activeSession.sets, templateExerciseById),
+    const serverSetDrafts = createSessionSetDrafts(
+      template,
+      activeSession.sets,
+      templateExerciseById,
     );
-    setExerciseNotes(restoredNotes ?? {});
+    const serverExerciseNotes = extractExerciseNotes(activeSession.sets);
+    const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+
+    setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
+    setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
     hydratedSessionIdRef.current = activeSession.id;
+    hydratedDraftKeyRef.current = activeSession.id;
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -219,50 +214,16 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    setSetDrafts(
-      createInitialWorkoutSetDrafts(
-        template,
-        requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-      ),
+    const initialSetDrafts = createInitialWorkoutSetDrafts(
+      template,
+      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
     );
-    setExerciseNotes({});
-  }, [activeSession, requestedTemplateId, sessionId, template]);
+    const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
 
-  useEffect(() => {
-    if (!persistedSessionId || stage !== 'active') {
-      return;
-    }
-
-    if (sessionId && hydratedSessionIdRef.current === null) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      saveSetDrafts(persistedSessionId, setDrafts);
-    }, 500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [persistedSessionId, sessionId, setDrafts, stage]);
-
-  useEffect(() => {
-    if (!persistedSessionId || stage !== 'active') {
-      return;
-    }
-
-    if (sessionId && hydratedSessionIdRef.current === null) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      saveExerciseNotes(persistedSessionId, exerciseNotes);
-    }, 500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [exerciseNotes, persistedSessionId, sessionId, stage]);
+    setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
+    setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
+    hydratedDraftKeyRef.current = activeWorkoutDraftId;
+  }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {
     if (!activeSession || !sessionId) {
@@ -280,6 +241,21 @@ export function ActiveWorkoutPage() {
       redirectToCompletedSessionNotice();
     }
   }, [activeSession, redirectToCompletedSessionNotice, sessionId, stage]);
+
+  useEffect(() => {
+    if (stage !== 'active') {
+      return;
+    }
+
+    if (hydratedDraftKeyRef.current !== activeWorkoutDraftId) {
+      return;
+    }
+
+    setStoredActiveWorkoutDraft(activeWorkoutDraftId, {
+      exerciseNotes,
+      setDrafts,
+    });
+  }, [activeWorkoutDraftId, exerciseNotes, setDrafts, stage]);
 
   const session = useMemo(
     () =>
@@ -414,8 +390,7 @@ export function ActiveWorkoutPage() {
             const notes = extractFeedbackNotes(feedback);
 
             if (!activeSessionId) {
-              // Local-only sessions persist under the route/session fallback ID.
-              clearSessionDraftPersistence(persistedSessionId);
+              clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
               setStage('summary');
@@ -432,6 +407,7 @@ export function ActiveWorkoutPage() {
                   notes: notes ?? undefined,
                 },
                 notes,
+                sets: buildSessionSetInputs(setDrafts, templateExerciseById, exerciseNotes),
               },
               {
                 onError: (error) => {
@@ -443,8 +419,7 @@ export function ActiveWorkoutPage() {
                   setSessionError('Unable to complete this workout. Try again.');
                 },
                 onSuccess: () => {
-                  // API-backed sessions always clear persistence using the canonical server session ID.
-                  clearSessionDraftPersistence(activeSessionId);
+                  clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
                   setSessionFeedback(feedback);
                   setSessionCompletedAt(completedAtIso);
                   setStage('summary');
@@ -462,7 +437,10 @@ export function ActiveWorkoutPage() {
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
           feedback={sessionFeedback}
-          onDone={() => navigate('/workouts')}
+          onDone={() => {
+            clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+            navigate('/workouts');
+          }}
           sessionId={activeSessionId}
           totalReps={totalCompletedReps}
           completedSets={session.completedSets}
@@ -842,6 +820,66 @@ function createSessionSetDrafts(
   return drafts;
 }
 
+export function extractExerciseNotes(sessionSets: SessionSet[]) {
+  const exerciseNotes: Record<string, string> = {};
+
+  for (const set of sessionSets) {
+    const normalizedNotes = normalizeExerciseNote(set.notes);
+    if (!normalizedNotes || exerciseNotes[set.exerciseId]) {
+      continue;
+    }
+
+    exerciseNotes[set.exerciseId] = normalizedNotes;
+  }
+
+  return exerciseNotes;
+}
+
+export function buildSessionSetInputs(
+  setDrafts: ActiveWorkoutSetDrafts,
+  templateExerciseById: Map<
+    string,
+    {
+      exercise: MockWorkoutTemplate['sections'][number]['exercises'][number];
+      section: WorkoutTemplateSectionType;
+      trackingType: ExerciseTrackingType;
+    }
+  >,
+  exerciseNotes: Record<string, string>,
+): SessionSetInput[] {
+  const sessionSets: SessionSetInput[] = [];
+
+  for (const [exerciseId, draftSets] of Object.entries(setDrafts)) {
+    const templateExercise = templateExerciseById.get(exerciseId);
+    const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[exerciseId]);
+    const trackingType = templateExercise?.trackingType ?? 'weight_reps';
+    const isTimeBased =
+      trackingType === 'weight_seconds' ||
+      trackingType === 'reps_seconds' ||
+      trackingType === 'seconds_only' ||
+      trackingType === 'cardio';
+
+    for (const draftSet of [...draftSets].sort((left, right) => left.number - right.number)) {
+      sessionSets.push({
+        completed: draftSet.completed,
+        exerciseId,
+        notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
+        reps: isTimeBased ? draftSet.seconds : draftSet.reps,
+        section: templateExercise?.section ?? null,
+        setNumber: draftSet.number,
+        skipped: false,
+        weight: draftSet.weight,
+      });
+    }
+  }
+
+  return sessionSets;
+}
+
+function normalizeExerciseNote(note: string | null | undefined) {
+  const normalized = note?.trim();
+  return normalized ? normalized : null;
+}
 function mapFeedbackDraftToSessionFeedback(
   draft: ActiveWorkoutFeedbackDraft,
 ): WorkoutSessionFeedback {
