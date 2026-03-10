@@ -1,11 +1,27 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { DashboardSnapshot, DashboardWorkoutSnapshot } from '@pulse/shared';
+import { Link } from 'react-router';
 
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 
 type SnapshotCardsProps = {
   snapshot?: DashboardSnapshot;
+};
+
+const numberFormatter = new Intl.NumberFormat('en-US');
+const notConfiguredCardClassName =
+  'border-dashed border-border/80 bg-muted/35 text-muted-foreground shadow-none';
+const notConfiguredAccentTextClassName = 'text-muted-foreground';
+const longValueClassName = 'text-lg sm:text-xl lg:text-2xl';
+const shortValueClassName = 'text-2xl sm:text-2xl lg:text-3xl';
+
+export const getSnapshotValueClassName = (value: string) => {
+  return value.length >= 13 ? longValueClassName : shortValueClassName;
+};
+
+const formatMacroProgressValue = (actual: number, target: number, suffix = '') => {
+  return `${numberFormatter.format(actual)}${suffix} / ${numberFormatter.format(target)}${suffix}`;
 };
 
 export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
@@ -39,8 +55,12 @@ export const calculateHabitCompletionPercent = (
 };
 
 const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
-  if (!snapshot?.weight) {
+  if (!snapshot) {
     return '--';
+  }
+
+  if (!snapshot?.weight) {
+    return 'Log weight';
   }
 
   return `${snapshot.weight.value.toFixed(1)} lbs`;
@@ -54,19 +74,59 @@ const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {
 };
 
 export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
+  const hasWeight = !!snapshot?.weight;
+  const hasCaloriesTarget = (snapshot?.macros.target.calories ?? 0) > 0;
+  const hasProteinTarget = (snapshot?.macros.target.protein ?? 0) > 0;
+  const hasHabits = (snapshot?.habits.total ?? 0) > 0;
   const habitCompletionPercent = snapshot
     ? calculateHabitCompletionPercent(snapshot.habits.completed, snapshot.habits.total)
     : 0;
+
   const weightValue = formatWeightValue(snapshot);
+  const caloriesValueText = snapshot
+    ? hasCaloriesTarget
+      ? formatMacroProgressValue(snapshot.macros.actual.calories, snapshot.macros.target.calories)
+      : 'No targets set'
+    : '--';
   const caloriesValue = snapshot
-    ? `${snapshot.macros.actual.calories} / ${snapshot.macros.target.calories}`
+    ? hasCaloriesTarget
+      ? caloriesValueText
+      : [
+          <span key="text">No targets set</span>,
+          ' ',
+          <Link key="link" className="font-semibold underline underline-offset-2" to="/settings">
+            Settings
+          </Link>,
+        ]
+    : '--';
+
+  const proteinValueText = snapshot
+    ? hasProteinTarget
+      ? formatMacroProgressValue(
+          snapshot.macros.actual.protein,
+          snapshot.macros.target.protein,
+          'g',
+        )
+      : 'No targets set'
     : '--';
   const proteinValue = snapshot
-    ? `${snapshot.macros.actual.protein}g / ${snapshot.macros.target.protein}g`
+    ? hasProteinTarget
+      ? proteinValueText
+      : [
+          <span key="text">No targets set</span>,
+          ' ',
+          <Link key="link" className="font-semibold underline underline-offset-2" to="/settings">
+            Settings
+          </Link>,
+        ]
     : '--';
-  const habitsValue = snapshot
-    ? `${snapshot.habits.completed} / ${snapshot.habits.total} complete`
+
+  const habitsValueText = snapshot
+    ? hasHabits
+      ? `${snapshot.habits.completed}/${snapshot.habits.total}`
+      : 'No habits'
     : '--';
+  const habitsValue = habitsValueText;
   const workoutValue = snapshot?.workout
     ? `${snapshot.workout.name} (${formatWorkoutStatus(snapshot.workout.status)})`
     : snapshot
@@ -76,39 +136,63 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
       <StatCard
-        accentTextClassName="text-on-cream"
-        className={accentCardStyles.cream}
+        accentTextClassName={
+          snapshot && !hasWeight ? notConfiguredAccentTextClassName : 'text-on-cream'
+        }
+        className={snapshot && !hasWeight ? notConfiguredCardClassName : accentCardStyles.cream}
         data-stagger="0"
         label="Body Weight"
-        trend={{ direction: 'neutral', value: 0 }}
+        trend={snapshot && hasWeight ? { direction: 'neutral', value: 0 } : undefined}
         value={weightValue}
+        valueClassName={getSnapshotValueClassName(weightValue)}
+        valueTitle={weightValue}
       />
 
       <StatCard
-        accentTextClassName="text-on-pink"
-        className={accentCardStyles.pink}
+        accentTextClassName={
+          snapshot && !hasCaloriesTarget ? notConfiguredAccentTextClassName : 'text-on-pink'
+        }
+        className={
+          snapshot && !hasCaloriesTarget ? notConfiguredCardClassName : accentCardStyles.pink
+        }
         data-stagger="1"
         label="Calories"
-        trend={{ direction: 'neutral', value: 0 }}
+        trend={snapshot && hasCaloriesTarget ? { direction: 'neutral', value: 0 } : undefined}
         value={caloriesValue}
+        valueClassName={getSnapshotValueClassName(caloriesValueText)}
+        valueTitle={hasCaloriesTarget ? caloriesValueText : undefined}
       />
 
       <StatCard
-        accentTextClassName="text-on-mint"
-        className={accentCardStyles.mint}
+        accentTextClassName={
+          snapshot && !hasProteinTarget ? notConfiguredAccentTextClassName : 'text-on-mint'
+        }
+        className={
+          snapshot && !hasProteinTarget ? notConfiguredCardClassName : accentCardStyles.mint
+        }
         data-stagger="2"
         label="Protein"
-        trend={{ direction: 'neutral', value: 0 }}
+        trend={snapshot && hasProteinTarget ? { direction: 'neutral', value: 0 } : undefined}
         value={proteinValue}
+        valueClassName={getSnapshotValueClassName(proteinValueText)}
+        valueTitle={hasProteinTarget ? proteinValueText : undefined}
       />
 
       <StatCard
-        accentTextClassName="text-on-mint"
-        className={accentCardStyles.mint}
+        accentTextClassName={
+          snapshot && !hasHabits ? notConfiguredAccentTextClassName : 'text-on-mint'
+        }
+        className={snapshot && !hasHabits ? notConfiguredCardClassName : accentCardStyles.mint}
         data-stagger="3"
         label="Habits"
-        trend={{ direction: 'neutral', value: habitCompletionPercent }}
+        trend={
+          snapshot && hasHabits
+            ? { direction: 'neutral', value: habitCompletionPercent }
+            : undefined
+        }
         value={habitsValue}
+        valueClassName={getSnapshotValueClassName(habitsValueText)}
+        valueTitle={habitsValueText}
       />
 
       <StatCard
@@ -116,6 +200,8 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         data-stagger="4"
         label="Today's Workout"
         value={workoutValue}
+        valueClassName={getSnapshotValueClassName(workoutValue)}
+        valueTitle={workoutValue}
       />
     </div>
   );

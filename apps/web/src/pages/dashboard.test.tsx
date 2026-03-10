@@ -239,7 +239,9 @@ describe('DashboardPage', () => {
       if (url.pathname === '/api/v1/habit-entries' && init?.method === 'GET') {
         const from = url.searchParams.get('from') ?? '';
         const to = url.searchParams.get('to') ?? '';
-        const entriesInRange = habitEntries.filter((entry) => entry.date >= from && entry.date <= to);
+        const entriesInRange = habitEntries.filter(
+          (entry) => entry.date >= from && entry.date <= to,
+        );
 
         return Promise.resolve(
           new Response(JSON.stringify({ data: entriesInRange }), {
@@ -277,7 +279,10 @@ describe('DashboardPage', () => {
       }
 
       if (url.pathname === '/api/v1/weight' && init?.method === 'POST') {
-        const body = typeof init.body === 'string' ? (JSON.parse(init.body) as { date: string; weight: number }) : null;
+        const body =
+          typeof init.body === 'string'
+            ? (JSON.parse(init.body) as { date: string; weight: number })
+            : null;
         const nextDate = body?.date ?? snapshotForToday.date;
         const nextWeight = body?.weight ?? snapshotForToday.weight?.value ?? 0;
         const previousSnapshot = snapshotsByDate[nextDate] ?? snapshotForToday;
@@ -356,7 +361,9 @@ describe('DashboardPage', () => {
 
     const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
-    expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
+    expect(
+      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
+    ).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByText('Good morning')).toBeInTheDocument();
@@ -367,9 +374,9 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
-    expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
+    expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
-    expect(screen.getByText('1 / 1 complete')).toBeInTheDocument();
+    expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute(
@@ -543,8 +550,10 @@ describe('DashboardPage', () => {
 
     expect(bodyWeightCard).toBeInTheDocument();
     expect(habitsCard).toBeInTheDocument();
-    expect(within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4))).toBeInTheDocument();
-    expect(within(habitsCard as HTMLElement).getByText('1 / 1 complete')).toBeInTheDocument();
+    expect(
+      within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
+    ).toBeInTheDocument();
+    expect(within(habitsCard as HTMLElement).getByText('1/1')).toBeInTheDocument();
 
     const initialSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(initialSquares[29]).toHaveAttribute('data-date', '2026-03-06');
@@ -561,8 +570,8 @@ describe('DashboardPage', () => {
       .getByText('Habits')
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
-    expect(within(refreshedBodyWeightCard).getByText('--')).toBeInTheDocument();
-    expect(within(refreshedHabitsCard).getByText('0 / 1 complete')).toBeInTheDocument();
+    expect(within(refreshedBodyWeightCard).getByText('Log weight')).toBeInTheDocument();
+    expect(within(refreshedHabitsCard).getByText('0/1')).toBeInTheDocument();
     expect(screen.getByText('Rest Day')).toBeInTheDocument();
 
     const updatedSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');

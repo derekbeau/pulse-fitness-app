@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateHabitCompletionPercent,
   calculateWeightTrend,
+  getSnapshotValueClassName,
   SnapshotCards,
 } from './snapshot-cards';
 
@@ -69,6 +70,16 @@ describe('calculateHabitCompletionPercent', () => {
   });
 });
 
+describe('getSnapshotValueClassName', () => {
+  it('returns larger text sizing for shorter values', () => {
+    expect(getSnapshotValueClassName('3/5')).toContain('text-2xl');
+  });
+
+  it('returns compact text sizing for longer values', () => {
+    expect(getSnapshotValueClassName('2,450 / 2,200')).toContain('text-lg');
+  });
+});
+
 describe('SnapshotCards', () => {
   it('renders five snapshot cards with dashboard snapshot API values', () => {
     const { container } = render(
@@ -84,9 +95,9 @@ describe('SnapshotCards', () => {
     expect(cards).toHaveLength(5);
 
     expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
-    expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
+    expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
-    expect(screen.getByText('3 / 4 complete')).toBeInTheDocument();
+    expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
   });
 
@@ -132,6 +143,20 @@ describe('SnapshotCards', () => {
           snapshot={{
             ...snapshotFixture,
             weight: null,
+            macros: {
+              actual: {
+                calories: 1800,
+                protein: 120,
+                carbs: 210,
+                fat: 70,
+              },
+              target: {
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+              },
+            },
             workout: null,
             habits: {
               total: 0,
@@ -146,13 +171,54 @@ describe('SnapshotCards', () => {
     const weightCard = screen
       .getByText('Body Weight')
       .closest('[data-slot="stat-card"]') as HTMLElement;
+    const caloriesCard = screen
+      .getByText('Calories')
+      .closest('[data-slot="stat-card"]') as HTMLElement;
+    const proteinCard = screen
+      .getByText('Protein')
+      .closest('[data-slot="stat-card"]') as HTMLElement;
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]') as HTMLElement;
     const workoutCard = screen
       .getByText("Today's Workout")
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
-    expect(within(weightCard).getByText('--')).toBeInTheDocument();
-    expect(within(habitsCard).getByText('0 / 0 complete')).toBeInTheDocument();
+    expect(within(weightCard).getByText('Log weight')).toBeInTheDocument();
+    expect(within(weightCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(within(caloriesCard).getByText('No targets set')).toBeInTheDocument();
+    expect(within(proteinCard).getByText('No targets set')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Settings' })).toHaveLength(2);
+    expect(within(habitsCard).getByText('No habits')).toBeInTheDocument();
+    expect(within(habitsCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(workoutCard).getByText('Rest Day')).toBeInTheDocument();
+    expect(weightCard).toHaveClass('border-dashed');
+    expect(caloriesCard).toHaveClass('border-dashed');
+    expect(proteinCard).toHaveClass('border-dashed');
+    expect(habitsCard).toHaveClass('border-dashed');
+  });
+
+  it('applies compact font sizing classes to long macro values to avoid overflow', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            macros: {
+              ...snapshotFixture.macros,
+              actual: {
+                ...snapshotFixture.macros.actual,
+                calories: 2450,
+              },
+              target: {
+                ...snapshotFixture.macros.target,
+                calories: 2200,
+              },
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    const caloriesValue = screen.getByText('2,450 / 2,200');
+    expect(caloriesValue).toHaveClass('text-lg', 'sm:text-xl', 'lg:text-2xl');
   });
 });

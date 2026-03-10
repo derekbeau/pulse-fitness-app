@@ -12,11 +12,13 @@ export type StatTrend = {
 };
 
 export type StatCardProps = Omit<React.ComponentProps<typeof Card>, 'children'> & {
-  value: number | string;
+  value: React.ReactNode;
   label: string;
   trend?: StatTrend;
   icon?: React.ReactNode;
   accentTextClassName?: string;
+  valueClassName?: string;
+  valueTitle?: string;
 };
 
 const TREND_STYLES: Record<
@@ -50,6 +52,8 @@ export function StatCard({
   trend,
   icon,
   accentTextClassName,
+  valueClassName: customValueClassName,
+  valueTitle,
   className,
   ...props
 }: StatCardProps) {
@@ -62,16 +66,18 @@ export function StatCard({
   const labelClassName = hasAccent
     ? cn(accentClass, 'opacity-70 dark:text-muted dark:opacity-100')
     : 'text-muted';
-  const valueClassName = hasAccent ? cn(accentClass, 'dark:text-foreground') : 'text-foreground';
+  const valueTextClassName = hasAccent
+    ? cn(accentClass, 'dark:text-foreground')
+    : 'text-foreground';
   const iconClassName = hasAccent ? cn(accentClass, 'dark:text-muted') : 'text-muted';
   const trendClassName = hasAccent
     ? cn(accentClass, 'opacity-80 dark:text-muted dark:opacity-100')
     : trendStyle?.className;
-  const valueTitle = typeof value === 'string' ? value : undefined;
+  const resolvedValueTitle = valueTitle ?? (typeof value === 'string' ? value : undefined);
 
   return (
     <Card data-slot="stat-card" className={cn('gap-3 py-4 sm:gap-4 sm:py-5', className)} {...props}>
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
+      <CardHeader className="min-w-0 flex flex-row items-start justify-between gap-2 pb-0">
         <p
           className={cn(
             'min-w-0 truncate text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
@@ -80,15 +86,16 @@ export function StatCard({
         >
           {label}
         </p>
-        {icon ? <div className={iconClassName}>{icon}</div> : null}
+        {icon ? <div className={cn('shrink-0', iconClassName)}>{icon}</div> : null}
       </CardHeader>
-      <CardContent className="space-y-1.5">
+      <CardContent className="min-w-0 space-y-1.5">
         <p
           className={cn(
-            'overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl',
-            valueClassName,
+            'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl',
+            valueTextClassName,
+            customValueClassName,
           )}
-          title={valueTitle}
+          title={resolvedValueTitle}
         >
           {value}
         </p>
