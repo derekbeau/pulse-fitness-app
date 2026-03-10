@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { Link, NavLink, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { sidebarNavItems } from '@/components/layout/nav-items';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useUser } from '@/hooks/use-user';
 import { useAuthStore } from '@/store/auth-store';
 
 function getInitialCollapsed() {
@@ -23,7 +24,8 @@ export function Sidebar() {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const shouldRestoreFocusRef = useRef(false);
   const navigate = useNavigate();
-  const { logout, user } = useAuthStore();
+  const { logout } = useAuthStore();
+  const { data: user } = useUser();
   const displayName = user?.name?.trim() || user?.username || 'Account';
   const subtitle = user?.name ? `@${user.username}` : 'Signed in';
   const avatarLabel = displayName.charAt(0).toUpperCase();
@@ -162,7 +164,11 @@ export function Sidebar() {
             </nav>
 
             <div className="space-y-3 border-t border-border/40 px-3 py-4">
-              <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+              <Link
+                className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2 transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                onClick={closeMobileMenu}
+                to="/profile"
+              >
                 <div className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
                   {avatarLabel}
                 </div>
@@ -170,7 +176,7 @@ export function Sidebar() {
                   <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
                   <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
                 </div>
-              </div>
+              </Link>
 
               <button
                 className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground"
@@ -283,19 +289,23 @@ export function Sidebar() {
               {collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span
+                    <Link
                       aria-label={displayName}
-                      className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary"
+                      className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      to="/profile"
                     >
                       {avatarLabel}
-                    </span>
+                    </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>
                     {displayName}
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                <Link
+                  className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2 transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  to="/profile"
+                >
                   <div className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
                     {avatarLabel}
                   </div>
@@ -303,7 +313,7 @@ export function Sidebar() {
                     <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
                     <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
                   </div>
-                </div>
+                </Link>
               )}
 
               {collapsed ? (
