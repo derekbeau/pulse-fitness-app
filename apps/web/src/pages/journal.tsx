@@ -1,7 +1,7 @@
 import { BookOpen } from 'lucide-react';
 
 import { PreviewBanner } from '@/components/ui/preview-banner';
-import { JournalFeed } from '@/features/journal';
+import { JournalFeed, mockJournalEntries } from '@/features/journal';
 
 export function JournalPage() {
   return (
@@ -21,7 +21,7 @@ export function JournalPage() {
           </div>
         </div>
       </header>
-      <JournalFeed getEntryHref={(entryId) => `/journal/${entryId}`} />
+      <JournalFeed entries={mockJournalEntries} getEntryHref={(entryId) => `/journal/${entryId}`} />
     </section>
   );
 }

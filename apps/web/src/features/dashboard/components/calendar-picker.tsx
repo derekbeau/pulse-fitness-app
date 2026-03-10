@@ -3,12 +3,19 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { addDays, formatDateKey, getToday, getWeekStart, isSameDay, normalizeDate } from '@/lib/date';
-import { getMockDayActivity } from '@/lib/mock-data/dashboard';
 import { cn } from '@/lib/utils';
+
+export type DayActivity = {
+  hasWorkout: boolean;
+  hasMeals: boolean;
+};
+
+const NO_ACTIVITY: DayActivity = { hasWorkout: false, hasMeals: false };
 
 type CalendarPickerProps = {
   selectedDate?: Date;
   onDateSelect?: (date: Date) => void;
+  getDayActivity?: (date: Date) => DayActivity;
   className?: string;
 };
 
@@ -26,7 +33,7 @@ const ariaDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-export function CalendarPicker({ selectedDate, onDateSelect, className }: CalendarPickerProps) {
+export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, className }: CalendarPickerProps) {
   const today = useMemo(() => getToday(), []);
   const normalizedSelectedDate = selectedDate ? normalizeDate(selectedDate) : undefined;
   const [internalSelectedDate, setInternalSelectedDate] = useState<Date>(
@@ -92,7 +99,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, className }: Calend
 
       <div className="flex items-stretch gap-1 sm:gap-2">
         {weekDays.map((day, index) => {
-          const activity = getMockDayActivity(day);
+          const activity = getDayActivity?.(day) ?? NO_ACTIVITY;
           const hasActivity = activity.hasWorkout || activity.hasMeals;
           const isToday = isSameDay(day, today);
           const isSelected = isSameDay(day, activeSelectedDate);

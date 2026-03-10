@@ -1,3 +1,4 @@
+// Preview data — replace with API calls when feature is implemented
 import type { HealthCondition } from '../types';
 
 export const mockHealthConditions: HealthCondition[] = [

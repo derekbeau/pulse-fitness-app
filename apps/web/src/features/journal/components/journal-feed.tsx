@@ -16,20 +16,20 @@ import {
   type JournalFilterOption,
   type JournalTypeFilter,
 } from '../lib/filters';
-import { mockJournalEntries } from '../lib/mock-data';
 import { journalBadgeClassesByType } from '../lib/presentation';
+import type { JournalEntry } from '../types';
 import { EntityChip } from './entity-chip';
 
-const entriesNewestFirst = sortJournalEntriesNewestFirst(mockJournalEntries);
-
 type JournalFeedProps = {
+  entries: JournalEntry[];
   getEntryHref?: (entryId: string) => string;
 };
 
-export function JournalFeed({ getEntryHref }: JournalFeedProps) {
+export function JournalFeed({ entries, getEntryHref }: JournalFeedProps) {
   const [typeFilter, setTypeFilter] = useState<JournalTypeFilter>('all');
   const [entityFilter, setEntityFilter] = useState<JournalEntityFilter>('all');
 
+  const entriesNewestFirst = sortJournalEntriesNewestFirst(entries);
   const filteredEntries = filterJournalEntries(entriesNewestFirst, {
     entityFilter,
     typeFilter,
