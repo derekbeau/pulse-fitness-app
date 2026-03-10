@@ -367,6 +367,8 @@ describe('DashboardPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByText('Good morning')).toBeInTheDocument();
+    expect(screen.getByText('Friday, March 6, 2026')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Calendar day picker')).toBeInTheDocument();
     expect(screen.getByText('Habits')).toBeInTheDocument();
     expect(screen.getByLabelText('Macro display mode')).toBeInTheDocument();
@@ -573,6 +575,8 @@ describe('DashboardPage', () => {
     expect(within(refreshedBodyWeightCard).getByText('Log weight')).toBeInTheDocument();
     expect(within(refreshedHabitsCard).getByText('0/1')).toBeInTheDocument();
     expect(screen.getByText('Rest Day')).toBeInTheDocument();
+    expect(screen.getByText('Wednesday, March 4, 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to today' })).toBeInTheDocument();
 
     const updatedSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(updatedSquares[29]).toHaveAttribute('data-date', '2026-03-04');
@@ -590,6 +594,14 @@ describe('DashboardPage', () => {
         return rawUrl.includes('/api/v1/dashboard/snapshot?date=2026-03-04');
       }),
     ).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to today' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Friday, March 6, 2026')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
   });
 
   it('logs a new weight entry and refreshes the body weight card', async () => {

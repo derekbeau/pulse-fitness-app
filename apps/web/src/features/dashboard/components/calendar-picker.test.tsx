@@ -46,7 +46,7 @@ describe('CalendarPicker', () => {
     expect(lastDay.getByText('Sun')).toBeInTheDocument();
   });
 
-  it('highlights today and dims future dates', () => {
+  it('highlights the selected day and dims future dates', () => {
     render(<CalendarPicker />);
 
     const todayButton = getDayButton('2026-03-06');
@@ -56,6 +56,7 @@ describe('CalendarPicker', () => {
     expect(todayButton).toHaveClass('bg-[var(--color-primary)]');
     expect(todayButton).toHaveClass('text-[var(--color-on-accent)]');
     expect(todayButton).toHaveAttribute('data-today', 'true');
+    expect(todayButton).toHaveAttribute('data-selected', 'true');
     expect(saturdayButton).toHaveClass('opacity-45');
     expect(sundayButton).toHaveClass('opacity-45');
   });
@@ -87,24 +88,33 @@ describe('CalendarPicker', () => {
     expect(days[6]).toHaveAttribute('data-date', '2026-03-01');
   });
 
-  it('calls onDateSelect with the clicked day and marks non-today selection with primary border', () => {
+  it('moves the full highlight to the clicked day and leaves today plain when not selected', () => {
     const onDateSelect = vi.fn();
     render(<CalendarPicker onDateSelect={onDateSelect} />);
 
     const selectedDay = getDayButton('2026-03-04');
+    const todayButton = getDayButton('2026-03-06');
+
     fireEvent.click(selectedDay);
 
     expect(onDateSelect).toHaveBeenCalledTimes(1);
     expect(formatDate(onDateSelect.mock.calls[0]?.[0] as Date)).toBe('2026-03-04');
-    expect(selectedDay).toHaveClass('border-[var(--color-primary)]');
+    expect(selectedDay).toHaveClass('bg-[var(--color-primary)]');
+    expect(selectedDay).toHaveClass('text-[var(--color-on-accent)]');
     expect(selectedDay).toHaveAttribute('data-selected', 'true');
+    expect(todayButton).toHaveAttribute('data-selected', 'false');
+    expect(todayButton).not.toHaveClass('bg-[var(--color-primary)]');
+    expect(todayButton).not.toHaveClass('ring-2');
   });
 
   it('supports controlled selectedDate and responsive card sizing classes', () => {
     render(<CalendarPicker selectedDate={new Date('2026-03-03T00:00:00')} />);
 
     const selectedDay = getDayButton('2026-03-03');
+    const todayButton = getDayButton('2026-03-06');
     expect(selectedDay).toHaveAttribute('data-selected', 'true');
+    expect(todayButton).toHaveAttribute('data-selected', 'false');
+    expect(todayButton).not.toHaveClass('bg-[var(--color-primary)]');
 
     const calendar = screen.getByLabelText('Calendar day picker');
     expect(calendar).toHaveClass('w-full');
