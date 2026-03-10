@@ -4,26 +4,47 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyHabits } from '@/features/habits';
 import {
+  useCreateHabit,
+  useDeleteHabit,
   useHabitEntries,
   useHabits,
+  useReorderHabits,
   useToggleHabit,
+  useUpdateHabit,
   useUpdateHabitEntry,
 } from '@/features/habits/api/habits';
 
 vi.mock('@/features/habits/api/habits', () => ({
+  useCreateHabit: vi.fn(),
+  useDeleteHabit: vi.fn(),
   useHabitEntries: vi.fn(),
   useHabits: vi.fn(),
+  useReorderHabits: vi.fn(),
   useToggleHabit: vi.fn(),
+  useUpdateHabit: vi.fn(),
   useUpdateHabitEntry: vi.fn(),
 }));
 
+const mockedUseCreateHabit = vi.mocked(useCreateHabit);
+const mockedUseDeleteHabit = vi.mocked(useDeleteHabit);
 const mockedUseHabits = vi.mocked(useHabits);
 const mockedUseHabitEntries = vi.mocked(useHabitEntries);
+const mockedUseReorderHabits = vi.mocked(useReorderHabits);
 const mockedUseToggleHabit = vi.mocked(useToggleHabit);
+const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
 const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
 
 const toggleMutate = vi.fn();
 const updateMutate = vi.fn();
+
+function createMutationMock() {
+  return {
+    isPending: false,
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+    variables: undefined,
+  };
+}
 
 const habits: Habit[] = [
   {
@@ -133,6 +154,18 @@ describe('DailyHabits', () => {
       mutate: updateMutate,
       variables: undefined,
     } as unknown as ReturnType<typeof useUpdateHabitEntry>);
+    mockedUseCreateHabit.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useCreateHabit>,
+    );
+    mockedUseUpdateHabit.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useUpdateHabit>,
+    );
+    mockedUseDeleteHabit.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useDeleteHabit>,
+    );
+    mockedUseReorderHabits.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useReorderHabits>,
+    );
   });
 
   afterEach(() => {
@@ -180,7 +213,20 @@ describe('DailyHabits', () => {
     expect(screen.getByRole('checkbox', { name: 'Mobility' })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Hydrate' })).toHaveValue(6);
     expect(screen.getByRole('spinbutton', { name: 'Sleep' })).toHaveValue(null);
+    expect(screen.getByText('🧘')).toBeInTheDocument();
+    expect(screen.getByText('💧')).toBeInTheDocument();
+    expect(screen.getByText('😴')).toBeInTheDocument();
     expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+  });
+
+  it('keeps the completion badge centered classes', () => {
+    render(<DailyHabits />);
+
+    expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+
+    const badge = screen.getByText('0 of 3 habits complete').closest('div');
+    expect(badge).toHaveClass('items-center', 'justify-center');
+    expect(screen.getByText('0 of 3 habits complete')).toHaveClass('text-center', 'leading-tight');
   });
 
   it('toggles boolean habits through the upsert mutation', () => {
@@ -219,8 +265,8 @@ describe('DailyHabits', () => {
     const input = screen.getByRole('spinbutton', { name: 'Hydrate' });
     fireEvent.change(input, { target: { value: '8' } });
 
-    expect(screen.getAllByText('8 / 8 glasses')).toHaveLength(2);
-    expect(screen.getByText('100%')).toBeInTheDocument();
+    expect(screen.getAllByText('8 glasses / 8 glasses')).toHaveLength(2);
+    expect(screen.getByText(/—\s*100%/)).toBeInTheDocument();
   });
 
   it('creates a numeric or time entry through the upsert mutation when none exists yet', () => {

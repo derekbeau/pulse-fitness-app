@@ -74,6 +74,7 @@ vi.mock('../routes/auth/store.js', () => ({
       };
     },
   ),
+  ensureStarterHabitsForUser: vi.fn(async () => undefined),
   findUserByUsername: vi.fn(async (username: string) => testState.users.get(username)),
 }));
 
@@ -131,6 +132,10 @@ vi.mock('../middleware/store.js', () => ({
     );
 
     return token ? { id: token.id, userId: token.userId } : undefined;
+  }),
+  findUserAuthById: vi.fn(async (userId: string) => {
+    const user = [...testState.users.values()].find((candidate) => candidate.id === userId);
+    return user ? { id: user.id } : undefined;
   }),
   updateAgentTokenLastUsedAt: vi.fn(async (id: string, lastUsedAt = Date.now()) => {
     const token = testState.agentTokens.get(id);

@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 
-import { createUser, findUserByUsername } from './store.js';
+import { createUser, ensureStarterHabitsForUser, findUserByUsername } from './store.js';
 
 const INVALID_CREDENTIALS_RESPONSE = {
   error: {
@@ -87,6 +87,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!isValidPassword) {
       return reply.code(401).send(INVALID_CREDENTIALS_RESPONSE);
     }
+
+    await ensureStarterHabitsForUser(user.id);
 
     return reply.send(
       buildAuthResponse(app, {

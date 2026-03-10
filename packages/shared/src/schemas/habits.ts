@@ -66,6 +66,9 @@ export const createHabitInputSchema = habitDefinitionSchema;
 
 export const updateHabitInputSchema = habitDefinitionFieldsSchema
   .partial()
+  .extend({
+    active: z.boolean().optional(),
+  })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one field is required',
   });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findUserAuthById } from '../../middleware/store.js';
 import {
   createHabit,
   findHabitById,
@@ -10,6 +11,7 @@ import {
   softDeleteHabit,
   updateHabit,
 } from './store.js';
+import { ensureStarterHabitsForUser } from '../auth/store.js';
 
 vi.mock('./store.js', () => ({
   createHabit: vi.fn(),
@@ -19,6 +21,12 @@ vi.mock('./store.js', () => ({
   reorderHabits: vi.fn(),
   softDeleteHabit: vi.fn(),
   updateHabit: vi.fn(),
+}));
+vi.mock('../../middleware/store.js', () => ({
+  findUserAuthById: vi.fn(),
+}));
+vi.mock('../auth/store.js', () => ({
+  ensureStarterHabitsForUser: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -34,6 +42,10 @@ describe('habit routes', () => {
     vi.mocked(reorderHabits).mockReset();
     vi.mocked(softDeleteHabit).mockReset();
     vi.mocked(updateHabit).mockReset();
+    vi.mocked(findUserAuthById).mockReset();
+    vi.mocked(findUserAuthById).mockResolvedValue({ id: 'user-1' });
+    vi.mocked(ensureStarterHabitsForUser).mockReset();
+    vi.mocked(ensureStarterHabitsForUser).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-habit-secret';
   });
 
@@ -188,6 +200,70 @@ describe('habit routes', () => {
       });
       expect(vi.mocked(listActiveHabits)).toHaveBeenCalledWith('user-1');
     } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects stale authenticated users when creating habits outside test mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    vi.mocked(findUserAuthById).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'deleted-user' });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/habits',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: 'Drink Water',
+          emoji: '💧',
+          trackingType: 'boolean',
+          target: null,
+          unit: null,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(createHabit)).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      await app.close();
+    }
+  });
+
+  it('backfills starter habits before listing when the authenticated user has none', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    vi.mocked(listActiveHabits).mockResolvedValue([]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/habits',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: [] });
+      expect(vi.mocked(findUserAuthById)).toHaveBeenCalledWith('user-1');
+      expect(vi.mocked(ensureStarterHabitsForUser)).toHaveBeenCalledWith('user-1');
+      expect(vi.mocked(listActiveHabits)).toHaveBeenCalledWith('user-1');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
       await app.close();
     }
   });

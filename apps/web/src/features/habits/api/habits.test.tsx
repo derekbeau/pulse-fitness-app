@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { HabitEntry } from '@pulse/shared';
+import type { Habit, HabitEntry } from '@pulse/shared';
 import { type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiRequest } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 
-import { useToggleHabit, useUpdateHabitEntry } from './habits';
+import { useHabits, useToggleHabit, useUpdateHabitEntry } from './habits';
 import { habitKeys } from './keys';
 
 vi.mock('@/lib/api-client', () => ({
@@ -55,6 +55,56 @@ afterEach(() => {
 });
 
 describe('habit api hooks', () => {
+  it('requests GET /api/v1/habits and returns active habits only', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const habits: Habit[] = [
+      {
+        id: 'habit-active',
+        userId: 'user-1',
+        name: 'Hydrate',
+        emoji: '💧',
+        trackingType: 'numeric',
+        target: 8,
+        unit: 'glasses',
+        sortOrder: 0,
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'habit-archived',
+        userId: 'user-1',
+        name: 'Archived',
+        emoji: '🗃️',
+        trackingType: 'boolean',
+        target: null,
+        unit: null,
+        sortOrder: 1,
+        active: false,
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ];
+
+    mockedApiRequest.mockResolvedValueOnce(habits);
+
+    const { result } = renderHook(() => useHabits(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(mockedApiRequest).toHaveBeenCalledWith(
+      '/api/v1/habits',
+      expect.objectContaining({
+        method: 'GET',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(result.current.data).toEqual([habits[0]]);
+  });
+
   it('optimistically updates and rolls back a toggled habit entry on failure', async () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);

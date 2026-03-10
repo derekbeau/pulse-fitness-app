@@ -272,29 +272,60 @@ function createRequestInit(init: ApiRequestInit | undefined, token: string | nul
 }
 
 async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T | null> {
-  const allowDevAutoSession = !normalizePath(path).startsWith(AUTH_PATH_PREFIX);
+  const isAuthPath = normalizePath(path).startsWith(AUTH_PATH_PREFIX);
+  const allowDevAutoSession = !isAuthPath;
   const token = await resolveSessionToken({ allowDevAutoSession });
   let response = await fetch(buildUrl(path), createRequestInit(init, token));
+  let errorPayload: ApiErrorEnvelope | null | undefined;
 
   if (!response.ok && !getEnvToken()) {
-    const payload = await parseJson<ApiErrorEnvelope>(response);
+    errorPayload = await parseJson<ApiErrorEnvelope>(response);
 
-    if (shouldRecoverStaleUserSession(path, response.status, payload) && token) {
+    if (shouldRecoverStaleUserSession(path, response.status, errorPayload) && token) {
       clearStoredAuthState();
       const refreshedToken = await resolveSessionToken({ allowDevAutoSession });
 
       if (refreshedToken && refreshedToken !== token) {
         response = await fetch(buildUrl(path), createRequestInit(init, refreshedToken));
+        errorPayload = response.ok ? null : await parseJson<ApiErrorEnvelope>(response);
       } else {
-        throw toApiErrorFromPayload(response.status, payload);
+        throw toApiErrorFromPayload(response.status, errorPayload);
       }
-    } else {
-      throw toApiErrorFromPayload(response.status, payload);
     }
   }
 
   if (!response.ok) {
-    throw await toApiError(response);
+    const shouldRetryWithFreshDevSession =
+      response.status === 401 && !isAuthPath && isDevMode() && !getEnvToken();
+
+    if (shouldRetryWithFreshDevSession) {
+      clearStoredAuthState();
+      const retryToken = await resolveSessionToken({
+        allowDevAutoSession: true,
+      });
+
+      if (retryToken) {
+        const retryResponse = await fetch(buildUrl(path), createRequestInit(init, retryToken));
+        if (retryResponse.ok) {
+          const retryPayload = await parseJson<T>(retryResponse);
+          if (retryPayload == null) {
+            if (retryResponse.status === 204 || retryResponse.status === 205) {
+              return null;
+            }
+
+            throw new ApiError(retryResponse.status, 'Missing response payload');
+          }
+
+          return retryPayload;
+        } else {
+          throw await toApiError(retryResponse);
+        }
+      }
+    }
+
+    const resolvedErrorPayload =
+      errorPayload === undefined ? await parseJson<ApiErrorEnvelope>(response) : errorPayload;
+    throw toApiErrorFromPayload(response.status, resolvedErrorPayload);
   }
 
   const payload = await parseJson<T>(response);

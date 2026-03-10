@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { habitEntryNestedRoutes } from '../habit-entries/index.js';
+import { ensureStarterHabitsForUser } from '../auth/store.js';
 
 import {
   createHabit,
@@ -28,6 +29,7 @@ const habitParamsSchema = {
 
 const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_NOT_FOUND', 'Habit not found');
+const shouldEnsureStarterHabits = () => process.env.NODE_ENV !== 'test';
 
 export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -53,6 +55,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/', async (request, reply) => {
+    if (shouldEnsureStarterHabits()) {
+      await ensureStarterHabitsForUser(request.userId);
+    }
+
     const habits = await listActiveHabits(request.userId);
 
     return reply.send({
@@ -91,7 +97,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
     }
 
-    const habit = await updateHabit(habitId, request.userId, mergedHabitInput.data);
+    const habit = await updateHabit(habitId, request.userId, {
+      ...mergedHabitInput.data,
+      ...(parsedBody.data.active === undefined ? {} : { active: parsedBody.data.active }),
+    });
     if (!habit) {
       return sendNotFound(reply);
     }

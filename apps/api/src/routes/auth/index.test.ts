@@ -2,17 +2,20 @@ import bcrypt from 'bcryptjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { createUser, findUserByUsername } from './store.js';
+import { createUser, ensureStarterHabitsForUser, findUserByUsername } from './store.js';
 
 vi.mock('./store.js', () => ({
   createUser: vi.fn(),
+  ensureStarterHabitsForUser: vi.fn(),
   findUserByUsername: vi.fn(),
 }));
 
 describe('auth routes', () => {
   beforeEach(() => {
     vi.mocked(createUser).mockReset();
+    vi.mocked(ensureStarterHabitsForUser).mockReset();
     vi.mocked(findUserByUsername).mockReset();
+    vi.mocked(ensureStarterHabitsForUser).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -149,6 +152,7 @@ describe('auth routes', () => {
       const decoded = app.jwt.verify<{ userId: string }>(payload.data.token);
       expect(decoded.userId).toBe('user-1');
       expect(vi.mocked(findUserByUsername)).toHaveBeenCalledWith('derek');
+      expect(vi.mocked(ensureStarterHabitsForUser)).toHaveBeenCalledWith('user-1');
     } finally {
       await app.close();
     }

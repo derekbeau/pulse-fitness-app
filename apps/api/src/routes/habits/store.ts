@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { CreateHabitInput, Habit } from '@pulse/shared';
+import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
 
 import { habits } from '../../db/schema/index.js';
 
@@ -106,7 +106,7 @@ export const findHabitById = async (
 export const updateHabit = async (
   id: string,
   userId: string,
-  updates: CreateHabitInput,
+  updates: UpdateHabitInput,
 ): Promise<HabitRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -118,6 +118,7 @@ export const updateHabit = async (
       trackingType: updates.trackingType,
       target: updates.target ?? null,
       unit: updates.unit ?? null,
+      ...(updates.active === undefined ? {} : { active: updates.active }),
     })
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
     .run();

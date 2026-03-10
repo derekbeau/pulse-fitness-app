@@ -1,10 +1,25 @@
 import { eq } from 'drizzle-orm';
 
-import { agentTokens } from '../db/schema/index.js';
+import { agentTokens, users } from '../db/schema/index.js';
 
 export type AgentTokenAuthRecord = {
   id: string;
   userId: string;
+};
+
+export const findUserAuthById = async (
+  userId: string,
+): Promise<{ id: string } | undefined> => {
+  const { db } = await import('../db/index.js');
+
+  return db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+    .get();
 };
 
 export const findAgentTokenByHash = async (

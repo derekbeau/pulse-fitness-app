@@ -179,7 +179,7 @@ export function useHabits() {
         signal,
       });
 
-      return habitsSchema.parse(habits);
+      return habitsSchema.parse(habits).filter((habit) => habit.active);
     },
     queryKey: habitKeys.list(),
   });
@@ -241,9 +241,13 @@ export function useUpdateHabit() {
       return habitSchema.parse(habit);
     },
     onSuccess: (habit) => {
-      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
-        upsertHabit(currentHabits, habit),
-      );
+      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) => {
+        if (!habit.active) {
+          return currentHabits?.filter((item) => item.id !== habit.id);
+        }
+
+        return upsertHabit(currentHabits, habit);
+      });
       toast.success('Habit updated');
     },
     onSettled: async () => {
