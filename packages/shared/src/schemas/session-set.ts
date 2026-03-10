@@ -35,6 +35,8 @@ export const createSetSchema = z.object({
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable().optional().default(null),
   reps: z.number().int().min(0).nullable().optional().default(null),
+  seconds: z.number().int().min(0).nullable().optional().default(null),
+  distance: z.number().min(0).nullable().optional().default(null),
   section: workoutTemplateSectionTypeSchema.nullable().optional().default(null),
 });
 
@@ -42,6 +44,8 @@ export const updateSetSchema = z
   .object({
     weight: z.number().min(0).nullable().optional(),
     reps: z.number().int().min(0).nullable().optional(),
+    seconds: z.number().int().min(0).nullable().optional(),
+    distance: z.number().min(0).nullable().optional(),
     completed: z.boolean().optional(),
     skipped: z.boolean().optional(),
     notes: z.preprocess(normalizeOptionalString, nullableLongStringSchema.optional()),

@@ -16,6 +16,7 @@ import type {
   ActiveWorkoutSessionContext,
   ActiveWorkoutSupplementalExercise,
 } from '../types';
+import { resolveTrackingType } from './tracking';
 
 type CompletedSessionInput = {
   customFeedback: ActiveWorkoutCustomFeedbackField[];
@@ -781,6 +782,12 @@ function createEnhancedExercise(input: {
     sets: templateExercise?.sets ?? input.reversePyramid.length,
     supersetGroup: input.supersetGroup,
     tempo: templateExercise?.tempo ?? '2111',
+    trackingType: resolveTrackingType({
+      category: catalogExercise?.category,
+      exerciseId: input.exerciseId,
+      exerciseName: catalogExercise?.name,
+      prescribedReps: templateExercise?.reps,
+    }),
   };
 }
 

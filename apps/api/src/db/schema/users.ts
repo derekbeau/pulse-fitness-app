@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { WeightUnit } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
@@ -12,6 +13,7 @@ export const users = sqliteTable('users', {
   username: text('username').notNull().unique(),
   name: text('name'),
   passwordHash: text('password_hash').notNull(),
+  weightUnit: text('weight_unit').$type<WeightUnit>().notNull().default('lbs'),
   preferences: text('preferences', { mode: 'json' }).$type<UserPreferences>(),
   createdAt: integer('created_at', { mode: 'number' })
     .notNull()

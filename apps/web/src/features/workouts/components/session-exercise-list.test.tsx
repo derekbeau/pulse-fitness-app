@@ -11,6 +11,7 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetId,
 } from '../lib/active-session';
+import type { ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
 
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
@@ -50,6 +51,7 @@ describe('SessionExerciseList', () => {
         onSetUpdate={vi.fn()}
         restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
         session={session}
+        weightUnit="kg"
       />,
     );
 
@@ -241,7 +243,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
 
-    const rowErgInput = within(rowErgCard as HTMLElement).getByLabelText('Reps for set 1');
+    const rowErgInput = within(rowErgCard as HTMLElement).getByLabelText('Seconds for set 1');
     expect(rowErgInput).toHaveFocus();
 
     rerender(
@@ -271,7 +273,154 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(reopenedRowErgCard).not.toBeNull();
     expect(
-      within(reopenedRowErgCard as HTMLElement).getByLabelText('Weight for set 1'),
-    ).not.toBeVisible();
+      within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('formats reps-seconds last performance as reps when seconds are unavailable in history', () => {
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 0,
+      currentExercise: 1,
+      currentExerciseId: 'tempo-squat',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['compound'],
+              category: 'compound',
+              completedSets: 0,
+              formCues: null,
+              id: 'tempo-squat',
+              injuryCues: [],
+              lastPerformance: {
+                date: '2026-03-02',
+                sessionId: 'session-1',
+                sets: [{ completed: true, reps: 10, setNumber: 1, weight: null }],
+              },
+              name: 'Tempo Squat',
+              notes: '',
+              phaseBadge: 'moderate',
+              prescribedReps: '10 reps + 30 sec hold',
+              priority: 'required',
+              restSeconds: 90,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: false,
+                  distance: null,
+                  id: 'tempo-squat-set-1',
+                  number: 1,
+                  reps: 10,
+                  seconds: 30,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              targetSets: 1,
+              trackingType: 'reps_seconds',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'Custom Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'Tempo Squat' })
+      .closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(within(card as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).getAllByText((_, element) => element?.textContent === '10 reps')
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(card as HTMLElement).queryByText((_, element) => element?.textContent === '10 x 10 sec'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a PR indicator for time-based sets using seconds when reps is null', () => {
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 1,
+      currentExercise: 1,
+      currentExerciseId: 'plank-hold',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['mobility'],
+              category: 'mobility',
+              completedSets: 1,
+              formCues: null,
+              id: 'plank-hold',
+              injuryCues: [],
+              lastPerformance: {
+                date: '2026-03-02',
+                sessionId: 'session-1',
+                sets: [{ completed: true, reps: 30, setNumber: 1, weight: null }],
+              },
+              name: 'Plank Hold',
+              notes: '',
+              phaseBadge: 'recovery',
+              prescribedReps: '30 sec',
+              priority: 'required',
+              restSeconds: 60,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: true,
+                  distance: null,
+                  id: 'plank-hold-set-1',
+                  number: 1,
+                  reps: null,
+                  seconds: 45,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              targetSets: 1,
+              trackingType: 'seconds_only',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'Custom Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Plank Hold' })
+      .closest('[data-slot="card"]');
+    expect(rowErgCard).not.toBeNull();
+    expect(within(rowErgCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
   });
 });

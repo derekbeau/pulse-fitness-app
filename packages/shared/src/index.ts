@@ -25,6 +25,7 @@ export * from './schemas/users.js';
 export * from './schemas/workout-templates.js';
 export * from './utils/ewma.js';
 export * from './utils/habit-scheduling.js';
+export * from './utils/weight-unit.js';
 
 export const userSchema = z.object({
   id: z.string(),

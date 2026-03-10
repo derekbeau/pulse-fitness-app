@@ -89,6 +89,7 @@ describe('agent workouts routes', () => {
           userId: 'user-1',
           name: 'Bench Press',
           category: 'compound',
+          trackingType: 'weight_reps',
           muscleGroups: ['Chest'],
           equipment: 'Barbell',
           instructions: null,
@@ -182,6 +183,7 @@ describe('agent workouts routes', () => {
             userId: 'user-1',
             name: 'Incline Press',
             category: 'compound',
+            trackingType: 'weight_reps',
             muscleGroups: ['Chest'],
             equipment: 'Dumbbell',
             instructions: null,
@@ -193,6 +195,7 @@ describe('agent workouts routes', () => {
             userId: 'user-1',
             name: 'Lateral Raise',
             category: 'isolation',
+            trackingType: 'weight_reps',
             muscleGroups: ['Shoulders'],
             equipment: 'Dumbbell',
             instructions: null,
@@ -392,6 +395,7 @@ describe('agent workouts routes', () => {
             userId: 'user-1',
             name: 'Bench Press',
             category: 'compound',
+            trackingType: 'weight_reps',
             muscleGroups: ['Chest'],
             equipment: 'Barbell',
             instructions: null,
@@ -405,6 +409,7 @@ describe('agent workouts routes', () => {
           userId: 'user-1',
           name: 'Squat',
           category: 'compound',
+          trackingType: 'weight_reps',
           muscleGroups: ['Full Body'],
           equipment: 'Bodyweight',
           instructions: null,
@@ -544,6 +549,7 @@ describe('agent workouts routes', () => {
             userId: 'user-1',
             name: 'Bench Press',
             category: 'compound',
+            trackingType: 'weight_reps',
             muscleGroups: ['Chest'],
             equipment: 'Barbell',
             instructions: null,
@@ -557,6 +563,7 @@ describe('agent workouts routes', () => {
           userId: 'user-1',
           name: 'Squat',
           category: 'compound',
+          trackingType: 'weight_reps',
           muscleGroups: ['Full Body'],
           equipment: 'Bodyweight',
           instructions: null,
@@ -597,13 +604,10 @@ describe('agent workouts routes', () => {
         expect(response.statusCode).toBe(200);
 
         const updateCall = vi.mocked(updateWorkoutSession).mock.calls.at(0);
-        const setKeys = updateCall?.[0].input.sets.map((set) => `${set.exerciseId}:${set.setNumber}`);
-        expect(setKeys).toEqual([
-          'exercise-z:1',
-          'exercise-z:2',
-          'exercise-a:1',
-          'exercise-b:1',
-        ]);
+        const setKeys = updateCall?.[0].input.sets.map(
+          (set) => `${set.exerciseId}:${set.setNumber}`,
+        );
+        expect(setKeys).toEqual(['exercise-z:1', 'exercise-z:2', 'exercise-a:1', 'exercise-b:1']);
       } finally {
         await app.close();
       }

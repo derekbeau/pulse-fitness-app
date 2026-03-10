@@ -63,12 +63,14 @@ describe('users schema', () => {
       'username',
       'name',
       'passwordHash',
+      'weightUnit',
       'preferences',
       'createdAt',
       'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.weightUnit.default).toBe('lbs');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.updatedAt.default).toBeDefined();
     expect(columns.updatedAt.defaultFn).toBeTypeOf('function');
@@ -794,7 +796,7 @@ describe('habits schema', () => {
 });
 
 describe('exercises schema', () => {
-  it('defines the expected table, optional user scope, and category constraint', () => {
+  it('defines the expected table, optional user scope, and tracking constraints', () => {
     const category: WorkoutExerciseCategory = 'compound';
 
     expect(getTableName(exercises)).toBe('exercises');
@@ -808,6 +810,7 @@ describe('exercises schema', () => {
       'muscleGroups',
       'equipment',
       'category',
+      'trackingType',
       'instructions',
       'createdAt',
       'updatedAt',
@@ -815,6 +818,7 @@ describe('exercises schema', () => {
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.userId.notNull).toBe(false);
+    expect(columns.trackingType.default).toBe('weight_reps');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
@@ -825,8 +829,9 @@ describe('exercises schema', () => {
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['exercises_user_id_idx']);
-    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'exercises_category_check',
+      'exercises_tracking_type_check',
     ]);
   });
 });

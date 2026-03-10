@@ -315,10 +315,17 @@ export const updateSessionSet = async ({
   input: UpdateSetInput;
 }): Promise<SessionSet | undefined> => {
   const { db } = await import('../../db/index.js');
+  const persistedInput = {
+    weight: input.weight,
+    reps: input.reps,
+    completed: input.completed,
+    skipped: input.skipped,
+    notes: input.notes,
+  };
 
   const result = db
     .update(sessionSets)
-    .set(input)
+    .set(persistedInput)
     .where(and(eq(sessionSets.id, setId), eq(sessionSets.sessionId, sessionId)))
     .run();
 

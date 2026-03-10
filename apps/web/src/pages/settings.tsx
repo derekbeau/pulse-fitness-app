@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 
-import { DASHBOARD_WIDGET_IDS, type CreateNutritionTargetInput, type DashboardTrendMetric } from '@pulse/shared';
+import {
+  DASHBOARD_WIDGET_IDS,
+  type CreateNutritionTargetInput,
+  type DashboardTrendMetric,
+  type UpdateUserInput,
+  type WeightUnit,
+} from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -275,9 +281,13 @@ export function SettingsPage() {
   const { data: user } = useUser();
   const updateUserMutation = useUpdateUser();
   const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
+  const [weightUnitDraft, setWeightUnitDraft] = useState<WeightUnit | null>(null);
   const [profileMessage, setProfileMessage] = useState('');
   const displayName = displayNameDraft ?? user?.name ?? '';
-  const isProfileDirty = displayNameDraft !== null && displayName.trim() !== (user?.name ?? '');
+  const weightUnit = weightUnitDraft ?? user?.weightUnit ?? 'lbs';
+  const isProfileDirty =
+    (displayNameDraft !== null && displayName.trim() !== (user?.name ?? '')) ||
+    (weightUnitDraft !== null && weightUnit !== (user?.weightUnit ?? 'lbs'));
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
   const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
     SettingsFormState['dashboardConfig'] | null
@@ -341,16 +351,26 @@ export function SettingsPage() {
       return;
     }
 
-    const trimmed = displayName.trim();
+    const payload: UpdateUserInput = {};
 
-    if (!trimmed) {
-      setProfileMessage('Display name cannot be empty.');
-      return;
+    if (displayNameDraft !== null) {
+      const nextName = displayName.trim();
+      if (!nextName) {
+        setProfileMessage('Display name cannot be empty.');
+        return;
+      }
+
+      payload.name = nextName;
+    }
+
+    if (weightUnitDraft !== null) {
+      payload.weightUnit = weightUnitDraft;
     }
 
     try {
-      await updateUserMutation.mutateAsync({ name: trimmed });
+      await updateUserMutation.mutateAsync(payload);
       setDisplayNameDraft(null);
+      setWeightUnitDraft(null);
       setProfileMessage('Profile updated.');
     } catch {
       setProfileMessage('Could not save profile. Please try again.');
@@ -519,6 +539,36 @@ export function SettingsPage() {
               </p>
             </div>
           )}
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Weight unit</p>
+            <RadioGroup
+              aria-label="Weight unit"
+              className="grid gap-2 sm:grid-cols-2"
+              onValueChange={(value) => {
+                if (value === 'lbs' || value === 'kg') {
+                  setWeightUnitDraft(value);
+                  setProfileMessage('');
+                }
+              }}
+              value={weightUnit}
+            >
+              <Label
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-3"
+                htmlFor="weight-unit-lbs"
+              >
+                <RadioGroupItem id="weight-unit-lbs" value="lbs" />
+                <span className="text-sm text-foreground">lbs</span>
+              </Label>
+              <Label
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-3"
+                htmlFor="weight-unit-kg"
+              >
+                <RadioGroupItem id="weight-unit-kg" value="kg" />
+                <span className="text-sm text-foreground">kg</span>
+              </Label>
+            </RadioGroup>
+          </div>
 
           <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm text-muted-foreground">

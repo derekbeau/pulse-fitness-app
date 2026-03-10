@@ -22,8 +22,22 @@ describe('createSetSchema', () => {
       setNumber: 2,
       weight: null,
       reps: null,
+      seconds: null,
+      distance: null,
       section: null,
     });
+  });
+
+  it('accepts optional seconds and distance metrics', () => {
+    const payload = createSetSchema.parse({
+      exerciseId: 'global-rower',
+      setNumber: 1,
+      seconds: 120,
+      distance: 750,
+    });
+
+    expect(payload.seconds).toBe(120);
+    expect(payload.distance).toBe(750);
   });
 });
 
@@ -31,6 +45,7 @@ describe('updateSetSchema', () => {
   it('accepts partial set updates', () => {
     const payload = updateSetSchema.parse({
       reps: 8,
+      seconds: 45,
       completed: true,
       notes: '  Smooth tempo  ',
     });
@@ -39,6 +54,7 @@ describe('updateSetSchema', () => {
 
     expect(typedPayload).toEqual({
       reps: 8,
+      seconds: 45,
       completed: true,
       notes: 'Smooth tempo',
     });
@@ -85,6 +101,8 @@ describe('batchUpsertSetsSchema', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
+          seconds: null,
+          distance: null,
           section: 'main',
         },
         {
@@ -92,6 +110,8 @@ describe('batchUpsertSetsSchema', () => {
           setNumber: 2,
           weight: null,
           reps: null,
+          seconds: null,
+          distance: null,
           section: null,
         },
       ],

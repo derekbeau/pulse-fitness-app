@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { WorkoutSession } from '@pulse/shared';
 
-import { SessionExerciseComparison } from './session-comparison';
+import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
 function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
   return {
@@ -73,5 +73,48 @@ describe('SessionExerciseComparison', () => {
     expect(screen.getByText('Reps +2')).toBeInTheDocument();
     expect(screen.getByText('PR')).toBeInTheDocument();
     expect(screen.queryByText('Reps +3')).not.toBeInTheDocument();
+  });
+});
+
+describe('SessionComparison', () => {
+  it('renders unit-aware volume values', () => {
+    const previousSession = createSession({
+      id: 'previous-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [createSet('bench-press', 1, 8, 80)],
+    });
+    const currentSession = createSession({
+      id: 'current-session',
+      sets: [createSet('bench-press', 1, 10, 85)],
+    });
+
+    render(
+      <SessionComparison
+        currentSession={currentSession}
+        previousSession={previousSession}
+        weightUnit="kg"
+      />,
+    );
+
+    expect(screen.getByText('850 kg')).toBeInTheDocument();
+    expect(screen.getByText('640 kg')).toBeInTheDocument();
+  });
+
+  it('uses seconds metric labels for time-based sessions', () => {
+    const previousSession = createSession({
+      id: 'previous-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [createSet('couch-stretch', 1, 60)],
+    });
+    const currentSession = createSession({
+      id: 'current-session',
+      sets: [createSet('couch-stretch', 1, 90)],
+    });
+
+    render(<SessionComparison currentSession={currentSession} previousSession={previousSession} />);
+
+    expect(screen.getByText('Seconds progression')).toBeInTheDocument();
+    expect(screen.getByText('90 sec')).toBeInTheDocument();
+    expect(screen.getByText('60 sec')).toBeInTheDocument();
   });
 });

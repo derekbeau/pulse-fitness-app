@@ -4,6 +4,7 @@ import {
   type WorkoutTemplate,
   type WorkoutTemplateExercise,
 } from '@/lib/mock-data/workouts';
+import type { ExerciseTrackingType } from '@pulse/shared';
 
 import type {
   ActiveWorkoutEnhancedExercise,
@@ -14,6 +15,7 @@ import type {
   ActiveWorkoutSet,
   ActiveWorkoutSetDrafts,
 } from '../types';
+import { parsePrescribedRepsValue, resolveTrackingType } from './tracking';
 import { workoutEnhancedExercises } from './mock-data';
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
@@ -54,6 +56,12 @@ export function buildActiveWorkoutSession(
     const exercises = section.exercises.map((templateExercise): ActiveWorkoutExercise => {
       const exercise = exerciseById.get(templateExercise.exerciseId);
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
+      const trackingType = resolveTrackingType({
+        category: exercise?.category,
+        exerciseId: templateExercise.exerciseId,
+        exerciseName: exercise?.name ?? templateExercise.exerciseName,
+        prescribedReps: templateExercise.reps,
+      });
       const sets = getWorkoutSets(templateExercise, setDrafts);
       const completedSets = sets.filter((set) => set.completed).length;
 
@@ -77,6 +85,7 @@ export function buildActiveWorkoutSession(
         sets,
         supersetGroup: enhancedExercise?.supersetGroup ?? null,
         targetSets: sets.length,
+        trackingType,
       };
     });
 
@@ -139,12 +148,22 @@ export function createWorkoutSetDraft(
   completed = false,
 ): ActiveWorkoutSet {
   const exerciseId = templateExercise.exerciseId;
+  const exercise = exerciseById.get(exerciseId);
+  const trackingType = resolveTrackingType({
+    category: exercise?.category,
+    exerciseId,
+    exerciseName: exercise?.name ?? templateExercise.exerciseName,
+    prescribedReps: templateExercise.reps,
+  });
+  const initialValue = completed ? parsePrescribedRepsValue(templateExercise.reps) : null;
 
   return {
     id: createWorkoutSetId(exerciseId, setNumber),
     completed,
+    distance: trackingType === 'distance' ? initialValue : null,
     number: setNumber,
-    reps: completed ? getInitialRepsValue(templateExercise.reps) : null,
+    reps: shouldSeedReps(trackingType) ? initialValue : null,
+    seconds: shouldSeedSeconds(trackingType) ? initialValue : null,
     weight: completed ? (sampleWeightByExerciseId.get(exerciseId) ?? null) : null,
   };
 }
@@ -201,14 +220,28 @@ function getLastPerformance(
   };
 }
 
-function getInitialRepsValue(reps: string) {
-  const match = reps.match(/\d+/);
-
-  return match ? Number(match[0]) : null;
-}
-
 export function countCompletedReps(setDrafts: ActiveWorkoutSetDrafts) {
+  // Note: For time-based exercises, `set.reps` may contain bridged seconds data
+  // (see getSetSeconds fallback). This aggregate is only used for progress UI.
   return Object.values(setDrafts)
     .flat()
     .reduce((total, set) => total + (set.completed ? (set.reps ?? 0) : 0), 0);
+}
+
+function shouldSeedReps(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_reps' ||
+    trackingType === 'bodyweight_reps' ||
+    trackingType === 'reps_only' ||
+    trackingType === 'reps_seconds'
+  );
+}
+
+function shouldSeedSeconds(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_seconds' ||
+    trackingType === 'reps_seconds' ||
+    trackingType === 'seconds_only' ||
+    trackingType === 'cardio'
+  );
 }

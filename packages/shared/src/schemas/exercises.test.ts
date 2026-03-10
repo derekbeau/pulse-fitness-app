@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createExerciseInputSchema,
+  exerciseTrackingTypeSchema,
   exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
@@ -10,6 +11,7 @@ import {
   type ExerciseCategory,
   type ExerciseLastPerformance,
   type ExerciseQueryParams,
+  type ExerciseTrackingType,
   type UpdateExerciseInput,
   updateExerciseInputSchema,
 } from './exercises';
@@ -23,6 +25,7 @@ describe('exerciseSchema', () => {
       muscleGroups: ['chest', 'front delts', 'triceps'],
       equipment: ' dumbbells ',
       category: 'compound',
+      trackingType: 'bodyweight_reps',
       instructions: ' Drive feet into the floor. ',
       createdAt: 1,
       updatedAt: 2,
@@ -35,10 +38,27 @@ describe('exerciseSchema', () => {
       muscleGroups: ['chest', 'front delts', 'triceps'],
       equipment: 'dumbbells',
       category: 'compound',
+      trackingType: 'bodyweight_reps',
       instructions: 'Drive feet into the floor.',
       createdAt: 1,
       updatedAt: 2,
     });
+  });
+
+  it('defaults trackingType to weight_reps when omitted', () => {
+    const payload = exerciseSchema.parse({
+      id: 'exercise-1',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest', 'triceps'],
+      equipment: 'barbell',
+      category: 'compound',
+      instructions: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    expect(payload.trackingType).toBe('weight_reps');
   });
 
   it('rejects invalid categories and empty muscle group arrays', () => {
@@ -50,6 +70,7 @@ describe('exerciseSchema', () => {
         muscleGroups: [],
         equipment: 'cable',
         category: 'strength',
+        trackingType: 'invalid',
         instructions: null,
         createdAt: 1,
         updatedAt: 2,
@@ -66,6 +87,7 @@ describe('exerciseSchema', () => {
       muscleGroups: ['hip flexors', 'quads'],
       equipment: 'bodyweight',
       category,
+      trackingType: 'reps_only',
       instructions: null,
       createdAt: 10,
       updatedAt: 10,
@@ -82,6 +104,7 @@ describe('createExerciseInputSchema', () => {
       muscleGroups: ['hamstrings', 'glutes'],
       equipment: ' barbell ',
       category: 'compound',
+      trackingType: 'cardio',
       instructions: '   ',
     });
 
@@ -90,6 +113,7 @@ describe('createExerciseInputSchema', () => {
       muscleGroups: ['hamstrings', 'glutes'],
       equipment: 'barbell',
       category: 'compound',
+      trackingType: 'cardio',
       instructions: null,
     });
   });
@@ -100,6 +124,7 @@ describe('createExerciseInputSchema', () => {
       muscleGroups: ['conditioning'],
       equipment: 'air bike',
       category: 'cardio',
+      trackingType: 'cardio',
       instructions: null,
     };
 
@@ -123,9 +148,18 @@ describe('updateExerciseInputSchema', () => {
   it('infers the UpdateExerciseInput type from the schema', () => {
     const payload: UpdateExerciseInput = {
       equipment: 'cable',
+      trackingType: 'weight_seconds',
     };
 
     expect(payload.equipment).toBe('cable');
+  });
+});
+
+describe('exerciseTrackingTypeSchema', () => {
+  it('accepts declared tracking types and rejects unsupported values', () => {
+    const validType: ExerciseTrackingType = exerciseTrackingTypeSchema.parse('bodyweight_reps');
+    expect(validType).toBe('bodyweight_reps');
+    expect(() => exerciseTrackingTypeSchema.parse('strength')).toThrow();
   });
 });
 

@@ -32,6 +32,7 @@ describe('ExerciseTrendChart', () => {
       <ExerciseTrendChart
         exerciseName="Incline Dumbbell Press"
         history={workoutExerciseHistory['incline-dumbbell-press'] ?? []}
+        weightUnit="kg"
       />,
     );
 
@@ -39,6 +40,7 @@ describe('ExerciseTrendChart', () => {
     expect(container.querySelectorAll('.recharts-line .recharts-curve')).toHaveLength(2);
     expect(screen.getByText('Latest weight')).toBeInTheDocument();
     expect(screen.getByText('Latest reps')).toBeInTheDocument();
+    expect(screen.getByText('50 kg')).toBeInTheDocument();
   });
 
   it('filters chart history by date range', () => {
@@ -66,5 +68,22 @@ describe('ExerciseTrendChart', () => {
     expect(
       screen.getByText(/complete a few sessions for air bike to unlock progression trends/i),
     ).toBeInTheDocument();
+  });
+
+  it('renders reps-only trend cards for bodyweight tracking', () => {
+    render(
+      <ExerciseTrendChart
+        exerciseName="Bodyweight Squat"
+        history={[
+          { date: '2026-02-01', reps: 12, weight: 0 },
+          { date: '2026-03-01', reps: 15, weight: 0 },
+        ]}
+        trackingType="reps_only"
+      />,
+    );
+
+    expect(screen.getByText('Latest reps')).toBeInTheDocument();
+    expect(screen.getByText('15 reps')).toBeInTheDocument();
+    expect(screen.queryByText('Latest weight')).not.toBeInTheDocument();
   });
 });

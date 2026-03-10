@@ -66,8 +66,10 @@ describe('use-session-sets hooks', () => {
 
     expect(request).toBeDefined();
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+      distance: null,
       exerciseId: 'incline-dumbbell-press',
       reps: 8,
+      seconds: null,
       section: 'main',
       setNumber: 1,
       weight: 60,
@@ -111,7 +113,8 @@ describe('use-session-sets hooks', () => {
 
     const request = mockFetch.mock.calls.find(
       ([input, init]) =>
-        String(input) === '/api/v1/workout-sessions/session-1/sets/set-1' && init?.method === 'PATCH',
+        String(input) === '/api/v1/workout-sessions/session-1/sets/set-1' &&
+        init?.method === 'PATCH',
     );
 
     expect(request).toBeDefined();
