@@ -15,6 +15,13 @@ export type WorkoutSessionFeedback = {
   recovery: 1 | 2 | 3 | 4 | 5;
   technique: 1 | 2 | 3 | 4 | 5;
   notes?: string;
+  responses?: Array<{
+    id: string;
+    label: string;
+    type: 'scale' | 'text' | 'yes_no' | 'emoji' | 'slider' | 'multi_select';
+    value: number | boolean | string | string[] | null;
+    notes?: string;
+  }>;
 };
 
 export const workoutSessions = sqliteTable(

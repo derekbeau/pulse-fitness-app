@@ -122,19 +122,14 @@ describe('SessionExerciseList', () => {
     );
 
     fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
-    expect(within(currentCard as HTMLElement).getByText('Technique')).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Technique & coaching cues')).toBeVisible();
     expect(
       within(currentCard as HTMLElement).getByText(
-        'Press with a slight neutral grip, keep forearms stacked, and control a 3-second eccentric into the upper chest.',
+        'Drive feet into the floor',
       ),
     ).toBeVisible();
-    expect(within(currentCard as HTMLElement).getByText('Mental Cues')).toBeVisible();
     expect(
-      within(currentCard as HTMLElement).getByText('Drive upper back into the bench'),
-    ).toBeVisible();
-    expect(within(currentCard as HTMLElement).getByText('Common Mistakes')).toBeVisible();
-    expect(
-      within(currentCard as HTMLElement).getByText('Losing the shoulder blade set-up'),
+      within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows'),
     ).toBeVisible();
     expect(within(currentCard as HTMLElement).getByText('Injury-aware cues')).toBeVisible();
     expect(
@@ -399,7 +394,7 @@ describe('SessionExerciseList', () => {
               badges: ['compound'],
               category: 'compound',
               completedSets: 0,
-              formCues: null,
+              formCues: [],
               id: 'tempo-squat',
               injuryCues: [],
               lastPerformance: {
@@ -476,7 +471,7 @@ describe('SessionExerciseList', () => {
               badges: ['mobility'],
               category: 'mobility',
               completedSets: 1,
-              formCues: null,
+              formCues: [],
               id: 'plank-hold',
               injuryCues: [],
               lastPerformance: {

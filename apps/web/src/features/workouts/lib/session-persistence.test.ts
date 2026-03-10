@@ -2,15 +2,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ActiveWorkoutSetDrafts } from '../types';
 import {
-  clearExerciseNotes,
-  clearSetDrafts,
-  clearStoredActiveWorkoutSessionId,
-  loadExerciseNotes,
-  loadSetDrafts,
-  saveExerciseNotes,
-  saveSetDrafts,
-  setStoredActiveWorkoutSessionId,
+  ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX,
   ACTIVE_WORKOUT_SESSION_STORAGE_KEY,
+  clearStoredActiveWorkoutDraft,
+  clearStoredActiveWorkoutSessionId,
+  getActiveWorkoutDraftStorageKey,
+  getStoredActiveWorkoutDraft,
+  setStoredActiveWorkoutDraft,
+  setStoredActiveWorkoutSessionId,
 } from './session-persistence';
 
 describe('session-persistence', () => {
@@ -26,8 +25,8 @@ describe('session-persistence', () => {
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBeNull();
   });
 
-  it('saves, loads, and clears set drafts by session id', () => {
-    const drafts: ActiveWorkoutSetDrafts = {
+  it('saves, loads, and clears active workout drafts by id', () => {
+    const setDrafts: ActiveWorkoutSetDrafts = {
       'incline-dumbbell-press': [
         {
           completed: true,
@@ -41,60 +40,43 @@ describe('session-persistence', () => {
       ],
     };
 
-    saveSetDrafts('session-a', drafts);
-    expect(loadSetDrafts('session-a')).toEqual(drafts);
-    expect(loadSetDrafts('session-b')).toBeNull();
+    setStoredActiveWorkoutDraft('session-a', {
+      exerciseNotes: {
+        'incline-dumbbell-press': 'Keep elbows tucked.',
+      },
+      setDrafts,
+    });
 
-    clearSetDrafts('session-a');
-    expect(loadSetDrafts('session-a')).toBeNull();
+    expect(getStoredActiveWorkoutDraft('session-a')).toEqual({
+      exerciseNotes: {
+        'incline-dumbbell-press': 'Keep elbows tucked.',
+      },
+      setDrafts,
+    });
+    expect(getStoredActiveWorkoutDraft('session-b')).toBeNull();
+
+    clearStoredActiveWorkoutDraft('session-a');
+    expect(getStoredActiveWorkoutDraft('session-a')).toBeNull();
   });
 
   it('returns null for invalid draft payloads', () => {
-    window.localStorage.setItem('pulse.workout-drafts.session-a', '{bad json');
-    expect(loadSetDrafts('session-a')).toBeNull();
+    const key = `${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:session-a`;
+    window.localStorage.setItem(key, '{bad json');
+    expect(getStoredActiveWorkoutDraft('session-a')).toBeNull();
   });
 
-  it('returns null for tampered draft shapes', () => {
-    window.localStorage.setItem(
-      'pulse.workout-drafts.session-a',
-      JSON.stringify({
-        'incline-dumbbell-press': [{ id: 'set-1', completed: true }],
-      }),
-    );
-    expect(loadSetDrafts('session-a')).toBeNull();
+  it('normalizes missing draft fields', () => {
+    const key = `${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:session-a`;
+    window.localStorage.setItem(key, JSON.stringify({}));
 
-    window.localStorage.setItem('pulse.workout-drafts.session-a', JSON.stringify([]));
-    expect(loadSetDrafts('session-a')).toBeNull();
+    expect(getStoredActiveWorkoutDraft('session-a')).toEqual({
+      exerciseNotes: {},
+      setDrafts: {},
+    });
   });
 
-  it('saves, loads, and clears exercise notes by session id', () => {
-    const notes = {
-      'incline-dumbbell-press': 'Keep elbows tucked.',
-    };
-
-    saveExerciseNotes('session-a', notes);
-    expect(loadExerciseNotes('session-a')).toEqual(notes);
-    expect(loadExerciseNotes('session-b')).toBeNull();
-
-    clearExerciseNotes('session-a');
-    expect(loadExerciseNotes('session-a')).toBeNull();
-  });
-
-  it('returns null for invalid notes payloads', () => {
-    window.localStorage.setItem('pulse.workout-notes.session-a', '{bad json');
-    expect(loadExerciseNotes('session-a')).toBeNull();
-  });
-
-  it('returns null for tampered notes payload shapes', () => {
-    window.localStorage.setItem(
-      'pulse.workout-notes.session-a',
-      JSON.stringify({
-        'incline-dumbbell-press': 42,
-      }),
-    );
-    expect(loadExerciseNotes('session-a')).toBeNull();
-
-    window.localStorage.setItem('pulse.workout-notes.session-a', JSON.stringify([]));
-    expect(loadExerciseNotes('session-a')).toBeNull();
+  it('returns null for blank draft ids', () => {
+    expect(getActiveWorkoutDraftStorageKey('  ')).toBeNull();
+    expect(getStoredActiveWorkoutDraft('  ')).toBeNull();
   });
 });

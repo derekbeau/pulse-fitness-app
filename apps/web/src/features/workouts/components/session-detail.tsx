@@ -15,6 +15,7 @@ import {
   type SessionSet,
   type WeightUnit,
   type WorkoutSession,
+  type WorkoutSessionFeedbackResponse,
   type WorkoutTemplate,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -414,11 +415,32 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         <CardContent className="space-y-5">
           {session.feedback ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <FeedbackScore label="Energy" score={session.feedback.energy} />
-                <FeedbackScore label="Recovery" score={session.feedback.recovery} />
-                <FeedbackScore label="Technique" score={session.feedback.technique} />
-              </div>
+              {session.feedback.responses && session.feedback.responses.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {session.feedback.responses.map((response) => (
+                    <div
+                      className="rounded-2xl border border-border bg-secondary/35 p-4"
+                      key={response.id}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                        {response.label}
+                      </p>
+                      <p className="mt-2 text-base font-semibold text-foreground">
+                        {formatFeedbackResponseValue(response)}
+                      </p>
+                      {response.notes?.trim() ? (
+                        <p className="mt-2 text-sm text-muted">{response.notes.trim()}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FeedbackScore label="Energy" score={session.feedback.energy} />
+                  <FeedbackScore label="Recovery" score={session.feedback.recovery} />
+                  <FeedbackScore label="Technique" score={session.feedback.technique} />
+                </div>
+              )}
 
               {session.feedback.notes ? (
                 <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
@@ -596,6 +618,32 @@ function FeedbackScore({ label, score }: { label: string; score: number }) {
       <p className="mt-2 text-base font-semibold text-foreground">{`${score}/5`}</p>
     </div>
   );
+}
+
+function formatFeedbackResponseValue(response: WorkoutSessionFeedbackResponse) {
+  if (response.value === null) {
+    return '-';
+  }
+
+  if (typeof response.value === 'boolean') {
+    return response.value ? 'Yes' : 'No';
+  }
+
+  if (typeof response.value === 'number') {
+    return Number.isInteger(response.value)
+      ? `${response.value}`
+      : decimalFormatter.format(response.value);
+  }
+
+  if (typeof response.value === 'string') {
+    return response.value.trim().length > 0 ? response.value : '-';
+  }
+
+  if (Array.isArray(response.value)) {
+    return response.value.length > 0 ? response.value.join(', ') : '-';
+  }
+
+  return '-';
 }
 
 function inferPhaseBadge(sectionType: SessionDetailSectionType): SessionDetailExercise['phaseBadge'] {

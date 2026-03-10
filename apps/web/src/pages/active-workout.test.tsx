@@ -227,6 +227,32 @@ describe('ActiveWorkoutPage', () => {
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
 
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+        name: '6',
+      }),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole('group', { name: 'Energy post workout options' }),
+      ).getByRole('button', {
+        name: '😐',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '3',
+      }),
+    );
+
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
     expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();

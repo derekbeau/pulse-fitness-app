@@ -1148,11 +1148,28 @@ describe('workout session feedback helpers', () => {
       recovery: 3,
       technique: 5,
       notes: 'Moved well today.',
+      responses: [
+        {
+          id: 'session-rpe',
+          label: 'Session RPE',
+          type: 'scale',
+          value: 8,
+        },
+        {
+          id: 'pain-discomfort',
+          label: 'Any pain or discomfort?',
+          type: 'yes_no',
+          value: true,
+          notes: 'Right knee discomfort during split squats.',
+        },
+      ],
     };
 
     const serialized = serializeWorkoutSessionFeedback(feedback);
 
-    expect(serialized).toBe('{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today."}');
+    expect(serialized).toBe(
+      '{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today.","responses":[{"id":"session-rpe","label":"Session RPE","type":"scale","value":8},{"id":"pain-discomfort","label":"Any pain or discomfort?","type":"yes_no","value":true,"notes":"Right knee discomfort during split squats."}]}',
+    );
     expect(parseWorkoutSessionFeedback(serialized)).toEqual(feedback);
     expect(parseWorkoutSessionFeedback(null)).toBeNull();
     expect(serializeWorkoutSessionFeedback(null)).toBeNull();
@@ -1169,6 +1186,16 @@ describe('workout session feedback helpers', () => {
     expect(() =>
       parseWorkoutSessionFeedback(
         '{"energy":4,"recovery":3,"technique":4,"notes":"ok","extra":true}',
+      ),
+    ).toThrow(TypeError);
+    expect(() =>
+      parseWorkoutSessionFeedback(
+        '{"energy":4,"recovery":3,"technique":4,"responses":[{"id":"session-rpe","label":"Session RPE","type":"invalid","value":8}]}',
+      ),
+    ).toThrow(TypeError);
+    expect(() =>
+      parseWorkoutSessionFeedback(
+        '{"energy":4,"recovery":3,"technique":4,"responses":[{"id":"session-rpe","label":"Session RPE","type":"scale","value":{"bad":true}}]}',
       ),
     ).toThrow(TypeError);
   });

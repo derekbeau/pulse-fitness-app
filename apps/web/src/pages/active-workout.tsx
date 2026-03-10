@@ -6,6 +6,7 @@ import {
   type ExerciseTrackingType,
   type SessionSet,
   type WorkoutSessionFeedback,
+  type WorkoutSessionFeedbackResponse,
   WorkoutTemplate as ApiWorkoutTemplate,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -25,6 +26,7 @@ import {
   workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
+  type ActiveWorkoutCustomFeedbackField,
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
@@ -865,6 +867,18 @@ function createSessionSetDrafts(
 function mapFeedbackDraftToSessionFeedback(
   draft: ActiveWorkoutFeedbackDraft,
 ): WorkoutSessionFeedback {
+  const sessionRpeField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale' }> =>
+      field.id === 'session-rpe' && field.type === 'scale',
+  );
+  const energyEmojiField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'emoji' }> =>
+      field.id === 'energy-post-workout' && field.type === 'emoji',
+  );
+  const painField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'yes_no' }> =>
+      field.id === 'pain-discomfort' && field.type === 'yes_no',
+  );
   const scaleEntries = draft.filter(
     (
       field,
@@ -876,20 +890,70 @@ function mapFeedbackDraftToSessionFeedback(
 
   return {
     energy: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('energy'))?.value ??
+      toEmojiFeedbackScore(energyEmojiField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('energy'))?.value ??
         scaleEntries.at(2)?.value ??
         scaleEntries.at(0)?.value,
     ),
     recovery: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('recovery'))?.value ??
+      toPainFeedbackScore(painField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('recovery'))?.value ??
         scaleEntries.at(0)?.value,
     ),
     technique: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('technique'))?.value ??
+      toRpeFeedbackScore(sessionRpeField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('technique'))?.value ??
         scaleEntries.at(1)?.value ??
         scaleEntries.at(0)?.value,
     ),
+    responses: draft.map(toWorkoutSessionFeedbackResponse),
   };
+}
+
+function toWorkoutSessionFeedbackResponse(
+  field: ActiveWorkoutCustomFeedbackField,
+): WorkoutSessionFeedbackResponse {
+  const notes = field.notes?.trim();
+  const base = {
+    id: field.id,
+    label: field.label,
+    type: field.type,
+    ...(notes ? { notes } : {}),
+  };
+
+  switch (field.type) {
+    case 'scale':
+    case 'slider':
+      return {
+        ...base,
+        value: field.value ?? null,
+      };
+    case 'text':
+      return {
+        ...base,
+        value: field.value?.trim() ? field.value.trim() : null,
+      };
+    case 'yes_no':
+      return {
+        ...base,
+        value: field.value ?? null,
+      };
+    case 'emoji':
+      return {
+        ...base,
+        value: field.value?.trim() ? field.value.trim() : null,
+      };
+    case 'multi_select':
+      return {
+        ...base,
+        value: field.value ?? [],
+      };
+    default:
+      return {
+        ...base,
+        value: null,
+      };
+  }
 }
 
 function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
@@ -908,6 +972,43 @@ function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
   }
 
   return rounded as 1 | 2 | 3 | 4 | 5;
+}
+
+function toRpeFeedbackScore(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return null;
+  }
+
+  return Math.max(1, Math.min(5, Math.round(value / 2)));
+}
+
+function toEmojiFeedbackScore(value: string | null | undefined) {
+  switch (value) {
+    case '😫':
+      return 1;
+    case '😕':
+      return 2;
+    case '😐':
+      return 3;
+    case '🙂':
+      return 4;
+    case '💪':
+      return 5;
+    default:
+      return null;
+  }
+}
+
+function toPainFeedbackScore(value: boolean | null | undefined) {
+  if (value === true) {
+    return 2;
+  }
+
+  if (value === false) {
+    return 4;
+  }
+
+  return null;
 }
 
 function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {

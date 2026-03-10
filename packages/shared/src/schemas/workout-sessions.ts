@@ -84,11 +84,36 @@ export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(5),
 ]);
 
+export const workoutSessionFeedbackResponseTypeSchema = z.enum([
+  'scale',
+  'text',
+  'yes_no',
+  'emoji',
+  'slider',
+  'multi_select',
+]);
+
+export const workoutSessionFeedbackResponseValueSchema = z.union([
+  z.number(),
+  z.boolean(),
+  z.array(requiredStringSchema).max(20),
+  nullableLongStringSchema,
+]);
+
+export const workoutSessionFeedbackResponseSchema = z.object({
+  id: requiredStringSchema,
+  label: requiredStringSchema,
+  type: workoutSessionFeedbackResponseTypeSchema,
+  value: workoutSessionFeedbackResponseValueSchema,
+  notes: optionalLongStringSchema.optional(),
+});
+
 export const workoutSessionFeedbackSchema = z.object({
   energy: workoutSessionFeedbackScoreSchema,
   recovery: workoutSessionFeedbackScoreSchema,
   technique: workoutSessionFeedbackScoreSchema,
   notes: optionalLongStringSchema.optional(),
+  responses: z.array(workoutSessionFeedbackResponseSchema).max(50).optional(),
 });
 
 export const sessionSetSchema = z
@@ -216,6 +241,7 @@ export const workoutSessionQueryParamsSchema = z
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
+export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
 export type SessionSet = z.infer<typeof sessionSetSchema>;
 export type WorkoutSession = z.infer<typeof workoutSessionSchema>;
 export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema>;

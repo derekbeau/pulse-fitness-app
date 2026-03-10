@@ -17,7 +17,7 @@ function makeExercise(overrides: Partial<ActiveWorkoutExercise> = {}): ActiveWor
     badges: ['compound'],
     category: 'compound',
     completedSets: 0,
-    formCues: null,
+    formCues: [],
     id: 'exercise-1',
     injuryCues: [],
     lastPerformance: null,

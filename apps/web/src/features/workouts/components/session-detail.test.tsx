@@ -127,6 +127,64 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('renders structured feedback responses when available', async () => {
+    const currentSession = createSession({
+      id: 'session-structured-feedback',
+      templateId: 'template-upper-push',
+      feedback: {
+        energy: 4,
+        recovery: 3,
+        technique: 4,
+        notes: 'Felt strong overall.',
+        responses: [
+          {
+            id: 'session-rpe',
+            label: 'Session RPE',
+            type: 'scale',
+            value: 8,
+          },
+          {
+            id: 'energy-post-workout',
+            label: 'Energy post workout',
+            type: 'emoji',
+            value: '💪',
+          },
+          {
+            id: 'pain-discomfort',
+            label: 'Any pain or discomfort?',
+            type: 'yes_no',
+            value: true,
+            notes: 'Mild right knee discomfort during split squats.',
+          },
+        ],
+      },
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Session RPE')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+    expect(screen.getByText('Energy post workout')).toBeInTheDocument();
+    expect(screen.getByText('💪')).toBeInTheDocument();
+    expect(screen.getByText('Any pain or discomfort?')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.getByText('Mild right knee discomfort during split squats.')).toBeInTheDocument();
+    expect(screen.getByText('Felt strong overall.')).toBeInTheDocument();
+  });
+
   it('shows volume progression, deltas, and PR badges when comparison is enabled', async () => {
     const previousSession = createSession({
       id: 'session-previous',
