@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Pulse is a personal health and fitness tracking app. Two-person household, AI agent-driven data entry, interactive workout logging UI. See `README.md` for full feature list and tech stack.
+Pulse is a personal health and fitness tracking app focused on AI agent-driven data entry and interactive workout logging UI. See `README.md` for full feature list and tech stack.
 
 ## Monorepo Structure
 

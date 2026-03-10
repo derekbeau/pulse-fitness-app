@@ -223,14 +223,26 @@ async function resolveSessionToken(options?: {
 
 async function toApiError(response: Response): Promise<ApiError> {
   const payload = await parseJson<ApiErrorEnvelope>(response);
-  const code = payload?.error?.code;
-  const message = payload?.error?.message ?? `Request failed with status ${response.status}`;
+  return toApiErrorFromPayload(response.status, payload);
+}
 
-  if (response.status === 401) {
+function toApiErrorFromPayload(status: number, payload: ApiErrorEnvelope | null): ApiError {
+  const code = payload?.error?.code;
+  const message = payload?.error?.message ?? `Request failed with status ${status}`;
+
+  if (status === 401) {
     clearStoredAuthState();
   }
 
-  return new ApiError(response.status, message, code);
+  return new ApiError(status, message, code);
+}
+
+function shouldRecoverStaleUserSession(
+  path: string,
+  status: number,
+  payload: ApiErrorEnvelope | null,
+): boolean {
+  return normalizePath(path) === '/api/v1/users/me' && status === 404 && payload?.error?.code === 'NOT_FOUND';
 }
 
 function createRequestInit(init: ApiRequestInit | undefined, token: string | null): RequestInit {
@@ -260,10 +272,26 @@ function createRequestInit(init: ApiRequestInit | undefined, token: string | nul
 }
 
 async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T | null> {
-  const token = await resolveSessionToken({
-    allowDevAutoSession: !normalizePath(path).startsWith(AUTH_PATH_PREFIX),
-  });
-  const response = await fetch(buildUrl(path), createRequestInit(init, token));
+  const allowDevAutoSession = !normalizePath(path).startsWith(AUTH_PATH_PREFIX);
+  const token = await resolveSessionToken({ allowDevAutoSession });
+  let response = await fetch(buildUrl(path), createRequestInit(init, token));
+
+  if (!response.ok && !getEnvToken()) {
+    const payload = await parseJson<ApiErrorEnvelope>(response);
+
+    if (shouldRecoverStaleUserSession(path, response.status, payload) && token) {
+      clearStoredAuthState();
+      const refreshedToken = await resolveSessionToken({ allowDevAutoSession });
+
+      if (refreshedToken && refreshedToken !== token) {
+        response = await fetch(buildUrl(path), createRequestInit(init, refreshedToken));
+      } else {
+        throw toApiErrorFromPayload(response.status, payload);
+      }
+    } else {
+      throw toApiErrorFromPayload(response.status, payload);
+    }
+  }
 
   if (!response.ok) {
     throw await toApiError(response);

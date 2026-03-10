@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUser } from '@/hooks/use-user';
 import { cn } from '@/lib/utils';
 
 type ProfileDestination = {
@@ -14,17 +15,37 @@ type ProfileDestination = {
   title: string;
 };
 
-const mockProfile = {
-  displayName: 'Jordan Lee',
-  initials: 'JL',
-  memberSince: 'March 2024',
-};
+function getInitials(value: string) {
+  const segments = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (segments.length === 0) {
+    return 'U';
+  }
+
+  if (segments.length === 1) {
+    return segments[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${segments[0][0] ?? ''}${segments[1][0] ?? ''}`.toUpperCase();
+}
 
 type ProfileHubProps = {
   equipmentSummary: string;
 };
 
 export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
+  const { data: user } = useUser();
+  const displayName = user?.name?.trim() || user?.username || 'User';
+  const initials = getInitials(displayName);
+  const memberSince = user
+    ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(
+        new Date(user.createdAt),
+      )
+    : '--';
+
   const profileDestinations: ProfileDestination[] = [
     {
       description: 'Inventory across every gym setup and storage spot.',
@@ -38,14 +59,14 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
       description: 'Track injuries, recovery notes, and active protocols.',
       href: '/profile/injuries',
       icon: Heart,
-      summary: '1 active condition',
+      summary: 'Coming soon',
       title: 'Health Tracking',
     },
     {
       description: 'Books, programs, and coaching references to revisit.',
       href: '/profile/resources',
       icon: BookOpen,
-      summary: '8 resources',
+      summary: 'Coming soon',
       title: 'Resources',
     },
     {
@@ -72,21 +93,15 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
         <CardContent className="flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex size-16 items-center justify-center rounded-full bg-[var(--color-accent-mint)] text-2xl font-semibold text-on-mint shadow-sm">
-              {mockProfile.initials}
+              {initials}
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                 Member since
               </p>
-              <h2 className="text-2xl font-semibold text-foreground">{mockProfile.displayName}</h2>
-              <p className="text-sm text-muted-foreground">{mockProfile.memberSince}</p>
+              <h2 className="text-2xl font-semibold text-foreground">{displayName}</h2>
+              <p className="text-sm text-muted-foreground">{memberSince}</p>
             </div>
-          </div>
-          <div className="rounded-2xl border border-border/70 bg-secondary/45 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Household
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">Two-person Pulse account</p>
           </div>
         </CardContent>
       </Card>

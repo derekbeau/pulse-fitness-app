@@ -1,0 +1,185 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { buildServer } from '../../index.js';
+
+import { getUserById, updateUser } from './store.js';
+
+vi.mock('./store.js', () => ({
+  getUserById: vi.fn(),
+  updateUser: vi.fn(),
+}));
+
+const createAuthorizationHeader = (token: string) => ({
+  authorization: `Bearer ${token}`,
+});
+
+describe('users routes', () => {
+  beforeEach(() => {
+    vi.mocked(getUserById).mockReset();
+    vi.mocked(updateUser).mockReset();
+    process.env.JWT_SECRET = 'test-users-routes-secret';
+  });
+
+  afterEach(() => {
+    delete process.env.JWT_SECRET;
+  });
+
+  it('GET /api/v1/users/me returns the authenticated user', async () => {
+    vi.mocked(getUserById).mockResolvedValue({
+      id: 'user-1',
+      username: 'derek',
+      name: 'Derek',
+      createdAt: 1709913600000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/me',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'user-1',
+          username: 'derek',
+          name: 'Derek',
+          createdAt: 1709913600000,
+        },
+      });
+      expect(vi.mocked(getUserById)).toHaveBeenCalledWith('user-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('PATCH /api/v1/users/me updates the name and returns updated user', async () => {
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 'user-1',
+      username: 'derek',
+      name: 'Derek B',
+      createdAt: 1709913600000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        payload: { name: 'Derek B' },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'user-1',
+          username: 'derek',
+          name: 'Derek B',
+          createdAt: 1709913600000,
+        },
+      });
+      expect(vi.mocked(updateUser)).toHaveBeenCalledWith('user-1', { name: 'Derek B' });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('PATCH /api/v1/users/me with empty name returns 400', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        payload: { name: '' },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid user update payload',
+        },
+      });
+      expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('PATCH /api/v1/users/me with invalid body returns 400', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        payload: { name: 123 },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid user update payload',
+        },
+      });
+      expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects unauthenticated requests', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const [getResponse, patchResponse, invalidTokenResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/users/me',
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/users/me',
+          payload: { name: 'Derek' },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/users/me',
+          headers: createAuthorizationHeader('not-a-valid-token'),
+        }),
+      ]);
+
+      for (const response of [getResponse, patchResponse, invalidTokenResponse]) {
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          },
+        });
+      }
+      expect(vi.mocked(getUserById)).not.toHaveBeenCalled();
+      expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+});

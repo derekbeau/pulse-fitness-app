@@ -49,6 +49,13 @@ type TestState = {
     | null;
   shouldFailDashboardSave: boolean;
   shouldFailNutritionSave: boolean;
+  shouldFailProfileSave: boolean;
+  user: {
+    id: string;
+    username: string;
+    name: string | null;
+    createdAt: number;
+  };
 };
 
 function renderSettingsPage() {
@@ -122,6 +129,13 @@ describe('SettingsPage', () => {
       nutritionCurrent: null,
       shouldFailDashboardSave: false,
       shouldFailNutritionSave: false,
+      shouldFailProfileSave: false,
+      user: {
+        id: 'user-1',
+        username: 'jordan',
+        name: 'Jordan Lee',
+        createdAt: 1_713_225_600_000,
+      },
     };
 
     window.localStorage.removeItem(THEME_STORAGE_KEY);
@@ -200,6 +214,38 @@ describe('SettingsPage', () => {
         if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
           return Promise.resolve(
             new Response(JSON.stringify({ data: state.habits }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.pathname === '/api/v1/users/me' && (!init?.method || init.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: state.user }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
+        if (url.pathname === '/api/v1/users/me' && init?.method === 'PATCH') {
+          if (state.shouldFailProfileSave) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({ error: { code: 'SERVER_ERROR', message: 'Unavailable' } }),
+                {
+                  headers: { 'Content-Type': 'application/json' },
+                  status: 503,
+                },
+              ),
+            );
+          }
+
+          const body = JSON.parse(String(init.body)) as { name: string };
+          state.user = { ...state.user, name: body.name };
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: state.user }), {
               headers: { 'Content-Type': 'application/json' },
               status: 200,
             }),
@@ -317,6 +363,58 @@ describe('SettingsPage', () => {
         screen.getByText(
           'Nutrition targets could not be saved right now. Dashboard preferences were saved.',
         ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows the user profile with real data from the API', async () => {
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Display name')).toHaveValue('Jordan Lee');
+    });
+
+    expect(screen.getByText('jordan')).toBeInTheDocument();
+    expect(screen.getByText('Member since')).toBeInTheDocument();
+    expect(screen.getByText('April 2024')).toBeInTheDocument();
+  });
+
+  it('saves profile changes via PATCH /api/v1/users/me', async () => {
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Display name')).toHaveValue('Jordan Lee');
+    });
+
+    fireEvent.change(screen.getByLabelText('Display name'), {
+      target: { value: 'Jordan Updated' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated.')).toBeInTheDocument();
+    });
+
+    expect(getLatestPostBody('/api/v1/users/me')).toEqual({ name: 'Jordan Updated' });
+  });
+
+  it('shows an error message when profile save fails', async () => {
+    state.shouldFailProfileSave = true;
+
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Display name')).toHaveValue('Jordan Lee');
+    });
+
+    fireEvent.change(screen.getByLabelText('Display name'), {
+      target: { value: 'Jordan With Error' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Could not save profile. Please try again.'),
       ).toBeInTheDocument();
     });
   });
