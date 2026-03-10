@@ -16,6 +16,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
+import { shiftDate } from './date-utils.js';
 
 type AgentContextUser = AgentContextResponse['user'];
 type AgentContextRecentWorkout = AgentContextResponse['recentWorkouts'][number];
@@ -23,12 +24,6 @@ type AgentContextMeal = AgentContextResponse['todayNutrition']['meals'][number];
 type AgentContextWeight = AgentContextResponse['weight'];
 type AgentContextHabit = AgentContextResponse['habits'][number];
 type AgentContextScheduledWorkout = AgentContextResponse['scheduledWorkouts'][number];
-
-const addUtcDays = (date: string, days: number) => {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + days);
-  return parsed.toISOString().slice(0, 10);
-};
 
 const toNumber = (value: number | null | undefined) => Number(value ?? 0);
 
@@ -296,7 +291,7 @@ export const getAgentContextWeight = async (userId: string): Promise<AgentContex
     };
   }
 
-  const referenceDate = addUtcDays(latest.date, -7);
+  const referenceDate = shiftDate(latest.date, -7);
   const reference =
     db
       .select({
@@ -367,11 +362,11 @@ export const listAgentContextHabits = async (
     const completedDates = completedDatesByHabit.get(habit.id) ?? new Set<string>();
     const todayCompleted = completedDates.has(today);
     let streak = 0;
-    let cursor = todayCompleted ? today : addUtcDays(today, -1);
+    let cursor = todayCompleted ? today : shiftDate(today, -1);
 
     while (completedDates.has(cursor)) {
       streak += 1;
-      cursor = addUtcDays(cursor, -1);
+      cursor = shiftDate(cursor, -1);
     }
 
     return {
@@ -416,8 +411,4 @@ export const listAgentContextScheduledWorkouts = async ({
     date: row.date,
     templateName: row.templateName ?? 'Unknown template',
   }));
-};
-
-export const agentContextDateUtils = {
-  addUtcDays,
 };

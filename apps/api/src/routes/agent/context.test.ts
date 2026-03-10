@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import {
-  agentContextDateUtils,
   findAgentContextUser,
   getAgentContextTodayNutrition,
   getAgentContextWeight,
@@ -18,13 +17,6 @@ vi.mock('./context-store.js', () => ({
   getAgentContextWeight: vi.fn(),
   listAgentContextHabits: vi.fn(),
   listAgentContextScheduledWorkouts: vi.fn(),
-  agentContextDateUtils: {
-    addUtcDays: vi.fn((date: string, days: number) => {
-      const parsed = new Date(`${date}T00:00:00.000Z`);
-      parsed.setUTCDate(parsed.getUTCDate() + days);
-      return parsed.toISOString().slice(0, 10);
-    }),
-  },
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -39,7 +31,6 @@ describe('agent context route', () => {
     vi.mocked(getAgentContextWeight).mockReset();
     vi.mocked(listAgentContextHabits).mockReset();
     vi.mocked(listAgentContextScheduledWorkouts).mockReset();
-    vi.mocked(agentContextDateUtils.addUtcDays).mockClear();
     process.env.JWT_SECRET = 'test-agent-context-secret';
   });
 
@@ -226,7 +217,6 @@ describe('agent context route', () => {
         },
       });
 
-      expect(vi.mocked(agentContextDateUtils.addUtcDays)).toHaveBeenCalledWith('2026-03-09', 6);
       expect(vi.mocked(findAgentContextUser)).toHaveBeenCalledWith('user-1');
       expect(vi.mocked(listAgentContextRecentWorkouts)).toHaveBeenCalledWith('user-1', 5);
       expect(vi.mocked(getAgentContextTodayNutrition)).toHaveBeenCalledWith('user-1', '2026-03-09');
@@ -287,6 +277,55 @@ describe('agent context route', () => {
           weight: { current: 0, trend7d: 0 },
           habits: [],
           scheduledWorkouts: [],
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 500 when context payload fails schema validation', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T09:30:00'));
+
+    vi.mocked(findAgentContextUser).mockResolvedValue({
+      name: 'Derek',
+    });
+    vi.mocked(listAgentContextRecentWorkouts).mockResolvedValue([]);
+    vi.mocked(getAgentContextTodayNutrition).mockResolvedValue({
+      actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      target: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      meals: [],
+    });
+    vi.mocked(getAgentContextWeight).mockResolvedValue({
+      current: 0,
+      trend7d: 0,
+    });
+    vi.mocked(listAgentContextHabits).mockResolvedValue([]);
+    vi.mocked(listAgentContextScheduledWorkouts).mockResolvedValue([
+      {
+        date: 'invalid-date',
+        templateName: 'Lower A',
+      },
+    ]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+
+      const token = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/agent/context',
+        headers: createAuthorizationHeader(token),
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to build agent context payload',
         },
       });
     } finally {

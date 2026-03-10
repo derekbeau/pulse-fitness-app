@@ -4,7 +4,6 @@ import type { FastifyPluginAsync } from 'fastify';
 import { sendError } from '../../lib/reply.js';
 
 import {
-  agentContextDateUtils,
   findAgentContextUser,
   getAgentContextTodayNutrition,
   getAgentContextWeight,
@@ -12,21 +11,12 @@ import {
   listAgentContextRecentWorkouts,
   listAgentContextScheduledWorkouts,
 } from './context-store.js';
-
-const padDatePart = (value: number) => String(value).padStart(2, '0');
-
-const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = padDatePart(now.getMonth() + 1);
-  const day = padDatePart(now.getDate());
-  return `${year}-${month}-${day}`;
-};
+import { getTodayDate, shiftDate } from './date-utils.js';
 
 export const agentContextRoutes: FastifyPluginAsync = async (app) => {
   app.get('/context', async (request, reply) => {
     const today = getTodayDate();
-    const scheduleEnd = agentContextDateUtils.addUtcDays(today, 6);
+    const scheduleEnd = shiftDate(today, 6);
 
     const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =
       await Promise.all([

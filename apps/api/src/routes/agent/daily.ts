@@ -13,29 +13,10 @@ import { findHabitById, listActiveHabits } from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-const isValidDate = (date: string) => {
-  if (!DATE_PATTERN.test(date)) {
-    return false;
-  }
-
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
-};
+import { getTodayDate, isValidDate } from './date-utils.js';
 
 const parseId = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-
-const padDatePart = (value: number) => String(value).padStart(2, '0');
-
-const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = padDatePart(now.getMonth() + 1);
-  const day = padDatePart(now.getDate());
-  return `${year}-${month}-${day}`;
-};
 
 export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
   app.post('/weight', async (request, reply) => {

@@ -42,6 +42,28 @@ describe('agent context store', () => {
     testState.reset();
   });
 
+  it('returns user profile name when user exists', async () => {
+    const { findAgentContextUser } = await import('./context-store.js');
+
+    testState.getQueue.push({
+      name: 'Derek',
+    });
+
+    await expect(findAgentContextUser('user-1')).resolves.toEqual({
+      name: 'Derek',
+    });
+  });
+
+  it('returns null name when user profile does not exist', async () => {
+    const { findAgentContextUser } = await import('./context-store.js');
+
+    testState.getQueue.push(undefined);
+
+    await expect(findAgentContextUser('user-1')).resolves.toEqual({
+      name: null,
+    });
+  });
+
   it('aggregates recent workouts by exercise with set summary counts', async () => {
     const { listAgentContextRecentWorkouts } = await import('./context-store.js');
 
@@ -112,6 +134,123 @@ describe('agent context store', () => {
         ],
       },
     ]);
+  });
+
+  it('returns nutrition totals, target, and meals with nested items for a log date', async () => {
+    const { getAgentContextTodayNutrition } = await import('./context-store.js');
+
+    testState.getQueue.push(
+      {
+        calories: 1450,
+        protein: 120,
+        carbs: 140,
+        fat: 50,
+      },
+      {
+        calories: 2400,
+        protein: 190,
+        carbs: 250,
+        fat: 70,
+      },
+      {
+        id: 'log-1',
+      },
+    );
+    testState.allQueue.push(
+      [
+        { id: 'meal-1', name: 'Breakfast' },
+        { id: 'meal-2', name: 'Lunch' },
+      ],
+      [
+        {
+          mealId: 'meal-1',
+          name: 'Eggs',
+          amount: 2,
+          unit: 'whole',
+          calories: 140,
+          protein: 12,
+          carbs: 1,
+          fat: 10,
+        },
+        {
+          mealId: 'meal-2',
+          name: 'Rice',
+          amount: 1.5,
+          unit: 'cup',
+          calories: 300,
+          protein: 6,
+          carbs: 66,
+          fat: 0.6,
+        },
+      ],
+    );
+
+    await expect(getAgentContextTodayNutrition('user-1', '2026-03-09')).resolves.toEqual({
+      actual: {
+        calories: 1450,
+        protein: 120,
+        carbs: 140,
+        fat: 50,
+      },
+      target: {
+        calories: 2400,
+        protein: 190,
+        carbs: 250,
+        fat: 70,
+      },
+      meals: [
+        {
+          name: 'Breakfast',
+          items: [
+            {
+              name: 'Eggs',
+              amount: 2,
+              unit: 'whole',
+              calories: 140,
+              protein: 12,
+              carbs: 1,
+              fat: 10,
+            },
+          ],
+        },
+        {
+          name: 'Lunch',
+          items: [
+            {
+              name: 'Rice',
+              amount: 1.5,
+              unit: 'cup',
+              calories: 300,
+              protein: 6,
+              carbs: 66,
+              fat: 0.6,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns zero defaults and no meals when no nutrition log exists for date', async () => {
+    const { getAgentContextTodayNutrition } = await import('./context-store.js');
+
+    testState.getQueue.push(undefined, undefined, undefined);
+
+    await expect(getAgentContextTodayNutrition('user-1', '2026-03-09')).resolves.toEqual({
+      actual: {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      target: {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      meals: [],
+    });
   });
 
   it('calculates weight trend from the latest and reference entry', async () => {
