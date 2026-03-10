@@ -165,9 +165,9 @@ describe('DailyHabits', () => {
     expect(screen.getAllByText(/6\.8h \/ 8h/)).toHaveLength(2);
     expect(screen.getAllByText(/50 grams \/ 100 grams/)).toHaveLength(2);
 
-    expect(screen.getByText('120%')).toHaveClass('text-emerald-700');
-    expect(screen.getByText('85%')).toHaveClass('text-amber-700');
-    expect(screen.getByText('50%')).toHaveClass('text-rose-700');
+    expect(screen.getByText(/—\s*120%/)).toHaveClass('text-emerald-700');
+    expect(screen.getByText(/—\s*85%/)).toHaveClass('text-amber-700');
+    expect(screen.getByText(/—\s*50%/)).toHaveClass('text-rose-700');
   });
 
   it('opens add habit dialog from the inline button', async () => {

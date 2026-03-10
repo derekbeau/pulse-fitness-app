@@ -86,11 +86,10 @@ function getProgressText(habit: DailyHabit, value: HabitValue) {
     return `${formatValueWithUnit(habit, currentValue)} logged`;
   }
 
-  const percentage = Math.round(getProgressPercent(habit, value));
   const formattedCurrent = formatValueWithUnit(habit, currentValue);
   const formattedTarget = formatValueWithUnit(habit, habit.target);
 
-  return `${formattedCurrent} / ${formattedTarget} - ${percentage}%`;
+  return `${formattedCurrent} / ${formattedTarget}`;
 }
 
 function getProgressPercent(habit: DailyHabit, value: HabitValue) {
@@ -515,7 +514,7 @@ export function DailyHabits() {
                             <span className="font-semibold dark:text-foreground">{progressText}</span>
                             {percentageLabel ? (
                               <span className={cn('font-semibold', progressTone)}>
-                                {percentageLabel}
+                                — {percentageLabel}
                               </span>
                             ) : null}
                           </div>
