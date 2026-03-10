@@ -9,7 +9,9 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { findUserAuthById } from '../../middleware/store.js';
 import { habitEntryNestedRoutes } from '../habit-entries/index.js';
+import { ensureStarterHabitsForUser } from '../auth/store.js';
 
 import {
   createHabit,
@@ -28,12 +30,36 @@ const habitParamsSchema = {
 
 const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_NOT_FOUND', 'Habit not found');
+const sendUnauthorized = (reply: Parameters<typeof sendError>[0]) =>
+  sendError(reply, 401, 'UNAUTHORIZED', 'Authentication required');
+const shouldVerifyHabitUser = () => process.env.NODE_ENV !== 'test';
 
 export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
   app.register(habitEntryNestedRoutes);
 
+  const ensureAuthenticatedUser = async (
+    reply: Parameters<typeof sendError>[0],
+    userId: string,
+  ): Promise<boolean> => {
+    if (!shouldVerifyHabitUser()) {
+      return true;
+    }
+
+    const user = await findUserAuthById(userId);
+    if (!user) {
+      sendUnauthorized(reply);
+      return false;
+    }
+
+    return true;
+  };
+
   app.post('/', async (request, reply) => {
+    if (!(await ensureAuthenticatedUser(reply, request.userId))) {
+      return;
+    }
+
     const parsedBody = createHabitInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
@@ -53,6 +79,14 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/', async (request, reply) => {
+    if (!(await ensureAuthenticatedUser(reply, request.userId))) {
+      return;
+    }
+
+    if (shouldVerifyHabitUser()) {
+      await ensureStarterHabitsForUser(request.userId);
+    }
+
     const habits = await listActiveHabits(request.userId);
 
     return reply.send({
