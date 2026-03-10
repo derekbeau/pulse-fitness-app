@@ -427,7 +427,12 @@ describe('DashboardPage', () => {
     expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
     expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');
     expect(logWeightForm).toBeInTheDocument();
-    expect(recentColumn).toHaveClass('order-3', 'md:col-start-2', 'xl:col-start-3');
+    expect(recentColumn).toHaveClass(
+      'order-3',
+      'md:col-span-2',
+      'xl:col-span-1',
+      'xl:col-start-3',
+    );
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');

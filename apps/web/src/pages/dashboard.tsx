@@ -223,7 +223,7 @@ export function DashboardPage() {
           </div>
 
           <div
-            className="order-3 min-w-0 md:col-start-2 xl:col-start-3"
+            className="order-3 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-3"
             data-slot="dashboard-recent-workouts-column"
           >
             <RecentWorkouts />
