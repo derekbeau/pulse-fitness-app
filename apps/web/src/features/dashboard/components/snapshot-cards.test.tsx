@@ -77,7 +77,7 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    const grid = container.querySelector('div.grid.grid-cols-2');
+    const grid = container.querySelector('div.grid.grid-cols-1.sm\\:grid-cols-2');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');

@@ -6,7 +6,11 @@ describe('Button', () => {
   it('applies cursor-pointer to button elements', () => {
     render(<Button type="button">Save</Button>);
 
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveClass(
+      'cursor-pointer',
+      'min-h-[44px]',
+      'min-w-[44px]',
+    );
   });
 
   it('keeps cursor-pointer when rendered as a link', () => {

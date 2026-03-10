@@ -115,6 +115,22 @@ describe('Sidebar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
   });
 
+  it('opens and closes the mobile overlay menu from the hamburger trigger', () => {
+    renderSidebar();
+
+    const menuButton = screen.getByRole('button', { name: 'Open navigation menu' });
+    expect(menuButton).toHaveClass('min-h-[44px]', 'min-w-[44px]');
+
+    fireEvent.click(menuButton);
+
+    const mobileNav = screen.getByLabelText('Mobile navigation');
+    expect(mobileNav).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close sidebar panel' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close sidebar panel' }));
+    expect(screen.queryByLabelText('Mobile navigation')).not.toBeInTheDocument();
+  });
+
   it('renders the collapsed avatar without adding it to the tab order', () => {
     window.localStorage.setItem('pulse-sidebar-collapsed', 'true');
 

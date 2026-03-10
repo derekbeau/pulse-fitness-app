@@ -123,7 +123,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           <FilterField label="Muscle group">
             <select
               aria-label="Filter by muscle group"
-              className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               onChange={(event) =>
                 updateSearchParams(searchParams, setSearchParams, {
                   muscleGroup: event.target.value,
@@ -143,7 +143,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           <FilterField label="Equipment">
             <select
               aria-label="Filter by equipment"
-              className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               onChange={(event) =>
                 updateSearchParams(searchParams, setSearchParams, {
                   equipment: event.target.value,
@@ -163,7 +163,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           <FilterField label="Category">
             <select
               aria-label="Filter by category"
-              className="h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               onChange={(event) =>
                 updateSearchParams(searchParams, setSearchParams, {
                   category: event.target.value,

@@ -133,7 +133,7 @@ export function NutritionPage() {
             {isLoadingDay ? (
               <NutritionTotalsSkeleton />
             ) : (
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {MACRO_CONFIG.map((macro) => {
                   const actual = dailyTotals[macro.key];
                   const target = dailyTargets?.[macro.key] ?? null;
@@ -246,7 +246,10 @@ function NutritionTargetsPlaceholder() {
 
 function NutritionTotalsSkeleton() {
   return (
-    <div aria-label="Loading nutrition" className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div
+      aria-label="Loading nutrition"
+      className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+    >
       {Array.from({ length: 4 }).map((_, index) => (
         <Skeleton
           key={index}
@@ -261,7 +264,7 @@ function NutritionRingsSkeleton() {
   return (
     <section className="space-y-4" aria-label="Loading nutrition rings">
       <Skeleton className="h-5 w-40 bg-muted/70" />
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-44 rounded-2xl border border-border/70 bg-card/90" />
         ))}

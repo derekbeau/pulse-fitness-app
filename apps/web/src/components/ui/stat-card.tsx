@@ -67,13 +67,14 @@ export function StatCard({
   const trendClassName = hasAccent
     ? cn(accentClass, 'opacity-80 dark:text-muted dark:opacity-100')
     : trendStyle?.className;
+  const valueTitle = typeof value === 'string' ? value : undefined;
 
   return (
     <Card data-slot="stat-card" className={cn('gap-3 py-4 sm:gap-4 sm:py-5', className)} {...props}>
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-0">
         <p
           className={cn(
-            'text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
+            'min-w-0 truncate text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
             labelClassName,
           )}
         >
@@ -83,7 +84,11 @@ export function StatCard({
       </CardHeader>
       <CardContent className="space-y-1.5">
         <p
-          className={cn('text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl', valueClassName)}
+          className={cn(
+            'overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl',
+            valueClassName,
+          )}
+          title={valueTitle}
         >
           {value}
         </p>
