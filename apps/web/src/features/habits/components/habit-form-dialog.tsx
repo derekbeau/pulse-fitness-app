@@ -30,9 +30,9 @@ const trackingTypeOptions = [
 ] as const;
 
 const frequencyOptions = [
-  { description: 'Every day', value: 'daily' },
-  { description: 'X times per week', value: 'weekly' },
-  { description: 'Specific days', value: 'specific_days' },
+  { label: 'Every day', value: 'daily' },
+  { label: 'X times per week', value: 'weekly' },
+  { label: 'Specific days', value: 'specific_days' },
 ] as const;
 
 type HabitFormDialogProps = {
@@ -244,7 +244,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             >
               {frequencyOptions.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.description}
+                  {option.label}
                 </option>
               ))}
             </select>

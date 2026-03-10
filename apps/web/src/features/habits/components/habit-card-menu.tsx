@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CalendarX, MoreVertical, Pause, PencilLine, Play, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarCheck,
+  CalendarX,
+  MoreVertical,
+  Pause,
+  PencilLine,
+  Play,
+  Trash2,
+} from 'lucide-react';
 import type { Habit } from '@pulse/shared';
 
 import {
@@ -36,7 +46,7 @@ import {
   useUpdateHabit,
 } from '@/features/habits/api/habits';
 import { INDEFINITE_PAUSE_DATE } from '@/features/habits/lib/habit-constants';
-import { getToday, toDateKey } from '@/lib/date';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 
 type HabitCardMenuProps = {
   habit: Habit;
@@ -54,14 +64,16 @@ function moveHabit(list: Habit[], fromIndex: number, toIndex: number) {
 }
 
 export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
+  const today = getToday();
+  const todayKey = toDateKey(today);
+  const defaultPauseUntil = toDateKey(addDays(today, 7));
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPauseDialogOpen, setIsPauseDialogOpen] = useState(false);
-  const [pauseUntil, setPauseUntil] = useState(toDateKey(getToday()));
+  const [pauseUntil, setPauseUntil] = useState(defaultPauseUntil);
 
   const updateHabitMutation = useUpdateHabit();
   const deleteHabitMutation = useDeleteHabit();
   const reorderHabitsMutation = useReorderHabits();
-  const todayKey = toDateKey(getToday());
 
   const currentIndex = habits.findIndex((item) => item.id === habit.id);
   const canMoveUp = currentIndex > 0;
@@ -182,7 +194,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
             <DropdownMenuItem
               onSelect={(event) => {
                 event.preventDefault();
-                setPauseUntil(todayKey);
+                setPauseUntil(defaultPauseUntil);
                 setIsPauseDialogOpen(true);
               }}
             >
@@ -192,7 +204,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           ) : null}
           {habit.pausedUntil !== null ? (
             <DropdownMenuItem onClick={() => void handleResumeScheduling()}>
-              <Play />
+              <CalendarCheck />
               Resume scheduling
             </DropdownMenuItem>
           ) : null}
@@ -245,7 +257,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
               Pause indefinitely
             </Button>
             <Button
-              disabled={pauseUntil.trim().length === 0}
+              disabled={pauseUntil.trim().length === 0 || pauseUntil < todayKey}
               onClick={() => void handlePauseScheduling(pauseUntil)}
               type="button"
             >

@@ -205,6 +205,33 @@ describe('HabitCardMenu', () => {
     );
   });
 
+  it('disables save pause when a past date is typed manually', async () => {
+    const sleepHabit = getHabitById('sleep');
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
+
+    const pauseInput = screen.getByLabelText('Pause until');
+    const min = pauseInput.getAttribute('min');
+    if (!min) {
+      throw new Error('Expected pause date input min attribute');
+    }
+
+    const [year, month, day] = min.split('-').map(Number);
+    if (year === undefined || month === undefined || day === undefined) {
+      throw new Error('Expected valid min date format');
+    }
+
+    const minDate = new Date(year, month - 1, day);
+    const pastDate = new Date(minDate);
+    pastDate.setDate(pastDate.getDate() - 1);
+    const pastDateKey = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`;
+
+    fireEvent.change(pauseInput, { target: { value: pastDateKey } });
+
+    expect(screen.getByRole('button', { name: 'Save pause' })).toBeDisabled();
+  });
+
   it('shows resume scheduling for paused habits and clears pausedUntil', async () => {
     const pausedHabit = {
       ...getHabitById('sleep'),
