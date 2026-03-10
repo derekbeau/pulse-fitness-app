@@ -50,6 +50,7 @@ describe('SessionExerciseList', () => {
         onSetUpdate={vi.fn()}
         restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
         session={session}
+        weightUnit="kg"
       />,
     );
 
@@ -86,17 +87,17 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 50 lbs x 8-10',
+        (_, element) => element?.textContent === 'Target: 50 kg x 8-10',
       ),
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 45 lbs x 10-12',
+        (_, element) => element?.textContent === 'Target: 45 kg x 10-12',
       ),
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 40 lbs x 9-10',
+        (_, element) => element?.textContent === 'Target: 40 kg x 9-10',
       ),
     ).toBeInTheDocument();
 

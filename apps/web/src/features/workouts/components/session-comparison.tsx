@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { getWeightLabel, type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/shared';
+import { type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,8 +56,6 @@ export function SessionComparison({
   previousSession,
   weightUnit = 'lbs',
 }: SessionComparisonProps) {
-  const weightLabel = getWeightLabel(weightUnit);
-
   if (!previousSession) {
     return (
       <Card className="border-dashed">
@@ -92,13 +90,13 @@ export function SessionComparison({
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             This session
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(currentVolume)} ${weightLabel}`}</p>
+          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(currentVolume)} ${weightUnit}`}</p>
         </div>
         <div className="rounded-2xl bg-white/45 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             Previous
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(previousVolume)} ${weightLabel}`}</p>
+          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(previousVolume)} ${weightUnit}`}</p>
         </div>
         <div className="rounded-2xl bg-white/55 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
@@ -107,7 +105,7 @@ export function SessionComparison({
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
               direction={getDirection(volumeDelta)}
-              label={`${formatSignedNumber(volumeDelta)} ${weightLabel}`}
+              label={`${formatSignedNumber(volumeDelta)} ${weightUnit}`}
             />
             {percentChange != null ? (
               <span className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100">
@@ -127,7 +125,6 @@ export function SessionExerciseComparison({
   previousSession,
   weightUnit = 'lbs',
 }: SessionExerciseComparisonProps) {
-  const weightLabel = getWeightLabel(weightUnit);
   const comparison = getExerciseComparison(currentSession, previousSession, exerciseId);
 
   if (!comparison) {
@@ -144,7 +141,7 @@ export function SessionExerciseComparison({
           <span className="text-muted">{`Volume vs ${comparison.previousSessionDate}`}</span>
           <DeltaIndicator
             direction={getDirection(comparison.volumeDelta)}
-            label={`${formatSignedNumber(comparison.volumeDelta)} ${weightLabel}`}
+            label={`${formatSignedNumber(comparison.volumeDelta)} ${weightUnit}`}
           />
         </div>
       </div>
@@ -159,7 +156,7 @@ export function SessionExerciseComparison({
             {set.currentWeight != null && set.weightDelta != null ? (
               <DeltaIndicator
                 direction={getDirection(set.weightDelta)}
-                label={`Weight ${formatSignedNumber(set.weightDelta)} ${weightLabel}`}
+                label={`Weight ${formatSignedNumber(set.weightDelta)} ${weightUnit}`}
               />
             ) : null}
             <DeltaIndicator

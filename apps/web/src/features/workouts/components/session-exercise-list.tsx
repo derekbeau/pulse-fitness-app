@@ -23,6 +23,7 @@ import type {
   ActiveWorkoutReversePyramidTarget,
   ActiveWorkoutSessionData,
 } from '../types';
+import type { WeightUnit } from '@pulse/shared';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
@@ -43,6 +44,7 @@ type SessionExerciseListProps = {
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
   session: ActiveWorkoutSessionData;
+  weightUnit?: WeightUnit;
 };
 
 const sectionLabels = {
@@ -85,6 +87,7 @@ export function SessionExerciseList({
   onSetUpdate,
   restTimer = null,
   session,
+  weightUnit = 'lbs',
 }: SessionExerciseListProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
@@ -222,6 +225,7 @@ export function SessionExerciseList({
                         setVisibleNotesPanels={setVisibleNotesPanels}
                         visibleCuePanels={visibleCuePanels}
                         visibleNotesPanels={visibleNotesPanels}
+                        weightUnit={weightUnit}
                         key={item.exercise.id}
                       />
                     );
@@ -281,6 +285,7 @@ export function SessionExerciseList({
                               setVisibleNotesPanels={setVisibleNotesPanels}
                               visibleCuePanels={visibleCuePanels}
                               visibleNotesPanels={visibleNotesPanels}
+                              weightUnit={weightUnit}
                             />
                           </div>
                         ))}
@@ -313,6 +318,7 @@ type ExerciseCardItemProps = {
   setVisibleNotesPanels: Dispatch<SetStateAction<Record<string, boolean>>>;
   visibleCuePanels: Record<string, boolean>;
   visibleNotesPanels: Record<string, boolean>;
+  weightUnit: WeightUnit;
 };
 
 function ExerciseCardItem({
@@ -331,6 +337,7 @@ function ExerciseCardItem({
   setVisibleNotesPanels,
   visibleCuePanels,
   visibleNotesPanels,
+  weightUnit,
 }: ExerciseCardItemProps) {
   const lastPerformanceQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
@@ -571,6 +578,7 @@ function ExerciseCardItem({
               )}
               target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
               weight={set.weight}
+              weightUnit={weightUnit}
             />
           ))}
         </div>

@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
+import type { WeightUnit } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 type UserPreferences = Record<string, unknown>;
-type WeightUnit = 'lbs' | 'kg';
 
 export const users = sqliteTable('users', {
   id: text('id')

@@ -1,4 +1,4 @@
-import { formatWeight as formatWeightWithUnit, getWeightLabel, type WeightUnit } from '@pulse/shared';
+import { formatWeight as formatWeightWithUnit, type WeightUnit } from '@pulse/shared';
 
 import { useUser } from './use-user';
 
@@ -14,7 +14,7 @@ export function useWeightUnit(): UseWeightUnitResult {
 
   return {
     formatWeight: (value: number) => formatWeightWithUnit(value, weightUnit),
-    weightLabel: getWeightLabel(weightUnit),
+    weightLabel: weightUnit,
     weightUnit,
   };
 }
