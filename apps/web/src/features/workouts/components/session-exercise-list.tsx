@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -22,13 +23,22 @@ import type {
   ActiveWorkoutPhaseBadge,
   ActiveWorkoutSessionData,
 } from '../types';
+import {
+  estimateExerciseTime,
+  estimateSectionTime,
+  formatEstimateMinutes,
+  formatRestDuration,
+  formatTempo,
+} from '../lib/time-estimates';
 import { getDistanceUnit } from '../lib/tracking';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
 type RestTimerState = {
   duration: number;
+  exerciseId: string;
   exerciseName: string;
+  setId: string;
   setNumber: number;
   token: number;
 };
@@ -126,33 +136,12 @@ export function SessionExerciseList({
 
   return (
     <div className="space-y-4">
-      {restTimer ? (
-        <section
-          className={`rounded-3xl border px-5 py-5 ${accentCardStyles.mint}`}
-          data-slot="rest-timer-panel"
-        >
-          <div className="mb-4 space-y-1">
-            <p className="text-xs font-semibold tracking-[0.22em] uppercase opacity-70 dark:text-muted dark:opacity-100">
-              Rest Timer
-            </p>
-            <h2 className="text-xl font-semibold">{`After ${restTimer.exerciseName}`}</h2>
-            <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">{`Set ${restTimer.setNumber} logged. Start the next set when you're ready.`}</p>
-          </div>
-
-          <RestTimer
-            autoStart
-            duration={restTimer.duration}
-            key={restTimer.token}
-            onComplete={onRestTimerComplete}
-          />
-        </section>
-      ) : null}
-
       {session.sections.map((section) => {
         const completedExercises = section.exercises.filter(
-          (exercise) => exercise.completedSets === exercise.targetSets,
+          (exercise) => exercise.completedSets >= exercise.targetSets,
         ).length;
         const sectionLabel = sectionLabels[section.type];
+        const sectionEstimate = formatEstimateMinutes(estimateSectionTime(section));
         const sectionSummary = `${sectionLabel} (${completedExercises}/${section.exercises.length} exercises done)`;
         const isOpen =
           focusTarget?.sectionId === section.id
@@ -181,7 +170,7 @@ export function SessionExerciseList({
               type="button"
             >
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">{sectionLabel}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{`${sectionLabel} — ${sectionEstimate}`}</h2>
                 <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
@@ -214,8 +203,12 @@ export function SessionExerciseList({
                         enableApiLastPerformance={enableApiLastPerformance}
                         expandedExercises={expandedExercises}
                         focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                        inlineRestTimer={
+                          restTimer && restTimer.exerciseId === item.exercise.id ? restTimer : null
+                        }
                         onAddSet={onAddSet}
                         onExerciseNotesChange={onExerciseNotesChange}
+                        onRestTimerComplete={onRestTimerComplete}
                         onSetUpdate={onSetUpdate}
                         repsInputRefs={repsInputRefs}
                         sessionCurrentExerciseId={session.currentExerciseId}
@@ -274,8 +267,10 @@ export function SessionExerciseList({
                               enableApiLastPerformance={enableApiLastPerformance}
                               expandedExercises={expandedExercises}
                               focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                              inlineRestTimer={null}
                               onAddSet={onAddSet}
                               onExerciseNotesChange={onExerciseNotesChange}
+                              onRestTimerComplete={onRestTimerComplete}
                               onSetUpdate={onSetUpdate}
                               repsInputRefs={repsInputRefs}
                               sessionCurrentExerciseId={session.currentExerciseId}
@@ -286,6 +281,17 @@ export function SessionExerciseList({
                               visibleNotesPanels={visibleNotesPanels}
                               weightUnit={weightUnit}
                             />
+                            {restTimer &&
+                            restTimer.exerciseId === exercise.id &&
+                            exercise.supersetGroup ? (
+                              <InlineRestTimer
+                                duration={restTimer.duration}
+                                exerciseName={restTimer.exerciseName}
+                                key={restTimer.token}
+                                onComplete={onRestTimerComplete}
+                                setNumber={restTimer.setNumber}
+                              />
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -307,8 +313,10 @@ type ExerciseCardItemProps = {
   enableApiLastPerformance: boolean;
   expandedExercises: Record<string, boolean>;
   focusTargetExerciseId: string | null;
+  inlineRestTimer: RestTimerState | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCurrentExerciseId: string | null;
@@ -326,8 +334,10 @@ function ExerciseCardItem({
   enableApiLastPerformance,
   expandedExercises,
   focusTargetExerciseId,
+  inlineRestTimer,
   onAddSet,
   onExerciseNotesChange,
+  onRestTimerComplete,
   onSetUpdate,
   repsInputRefs,
   sessionCurrentExerciseId,
@@ -359,6 +369,7 @@ function ExerciseCardItem({
     exercise.priority === 'required'
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
+  const exerciseEstimate = formatEstimateMinutes(estimateExerciseTime(exercise));
 
   return (
     <Card
@@ -418,6 +429,17 @@ function ExerciseCardItem({
                 <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
                   Current
                 </Badge>
+              ) : null}
+              <Badge className="border-transparent bg-secondary text-secondary-foreground" variant="outline">
+                {exerciseEstimate}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              {exercise.tempo ? (
+                <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
+              ) : null}
+              {exercise.restSeconds !== null ? (
+                <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
               ) : null}
             </div>
             <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
@@ -582,21 +604,33 @@ function ExerciseCardItem({
             data-testid={`set-grid-${exercise.id}`}
           >
             {exercise.sets.map((set) => (
-              <SetRow
-                completed={set.completed}
-                key={set.id}
-                onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
-                ref={(element) => {
-                  repsInputRefs.current[set.id] = element;
-                }}
-                reps={set.reps}
-                setNumber={set.number}
-                trackingType={exercise.trackingType}
-                distance={set.distance}
-                weight={set.weight}
-                weightUnit={weightUnit}
-                seconds={set.seconds}
-              />
+              <Fragment key={set.id}>
+                <SetRow
+                  completed={set.completed}
+                  onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
+                  ref={(element) => {
+                    repsInputRefs.current[set.id] = element;
+                  }}
+                  reps={set.reps}
+                  setNumber={set.number}
+                  trackingType={exercise.trackingType}
+                  distance={set.distance}
+                  weight={set.weight}
+                  weightUnit={weightUnit}
+                  seconds={set.seconds}
+                />
+                {inlineRestTimer && inlineRestTimer.setId === set.id && !exercise.supersetGroup ? (
+                  <div className="col-span-2">
+                    <InlineRestTimer
+                      duration={inlineRestTimer.duration}
+                      exerciseName={inlineRestTimer.exerciseName}
+                      key={inlineRestTimer.token}
+                      onComplete={onRestTimerComplete}
+                      setNumber={inlineRestTimer.setNumber}
+                    />
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
           </div>
         </div>
@@ -617,6 +651,33 @@ function CueList({ items, title }: { items: string[]; title: string }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function MetadataPill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-foreground">
+      {label}
+    </span>
+  );
+}
+
+function InlineRestTimer({
+  duration,
+  exerciseName,
+  onComplete,
+  setNumber,
+}: {
+  duration: number;
+  exerciseName: string;
+  onComplete: () => void;
+  setNumber: number;
+}) {
+  return (
+    <div className={`space-y-2 rounded-2xl border px-3 py-2 ${accentCardStyles.mint}`}>
+      <p className="text-xs text-muted">{`After ${exerciseName} set ${setNumber}`}</p>
+      <RestTimer autoStart duration={duration} onComplete={onComplete} />
     </div>
   );
 }

@@ -27,13 +27,13 @@ describe('RestTimer', () => {
 
     render(<RestTimer autoStart duration={3} onComplete={onComplete} />);
 
-    expect(screen.getByText('3s')).toBeInTheDocument();
+    expect(screen.getByText('Rest: 3s')).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(3_100);
     });
 
-    expect(screen.getByText('0s')).toBeInTheDocument();
+    expect(screen.getByText('Rest: 0s')).toBeInTheDocument();
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(navigator.vibrate).toHaveBeenCalledWith(200);
   });
@@ -48,13 +48,13 @@ describe('RestTimer', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-    expect(screen.getByText('3s')).toBeInTheDocument();
+    expect(screen.getByText('Rest: 3s')).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(2_000);
     });
 
-    expect(screen.getByText('3s')).toBeInTheDocument();
+    expect(screen.getByText('Rest: 3s')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
 
@@ -74,6 +74,6 @@ describe('RestTimer', () => {
 
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(navigator.vibrate).not.toHaveBeenCalled();
-    expect(screen.getByText('0s')).toBeInTheDocument();
+    expect(screen.getByText('Rest: 0s')).toBeInTheDocument();
   });
 });

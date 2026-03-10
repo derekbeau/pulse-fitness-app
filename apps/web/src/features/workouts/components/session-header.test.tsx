@@ -19,6 +19,8 @@ describe('SessionHeader', () => {
       <SessionHeader
         completedSets={5}
         currentExercise={3}
+        estimatedTotalSeconds={3000}
+        remainingSeconds={2000}
         startTime="2026-03-06T11:58:40.000Z"
         totalExercises={7}
         totalSets={17}
@@ -28,6 +30,7 @@ describe('SessionHeader', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Upper Push' })).toBeInTheDocument();
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByText('~33 min remaining (~50 min total)')).toBeInTheDocument();
     expect(screen.getByText('01:20')).toBeInTheDocument();
     expect(screen.getByText('5 / 17')).toBeInTheDocument();
     expect(screen.getByText('Start time')).toBeInTheDocument();
@@ -45,6 +48,8 @@ describe('SessionHeader', () => {
       <SessionHeader
         completedSets={6}
         currentExercise={3}
+        estimatedTotalSeconds={3000}
+        remainingSeconds={1800}
         startTime="2026-03-06T11:58:40.000Z"
         totalExercises={7}
         totalSets={17}
@@ -73,6 +78,8 @@ describe('SessionHeader', () => {
           completedSets={5}
           currentExercise={3}
           onStartTimeChange={(nextStartTime) => setStartTime(nextStartTime)}
+          estimatedTotalSeconds={3000}
+          remainingSeconds={2000}
           startTime={startTime}
           totalExercises={7}
           totalSets={17}

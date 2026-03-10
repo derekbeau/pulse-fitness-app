@@ -12,6 +12,8 @@ type SessionHeaderProps = {
   className?: string;
   completedSets: number;
   currentExercise: number;
+  estimatedTotalSeconds?: number;
+  remainingSeconds?: number;
   startTime: Date | string;
   totalExercises: number;
   totalSets: number;
@@ -24,6 +26,8 @@ export function SessionHeader({
   className,
   completedSets,
   currentExercise,
+  estimatedTotalSeconds = 0,
+  remainingSeconds = 0,
   startTime,
   totalExercises,
   totalSets,
@@ -36,6 +40,8 @@ export function SessionHeader({
   const [startTimeInput, setStartTimeInput] = useState(() => toTimeInputValue(startTime));
   const elapsedSeconds = getElapsedSeconds(startTime, currentTime);
   const formattedStartTime = formatStartTime(startTime);
+  const totalEstimateLabel = formatApproxMinutes(estimatedTotalSeconds);
+  const remainingEstimateLabel = formatApproxMinutes(remainingSeconds);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -86,6 +92,7 @@ export function SessionHeader({
                 <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">
                   {`Exercise ${currentExercise} of ${totalExercises}`}
                 </p>
+                <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">{`${remainingEstimateLabel} remaining (${totalEstimateLabel} total)`}</p>
               </div>
             </div>
 
@@ -107,9 +114,9 @@ export function SessionHeader({
               />
               <div className="rounded-2xl border border-black/10 bg-white/45 p-3 dark:border-border dark:bg-secondary/60">
                 <p className="text-[11px] font-semibold tracking-[0.18em] uppercase opacity-65 dark:text-muted dark:opacity-100">
-                  Progress
+                  Estimated
                 </p>
-                <p className="mt-1 text-lg font-semibold">{`${Math.round((completedSets / Math.max(totalSets, 1)) * 100)}%`}</p>
+                <p className="mt-1 text-lg font-semibold">{remainingEstimateLabel}</p>
               </div>
             </div>
           </div>
@@ -225,4 +232,11 @@ function toIsoStringFromTimeInput(startTime: Date | string, value: string) {
   date.setHours(hours, minutes, 0, 0);
 
   return date.toISOString();
+}
+
+function formatApproxMinutes(totalSeconds: number) {
+  const safeSeconds = Math.max(totalSeconds, 0);
+  const roundedMinutes = Math.round(safeSeconds / 60);
+
+  return `~${roundedMinutes} min`;
 }

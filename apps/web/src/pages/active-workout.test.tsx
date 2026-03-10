@@ -32,6 +32,7 @@ describe('ActiveWorkoutPage', () => {
     expect(headerCard).not.toHaveClass('sticky');
     expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByText(/remaining \(~\d+ min total\)/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
     expect(screen.getByText('Recovery Status')).toBeInTheDocument();
@@ -53,8 +54,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '9' },
     });
 
-    expect(screen.getByText('Rest Timer')).toBeInTheDocument();
-    expect(screen.getByText('After Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByText('After Incline Dumbbell Press set 3')).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(90_100);
@@ -62,7 +62,7 @@ describe('ActiveWorkoutPage', () => {
 
     const nextExerciseCard = getExerciseCard('Seated Dumbbell Shoulder Press');
     expect(within(nextExerciseCard).getByLabelText('Reps for set 1')).toHaveFocus();
-    expect(screen.queryByText('Rest Timer')).not.toBeInTheDocument();
+    expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();

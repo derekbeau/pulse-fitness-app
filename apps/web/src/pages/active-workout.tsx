@@ -27,6 +27,10 @@ import {
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
+import {
+  estimateRemainingTime,
+  estimateTotalTime,
+} from '@/features/workouts/lib/time-estimates';
 import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
@@ -79,7 +83,9 @@ const completedSetIds = [
 
 type RestTimerState = {
   duration: number;
+  exerciseId: string;
   exerciseName: string;
+  setId: string;
   setNumber: number;
   token: number;
 };
@@ -213,6 +219,8 @@ export function ActiveWorkoutPage() {
     [exerciseNotes, setDrafts, startTime, template],
   );
   const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
+  const estimatedTotalSeconds = useMemo(() => estimateTotalTime(session), [session]);
+  const remainingEstimatedSeconds = useMemo(() => estimateRemainingTime(session), [session]);
   const summaryDuration = sessionCompletedAt
     ? formatElapsedTime(getElapsedSeconds(startTime, new Date(sessionCompletedAt).getTime()))
     : formatElapsedTime(getElapsedSeconds(startTime, Date.now()));
@@ -262,8 +270,10 @@ export function ActiveWorkoutPage() {
           <SessionHeader
             completedSets={session.completedSets}
             currentExercise={session.currentExercise}
+            estimatedTotalSeconds={estimatedTotalSeconds}
             isUpdatingStartTime={updateSessionStartTimeMutation.isPending}
             onStartTimeChange={handleStartTimeChange}
+            remainingSeconds={remainingEstimatedSeconds}
             startTime={startTime}
             totalExercises={session.totalExercises}
             totalSets={session.totalSets}
@@ -559,10 +569,12 @@ export function ActiveWorkoutPage() {
     restTimerTokenRef.current += 1;
     setRestTimer({
       duration: templateExercise.exercise.restSeconds,
+      exerciseId,
       exerciseName:
         updatedSession.sections
           .flatMap((section) => section.exercises)
           .find((exercise) => exercise.id === exerciseId)?.name ?? 'Next set',
+      setId: updatedSet.id,
       setNumber: updatedSet.number,
       token: restTimerTokenRef.current,
     });

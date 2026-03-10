@@ -18,7 +18,7 @@ const activeTemplate = mockTemplates.find((template) => template.id === 'upper-p
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
 
 describe('SessionExerciseList', () => {
-  it('shows editable set rows for the current exercise and can render the rest timer panel', () => {
+  it('shows editable set rows and renders an inline rest timer after the completed set', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
@@ -49,7 +49,14 @@ describe('SessionExerciseList', () => {
         onExerciseNotesChange={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
-        restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
+        restTimer={{
+          duration: 90,
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          setId: createWorkoutSetId('incline-dumbbell-press', 2),
+          setNumber: 2,
+          token: 1,
+        }}
         session={session}
         weightUnit="kg"
       />,
@@ -57,8 +64,8 @@ describe('SessionExerciseList', () => {
 
     expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
     expect(screen.getByText('Main (0/4 exercises done)')).toBeInTheDocument();
-    expect(screen.getByText('Rest Timer')).toBeInTheDocument();
-    expect(screen.getByText('After Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Main — ~\d+ min/i })).toBeInTheDocument();
+    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByText('Alternate exercises, then rest 60s after each round.'),
@@ -83,6 +90,9 @@ describe('SessionExerciseList', () => {
     expect(
       within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('Rest: 1:30')).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByText('~5 min')).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(/Last: 50x12, 45x10, 40x9/i),
     ).toBeInTheDocument();
@@ -159,6 +169,41 @@ describe('SessionExerciseList', () => {
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
     expect(within(squatCard as HTMLElement).getByText(/4 × 5-6/i)).toBeInTheDocument();
+  });
+
+  it('renders superset rest timers between exercises in the superset group', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      {
+        sessionStartedAt: '2026-03-06T12:00:00Z',
+      },
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        restTimer={{
+          duration: 60,
+          exerciseId: 'cable-lateral-raise',
+          exerciseName: 'Cable Lateral Raise',
+          setId: createWorkoutSetId('cable-lateral-raise', 1),
+          setNumber: 1,
+          token: 2,
+        }}
+        session={session}
+      />,
+    );
+
+    const superset = screen.getByLabelText('Superset Pump A');
+    expect(within(superset).getByText('After Cable Lateral Raise set 1')).toBeInTheDocument();
   });
 
   it('shows completed exercises with strike-through treatment', () => {
