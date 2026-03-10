@@ -536,6 +536,7 @@ describe('WorkoutsPage', () => {
 
     const view = renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
+        <LocationProbe />
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
         </Routes>
@@ -543,6 +544,10 @@ describe('WorkoutsPage', () => {
     );
 
     expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create a template' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=templates');
+
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss workouts onboarding' }));
     expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
 

@@ -88,6 +88,19 @@ describe('WorkoutList', () => {
     );
   });
 
+  it('does not show planned-workout onboarding when an in-progress session exists', async () => {
+    renderWorkoutList([
+      createSession({
+        id: 'session-12',
+        status: 'in-progress',
+        date: '2026-03-11',
+      }),
+    ]);
+
+    expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+    expect(screen.queryByText('No workouts planned')).not.toBeInTheDocument();
+  });
+
   it('shows an empty state when no workout sessions are returned', async () => {
     renderWorkoutList([]);
 

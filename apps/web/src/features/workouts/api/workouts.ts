@@ -86,7 +86,7 @@ async function getWorkoutTemplates() {
   return payload.data;
 }
 
-const completedSessionsResponseSchema = z.object({
+const sessionListResponseSchema = z.object({
   data: z.array(workoutSessionListItemSchema),
 }) as unknown as z.ZodType<{ data: WorkoutSessionListItem[] }>;
 
@@ -95,7 +95,7 @@ async function getCompletedSessions(signal?: AbortSignal) {
     '/api/v1/workout-sessions?status=completed',
     { method: 'GET', signal },
   );
-  const payload = completedSessionsResponseSchema.parse({ data });
+  const payload = sessionListResponseSchema.parse({ data });
 
   return payload.data;
 }
@@ -124,7 +124,7 @@ async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal
     ? `/api/v1/workout-sessions?${searchParams.toString()}`
     : '/api/v1/workout-sessions';
   const data = await apiRequest<unknown>(url, { method: 'GET', signal });
-  const payload = completedSessionsResponseSchema.parse({ data });
+  const payload = sessionListResponseSchema.parse({ data });
 
   return payload.data;
 }

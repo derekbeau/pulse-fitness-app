@@ -1,4 +1,4 @@
-import { CalendarCheck2, CalendarDays, CalendarPlus2, CheckCircle2, Dot, Dumbbell, Timer } from 'lucide-react';
+import { Activity, CalendarCheck2, CalendarDays, CalendarPlus2, CheckCircle2, Dumbbell, Timer } from 'lucide-react';
 import { Link } from 'react-router';
 import type { WorkoutSessionListItem, WorkoutSessionStatus } from '@pulse/shared';
 
@@ -50,7 +50,9 @@ export function WorkoutList({
   const completedSessions = listItems
     .filter((session) => session.status === 'completed')
     .sort((left, right) => right.date.getTime() - left.date.getTime());
-  const hasPlannedWorkouts = listItems.some((session) => session.status === 'scheduled');
+  const hasPlannedWorkouts = listItems.some(
+    (session) => session.status === 'scheduled' || session.status === 'in-progress',
+  );
 
   if (sessionsQuery.isLoading && !sessions) {
     return (
@@ -260,7 +262,7 @@ function buildStatusStats(session: WorkoutListViewItem) {
   if (session.status === 'in-progress') {
     return [
       { icon: CalendarDays, label: sessionDateFormatter.format(session.date) },
-      { icon: Dot, label: 'In Progress' },
+      { icon: Activity, label: 'In Progress' },
       { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
     ];
   }

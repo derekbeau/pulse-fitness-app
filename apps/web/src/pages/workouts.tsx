@@ -134,7 +134,7 @@ export function WorkoutsPage() {
             </Button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => navigate('/workouts/active')} size="sm" type="button">
+            <Button onClick={() => setActiveView('templates')} size="sm" type="button">
               Create a template
             </Button>
             <Button onClick={() => setActiveView('templates')} size="sm" type="button" variant="secondary">
