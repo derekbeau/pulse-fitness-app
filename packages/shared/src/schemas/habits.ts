@@ -7,6 +7,8 @@ const nullableTrimmedString = (maxLength: number) =>
   z.string().trim().min(1).max(maxLength).nullable();
 
 const targetSchema = z.number().positive().nullable();
+// Nullable specific-day schedules should still require at least one weekday when provided.
+const scheduledDaysSchema = z.array(z.number().int().min(0).max(6)).min(1).nullable();
 
 const habitDefinitionFieldsSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -16,7 +18,7 @@ const habitDefinitionFieldsSchema = z.object({
   unit: nullableTrimmedString(50).optional(),
   frequency: habitFrequencySchema.optional(),
   frequencyTarget: z.number().int().min(1).max(7).nullable().optional(),
-  scheduledDays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  scheduledDays: scheduledDaysSchema.optional(),
   pausedUntil: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -98,7 +100,10 @@ export const updateHabitInputSchema = habitDefinitionFieldsSchema
     active: z.boolean().optional(),
   })
   .superRefine((value, context) => {
-    if (value.frequency === 'weekly' && value.frequencyTarget === undefined) {
+    if (
+      value.frequency === 'weekly' &&
+      (value.frequencyTarget === undefined || value.frequencyTarget === null)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Weekly habits require frequencyTarget',
@@ -147,7 +152,7 @@ export const habitSchema = z.object({
   unit: z.string().nullable(),
   frequency: habitFrequencySchema,
   frequencyTarget: z.number().int().min(1).max(7).nullable(),
-  scheduledDays: z.array(z.number().int().min(0).max(6)).nullable(),
+  scheduledDays: scheduledDaysSchema,
   pausedUntil: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

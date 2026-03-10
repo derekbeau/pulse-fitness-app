@@ -24,9 +24,11 @@ const parseScheduledDays = (scheduledDays: string | null): number[] | null => {
     return null;
   }
 
-  return parsed.filter(
-    (value): value is number => Number.isInteger(value) && value >= 0 && value <= 6,
-  );
+  if (!parsed.every((value) => Number.isInteger(value) && value >= 0 && value <= 6)) {
+    return null;
+  }
+
+  return parsed as number[];
 };
 
 type CreateHabitRecordInput = CreateHabitInput & {

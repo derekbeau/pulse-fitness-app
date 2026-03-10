@@ -122,6 +122,24 @@ describe('updateHabitInputSchema', () => {
     expect(() => updateHabitInputSchema.parse({})).toThrow();
   });
 
+  it('rejects weekly updates with null frequencyTarget', () => {
+    expect(() =>
+      updateHabitInputSchema.parse({
+        frequency: 'weekly',
+        frequencyTarget: null,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects specific-day updates with null scheduledDays', () => {
+    expect(() =>
+      updateHabitInputSchema.parse({
+        frequency: 'specific_days',
+        scheduledDays: null,
+      }),
+    ).toThrow();
+  });
+
   it('infers the UpdateHabitInput type from the schema', () => {
     const payload: UpdateHabitInput = {
       name: 'Walk',
