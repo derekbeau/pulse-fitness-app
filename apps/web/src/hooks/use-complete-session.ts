@@ -68,6 +68,34 @@ function mergeSessionListItem(
   };
 }
 
+function countDistinctSessionExercises(session: WorkoutSession) {
+  return new Set(session.sets.map((set) => set.exerciseId)).size;
+}
+
+function sortWorkoutSessionListItems(left: WorkoutSessionListItem, right: WorkoutSessionListItem) {
+  return (
+    right.date.localeCompare(left.date) ||
+    right.startedAt - left.startedAt ||
+    right.createdAt - left.createdAt
+  );
+}
+
+function upsertWorkoutSessionList(
+  current: WorkoutSessionListItem[] | undefined,
+  nextItem: WorkoutSessionListItem,
+) {
+  const nextList = current ? [...current] : [];
+  const existingIndex = nextList.findIndex((item) => item.id === nextItem.id);
+
+  if (existingIndex === -1) {
+    nextList.unshift(nextItem);
+  } else {
+    nextList[existingIndex] = nextItem;
+  }
+
+  return nextList.sort(sortWorkoutSessionListItems);
+}
+
 export function useCompleteSession(sessionId: string | null | undefined) {
   const queryClient = useQueryClient();
   const normalizedSessionId = sessionId?.trim() ?? '';
@@ -86,28 +114,73 @@ export function useCompleteSession(sessionId: string | null | undefined) {
       }
 
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
       queryClient.setQueriesData<WorkoutSessionListItem[]>(
         {
           queryKey: workoutQueryKeys.sessions(),
         },
-        (current) =>
-          current?.map((item) =>
-            item.id === session.id ? mergeSessionListItem(session, item) : item,
-          ) ?? current,
+        (current) => {
+          const existing = current?.find((item) => item.id === session.id);
+          const fallbackItem: WorkoutSessionListItem = {
+            completedAt: session.completedAt,
+            createdAt: session.createdAt,
+            date: session.date,
+            duration: session.duration,
+            exerciseCount: countDistinctSessionExercises(session),
+            id: session.id,
+            name: session.name,
+            startedAt: session.startedAt,
+            status: session.status,
+            templateId: session.templateId,
+            templateName: null,
+          };
+          const nextItem = mergeSessionListItem(session, existing ?? fallbackItem);
+
+          return upsertWorkoutSessionList(current, nextItem);
+        },
+      );
+      queryClient.setQueryData<WorkoutSessionListItem[]>(
+        workoutQueryKeys.sessionsList({}),
+        (current) => {
+          const existing = current?.find((item) => item.id === session.id);
+          const fallbackItem: WorkoutSessionListItem = {
+            completedAt: session.completedAt,
+            createdAt: session.createdAt,
+            date: session.date,
+            duration: session.duration,
+            exerciseCount: countDistinctSessionExercises(session),
+            id: session.id,
+            name: session.name,
+            startedAt: session.startedAt,
+            status: session.status,
+            templateId: session.templateId,
+            templateName: null,
+          };
+          const nextItem = mergeSessionListItem(session, existing ?? fallbackItem);
+
+          return upsertWorkoutSessionList(current, nextItem);
+        },
       );
       queryClient.setQueryData<WorkoutSessionListItem[]>(
         workoutQueryKeys.completedSessions(),
         (current) => {
           const existing = current?.find((item) => item.id === session.id);
-          const nextItem = mergeSessionListItem(session, existing);
-          const withoutCurrent = current?.filter((item) => item.id !== session.id) ?? [];
+          const fallbackItem: WorkoutSessionListItem = {
+            completedAt: session.completedAt,
+            createdAt: session.createdAt,
+            date: session.date,
+            duration: session.duration,
+            exerciseCount: countDistinctSessionExercises(session),
+            id: session.id,
+            name: session.name,
+            startedAt: session.startedAt,
+            status: session.status,
+            templateId: session.templateId,
+            templateName: null,
+          };
+          const nextItem = mergeSessionListItem(session, existing ?? fallbackItem);
 
-          return [nextItem, ...withoutCurrent].sort(
-            (left, right) =>
-              right.date.localeCompare(left.date) ||
-              right.startedAt - left.startedAt ||
-              right.createdAt - left.createdAt,
-          );
+          return upsertWorkoutSessionList(current, nextItem);
         },
       );
 

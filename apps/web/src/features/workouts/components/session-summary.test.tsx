@@ -89,6 +89,8 @@ describe('SessionSummary', () => {
     expect(
       screen.getByPlaceholderText('How did it feel? What would you change?'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('id', 'session-summary-notes');
+    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('name', 'session-summary-notes');
     expect(screen.getByLabelText('Session notes')).toHaveValue('');
     expect(screen.getByRole('textbox', { name: 'Session notes' })).toHaveValue('');
 

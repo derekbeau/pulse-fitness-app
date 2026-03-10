@@ -150,7 +150,71 @@ describe('use-complete-session hook', () => {
         templateName: 'Upper Push Template',
       },
     ]);
+    expect(queryClient.getQueryData(workoutQueryKeys.session('session-1'))).toEqual(
+      completedSessionResponse,
+    );
     expect(queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessions())).toEqual([
+      {
+        completedAt: 2_700_000,
+        createdAt: 100,
+        date: '2026-03-08',
+        duration: 45,
+        exerciseCount: 0,
+        id: 'session-1',
+        name: 'Upper Push',
+        startedAt: 100,
+        status: 'completed',
+        templateId: 'template-1',
+        templateName: null,
+      },
+      {
+        completedAt: 1_000,
+        createdAt: 90,
+        date: '2026-03-07',
+        duration: 41,
+        exerciseCount: 5,
+        id: 'session-old',
+        name: 'Upper Push',
+        startedAt: 90,
+        status: 'completed',
+        templateId: 'template-1',
+        templateName: 'Upper Push Template',
+      },
+    ]);
+  });
+
+  it('upserts the completed session into list caches when it was missing', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse(completedSessionResponse));
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}), [
+      {
+        completedAt: 1_000,
+        createdAt: 90,
+        date: '2026-03-07',
+        duration: 41,
+        exerciseCount: 5,
+        id: 'session-old',
+        name: 'Upper Push',
+        startedAt: 90,
+        status: 'completed',
+        templateId: 'template-1',
+        templateName: 'Upper Push Template',
+      },
+    ]);
+    const { result } = renderHook(() => useCompleteSession('session-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        feedback: {
+          energy: 4,
+          recovery: 3,
+          technique: 5,
+        },
+      });
+    });
+
+    expect(queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}))).toEqual([
       {
         completedAt: 2_700_000,
         createdAt: 100,

@@ -108,7 +108,9 @@ export function SessionSummary({
             </label>
             <Textarea
               aria-label="Session notes"
+              data-testid="session-summary-notes"
               id="session-summary-notes"
+              name="session-summary-notes"
               className="rounded-2xl border-black/10 bg-card dark:border-border"
               onChange={(event) => {
                 onNotesChange?.(event.target.value);
