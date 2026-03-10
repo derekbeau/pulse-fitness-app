@@ -47,7 +47,9 @@ describe('WeeklyHabitDatePicker', () => {
       <WeeklyHabitDatePicker
         completionByDate={completionByDate}
         onDateSelect={vi.fn()}
+        onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
 
@@ -67,7 +69,9 @@ describe('WeeklyHabitDatePicker', () => {
       <WeeklyHabitDatePicker
         completionByDate={completionByDate}
         onDateSelect={vi.fn()}
+        onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
 
@@ -91,18 +95,44 @@ describe('WeeklyHabitDatePicker', () => {
   });
 
   it('navigates to previous and next weeks', () => {
-    render(
+    const onWeekChange = vi.fn();
+
+    const { rerender } = render(
       <WeeklyHabitDatePicker
         completionByDate={completionByDate}
         onDateSelect={vi.fn()}
+        onWeekChange={onWeekChange}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous week' }));
+    expect(formatDate(onWeekChange.mock.calls[0]?.[0] as Date)).toBe('2026-02-23');
+
+    rerender(
+      <WeeklyHabitDatePicker
+        completionByDate={completionByDate}
+        onDateSelect={vi.fn()}
+        onWeekChange={onWeekChange}
+        selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-02-23T00:00:00')}
+      />,
+    );
     expect(getDayButton('2026-02-23')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    expect(formatDate(onWeekChange.mock.calls[1]?.[0] as Date)).toBe('2026-03-02');
+
+    rerender(
+      <WeeklyHabitDatePicker
+        completionByDate={completionByDate}
+        onDateSelect={vi.fn()}
+        onWeekChange={onWeekChange}
+        selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-03-02T00:00:00')}
+      />,
+    );
     expect(getDayButton('2026-03-02')).toBeInTheDocument();
   });
 
@@ -113,7 +143,9 @@ describe('WeeklyHabitDatePicker', () => {
       <WeeklyHabitDatePicker
         completionByDate={completionByDate}
         onDateSelect={onDateSelect}
+        onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
 

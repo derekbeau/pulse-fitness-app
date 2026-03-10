@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { addDays, formatDateKey, getToday, getWeekStart, isSameDay, normalizeDate } from '@/lib/date';
+import { addDays, formatDateKey, getToday, isSameDay } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type DayCompletion = {
@@ -12,8 +12,10 @@ type DayCompletion = {
 
 type WeeklyHabitDatePickerProps = {
   selectedDate: Date;
+  visibleWeekStart: Date;
   completionByDate: Record<string, DayCompletion>;
   onDateSelect: (date: Date) => void;
+  onWeekChange: (weekStart: Date) => void;
 };
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -51,23 +53,17 @@ function getCompletionLabel(completion: DayCompletion | undefined) {
 
 export function WeeklyHabitDatePicker({
   selectedDate,
+  visibleWeekStart,
   completionByDate,
   onDateSelect,
+  onWeekChange,
 }: WeeklyHabitDatePickerProps) {
-  const today = useMemo(() => getToday(), []);
-  const activeSelectedDate = normalizeDate(selectedDate);
-  const activeSelectedDateKey = formatDateKey(activeSelectedDate);
-  const [weekNavigation, setWeekNavigation] = useState(() => ({
-    delta: 0,
-    originDateKey: activeSelectedDateKey,
-  }));
-  const effectiveWeekDelta =
-    weekNavigation.originDateKey === activeSelectedDateKey ? weekNavigation.delta : 0;
+  const today = getToday();
+  const activeSelectedDate = selectedDate;
 
   const weekDays = useMemo(() => {
-    const weekStart = addDays(getWeekStart(activeSelectedDate), effectiveWeekDelta * 7);
-    return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  }, [activeSelectedDate, effectiveWeekDelta]);
+    return Array.from({ length: 7 }, (_, index) => addDays(visibleWeekStart, index));
+  }, [visibleWeekStart]);
 
   const monthLabelDate = weekDays[3] ?? weekDays[0] ?? today;
 
@@ -85,10 +81,7 @@ export function WeeklyHabitDatePicker({
             aria-label="Previous week"
             className="size-8 rounded-full"
             onClick={() => {
-              setWeekNavigation({
-                delta: effectiveWeekDelta - 1,
-                originDateKey: activeSelectedDateKey,
-              });
+              onWeekChange(addDays(visibleWeekStart, -7));
             }}
             size="icon"
             type="button"
@@ -100,10 +93,7 @@ export function WeeklyHabitDatePicker({
             aria-label="Next week"
             className="size-8 rounded-full"
             onClick={() => {
-              setWeekNavigation({
-                delta: effectiveWeekDelta + 1,
-                originDateKey: activeSelectedDateKey,
-              });
+              onWeekChange(addDays(visibleWeekStart, 7));
             }}
             size="icon"
             type="button"
@@ -138,10 +128,6 @@ export function WeeklyHabitDatePicker({
               onClick={() => {
                 const nextDate = new Date(day);
                 onDateSelect(nextDate);
-                setWeekNavigation({
-                  delta: 0,
-                  originDateKey: formatDateKey(nextDate),
-                });
               }}
               type="button"
             >

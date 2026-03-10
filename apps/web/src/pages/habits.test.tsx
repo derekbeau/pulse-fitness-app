@@ -102,6 +102,8 @@ describe('HabitsPage', () => {
     const selectedDayKey = toDateKey(yesterday);
     const selectedDayIsInCurrentWeek =
       toDateKey(getWeekStart(today)) === toDateKey(getWeekStart(yesterday));
+    const previousWeekStartKey = toDateKey(addDays(getWeekStart(today), -7));
+    const previousWeekEndKey = toDateKey(addDays(getWeekStart(today), -1));
     const expectedHeading = new Intl.DateTimeFormat('en-US', {
       day: 'numeric',
       month: 'long',
@@ -177,6 +179,7 @@ describe('HabitsPage', () => {
 
     if (!selectedDayIsInCurrentWeek) {
       fireEvent.click(screen.getByRole('button', { name: 'Previous week' }));
+      expect(habitEntriesRequests).toContain(`from=${previousWeekStartKey}&to=${previousWeekEndKey}`);
     }
 
     const selectedDayButton = document.querySelector(

@@ -45,17 +45,28 @@ function buildWeekCompletionByDate(habits: Habit[], entries: HabitEntry[], weekS
 
 export function HabitsPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
+  const [visibleWeekStart, setVisibleWeekStart] = useState<Date>(() => getWeekStart(getToday()));
   const normalizedSelectedDate = useMemo(() => normalizeDate(selectedDate), [selectedDate]);
-  const weekStart = useMemo(() => getWeekStart(normalizedSelectedDate), [normalizedSelectedDate]);
-  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  const weekEnd = useMemo(() => addDays(visibleWeekStart, 6), [visibleWeekStart]);
 
   const habitsQuery = useHabits();
-  const weekEntriesQuery = useHabitEntries(toDateKey(weekStart), toDateKey(weekEnd));
+  const weekEntriesQuery = useHabitEntries(toDateKey(visibleWeekStart), toDateKey(weekEnd));
 
   const weekCompletionByDate = useMemo(
-    () => buildWeekCompletionByDate(habitsQuery.data ?? [], weekEntriesQuery.data ?? [], weekStart),
-    [habitsQuery.data, weekEntriesQuery.data, weekStart],
+    () =>
+      buildWeekCompletionByDate(
+        habitsQuery.data ?? [],
+        weekEntriesQuery.data ?? [],
+        visibleWeekStart,
+      ),
+    [habitsQuery.data, weekEntriesQuery.data, visibleWeekStart],
   );
+
+  function handleDateSelect(date: Date) {
+    const nextSelectedDate = normalizeDate(date);
+    setSelectedDate(nextSelectedDate);
+    setVisibleWeekStart(getWeekStart(nextSelectedDate));
+  }
 
   return (
     <section className="space-y-4">
@@ -66,8 +77,10 @@ export function HabitsPage() {
       </p>
       <WeeklyHabitDatePicker
         completionByDate={weekCompletionByDate}
-        onDateSelect={setSelectedDate}
+        onDateSelect={handleDateSelect}
+        onWeekChange={setVisibleWeekStart}
         selectedDate={normalizedSelectedDate}
+        visibleWeekStart={visibleWeekStart}
       />
       <DailyHabits selectedDate={normalizedSelectedDate} />
       <HabitHistory />
