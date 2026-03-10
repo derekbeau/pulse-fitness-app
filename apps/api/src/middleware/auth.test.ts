@@ -5,10 +5,11 @@ import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { requireAuth, requireUserAuth } from './auth.js';
-import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from './store.js';
+import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
 vi.mock('./store.js', () => ({
   findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
   updateAgentTokenLastUsedAt: vi.fn(),
 }));
 
@@ -61,7 +62,9 @@ const buildTestApp = async () => {
 describe('auth middleware', () => {
   beforeEach(() => {
     vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(findUserAuthById).mockResolvedValue({ id: 'user-default' });
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
   });
 
@@ -88,6 +91,7 @@ describe('auth middleware', () => {
           userId: 'user-jwt-1',
         },
       });
+      expect(vi.mocked(findUserAuthById)).not.toHaveBeenCalled();
       expect(vi.mocked(findAgentTokenByHash)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -147,6 +151,7 @@ describe('auth middleware', () => {
           userId: 'user-agent-1',
         },
       });
+      expect(vi.mocked(findUserAuthById)).not.toHaveBeenCalled();
       expect(vi.mocked(findAgentTokenByHash)).toHaveBeenCalledWith(
         createHash('sha256').update(token).digest('hex'),
       );
@@ -237,6 +242,37 @@ describe('auth middleware', () => {
         });
       }
     } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects bearer JWTs when the user no longer exists outside test mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    vi.mocked(findUserAuthById).mockResolvedValue(undefined);
+
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({ userId: 'deleted-user-id' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(findUserAuthById)).toHaveBeenCalledWith('deleted-user-id');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
       await app.close();
     }
   });

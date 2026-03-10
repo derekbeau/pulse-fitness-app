@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest, onRequestHookHandler } from 'fastify
 
 import { sendError } from '../lib/reply.js';
 
-import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from './store.js';
+import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
 type AuthScheme = 'AgentToken' | 'Bearer';
 
@@ -40,6 +40,21 @@ const setRequestUserId = (request: FastifyRequest, userId: string) => {
   return userId;
 };
 
+const shouldVerifyUserExists = () => process.env.NODE_ENV !== 'test';
+
+const resolveVerifiedUserId = async (userId: string): Promise<string | undefined> => {
+  if (!shouldVerifyUserExists()) {
+    return userId;
+  }
+
+  const user = await findUserAuthById(userId);
+  if (!user) {
+    return undefined;
+  }
+
+  return user.id;
+};
+
 const verifyJwt = async (request: FastifyRequest): Promise<string | undefined> => {
   if (!extractAuthorizationToken(request, 'Bearer')) {
     return undefined;
@@ -52,7 +67,12 @@ const verifyJwt = async (request: FastifyRequest): Promise<string | undefined> =
       return undefined;
     }
 
-    return setRequestUserId(request, payload.userId);
+    const verifiedUserId = await resolveVerifiedUserId(payload.userId);
+    if (!verifiedUserId) {
+      return undefined;
+    }
+
+    return setRequestUserId(request, verifiedUserId);
   } catch {
     return undefined;
   }
@@ -76,7 +96,12 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<string | undef
     // Best-effort tracking: auth should still succeed if the write fails.
   }
 
-  return setRequestUserId(request, agentToken.userId);
+  const verifiedUserId = await resolveVerifiedUserId(agentToken.userId);
+  if (!verifiedUserId) {
+    return undefined;
+  }
+
+  return setRequestUserId(request, verifiedUserId);
 };
 
 const sendUnauthorized = (reply: FastifyReply) =>

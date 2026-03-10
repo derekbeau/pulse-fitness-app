@@ -62,6 +62,19 @@ const starterHabitDefinitions: Array<{
   },
 ];
 
+const buildStarterHabits = (userId: string) =>
+  starterHabitDefinitions.map((habit, index) => ({
+    id: randomUUID(),
+    userId,
+    name: habit.name,
+    emoji: habit.emoji,
+    trackingType: habit.trackingType,
+    target: habit.target,
+    unit: habit.unit,
+    sortOrder: index,
+    active: true,
+  }));
+
 export const findUserByUsername = async (username: string): Promise<AuthUserRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -101,18 +114,7 @@ export const createUser = async ({
       throw new Error('Failed to persist auth user');
     }
 
-    const starterHabits = starterHabitDefinitions.map((habit, index) => ({
-      id: randomUUID(),
-      userId: id,
-      name: habit.name,
-      emoji: habit.emoji,
-      trackingType: habit.trackingType,
-      target: habit.target,
-      unit: habit.unit,
-      sortOrder: index,
-      active: true,
-    }));
-
+    const starterHabits = buildStarterHabits(id);
     const habitInsertResult = tx.insert(habits).values(starterHabits).run();
     if (habitInsertResult.changes !== starterHabits.length) {
       throw new Error('Failed to persist starter habits');
@@ -130,4 +132,27 @@ export const createUser = async ({
     username,
     name: name ?? null,
   };
+};
+
+export const ensureStarterHabitsForUser = async (userId: string): Promise<void> => {
+  const { db } = await import('../../db/index.js');
+
+  db.transaction((tx) => {
+    const existingHabit = tx
+      .select({ id: habits.id })
+      .from(habits)
+      .where(eq(habits.userId, userId))
+      .limit(1)
+      .get();
+
+    if (existingHabit) {
+      return;
+    }
+
+    const starterHabits = buildStarterHabits(userId);
+    const habitInsertResult = tx.insert(habits).values(starterHabits).run();
+    if (habitInsertResult.changes !== starterHabits.length) {
+      throw new Error('Failed to persist starter habits');
+    }
+  });
 };

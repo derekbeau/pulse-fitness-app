@@ -319,6 +319,45 @@ describe('api-client', () => {
     expect(secondUserHeaders.get('Authorization')).toBe('Bearer fresh-token');
   });
 
+  it('retries once with a fresh dev session token after a 401 on non-auth requests', async () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'pulse-dev-password');
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'stale-token');
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Authentication required',
+            },
+          }),
+          { status: 401 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { token: 'fresh-dev-token' } }), {
+          status: 201,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: 'profile-1' } }), {
+          status: 200,
+        }),
+      );
+
+    const payload = await apiRequest<{ id: string }>('/api/v1/profile');
+
+    expect(payload).toEqual({ id: 'profile-1' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/profile');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/v1/auth/register');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/v1/profile');
+    expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBe('fresh-dev-token');
+  });
+
   it('does not retry non-user NOT_FOUND responses', async () => {
     vi.stubEnv('DEV', true);
     vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');
