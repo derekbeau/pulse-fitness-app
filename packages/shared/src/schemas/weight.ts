@@ -31,9 +31,14 @@ export const weightQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
     to: dateSchema.optional(),
+    days: z.coerce.number().int().positive().max(3650).optional(),
   })
   .refine(({ from, to }) => !from || !to || from <= to, {
     message: '`from` must be on or before `to`',
+    path: ['from'],
+  })
+  .refine(({ from, days }) => from === undefined || days === undefined, {
+    message: '`from` and `days` cannot be used together',
     path: ['from'],
   });
 

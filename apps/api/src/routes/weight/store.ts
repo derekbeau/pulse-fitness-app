@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 import type { BodyWeightEntry, CreateWeightInput, WeightQueryParams } from '@pulse/shared';
 
 import { bodyWeight } from '../../db/schema/index.js';
+import { addUtcDays, getTodayDate } from '../../lib/date.js';
 
 const bodyWeightEntrySelection = {
   id: bodyWeight.id,
@@ -70,6 +71,12 @@ export const listBodyWeightEntries = async (
   const { db } = await import('../../db/index.js');
 
   const conditions = [eq(bodyWeight.userId, userId)];
+
+  if (query.days !== undefined) {
+    const rangeEnd = query.to ?? getTodayDate();
+    const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
+    conditions.push(gte(bodyWeight.date, rangeStart));
+  }
 
   if (query.from) {
     conditions.push(gte(bodyWeight.date, query.from));

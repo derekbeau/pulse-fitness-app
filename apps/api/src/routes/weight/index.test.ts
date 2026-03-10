@@ -233,6 +233,36 @@ describe('weight routes', () => {
     }
   });
 
+  it('accepts days query params and forwards parsed values to the store', async () => {
+    vi.mocked(listBodyWeightEntries).mockResolvedValue([
+      {
+        id: 'entry-2',
+        date: '2026-03-03',
+        weight: 182.7,
+        notes: 'After cardio',
+        createdAt: 1_700_000_100_000,
+        updatedAt: 1_700_000_100_000,
+      },
+    ]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?days=7',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(vi.mocked(listBodyWeightEntries)).toHaveBeenCalledWith('user-1', { days: 7 });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects invalid date range queries', async () => {
     const app = buildServer();
 
@@ -242,6 +272,31 @@ describe('weight routes', () => {
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?from=2026-03-08&to=2026-03-07',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid weight query params',
+        },
+      });
+      expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects from and days query params when both are provided', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?from=2026-03-01&days=30',
         headers: createAuthorizationHeader(authToken),
       });
 

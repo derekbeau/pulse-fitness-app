@@ -1,4 +1,4 @@
-import type { DashboardConfig, DashboardSnapshot, Habit, HabitEntry } from '@pulse/shared';
+import { type DashboardConfig, DASHBOARD_WIDGET_IDS, type DashboardSnapshot, type Habit, type HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +9,7 @@ import { createQueryClientWrapper } from '@/test/query-client';
 import { DashboardPage } from './dashboard';
 
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 function createDeferredResponse() {
   let resolve: (value: Response) => void = () => {};
@@ -168,6 +169,33 @@ const macroTrendData = [
   },
 ];
 
+const weightEntriesData = [
+  {
+    id: 'weight-entry-1',
+    date: '2026-03-04',
+    weight: 181.8,
+    notes: null,
+    createdAt: 1,
+    updatedAt: 1,
+  },
+  {
+    id: 'weight-entry-2',
+    date: '2026-03-05',
+    weight: 181.2,
+    notes: null,
+    createdAt: 2,
+    updatedAt: 2,
+  },
+  {
+    id: 'weight-entry-3',
+    date: '2026-03-06',
+    weight: 181.4,
+    notes: null,
+    createdAt: 3,
+    updatedAt: 3,
+  },
+];
+
 const recentWorkoutsListData = [
   {
     id: 'recent-workout-1',
@@ -188,6 +216,7 @@ describe('DashboardPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
   let dashboardConfig: DashboardConfig;
   let snapshotsByDate: Record<string, DashboardSnapshot>;
+  let shouldFailDashboardConfigSave: boolean;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -199,7 +228,9 @@ describe('DashboardPage', () => {
     dashboardConfig = {
       habitChainIds: ['habit-meditate'],
       trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
+    shouldFailDashboardConfigSave = false;
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const rawUrl =
@@ -219,6 +250,31 @@ describe('DashboardPage', () => {
       }
 
       if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: dashboardConfig }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'PUT') {
+        if (shouldFailDashboardConfigSave) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: 'SERVER_ERROR',
+                  message: 'Unavailable',
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' }, status: 503 },
+            ),
+          );
+        }
+
+        dashboardConfig = JSON.parse(String(init.body)) as DashboardConfig;
+
         return Promise.resolve(
           new Response(JSON.stringify({ data: dashboardConfig }), {
             headers: { 'Content-Type': 'application/json' },
@@ -263,6 +319,15 @@ describe('DashboardPage', () => {
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: macroTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: weightEntriesData }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
@@ -374,6 +439,7 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Macro display mode')).toBeInTheDocument();
     expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Weight Trend' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
@@ -412,6 +478,7 @@ describe('DashboardPage', () => {
     const sidebarColumn = container.querySelector('[data-slot="dashboard-sidebar-column"]');
     const logWeightForm = container.querySelector('[data-qa="dashboard-log-weight-form"]');
     const recentColumn = container.querySelector('[data-slot="dashboard-recent-workouts-column"]');
+    const weightTrendRow = container.querySelector('[data-slot="dashboard-weight-trend-row"]');
     const calendarPanel = container.querySelector('[data-slot="dashboard-calendar-panel"]');
     const snapshotPanel = container.querySelector('[data-slot="dashboard-snapshot-panel"]');
     const macroPanel = container.querySelector('[data-slot="dashboard-macro-panel"]');
@@ -433,6 +500,7 @@ describe('DashboardPage', () => {
       'xl:col-span-1',
       'xl:col-start-3',
     );
+    expect(weightTrendRow).toHaveClass('order-4', 'md:col-span-2', 'xl:col-span-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
@@ -489,6 +557,15 @@ describe('DashboardPage', () => {
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: macroTrendData }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: weightEntriesData }), {
             headers: { 'Content-Type': 'application/json' },
             status: 200,
           }),
@@ -650,6 +727,7 @@ describe('DashboardPage', () => {
     dashboardConfig = {
       habitChainIds: [],
       trendMetrics: ['protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
 
     const { wrapper } = createQueryClientWrapper();
@@ -663,10 +741,114 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
+    const trendSparklinesSection = screen.getByLabelText('Trend sparklines');
+
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
-    expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
-    expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
+    expect(within(trendSparklinesSection).queryByText('Weight Trend')).not.toBeInTheDocument();
+    expect(within(trendSparklinesSection).queryByText('Calorie Trend')).not.toBeInTheDocument();
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
+  });
+
+  it('hides the weight trend widget when it is excluded from visible widgets', async () => {
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: ['snapshot', 'macro-rings', 'habit-chain', 'trend-sparklines'],
+    };
+
+    const { wrapper } = createQueryClientWrapper();
+    const { container } = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByRole('heading', { name: 'Weight Trend' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="dashboard-weight-trend-row"]')).not.toBeInTheDocument();
+  });
+
+  it('supports dashboard widget edit mode with save and cancel behavior', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
+    expect(screen.getByText('Recent Workouts')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+
+    const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+      return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
+    });
+
+    expect(saveRequest).toBeDefined();
+    expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
+      visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
+    });
+  });
+
+  it('stays in edit mode and shows an error when widget visibility save fails', async () => {
+    shouldFailDashboardConfigSave = true;
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(
+      screen.getByText('Unable to save widget visibility. Please try again.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
   });
 
   it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {
@@ -755,6 +937,15 @@ describe('DashboardPage', () => {
       }
 
       if (url.pathname === '/api/v1/dashboard/trends/macros' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: [] }), {
             headers: { 'Content-Type': 'application/json' },

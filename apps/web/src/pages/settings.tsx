@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { CreateNutritionTargetInput, DashboardTrendMetric } from '@pulse/shared';
+import { DASHBOARD_WIDGET_IDS, type CreateNutritionTargetInput, type DashboardTrendMetric } from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -94,10 +94,25 @@ const TREND_SPARKLINE_OPTIONS: Array<{
   },
 ];
 
+const DASHBOARD_WIDGET_DESCRIPTIONS: Record<keyof typeof DASHBOARD_WIDGET_IDS, string> = {
+  'snapshot-cards': 'Daily body weight, macros, workout, and habit completion snapshot.',
+  'macro-rings': 'Macro progress rings against your current daily targets.',
+  'habit-chain': 'Streak chains for habits selected in this settings page.',
+  'trend-sparklines': 'Compact trend charts for your chosen dashboard metrics.',
+  'recent-workouts': 'Latest workout sessions with completion status and duration.',
+  calendar: 'Date picker for navigating historical dashboard data.',
+  'log-weight': 'Quick form to log body weight for the selected date.',
+  'weight-trend': 'Detailed chart with raw scale and smoothed trend lines.',
+};
+const DASHBOARD_WIDGET_ENTRIES = Object.entries(DASHBOARD_WIDGET_IDS) as Array<
+  [keyof typeof DASHBOARD_WIDGET_IDS, string]
+>;
+
 type SettingsFormState = {
   dashboardConfig: {
     habitChainIds: string[];
     trendMetrics: DashboardTrendMetric[];
+    visibleWidgets: string[];
     widgetOrder?: string[];
   };
   nutritionTargets: {
@@ -112,6 +127,7 @@ const DEFAULT_SETTINGS: SettingsFormState = {
   dashboardConfig: {
     habitChainIds: [],
     trendMetrics: ['weight', 'calories', 'protein'],
+    visibleWidgets: Object.keys(DASHBOARD_WIDGET_IDS),
   },
   nutritionTargets: {
     calories: 2000,
@@ -388,6 +404,21 @@ export function SettingsPage() {
       trendMetrics: checked
         ? Array.from(new Set([...sourceConfig.trendMetrics, metric]))
         : sourceConfig.trendMetrics.filter((value) => value !== metric),
+      };
+    });
+  }
+
+  function toggleWidgetVisibility(widgetId: string, checked: boolean) {
+    setSaveMessage('');
+    setDashboardConfigDraft((currentDashboardConfig) => {
+      const sourceConfig =
+        currentDashboardConfig ?? persistedDashboardConfig ?? DEFAULT_SETTINGS.dashboardConfig;
+
+      return {
+        ...sourceConfig,
+        visibleWidgets: checked
+          ? Array.from(new Set([...sourceConfig.visibleWidgets, widgetId]))
+          : sourceConfig.visibleWidgets.filter((value) => value !== widgetId),
       };
     });
   }
@@ -679,6 +710,38 @@ export function SettingsPage() {
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">{metric.label}</span>
                       <p className="text-sm text-muted-foreground">{metric.description}</p>
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">Widget Visibility</h3>
+              <p className="text-sm text-muted-foreground">
+                Show or hide dashboard widgets from settings.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {DASHBOARD_WIDGET_ENTRIES.map(([widgetId, widgetName]) => {
+                const checkboxId = `widget-visibility-${widgetId}`;
+
+                return (
+                  <Label
+                    key={widgetId}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    htmlFor={checkboxId}
+                  >
+                    <Checkbox
+                      checked={settings.dashboardConfig.visibleWidgets.includes(widgetId)}
+                      id={checkboxId}
+                      onCheckedChange={(checked) => toggleWidgetVisibility(widgetId, checked === true)}
+                    />
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium text-foreground">{widgetName}</span>
+                      <p className="text-sm text-muted-foreground">{DASHBOARD_WIDGET_DESCRIPTIONS[widgetId]}</p>
                     </div>
                   </Label>
                 );

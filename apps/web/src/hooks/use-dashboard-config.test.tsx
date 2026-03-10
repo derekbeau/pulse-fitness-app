@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
@@ -6,6 +7,7 @@ import { createQueryClientWrapper } from '@/test/query-client';
 import { useDashboardConfig, useSaveDashboardConfig } from './use-dashboard-config';
 
 const mockFetch = vi.fn();
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 const createJsonResponse = (data: unknown, status = 200) =>
   new Response(JSON.stringify({ data }), {
@@ -26,6 +28,7 @@ describe('dashboard config hooks', () => {
       createJsonResponse({
         habitChainIds: ['habit-1', 'habit-2'],
         trendMetrics: ['weight', 'calories'],
+        visibleWidgets: ['snapshot-cards', 'weight-trend'],
         widgetOrder: ['snapshot', 'habits'],
       }),
     );
@@ -49,6 +52,7 @@ describe('dashboard config hooks', () => {
     expect(result.current.data).toEqual({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories'],
+      visibleWidgets: ['snapshot-cards', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits'],
     });
   });
@@ -58,6 +62,7 @@ describe('dashboard config hooks', () => {
       createJsonResponse({
         habitChainIds: ['habit-1'],
         trendMetrics: ['protein'],
+        visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
       }),
     );
 
@@ -76,6 +81,7 @@ describe('dashboard config hooks', () => {
     await result.current.mutateAsync({
       habitChainIds: ['habit-1'],
       trendMetrics: ['protein'],
+      visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     });
 
     expect(mockFetch).toHaveBeenCalledWith(

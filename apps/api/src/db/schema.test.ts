@@ -673,6 +673,7 @@ describe('dashboardConfig schema', () => {
       'userId',
       'habitChainIds',
       'trendMetrics',
+      'visibleWidgets',
       'widgetOrder',
       'createdAt',
       'updatedAt',
@@ -681,6 +682,7 @@ describe('dashboardConfig schema', () => {
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.habitChainIds.default).toEqual([]);
     expect(columns.trendMetrics.default).toEqual([]);
+    expect(columns.visibleWidgets.notNull).toBe(false);
     expect(columns.widgetOrder.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');

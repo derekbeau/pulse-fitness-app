@@ -78,6 +78,7 @@ const consistencyTrendSelection = {
 const dashboardConfigSelection = {
   habitChainIds: dashboardConfigTable.habitChainIds,
   trendMetrics: dashboardConfigTable.trendMetrics,
+  visibleWidgets: dashboardConfigTable.visibleWidgets,
   widgetOrder: dashboardConfigTable.widgetOrder,
 };
 
@@ -211,12 +212,14 @@ const toDashboardConfig = (
   value: {
     habitChainIds: string[] | null;
     trendMetrics: string[] | null;
+    visibleWidgets: string[] | null;
     widgetOrder: string[] | null;
   },
 ): DashboardConfig => {
   const parsed = dashboardConfigSchema.parse({
     habitChainIds: value.habitChainIds ?? [],
     trendMetrics: toDashboardTrendMetrics(value.trendMetrics),
+    visibleWidgets: value.visibleWidgets ?? undefined,
     widgetOrder: value.widgetOrder ?? undefined,
   });
 
@@ -408,6 +411,7 @@ export const upsertDashboardConfig = async (
       userId,
       habitChainIds: input.habitChainIds,
       trendMetrics: input.trendMetrics,
+      visibleWidgets: input.visibleWidgets ?? null,
       widgetOrder: input.widgetOrder ?? null,
     })
     .onConflictDoUpdate({
@@ -415,6 +419,7 @@ export const upsertDashboardConfig = async (
       set: {
         habitChainIds: input.habitChainIds,
         trendMetrics: input.trendMetrics,
+        visibleWidgets: input.visibleWidgets ?? null,
         widgetOrder: input.widgetOrder ?? null,
         updatedAt: Date.now(),
       },

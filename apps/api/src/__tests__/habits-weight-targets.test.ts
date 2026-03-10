@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { addUtcDays, getTodayDate } from '../lib/date.js';
+
 type StoredUser = {
   id: string;
   username: string;
@@ -98,10 +100,6 @@ const withoutUserId = <T extends { userId: string }>(value: T) => {
   void userId;
 
   return rest;
-};
-
-const getTodayDate = () => {
-  return new Date().toISOString().slice(0, 10);
 };
 
 vi.mock('../routes/auth/store.js', () => ({
@@ -238,11 +236,19 @@ vi.mock('../routes/weight/store.js', () => ({
       return withoutUserId(entry);
     },
   ),
-  listBodyWeightEntries: vi.fn(async (userId: string, query: { from?: string; to?: string }) =>
+  listBodyWeightEntries: vi.fn(async (userId: string, query: { from?: string; to?: string; days?: number }) =>
     [...testState.weightEntries.values()]
       .filter((entry) => {
         if (entry.userId !== userId) {
           return false;
+        }
+
+        if (query.days !== undefined) {
+          const rangeEnd = query.to ?? getTodayDate();
+          const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
+          if (entry.date < rangeStart) {
+            return false;
+          }
         }
 
         if (query.from && entry.date < query.from) {
@@ -509,6 +515,57 @@ describe('weight and nutrition target integration', () => {
         createHash('sha256').update(agentToken.token).digest('hex'),
       );
       expect(storedToken?.lastUsedAt).not.toBeNull();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('filters weight entries by days lookback', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const user = await registerAndLogin(app, 'days-range');
+      const today = getTodayDate();
+      const withinSevenDaysDate = new Date(`${today}T00:00:00.000Z`);
+      withinSevenDaysDate.setUTCDate(withinSevenDaysDate.getUTCDate() - 5);
+      const outsideSevenDaysDate = new Date(`${today}T00:00:00.000Z`);
+      outsideSevenDaysDate.setUTCDate(outsideSevenDaysDate.getUTCDate() - 9);
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: createAuthorizationHeader(user.token),
+        payload: {
+          date: outsideSevenDaysDate.toISOString().slice(0, 10),
+          weight: 183.2,
+        },
+      });
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: createAuthorizationHeader(user.token),
+        payload: {
+          date: withinSevenDaysDate.toISOString().slice(0, 10),
+          weight: 181.4,
+        },
+      });
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?days=7',
+        headers: createAuthorizationHeader(user.token),
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json()).toEqual({
+        data: [
+          expect.objectContaining({
+            date: withinSevenDaysDate.toISOString().slice(0, 10),
+            weight: 181.4,
+          }),
+        ],
+      });
     } finally {
       await app.close();
     }
