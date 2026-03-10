@@ -98,6 +98,7 @@ type SettingsFormState = {
   dashboardConfig: {
     habitChainIds: string[];
     trendMetrics: DashboardTrendMetric[];
+    visibleWidgets?: string[];
     widgetOrder?: string[];
   };
   nutritionTargets: {
@@ -112,6 +113,7 @@ const DEFAULT_SETTINGS: SettingsFormState = {
   dashboardConfig: {
     habitChainIds: [],
     trendMetrics: ['weight', 'calories', 'protein'],
+    visibleWidgets: ['weight-trend'],
   },
   nutritionTargets: {
     calories: 2000,

@@ -7,12 +7,14 @@ describe('dashboardConfigSchema', () => {
     const config = dashboardConfigSchema.parse({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: ['snapshot', 'macro-rings', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits', 'trends'],
     });
 
     expect(config).toEqual({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: ['snapshot', 'macro-rings', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits', 'trends'],
     });
   });

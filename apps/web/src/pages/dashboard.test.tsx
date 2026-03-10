@@ -449,6 +449,7 @@ describe('DashboardPage', () => {
     const sidebarColumn = container.querySelector('[data-slot="dashboard-sidebar-column"]');
     const logWeightForm = container.querySelector('[data-qa="dashboard-log-weight-form"]');
     const recentColumn = container.querySelector('[data-slot="dashboard-recent-workouts-column"]');
+    const weightTrendRow = container.querySelector('[data-slot="dashboard-weight-trend-row"]');
     const calendarPanel = container.querySelector('[data-slot="dashboard-calendar-panel"]');
     const snapshotPanel = container.querySelector('[data-slot="dashboard-snapshot-panel"]');
     const macroPanel = container.querySelector('[data-slot="dashboard-macro-panel"]');
@@ -470,6 +471,7 @@ describe('DashboardPage', () => {
       'xl:col-span-1',
       'xl:col-start-3',
     );
+    expect(weightTrendRow).toHaveClass('order-4', 'md:col-span-2', 'xl:col-span-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
@@ -715,6 +717,28 @@ describe('DashboardPage', () => {
     expect(within(trendSparklinesSection).queryByText('Weight Trend')).not.toBeInTheDocument();
     expect(within(trendSparklinesSection).queryByText('Calorie Trend')).not.toBeInTheDocument();
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
+  });
+
+  it('hides the weight trend widget when it is excluded from visible widgets', async () => {
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: ['snapshot', 'macro-rings', 'habit-chain', 'trend-sparklines'],
+    };
+
+    const { wrapper } = createQueryClientWrapper();
+    const { container } = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByRole('heading', { name: 'Weight Trend' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="dashboard-weight-trend-row"]')).not.toBeInTheDocument();
   });
 
   it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {

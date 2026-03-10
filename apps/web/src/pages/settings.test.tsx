@@ -11,6 +11,7 @@ type TestState = {
   dashboardConfig: {
     habitChainIds: string[];
     trendMetrics: Array<'weight' | 'calories' | 'protein'>;
+    visibleWidgets?: string[];
     widgetOrder?: string[];
   };
   habits: Array<{

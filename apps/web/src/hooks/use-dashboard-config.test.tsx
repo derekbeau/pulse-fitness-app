@@ -26,6 +26,7 @@ describe('dashboard config hooks', () => {
       createJsonResponse({
         habitChainIds: ['habit-1', 'habit-2'],
         trendMetrics: ['weight', 'calories'],
+        visibleWidgets: ['snapshot', 'weight-trend'],
         widgetOrder: ['snapshot', 'habits'],
       }),
     );
@@ -49,6 +50,7 @@ describe('dashboard config hooks', () => {
     expect(result.current.data).toEqual({
       habitChainIds: ['habit-1', 'habit-2'],
       trendMetrics: ['weight', 'calories'],
+      visibleWidgets: ['snapshot', 'weight-trend'],
       widgetOrder: ['snapshot', 'habits'],
     });
   });

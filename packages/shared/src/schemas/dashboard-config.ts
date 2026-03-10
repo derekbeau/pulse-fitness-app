@@ -7,6 +7,7 @@ const nonEmptyStringArraySchema = z.array(z.string().min(1));
 export const dashboardConfigSchema = z.object({
   habitChainIds: nonEmptyStringArraySchema,
   trendMetrics: z.array(trendMetricSchema),
+  visibleWidgets: nonEmptyStringArraySchema.optional(),
   widgetOrder: nonEmptyStringArraySchema.optional(),
 });
 

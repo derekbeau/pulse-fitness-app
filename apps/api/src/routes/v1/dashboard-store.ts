@@ -99,6 +99,7 @@ const getDateRangeForUtcDay = (date: string) => {
 // TODO: Source this from user preferences once kg/lb switching is introduced.
 const DEFAULT_WEIGHT_UNIT: DashboardWeightSnapshot['unit'] = 'lb';
 const DEFAULT_DASHBOARD_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
+const DEFAULT_DASHBOARD_VISIBLE_WIDGETS = ['weight-trend'];
 
 const toMacroTotals = (
   value:
@@ -396,6 +397,7 @@ export const getDashboardConfig = async (userId: string): Promise<DashboardConfi
   return dashboardConfigSchema.parse({
     habitChainIds: activeHabitIds,
     trendMetrics: DEFAULT_DASHBOARD_TREND_METRICS,
+    visibleWidgets: DEFAULT_DASHBOARD_VISIBLE_WIDGETS,
   });
 };
 

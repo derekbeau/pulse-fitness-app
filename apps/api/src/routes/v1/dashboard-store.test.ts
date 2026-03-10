@@ -310,6 +310,7 @@ describe('dashboard store', () => {
     expect(config).toEqual({
       habitChainIds: ['habit-1', 'habit-3'],
       trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: ['weight-trend'],
     });
     expect(testState.select).toHaveBeenCalledTimes(2);
   });

@@ -34,6 +34,8 @@ const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
+const DEFAULT_VISIBLE_WIDGETS = ['weight-trend'] as const;
+const WEIGHT_TREND_WIDGET_ID = 'weight-trend';
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
@@ -53,6 +55,8 @@ export function DashboardPage() {
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
+  const visibleWidgets = dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS;
+  const showWeightTrendChart = visibleWidgets.includes(WEIGHT_TREND_WIDGET_ID);
 
   useEffect(() => {
     const previousDateKey = toDateKey(addDays(selectedDate, -1));
@@ -221,7 +225,6 @@ export function DashboardPage() {
               endDate={selectedDateKey}
               metrics={dashboardConfigQuery.data?.trendMetrics}
             />
-            <WeightTrendChart />
           </div>
 
           <div
@@ -230,6 +233,15 @@ export function DashboardPage() {
           >
             <RecentWorkouts />
           </div>
+
+          {showWeightTrendChart ? (
+            <div
+              className="order-4 min-w-0 md:col-span-2 xl:col-span-3"
+              data-slot="dashboard-weight-trend-row"
+            >
+              <WeightTrendChart />
+            </div>
+          ) : null}
         </div>
       )}
     </main>
