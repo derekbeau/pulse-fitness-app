@@ -22,6 +22,8 @@ describe('createSetSchema', () => {
       setNumber: 2,
       weight: null,
       reps: null,
+      seconds: null,
+      distance: null,
       section: null,
     });
   });
@@ -31,6 +33,7 @@ describe('updateSetSchema', () => {
   it('accepts partial set updates', () => {
     const payload = updateSetSchema.parse({
       reps: 8,
+      seconds: 30,
       completed: true,
       notes: '  Smooth tempo  ',
     });
@@ -39,9 +42,15 @@ describe('updateSetSchema', () => {
 
     expect(typedPayload).toEqual({
       reps: 8,
+      seconds: 30,
       completed: true,
       notes: 'Smooth tempo',
     });
+  });
+
+  it('rejects negative seconds and distance', () => {
+    expect(() => updateSetSchema.parse({ seconds: -1 })).toThrow();
+    expect(() => updateSetSchema.parse({ distance: -0.1 })).toThrow();
   });
 
   it('rejects empty updates', () => {
@@ -68,6 +77,8 @@ describe('batchUpsertSetsSchema', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
+          seconds: 45,
+          distance: 0.25,
           section: 'main',
         },
         {
@@ -85,6 +96,8 @@ describe('batchUpsertSetsSchema', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
+          seconds: 45,
+          distance: 0.25,
           section: 'main',
         },
         {
@@ -92,6 +105,8 @@ describe('batchUpsertSetsSchema', () => {
           setNumber: 2,
           weight: null,
           reps: null,
+          seconds: null,
+          distance: null,
           section: null,
         },
       ],

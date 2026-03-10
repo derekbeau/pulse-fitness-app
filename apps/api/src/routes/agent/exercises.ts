@@ -9,6 +9,7 @@ import { createExercise, listExercises } from '../exercises/store.js';
 const DEFAULT_MUSCLE_GROUPS = ['Full Body'];
 const DEFAULT_EQUIPMENT = 'Bodyweight';
 const DEFAULT_CATEGORY = 'compound' as const;
+const DEFAULT_TRACKING_TYPE = 'weight_reps' as const;
 
 export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
@@ -24,6 +25,7 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       category: parsed.data.category ?? DEFAULT_CATEGORY,
       muscleGroups: parsed.data.muscleGroups ?? DEFAULT_MUSCLE_GROUPS,
       equipment: parsed.data.equipment ?? DEFAULT_EQUIPMENT,
+      trackingType: DEFAULT_TRACKING_TYPE,
       instructions: null,
     });
 

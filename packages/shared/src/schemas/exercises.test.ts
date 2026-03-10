@@ -15,7 +15,7 @@ import {
 } from './exercises';
 
 describe('exerciseSchema', () => {
-  it('parses a valid exercise payload', () => {
+  it('parses a valid exercise payload and defaults trackingType', () => {
     const payload = exerciseSchema.parse({
       id: 'exercise-1',
       userId: null,
@@ -35,21 +35,57 @@ describe('exerciseSchema', () => {
       muscleGroups: ['chest', 'front delts', 'triceps'],
       equipment: 'dumbbells',
       category: 'compound',
+      trackingType: 'weight_reps',
       instructions: 'Drive feet into the floor.',
       createdAt: 1,
       updatedAt: 2,
     });
   });
 
-  it('rejects invalid categories and empty muscle group arrays', () => {
+  it('accepts bodyweight_reps trackingType', () => {
+    const payload = exerciseSchema.parse({
+      id: 'exercise-1',
+      userId: 'user-1',
+      name: ' Pull Up ',
+      muscleGroups: ['lats', 'biceps'],
+      equipment: ' bodyweight ',
+      category: 'compound',
+      trackingType: 'bodyweight_reps',
+      instructions: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    expect(payload.trackingType).toBe('bodyweight_reps');
+  });
+
+  it('accepts cardio trackingType', () => {
+    const payload = exerciseSchema.parse({
+      id: 'exercise-3',
+      userId: 'user-1',
+      name: ' Bike ',
+      muscleGroups: ['conditioning'],
+      equipment: 'air bike',
+      category: 'cardio',
+      trackingType: 'cardio',
+      instructions: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    expect(payload.trackingType).toBe('cardio');
+  });
+
+  it('rejects invalid tracking types', () => {
     expect(() =>
       exerciseSchema.parse({
         id: 'exercise-1',
         userId: 'user-1',
         name: 'Lat Pulldown',
-        muscleGroups: [],
+        muscleGroups: ['lats'],
         equipment: 'cable',
-        category: 'strength',
+        category: 'compound',
+        trackingType: 'invalid',
         instructions: null,
         createdAt: 1,
         updatedAt: 2,
@@ -66,6 +102,7 @@ describe('exerciseSchema', () => {
       muscleGroups: ['hip flexors', 'quads'],
       equipment: 'bodyweight',
       category,
+      trackingType: 'seconds_only',
       instructions: null,
       createdAt: 10,
       updatedAt: 10,
@@ -90,6 +127,7 @@ describe('createExerciseInputSchema', () => {
       muscleGroups: ['hamstrings', 'glutes'],
       equipment: 'barbell',
       category: 'compound',
+      trackingType: 'weight_reps',
       instructions: null,
     });
   });
@@ -100,6 +138,7 @@ describe('createExerciseInputSchema', () => {
       muscleGroups: ['conditioning'],
       equipment: 'air bike',
       category: 'cardio',
+      trackingType: 'cardio',
       instructions: null,
     };
 

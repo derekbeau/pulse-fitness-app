@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -375,6 +376,7 @@ describe('exercise routes', () => {
         muscleGroups: string[];
         equipment: string;
         category: string;
+        trackingType: string;
         instructions: string | null;
         createdAt: number;
         updatedAt: number;
@@ -387,6 +389,7 @@ describe('exercise routes', () => {
       muscleGroups: ['lats', 'upper back'],
       equipment: 'cable machine',
       category: 'compound',
+      trackingType: 'weight_reps',
       instructions: 'Pull elbow toward hip.',
     });
     expect(payload.data.id).toBeTruthy();
@@ -499,6 +502,27 @@ describe('exercise routes', () => {
         limit: 2,
         total: 3,
       },
+    });
+  });
+
+  it('applies weight_reps as the trackingType default for existing exercises', () => {
+    seedExercise({
+      id: 'existing-global',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest', 'triceps'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    const row = context.db
+      .select({ trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(eq(exercises.id, 'existing-global'))
+      .get();
+
+    expect(row).toEqual({
+      trackingType: 'weight_reps',
     });
   });
 

@@ -85,6 +85,13 @@
       "when": 1773158400000,
       "tag": "0011_hissing_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1773156922289,
+      "tag": "0011_amusing_puck",
+      "breakpoints": true
     }
   ]
 }

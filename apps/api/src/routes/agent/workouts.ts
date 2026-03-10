@@ -15,7 +15,11 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { createExercise, findVisibleExerciseByName } from '../exercises/store.js';
-import { createWorkoutSession, findWorkoutSessionById, updateWorkoutSession } from '../workout-sessions/store.js';
+import {
+  createWorkoutSession,
+  findWorkoutSessionById,
+  updateWorkoutSession,
+} from '../workout-sessions/store.js';
 import {
   createWorkoutTemplate,
   findWorkoutTemplateById,
@@ -37,6 +41,7 @@ const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
 const DEFAULT_EXERCISE_CATEGORY = 'compound' as const;
 const DEFAULT_EXERCISE_MUSCLE_GROUPS = ['Full Body'];
 const DEFAULT_EXERCISE_EQUIPMENT = 'Bodyweight';
+const DEFAULT_EXERCISE_TRACKING_TYPE = 'weight_reps' as const;
 
 const inferSectionType = (name: string): WorkoutTemplateSectionType => {
   const normalized = name.trim().toLowerCase();
@@ -71,6 +76,7 @@ const resolveExerciseIdByName = async ({
     category: DEFAULT_EXERCISE_CATEGORY,
     muscleGroups: DEFAULT_EXERCISE_MUSCLE_GROUPS,
     equipment: DEFAULT_EXERCISE_EQUIPMENT,
+    trackingType: DEFAULT_EXERCISE_TRACKING_TYPE,
     instructions: null,
   });
 

@@ -6,6 +6,15 @@ import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-cor
 import { users } from './users.js';
 
 export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
+export type WorkoutExerciseTrackingType =
+  | 'weight_reps'
+  | 'weight_seconds'
+  | 'bodyweight_reps'
+  | 'reps_only'
+  | 'reps_seconds'
+  | 'seconds_only'
+  | 'distance'
+  | 'cardio';
 
 export const exercises = sqliteTable(
   'exercises',
@@ -19,6 +28,10 @@ export const exercises = sqliteTable(
     muscleGroups: text('muscle_groups', { mode: 'json' }).$type<string[]>().notNull(),
     equipment: text('equipment').notNull(),
     category: text('category').$type<WorkoutExerciseCategory>().notNull(),
+    trackingType: text('tracking_type')
+      .$type<WorkoutExerciseTrackingType>()
+      .notNull()
+      .default('weight_reps'),
     instructions: text('instructions'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
