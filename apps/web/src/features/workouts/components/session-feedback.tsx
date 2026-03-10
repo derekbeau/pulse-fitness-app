@@ -18,8 +18,8 @@ export const STANDARD_FEEDBACK_QUESTIONS: ActiveWorkoutCustomFeedbackField[] = [
     value: null,
   },
   {
-    id: 'energy-level',
-    label: 'Energy Level',
+    id: 'energy-post-workout',
+    label: 'Energy post workout',
     optional: false,
     options: ['😫', '😕', '😐', '🙂', '💪'],
     type: 'emoji',
@@ -170,9 +170,52 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
 
 function mergeFeedbackFields(fields: ActiveWorkoutCustomFeedbackField[]) {
   const standardIds = new Set(STANDARD_FEEDBACK_QUESTIONS.map((field) => field.id));
-  const templateFields = fields.filter((field) => !standardIds.has(field.id));
+  const templateFields = fields.filter((field) => {
+    if (standardIds.has(field.id)) {
+      return false;
+    }
+
+    const canonicalId = getCanonicalStandardFieldId(field);
+
+    return canonicalId === null;
+  });
 
   return [...STANDARD_FEEDBACK_QUESTIONS, ...templateFields];
+}
+
+function getCanonicalStandardFieldId(field: ActiveWorkoutCustomFeedbackField) {
+  const normalizedId = field.id.trim().toLowerCase();
+  const normalizedLabel = field.label.trim().toLowerCase();
+  const normalizedHaystack = `${normalizedId} ${normalizedLabel}`;
+
+  if (
+    normalizedId === 'session-rpe' ||
+    normalizedHaystack.includes('session rpe') ||
+    normalizedHaystack.includes('rpe')
+  ) {
+    return 'session-rpe';
+  }
+
+  if (
+    normalizedId === 'energy-post-workout' ||
+    normalizedId === 'energy-level' ||
+    normalizedId === 'energy-post' ||
+    normalizedHaystack.includes('energy post workout') ||
+    normalizedHaystack.includes('energy level')
+  ) {
+    return 'energy-post-workout';
+  }
+
+  if (
+    normalizedId === 'pain-discomfort' ||
+    normalizedId === 'knee-pain' ||
+    normalizedHaystack.includes('pain') ||
+    normalizedHaystack.includes('discomfort')
+  ) {
+    return 'pain-discomfort';
+  }
+
+  return null;
 }
 
 function normalizeFeedbackField(field: ActiveWorkoutCustomFeedbackField): ActiveWorkoutCustomFeedbackField {

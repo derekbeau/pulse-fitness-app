@@ -134,11 +134,10 @@ describe('ActiveWorkoutPage', () => {
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Session RPE rating' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Energy Level options' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
     expect(
       screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
 
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
@@ -146,7 +145,9 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+      within(
+        screen.getByRole('group', { name: 'Energy post workout options' }),
+      ).getByRole('button', {
         name: '🙂',
       }),
     );
@@ -160,22 +161,9 @@ describe('ActiveWorkoutPage', () => {
     );
 
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Knee pain rating' })).getByRole('button', {
-        name: '4',
-      }),
-    );
-    fireEvent.click(
       within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
         name: '3',
       }),
-    );
-    fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy post workout rating' })).getByRole(
-        'button',
-        {
-          name: '5',
-        },
-      ),
     );
     fireEvent.change(
       screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
@@ -192,7 +180,7 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Total reps')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
-    expect(screen.getByText('4 / 5')).toBeInTheDocument();
+    expect(screen.getByText('3 / 5')).toBeInTheDocument();
     expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));

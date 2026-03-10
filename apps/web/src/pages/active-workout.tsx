@@ -909,17 +909,6 @@ function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
 }
 
 function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
-  const textField = draft.find(
-    (
-      field,
-    ): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'text'; value?: string }> =>
-      field.type === 'text' && (field.value ?? '').trim().length > 0,
-  );
-
-  if (textField) {
-    return textField.value?.trim() ?? null;
-  }
-
   const painDetailsField = draft.find(
     (field) =>
       field.id === 'pain-discomfort' &&
@@ -930,6 +919,17 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
 
   if (painDetailsField) {
     return painDetailsField.notes?.trim() ?? null;
+  }
+
+  const textField = draft.find(
+    (
+      field,
+    ): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'text'; value?: string }> =>
+      field.type === 'text' && (field.value ?? '').trim().length > 0,
+  );
+
+  if (textField) {
+    return textField.value?.trim() ?? null;
   }
 
   const fieldWithNotes = draft.find((field) => (field.notes ?? '').trim().length > 0);

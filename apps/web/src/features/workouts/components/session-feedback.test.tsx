@@ -50,7 +50,9 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+      within(
+        screen.getByRole('group', { name: 'Energy post workout options' }),
+      ).getByRole('button', {
         name: '🙂',
       }),
     );
@@ -98,7 +100,7 @@ describe('SessionFeedback', () => {
 
     expect(submittedFeedback.map((field) => field.id)).toEqual([
       'session-rpe',
-      'energy-level',
+      'energy-post-workout',
       'pain-discomfort',
       'sleep-quality',
       'effort',
@@ -149,7 +151,9 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+      within(
+        screen.getByRole('group', { name: 'Energy post workout options' }),
+      ).getByRole('button', {
         name: '😐',
       }),
     );
@@ -179,8 +183,8 @@ describe('SessionFeedback', () => {
         value: 5,
       },
       {
-        id: 'energy-level',
-        label: 'Energy Level',
+        id: 'energy-post-workout',
+        label: 'Energy post workout',
         notes: '',
         optional: false,
         options: ['😫', '😕', '😐', '🙂', '💪'],
@@ -196,5 +200,45 @@ describe('SessionFeedback', () => {
         value: false,
       },
     ]);
+  });
+
+  it('drops legacy custom fields that overlap standard prompts', () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <SessionFeedback
+        fields={[
+          {
+            id: 'energy-post',
+            label: 'Energy post workout',
+            max: 5,
+            min: 1,
+            type: 'scale',
+            value: 3,
+          },
+          {
+            id: 'knee-pain',
+            label: 'Knee pain',
+            max: 5,
+            min: 1,
+            type: 'scale',
+            value: 2,
+          },
+          {
+            id: 'coach-note',
+            label: 'Coach note',
+            optional: true,
+            type: 'text',
+            value: '',
+          },
+        ]}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.queryByRole('group', { name: 'Energy post workout rating' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Knee pain rating' })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Coach note' })).toBeInTheDocument();
   });
 });
