@@ -472,10 +472,44 @@ Response (`200`):
 {
   "data": {
     "id": "session-1",
+    "userId": "user-1",
+    "templateId": "template-1",
+    "name": "Leg Day",
+    "date": "2026-03-09",
     "status": "completed",
-    "completedAt": 1700000000000,
-    "duration": 0,
-    "notes": "Solid session"
+    "startedAt": 1700000000000,
+    "completedAt": 1700003720000,
+    "duration": 62,
+    "feedback": null,
+    "notes": "Solid session",
+    "sets": [
+      {
+        "id": "set-1",
+        "exerciseId": "exercise-bench-press",
+        "setNumber": 1,
+        "weight": 105,
+        "reps": 7,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1700000000000
+      },
+      {
+        "id": "set-2",
+        "exerciseId": "exercise-squat",
+        "setNumber": 1,
+        "weight": 225,
+        "reps": 5,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1700000000000
+      }
+    ],
+    "createdAt": 1700000000000,
+    "updatedAt": 1700003720000
   }
 }
 ```
@@ -637,7 +671,7 @@ Response:
 
 1. Call `GET /api/agent/context`.
 2. Derive plan from current nutrition/workout/habit/weight state.
-3. Execute one or more write operations (`/meals`, `/weight`, `/workout-sessions`, `/habits/:id/entries`).
+3. Execute one or more write operations (`/api/agent/meals`, `/api/agent/weight`, `/api/agent/workout-sessions`, `/api/agent/habits/:id/entries`).
 4. Optionally re-read context for confirmation.
 
 ### 2) Food Search + Meal Logging
@@ -649,10 +683,10 @@ Response:
 
 ### 3) Workout Creation + Session Logging
 
-1. Search/create exercises (`GET /exercises/search`, `POST /exercises`).
-2. Create/update template (`POST/PUT /workout-templates`).
-3. Start session (`POST /workout-sessions`).
-4. Log sets and status (`PATCH /workout-sessions/:id`).
+1. Search/create exercises (`GET /api/agent/exercises/search`, `POST /api/agent/exercises`).
+2. Create/update template (`POST/PUT /api/agent/workout-templates`).
+3. Start session (`POST /api/agent/workout-sessions`).
+4. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
 
 ## Error Handling Conventions
 
