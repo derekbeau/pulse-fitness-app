@@ -123,12 +123,16 @@ describe('Sidebar', () => {
 
     fireEvent.click(menuButton);
 
-    const mobileNav = screen.getByLabelText('Mobile navigation');
+    expect(screen.queryByRole('button', { name: 'Open navigation menu' })).not.toBeInTheDocument();
+
+    const mobileNav = screen.getByRole('dialog', { name: 'Mobile navigation' });
     expect(mobileNav).toBeInTheDocument();
+    expect(mobileNav).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('button', { name: 'Close sidebar panel' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close sidebar panel' }));
-    expect(screen.queryByLabelText('Mobile navigation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument();
   });
 
   it('renders the collapsed avatar without adding it to the tab order', () => {

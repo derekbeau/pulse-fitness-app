@@ -69,93 +69,97 @@ export function Sidebar() {
 
   return (
     <>
-      <button
-        aria-controls={mobilePanelId}
-        aria-expanded={mobileMenuOpen}
-        aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] left-4 z-50 flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl border border-border/70 bg-card/95 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary md:hidden"
-        onClick={() => setMobileMenuOpen((previousValue) => !previousValue)}
-        type="button"
-      >
-        <Menu aria-hidden="true" className="size-5" />
-      </button>
+      {!mobileMenuOpen ? (
+        <button
+          aria-controls={mobilePanelId}
+          aria-expanded={mobileMenuOpen}
+          aria-label="Open navigation menu"
+          className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] left-4 z-40 flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl border border-border/70 bg-card/95 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary md:hidden"
+          onClick={() => setMobileMenuOpen(true)}
+          type="button"
+        >
+          <Menu aria-hidden="true" className="size-5" />
+        </button>
+      ) : null}
 
       {mobileMenuOpen ? (
-        <div className="fixed inset-0 z-40 md:hidden">
-        <button
-          aria-label="Close navigation overlay"
-          className="absolute inset-0 bg-black/40"
-          onClick={() => setMobileMenuOpen(false)}
-          type="button"
-        />
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            aria-label="Close navigation overlay"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileMenuOpen(false)}
+            type="button"
+          />
 
-        <aside
-          aria-label="Mobile navigation"
-          className="absolute inset-y-0 left-0 flex w-[min(20rem,calc(100vw-2rem))] max-w-full animate-slide-down flex-col border-r border-border/60 bg-card shadow-xl"
-          id={mobilePanelId}
-        >
-          <div className="flex items-center justify-between border-b border-border/40 px-4 py-5">
-            <p className="px-2 text-2xl font-extrabold tracking-tight text-primary font-display">Pulse</p>
-            <button
-              aria-label="Close sidebar panel"
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl text-muted transition-colors hover:bg-secondary hover:text-foreground"
-              onClick={() => setMobileMenuOpen(false)}
-              type="button"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-
-          <nav
-            aria-label="Mobile navigation links"
-            className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4"
+          <aside
+            aria-label="Mobile navigation"
+            aria-modal="true"
+            className="absolute inset-y-0 left-0 flex w-[min(20rem,calc(100vw-2rem))] max-w-full animate-in slide-in-from-left-4 fade-in-0 duration-200 flex-col border-r border-border/60 bg-card shadow-xl"
+            id={mobilePanelId}
+            role="dialog"
           >
-            {sidebarNavItems.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <NavLink
-                  key={item.to}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
-                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                    )
-                  }
-                  end={item.end}
-                  onClick={() => setMobileMenuOpen(false)}
-                  to={item.to}
-                >
-                  <Icon className="size-[18px]" aria-hidden="true" />
-                  <span>{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
-
-          <div className="space-y-3 border-t border-border/40 px-3 py-4">
-            <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2">
-              <div className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
-                {avatarLabel}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-                <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-              </div>
+            <div className="flex items-center justify-between border-b border-border/40 px-4 py-5">
+              <p className="px-2 text-2xl font-extrabold tracking-tight text-primary font-display">Pulse</p>
+              <button
+                aria-label="Close sidebar panel"
+                className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl text-muted transition-colors hover:bg-secondary hover:text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+                type="button"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
             </div>
 
-            <button
-              className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground"
-              onClick={handleLogout}
-              type="button"
+            <nav
+              aria-label="Mobile navigation links"
+              className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4"
             >
-              <LogOut className="size-[18px]" aria-hidden="true" />
-              <span>Log out</span>
-            </button>
-          </div>
-        </aside>
+              {sidebarNavItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200',
+                        isActive
+                          ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
+                          : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                      )
+                    }
+                    end={item.end}
+                    onClick={() => setMobileMenuOpen(false)}
+                    to={item.to}
+                  >
+                    <Icon className="size-[18px]" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </nav>
+
+            <div className="space-y-3 border-t border-border/40 px-3 py-4">
+              <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
+                  {avatarLabel}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                  <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+                </div>
+              </div>
+
+              <button
+                className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground"
+                onClick={handleLogout}
+                type="button"
+              >
+                <LogOut className="size-[18px]" aria-hidden="true" />
+                <span>Log out</span>
+              </button>
+            </div>
+          </aside>
         </div>
       ) : null}
 
