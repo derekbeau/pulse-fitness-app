@@ -159,7 +159,7 @@ describe('HabitCardMenu', () => {
     );
   });
 
-  it('toggles active state when pause is selected', async () => {
+  it('toggles active state when deactivate is selected', async () => {
     const sleepHabit = getHabitById('sleep');
     const updateMutation = createMutationMock();
     mockedUseUpdateHabit.mockReturnValue(
@@ -168,13 +168,63 @@ describe('HabitCardMenu', () => {
 
     render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
 
     await waitFor(() =>
       expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
         id: 'sleep',
         values: {
           active: false,
+        },
+      }),
+    );
+  });
+
+  it('opens pause scheduling dialog and saves pause until date', async () => {
+    const sleepHabit = getHabitById('sleep');
+    const updateMutation = createMutationMock();
+    mockedUseUpdateHabit.mockReturnValue(
+      updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
+    );
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
+    expect(screen.getByRole('heading', { name: 'Pause scheduling' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Pause until'), { target: { value: '2026-03-25' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save pause' }));
+
+    await waitFor(() =>
+      expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
+        id: 'sleep',
+        values: {
+          pausedUntil: '2026-03-25',
+        },
+      }),
+    );
+  });
+
+  it('shows resume scheduling for paused habits and clears pausedUntil', async () => {
+    const pausedHabit = {
+      ...getHabitById('sleep'),
+      pausedUntil: '2026-03-25',
+    };
+    const updateMutation = createMutationMock();
+    mockedUseUpdateHabit.mockReturnValue(
+      updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
+    );
+
+    render(<HabitCardMenu habit={pausedHabit} habits={habits} onEdit={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Pause scheduling' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume scheduling' }));
+
+    await waitFor(() =>
+      expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
+        id: 'sleep',
+        values: {
+          pausedUntil: null,
         },
       }),
     );

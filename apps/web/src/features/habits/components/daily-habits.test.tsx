@@ -54,8 +54,8 @@ const habits: Habit[] = [
     target: 10,
     trackingType: 'numeric',
     unit: 'glasses',
-    frequency: 'daily',
-    frequencyTarget: null,
+    frequency: 'weekly',
+    frequencyTarget: 3,
     scheduledDays: null,
     pausedUntil: null,
     updatedAt: 1,
@@ -71,9 +71,9 @@ const habits: Habit[] = [
     target: 8,
     trackingType: 'time',
     unit: 'hours',
-    frequency: 'daily',
+    frequency: 'specific_days',
     frequencyTarget: null,
-    scheduledDays: null,
+    scheduledDays: [0, 2, 4],
     pausedUntil: null,
     updatedAt: 2,
     userId: 'user-1',
@@ -91,7 +91,7 @@ const habits: Habit[] = [
     frequency: 'daily',
     frequencyTarget: null,
     scheduledDays: null,
-    pausedUntil: null,
+    pausedUntil: '2026-04-01',
     updatedAt: 3,
     userId: 'user-1',
   },
@@ -169,6 +169,14 @@ describe('DailyHabits', () => {
     render(<DailyHabits />);
 
     expect(screen.getAllByRole('button', { name: /open habit actions for/i })).toHaveLength(3);
+  });
+
+  it('shows frequency subtitles and paused badge on cards', () => {
+    render(<DailyHabits />);
+
+    expect(screen.getByText('3x per week')).toBeInTheDocument();
+    expect(screen.getByText('Mon, Wed, Fri')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
   });
 
   it('shows target percentages with threshold colors', () => {
