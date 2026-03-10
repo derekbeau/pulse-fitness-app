@@ -239,12 +239,20 @@ describe('updateWorkoutSessionInputSchema', () => {
       templateId: null,
       feedback: null,
       notes: '   ',
+      exerciseNotes: {
+        'incline-dumbbell-press': ' Keep elbows tucked ',
+        'seated-dumbbell-shoulder-press': '   ',
+      },
     });
 
     expect(payload).toEqual({
       templateId: null,
       feedback: null,
       notes: null,
+      exerciseNotes: {
+        'incline-dumbbell-press': 'Keep elbows tucked',
+        'seated-dumbbell-shoulder-press': null,
+      },
     });
   });
 

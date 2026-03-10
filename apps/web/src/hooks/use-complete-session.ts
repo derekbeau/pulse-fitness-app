@@ -21,6 +21,7 @@ const workoutSessionResponseSchema = z.object({
 type CompleteSessionInput = {
   completedAt?: number;
   duration?: number | null;
+  exerciseNotes?: Record<string, string>;
   feedback: WorkoutSessionFeedback;
   notes?: string | null;
   sets?: SessionSetInput[];
@@ -31,6 +32,7 @@ async function completeSession(sessionId: string, input: CompleteSessionInput) {
     completedAt: input.completedAt ?? Date.now(),
     duration: input.duration ?? null,
     feedback: input.feedback,
+    exerciseNotes: input.exerciseNotes,
     notes: input.notes ?? null,
     sets: input.sets,
     status: 'completed',

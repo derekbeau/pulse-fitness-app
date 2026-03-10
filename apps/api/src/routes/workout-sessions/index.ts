@@ -6,6 +6,7 @@ import {
   saveWorkoutSessionAsTemplateInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
+  type SessionSetInput,
   updateSetSchema,
   updateWorkoutSessionInputSchema,
   workoutSessionQueryParamsSchema,
@@ -94,6 +95,47 @@ const toCreateWorkoutSessionInput = (
 
 const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
+
+const applyExerciseNotesToSets = ({
+  sets,
+  exerciseNotes,
+}: {
+  sets: SessionSetInput[];
+  exerciseNotes: Record<string, string | null>;
+}) => {
+  const firstSetIndexByExerciseId = new Map<string, number>();
+
+  sets.forEach((set, index) => {
+    const existingIndex = firstSetIndexByExerciseId.get(set.exerciseId);
+    if (existingIndex === undefined) {
+      firstSetIndexByExerciseId.set(set.exerciseId, index);
+      return;
+    }
+
+    const existingSet = sets[existingIndex];
+    if (!existingSet) {
+      return;
+    }
+
+    if (set.setNumber < existingSet.setNumber) {
+      firstSetIndexByExerciseId.set(set.exerciseId, index);
+    }
+  });
+
+  return sets.map((set, index) => {
+    if (
+      firstSetIndexByExerciseId.get(set.exerciseId) !== index ||
+      !Object.hasOwn(exerciseNotes, set.exerciseId)
+    ) {
+      return set;
+    }
+
+    return {
+      ...set,
+      notes: exerciseNotes[set.exerciseId] ?? null,
+    };
+  });
+};
 
 const ensureOwnedSession = async ({
   sessionId,
@@ -446,9 +488,20 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
     }
 
-    if (mergedPayload.data.templateId !== null) {
+    const input =
+      parsedBody.data.exerciseNotes && Object.keys(parsedBody.data.exerciseNotes).length > 0
+        ? {
+            ...mergedPayload.data,
+            sets: applyExerciseNotesToSets({
+              sets: mergedPayload.data.sets,
+              exerciseNotes: parsedBody.data.exerciseNotes,
+            }),
+          }
+        : mergedPayload.data;
+
+    if (input.templateId !== null) {
       const templateAccessible = await templateBelongsToUser(
-        mergedPayload.data.templateId,
+        input.templateId,
         request.userId,
       );
       if (!templateAccessible) {
@@ -463,7 +516,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
     const exercisesAccessible = await allSessionExercisesAccessible({
       userId: request.userId,
-      exerciseIds: getReferencedExerciseIds(mergedPayload.data.sets),
+      exerciseIds: getReferencedExerciseIds(input.sets),
     });
     if (!exercisesAccessible) {
       return sendError(
@@ -477,7 +530,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     const session = await updateWorkoutSession({
       id: request.params.id,
       userId: request.userId,
-      input: mergedPayload.data,
+      input,
     });
     if (!session) {
       return sendError(

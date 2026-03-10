@@ -118,7 +118,7 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByText('Section breakdown')).toBeInTheDocument();
     expect(screen.getByText('Feedback')).toBeInTheDocument();
-    expect(screen.getByText('Session notes')).toBeInTheDocument();
+    expect(screen.getByText('Session Notes')).toBeInTheDocument();
     expect(screen.getByLabelText(/show comparison/i)).toBeInTheDocument();
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);

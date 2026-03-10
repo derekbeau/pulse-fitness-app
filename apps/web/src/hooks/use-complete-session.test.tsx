@@ -62,6 +62,9 @@ describe('use-complete-session hook', () => {
           recovery: 3,
           technique: 5,
         },
+        exerciseNotes: {
+          'incline-dumbbell-press': 'Keep shoulders packed',
+        },
         notes: 'Strong finish',
       });
     });
@@ -85,6 +88,9 @@ describe('use-complete-session hook', () => {
         energy: 4,
         recovery: 3,
         technique: 5,
+      },
+      exerciseNotes: {
+        'incline-dumbbell-press': 'Keep shoulders packed',
       },
       notes: 'Strong finish',
       status: 'completed',

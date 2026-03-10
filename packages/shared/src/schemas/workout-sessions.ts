@@ -40,6 +40,7 @@ const nullableTemplateIdSchema = z.preprocess(
   requiredStringSchema.nullable(),
 );
 const nullableIntegerSchema = z.number().int().min(0).nullable();
+const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStringSchema);
 
 const validateWorkoutSessionTiming = (
   value: {
@@ -185,6 +186,7 @@ export const updateWorkoutSessionInputSchema = z
     duration: nullableIntegerSchema.optional(),
     feedback: workoutSessionFeedbackSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
+    exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {

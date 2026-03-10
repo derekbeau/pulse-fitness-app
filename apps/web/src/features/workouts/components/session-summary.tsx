@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,11 @@ type SessionSummaryProps = {
   exercisesCompleted: number;
   feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
+  onNotesChange?: (notes: string) => void;
+  sessionNotes?: string;
   sessionId?: string | null;
-  completedSets: number;
+  completedSets?: number;
+  summarySaving?: boolean;
   totalReps: number;
   totalSets: number;
   workoutName: string;
@@ -43,8 +46,11 @@ export function SessionSummary({
   exercisesCompleted,
   feedback = [],
   onDone,
+  onNotesChange,
+  sessionNotes: initialSessionNotes = '',
   sessionId = null,
   completedSets,
+  summarySaving = false,
   totalReps,
   totalSets,
   workoutName,
@@ -55,6 +61,11 @@ export function SessionSummary({
   const [templateDescription, setTemplateDescription] = useState(defaultDescription);
   const [templateTags, setTemplateTags] = useState(defaultTags.join(', '));
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [sessionNotes, setSessionNotes] = useState(initialSessionNotes);
+
+  useEffect(() => {
+    setSessionNotes(initialSessionNotes);
+  }, [initialSessionNotes]);
 
   return (
     <>
@@ -82,11 +93,30 @@ export function SessionSummary({
             <SummaryStat
               icon={ListChecks}
               label="Sets completed"
-              value={`${completedSets}/${totalSets}`}
+              value={
+                completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`
+              }
             />
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
           </div>
+
+          <section className="space-y-2 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
+            <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
+              Session notes
+            </h2>
+            <Textarea
+              className="rounded-2xl border-black/10 bg-card dark:border-border"
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setSessionNotes(nextValue);
+                onNotesChange?.(nextValue);
+              }}
+              placeholder="How did it feel? What would you change?"
+              rows={4}
+              value={sessionNotes}
+            />
+          </section>
 
           {feedback.length > 0 ? (
             <section className="space-y-3 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
@@ -137,11 +167,12 @@ export function SessionSummary({
 
             <Button
               className="w-full border-black/10 bg-white/60 hover:bg-white/75 sm:w-auto dark:bg-secondary dark:text-foreground dark:hover:bg-secondary/80"
+              disabled={summarySaving}
               onClick={onDone}
               type="button"
               variant="secondary"
             >
-              Done
+              {summarySaving ? 'Saving...' : 'Done'}
             </Button>
           </div>
 

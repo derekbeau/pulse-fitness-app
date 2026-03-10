@@ -8,6 +8,7 @@ import { SessionSummary } from './session-summary';
 describe('SessionSummary', () => {
   it('opens the save-as-template dialog with prefilled fields and performs a mock save', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const notesChangeSpy = vi.fn();
 
     renderWithQueryClient(
       <SessionSummary
@@ -68,6 +69,8 @@ describe('SessionSummary', () => {
         ]}
         onDone={() => {}}
         completedSets={14}
+        onNotesChange={notesChangeSpy}
+        sessionNotes=""
         totalReps={124}
         totalSets={14}
         workoutName="Upper Push"
@@ -83,6 +86,14 @@ describe('SessionSummary', () => {
     expect(
       screen.getByText('Pause the first rep of each incline set next time.'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('How did it feel? What would you change?'),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('How did it feel? What would you change?'), {
+      target: { value: 'Tempo was good but shoulders fatigued early.' },
+    });
+    expect(notesChangeSpy).toHaveBeenCalledWith('Tempo was good but shoulders fatigued early.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
 

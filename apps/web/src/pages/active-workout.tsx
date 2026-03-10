@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
-import type {
-  ExerciseTrackingType,
-  SessionSet,
-  WorkoutSessionFeedback,
+import {
+  updateWorkoutSessionInputSchema,
+  type ExerciseTrackingType,
+  type SessionSet,
+  type WorkoutSessionFeedback,
   WorkoutTemplate as ApiWorkoutTemplate,
-  WorkoutTemplateSectionType,
+  type WorkoutTemplateSectionType,
 } from '@pulse/shared';
 
 import {
@@ -64,7 +65,7 @@ import {
   buildSessionSetInputs,
   extractExerciseNotes,
 } from '@/features/workouts/lib/session-notes';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, apiRequest } from '@/lib/api-client';
 import {
   mockExercises,
   mockTemplates,
@@ -142,6 +143,8 @@ export function ActiveWorkoutPage() {
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [summarySaving, setSummarySaving] = useState(false);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
@@ -399,7 +402,7 @@ export function ActiveWorkoutPage() {
             const completedAt = Date.now();
             const completedAtIso = new Date(completedAt).toISOString();
             const duration = Math.floor(getElapsedSeconds(startTime, completedAt) / 60);
-            const notes = extractFeedbackNotes(feedback);
+            const feedbackNotes = extractFeedbackNotes(feedback);
 
             if (!activeSessionId) {
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
@@ -416,9 +419,10 @@ export function ActiveWorkoutPage() {
                 duration,
                 feedback: {
                   ...mapFeedbackDraftToSessionFeedback(feedback),
-                  notes: notes ?? undefined,
+                  notes: feedbackNotes ?? undefined,
                 },
-                notes,
+                exerciseNotes,
+                notes: null,
                 sets: buildSessionSetInputs(setDrafts, templateExerciseById, exerciseNotes),
               },
               {
@@ -449,11 +453,35 @@ export function ActiveWorkoutPage() {
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
           feedback={sessionFeedback}
-          onDone={() => {
+          onDone={async () => {
+            if (summarySaving) {
+              return;
+            }
+
+            if (activeSessionId) {
+              setSessionError(null);
+              setSummarySaving(true);
+              try {
+                await persistCompletedSessionNotes({
+                  exerciseNotes,
+                  notes: sessionNotes,
+                  sessionId: activeSessionId,
+                });
+              } catch {
+                setSessionError('Unable to save session notes. Try again.');
+                setSummarySaving(false);
+                return;
+              }
+              setSummarySaving(false);
+            }
+
             clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
             navigate('/workouts');
           }}
+          onNotesChange={setSessionNotes}
+          sessionNotes={sessionNotes}
           sessionId={activeSessionId}
+          summarySaving={summarySaving}
           totalReps={totalCompletedReps}
           completedSets={session.completedSets}
           totalSets={session.totalSets}
@@ -907,6 +935,26 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
   const fieldWithNotes = draft.find((field) => (field.notes ?? '').trim().length > 0);
 
   return fieldWithNotes?.notes?.trim() ?? null;
+}
+
+async function persistCompletedSessionNotes({
+  sessionId,
+  notes,
+  exerciseNotes,
+}: {
+  sessionId: string;
+  notes: string;
+  exerciseNotes: Record<string, string>;
+}) {
+  const payload = updateWorkoutSessionInputSchema.parse({
+    exerciseNotes,
+    notes,
+  });
+
+  await apiRequest(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(payload),
+    method: 'PATCH',
+  });
 }
 
 function isSessionNotActiveError(error: unknown) {

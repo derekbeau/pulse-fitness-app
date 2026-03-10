@@ -255,6 +255,22 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         />
       </div>
 
+      {session.notes ? (
+        <Card>
+          <CardHeader className="gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <NotebookPen aria-hidden="true" className="size-5 text-primary" />
+              Session Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm leading-6 text-foreground">
+              {session.notes}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -414,22 +430,6 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           )}
         </CardContent>
       </Card>
-
-      {session.notes ? (
-        <Card>
-          <CardHeader className="gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <NotebookPen aria-hidden="true" className="size-5 text-primary" />
-              Session notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm leading-6 text-foreground">
-              {session.notes}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
 
       {session.templateId ? (
         <Button asChild className="w-full sm:w-auto" size="lg">
