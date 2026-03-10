@@ -309,10 +309,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </div>
 
         {sections.map((section) => (
+          // Keep note-bearing sections expanded so logged notes are immediately visible.
+          // This avoids hiding notes behind collapsed warmup/cooldown groups.
+          // Main remains expanded by default even when it has no notes.
+          // Users can still collapse sections manually after first render.
           <details
             className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
             key={section.type}
-            open={section.type === 'main'}
+            open={section.type === 'main' || section.exercises.some((exercise) => Boolean(exercise.notes))}
           >
             <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 sm:py-5">
               <div className="flex items-center justify-between gap-3">

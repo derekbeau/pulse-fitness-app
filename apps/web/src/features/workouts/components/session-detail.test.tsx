@@ -265,6 +265,46 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
     expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
   });
+
+  it('keeps sections with exercise notes expanded by default', async () => {
+    const currentSession = createSession({
+      id: 'session-notes-visible',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-warmup-note',
+          exerciseId: 'row-erg',
+          setNumber: 1,
+          notes: 'Felt strong on this set, increased weight by 5lbs',
+          reps: 240,
+          section: 'warmup',
+          weight: null,
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(
+      await screen.findByText('Felt strong on this set, increased weight by 5lbs'),
+    ).toBeInTheDocument();
+    const warmupHeading = screen.getByRole('heading', { name: 'Warmup' });
+    const warmupDetails = warmupHeading.closest('details');
+    expect(warmupDetails).toHaveAttribute('open');
+  });
 });
 
 function renderSessionDetail(sessionId: string) {
