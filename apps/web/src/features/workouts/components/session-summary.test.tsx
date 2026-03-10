@@ -26,6 +26,39 @@ describe('SessionSummary', () => {
             value: 2,
           },
           {
+            id: 'energy-level',
+            label: 'Energy level',
+            notes: '',
+            options: ['😫', '😕', '😐', '🙂', '💪'],
+            type: 'emoji',
+            value: '🙂',
+          },
+          {
+            id: 'pain-discomfort',
+            label: 'Any pain or discomfort?',
+            notes: '',
+            type: 'yes_no',
+            value: false,
+          },
+          {
+            id: 'effort',
+            label: 'Effort',
+            max: 10,
+            min: 1,
+            notes: '',
+            step: 1,
+            type: 'slider',
+            value: 8,
+          },
+          {
+            id: 'limited-muscles',
+            label: 'What limited performance?',
+            notes: '',
+            options: ['Shoulders', 'Grip', 'Cardio'],
+            type: 'multi_select',
+            value: ['Shoulders', 'Grip'],
+          },
+          {
             id: 'coach-note',
             label: 'Coach note',
             notes: '',
@@ -43,6 +76,10 @@ describe('SessionSummary', () => {
 
     expect(screen.getByRole('heading', { name: 'Session feedback' })).toBeInTheDocument();
     expect(screen.getByText('2 / 5')).toBeInTheDocument();
+    expect(screen.getByText('🙂')).toBeInTheDocument();
+    expect(screen.getByText('No')).toBeInTheDocument();
+    expect(screen.getByText('8 (1 - 10)')).toBeInTheDocument();
+    expect(screen.getByText('Shoulders, Grip')).toBeInTheDocument();
     expect(
       screen.getByText('Pause the first rep of each incline set next time.'),
     ).toBeInTheDocument();

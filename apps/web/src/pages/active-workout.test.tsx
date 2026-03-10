@@ -133,8 +133,31 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Session RPE rating' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Energy Level options' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
-    expect(screen.getAllByRole('textbox', { name: 'Optional notes' })).toHaveLength(4);
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+        name: '8',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+        name: '🙂',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
 
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Knee pain rating' })).getByRole('button', {

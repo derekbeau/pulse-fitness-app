@@ -107,9 +107,7 @@ export function SessionSummary({
                       {field.label}
                     </p>
                     <p className="mt-2 text-base font-semibold text-foreground">
-                      {field.type === 'scale'
-                        ? `${field.value ?? '-'} / ${field.max}`
-                        : field.value}
+                      {formatFeedbackFieldValue(field)}
                     </p>
                     {field.notes?.trim() ? (
                       <p className="mt-2 text-sm text-muted">{field.notes.trim()}</p>
@@ -249,6 +247,31 @@ export function SessionSummary({
       </Dialog>
     </>
   );
+}
+
+function formatFeedbackFieldValue(field: ActiveWorkoutFeedbackDraft[number]) {
+  switch (field.type) {
+    case 'scale':
+      return `${field.value ?? '-'} / ${field.max}`;
+    case 'text':
+      return field.value?.trim() ? field.value : '-';
+    case 'yes_no':
+      if (field.value === null || field.value === undefined) {
+        return '-';
+      }
+
+      return field.value ? 'Yes' : 'No';
+    case 'emoji':
+      return field.value?.trim() ? field.value : '-';
+    case 'slider':
+      return field.value === null || field.value === undefined
+        ? '-'
+        : `${field.value} (${field.min} - ${field.max})`;
+    case 'multi_select':
+      return (field.value ?? []).length > 0 ? (field.value ?? []).join(', ') : '-';
+    default:
+      return '-';
+  }
 }
 
 function SummaryStat({

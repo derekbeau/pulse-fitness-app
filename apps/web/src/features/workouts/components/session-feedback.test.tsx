@@ -1,106 +1,200 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { workoutFeedbackFields } from '../lib/mock-data';
+import type { ActiveWorkoutCustomFeedbackField } from '../types';
 import { SessionFeedback } from './session-feedback';
 
 describe('SessionFeedback', () => {
-  it('renders dynamic feedback fields and collects values before finalizing the session', () => {
+  it('renders standard questions first and supports richer question types', () => {
     const onSubmit = vi.fn();
+    const templateFields: ActiveWorkoutCustomFeedbackField[] = [
+      {
+        id: 'sleep-quality',
+        label: 'Slept well last night?',
+        type: 'yes_no',
+        value: null,
+      },
+      {
+        id: 'effort',
+        label: 'Effort slider',
+        max: 10,
+        min: 1,
+        step: 1,
+        type: 'slider',
+        value: null,
+      },
+      {
+        id: 'limited-muscles',
+        label: 'What limited performance?',
+        options: ['Shoulders', 'Grip', 'Cardio', 'Nothing'],
+        type: 'multi_select',
+        value: [],
+      },
+      {
+        id: 'coach-note',
+        label: 'Coach note',
+        optional: true,
+        type: 'text',
+        value: '',
+      },
+    ];
 
-    render(<SessionFeedback fields={workoutFeedbackFields} onSubmit={onSubmit} />);
+    render(<SessionFeedback fields={templateFields} onSubmit={onSubmit} />);
 
     const finalizeButton = screen.getByRole('button', { name: 'Finalize session' });
-    expect(finalizeButton).toBeEnabled();
-
-    expect(screen.getByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Shoulder feel rating' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Energy post workout rating' })).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
-    ).toBeInTheDocument();
+    expect(finalizeButton).toBeDisabled();
 
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Knee pain rating' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+        name: '7',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+        name: '🙂',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'Yes',
+        },
+      ),
+    );
+
+    expect(screen.getByLabelText('Pain/discomfort details')).toBeInTheDocument();
+    expect(finalizeButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Pain/discomfort details'), {
+      target: { value: 'Mild right-knee discomfort during split squats.' },
+    });
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Slept well last night? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
+    fireEvent.change(screen.getByLabelText('Effort slider slider'), {
+      target: { value: '8' },
+    });
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'What limited performance? options' })).getByRole(
+        'button',
+        {
+          name: 'Shoulders',
+        },
+      ),
+    );
+
+    expect(finalizeButton).toBeEnabled();
+
+    fireEvent.click(finalizeButton);
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedFeedback = onSubmit.mock.calls[0][0] as ActiveWorkoutCustomFeedbackField[];
+
+    expect(submittedFeedback.map((field) => field.id)).toEqual([
+      'session-rpe',
+      'energy-level',
+      'pain-discomfort',
+      'sleep-quality',
+      'effort',
+      'limited-muscles',
+      'coach-note',
+    ]);
+    expect(
+      submittedFeedback.find((field) => field.id === 'pain-discomfort' && field.type === 'yes_no'),
+    ).toEqual(
+      expect.objectContaining({
+        notes: 'Mild right-knee discomfort during split squats.',
+        value: true,
+      }),
+    );
+    expect(
+      submittedFeedback.find((field) => field.id === 'sleep-quality' && field.type === 'yes_no'),
+    ).toEqual(
+      expect.objectContaining({
+        value: false,
+      }),
+    );
+    expect(submittedFeedback.find((field) => field.id === 'effort' && field.type === 'slider')).toEqual(
+      expect.objectContaining({
+        value: 8,
+      }),
+    );
+    expect(
+      submittedFeedback.find(
+        (field) => field.id === 'limited-muscles' && field.type === 'multi_select',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        value: ['Shoulders'],
+      }),
+    );
+  });
+
+  it('allows completion without pain details when pain is no', () => {
+    const onSubmit = vi.fn();
+
+    render(<SessionFeedback fields={[]} onSubmit={onSubmit} />);
+
+    const finalizeButton = screen.getByRole('button', { name: 'Finalize session' });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
         name: '5',
       }),
     );
-    fireEvent.change(screen.getByLabelText('Optional notes', { selector: '#knee-pain-notes' }), {
-      target: { value: 'Pain spiked during the final split squat set.' },
-    });
-    fireEvent.change(
-      screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
-      {
-        target: { value: 'Stay tucked and keep the pause honest next week.' },
-      },
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Energy Level options' })).getByRole('button', {
+        name: '😐',
+      }),
     );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
+
+    expect(screen.queryByLabelText('Pain/discomfort details')).not.toBeInTheDocument();
+    expect(finalizeButton).toBeEnabled();
 
     fireEvent.click(finalizeButton);
 
     expect(onSubmit).toHaveBeenCalledWith([
       {
-        id: 'knee-pain',
-        label: 'Knee pain',
-        max: 5,
+        id: 'session-rpe',
+        label: 'Session RPE',
+        max: 10,
         min: 1,
-        notes: 'Pain spiked during the final split squat set.',
+        notes: '',
+        optional: false,
         type: 'scale',
         value: 5,
       },
       {
-        id: 'shoulder-feel',
-        label: 'Shoulder feel',
-        max: 5,
-        min: 1,
-        notes: 'Left shoulder stayed stable with neutral-grip pressing.',
-        type: 'scale',
-        value: 4,
+        id: 'energy-level',
+        label: 'Energy Level',
+        notes: '',
+        optional: false,
+        options: ['😫', '😕', '😐', '🙂', '💪'],
+        type: 'emoji',
+        value: '😐',
       },
       {
-        id: 'energy-post',
-        label: 'Energy post workout',
-        max: 5,
-        min: 1,
+        id: 'pain-discomfort',
+        label: 'Any pain or discomfort?',
         notes: '',
-        type: 'scale',
-        value: 4,
-      },
-      {
-        id: 'session-note',
-        label: 'Coach note',
-        notes: '',
-        optional: true,
-        type: 'text',
-        value: 'Stay tucked and keep the pause honest next week.',
+        optional: false,
+        type: 'yes_no',
+        value: false,
       },
     ]);
-  });
-
-  it('allows optional text feedback fields to be cleared without blocking finalization', () => {
-    const onSubmit = vi.fn();
-
-    render(<SessionFeedback fields={workoutFeedbackFields} onSubmit={onSubmit} />);
-
-    const finalizeButton = screen.getByRole('button', { name: 'Finalize session' });
-    const coachNoteInput = screen.getByDisplayValue(
-      'Keep incline press to a 2-count pause on the chest next week.',
-    );
-
-    fireEvent.change(coachNoteInput, { target: { value: '' } });
-
-    expect(finalizeButton).toBeEnabled();
-
-    fireEvent.click(finalizeButton);
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'session-note',
-          optional: true,
-          type: 'text',
-          value: '',
-        }),
-      ]),
-    );
   });
 });

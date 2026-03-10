@@ -122,6 +122,14 @@ export type ActiveWorkoutEnhancedExercise = Omit<ActiveWorkoutExerciseMetadata, 
   tempo: string;
 };
 
+export type FeedbackFieldType =
+  | 'scale'
+  | 'text'
+  | 'yes_no'
+  | 'emoji'
+  | 'slider'
+  | 'multi_select';
+
 export type ActiveWorkoutCustomFeedbackField =
   | {
       id: string;
@@ -129,6 +137,7 @@ export type ActiveWorkoutCustomFeedbackField =
       max: number;
       min: number;
       notes?: string;
+      optional?: boolean;
       type: 'scale';
       value?: number | null;
     }
@@ -139,6 +148,43 @@ export type ActiveWorkoutCustomFeedbackField =
       optional?: boolean;
       type: 'text';
       value?: string;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      type: 'yes_no';
+      value?: boolean | null;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      options: string[];
+      type: 'emoji';
+      value?: string | null;
+    }
+  | {
+      id: string;
+      label: string;
+      max: number;
+      min: number;
+      notes?: string;
+      optional?: boolean;
+      step?: number;
+      type: 'slider';
+      value?: number | null;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      options: string[];
+      type: 'multi_select';
+      value?: string[];
     };
 
 export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];

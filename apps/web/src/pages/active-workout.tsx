@@ -892,14 +892,21 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
     return textField.value?.trim() ?? null;
   }
 
-  const scaleFieldWithNotes = draft.find(
-    (
-      field,
-    ): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale'; notes?: string }> =>
-      field.type === 'scale' && (field.notes ?? '').trim().length > 0,
+  const painDetailsField = draft.find(
+    (field) =>
+      field.id === 'pain-discomfort' &&
+      field.type === 'yes_no' &&
+      field.value === true &&
+      (field.notes ?? '').trim().length > 0,
   );
 
-  return scaleFieldWithNotes?.notes?.trim() ?? null;
+  if (painDetailsField) {
+    return painDetailsField.notes?.trim() ?? null;
+  }
+
+  const fieldWithNotes = draft.find((field) => (field.notes ?? '').trim().length > 0);
+
+  return fieldWithNotes?.notes?.trim() ?? null;
 }
 
 function isSessionNotActiveError(error: unknown) {
