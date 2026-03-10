@@ -67,7 +67,7 @@ export function buildActiveWorkoutSession(
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
-        name: exercise?.name ?? 'Unknown Exercise',
+        name: exercise?.name ?? templateExercise.exerciseName ?? 'Unknown Exercise',
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         prescribedReps: templateExercise.reps,

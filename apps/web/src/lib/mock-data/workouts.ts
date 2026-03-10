@@ -38,6 +38,7 @@ export interface WorkoutExercise {
 
 export interface WorkoutTemplateExercise {
   exerciseId: WorkoutExercise['id'];
+  exerciseName?: string;
   sets: number;
   reps: string;
   tempo: string;

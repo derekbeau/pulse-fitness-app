@@ -671,6 +671,7 @@ function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplat
       title: sectionTitleByType[section.type],
       exercises: section.exercises.map((exercise) => ({
         exerciseId: exercise.exerciseId,
+        exerciseName: exercise.exerciseName,
         sets: exercise.sets ?? 1,
         reps: formatTemplateExerciseReps(exercise.repsMin, exercise.repsMax),
         tempo: exercise.tempo ?? '2111',
