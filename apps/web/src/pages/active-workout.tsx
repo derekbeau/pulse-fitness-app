@@ -233,6 +233,10 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    if (sessionId && hydratedSessionIdRef.current === null) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       saveSetDrafts(persistedSessionId, setDrafts);
     }, 500);
@@ -240,7 +244,7 @@ export function ActiveWorkoutPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [persistedSessionId, setDrafts, stage]);
+  }, [persistedSessionId, sessionId, setDrafts, stage]);
 
   useEffect(() => {
     if (!persistedSessionId || stage !== 'active') {
@@ -281,8 +285,14 @@ export function ActiveWorkoutPage() {
       }),
     [exerciseNotes, setDrafts, startTime, template],
   );
-  const remainingSetCount = session.totalSets - session.completedSets;
-  const completedSetsSummary = `${session.completedSets}/${session.totalSets}`;
+  const remainingSetCount = useMemo(
+    () => session.totalSets - session.completedSets,
+    [session.completedSets, session.totalSets],
+  );
+  const completedSetsSummary = useMemo(
+    () => `${session.completedSets}/${session.totalSets}`,
+    [session.completedSets, session.totalSets],
+  );
   const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
   const estimatedTotalSeconds = useMemo(() => estimateTotalTime(session), [session]);
   const remainingEstimatedSeconds = useMemo(() => estimateRemainingTime(session), [session]);
@@ -400,6 +410,7 @@ export function ActiveWorkoutPage() {
             const notes = extractFeedbackNotes(feedback);
 
             if (!activeSessionId) {
+              // Local-only sessions persist under the route/session fallback ID.
               clearSessionDraftPersistence(persistedSessionId);
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
@@ -428,6 +439,7 @@ export function ActiveWorkoutPage() {
                   setSessionError('Unable to complete this workout. Try again.');
                 },
                 onSuccess: () => {
+                  // API-backed sessions always clear persistence using the canonical server session ID.
                   clearSessionDraftPersistence(activeSessionId);
                   setSessionFeedback(feedback);
                   setSessionCompletedAt(completedAtIso);

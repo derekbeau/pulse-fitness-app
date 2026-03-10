@@ -54,6 +54,19 @@ describe('session-persistence', () => {
     expect(loadSetDrafts('session-a')).toBeNull();
   });
 
+  it('returns null for tampered draft shapes', () => {
+    window.localStorage.setItem(
+      'pulse.workout-drafts.session-a',
+      JSON.stringify({
+        'incline-dumbbell-press': [{ id: 'set-1', completed: true }],
+      }),
+    );
+    expect(loadSetDrafts('session-a')).toBeNull();
+
+    window.localStorage.setItem('pulse.workout-drafts.session-a', JSON.stringify([]));
+    expect(loadSetDrafts('session-a')).toBeNull();
+  });
+
   it('saves, loads, and clears exercise notes by session id', () => {
     const notes = {
       'incline-dumbbell-press': 'Keep elbows tucked.',

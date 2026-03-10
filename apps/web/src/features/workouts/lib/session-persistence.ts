@@ -16,6 +16,42 @@ function getExerciseNotesStorageKey(sessionId: string) {
   return `pulse.workout-notes.${sessionId}`;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isValidSetDraft(value: unknown): boolean {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.completed === 'boolean' &&
+    typeof value.number === 'number' &&
+    (typeof value.reps === 'number' || value.reps === null) &&
+    (typeof value.weight === 'number' || value.weight === null) &&
+    (typeof value.distance === 'number' || value.distance === null) &&
+    (typeof value.seconds === 'number' || value.seconds === null)
+  );
+}
+
+function isActiveWorkoutSetDrafts(value: unknown): value is ActiveWorkoutSetDrafts {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(
+    (draftsForExercise) =>
+      Array.isArray(draftsForExercise) && draftsForExercise.every((setDraft) => isValidSetDraft(setDraft)),
+  );
+}
+
 export function getStoredActiveWorkoutSessionId() {
   if (!canUseLocalStorage()) {
     return null;
@@ -77,7 +113,7 @@ export function loadSetDrafts(sessionId: string): ActiveWorkoutSetDrafts | null 
 
   try {
     const parsed = JSON.parse(serializedDrafts);
-    return typeof parsed === 'object' && parsed !== null ? (parsed as ActiveWorkoutSetDrafts) : null;
+    return isActiveWorkoutSetDrafts(parsed) ? parsed : null;
   } catch {
     return null;
   }
