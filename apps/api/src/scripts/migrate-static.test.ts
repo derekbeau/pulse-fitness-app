@@ -3,19 +3,24 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   bodyWeight,
+  exercises,
   foods,
   habitEntries,
   habits,
   mealItems,
   meals,
   nutritionLogs,
+  sessionSets,
+  templateExercises,
   users,
+  workoutSessions,
+  workoutTemplates,
 } from '../db/schema/index.js';
 
 type DbModule = typeof import('../db/index.js');
@@ -140,10 +145,25 @@ const seedBaseData = () => {
       },
     ])
     .run();
+
+  dbModule.db
+    .insert(exercises)
+    .values({
+      id: 'exercise-bench-global',
+      userId: null,
+      name: 'Barbell Bench Press',
+      muscleGroups: ['chest', 'triceps'],
+      equipment: 'barbell',
+      category: 'compound',
+      instructions: null,
+    })
+    .run();
 };
 
 const writeFixtureData = () => {
   mkdirSync(join(dataRoot, 'daily', '2026', '03'), { recursive: true });
+  mkdirSync(join(dataRoot, 'workouts', 'templates'), { recursive: true });
+  mkdirSync(join(dataRoot, 'workouts', '2026', 'Q1'), { recursive: true });
 
   writeFileSync(
     join(dataRoot, 'daily', '2026', '03', '2026-03-05.json'),
@@ -243,6 +263,141 @@ const writeFixtureData = () => {
         weight: 181.1,
       },
     ]),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(dataRoot, 'workouts', 'templates', 'upper-push.json'),
+    JSON.stringify({
+      name: 'Upper Push',
+      description: 'Chest and shoulder focused day',
+      tags: ['push', 'strength'],
+      sections: [
+        {
+          type: 'warmup',
+          exercises: [
+            {
+              name: 'Band Pull Apart',
+              sets: 2,
+              reps: '15',
+              category: 'mobility',
+              muscleGroups: ['rear delts'],
+              equipment: 'band',
+            },
+          ],
+        },
+        {
+          type: 'main',
+          exercises: [
+            {
+              name: 'Barbell Bench Press',
+              sets: 3,
+              reps: '5-8',
+              category: 'compound',
+              muscleGroups: ['chest', 'triceps'],
+              equipment: 'barbell',
+            },
+            {
+              name: 'Incline Dumbbell Fly',
+              sets: 3,
+              repsMin: 10,
+              repsMax: 12,
+              category: 'isolation',
+              muscles: ['chest'],
+              equipment: 'dumbbells',
+            },
+          ],
+        },
+      ],
+    }),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(dataRoot, 'workouts', 'templates', 'lower-body.json'),
+    JSON.stringify({
+      templateName: 'Lower Body',
+      warmup: [
+        {
+          name: 'Bodyweight Squat',
+          sets: 2,
+          reps: '10',
+          category: 'mobility',
+          muscleGroups: ['quads'],
+          equipment: 'bodyweight',
+        },
+      ],
+      main: [
+        {
+          name: 'Romanian Deadlift',
+          sets: 4,
+          reps: '6-8',
+          category: 'compound',
+          targetMuscles: ['hamstrings', 'glutes'],
+          equipment: 'barbell',
+        },
+      ],
+    }),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(dataRoot, 'workouts', '2026', 'Q1', 'upper-push-session.json'),
+    JSON.stringify({
+      name: 'Upper Push',
+      startedAt: '2026-01-12T14:00:00.000Z',
+      completedAt: '2026-01-12T14:48:00.000Z',
+      exercises: [
+        {
+          exerciseName: 'Barbell Bench Press',
+          sets: [
+            { setNumber: 1, weight: 185, reps: 8 },
+            { setNumber: 2, weight: 195, reps: 6 },
+          ],
+        },
+        {
+          exerciseName: 'Incline Dumbbell Fly',
+          sets: [
+            { setNumber: 1, weight: 40, reps: 12 },
+            { setNumber: 2, weight: 40, reps: 10 },
+          ],
+        },
+      ],
+    }),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(dataRoot, 'workouts', '2026', 'Q1', 'lower-body-session.json'),
+    JSON.stringify({
+      templateName: 'Lower Body',
+      name: 'Lower Body',
+      startedAt: '2026-01-14T15:00:00.000Z',
+      durationMinutes: 52,
+      sections: [
+        {
+          type: 'warmup',
+          exercises: [
+            {
+              name: 'Bodyweight Squat',
+              sets: [{ reps: 10 }, { reps: 10 }],
+            },
+          ],
+        },
+        {
+          type: 'main',
+          exercises: [
+            {
+              name: 'Romanian Deadlift',
+              sets: [
+                { weight: 225, reps: 8 },
+                { weight: 235, reps: 6 },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
     'utf8',
   );
 };
@@ -412,6 +567,140 @@ describe('migrate-static script', () => {
       .get();
 
     expect(overriddenWeight?.weight).toBe(181.9);
+  });
+
+  it('migrates workout templates and sessions with template linking and set preservation', async () => {
+    const captured = buildLogger();
+
+    const summary = await scriptModule.migrateWorkoutTemplatesAndSessions({
+      userId: 'user-1',
+      dataRoot,
+      logger: captured.logger,
+    });
+
+    expect(summary).toEqual({
+      processedTemplates: 2,
+      failedTemplates: 0,
+      processedSessions: 2,
+      failedSessions: 0,
+      totalTemplateExercises: 5,
+      totalSessionSets: 8,
+      createdExercises: 4,
+    });
+
+    expect(captured.errorMessages).toEqual([]);
+
+    const templateCount = dbModule.db.select().from(workoutTemplates).all().length;
+    const templateExerciseCount = dbModule.db.select().from(templateExercises).all().length;
+    const sessionCount = dbModule.db.select().from(workoutSessions).all().length;
+    const setCount = dbModule.db.select().from(sessionSets).all().length;
+
+    expect(templateCount).toBe(2);
+    expect(templateExerciseCount).toBe(5);
+    expect(sessionCount).toBe(2);
+    expect(setCount).toBe(8);
+
+    const benchExercises = dbModule.db
+      .select({
+        id: exercises.id,
+      })
+      .from(exercises)
+      .where(eq(exercises.name, 'Barbell Bench Press'))
+      .all();
+
+    expect(benchExercises).toHaveLength(1);
+
+    const createdFly = dbModule.db
+      .select({
+        userId: exercises.userId,
+        category: exercises.category,
+      })
+      .from(exercises)
+      .where(eq(exercises.name, 'Incline Dumbbell Fly'))
+      .limit(1)
+      .get();
+
+    expect(createdFly).toEqual({
+      userId: 'user-1',
+      category: 'isolation',
+    });
+
+    const upperTemplate = dbModule.db
+      .select({
+        id: workoutTemplates.id,
+      })
+      .from(workoutTemplates)
+      .where(eq(workoutTemplates.name, 'Upper Push'))
+      .limit(1)
+      .get();
+
+    expect(upperTemplate?.id).toBeTruthy();
+
+    const upperSession = dbModule.db
+      .select({
+        id: workoutSessions.id,
+        templateId: workoutSessions.templateId,
+        status: workoutSessions.status,
+      })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.name, 'Upper Push'))
+      .limit(1)
+      .get();
+
+    expect(upperSession?.status).toBe('completed');
+    expect(upperSession?.templateId).toBe(upperTemplate?.id);
+
+    const benchSet = dbModule.db
+      .select({
+        weight: sessionSets.weight,
+        reps: sessionSets.reps,
+      })
+      .from(sessionSets)
+      .innerJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
+      .where(
+        and(eq(sessionSets.sessionId, upperSession?.id ?? ''), eq(exercises.name, 'Barbell Bench Press')),
+      )
+      .limit(1)
+      .get();
+
+    expect(benchSet).toEqual({
+      weight: 185,
+      reps: 8,
+    });
+  });
+
+  it('is idempotent for workout templates and sessions when re-run', async () => {
+    const captured = buildLogger();
+
+    await scriptModule.migrateWorkoutTemplatesAndSessions({
+      userId: 'user-1',
+      dataRoot,
+      logger: captured.logger,
+    });
+
+    const firstPassCounts = {
+      exercises: dbModule.db.select().from(exercises).all().length,
+      templates: dbModule.db.select().from(workoutTemplates).all().length,
+      templateExercises: dbModule.db.select().from(templateExercises).all().length,
+      sessions: dbModule.db.select().from(workoutSessions).all().length,
+      sets: dbModule.db.select().from(sessionSets).all().length,
+    };
+
+    await scriptModule.migrateWorkoutTemplatesAndSessions({
+      userId: 'user-1',
+      dataRoot,
+      logger: captured.logger,
+    });
+
+    const secondPassCounts = {
+      exercises: dbModule.db.select().from(exercises).all().length,
+      templates: dbModule.db.select().from(workoutTemplates).all().length,
+      templateExercises: dbModule.db.select().from(templateExercises).all().length,
+      sessions: dbModule.db.select().from(workoutSessions).all().length,
+      sets: dbModule.db.select().from(sessionSets).all().length,
+    };
+
+    expect(secondPassCounts).toEqual(firstPassCounts);
   });
 
   it('parses CLI arguments and enforces required userId', () => {

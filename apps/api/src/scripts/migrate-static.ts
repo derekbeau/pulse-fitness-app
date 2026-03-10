@@ -1,20 +1,28 @@
+import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 
 import {
   bodyWeight,
+  exercises,
   foods,
   habitEntries,
   habits,
   mealItems,
   meals,
   nutritionLogs,
+  sessionSets,
+  templateExercises,
+  workoutSessions,
+  workoutTemplates,
 } from '../db/schema/index.js';
 
 export const DEFAULT_STATIC_DATA_ROOT = '/Volumes/meridian/Projects/health-fitness-static/data';
+export const DEFAULT_WORKOUT_TEMPLATE_SUBPATH = join('workouts', 'templates');
+export const DEFAULT_WORKOUT_SESSION_SUBPATH = join('workouts', '2026', 'Q1');
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const DAILY_FILENAME_PATTERN = /^(\d{4}-\d{2}-\d{2})\.json$/u;
@@ -52,6 +60,16 @@ export type MigrationSummary = {
   totalWeightEntries: number;
 };
 
+export type WorkoutMigrationSummary = {
+  processedTemplates: number;
+  failedTemplates: number;
+  processedSessions: number;
+  failedSessions: number;
+  totalTemplateExercises: number;
+  totalSessionSets: number;
+  createdExercises: number;
+};
+
 export type CliOptions = {
   userId: string;
   dataRoot: string;
@@ -87,6 +105,70 @@ export type ParsedDailyLog = {
   meals: ParsedMeal[];
   habits: ParsedHabitEntry[];
   bodyWeight: number | null;
+};
+
+type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown';
+type ExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
+
+type ParsedTemplateExercise = {
+  name: string;
+  section: WorkoutTemplateSectionType;
+  orderIndex: number;
+  sets: number | null;
+  repsMin: number | null;
+  repsMax: number | null;
+  tempo: string | null;
+  restSeconds: number | null;
+  supersetGroup: string | null;
+  notes: string | null;
+  cues: string[];
+  category: ExerciseCategory | null;
+  muscleGroups: string[];
+  equipment: string | null;
+};
+
+type ParsedWorkoutTemplateRecord = {
+  sourceKey: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  exercises: ParsedTemplateExercise[];
+};
+
+type ParsedSessionSet = {
+  exerciseName: string;
+  setNumber: number;
+  weight: number | null;
+  reps: number | null;
+  completed: boolean;
+  skipped: boolean;
+  section: WorkoutTemplateSectionType | null;
+  notes: string | null;
+  category: ExerciseCategory | null;
+  muscleGroups: string[];
+  equipment: string | null;
+};
+
+type ParsedWorkoutSessionRecord = {
+  sourceKey: string;
+  name: string;
+  templateMatchName: string;
+  date: string;
+  startedAt: number;
+  completedAt: number;
+  duration: number;
+  sets: ParsedSessionSet[];
+};
+
+type ExerciseLookupEntry = {
+  id: string;
+  userId: string | null;
+};
+
+type ExerciseCreateDefaults = {
+  category: ExerciseCategory;
+  muscleGroups: string[];
+  equipment: string;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -866,6 +948,1144 @@ const buildHabitLookup = (
   return lookup;
 };
 
+const WORKOUT_SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+const SESSION_TIMELESS_FALLBACK_SUFFIX = 'T00:00:00.000Z';
+const MIGRATION_ID_HASH_LENGTH = 24;
+
+const toPositiveInteger = (value: unknown): number | null => {
+  const numeric = toNumber(value);
+  if (numeric === null || numeric <= 0) {
+    return null;
+  }
+
+  return Math.trunc(numeric);
+};
+
+const toNonnegativeInteger = (value: unknown): number | null => {
+  const numeric = toNumber(value);
+  if (numeric === null || numeric < 0) {
+    return null;
+  }
+
+  return Math.trunc(numeric);
+};
+
+const toTimestampMs = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value > 1_000_000_000_000) {
+      return Math.trunc(value);
+    }
+
+    if (value > 1_000_000_000) {
+      return Math.trunc(value * 1_000);
+    }
+
+    return null;
+  }
+
+  const text = normalizeText(value);
+  if (!text) {
+    return null;
+  }
+
+  if (/^-?\d+(\.\d+)?$/u.test(text)) {
+    return toTimestampMs(Number.parseFloat(text));
+  }
+
+  const parsed = Date.parse(text);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const toDurationMs = (value: unknown): number | null => {
+  const numeric = toNonnegativeInteger(value);
+  if (numeric === null) {
+    return null;
+  }
+
+  if (numeric >= 100_000) {
+    return numeric;
+  }
+
+  if (numeric <= 600) {
+    return numeric * 60_000;
+  }
+
+  return numeric * 1_000;
+};
+
+const toStableMigrationId = (prefix: string, ...parts: string[]) => {
+  const source = parts.join('|');
+  const digest = createHash('sha1').update(source).digest('hex').slice(0, MIGRATION_ID_HASH_LENGTH);
+  return `${prefix}-${digest}`;
+};
+
+const toSectionType = (value: unknown): WorkoutTemplateSectionType => {
+  const normalized = normalizeLookupKey(typeof value === 'string' ? value : String(value ?? ''));
+
+  if (normalized.includes('warm')) {
+    return 'warmup';
+  }
+
+  if (normalized.includes('cool') || normalized.includes('recover')) {
+    return 'cooldown';
+  }
+
+  return 'main';
+};
+
+const toExerciseCategory = (value: unknown): ExerciseCategory | null => {
+  const text = normalizeText(value);
+  if (!text) {
+    return null;
+  }
+
+  const normalized = normalizeLookupKey(text);
+
+  if (normalized.includes('isolation')) {
+    return 'isolation';
+  }
+
+  if (normalized.includes('cardio') || normalized.includes('conditioning')) {
+    return 'cardio';
+  }
+
+  if (normalized.includes('mobility') || normalized.includes('stretch') || normalized.includes('warmup')) {
+    return 'mobility';
+  }
+
+  if (normalized.includes('compound')) {
+    return 'compound';
+  }
+
+  return null;
+};
+
+const toStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    const seen = new Set<string>();
+    const values: string[] = [];
+
+    for (const item of value) {
+      const text = normalizeText(item);
+      if (!text) {
+        continue;
+      }
+
+      const key = normalizeLookupKey(text);
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      values.push(text);
+    }
+
+    return values;
+  }
+
+  const text = normalizeText(value);
+  if (!text) {
+    return [];
+  }
+
+  return toStringArray(text.split(/[|,/]/u).map((segment) => segment.trim()));
+};
+
+const parseRepsRange = (value: unknown): { repsMin: number | null; repsMax: number | null } => {
+  const directNumber = toPositiveInteger(value);
+  if (directNumber !== null) {
+    return {
+      repsMin: directNumber,
+      repsMax: directNumber,
+    };
+  }
+
+  const text = normalizeText(value);
+  if (!text) {
+    return {
+      repsMin: null,
+      repsMax: null,
+    };
+  }
+
+  const rangeMatch = /(\d+)\s*[-to]+\s*(\d+)/iu.exec(text);
+  if (rangeMatch) {
+    const minimum = Number.parseInt(rangeMatch[1], 10);
+    const maximum = Number.parseInt(rangeMatch[2], 10);
+
+    if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
+      return {
+        repsMin: Math.min(minimum, maximum),
+        repsMax: Math.max(minimum, maximum),
+      };
+    }
+  }
+
+  const singleMatch = /(\d+)/u.exec(text);
+  if (singleMatch) {
+    const single = Number.parseInt(singleMatch[1], 10);
+    if (Number.isFinite(single) && single > 0) {
+      return {
+        repsMin: single,
+        repsMax: single,
+      };
+    }
+  }
+
+  return {
+    repsMin: null,
+    repsMax: null,
+  };
+};
+
+const toFallbackWorkoutName = (filePath: string) => {
+  const withoutExtension = basename(filePath, '.json').replace(/[-_]/gu, ' ');
+  return toTitleCase(withoutExtension || 'Workout');
+};
+
+const toTags = (value: unknown) => toStringArray(value).slice(0, 20);
+
+const toExerciseCollection = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const nested =
+    getNestedField(value, 'exercises') ??
+    getNestedField(value, 'items') ??
+    getNestedField(value, 'movements') ??
+    getNestedField(value, 'entries');
+
+  if (Array.isArray(nested)) {
+    return nested;
+  }
+
+  return [value];
+};
+
+const extractTemplateSectionSources = (
+  value: unknown,
+): Array<{ section: WorkoutTemplateSectionType; exercises: unknown[] }> => {
+  if (Array.isArray(value)) {
+    return [
+      {
+        section: 'main',
+        exercises: value,
+      },
+    ];
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const sources: Array<{ section: WorkoutTemplateSectionType; exercises: unknown[] }> = [];
+
+  const explicitSections = getNestedField(value, 'sections');
+  if (Array.isArray(explicitSections)) {
+    for (const sectionEntry of explicitSections) {
+      if (!isRecord(sectionEntry)) {
+        continue;
+      }
+
+      const section = toSectionType(
+        getNestedField(sectionEntry, 'type') ??
+          getNestedField(sectionEntry, 'section') ??
+          getNestedField(sectionEntry, 'name') ??
+          getNestedField(sectionEntry, 'title'),
+      );
+
+      const exercises = toExerciseCollection(sectionEntry);
+      if (exercises.length > 0) {
+        sources.push({ section, exercises });
+      }
+    }
+
+    if (sources.length > 0) {
+      return sources;
+    }
+  }
+
+  for (const section of WORKOUT_SECTION_ORDER) {
+    const sectionValue = getNestedField(value, section);
+    if (sectionValue === undefined) {
+      continue;
+    }
+
+    const exercises = toExerciseCollection(sectionValue);
+    if (exercises.length > 0) {
+      sources.push({ section, exercises });
+    }
+  }
+
+  if (sources.length > 0) {
+    return sources;
+  }
+
+  const fallbackExercises =
+    getNestedField(value, 'exercises') ??
+    getNestedField(value, 'items') ??
+    getNestedField(value, 'movements');
+  const exercises = toExerciseCollection(fallbackExercises);
+  if (exercises.length > 0) {
+    return [
+      {
+        section: 'main',
+        exercises,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const parseTemplateExercise = (
+  value: unknown,
+  section: WorkoutTemplateSectionType,
+  orderIndex: number,
+): ParsedTemplateExercise | null => {
+  if (typeof value === 'string') {
+    const name = normalizeText(value);
+    if (!name) {
+      return null;
+    }
+
+    return {
+      name,
+      section,
+      orderIndex,
+      sets: null,
+      repsMin: null,
+      repsMax: null,
+      tempo: null,
+      restSeconds: null,
+      supersetGroup: null,
+      notes: null,
+      cues: [],
+      category: null,
+      muscleGroups: [],
+      equipment: null,
+    };
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const name =
+    normalizeText(getNestedField(value, 'name')) ??
+    normalizeText(getNestedField(value, 'exerciseName')) ??
+    normalizeText(getNestedField(value, 'exercise')) ??
+    normalizeText(getNestedField(value, 'movement')) ??
+    normalizeText(getNestedField(value, 'title'));
+
+  if (!name) {
+    return null;
+  }
+
+  const repsRange = parseRepsRange(
+    getNestedField(value, 'repsMin') ??
+      getNestedField(value, 'reps') ??
+      getNestedField(value, 'repRange') ??
+      getNestedField(value, 'targetReps'),
+  );
+
+  const muscleGroupsCandidates = [
+    toStringArray(getNestedField(value, 'muscleGroups')),
+    toStringArray(getNestedField(value, 'muscles')),
+    toStringArray(getNestedField(value, 'targetMuscles')),
+  ];
+  const muscleGroups = muscleGroupsCandidates.find((candidate) => candidate.length > 0) ?? [];
+
+  return {
+    name,
+    section,
+    orderIndex,
+    sets:
+      toPositiveInteger(getNestedField(value, 'sets')) ??
+      toPositiveInteger(getNestedField(value, 'setCount')) ??
+      toPositiveInteger(getNestedField(value, 'targetSets')),
+    repsMin:
+      toPositiveInteger(getNestedField(value, 'repsMin')) ??
+      toPositiveInteger(getNestedField(value, 'minReps')) ??
+      repsRange.repsMin,
+    repsMax:
+      toPositiveInteger(getNestedField(value, 'repsMax')) ??
+      toPositiveInteger(getNestedField(value, 'maxReps')) ??
+      repsRange.repsMax,
+    tempo: normalizeText(getNestedField(value, 'tempo')),
+    restSeconds:
+      toNonnegativeInteger(getNestedField(value, 'restSeconds')) ??
+      toNonnegativeInteger(getNestedField(value, 'rest')),
+    supersetGroup:
+      normalizeText(getNestedField(value, 'supersetGroup')) ??
+      normalizeText(getNestedField(value, 'superset')),
+    notes:
+      normalizeText(getNestedField(value, 'notes')) ??
+      normalizeText(getNestedField(value, 'instructions')),
+    cues: toStringArray(getNestedField(value, 'cues') ?? getNestedField(value, 'cue')).slice(0, 20),
+    category: toExerciseCategory(getNestedField(value, 'category')),
+    muscleGroups,
+    equipment:
+      normalizeText(getNestedField(value, 'equipment')) ??
+      normalizeText(getNestedField(value, 'implement')),
+  };
+};
+
+const parseWorkoutTemplateRecord = (
+  templatesRoot: string,
+  filePath: string,
+  payload: unknown,
+): ParsedWorkoutTemplateRecord => {
+  const fallbackName = toFallbackWorkoutName(filePath);
+  const sourceKey = relative(templatesRoot, filePath).replace(/\\/gu, '/');
+
+  const objectPayload = isRecord(payload) ? payload : { exercises: payload };
+
+  const name =
+    normalizeText(getNestedField(objectPayload, 'name')) ??
+    normalizeText(getNestedField(objectPayload, 'templateName')) ??
+    normalizeText(getNestedField(objectPayload, 'workoutName')) ??
+    fallbackName;
+
+  const sectionSources = extractTemplateSectionSources(objectPayload);
+  const exercises = sectionSources.flatMap((sectionSource) =>
+    sectionSource.exercises
+      .map((exercise, index) => parseTemplateExercise(exercise, sectionSource.section, index))
+      .filter((exercise): exercise is ParsedTemplateExercise => exercise !== null),
+  );
+
+  return {
+    sourceKey,
+    name,
+    description: normalizeText(getNestedField(objectPayload, 'description')),
+    tags: toTags(getNestedField(objectPayload, 'tags')),
+    exercises,
+  };
+};
+
+const loadWorkoutTemplateRecords = async (
+  dataRoot: string,
+  logger: Logger,
+): Promise<ParsedWorkoutTemplateRecord[]> => {
+  const templatesRoot = join(dataRoot, DEFAULT_WORKOUT_TEMPLATE_SUBPATH);
+
+  let files: string[];
+  try {
+    files = await listJsonFiles(templatesRoot);
+  } catch (error) {
+    logger.warn(`Workout template directory not found or unreadable at ${templatesRoot}: ${String(error)}`);
+    return [];
+  }
+
+  const sortedFiles = [...files].sort((left, right) => left.localeCompare(right));
+  const records: ParsedWorkoutTemplateRecord[] = [];
+
+  for (const filePath of sortedFiles) {
+    try {
+      const payload = await readJson(filePath);
+      records.push(parseWorkoutTemplateRecord(templatesRoot, filePath, payload));
+    } catch (error) {
+      logger.warn(`Skipping unreadable workout template file ${filePath}: ${String(error)}`);
+    }
+  }
+
+  return records;
+};
+
+const extractSessionSectionSources = (
+  value: unknown,
+): Array<{ section: WorkoutTemplateSectionType | null; exercises: unknown[] }> => {
+  if (Array.isArray(value)) {
+    return [
+      {
+        section: 'main',
+        exercises: value,
+      },
+    ];
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const sources: Array<{ section: WorkoutTemplateSectionType | null; exercises: unknown[] }> = [];
+
+  const explicitSections = getNestedField(value, 'sections');
+  if (Array.isArray(explicitSections)) {
+    for (const sectionEntry of explicitSections) {
+      if (!isRecord(sectionEntry)) {
+        continue;
+      }
+
+      const section = toSectionType(
+        getNestedField(sectionEntry, 'type') ??
+          getNestedField(sectionEntry, 'section') ??
+          getNestedField(sectionEntry, 'name') ??
+          getNestedField(sectionEntry, 'title'),
+      );
+      const exercises = toExerciseCollection(sectionEntry);
+
+      if (exercises.length > 0) {
+        sources.push({ section, exercises });
+      }
+    }
+
+    if (sources.length > 0) {
+      return sources;
+    }
+  }
+
+  for (const section of WORKOUT_SECTION_ORDER) {
+    const sectionValue = getNestedField(value, section);
+    if (sectionValue === undefined) {
+      continue;
+    }
+
+    const exercises = toExerciseCollection(sectionValue);
+    if (exercises.length > 0) {
+      sources.push({ section, exercises });
+    }
+  }
+
+  if (sources.length > 0) {
+    return sources;
+  }
+
+  const fallbackExercises =
+    getNestedField(value, 'exercises') ??
+    getNestedField(value, 'loggedExercises') ??
+    getNestedField(value, 'movements');
+  const exercises = toExerciseCollection(fallbackExercises);
+  if (exercises.length > 0) {
+    return [
+      {
+        section: null,
+        exercises,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const parseSessionSet = (
+  value: unknown,
+  fallbackSetNumber: number,
+  section: WorkoutTemplateSectionType | null,
+): Omit<ParsedSessionSet, 'exerciseName' | 'category' | 'muscleGroups' | 'equipment'> => {
+  if (!isRecord(value)) {
+    return {
+      setNumber: fallbackSetNumber,
+      weight: null,
+      reps: null,
+      completed: true,
+      skipped: false,
+      section,
+      notes: null,
+    };
+  }
+
+  const explicitSetNumber =
+    toPositiveInteger(getNestedField(value, 'setNumber')) ??
+    toPositiveInteger(getNestedField(value, 'set')) ??
+    toPositiveInteger(getNestedField(value, 'number'));
+  const indexSetNumber = toNonnegativeInteger(getNestedField(value, 'index'));
+
+  const setNumber = explicitSetNumber ?? (indexSetNumber !== null ? indexSetNumber + 1 : fallbackSetNumber);
+
+  const skipped = toBoolean(getNestedField(value, 'skipped')) ?? false;
+  const completed = skipped ? false : (toBoolean(getNestedField(value, 'completed')) ?? true);
+
+  const explicitSection = getNestedField(value, 'section') ?? getNestedField(value, 'sectionType');
+
+  return {
+    setNumber,
+    weight:
+      toNumber(getNestedField(value, 'weight')) ??
+      toNumber(getNestedField(value, 'load')) ??
+      toNumber(getNestedField(value, 'lbs')) ??
+      toNumber(getNestedField(value, 'pounds')) ??
+      toNumber(getNestedField(value, 'kg')),
+    reps:
+      toNonnegativeInteger(getNestedField(value, 'reps')) ??
+      toNonnegativeInteger(getNestedField(value, 'repCount')) ??
+      toNonnegativeInteger(getNestedField(value, 'count')),
+    completed,
+    skipped,
+    section: explicitSection !== undefined ? toSectionType(explicitSection) : section,
+    notes: normalizeText(getNestedField(value, 'notes')),
+  };
+};
+
+const parseSessionExerciseSets = (
+  value: unknown,
+  fallbackSection: WorkoutTemplateSectionType | null,
+): ParsedSessionSet[] => {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const exerciseName =
+    normalizeText(getNestedField(value, 'name')) ??
+    normalizeText(getNestedField(value, 'exerciseName')) ??
+    normalizeText(getNestedField(value, 'exercise')) ??
+    normalizeText(getNestedField(value, 'movement'));
+
+  if (!exerciseName) {
+    return [];
+  }
+
+  const category = toExerciseCategory(getNestedField(value, 'category'));
+  const muscleGroups = toStringArray(
+    getNestedField(value, 'muscleGroups') ??
+      getNestedField(value, 'muscles') ??
+      getNestedField(value, 'targetMuscles'),
+  );
+  const equipment =
+    normalizeText(getNestedField(value, 'equipment')) ??
+    normalizeText(getNestedField(value, 'implement'));
+
+  const rawSets =
+    getNestedField(value, 'sets') ??
+    getNestedField(value, 'performedSets') ??
+    getNestedField(value, 'entries') ??
+    getNestedField(value, 'logs');
+
+  let setValues: unknown[] = [];
+  if (Array.isArray(rawSets)) {
+    setValues = rawSets;
+  } else if (isRecord(rawSets)) {
+    setValues = [rawSets];
+  }
+
+  if (setValues.length === 0) {
+    const directWeight =
+      toNumber(getNestedField(value, 'weight')) ??
+      toNumber(getNestedField(value, 'load')) ??
+      toNumber(getNestedField(value, 'lbs'));
+    const directReps = toNonnegativeInteger(getNestedField(value, 'reps'));
+
+    if (directWeight !== null || directReps !== null) {
+      setValues = [value];
+    } else {
+      const inferredSetCount =
+        toPositiveInteger(getNestedField(value, 'setCount')) ??
+        toPositiveInteger(getNestedField(value, 'sets'));
+
+      if (inferredSetCount !== null) {
+        setValues = Array.from({ length: inferredSetCount }, () => value);
+      }
+    }
+  }
+
+  return setValues.map((setEntry, index) => {
+    const parsedSet = parseSessionSet(setEntry, index + 1, fallbackSection);
+
+    return {
+      exerciseName,
+      setNumber: parsedSet.setNumber,
+      weight: parsedSet.weight,
+      reps: parsedSet.reps,
+      completed: parsedSet.completed,
+      skipped: parsedSet.skipped,
+      section: parsedSet.section,
+      notes: parsedSet.notes,
+      category,
+      muscleGroups,
+      equipment,
+    };
+  });
+};
+
+const parseWorkoutSessionRecord = (
+  sessionsRoot: string,
+  filePath: string,
+  payload: unknown,
+): ParsedWorkoutSessionRecord | null => {
+  const sourceKey = relative(sessionsRoot, filePath).replace(/\\/gu, '/');
+  const fallbackName = toFallbackWorkoutName(filePath);
+  const objectPayload = isRecord(payload) ? payload : { exercises: payload };
+
+  const name =
+    normalizeText(getNestedField(objectPayload, 'name')) ??
+    normalizeText(getNestedField(objectPayload, 'workoutName')) ??
+    normalizeText(getNestedField(objectPayload, 'title')) ??
+    fallbackName;
+
+  const templateMatchName =
+    normalizeText(getNestedField(objectPayload, 'templateName')) ??
+    normalizeText(getNestedField(objectPayload, 'template')) ??
+    name;
+
+  const startedAtCandidate =
+    toTimestampMs(getNestedField(objectPayload, 'startedAt')) ??
+    toTimestampMs(getNestedField(objectPayload, 'started_at')) ??
+    toTimestampMs(getNestedField(objectPayload, 'startTime')) ??
+    toTimestampMs(getNestedField(objectPayload, 'started')) ??
+    toTimestampMs(getNestedField(objectPayload, 'start'));
+
+  const completedAtCandidate =
+    toTimestampMs(getNestedField(objectPayload, 'completedAt')) ??
+    toTimestampMs(getNestedField(objectPayload, 'completed_at')) ??
+    toTimestampMs(getNestedField(objectPayload, 'endTime')) ??
+    toTimestampMs(getNestedField(objectPayload, 'endedAt')) ??
+    toTimestampMs(getNestedField(objectPayload, 'finishedAt'));
+
+  const durationCandidate =
+    toDurationMs(getNestedField(objectPayload, 'duration')) ??
+    toDurationMs(getNestedField(objectPayload, 'durationMs')) ??
+    toDurationMs(getNestedField(objectPayload, 'durationSeconds')) ??
+    toDurationMs(getNestedField(objectPayload, 'durationMinutes'));
+
+  const explicitDate =
+    toDateKey(getNestedField(objectPayload, 'date')) ??
+    toDateKey(getNestedField(objectPayload, 'day')) ??
+    toDateKey(getNestedField(objectPayload, 'sessionDate')) ??
+    DAILY_FILENAME_PATTERN.exec(basename(filePath))?.[1] ??
+    null;
+
+  let startedAt =
+    startedAtCandidate ??
+    (explicitDate ? toTimestampMs(`${explicitDate}${SESSION_TIMELESS_FALLBACK_SUFFIX}`) : null);
+  let completedAt = completedAtCandidate;
+
+  if (startedAt === null && completedAt !== null && durationCandidate !== null) {
+    startedAt = completedAt - durationCandidate;
+  }
+
+  if (startedAt === null) {
+    return null;
+  }
+
+  if (completedAt === null) {
+    completedAt = durationCandidate !== null ? startedAt + durationCandidate : startedAt;
+  }
+
+  if (completedAt < startedAt) {
+    completedAt = startedAt;
+  }
+
+  const duration = durationCandidate ?? Math.max(completedAt - startedAt, 0);
+  const date = explicitDate ?? new Date(startedAt).toISOString().slice(0, 10);
+
+  const sectionSources = extractSessionSectionSources(objectPayload);
+  const sets = sectionSources.flatMap((sectionSource) =>
+    sectionSource.exercises.flatMap((exercise) =>
+      parseSessionExerciseSets(exercise, sectionSource.section),
+    ),
+  );
+
+  return {
+    sourceKey,
+    name,
+    templateMatchName,
+    date,
+    startedAt,
+    completedAt,
+    duration,
+    sets,
+  };
+};
+
+const loadWorkoutSessionRecords = async (
+  dataRoot: string,
+  logger: Logger,
+): Promise<ParsedWorkoutSessionRecord[]> => {
+  const sessionsRoot = join(dataRoot, DEFAULT_WORKOUT_SESSION_SUBPATH);
+
+  let files: string[];
+  try {
+    files = await listJsonFiles(sessionsRoot);
+  } catch (error) {
+    logger.warn(`Workout session directory not found or unreadable at ${sessionsRoot}: ${String(error)}`);
+    return [];
+  }
+
+  const sortedFiles = [...files].sort((left, right) => left.localeCompare(right));
+  const records: ParsedWorkoutSessionRecord[] = [];
+
+  for (const filePath of sortedFiles) {
+    try {
+      const payload = await readJson(filePath);
+      const record = parseWorkoutSessionRecord(sessionsRoot, filePath, payload);
+      if (!record) {
+        logger.warn(`Skipping workout session with incomplete timing data: ${filePath}`);
+        continue;
+      }
+
+      records.push(record);
+    } catch (error) {
+      logger.warn(`Skipping unreadable workout session file ${filePath}: ${String(error)}`);
+    }
+  }
+
+  return records;
+};
+
+const buildExerciseLookup = (
+  rows: Array<{ id: string; name: string; userId: string | null }>,
+  userId: string,
+): Map<string, ExerciseLookupEntry> => {
+  const lookup = new Map<string, ExerciseLookupEntry>();
+
+  for (const row of rows) {
+    const key = normalizeLookupKey(row.name);
+    const existing = lookup.get(key);
+
+    if (!existing) {
+      lookup.set(key, {
+        id: row.id,
+        userId: row.userId,
+      });
+      continue;
+    }
+
+    if (existing.userId === null && row.userId === userId) {
+      lookup.set(key, {
+        id: row.id,
+        userId: row.userId,
+      });
+    }
+  }
+
+  return lookup;
+};
+
+const toExerciseDefaults = (set: {
+  category: ExerciseCategory | null;
+  muscleGroups: string[];
+  equipment: string | null;
+}): ExerciseCreateDefaults => ({
+  category: set.category ?? 'compound',
+  muscleGroups: set.muscleGroups.length > 0 ? set.muscleGroups : ['full body'],
+  equipment: set.equipment ?? 'bodyweight',
+});
+
+const mergeExerciseDefaults = (
+  current: ExerciseCreateDefaults,
+  incoming: ExerciseCreateDefaults,
+): ExerciseCreateDefaults => ({
+  category: current.category === 'compound' ? incoming.category : current.category,
+  muscleGroups: Array.from(new Set([...current.muscleGroups, ...incoming.muscleGroups])),
+  equipment: current.equipment === 'bodyweight' ? incoming.equipment : current.equipment,
+});
+
+const collectExerciseDefaults = (
+  templates: ParsedWorkoutTemplateRecord[],
+  sessions: ParsedWorkoutSessionRecord[],
+): Map<string, { displayName: string; defaults: ExerciseCreateDefaults }> => {
+  const requirements = new Map<string, { displayName: string; defaults: ExerciseCreateDefaults }>();
+
+  const register = (
+    exerciseName: string,
+    metadata: {
+      category: ExerciseCategory | null;
+      muscleGroups: string[];
+      equipment: string | null;
+    },
+  ) => {
+    const key = normalizeLookupKey(exerciseName);
+    const incomingDefaults = toExerciseDefaults(metadata);
+    const existing = requirements.get(key);
+
+    if (!existing) {
+      requirements.set(key, {
+        displayName: exerciseName,
+        defaults: incomingDefaults,
+      });
+      return;
+    }
+
+    requirements.set(key, {
+      displayName: existing.displayName,
+      defaults: mergeExerciseDefaults(existing.defaults, incomingDefaults),
+    });
+  };
+
+  for (const template of templates) {
+    for (const exercise of template.exercises) {
+      register(exercise.name, {
+        category: exercise.category,
+        muscleGroups: exercise.muscleGroups,
+        equipment: exercise.equipment,
+      });
+    }
+  }
+
+  for (const session of sessions) {
+    for (const set of session.sets) {
+      register(set.exerciseName, {
+        category: set.category,
+        muscleGroups: set.muscleGroups,
+        equipment: set.equipment,
+      });
+    }
+  }
+
+  return requirements;
+};
+
+export const migrateWorkoutTemplatesAndSessions = async ({
+  userId,
+  dataRoot = DEFAULT_STATIC_DATA_ROOT,
+  logger = console,
+}: MigrationOptions): Promise<WorkoutMigrationSummary> => {
+  const resolvedDataRoot = resolve(dataRoot);
+  const [templateRecords, sessionRecords] = await Promise.all([
+    loadWorkoutTemplateRecords(resolvedDataRoot, logger),
+    loadWorkoutSessionRecords(resolvedDataRoot, logger),
+  ]);
+
+  const { db } = await import('../db/index.js');
+
+  const existingExerciseRows = db
+    .select({
+      id: exercises.id,
+      name: exercises.name,
+      userId: exercises.userId,
+    })
+    .from(exercises)
+    .where(or(eq(exercises.userId, userId), isNull(exercises.userId)))
+    .all();
+
+  const exerciseLookup = buildExerciseLookup(existingExerciseRows, userId);
+  const requiredExerciseDefaults = collectExerciseDefaults(templateRecords, sessionRecords);
+
+  let createdExercises = 0;
+  for (const [lookupKey, requirement] of [...requiredExerciseDefaults.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    if (exerciseLookup.has(lookupKey)) {
+      continue;
+    }
+
+    const exerciseId = toStableMigrationId('migrated-exercise', userId, lookupKey);
+    db.insert(exercises)
+      .values({
+        id: exerciseId,
+        userId,
+        name: requirement.displayName,
+        category: requirement.defaults.category,
+        muscleGroups: requirement.defaults.muscleGroups,
+        equipment: requirement.defaults.equipment,
+        instructions: null,
+      })
+      .onConflictDoNothing({
+        target: [exercises.id],
+      })
+      .run();
+
+    exerciseLookup.set(lookupKey, {
+      id: exerciseId,
+      userId,
+    });
+    createdExercises += 1;
+  }
+
+  const templateNameLookup = new Map<string, string>();
+  const summary: WorkoutMigrationSummary = {
+    processedTemplates: 0,
+    failedTemplates: 0,
+    processedSessions: 0,
+    failedSessions: 0,
+    totalTemplateExercises: 0,
+    totalSessionSets: 0,
+    createdExercises,
+  };
+
+  for (const template of templateRecords) {
+    const templateId = toStableMigrationId('migrated-template', userId, template.sourceKey);
+
+    try {
+      const insertedExerciseCount = db.transaction((tx) => {
+        tx.insert(workoutTemplates)
+          .values({
+            id: templateId,
+            userId,
+            name: template.name,
+            description: template.description,
+            tags: template.tags,
+          })
+          .onConflictDoUpdate({
+            target: [workoutTemplates.id],
+            set: {
+              name: template.name,
+              description: template.description,
+              tags: template.tags,
+              updatedAt: Date.now(),
+            },
+          })
+          .run();
+
+        tx.delete(templateExercises).where(eq(templateExercises.templateId, templateId)).run();
+
+        const rows = template.exercises.flatMap((exercise) => {
+          const exerciseLookupEntry = exerciseLookup.get(normalizeLookupKey(exercise.name));
+          if (!exerciseLookupEntry) {
+            logger.warn(`Template "${template.name}" references missing exercise "${exercise.name}"; skipping.`);
+            return [];
+          }
+
+          return [
+            {
+              id: toStableMigrationId(
+                'migrated-template-exercise',
+                templateId,
+                exerciseLookupEntry.id,
+                exercise.section,
+                String(exercise.orderIndex),
+              ),
+              templateId,
+              exerciseId: exerciseLookupEntry.id,
+              orderIndex: exercise.orderIndex,
+              sets: exercise.sets,
+              repsMin: exercise.repsMin,
+              repsMax: exercise.repsMax,
+              tempo: exercise.tempo,
+              restSeconds: exercise.restSeconds,
+              supersetGroup: exercise.supersetGroup,
+              section: exercise.section,
+              notes: exercise.notes,
+              cues: exercise.cues.length > 0 ? exercise.cues : null,
+            },
+          ];
+        });
+
+        if (rows.length > 0) {
+          tx.insert(templateExercises).values(rows).run();
+        }
+
+        return rows.length;
+      });
+
+      summary.processedTemplates += 1;
+      summary.totalTemplateExercises += insertedExerciseCount;
+
+      const templateNameKey = normalizeLookupKey(template.name);
+      if (!templateNameLookup.has(templateNameKey)) {
+        templateNameLookup.set(templateNameKey, templateId);
+      }
+
+      logger.info(`Imported workout template "${template.name}" with ${insertedExerciseCount} exercise(s).`);
+    } catch (error) {
+      summary.failedTemplates += 1;
+      logger.error(`Failed importing workout template "${template.name}": ${String(error)}`);
+    }
+  }
+
+  for (const session of sessionRecords) {
+    const sessionId = toStableMigrationId('migrated-session', userId, session.sourceKey);
+
+    try {
+      const insertedSetCount = db.transaction((tx) => {
+        const templateId =
+          templateNameLookup.get(normalizeLookupKey(session.templateMatchName)) ??
+          templateNameLookup.get(normalizeLookupKey(session.name)) ??
+          null;
+
+        tx.insert(workoutSessions)
+          .values({
+            id: sessionId,
+            userId,
+            templateId,
+            name: session.name,
+            date: session.date,
+            status: 'completed',
+            startedAt: session.startedAt,
+            completedAt: session.completedAt,
+            duration: session.duration,
+            feedback: null,
+            notes: null,
+          })
+          .onConflictDoUpdate({
+            target: [workoutSessions.id],
+            set: {
+              templateId,
+              name: session.name,
+              date: session.date,
+              status: 'completed',
+              startedAt: session.startedAt,
+              completedAt: session.completedAt,
+              duration: session.duration,
+              feedback: null,
+              notes: null,
+              updatedAt: Date.now(),
+            },
+          })
+          .run();
+
+        tx.delete(sessionSets).where(eq(sessionSets.sessionId, sessionId)).run();
+
+        const highestSetNumberByExerciseId = new Map<string, number>();
+        const rows = session.sets.flatMap((set, index) => {
+          const exerciseLookupEntry = exerciseLookup.get(normalizeLookupKey(set.exerciseName));
+          if (!exerciseLookupEntry) {
+            logger.warn(
+              `Workout session "${session.name}" references missing exercise "${set.exerciseName}"; set skipped.`,
+            );
+            return [];
+          }
+
+          const currentHighest = highestSetNumberByExerciseId.get(exerciseLookupEntry.id) ?? 0;
+          const normalizedSetNumber =
+            set.setNumber > currentHighest ? set.setNumber : currentHighest + 1;
+
+          highestSetNumberByExerciseId.set(exerciseLookupEntry.id, normalizedSetNumber);
+
+          return [
+            {
+              id: toStableMigrationId(
+                'migrated-session-set',
+                sessionId,
+                exerciseLookupEntry.id,
+                String(normalizedSetNumber),
+                String(index),
+              ),
+              sessionId,
+              exerciseId: exerciseLookupEntry.id,
+              setNumber: normalizedSetNumber,
+              weight: set.weight,
+              reps: set.reps,
+              completed: set.skipped ? false : set.completed,
+              skipped: set.skipped,
+              section: set.section,
+              notes: set.notes,
+            },
+          ];
+        });
+
+        if (rows.length > 0) {
+          tx.insert(sessionSets).values(rows).run();
+        }
+
+        return rows.length;
+      });
+
+      summary.processedSessions += 1;
+      summary.totalSessionSets += insertedSetCount;
+      logger.info(`Imported workout session "${session.name}" with ${insertedSetCount} set(s).`);
+    } catch (error) {
+      summary.failedSessions += 1;
+      logger.error(`Failed importing workout session "${session.name}": ${String(error)}`);
+    }
+  }
+
+  logger.info(
+    `Workout migration summary: templates ${summary.processedTemplates} (failed ${summary.failedTemplates}), sessions ${summary.processedSessions} (failed ${summary.failedSessions}), template exercises ${summary.totalTemplateExercises}, session sets ${summary.totalSessionSets}, created exercises ${summary.createdExercises}.`,
+  );
+
+  return summary;
+};
+
 export const migrateDailyLogsAndBodyWeight = async ({
   userId,
   dataRoot = DEFAULT_STATIC_DATA_ROOT,
@@ -1143,6 +2363,11 @@ export const parseCliArgs = (args: string[]): CliOptions => {
 const runCli = async () => {
   const options = parseCliArgs(process.argv.slice(2));
   await migrateDailyLogsAndBodyWeight({
+    userId: options.userId,
+    dataRoot: options.dataRoot,
+    logger: console,
+  });
+  await migrateWorkoutTemplatesAndSessions({
     userId: options.userId,
     dataRoot: options.dataRoot,
     logger: console,
