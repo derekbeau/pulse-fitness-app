@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { exerciseCategorySchema } from './exercises.js';
+import { workoutSessionStatusSchema } from './workout-sessions.js';
+
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
 export const agentFoodSearchParamsSchema = z.object({
@@ -46,8 +49,99 @@ export const agentCreateMealInputSchema = z.object({
   items: z.array(agentMealItemInputSchema).min(1),
 });
 
+export const agentWorkoutTemplateExerciseInputSchema = z.object({
+  name: requiredText(),
+  sets: z.number().int().min(1).max(100),
+  reps: z.number().int().min(1).max(1000),
+  restSeconds: z.number().int().min(0).max(3600).optional(),
+});
+
+export const agentWorkoutTemplateSectionInputSchema = z.object({
+  name: requiredText(120),
+  exercises: z.array(agentWorkoutTemplateExerciseInputSchema).min(1).max(100),
+});
+
+export const agentCreateWorkoutTemplateInputSchema = z.object({
+  name: requiredText(255),
+  sections: z.array(agentWorkoutTemplateSectionInputSchema).min(1).max(20),
+});
+
+export const agentUpdateWorkoutTemplateInputSchema = agentCreateWorkoutTemplateInputSchema;
+
+const optionalText = (maxLength = 4000) =>
+  z.preprocess(
+    (value) => {
+      if (value === undefined) {
+        return undefined;
+      }
+
+      if (value === null) {
+        return null;
+      }
+
+      if (typeof value !== 'string') {
+        return value;
+      }
+
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    },
+    z.string().trim().min(1).max(maxLength).nullable().optional(),
+  );
+
+export const agentCreateWorkoutSessionInputSchema = z
+  .object({
+    templateId: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(255).optional(),
+  })
+  .refine((value) => value.templateId !== undefined || value.name !== undefined, {
+    message: 'templateId or name is required',
+  });
+
+export const agentWorkoutSetUpsertInputSchema = z.object({
+  exerciseName: requiredText(),
+  setNumber: z.number().int().min(1).max(100),
+  weight: z.number().min(0).nullable(),
+  reps: z.number().int().min(0).nullable(),
+});
+
+export const agentUpdateWorkoutSessionInputSchema = z
+  .object({
+    sets: z.array(agentWorkoutSetUpsertInputSchema).min(1).max(500).optional(),
+    status: workoutSessionStatusSchema.optional(),
+    notes: optionalText(4000),
+  })
+  .refine((value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined, {
+    message: 'At least one workout session field must be provided',
+  });
+
+export const agentCreateExerciseInputSchema = z.object({
+  name: requiredText(),
+  category: exerciseCategorySchema.optional(),
+  muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
+  equipment: requiredText().optional(),
+});
+
+export const agentExerciseSearchParamsSchema = z.object({
+  q: requiredText(),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
 export type AgentFoodSearchParams = z.infer<typeof agentFoodSearchParamsSchema>;
 export type AgentFoodResult = z.infer<typeof agentFoodResultSchema>;
 export type AgentCreateFoodInput = z.infer<typeof agentCreateFoodInputSchema>;
 export type AgentMealItemInput = z.infer<typeof agentMealItemInputSchema>;
 export type AgentCreateMealInput = z.infer<typeof agentCreateMealInputSchema>;
+export type AgentWorkoutTemplateExerciseInput = z.infer<
+  typeof agentWorkoutTemplateExerciseInputSchema
+>;
+export type AgentWorkoutTemplateSectionInput = z.infer<
+  typeof agentWorkoutTemplateSectionInputSchema
+>;
+export type AgentCreateWorkoutTemplateInput = z.infer<typeof agentCreateWorkoutTemplateInputSchema>;
+export type AgentUpdateWorkoutTemplateInput = z.infer<typeof agentUpdateWorkoutTemplateInputSchema>;
+export type AgentCreateWorkoutSessionInput = z.infer<typeof agentCreateWorkoutSessionInputSchema>;
+export type AgentWorkoutSetUpsertInput = z.infer<typeof agentWorkoutSetUpsertInputSchema>;
+export type AgentUpdateWorkoutSessionInput = z.infer<typeof agentUpdateWorkoutSessionInputSchema>;
+export type AgentCreateExerciseInput = z.infer<typeof agentCreateExerciseInputSchema>;
+export type AgentExerciseSearchParams = z.infer<typeof agentExerciseSearchParamsSchema>;
