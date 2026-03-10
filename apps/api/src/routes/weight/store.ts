@@ -13,6 +13,14 @@ const bodyWeightEntrySelection = {
   updatedAt: bodyWeight.updatedAt,
 };
 
+const addUtcDays = (date: string, days: number) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
 export const findBodyWeightEntryByDate = async (
   userId: string,
   date: string,
@@ -70,6 +78,12 @@ export const listBodyWeightEntries = async (
   const { db } = await import('../../db/index.js');
 
   const conditions = [eq(bodyWeight.userId, userId)];
+
+  if (query.days !== undefined) {
+    const rangeEnd = query.to ?? getTodayDate();
+    const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
+    conditions.push(gte(bodyWeight.date, rangeStart));
+  }
 
   if (query.from) {
     conditions.push(gte(bodyWeight.date, query.from));

@@ -110,12 +110,32 @@ describe('weightQueryParamsSchema', () => {
     ).toThrow();
   });
 
+  it('parses an integer days query value from string input', () => {
+    const params = weightQueryParamsSchema.parse({
+      days: '30',
+    });
+
+    expect(params).toEqual({
+      days: 30,
+    });
+  });
+
+  it('rejects non-positive days', () => {
+    expect(() =>
+      weightQueryParamsSchema.parse({
+        days: 0,
+      }),
+    ).toThrow();
+  });
+
   it('infers the WeightQueryParams type from the schema', () => {
     const params: WeightQueryParams = {
       from: '2026-03-01',
       to: '2026-03-07',
+      days: 30,
     };
 
     expect(params.to).toBe('2026-03-07');
+    expect(params.days).toBe(30);
   });
 });
