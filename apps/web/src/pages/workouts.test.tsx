@@ -544,10 +544,11 @@ describe('WorkoutsPage', () => {
     );
 
     expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Create a template' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Browse templates' }));
     expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=templates');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss workouts onboarding' }));
     expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
 
@@ -562,6 +563,65 @@ describe('WorkoutsPage', () => {
     );
 
     expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
+  });
+
+  it('navigates to active workout flow from onboarding create CTA', async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates') {
+        return Promise.resolve(jsonResponse({ data: templatesResponse }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: url.searchParams.get('status') === 'completed' ? [] : [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '8'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+          <Route element={<ActiveWorkoutRouteProbe />} path="/workouts/active" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create a template' }));
+
+    expect(await screen.findByRole('heading', { name: 'Active workout page' })).toBeInTheDocument();
   });
 
   it('prefetches top template details when the list view is active', async () => {

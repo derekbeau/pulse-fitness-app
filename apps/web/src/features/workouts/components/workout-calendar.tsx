@@ -65,6 +65,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
     [templatesQuery.data],
   );
   const sessionByDate = useMemo(
+    // Calendar displays one completed session per day; if multiple exist, the latest item in the array wins.
     () => new Map((completedQuery.data ?? []).map((session) => [session.date, session])),
     [completedQuery.data],
   );

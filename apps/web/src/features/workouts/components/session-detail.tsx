@@ -120,6 +120,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
     enabled: showComparison && previousSessionItem != null,
   });
   const previousSession = previousSessionQuery.data ?? null;
+  const comparisonToggleDisabled = completedSessionsQuery.isLoading;
 
   if (sessionQuery.isLoading) {
     return (
@@ -252,6 +253,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           <div className="flex items-center gap-3">
             <Checkbox
               checked={showComparison}
+              disabled={comparisonToggleDisabled}
               id={comparisonToggleId}
               onCheckedChange={(checked) => setShowComparison(checked === true)}
             />
@@ -262,7 +264,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </CardContent>
       </Card>
 
-      {showComparison ? (
+      {showComparison && !comparisonToggleDisabled ? (
         <SessionComparison currentSession={session} previousSession={previousSession} />
       ) : null}
 

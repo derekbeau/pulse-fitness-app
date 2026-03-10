@@ -264,6 +264,7 @@ export function useStartWorkoutSession() {
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: createWorkoutSession,
     onSuccess: async () => {
+      // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionsList(params)` caches.
       await queryClient.invalidateQueries({
         queryKey: workoutQueryKeys.sessions(),
       });
