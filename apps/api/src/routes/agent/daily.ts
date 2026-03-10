@@ -27,12 +27,20 @@ const isValidDate = (date: string) => {
 const parseId = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
+const padDatePart = (value: number) => String(value).padStart(2, '0');
+
+const getTodayDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = padDatePart(now.getMonth() + 1);
+  const day = padDatePart(now.getDate());
+  return `${year}-${month}-${day}`;
+};
 
 export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
   app.post('/weight', async (request, reply) => {
     const parsed = agentCreateWeightInputSchema.safeParse(request.body);
-    if (!parsed.success) {
+    if (!parsed.success || !isValidDate(parsed.data.date)) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid weight payload');
     }
 
@@ -78,7 +86,7 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const parsed = agentUpdateHabitEntryInputSchema.safeParse(request.body);
-    if (!parsed.success) {
+    if (!parsed.success || !isValidDate(parsed.data.date)) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry payload');
     }
 
@@ -97,7 +105,7 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
       value: parsed.data.value ?? existing?.value ?? undefined,
     });
 
-    return reply.send({ data: entry });
+    return reply.code(existing ? 200 : 201).send({ data: entry });
   });
 
   app.get<{ Params: { date: string } }>('/nutrition/:date/summary', async (request, reply) => {

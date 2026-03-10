@@ -167,12 +167,57 @@ describe('agent daily routes', () => {
         await app.close();
       }
     });
+
+    it('returns 400 for an invalid calendar date', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/weight',
+          headers: createAuthorizationHeader(token),
+          body: { date: '2026-13-40', weight: 182.4 },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid weight payload',
+          },
+        });
+        expect(vi.mocked(findBodyWeightEntryByDate)).not.toHaveBeenCalled();
+        expect(vi.mocked(upsertBodyWeightEntry)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
   });
 
   describe('GET /api/agent/habits', () => {
+    it('returns 401 without auth', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/habits',
+        });
+
+        expect(response.statusCode).toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+
     it("returns active habits with today's entry status", async () => {
       vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-03-09T12:00:00Z'));
+      vi.setSystemTime(new Date('2026-03-09T12:00:00'));
 
       const app = buildServer();
 
@@ -258,6 +303,84 @@ describe('agent daily routes', () => {
   });
 
   describe('PATCH /api/agent/habits/:id/entries', () => {
+    it('returns 401 without auth', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/habits/habit-1/entries',
+          body: {
+            date: '2026-03-09',
+            completed: true,
+          },
+        });
+
+        expect(response.statusCode).toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 201 when creating a new habit entry', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findHabitById).mockResolvedValue({
+          id: 'habit-1',
+          userId: 'user-1',
+          name: 'Sleep',
+          emoji: null,
+          trackingType: 'time',
+          target: 8,
+          unit: 'hours',
+          sortOrder: 0,
+          active: true,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        vi.mocked(findHabitEntryByHabitAndDate).mockResolvedValue(undefined);
+        vi.mocked(upsertHabitEntry).mockResolvedValue({
+          id: 'entry-1',
+          habitId: 'habit-1',
+          userId: 'user-1',
+          date: '2026-03-09',
+          completed: true,
+          value: 8,
+          createdAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/habits/habit-1/entries',
+          headers: createAuthorizationHeader(token),
+          body: {
+            date: '2026-03-09',
+            completed: true,
+            value: 8,
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(upsertHabitEntry)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            habitId: 'habit-1',
+            userId: 'user-1',
+            date: '2026-03-09',
+            completed: true,
+            value: 8,
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
     it('upserts a habit entry while preserving existing completed state if omitted', async () => {
       const app = buildServer();
 
@@ -352,9 +475,57 @@ describe('agent daily routes', () => {
         await app.close();
       }
     });
+
+    it('returns 400 for an invalid calendar date', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/habits/habit-1/entries',
+          headers: createAuthorizationHeader(token),
+          body: {
+            date: '2026-13-40',
+            completed: true,
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid habit entry payload',
+          },
+        });
+        expect(vi.mocked(findHabitById)).not.toHaveBeenCalled();
+        expect(vi.mocked(upsertHabitEntry)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
   });
 
   describe('GET /api/agent/nutrition/:date/summary', () => {
+    it('returns 401 without auth', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/nutrition/2026-03-09/summary',
+        });
+
+        expect(response.statusCode).toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+
     it('returns nutrition macro totals and meals for the given date', async () => {
       const app = buildServer();
 
