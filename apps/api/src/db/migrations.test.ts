@@ -18,7 +18,7 @@ const runSqlStatements = (db: Database.Database, sqlContent: string) => {
   }
 };
 
-describe('migration 0012_bitter_bloodaxe', () => {
+describe('migration 0013_bitter_bloodaxe', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
@@ -29,7 +29,7 @@ describe('migration 0012_bitter_bloodaxe', () => {
   });
 
   it('applies weight_reps default to existing exercises', () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0012-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0013-'));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, 'migration.db');
     const db = new Database(dbPath);
@@ -76,7 +76,7 @@ describe('migration 0012_bitter_bloodaxe', () => {
       );
 
       const migrationSql = readFileSync(
-        join(process.cwd(), 'drizzle/0012_bitter_bloodaxe.sql'),
+        join(process.cwd(), 'drizzle/0013_bitter_bloodaxe.sql'),
         'utf8',
       );
       runSqlStatements(db, migrationSql);
@@ -92,7 +92,7 @@ describe('migration 0012_bitter_bloodaxe', () => {
   });
 });
 
-describe('migration 0013_lazy_bromley', () => {
+describe('migration 0014_lazy_bromley', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
@@ -103,7 +103,7 @@ describe('migration 0013_lazy_bromley', () => {
   });
 
   it('applies lbs default to existing users', () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0013-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0014-'));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, 'migration.db');
     const db = new Database(dbPath);
@@ -144,7 +144,7 @@ describe('migration 0013_lazy_bromley', () => {
       );
 
       const migrationSql = readFileSync(
-        join(process.cwd(), 'drizzle/0013_lazy_bromley.sql'),
+        join(process.cwd(), 'drizzle/0014_lazy_bromley.sql'),
         'utf8',
       );
       runSqlStatements(db, migrationSql);
@@ -160,7 +160,7 @@ describe('migration 0013_lazy_bromley', () => {
   });
 });
 
-describe('migration 0014_parched_katie_power', () => {
+describe('migration 0015_parched_katie_power', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
@@ -171,7 +171,7 @@ describe('migration 0014_parched_katie_power', () => {
   });
 
   it('adds tracking_type check constraint for exercises', () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0014-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0015-'));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, 'migration.db');
     const db = new Database(dbPath);
@@ -198,7 +198,7 @@ describe('migration 0014_parched_katie_power', () => {
       `);
 
       const migrationSql = readFileSync(
-        join(process.cwd(), 'drizzle/0014_parched_katie_power.sql'),
+        join(process.cwd(), 'drizzle/0015_parched_katie_power.sql'),
         'utf8',
       );
       runSqlStatements(db, migrationSql);
