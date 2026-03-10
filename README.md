@@ -1,6 +1,6 @@
 # Pulse
 
-A personal health and fitness tracking app for a two-person household. Most data entry happens via AI agents through an authenticated API; the UI is for viewing data, managing configurations, and manually logging workouts during gym sessions.
+A personal health and fitness tracking app. Most data entry happens via AI agents through an authenticated API; the UI is for viewing data, managing configurations, and manually logging workouts during gym sessions.
 
 ## Features
 
@@ -90,7 +90,7 @@ pnpm format     # Format with Prettier
 
 - **Mobile-first** — Designed at 375px, scales to tablet and desktop
 - **Agent-first data entry** — Meals and foods are entered via AI agents; the UI is read-only for nutrition
-- **SQLite** — Simple, sufficient for 2 users, no external database dependency
+- **SQLite** — Simple setup for personal use without an external database dependency
 - **Shared Zod schemas** — Single source of truth for validation on both client and server
 
 ## Deployment

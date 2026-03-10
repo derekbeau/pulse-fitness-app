@@ -50,7 +50,7 @@ Inherited ownership comes from foreign-key chains:
 - `condition_severity_points` through `health_conditions`
 - `equipment_items` through `equipment_locations`
 
-`entity_links` stores `userId` for direct isolation and cleanup queries. Every read and write must still scope through the owning source entity so links cannot cross household-user boundaries.
+`entity_links` stores `userId` for direct isolation and cleanup queries. Every read and write must still scope through the owning source entity so links cannot cross user boundaries.
 
 ## Table Inventory
 
