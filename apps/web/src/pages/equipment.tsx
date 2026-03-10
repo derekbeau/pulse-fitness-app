@@ -1,5 +1,5 @@
-import { EquipmentPage } from '@/features/equipment';
 import { PreviewBanner } from '@/components/ui/preview-banner';
+import { EquipmentPage } from '@/features/equipment';
 
 export function EquipmentRoutePage() {
   return (

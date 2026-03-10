@@ -33,6 +33,7 @@ export function PreviewBanner({
 }: PreviewBannerProps) {
   const [dismissed, setDismissed] = useState(() => getDismissedValue(storageKey));
 
+  // Re-sync dismissed state when storageKey changes.
   useEffect(() => {
     setDismissed(getDismissedValue(storageKey));
   }, [storageKey]);
@@ -64,6 +65,7 @@ export function PreviewBanner({
         <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 sm:mt-0" />
         <p className="min-w-0 flex-1 leading-5">{message}</p>
         <button
+          aria-label="Dismiss preview banner"
           className="cursor-pointer text-xs font-semibold whitespace-nowrap underline-offset-2 transition hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
           onClick={handleDismiss}
           type="button"

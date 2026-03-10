@@ -72,7 +72,7 @@ describe('CalendarPicker', () => {
       '[data-slot="calendar-day"] [data-slot="calendar-activity-dot"][data-has-activity="true"]',
     );
 
-    expect(activityDots.length).toBeGreaterThan(0);
+    expect(activityDots.length).toBe(2);
   });
 
   it('navigates weeks with arrow buttons and updates month/year label', () => {

@@ -6,7 +6,9 @@ import { JournalFeed, mockJournalEntries } from '@/features/journal';
 export function JournalPage() {
   return (
     <section className="space-y-6">
-      <PreviewBanner />
+      <div className="mx-auto w-full max-w-6xl">
+        <PreviewBanner />
+      </div>
       <header className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="rounded-2xl bg-[var(--color-accent-cream)] p-3 text-on-cream shadow-sm dark:bg-amber-500/20 dark:text-amber-400">
