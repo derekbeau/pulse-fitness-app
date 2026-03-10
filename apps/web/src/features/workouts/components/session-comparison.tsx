@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
+  getDistanceUnit,
   getExerciseTrackingType,
-  getMetricLabelForTrackingType,
   getMetricSuffixForTrackingType,
+  getSetComparisonMetricLabelForTrackingType,
   getSessionMetricKind,
   getSetDistance,
   getSetSeconds,
@@ -254,7 +255,7 @@ function getExerciseComparison(
             : [],
         ),
         metricDelta: previousSet ? currentMetric - previousMetric : 0,
-        metricLabel: getSetComparisonMetricLabel(trackingType),
+        metricLabel: getSetComparisonMetricLabelForTrackingType(trackingType),
         setNumber: set.setNumber,
         weightDelta:
           set.weight != null && previousSet?.weight != null ? set.weight - previousSet.weight : null,
@@ -277,18 +278,20 @@ function isPersonalRecord(
 
   if (trackingType === 'weight_reps' || trackingType === 'weight_seconds') {
     const currentWeight = currentSet.weight ?? null;
-    const currentReps = currentSet.reps ?? 0;
+    const currentComparisonMetric =
+      trackingType === 'weight_seconds' ? (getSetSeconds(currentSet) ?? 0) : (currentSet.reps ?? 0);
 
     if (currentWeight == null) {
       return false;
     }
 
-    const comparableSets = previousSets.reduce<Array<{ reps: number; weight: number }>>(
+    const comparableSets = previousSets.reduce<Array<{ comparisonMetric: number; weight: number }>>(
       (sets, set) => {
         const previousWeight = set.weight ?? null;
-        const previousReps = set.reps ?? 0;
-        if (previousWeight != null && currentReps >= previousReps) {
-          sets.push({ reps: previousReps, weight: previousWeight });
+        const previousComparisonMetric =
+          trackingType === 'weight_seconds' ? (getSetSeconds(set) ?? 0) : (set.reps ?? 0);
+        if (previousWeight != null && currentComparisonMetric >= previousComparisonMetric) {
+          sets.push({ comparisonMetric: previousComparisonMetric, weight: previousWeight });
         }
 
         return sets;
@@ -380,24 +383,12 @@ function getMetricValue(
     case 'distance':
       return getSetDistance(set) ?? 0;
     case 'reps_seconds':
-      return (set.reps ?? 0) + (getSetSeconds(set) ?? 0);
+      return set.reps ?? 0;
     case 'cardio':
       return (getSetSeconds(set) ?? 0) + (getSetDistance(set) ?? 0);
     default:
       return set.reps ?? 0;
   }
-}
-
-function getSetComparisonMetricLabel(trackingType: ReturnType<typeof getExerciseTrackingType>) {
-  if (trackingType === 'weight_reps' || trackingType === 'bodyweight_reps' || trackingType === 'reps_only') {
-    return 'reps';
-  }
-
-  if (trackingType === 'weight_seconds' || trackingType === 'seconds_only') {
-    return 'seconds';
-  }
-
-  return getMetricLabelForTrackingType(trackingType);
 }
 
 function formatMetricLabel(metricLabel: string) {
@@ -409,7 +400,7 @@ function getSessionMetricSuffix(metric: string, weightUnit: WeightUnit) {
     case 'volume':
       return weightUnit;
     case 'distance':
-      return weightUnit === 'lbs' ? 'mi' : 'm';
+      return getDistanceUnit(weightUnit);
     case 'reps':
       return 'reps';
     case 'seconds':

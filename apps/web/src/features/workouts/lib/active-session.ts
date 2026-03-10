@@ -16,6 +16,7 @@ import type {
   ActiveWorkoutSetDrafts,
 } from '../types';
 import { workoutEnhancedExercises } from './mock-data';
+import { inferTrackingType } from './tracking';
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
 const sampleWeightByExerciseId = new Map<string, number>([
@@ -235,16 +236,6 @@ function getInitialSecondsValue(reps: string) {
   }
 
   return null;
-}
-
-function inferTrackingType(reps: string): ExerciseTrackingType {
-  const normalized = reps.toLowerCase();
-
-  if (normalized.includes('min') || normalized.includes('sec')) {
-    return 'seconds_only';
-  }
-
-  return 'weight_reps';
 }
 
 function acceptsWeight(trackingType: ExerciseTrackingType) {

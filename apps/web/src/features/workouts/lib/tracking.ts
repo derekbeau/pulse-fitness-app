@@ -11,8 +11,8 @@ type SessionSetWithOptionalMetrics = SessionSet & {
   seconds?: number | null;
 };
 
-function inferTrackingType(exerciseId: string): ExerciseTrackingType {
-  const normalized = exerciseId.toLowerCase();
+export function inferTrackingType(exerciseDescriptor: string): ExerciseTrackingType {
+  const normalized = exerciseDescriptor.toLowerCase();
 
   if (normalized.includes('bodyweight')) {
     return 'bodyweight_reps';
@@ -34,6 +34,8 @@ export function getDistanceUnit(weightUnit: WeightUnit) {
 }
 
 export function getSetSeconds(set: SessionSetWithOptionalMetrics) {
+  // API-backed historical sets still persist seconds in `reps` until the seconds column migration lands.
+  // Preserve this fallback so comparison/trend logic can read both in-session and persisted data.
   return set.seconds ?? set.reps ?? null;
 }
 
@@ -86,6 +88,11 @@ export function getMetricLabelForTrackingType(trackingType: ExerciseTrackingType
     default:
       return 'volume';
   }
+}
+
+export function getSetComparisonMetricLabelForTrackingType(trackingType: ExerciseTrackingType) {
+  const metricLabel = getMetricLabelForTrackingType(trackingType);
+  return metricLabel === 'volume' ? 'reps' : metricLabel;
 }
 
 export function getMetricSuffixForTrackingType(
