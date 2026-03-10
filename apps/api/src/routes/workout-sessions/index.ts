@@ -123,16 +123,19 @@ const applyExerciseNotesToSets = ({
   });
 
   return sets.map((set, index) => {
+    const nextExerciseNote = exerciseNotes[set.exerciseId];
+
     if (
       firstSetIndexByExerciseId.get(set.exerciseId) !== index ||
-      !Object.hasOwn(exerciseNotes, set.exerciseId)
+      !Object.hasOwn(exerciseNotes, set.exerciseId) ||
+      nextExerciseNote === null
     ) {
       return set;
     }
 
     return {
       ...set,
-      notes: exerciseNotes[set.exerciseId] ?? null,
+      notes: nextExerciseNote,
     };
   });
 };

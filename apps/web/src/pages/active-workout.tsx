@@ -459,20 +459,22 @@ export function ActiveWorkoutPage() {
             }
 
             if (activeSessionId) {
-              setSessionError(null);
-              setSummarySaving(true);
-              try {
-                await persistCompletedSessionNotes({
-                  exerciseNotes,
-                  notes: sessionNotes,
-                  sessionId: activeSessionId,
-                });
-              } catch {
-                setSessionError('Unable to save session notes. Try again.');
+              const trimmedSessionNotes = sessionNotes.trim();
+              if (trimmedSessionNotes.length > 0) {
+                setSessionError(null);
+                setSummarySaving(true);
+                try {
+                  await persistCompletedSessionNotes({
+                    notes: trimmedSessionNotes,
+                    sessionId: activeSessionId,
+                  });
+                } catch {
+                  setSessionError('Unable to save session notes. Try again.');
+                  setSummarySaving(false);
+                  return;
+                }
                 setSummarySaving(false);
-                return;
               }
-              setSummarySaving(false);
             }
 
             clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
@@ -940,14 +942,11 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
 async function persistCompletedSessionNotes({
   sessionId,
   notes,
-  exerciseNotes,
 }: {
   sessionId: string;
   notes: string;
-  exerciseNotes: Record<string, string>;
 }) {
   const payload = updateWorkoutSessionInputSchema.parse({
-    exerciseNotes,
     notes,
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -61,11 +61,6 @@ export function SessionSummary({
   const [templateDescription, setTemplateDescription] = useState(defaultDescription);
   const [templateTags, setTemplateTags] = useState(defaultTags.join(', '));
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [sessionNotes, setSessionNotes] = useState(initialSessionNotes);
-
-  useEffect(() => {
-    setSessionNotes(initialSessionNotes);
-  }, [initialSessionNotes]);
 
   return (
     <>
@@ -115,13 +110,11 @@ export function SessionSummary({
               id="session-summary-notes"
               className="rounded-2xl border-black/10 bg-card dark:border-border"
               onChange={(event) => {
-                const nextValue = event.target.value;
-                setSessionNotes(nextValue);
-                onNotesChange?.(nextValue);
+                onNotesChange?.(event.target.value);
               }}
               placeholder="How did it feel? What would you change?"
               rows={4}
-              value={sessionNotes}
+              value={initialSessionNotes}
             />
           </section>
 
