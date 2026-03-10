@@ -1,7 +1,7 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Toggle } from '@/components/ui/toggle';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
@@ -25,9 +26,10 @@ import {
   useDashboardSnapshot,
   dashboardSnapshotKeys,
 } from '@/hooks/use-dashboard-snapshot';
-import { useDashboardConfig } from '@/hooks/use-dashboard-config';
+import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
 import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+import { cn } from '@/lib/utils';
 
 const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -35,14 +37,77 @@ const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
+type DashboardWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS) as DashboardWidgetId[];
+const DEFAULT_DASHBOARD_CONFIG = {
+  habitChainIds: [],
+  trendMetrics: ['weight', 'calories', 'protein'] as const,
+  visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
+};
+
+function DashboardWidgetEditOverlay({
+  onHide,
+  widgetLabel,
+}: {
+  onHide: () => void;
+  widgetLabel: string;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 rounded-2xl bg-background/60">
+      <div className="pointer-events-auto absolute top-3 right-3">
+        <Toggle
+          aria-label={`Hide ${widgetLabel} widget`}
+          onPressedChange={() => {
+            onHide();
+          }}
+          pressed={false}
+          size="sm"
+          variant="outline"
+        >
+          <EyeOff />
+          Hide
+        </Toggle>
+      </div>
+    </div>
+  );
+}
+
+function isDashboardWidgetId(value: string): value is DashboardWidgetId {
+  return value in DASHBOARD_WIDGET_IDS;
+}
+
+function DashboardWidgetFrame({
+  children,
+  className,
+  dataSlot,
+  isEditMode,
+  onHide,
+  widgetLabel,
+}: {
+  children: ReactNode;
+  className?: string;
+  dataSlot?: string;
+  isEditMode: boolean;
+  onHide: () => void;
+  widgetLabel: string;
+}) {
+  return (
+    <div className={cn('relative', className)} data-slot={dataSlot} data-widget-label={widgetLabel}>
+      {children}
+      {isEditMode ? <DashboardWidgetEditOverlay onHide={onHide} widgetLabel={widgetLabel} /> : null}
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
   const [weightMessage, setWeightMessage] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
   const logWeightMutation = useLogWeight();
+  const saveDashboardConfigMutation = useSaveDashboardConfig();
   const selectedDateKey = toDateKey(selectedDate);
   const habitRangeStart = toDateKey(addDays(selectedDate, -29));
   const selectedDateLabel = dashboardDateFormatter.format(selectedDate);
@@ -55,8 +120,53 @@ export function DashboardPage() {
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
-  const visibleWidgets = dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS;
+  const persistedVisibleWidgets = (dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS)
+    .filter(isDashboardWidgetId);
+  const visibleWidgets = visibleWidgetsDraft ?? persistedVisibleWidgets;
+  const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter((widgetId) => !visibleWidgets.includes(widgetId));
   const showWeightTrendChart = visibleWidgets.includes('weight-trend');
+  const isSavingDashboardConfig = saveDashboardConfigMutation.isPending;
+
+  function showWidget(widgetId: DashboardWidgetId) {
+    setVisibleWidgetsDraft((currentDraft) => {
+      const current = currentDraft ?? persistedVisibleWidgets;
+      if (current.includes(widgetId)) {
+        return current;
+      }
+
+      return [...current, widgetId];
+    });
+  }
+
+  function hideWidget(widgetId: DashboardWidgetId) {
+    setVisibleWidgetsDraft((currentDraft) => {
+      const current = currentDraft ?? persistedVisibleWidgets;
+      return current.filter((value) => value !== widgetId);
+    });
+  }
+
+  function handleStartEditMode() {
+    setVisibleWidgetsDraft(persistedVisibleWidgets);
+    setIsEditMode(true);
+  }
+
+  function handleCancelEditMode() {
+    setVisibleWidgetsDraft(null);
+    setIsEditMode(false);
+  }
+
+  async function handleSaveWidgetVisibility() {
+    const sourceConfig = dashboardConfigQuery.data ?? DEFAULT_DASHBOARD_CONFIG;
+
+    await saveDashboardConfigMutation.mutateAsync({
+      ...sourceConfig,
+      trendMetrics: [...sourceConfig.trendMetrics],
+      visibleWidgets,
+    });
+
+    setVisibleWidgetsDraft(null);
+    setIsEditMode(false);
+  }
 
   useEffect(() => {
     const previousDateKey = toDateKey(addDays(selectedDate, -1));
@@ -104,16 +214,56 @@ export function DashboardPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Dashboard
-          </h1>
-          {!isViewingToday ? (
-            <Button onClick={() => setSelectedDate(getToday())} size="sm" type="button" variant="outline">
-              Back to today
-            </Button>
-          ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+              Dashboard
+            </h1>
+            {!isViewingToday ? (
+              <Button onClick={() => setSelectedDate(getToday())} size="sm" type="button" variant="outline">
+                Back to today
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {isEditMode ? (
+              <>
+                <Button
+                  disabled={isSavingDashboardConfig}
+                  onClick={handleCancelEditMode}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={isSavingDashboardConfig}
+                  onClick={() => {
+                    void handleSaveWidgetVisibility();
+                  }}
+                  size="sm"
+                  type="button"
+                >
+                  {isSavingDashboardConfig ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                aria-label="Edit dashboard widgets"
+                onClick={handleStartEditMode}
+                size="icon-sm"
+                type="button"
+                variant="outline"
+              >
+                <Pencil />
+              </Button>
+            )}
+          </div>
         </div>
+        {isEditMode ? (
+          <p className="text-sm text-muted-foreground">Hide or restore widgets, then save changes.</p>
+        ) : null}
         <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
       </header>
 
@@ -132,118 +282,206 @@ export function DashboardPage() {
             className="order-1 flex min-w-0 flex-col gap-6 md:order-1 xl:order-2"
             data-slot="dashboard-main-column"
           >
-            <div className="order-1 md:order-3" data-slot="dashboard-calendar-panel">
-              <CalendarPicker onDateSelect={setSelectedDate} selectedDate={selectedDate} />
-            </div>
+            {visibleWidgets.includes('calendar') ? (
+              <DashboardWidgetFrame
+                className="order-1 md:order-3"
+                dataSlot="dashboard-calendar-panel"
+                isEditMode={isEditMode}
+                onHide={() => hideWidget('calendar')}
+                widgetLabel={DASHBOARD_WIDGET_IDS.calendar}
+              >
+                <CalendarPicker onDateSelect={setSelectedDate} selectedDate={selectedDate} />
+              </DashboardWidgetFrame>
+            ) : null}
 
-            <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
-              <div className="flex flex-col gap-6">
-                {snapshotQuery.isLoading ? (
-                  <div
-                    aria-label="Loading dashboard snapshots"
-                    className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
-                  >
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <StatCardSkeleton key={index} showTrend={index !== 4} />
-                    ))}
-                  </div>
-                ) : (
-                  <SnapshotCards snapshot={snapshotQuery.data} />
-                )}
-                <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
-                  <CardHeader className="space-y-1">
-                    <CardTitle>Log Weight</CardTitle>
-                    <CardDescription>Track your body weight for the selected day.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form
-                      className="space-y-3"
-                      data-qa="dashboard-log-weight-form"
-                      data-testid="dashboard-log-weight-form"
-                      onSubmit={handleWeightSubmit}
+            {visibleWidgets.includes('snapshot-cards') || visibleWidgets.includes('log-weight') ? (
+              <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
+                <div className="flex flex-col gap-6">
+                  {visibleWidgets.includes('snapshot-cards') ? (
+                    <DashboardWidgetFrame
+                      isEditMode={isEditMode}
+                      onHide={() => hideWidget('snapshot-cards')}
+                      widgetLabel={DASHBOARD_WIDGET_IDS['snapshot-cards']}
                     >
-                      <div className="space-y-2">
-                        <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
-                        <Input
-                          aria-describedby="dashboard-weight-status"
-                          data-qa="dashboard-weight-input"
-                          data-testid="dashboard-weight-input"
-                          id="dashboard-weight-input"
-                          inputMode="decimal"
-                          min="0.1"
-                          name="weight"
-                          onChange={(event) => {
-                            setWeightInput(event.currentTarget.value);
-                            setWeightMessage('');
-                          }}
-                          placeholder="e.g. 175.5"
-                          step="0.1"
-                          type="number"
-                          value={weightInput}
-                        />
-                      </div>
-                      <Button
-                        data-qa="dashboard-save-weight"
-                        data-testid="dashboard-save-weight"
-                        id="dashboard-save-weight"
-                        disabled={logWeightMutation.isPending}
-                        type="submit"
-                      >
-                        {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
-                      </Button>
-                      {weightMessage ? (
-                        <p
-                          className="text-sm text-muted-foreground"
-                          id="dashboard-weight-status"
-                          role="status"
+                      {snapshotQuery.isLoading ? (
+                        <div
+                          aria-label="Loading dashboard snapshots"
+                          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
                         >
-                          {weightMessage}
-                        </p>
-                      ) : null}
-                    </form>
-                  </CardContent>
-                </Card>
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <StatCardSkeleton key={index} showTrend={index !== 4} />
+                          ))}
+                        </div>
+                      ) : (
+                        <SnapshotCards snapshot={snapshotQuery.data} />
+                      )}
+                    </DashboardWidgetFrame>
+                  ) : null}
+                  {visibleWidgets.includes('log-weight') ? (
+                    <DashboardWidgetFrame
+                      isEditMode={isEditMode}
+                      onHide={() => hideWidget('log-weight')}
+                      widgetLabel={DASHBOARD_WIDGET_IDS['log-weight']}
+                    >
+                      <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
+                        <CardHeader className="space-y-1">
+                          <CardTitle>Log Weight</CardTitle>
+                          <CardDescription>Track your body weight for the selected day.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <form
+                            className="space-y-3"
+                            data-qa="dashboard-log-weight-form"
+                            data-testid="dashboard-log-weight-form"
+                            onSubmit={handleWeightSubmit}
+                          >
+                            <div className="space-y-2">
+                              <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                              <Input
+                                aria-describedby="dashboard-weight-status"
+                                data-qa="dashboard-weight-input"
+                                data-testid="dashboard-weight-input"
+                                id="dashboard-weight-input"
+                                inputMode="decimal"
+                                min="0.1"
+                                name="weight"
+                                onChange={(event) => {
+                                  setWeightInput(event.currentTarget.value);
+                                  setWeightMessage('');
+                                }}
+                                placeholder="e.g. 175.5"
+                                step="0.1"
+                                type="number"
+                                value={weightInput}
+                              />
+                            </div>
+                            <Button
+                              data-qa="dashboard-save-weight"
+                              data-testid="dashboard-save-weight"
+                              id="dashboard-save-weight"
+                              disabled={logWeightMutation.isPending}
+                              type="submit"
+                            >
+                              {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
+                            </Button>
+                            {weightMessage ? (
+                              <p
+                                className="text-sm text-muted-foreground"
+                                id="dashboard-weight-status"
+                                role="status"
+                              >
+                                {weightMessage}
+                              </p>
+                            ) : null}
+                          </form>
+                        </CardContent>
+                      </Card>
+                    </DashboardWidgetFrame>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            ) : null}
 
-            <div className="order-3 md:order-2" data-slot="dashboard-macro-panel">
-              <MacroRings snapshot={snapshotQuery.data} />
-            </div>
+            {visibleWidgets.includes('macro-rings') ? (
+              <DashboardWidgetFrame
+                className="order-3 md:order-2"
+                dataSlot="dashboard-macro-panel"
+                isEditMode={isEditMode}
+                onHide={() => hideWidget('macro-rings')}
+                widgetLabel={DASHBOARD_WIDGET_IDS['macro-rings']}
+              >
+                <MacroRings snapshot={snapshotQuery.data} />
+              </DashboardWidgetFrame>
+            ) : null}
           </div>
 
           <div
             className="order-2 flex min-w-0 flex-col gap-6 md:order-2 xl:order-1"
             data-slot="dashboard-sidebar-column"
           >
-            <HabitChain
-              endDate={selectedDateKey}
-              habitIds={dashboardConfigQuery.data?.habitChainIds}
-              habits={habitsQuery.data ?? []}
-              entries={habitChainEntriesQuery.data ?? []}
-            />
-            <TrendSparklines
-              endDate={selectedDateKey}
-              metrics={dashboardConfigQuery.data?.trendMetrics}
-            />
+            {visibleWidgets.includes('habit-chain') ? (
+              <DashboardWidgetFrame
+                isEditMode={isEditMode}
+                onHide={() => hideWidget('habit-chain')}
+                widgetLabel={DASHBOARD_WIDGET_IDS['habit-chain']}
+              >
+                <HabitChain
+                  endDate={selectedDateKey}
+                  habitIds={dashboardConfigQuery.data?.habitChainIds}
+                  habits={habitsQuery.data ?? []}
+                  entries={habitChainEntriesQuery.data ?? []}
+                />
+              </DashboardWidgetFrame>
+            ) : null}
+            {visibleWidgets.includes('trend-sparklines') ? (
+              <DashboardWidgetFrame
+                isEditMode={isEditMode}
+                onHide={() => hideWidget('trend-sparklines')}
+                widgetLabel={DASHBOARD_WIDGET_IDS['trend-sparklines']}
+              >
+                <TrendSparklines
+                  endDate={selectedDateKey}
+                  metrics={dashboardConfigQuery.data?.trendMetrics}
+                />
+              </DashboardWidgetFrame>
+            ) : null}
           </div>
 
-          <div
-            className="order-3 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-3"
-            data-slot="dashboard-recent-workouts-column"
-          >
-            <RecentWorkouts />
-          </div>
+          {visibleWidgets.includes('recent-workouts') ? (
+            <DashboardWidgetFrame
+              className="order-3 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-3"
+              dataSlot="dashboard-recent-workouts-column"
+              isEditMode={isEditMode}
+              onHide={() => hideWidget('recent-workouts')}
+              widgetLabel={DASHBOARD_WIDGET_IDS['recent-workouts']}
+            >
+              <RecentWorkouts />
+            </DashboardWidgetFrame>
+          ) : null}
 
           {showWeightTrendChart ? (
-            <div
+            <DashboardWidgetFrame
               className="order-4 min-w-0 md:col-span-2 xl:col-span-3"
-              data-slot="dashboard-weight-trend-row"
+              dataSlot="dashboard-weight-trend-row"
+              isEditMode={isEditMode}
+              onHide={() => hideWidget('weight-trend')}
+              widgetLabel={DASHBOARD_WIDGET_IDS['weight-trend']}
             >
               <WeightTrendChart />
-            </div>
+            </DashboardWidgetFrame>
           ) : null}
         </div>
       )}
+
+      {isEditMode ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Hidden widgets</h2>
+          {hiddenWidgets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hidden widgets.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {hiddenWidgets.map((widgetId) => (
+                <Card
+                  key={widgetId}
+                  className="border-dashed border-border/80 bg-muted/30 py-4"
+                  data-slot={`dashboard-hidden-widget-${widgetId}`}
+                >
+                  <CardContent className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{DASHBOARD_WIDGET_IDS[widgetId]}</p>
+                      <p className="text-xs text-muted-foreground">Currently hidden</p>
+                    </div>
+                    <Button onClick={() => showWidget(widgetId)} size="sm" type="button" variant="outline">
+                      <Plus />
+                      Show
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
     </main>
   );
 }

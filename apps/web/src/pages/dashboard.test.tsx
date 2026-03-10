@@ -256,6 +256,17 @@ describe('DashboardPage', () => {
         );
       }
 
+      if (url.pathname === '/api/v1/dashboard/config' && init?.method === 'PUT') {
+        dashboardConfig = JSON.parse(String(init.body)) as DashboardConfig;
+
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: dashboardConfig }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
         return Promise.resolve(
           new Response(JSON.stringify({ data: habits }), {
@@ -742,6 +753,60 @@ describe('DashboardPage', () => {
 
     expect(screen.queryByRole('heading', { name: 'Weight Trend' })).not.toBeInTheDocument();
     expect(container.querySelector('[data-slot="dashboard-weight-trend-row"]')).not.toBeInTheDocument();
+  });
+
+  it('supports dashboard widget edit mode with save and cancel behavior', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
+    expect(screen.getByText('Recent Workouts')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+
+    const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+      return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
+    });
+
+    expect(saveRequest).toBeDefined();
+    expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
+      visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
+    });
   });
 
   it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {

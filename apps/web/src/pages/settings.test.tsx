@@ -272,9 +272,41 @@ describe('SettingsPage', () => {
     });
 
     expect(screen.getByRole('checkbox', { name: /Sleep/i })).not.toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Weight/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Calories/i })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /Protein/i })).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Track your recent body weight direction/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Track your daily calorie intake trend/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Track your daily protein intake trend/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Daily Snapshot Dashboard widget visibility/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }),
+    ).toBeChecked();
+  });
+
+  it('reflects persisted widget visibility choices from dashboard config', async () => {
+    state.dashboardConfig.visibleWidgets = ['weight-trend', 'recent-workouts'];
+
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('checkbox', { name: /Daily Snapshot Dashboard widget visibility/i }),
+      ).not.toBeChecked();
+    });
+
+    expect(screen.getByRole('checkbox', { name: /Weight Trend/i })).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Recent Workouts Dashboard widget visibility/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }),
+    ).not.toBeChecked();
   });
 
   it('reflects the persisted theme on first render', () => {
@@ -296,7 +328,8 @@ describe('SettingsPage', () => {
 
     fireEvent.change(screen.getByLabelText('Daily calories'), { target: { value: '2250' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /Sleep/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Weight/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Track your recent body weight direction/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Date Picker Dashboard widget visibility/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => {
@@ -316,7 +349,9 @@ describe('SettingsPage', () => {
     expect(getLatestPostBody('/api/v1/dashboard/config')).toEqual({
       habitChainIds: ['habit-hydrate', 'habit-sleep'],
       trendMetrics: ['calories', 'protein'],
-      visibleWidgets: DEFAULT_SETTINGS.dashboardConfig.visibleWidgets,
+      visibleWidgets: DEFAULT_SETTINGS.dashboardConfig.visibleWidgets.filter(
+        (widgetId) => widgetId !== 'calendar',
+      ),
     });
   });
 

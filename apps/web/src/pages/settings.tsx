@@ -394,6 +394,21 @@ export function SettingsPage() {
     });
   }
 
+  function toggleWidgetVisibility(widgetId: string, checked: boolean) {
+    setSaveMessage('');
+    setDashboardConfigDraft((currentDashboardConfig) => {
+      const sourceConfig =
+        currentDashboardConfig ?? persistedDashboardConfig ?? DEFAULT_SETTINGS.dashboardConfig;
+
+      return {
+        ...sourceConfig,
+        visibleWidgets: checked
+          ? Array.from(new Set([...sourceConfig.visibleWidgets, widgetId]))
+          : sourceConfig.visibleWidgets.filter((value) => value !== widgetId),
+      };
+    });
+  }
+
   async function handleSave() {
     const nextTargets: CreateNutritionTargetInput = {
       ...settings.nutritionTargets,
@@ -681,6 +696,38 @@ export function SettingsPage() {
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">{metric.label}</span>
                       <p className="text-sm text-muted-foreground">{metric.description}</p>
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">Widget Visibility</h3>
+              <p className="text-sm text-muted-foreground">
+                Show or hide dashboard widgets from settings.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {Object.entries(DASHBOARD_WIDGET_IDS).map(([widgetId, widgetName]) => {
+                const checkboxId = `widget-visibility-${widgetId}`;
+
+                return (
+                  <Label
+                    key={widgetId}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    htmlFor={checkboxId}
+                  >
+                    <Checkbox
+                      checked={settings.dashboardConfig.visibleWidgets.includes(widgetId)}
+                      id={checkboxId}
+                      onCheckedChange={(checked) => toggleWidgetVisibility(widgetId, checked === true)}
+                    />
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium text-foreground">{widgetName}</span>
+                      <p className="text-sm text-muted-foreground">Dashboard widget visibility</p>
                     </div>
                   </Label>
                 );
