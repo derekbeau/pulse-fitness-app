@@ -11,6 +11,7 @@ import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-spar
 import { cn } from '@/lib/utils';
 
 const TREND_DAYS = 30;
+const numberFormatter = new Intl.NumberFormat('en-US');
 
 type ChangeDirection = 'up' | 'down' | 'neutral';
 
@@ -295,13 +296,15 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const latestProtein = getLatestValue(proteinSeries, 0);
   const selectedCalorieValue = getValueForDate(calorieSeriesRaw, range.to);
   const selectedProteinValue = getValueForDate(proteinSeriesRaw, range.to);
+  const selectedWeightValue = getValueForDate(weightSeriesRaw, range.to);
   const hasSelectedCalorieValue = isTrendValuePresent(selectedCalorieValue);
   const hasSelectedProteinValue = isTrendValuePresent(selectedProteinValue);
+  const hasSelectedWeightValue = isTrendValuePresent(selectedWeightValue);
 
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
-      currentValue: weightSeries.length > 0 ? `${latestWeight.toFixed(1)} lbs` : '--',
+      currentValue: hasSelectedWeightValue ? `${selectedWeightValue.toFixed(1)} lbs` : '--',
       changePercent:
         weightSeries.length > 1
           ? calculateTrendChangePercent(
@@ -316,7 +319,9 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     calories: {
       label: 'Calorie Trend',
-      currentValue: hasSelectedCalorieValue ? `${selectedCalorieValue} kcal` : '--',
+      currentValue: hasSelectedCalorieValue
+        ? `${numberFormatter.format(selectedCalorieValue)} kcal`
+        : '--',
       changePercent:
         calorieSeries.length > 1
           ? calculateTrendChangePercent(
@@ -331,7 +336,9 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     protein: {
       label: 'Protein Trend',
-      currentValue: hasSelectedProteinValue ? `${selectedProteinValue} g` : '--',
+      currentValue: hasSelectedProteinValue
+        ? `${numberFormatter.format(selectedProteinValue)} g`
+        : '--',
       changePercent:
         proteinSeries.length > 1
           ? calculateTrendChangePercent(

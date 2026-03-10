@@ -64,6 +64,8 @@ export function RecentWorkouts() {
       <CardContent>
         {recentWorkoutsQuery.isLoading ? (
           <RecentWorkoutRowsSkeleton />
+        ) : recentWorkoutsQuery.isError ? (
+          <p className="text-sm text-muted-foreground">Unable to load recent workouts.</p>
         ) : recentWorkoutsQuery.data && recentWorkoutsQuery.data.length > 0 ? (
           <ul className="grid gap-3">
             {recentWorkoutsQuery.data.map((workout) => (

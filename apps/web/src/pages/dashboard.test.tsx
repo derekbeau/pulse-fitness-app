@@ -377,7 +377,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
-    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
+    expect(screen.getByText('170 g / 190 g')).toBeInTheDocument();
     expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
     expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');

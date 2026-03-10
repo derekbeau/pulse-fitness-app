@@ -96,7 +96,7 @@ describe('SnapshotCards', () => {
 
     expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
-    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
+    expect(screen.getByText('170 g / 190 g')).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
   });

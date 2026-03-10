@@ -159,7 +159,7 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('2050 kcal')).toBeInTheDocument();
+    expect(screen.getByText('2,050 kcal')).toBeInTheDocument();
     expect(screen.getByText('170 g')).toBeInTheDocument();
 
     const weightCard = screen
@@ -326,6 +326,32 @@ describe('TrendSparklines', () => {
     expect(within(proteinCard).getByText('--')).toBeInTheDocument();
     expect(within(calorieCard).getByRole('img', { name: 'Calorie Trend sparkline' })).toBeInTheDocument();
     expect(within(proteinCard).getByRole('img', { name: 'Protein Trend sparkline' })).toBeInTheDocument();
+  });
+
+  it('shows the selected date weight value instead of the latest in-range value', () => {
+    vi.mocked(useWeightTrend).mockReturnValue({
+      data: [
+        { date: '2026-03-05', value: 174.8 },
+        { date: '2026-03-06', value: 175.2 },
+        { date: '2026-03-07', value: 176.1 },
+      ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useWeightTrend>);
+    vi.mocked(useMacroTrend).mockReturnValue({
+      data: sampleMacroTrend,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMacroTrend>);
+
+    render(<TrendSparklines endDate="2026-03-06" />);
+
+    const weightCard = screen
+      .getByText('Weight Trend')
+      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
+
+    expect(within(weightCard).getByText('175.2 lbs')).toBeInTheDocument();
+    expect(within(weightCard).queryByText('176.1 lbs')).not.toBeInTheDocument();
   });
 
   it('renders a no-data chart state when all macro points in range are zero', () => {

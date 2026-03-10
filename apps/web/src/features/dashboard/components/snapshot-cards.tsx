@@ -21,7 +21,8 @@ export const getSnapshotValueClassName = (value: string) => {
 };
 
 const formatMacroProgressValue = (actual: number, target: number, suffix = '') => {
-  return `${numberFormatter.format(actual)}${suffix} / ${numberFormatter.format(target)}${suffix}`;
+  const suffixPart = suffix ? ` ${suffix}` : '';
+  return `${numberFormatter.format(actual)}${suffixPart} / ${numberFormatter.format(target)}${suffixPart}`;
 };
 
 export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
@@ -126,7 +127,6 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       ? `${snapshot.habits.completed}/${snapshot.habits.total}`
       : 'No habits'
     : '--';
-  const habitsValue = habitsValueText;
   const workoutValue = snapshot?.workout
     ? `${snapshot.workout.name} (${formatWorkoutStatus(snapshot.workout.status)})`
     : snapshot
@@ -190,7 +190,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
             ? { direction: 'neutral', value: habitCompletionPercent }
             : undefined
         }
-        value={habitsValue}
+        value={habitsValueText}
         valueClassName={getSnapshotValueClassName(habitsValueText)}
         valueTitle={habitsValueText}
       />

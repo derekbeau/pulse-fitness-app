@@ -155,4 +155,22 @@ describe('RecentWorkouts', () => {
     expect(screen.getByText('No completed workouts yet')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Start a workout' })).toHaveAttribute('href', '/workouts');
   });
+
+  it('renders an error state when recent workouts query fails', () => {
+    vi.mocked(useRecentWorkouts).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    } as ReturnType<typeof useRecentWorkouts>);
+
+    render(
+      <MemoryRouter>
+        <RecentWorkouts />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Unable to load recent workouts.')).toBeInTheDocument();
+    expect(screen.queryByText('No completed workouts yet')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Start a workout' })).not.toBeInTheDocument();
+  });
 });
