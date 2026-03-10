@@ -3,12 +3,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { Toaster } from 'sonner';
 import { GuestRoute } from '@/components/auth/guest-route';
+import { AuthRouteLoader } from '@/components/auth/auth-route-loader';
 import { PageSkeleton } from '@/components/skeletons';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { AppLayout } from '@/components/layout/app-layout';
 import { createAppQueryClient } from '@/lib/query-client';
 
+// Page modules use named exports, so each lazy import maps a named export to `default`.
 const ActivityPage = lazy(async () => {
   const module = await import('./pages/activity');
   return { default: module.ActivityPage };
@@ -118,13 +120,17 @@ function renderWithPageFallback(element: ReactNode) {
   return <Suspense fallback={<PageSkeleton />}>{element}</Suspense>;
 }
 
+function renderWithAuthFallback(element: ReactNode) {
+  return <Suspense fallback={<AuthRouteLoader />}>{element}</Suspense>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route
         element={
           <GuestRoute>
-            {renderWithPageFallback(<LoginPage />)}
+            {renderWithAuthFallback(<LoginPage />)}
           </GuestRoute>
         }
         path="/login"
@@ -132,7 +138,7 @@ function AppRoutes() {
       <Route
         element={
           <GuestRoute>
-            {renderWithPageFallback(<RegisterPage />)}
+            {renderWithAuthFallback(<RegisterPage />)}
           </GuestRoute>
         }
         path="/register"

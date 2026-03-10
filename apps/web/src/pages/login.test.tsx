@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +37,7 @@ describe('LoginPage', () => {
     vi.mocked(prefetchDashboardSnapshot).mockReset();
   });
 
-  it('prefetches today dashboard snapshot before navigating on successful login', async () => {
+  it('starts snapshot prefetch and navigates immediately on successful login', () => {
     vi.mocked(prefetchDashboardSnapshot).mockResolvedValue(undefined);
     const queryClient = createAppQueryClient();
     queryClient.clear();
@@ -52,9 +52,7 @@ describe('LoginPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mock login success' }));
 
-    await waitFor(() => {
-      expect(prefetchDashboardSnapshot).toHaveBeenCalledWith(queryClient, toDateKey(getToday()));
-    });
+    expect(prefetchDashboardSnapshot).toHaveBeenCalledWith(queryClient, toDateKey(getToday()));
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
 });

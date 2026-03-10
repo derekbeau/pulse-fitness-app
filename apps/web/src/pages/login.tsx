@@ -9,9 +9,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  async function handleLoginSuccess() {
+  function handleLoginSuccess() {
     const todayDateKey = toDateKey(getToday());
-    await prefetchDashboardSnapshot(queryClient, todayDateKey);
+    void prefetchDashboardSnapshot(queryClient, todayDateKey);
     navigate('/');
   }
 

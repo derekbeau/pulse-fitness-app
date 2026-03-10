@@ -11,8 +11,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Bundle analysis (2026-03-10, `npx vite-bundle-visualizer`):
-        // - Largest gzip chunk: `index-*.js` at ~145 kB gzip
-        // - Largest chart-related chunk: `CartesianChart-*.js` at ~83 kB gzip
+        // - Before manual chunking: `index-*.js` at ~145 kB gzip; `CartesianChart-*.js` at ~83 kB gzip
+        // - After manual chunking: largest gzip chunk is `index-*.js` at ~109 kB gzip
         // - No chunk exceeded the 200 kB gzip budget
         // Keep vendor libraries split into stable chunks for long-term caching.
         manualChunks(id) {
