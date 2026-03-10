@@ -32,7 +32,7 @@ const getJwtSecret = () => {
 };
 
 export const buildServer = () => {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 
   app.register(fastifyJwt, {
     secret: getJwtSecret(),
