@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { CheckCheck, CircleDashed } from 'lucide-react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
+import { HabitRowSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   useHabitEntries,
   useHabits,
@@ -99,30 +101,22 @@ function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] 
 
 function DailyHabitsLoadingState() {
   return (
-    <div aria-busy="true" className="space-y-4">
+    <div aria-busy="true" aria-label="Loading daily habits" className="space-y-4">
       <Card className={accentCardStyles.pink}>
         <CardHeader className="gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
           </p>
           <div className="space-y-3">
-            <div className="h-8 w-56 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
-            <div className="h-4 w-full max-w-2xl animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
+            <Skeleton className="h-8 w-56 rounded-full bg-black/10 dark:bg-secondary" />
+            <Skeleton className="h-4 w-full max-w-2xl rounded-full bg-black/10 dark:bg-secondary" />
           </div>
         </CardHeader>
       </Card>
 
       <div className="grid gap-4">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index} className="gap-4 border-transparent py-5 shadow-sm">
-            <CardHeader className="space-y-3 pb-0">
-              <div className="h-6 w-44 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
-              <div className="h-4 w-56 animate-pulse rounded-full bg-black/10 dark:bg-secondary" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-11 animate-pulse rounded-xl bg-black/10 dark:bg-secondary" />
-            </CardContent>
-          </Card>
+          <HabitRowSkeleton key={index} />
         ))}
       </div>
 
@@ -235,7 +229,7 @@ export function DailyHabits() {
     });
   };
 
-  if (habitsQuery.isPending || habitEntriesQuery.isPending) {
+  if (habitsQuery.isLoading || habitEntriesQuery.isLoading) {
     return <DailyHabitsLoadingState />;
   }
 

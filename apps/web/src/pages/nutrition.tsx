@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { UtensilsCrossed } from 'lucide-react';
 
+import { MealCardSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
+  prefetchNutritionDay,
   useDailyNutrition,
   useDeleteMeal,
   useNutritionSummary,
@@ -11,6 +17,8 @@ import {
   formatCalories,
   formatDayLabel,
   formatGrams,
+  isSameDay,
+  addDays,
   sortMeals,
   startOfDay,
   type MacroTotals,
@@ -38,6 +46,7 @@ const EMPTY_TOTALS: MacroTotals = {
 };
 
 export function NutritionPage() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const dateKey = formatDateKey(selectedDate);
 
@@ -65,7 +74,8 @@ export function NutritionPage() {
 
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
-  const isLoadingDay = dailyNutritionQuery.isPending || dailySummaryQuery.isPending;
+  const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
+  const isSelectedDateToday = isSameDay(selectedDate, new Date());
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
@@ -74,6 +84,14 @@ export function NutritionPage() {
     deleteMealMutation.isError && deleteMealMutation.error instanceof Error
       ? deleteMealMutation.error.message
       : null;
+
+  useEffect(() => {
+    const previousDateKey = formatDateKey(addDays(selectedDate, -1));
+    const nextDateKey = formatDateKey(addDays(selectedDate, 1));
+
+    void prefetchNutritionDay(queryClient, previousDateKey);
+    void prefetchNutritionDay(queryClient, nextDateKey);
+  }, [queryClient, selectedDate]);
 
   async function handleDeleteMeal(mealId: string) {
     try {
@@ -127,7 +145,7 @@ export function NutritionPage() {
             {isLoadingDay ? (
               <NutritionTotalsSkeleton />
             ) : (
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {MACRO_CONFIG.map((macro) => {
                   const actual = dailyTotals[macro.key];
                   const target = dailyTargets?.[macro.key] ?? null;
@@ -189,7 +207,11 @@ export function NutritionPage() {
 
           <div className="space-y-3">
             {isLoadingDay ? (
-              <NutritionMealSkeleton />
+              <div aria-label="Loading nutrition meals" className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <MealCardSkeleton key={index} />
+                ))}
+              </div>
             ) : selectedMeals.length > 0 ? (
               selectedMeals.map((meal) => (
                 <MealCard
@@ -202,9 +224,19 @@ export function NutritionPage() {
                 />
               ))
             ) : (
-              <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-10 text-center shadow-sm">
-                <p className="text-sm font-medium text-muted">No meals logged for this day</p>
-              </div>
+              <EmptyState
+                action={
+                  isSelectedDateToday
+                    ? undefined
+                    : {
+                        label: 'Go to today',
+                        onClick: () => setSelectedDate(startOfDay(new Date())),
+                      }
+                }
+                description="Ask your agent to log a meal."
+                icon={UtensilsCrossed}
+                title={isSelectedDateToday ? 'No meals logged today' : 'No meals logged for this day'}
+              />
             )}
           </div>
         </>
@@ -226,11 +258,14 @@ function NutritionTargetsPlaceholder() {
 
 function NutritionTotalsSkeleton() {
   return (
-    <div aria-label="Loading nutrition" className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div
+      aria-label="Loading nutrition"
+      className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+    >
       {Array.from({ length: 4 }).map((_, index) => (
-        <div
+        <Skeleton
           key={index}
-          className="h-20 animate-pulse rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
+          className="h-20 rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
         />
       ))}
     </div>
@@ -240,28 +275,12 @@ function NutritionTotalsSkeleton() {
 function NutritionRingsSkeleton() {
   return (
     <section className="space-y-4" aria-label="Loading nutrition rings">
-      <div className="h-5 w-40 animate-pulse rounded bg-muted/70" />
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <Skeleton className="h-5 w-40 bg-muted/70" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-44 animate-pulse rounded-2xl border border-border/70 bg-card/90"
-          />
+          <Skeleton key={index} className="h-44 rounded-2xl border border-border/70 bg-card/90" />
         ))}
       </div>
     </section>
-  );
-}
-
-function NutritionMealSkeleton() {
-  return (
-    <>
-      {Array.from({ length: 2 }).map((_, index) => (
-        <div
-          key={index}
-          className="h-28 animate-pulse rounded-2xl border border-border/70 bg-card/90"
-        />
-      ))}
-    </>
   );
 }

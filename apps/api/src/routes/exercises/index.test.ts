@@ -454,6 +454,7 @@ describe('exercise routes', () => {
     ]);
 
     expect(searchResponse.statusCode).toBe(200);
+    expect(searchResponse.headers['cache-control']).toBe('private, max-age=300');
     expect(searchResponse.json()).toEqual({
       data: [
         expect.objectContaining({ id: 'user-press', name: 'Cable Press Around' }),
@@ -467,6 +468,7 @@ describe('exercise routes', () => {
     });
 
     expect(filterResponse.statusCode).toBe(200);
+    expect(filterResponse.headers['cache-control']).toBe('private, max-age=300');
     expect(filterResponse.json()).toEqual({
       data: [expect.objectContaining({ id: 'user-row', name: 'Chest Supported Row' })],
       meta: {
@@ -477,6 +479,7 @@ describe('exercise routes', () => {
     });
 
     expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.headers['cache-control']).toBe('private, max-age=300');
     expect(filtersResponse.json()).toEqual({
       data: {
         muscleGroups: ['chest', 'lats', 'triceps', 'upper back'],
@@ -485,6 +488,7 @@ describe('exercise routes', () => {
     });
 
     expect(pagedResponse.statusCode).toBe(200);
+    expect(pagedResponse.headers['cache-control']).toBe('private, max-age=300');
     expect(pagedResponse.json()).toEqual({
       data: [
         expect.objectContaining({ id: 'user-press' }),

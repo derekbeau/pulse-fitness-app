@@ -70,9 +70,9 @@ export function SessionContext({ className, context }: SessionContextProps) {
 
   return (
     <section aria-label="Session context" className={className}>
-      <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <ContextCard
-          className="min-w-[17rem] shrink-0 md:min-w-0"
+          className="w-full"
           description="Last 3 sessions"
           icon={CalendarClock}
           title="Recent Training"
@@ -95,7 +95,7 @@ export function SessionContext({ className, context }: SessionContextProps) {
         </ContextCard>
 
         <ContextCard
-          className="min-w-[17rem] shrink-0 md:min-w-0"
+          className="w-full"
           description="Sleep and readiness"
           icon={HeartPulse}
           title="Recovery Status"
@@ -115,7 +115,7 @@ export function SessionContext({ className, context }: SessionContextProps) {
         </ContextCard>
 
         <ContextCard
-          className="min-w-[17rem] shrink-0 md:min-w-0"
+          className="w-full"
           description="Conditions to respect today"
           icon={AlertTriangle}
           title="Active Injuries"
@@ -143,7 +143,7 @@ export function SessionContext({ className, context }: SessionContextProps) {
         </ContextCard>
 
         <ContextCard
-          className="min-w-[17rem] shrink-0 md:min-w-0"
+          className="w-full"
           description="Current program block"
           icon={Layers3}
           title="Training Phase"

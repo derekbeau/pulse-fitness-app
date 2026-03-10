@@ -156,4 +156,30 @@ describe('active-session helpers', () => {
     expect(squat?.formCues).toBeNull();
     expect(squat?.injuryCues).toEqual([]);
   });
+
+  it('uses template-provided exercise names when the exercise id is not in mock data', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const unknownExerciseTemplate = structuredClone(activeTemplate);
+    const mainSection = unknownExerciseTemplate.sections[1];
+    const firstExercise = mainSection?.exercises[0];
+    if (!mainSection || !firstExercise) {
+      throw new Error('Expected main section with exercises in template.');
+    }
+    mainSection.exercises[0] = {
+      ...firstExercise,
+      exerciseId: 'api-exercise-id-1',
+      exerciseName: 'DB Bench Press QA',
+    };
+
+    const session = buildActiveWorkoutSession(
+      unknownExerciseTemplate,
+      createInitialWorkoutSetDrafts(unknownExerciseTemplate, new Set()),
+    );
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')?.exercises[0];
+
+    expect(firstMainExercise?.name).toBe('DB Bench Press QA');
+  });
 });

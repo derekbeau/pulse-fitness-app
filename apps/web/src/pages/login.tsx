@@ -1,9 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
 import { LoginForm } from '@/features/auth';
+import { prefetchDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
+import { getToday, toDateKey } from '@/lib/date';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  function handleLoginSuccess() {
+    const todayDateKey = toDateKey(getToday());
+    void prefetchDashboardSnapshot(queryClient, todayDateKey);
+    navigate('/');
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6">
@@ -13,7 +23,7 @@ export function LoginPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Welcome back</h1>
           <p className="text-sm text-muted-foreground">Sign in to pick up where you left off.</p>
         </div>
-        <LoginForm onSuccess={() => navigate('/')} registerHref="/register" />
+        <LoginForm onSuccess={handleLoginSuccess} registerHref="/register" />
       </div>
     </main>
   );

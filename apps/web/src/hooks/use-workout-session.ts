@@ -4,6 +4,7 @@ import {
   type WorkoutSession,
   workoutSessionSchema,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
@@ -65,6 +66,7 @@ export function useStartSession() {
           queryKey: workoutSessionQueryKeys.detail(session.id),
         }),
       ]);
+      toast.success('Workout started');
     },
   });
 }

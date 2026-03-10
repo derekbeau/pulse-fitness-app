@@ -16,7 +16,7 @@ describe('SessionContext', () => {
   });
 
   it('renders all four context cards with recent sessions and phase details', () => {
-    render(<SessionContext context={workoutSessionContext} />);
+    const { container } = render(<SessionContext context={workoutSessionContext} />);
 
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
@@ -42,6 +42,11 @@ describe('SessionContext', () => {
 
     expect(within(trainingPhaseCard).getByText('Rebuild Phase')).toBeInTheDocument();
     expect(within(trainingPhaseCard).getByText('Accumulation Block 2 - Rebuild')).toBeInTheDocument();
+
+    const grid = container.querySelector('div.grid.grid-cols-1.gap-3.md\\:grid-cols-2.xl\\:grid-cols-4');
+    expect(grid).toBeInTheDocument();
+    expect(grid).not.toHaveClass('overflow-x-auto');
+    expect(recentTrainingCard).toHaveClass('w-full');
   });
 
   it('shows the empty-state copy when there are no active conditions', () => {

@@ -93,6 +93,7 @@ function mockUseHabitsResult(overrides: Partial<ReturnType<typeof useHabits>> = 
     data: habits,
     error: null,
     isError: false,
+    isLoading: false,
     isPending: false,
     refetch: vi.fn(),
     ...overrides,
@@ -104,6 +105,7 @@ function mockUseHabitEntriesResult(overrides: Partial<ReturnType<typeof useHabit
     data: entries,
     error: null,
     isError: false,
+    isLoading: false,
     isPending: false,
     refetch: vi.fn(),
     ...overrides,
@@ -138,12 +140,13 @@ describe('DailyHabits', () => {
   });
 
   it('shows a loading skeleton while habit queries are pending', () => {
-    mockUseHabitsResult({ isPending: true });
-    mockUseHabitEntriesResult({ isPending: true });
+    mockUseHabitsResult({ isLoading: true });
+    mockUseHabitEntriesResult({ isLoading: true });
 
     render(<DailyHabits />);
 
-    expect(screen.getByText("Loading today's habits.")).toBeInTheDocument();
+    expect(screen.getByLabelText('Loading daily habits')).toBeInTheDocument();
+    expect(screen.getAllByTestId('habit-row-skeleton')).toHaveLength(3);
   });
 
   it('shows an error state and retries both queries when loading fails', () => {

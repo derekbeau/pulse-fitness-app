@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import type { Food, FoodQueryParams, UpdateFoodInput } from '@pulse/shared';
+import { toast } from 'sonner';
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { foodKeys } from './keys';
 
@@ -11,6 +12,10 @@ type FoodListResponse = {
     limit: number;
     total: number;
   };
+};
+
+type UseFoodsOptions = {
+  enabled?: boolean;
 };
 
 function buildFoodsQueryString(params: FoodQueryParams) {
@@ -68,10 +73,11 @@ function patchFoodListCache(
   return queries;
 }
 
-export function useFoods(params: FoodQueryParams) {
+export function useFoods(params: FoodQueryParams, options?: UseFoodsOptions) {
   return useQuery({
     queryKey: foodKeys.list(params),
     queryFn: ({ signal }) => fetchFoods(params, signal),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }
@@ -91,6 +97,7 @@ export function useUpdateFood() {
       await queryClient.invalidateQueries({
         queryKey: foodKeys.list(),
       });
+      toast.success('Food updated');
     },
   });
 }
@@ -139,6 +146,9 @@ export function useDeleteFood() {
       context?.previousLists.forEach(([queryKey, value]) => {
         queryClient.setQueryData(queryKey as QueryKey, value);
       });
+    },
+    onSuccess: () => {
+      toast.success('Food deleted');
     },
     onSettled: (_data, _error, foodId) =>
       Promise.all([

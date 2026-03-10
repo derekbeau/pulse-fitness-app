@@ -96,11 +96,15 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       ...parsedQuery.data,
     });
 
+    reply.header('Cache-Control', 'private, max-age=300');
+
     return reply.send(result);
   });
 
   app.get('/filters', async (request, reply) => {
     const filters = await listExerciseFilters(request.userId);
+
+    reply.header('Cache-Control', 'private, max-age=300');
 
     return reply.send({
       data: filters,

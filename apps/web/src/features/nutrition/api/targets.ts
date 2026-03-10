@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateNutritionTargetInput, NutritionTarget } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
 
@@ -30,6 +31,7 @@ export const useUpdateTargets = () => {
     mutationFn: postNutritionTarget,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: nutritionTargetKeys.all });
+      toast.success('Nutrition targets updated');
     },
   });
 };

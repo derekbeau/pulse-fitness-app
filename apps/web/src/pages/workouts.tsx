@@ -1,7 +1,11 @@
-import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { Dumbbell } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router';
 
+import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -12,16 +16,36 @@ import {
   WorkoutCalendar,
   WorkoutList,
 } from '@/features/workouts';
-import { useWorkoutTemplates } from '@/features/workouts/api/workouts';
+import {
+  prefetchWorkoutTemplate,
+  useWorkoutTemplates,
+} from '@/features/workouts/api/workouts';
 
 export function WorkoutsPage() {
+  const queryClient = useQueryClient();
   const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
     'calendar',
   );
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templatesQuery = useWorkoutTemplates();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
+  const shouldShowTemplatesEmptyState =
+    !templatesQuery.isLoading &&
+    !templatesQuery.isError &&
+    (templatesQuery.data?.length ?? 0) === 0;
+
+  useEffect(() => {
+    if (activeView !== 'list') {
+      return;
+    }
+
+    const topTemplateIds = (templatesQuery.data ?? []).slice(0, 3).map((template) => template.id);
+    for (const templateId of topTemplateIds) {
+      void prefetchWorkoutTemplate(queryClient, templateId);
+    }
+  }, [activeView, queryClient, templatesQuery.data]);
 
   return (
     <section className="space-y-6">
@@ -94,10 +118,28 @@ export function WorkoutsPage() {
       ) : activeView === 'list' ? (
         <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
       ) : activeView === 'templates' ? (
-        <TemplateBrowser
-          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
-          templates={templatesQuery.data ?? undefined}
-        />
+        templatesQuery.isLoading ? (
+          <div aria-label="Loading workout templates" className="grid gap-4 xl:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <WorkoutCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : shouldShowTemplatesEmptyState ? (
+          <EmptyState
+            action={{
+              label: 'Create Template',
+              onClick: () => navigate('/workouts/active'),
+            }}
+            description="Create a template or ask your agent to build one."
+            icon={Dumbbell}
+            title="No workouts yet"
+          />
+        ) : (
+          <TemplateBrowser
+            buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+            templates={templatesQuery.data ?? undefined}
+          />
+        )
       ) : (
         <ExerciseLibrary />
       )}

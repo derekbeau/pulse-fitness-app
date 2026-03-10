@@ -12,7 +12,7 @@ export function BackLink({ className, label = 'Back to Profile', to = '/profile'
   return (
     <Link
       className={cn(
-        'inline-flex cursor-pointer items-center text-sm font-medium text-muted transition-colors hover:text-foreground',
+        'inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center text-sm font-medium text-muted transition-colors hover:text-foreground',
         className,
       )}
       to={to}

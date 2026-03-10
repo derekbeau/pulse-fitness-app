@@ -63,7 +63,7 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {MACRO_RING_CONFIG.map((macro) => {
           const actual = actuals[macro.key];
           const target = targets[macro.key];
@@ -107,7 +107,7 @@ function ToggleButton({ isActive, label, onClick }: ToggleButtonProps) {
     <button
       aria-pressed={isActive}
       className={cn(
-        'cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4',
+        'min-h-[44px] min-w-[44px] cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4',
         isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted hover:text-foreground',
       )}
       type="button"

@@ -118,7 +118,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
           const state = getMacroRingState(getMacroStat(snapshot, macro.key), mode, macro.color, macro.unit);
 

@@ -80,8 +80,12 @@ describe('BottomNav', () => {
   it('opens the More menu with activity, foods, journal, and profile links', () => {
     renderBottomNav('/');
 
+    const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
+    expect(nav).toHaveClass('grid-cols-5', 'items-stretch', 'pb-[calc(env(safe-area-inset-bottom)+0.5rem)]');
+
     const moreButton = screen.getByRole('button', { name: 'More' });
     expect(moreButton).toHaveClass('cursor-pointer');
+    expect(moreButton).toHaveClass('min-h-[44px]');
 
     fireEvent.click(moreButton);
 
@@ -95,6 +99,7 @@ describe('BottomNav', () => {
     expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveAttribute('href', '/profile');
     expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveClass('min-h-[44px]');
     expect(screen.getByRole('menuitem', { name: 'Log out' })).toBeInTheDocument();
   });
 

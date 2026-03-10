@@ -54,6 +54,24 @@ describe('StatCard', () => {
     expect(card).toHaveClass('custom-card');
   });
 
+  it('truncates long labels and values to prevent card overflow', () => {
+    render(
+      <StatCard
+        label="A very long label that should not force horizontal overflow in mobile cards"
+        value="This is an extremely long value that should be truncated to avoid overflow"
+      />,
+    );
+
+    const label = screen.getByText(
+      'A very long label that should not force horizontal overflow in mobile cards',
+    );
+    const value = screen.getByText(
+      'This is an extremely long value that should be truncated to avoid overflow',
+    );
+    expect(label).toHaveClass('truncate');
+    expect(value).toHaveClass('overflow-hidden', 'text-ellipsis', 'whitespace-nowrap');
+  });
+
   it('applies accentTextClassName to label, value, and trend', () => {
     render(
       <StatCard

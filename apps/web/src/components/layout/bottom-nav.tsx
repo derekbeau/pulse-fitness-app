@@ -45,7 +45,7 @@ export function BottomNav() {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border/60 bg-card/90 backdrop-blur-xl md:hidden">
       <nav
         aria-label="Mobile navigation"
-        className="pointer-events-auto mx-auto grid w-full max-w-screen-sm grid-cols-5 gap-1 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
+        className="pointer-events-auto mx-auto grid w-full max-w-screen-sm grid-cols-5 items-stretch gap-2 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
       >
         {primaryNavItems.map((item) => {
           const Icon = item.icon;
@@ -55,7 +55,7 @@ export function BottomNav() {
               key={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
+                  'flex min-h-[44px] cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
                     : 'text-muted hover:bg-secondary hover:text-foreground',
@@ -75,7 +75,7 @@ export function BottomNav() {
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              'flex min-h-11 w-full cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
+              'flex min-h-[44px] w-full cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
               isMoreActive
                 ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
                 : 'text-muted hover:bg-secondary hover:text-foreground',
@@ -97,9 +97,9 @@ export function BottomNav() {
                 return (
                   <NavLink
                     key={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                  className={({ isActive }) =>
+                    cn(
+                        'flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'text-foreground hover:bg-secondary',
@@ -115,7 +115,7 @@ export function BottomNav() {
                 );
               })}
               <button
-                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+                className="flex min-h-[44px] w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
                 onClick={handleLogout}
                 role="menuitem"
                 type="button"

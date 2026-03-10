@@ -11,6 +11,7 @@ import {
   type ReorderHabitsInput,
   type UpdateHabitInput,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
@@ -218,6 +219,7 @@ export function useCreateHabit() {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
         upsertHabit(currentHabits, habit),
       );
+      toast.success('Habit created');
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
@@ -242,6 +244,7 @@ export function useUpdateHabit() {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
         upsertHabit(currentHabits, habit),
       );
+      toast.success('Habit updated');
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
@@ -264,6 +267,7 @@ export function useDeleteHabit() {
       queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
         currentHabits?.filter((habit) => habit.id !== variables.id),
       );
+      toast.success('Habit deleted');
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
@@ -300,6 +304,9 @@ export function useReorderHabits() {
         }
 
         queryClient.setQueryData(habitKeys.list(), context.previousHabits);
+      },
+      onSuccess: () => {
+        toast.success('Habit order updated');
       },
       onSettled: async () => {
         await queryClient.invalidateQueries({ queryKey: habitKeys.list() });

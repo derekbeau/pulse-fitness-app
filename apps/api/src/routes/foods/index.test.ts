@@ -135,6 +135,7 @@ describe('foods routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, max-age=300');
       expect(response.json()).toEqual({
         data: [buildFood()],
         meta: {

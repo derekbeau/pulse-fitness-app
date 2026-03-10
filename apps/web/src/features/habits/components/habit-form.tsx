@@ -166,7 +166,7 @@ export function HabitForm({ initialHabit, onCancel, onSave }: HabitFormProps) {
             </label>
             <select
               id="tracking-type"
-              className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              className="flex min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
               onChange={(event) =>
                 updateField('trackingType', event.target.value as HabitTrackingType)
               }

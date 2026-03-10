@@ -36,6 +36,8 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
 
     const result = await listFoods(request.userId, parsedQuery.data);
 
+    reply.header('Cache-Control', 'private, max-age=300');
+
     return reply.send({
       data: result.foods,
       meta: {

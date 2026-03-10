@@ -5,6 +5,7 @@ import {
   updateWorkoutSessionInputSchema,
   workoutSessionSchema,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { clearStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
@@ -64,6 +65,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(session.id) }),
       ]);
+      toast.success('Workout completed');
     },
   });
 }

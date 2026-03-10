@@ -1,6 +1,7 @@
 import { CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
 import { useEffect, useRef, useState } from 'react';
+import { FoodCardSkeleton } from '@/components/skeletons';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ import { accentCardStyles } from '@/lib/accent-card-styles';
 type FoodListProps = {
   now?: Date;
   pageSize?: number;
+  foodsQuery?: ReturnType<typeof useFoods>;
 };
 
 type PendingDeleteFood = Pick<Food, 'id' | 'name'>;
@@ -36,6 +38,8 @@ type PendingDeleteFood = Pick<Food, 'id' | 'name'>;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_PAGE_SIZE = 12;
+const DEFAULT_PAGE = 1;
+const DEFAULT_SORT_BY: FoodSort = 'recent';
 
 const SORT_OPTIONS: Array<{ label: string; value: FoodSort }> = [
   { label: 'Alphabetical', value: 'name' },
@@ -81,35 +85,15 @@ function formatServing(food: Food) {
   return 'Not provided';
 }
 
-function FoodCardSkeleton() {
-  return (
-    <Card className="gap-4 border-border bg-card py-5 shadow-none">
-      <CardHeader className="gap-3 px-5 sm:px-6">
-        <div className="space-y-3">
-          <div className="h-5 w-40 animate-pulse rounded bg-muted/70" />
-          <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-          <div className="h-4 w-48 animate-pulse rounded bg-muted/60" />
-        </div>
-      </CardHeader>
-      <CardContent className="px-5 sm:px-6">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-16 animate-pulse rounded-lg border border-border/70 bg-background/70"
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: FoodListProps) {
+export function FoodList({
+  now = new Date(),
+  pageSize = DEFAULT_PAGE_SIZE,
+  foodsQuery: pageFoodsQuery,
+}: FoodListProps) {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>('recent');
-  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
+  const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -126,12 +110,22 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     };
   }, [searchInput]);
 
-  const foodsQuery = useFoods({
-    q: debouncedSearchQuery || undefined,
-    sort: sortBy,
-    page,
-    limit: pageSize,
-  });
+  const shouldUsePageFoodsQuery =
+    pageFoodsQuery !== undefined &&
+    debouncedSearchQuery.length === 0 &&
+    sortBy === DEFAULT_SORT_BY &&
+    page === DEFAULT_PAGE &&
+    pageSize === DEFAULT_PAGE_SIZE;
+  const fallbackFoodsQuery = useFoods(
+    {
+      q: debouncedSearchQuery || undefined,
+      sort: sortBy,
+      page,
+      limit: pageSize,
+    },
+    { enabled: !shouldUsePageFoodsQuery },
+  );
+  const foodsQuery = shouldUsePageFoodsQuery ? pageFoodsQuery : fallbackFoodsQuery;
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 
@@ -212,8 +206,8 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     }
   }
 
-  const isInitialLoading = foodsQuery.isPending;
-  const isRefreshing = foodsQuery.isFetching && !foodsQuery.isPending;
+  const isInitialLoading = foodsQuery.isLoading;
+  const isRefreshing = foodsQuery.isFetching && !foodsQuery.isLoading;
 
   return (
     <div className="space-y-4">
@@ -301,7 +295,7 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
           </CardHeader>
         </Card>
       ) : isInitialLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div aria-label="Loading foods" className="grid gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <FoodCardSkeleton key={index} />
           ))}

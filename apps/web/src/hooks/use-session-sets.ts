@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSetSchema, sessionSetSchema, type SessionSet, updateSetSchema } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
@@ -40,7 +41,10 @@ async function patchSessionSet(sessionId: string, setId: string, input: UpdateSe
   return payload.data;
 }
 
-async function invalidateSessionQueries(queryClient: ReturnType<typeof useQueryClient>, sessionId: string) {
+async function invalidateSessionQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  sessionId: string,
+) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
     queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(sessionId) }),
@@ -65,6 +69,7 @@ export function useLogSet(sessionId: string | null | undefined) {
       }
 
       await invalidateSessionQueries(queryClient, normalizedSessionId);
+      toast.success('Set added');
     },
   });
 }
@@ -81,12 +86,16 @@ export function useUpdateSet(sessionId: string | null | undefined) {
 
       return patchSessionSet(normalizedSessionId, setId, update);
     },
-    onSuccess: async () => {
+    onSuccess: async (_set, variables) => {
       if (!normalizedSessionId) {
         return;
       }
 
       await invalidateSessionQueries(queryClient, normalizedSessionId);
+
+      if (variables.update.completed) {
+        toast.success('Set saved');
+      }
     },
   });
 }
