@@ -10,6 +10,7 @@ import {
   workoutSessionSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
@@ -171,6 +172,7 @@ export function useStartWorkoutSession() {
       await queryClient.invalidateQueries({
         queryKey: workoutQueryKeys.sessions(),
       });
+      toast.success('Workout started');
     },
   });
 }

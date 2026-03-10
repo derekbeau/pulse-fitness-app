@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import type { Food, FoodQueryParams, UpdateFoodInput } from '@pulse/shared';
+import { toast } from 'sonner';
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { foodKeys } from './keys';
 
@@ -91,6 +92,7 @@ export function useUpdateFood() {
       await queryClient.invalidateQueries({
         queryKey: foodKeys.list(),
       });
+      toast.success('Food updated');
     },
   });
 }
@@ -139,6 +141,9 @@ export function useDeleteFood() {
       context?.previousLists.forEach(([queryKey, value]) => {
         queryClient.setQueryData(queryKey as QueryKey, value);
       });
+    },
+    onSuccess: () => {
+      toast.success('Food deleted');
     },
     onSettled: (_data, _error, foodId) =>
       Promise.all([

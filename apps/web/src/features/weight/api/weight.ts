@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BodyWeightEntry, CreateWeightInput } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
 
@@ -61,6 +62,7 @@ export const useLogWeight = () => {
     mutationFn: postWeightEntry,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: weightKeys.all });
+      toast.success('Weight logged');
     },
   });
 };

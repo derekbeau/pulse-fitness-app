@@ -5,6 +5,7 @@ import {
   type SaveWorkoutSessionAsTemplateInput,
   type WorkoutTemplate,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
@@ -51,6 +52,7 @@ export function useSaveAsTemplate(sessionId: string | null | undefined) {
           queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),
         }),
       ]);
+      toast.success('Template saved');
     },
   });
 }

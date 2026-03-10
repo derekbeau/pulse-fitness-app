@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DailyNutrition, DeleteMealResult, NutritionSummary } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
 
@@ -53,6 +54,7 @@ export const useDeleteMeal = () => {
           queryKey: nutritionKeys.summary(variables.date),
         }),
       ]);
+      toast.success('Meal deleted');
     },
   });
 };
