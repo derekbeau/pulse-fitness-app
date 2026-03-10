@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import type { MouseEvent, ReactNode } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +14,25 @@ import {
 } from '../lib/active-session';
 import type { ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
+
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    disabled,
+    onClick,
+  }: {
+    children: ReactNode;
+    disabled?: boolean;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  }) => (
+    <button disabled={disabled} onClick={onClick} type="button">
+      {children}
+    </button>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
 
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
@@ -47,6 +67,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         restTimer={{
@@ -85,8 +106,8 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByLabelText('Reps for set 3')).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByRole('button', { name: 'Add Set' }),
-    ).toBeInTheDocument();
+      within(currentCard as HTMLElement).getAllByRole('button', { name: 'Add Set' }).length,
+    ).toBeGreaterThan(0);
     expect(
       within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
@@ -135,6 +156,46 @@ describe('SessionExerciseList', () => {
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
   });
 
+  it('opens exercise menu actions and disables remove when only one set remains', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onAddSet = vi.fn();
+    const onRemoveSet = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={onAddSet}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={onRemoveSet}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    const rowErgCardElement = rowErgCard as HTMLElement;
+    const addSetItem = within(rowErgCardElement).getAllByRole('button', { name: 'Add Set' })[0];
+    fireEvent.click(addSetItem);
+    expect(onAddSet).toHaveBeenCalledWith('row-erg');
+
+    expect(within(rowErgCardElement).getByRole('button', { name: 'Remove Last Set' })).toBeDisabled();
+    expect(onRemoveSet).not.toHaveBeenCalled();
+  });
+
   it('omits cue toggles and injury warnings when enhanced cue data is unavailable', () => {
     if (!lowerTemplate) {
       throw new Error('Expected lower-quad-dominant template in mock data.');
@@ -149,6 +210,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -188,6 +250,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         restTimer={{
@@ -227,6 +290,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -268,6 +332,7 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
+          onRemoveSet={vi.fn()}
           onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
@@ -289,6 +354,7 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
+          onRemoveSet={vi.fn()}
           onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
@@ -302,13 +368,20 @@ describe('SessionExerciseList', () => {
 
     fireEvent.click(warmupButton);
 
-    const exerciseButton = screen.getByRole('button', { name: /Row Erg/i });
-    fireEvent.click(exerciseButton);
-
     const reopenedRowErgCard = screen
       .getByRole('heading', { level: 3, name: 'Row Erg' })
       .closest('[data-slot="card"]');
     expect(reopenedRowErgCard).not.toBeNull();
+
+    const reopenedRowErgCardHeaderToggle = within(reopenedRowErgCard as HTMLElement)
+      .getAllByRole('button')
+      .find((button) => button.getAttribute('aria-controls') === 'exercise-panel-row-erg');
+
+    if (!reopenedRowErgCardHeaderToggle) {
+      throw new Error('Expected Row Erg exercise header toggle.');
+    }
+
+    fireEvent.click(reopenedRowErgCardHeaderToggle);
     expect(
       within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
     ).not.toBeInTheDocument();
@@ -372,6 +445,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
@@ -448,6 +522,7 @@ describe('SessionExerciseList', () => {
       <SessionExerciseList
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
         onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}

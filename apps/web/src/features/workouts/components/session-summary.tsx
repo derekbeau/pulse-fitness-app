@@ -29,6 +29,7 @@ type SessionSummaryProps = {
   feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
   sessionId?: string | null;
+  completedSets: number;
   totalReps: number;
   totalSets: number;
   workoutName: string;
@@ -43,6 +44,7 @@ export function SessionSummary({
   feedback = [],
   onDone,
   sessionId = null,
+  completedSets,
   totalReps,
   totalSets,
   workoutName,
@@ -77,7 +79,11 @@ export function SessionSummary({
               label="Exercises completed"
               value={`${exercisesCompleted}`}
             />
-            <SummaryStat icon={ListChecks} label="Sets completed" value={`${totalSets}`} />
+            <SummaryStat
+              icon={ListChecks}
+              label="Sets completed"
+              value={`${completedSets}/${totalSets}`}
+            />
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
           </div>

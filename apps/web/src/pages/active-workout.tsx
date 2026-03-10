@@ -31,6 +31,17 @@ import {
   estimateRemainingTime,
   estimateTotalTime,
 } from '@/features/workouts/lib/time-estimates';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
@@ -43,7 +54,13 @@ import { useUpdateSessionStartTime, useWorkoutSession } from '@/hooks/use-workou
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
+  clearExerciseNotes,
+  clearSetDrafts,
   clearStoredActiveWorkoutSessionId,
+  loadExerciseNotes,
+  loadSetDrafts,
+  saveExerciseNotes,
+  saveSetDrafts,
   setStoredActiveWorkoutSessionId,
 } from '@/features/workouts/lib/session-persistence';
 import { ApiError } from '@/lib/api-client';
@@ -127,6 +144,7 @@ export function ActiveWorkoutPage() {
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
+  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
@@ -135,15 +153,25 @@ export function ActiveWorkoutPage() {
 
   const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
+  const persistedSessionId = activeSessionId ?? sessionId;
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
+  const clearSessionDraftPersistence = useCallback((targetSessionId: string | null) => {
+    if (!targetSessionId) {
+      return;
+    }
+
+    clearSetDrafts(targetSessionId);
+    clearExerciseNotes(targetSessionId);
+  }, []);
   const redirectToCompletedSessionNotice = useCallback(() => {
+    clearSessionDraftPersistence(activeSessionId ?? sessionId);
     clearStoredActiveWorkoutSessionId();
     navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
       replace: true,
     });
-  }, [navigate]);
+  }, [activeSessionId, clearSessionDraftPersistence, navigate, sessionId]);
 
   const templateExerciseById = useMemo(
     () =>
@@ -176,7 +204,13 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    setSetDrafts(createSessionSetDrafts(template, activeSession.sets, templateExerciseById));
+    const restoredDrafts = loadSetDrafts(activeSession.id);
+    const restoredNotes = loadExerciseNotes(activeSession.id);
+
+    setSetDrafts(
+      restoredDrafts ?? createSessionSetDrafts(template, activeSession.sets, templateExerciseById),
+    );
+    setExerciseNotes(restoredNotes ?? {});
     hydratedSessionIdRef.current = activeSession.id;
   }, [activeSession, template, templateExerciseById]);
 
@@ -191,7 +225,36 @@ export function ActiveWorkoutPage() {
         requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
       ),
     );
+    setExerciseNotes({});
   }, [activeSession, requestedTemplateId, sessionId, template]);
+
+  useEffect(() => {
+    if (!persistedSessionId || stage !== 'active') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveSetDrafts(persistedSessionId, setDrafts);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [persistedSessionId, setDrafts, stage]);
+
+  useEffect(() => {
+    if (!persistedSessionId || stage !== 'active') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveExerciseNotes(persistedSessionId, exerciseNotes);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [exerciseNotes, persistedSessionId, stage]);
 
   useEffect(() => {
     if (!activeSession || !sessionId) {
@@ -218,6 +281,8 @@ export function ActiveWorkoutPage() {
       }),
     [exerciseNotes, setDrafts, startTime, template],
   );
+  const remainingSetCount = session.totalSets - session.completedSets;
+  const completedSetsSummary = `${session.completedSets}/${session.totalSets}`;
   const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
   const estimatedTotalSeconds = useMemo(() => estimateTotalTime(session), [session]);
   const remainingEstimatedSeconds = useMemo(() => estimateRemainingTime(session), [session]);
@@ -293,6 +358,7 @@ export function ActiveWorkoutPage() {
               }))
             }
             onFocusSetHandled={() => setFocusSetId(null)}
+            onRemoveSet={handleRemoveSet}
             onRestTimerComplete={handleRestTimerComplete}
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
@@ -310,6 +376,13 @@ export function ActiveWorkoutPage() {
               }))
             }
           />
+
+          <div className="pt-2">
+            <Button className="w-full sm:w-auto" onClick={handleFinishWorkout} type="button">
+              Finish Workout
+            </Button>
+            <p className="mt-2 text-sm text-muted">{`${completedSetsSummary} sets completed`}</p>
+          </div>
         </>
       ) : null}
 
@@ -327,6 +400,7 @@ export function ActiveWorkoutPage() {
             const notes = extractFeedbackNotes(feedback);
 
             if (!activeSessionId) {
+              clearSessionDraftPersistence(persistedSessionId);
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
               setStage('summary');
@@ -354,6 +428,7 @@ export function ActiveWorkoutPage() {
                   setSessionError('Unable to complete this workout. Try again.');
                 },
                 onSuccess: () => {
+                  clearSessionDraftPersistence(activeSessionId);
                   setSessionFeedback(feedback);
                   setSessionCompletedAt(completedAtIso);
                   setStage('summary');
@@ -374,10 +449,28 @@ export function ActiveWorkoutPage() {
           onDone={() => navigate('/workouts')}
           sessionId={activeSessionId}
           totalReps={totalCompletedReps}
-          totalSets={session.completedSets}
+          completedSets={session.completedSets}
+          totalSets={session.totalSets}
           workoutName={session.workoutName}
         />
       ) : null}
+
+      <AlertDialog onOpenChange={setIsFinishDialogOpen} open={isFinishDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish workout early?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`End workout with ${remainingSetCount} sets remaining?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFinishWorkout} type="button">
+              Finish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 
@@ -451,6 +544,39 @@ export function ActiveWorkoutPage() {
     setRestTimer(null);
     setRestTimerTargetSetId(null);
     setFocusSetId(nextSet.id);
+  }
+
+  function handleRemoveSet(exerciseId: string) {
+    const exerciseSets = setDrafts[exerciseId] ?? [];
+
+    if (exerciseSets.length <= 1) {
+      return;
+    }
+
+    const sortedSets = [...exerciseSets].sort((left, right) => left.number - right.number);
+    const removedSet = sortedSets[sortedSets.length - 1];
+    const nextExerciseSets = sortedSets.slice(0, -1);
+
+    if (!removedSet) {
+      return;
+    }
+
+    setSetDrafts((current) => ({
+      ...current,
+      [exerciseId]: nextExerciseSets,
+    }));
+
+    if (restTimer?.setId === removedSet.id) {
+      setRestTimer(null);
+    }
+
+    if (restTimerTargetSetId === removedSet.id) {
+      setRestTimerTargetSetId(null);
+    }
+
+    if (focusSetId === removedSet.id) {
+      setFocusSetId(null);
+    }
   }
 
   function handleSetUpdate(
@@ -549,11 +675,7 @@ export function ActiveWorkoutPage() {
     });
 
     if (updatedSession.completedSets === updatedSession.totalSets) {
-      setRestTimer(null);
-      setRestTimerTargetSetId(null);
-      setFocusSetId(null);
-      setSessionCompletedAt((current) => current ?? new Date().toISOString());
-      setStage('feedback');
+      transitionToFeedbackStage();
       return;
     }
 
@@ -586,6 +708,28 @@ export function ActiveWorkoutPage() {
     setRestTimer(null);
     setFocusSetId(restTimerTargetSetId);
     setRestTimerTargetSetId(null);
+  }
+
+  function handleFinishWorkout() {
+    if (remainingSetCount > 0) {
+      setIsFinishDialogOpen(true);
+      return;
+    }
+
+    transitionToFeedbackStage();
+  }
+
+  function confirmFinishWorkout() {
+    setIsFinishDialogOpen(false);
+    transitionToFeedbackStage();
+  }
+
+  function transitionToFeedbackStage() {
+    setRestTimer(null);
+    setRestTimerTargetSetId(null);
+    setFocusSetId(null);
+    setSessionCompletedAt((current) => current ?? new Date().toISOString());
+    setStage('feedback');
   }
 
   function handleStartTimeChange(nextStartTimeIso: string) {

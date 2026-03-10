@@ -7,12 +7,18 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { AlertTriangle, ChevronDown, Check, Circle, Dot, Plus } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Check, Circle, Dot, MoreVertical, Plus } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
@@ -49,6 +55,7 @@ type SessionExerciseListProps = {
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onFocusSetHandled?: () => void;
+  onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
@@ -92,6 +99,7 @@ export function SessionExerciseList({
   onAddSet,
   onExerciseNotesChange,
   onFocusSetHandled,
+  onRemoveSet,
   onRestTimerComplete,
   onSetUpdate,
   restTimer = null,
@@ -208,6 +216,7 @@ export function SessionExerciseList({
                         }
                         onAddSet={onAddSet}
                         onExerciseNotesChange={onExerciseNotesChange}
+                        onRemoveSet={onRemoveSet}
                         onRestTimerComplete={onRestTimerComplete}
                         onSetUpdate={onSetUpdate}
                         repsInputRefs={repsInputRefs}
@@ -270,6 +279,7 @@ export function SessionExerciseList({
                               inlineRestTimer={null}
                               onAddSet={onAddSet}
                               onExerciseNotesChange={onExerciseNotesChange}
+                              onRemoveSet={onRemoveSet}
                               onRestTimerComplete={onRestTimerComplete}
                               onSetUpdate={onSetUpdate}
                               repsInputRefs={repsInputRefs}
@@ -316,6 +326,7 @@ type ExerciseCardItemProps = {
   inlineRestTimer: RestTimerState | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
@@ -337,6 +348,7 @@ function ExerciseCardItem({
   inlineRestTimer,
   onAddSet,
   onExerciseNotesChange,
+  onRemoveSet,
   onRestTimerComplete,
   onSetUpdate,
   repsInputRefs,
@@ -370,6 +382,7 @@ function ExerciseCardItem({
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
   const exerciseEstimate = formatEstimateMinutes(estimateExerciseTime(exercise));
+  const canRemoveSet = exercise.sets.length > 1;
 
   return (
     <Card
@@ -380,90 +393,115 @@ function ExerciseCardItem({
         state === 'in-progress' && 'border-primary/35 shadow-md',
       )}
     >
-      <button
-        aria-controls={`exercise-panel-${exercise.id}`}
-        aria-expanded={isExpanded}
-        className="flex w-full cursor-pointer items-start justify-between gap-4 px-4 py-5 text-left sm:px-5"
-        onClick={() =>
-          setExpandedExercises((current) => ({
-            ...current,
-            [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
-          }))
-        }
-        type="button"
-      >
-        <div className="flex min-w-0 items-start gap-3">
-          <ExerciseStatusIndicator priority={exercise.priority} state={state} />
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3
-                className={cn(
-                  'text-lg font-semibold text-foreground',
-                  isExerciseComplete && 'text-muted line-through',
-                )}
-              >
-                {exercise.name}
-              </h3>
-              {isExerciseComplete ? (
-                <Check aria-hidden="true" className="size-4 text-emerald-600" />
-              ) : null}
-              <Badge
-                className={cn(
-                  'border-transparent capitalize',
-                  phaseBadgeStyles[exercise.phaseBadge],
-                )}
-                variant="outline"
-              >
-                {formatPhaseBadge(exercise.phaseBadge)}
-              </Badge>
-              <Badge
-                className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
-                variant="outline"
-              >
-                {exercise.category}
-              </Badge>
-              {exercise.priority === 'optional' ? (
-                <span className="text-sm font-medium text-muted">Optional</span>
-              ) : null}
-              {state === 'in-progress' ? (
-                <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
-                  Current
+      <div className="flex items-start gap-2 px-4 py-5 sm:px-5">
+        <button
+          aria-controls={`exercise-panel-${exercise.id}`}
+          aria-expanded={isExpanded}
+          className="flex min-w-0 flex-1 cursor-pointer items-start justify-between gap-4 text-left"
+          onClick={() =>
+            setExpandedExercises((current) => ({
+              ...current,
+              [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
+            }))
+          }
+          type="button"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <ExerciseStatusIndicator priority={exercise.priority} state={state} />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3
+                  className={cn(
+                    'text-lg font-semibold text-foreground',
+                    isExerciseComplete && 'text-muted line-through',
+                  )}
+                >
+                  {exercise.name}
+                </h3>
+                {isExerciseComplete ? (
+                  <Check aria-hidden="true" className="size-4 text-emerald-600" />
+                ) : null}
+                <Badge
+                  className={cn(
+                    'border-transparent capitalize',
+                    phaseBadgeStyles[exercise.phaseBadge],
+                  )}
+                  variant="outline"
+                >
+                  {formatPhaseBadge(exercise.phaseBadge)}
                 </Badge>
-              ) : null}
-              <Badge className="border-transparent bg-secondary text-secondary-foreground" variant="outline">
-                {exerciseEstimate}
-              </Badge>
+                <Badge
+                  className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
+                  variant="outline"
+                >
+                  {exercise.category}
+                </Badge>
+                {exercise.priority === 'optional' ? (
+                  <span className="text-sm font-medium text-muted">Optional</span>
+                ) : null}
+                {state === 'in-progress' ? (
+                  <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
+                    Current
+                  </Badge>
+                ) : null}
+                <Badge
+                  className="border-transparent bg-secondary text-secondary-foreground"
+                  variant="outline"
+                >
+                  {exerciseEstimate}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {exercise.tempo ? (
+                  <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
+                ) : null}
+                {exercise.restSeconds > 0 ? (
+                  <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
+                ) : null}
+              </div>
+              <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
+              <p className="text-sm text-muted">
+                {formatExerciseSubtitle({
+                  exercise,
+                  lastPerformance,
+                  weightUnit,
+                })}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {exercise.tempo ? (
-                <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
-              ) : null}
-              {exercise.restSeconds > 0 ? (
-                <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
-              ) : null}
-            </div>
-            <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
-            <p className="text-sm text-muted">
-              {formatExerciseSubtitle({
-                exercise,
-                lastPerformance,
-                weightUnit,
-              })}
-            </p>
           </div>
-        </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="text-sm font-medium text-muted">{`#${exerciseNumber}`}</span>
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              'mt-1 size-4 text-muted transition-transform',
-              isExpanded && 'rotate-180',
-            )}
-          />
-        </div>
-      </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="text-sm font-medium text-muted">{`#${exerciseNumber}`}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                'mt-1 size-4 text-muted transition-transform',
+                isExpanded && 'rotate-180',
+              )}
+            />
+          </div>
+        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Exercise actions for ${exercise.name}`}
+              className="mt-0.5 size-8 shrink-0"
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MoreVertical aria-hidden="true" className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
+            <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
+              Remove Last Set
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <CardContent
         className="border-t border-border bg-secondary/25 px-4 py-4 sm:px-5"
@@ -509,10 +547,6 @@ function ExerciseCardItem({
                 variant={isNotesPanelOpen ? 'secondary' : 'outline'}
               >
                 Notes
-              </Button>
-              <Button onClick={() => onAddSet(exercise.id)} size="xs" type="button" variant="outline">
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add Set
               </Button>
             </div>
 
@@ -632,6 +666,16 @@ function ExerciseCardItem({
                 ) : null}
               </Fragment>
             ))}
+            <Button
+              className="col-span-2 border-dashed"
+              onClick={() => onAddSet(exercise.id)}
+              size="xs"
+              type="button"
+              variant="outline"
+            >
+              <Plus aria-hidden="true" className="size-3.5" />
+              Add Set
+            </Button>
           </div>
         </div>
       </CardContent>

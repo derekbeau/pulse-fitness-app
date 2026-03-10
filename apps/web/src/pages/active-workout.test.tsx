@@ -18,7 +18,7 @@ describe('ActiveWorkoutPage', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    window.localStorage.clear();
   });
 
   it('renders the active workout UI and advances focus after the rest timer completes', () => {
@@ -176,6 +176,36 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage('/workouts/active');
 
     expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('supports manually finishing an active workout with confirmation and set summary ratio', () => {
+    renderActiveWorkoutPage();
+
+    const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
+    const finishFooter = finishButton.closest('div');
+    expect(finishFooter).not.toBeNull();
+    expect(within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i)).toBeInTheDocument();
+
+    fireEvent.click(finishButton);
+    expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText(/End workout with \d+ sets remaining\?/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();
+    const setsCompletedLabel = screen.getByText('Sets completed');
+    const setsCompletedStat = setsCompletedLabel.closest('div')?.parentElement ?? null;
+    expect(setsCompletedStat).not.toBeNull();
+    expect(within(setsCompletedStat as HTMLElement).getByText(/\d+\/\d+/)).toBeInTheDocument();
   });
 
   it('loads API templates for UUID template ids instead of falling back to mock defaults', async () => {
