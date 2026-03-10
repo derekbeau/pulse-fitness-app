@@ -800,6 +800,13 @@ describe('migrate-static script', () => {
     // Then migrate daily logs (which inserts meal_items referencing "Large Eggs")
     await scriptModule.migrateDailyLogsAndBodyWeight({ userId: 'user-1', dataRoot });
 
+    // Seed a stale timestamp to verify backfill moves it forward when newer usage exists.
+    dbModule.db
+      .update(foods)
+      .set({ lastUsedAt: new Date('2026-03-01T00:00:00.000Z').getTime() })
+      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Large Eggs')))
+      .run();
+
     // Re-run foods migration to trigger lastUsedAt backfill
     const captured = buildLogger();
     const summary2 = await scriptModule.migrateFoodsDatabase({
@@ -811,8 +818,9 @@ describe('migrate-static script', () => {
     // All foods skipped on second run (already exist)
     expect(summary2.inserted).toBe(0);
     expect(summary2.skipped).toBe(3);
+    expect(summary2.lastUsedAtUpdated).toBeGreaterThanOrEqual(2);
 
-    // lastUsedAt should be set on Large Eggs (used in daily logs)
+    // lastUsedAt should be moved to latest usage date for Large Eggs (used in daily logs)
     const eggs = dbModule.db
       .select({ lastUsedAt: foods.lastUsedAt })
       .from(foods)
@@ -820,7 +828,7 @@ describe('migrate-static script', () => {
       .limit(1)
       .get();
 
-    expect(eggs?.lastUsedAt).not.toBeNull();
+    expect(eggs?.lastUsedAt).toBe(new Date('2026-03-06T00:00:00.000Z').getTime());
   });
 
   it('is idempotent for foods migration when re-run', async () => {
@@ -831,23 +839,5 @@ describe('migrate-static script', () => {
     const secondCount = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all().length;
 
     expect(secondCount).toBe(firstCount);
-  });
-
-  it('parses CLI arguments and enforces required userId', () => {
-    expect(scriptModule.parseCliArgs(['--user', 'user-1'])).toEqual({
-      userId: 'user-1',
-      dataRoot: scriptModule.DEFAULT_STATIC_DATA_ROOT,
-    });
-
-    expect(scriptModule.parseCliArgs(['--user', 'user-1', '--source', '/tmp/static'])).toEqual({
-      userId: 'user-1',
-      dataRoot: '/tmp/static',
-    });
-
-    expect(() => scriptModule.parseCliArgs([])).toThrow('Missing required --user <userId> argument.');
-    expect(() => scriptModule.parseCliArgs(['--user'])).toThrow(
-      'Missing value for --user. Usage: npx tsx src/scripts/migrate-static.ts --user <userId>',
-    );
-    expect(() => scriptModule.parseCliArgs(['--oops'])).toThrow('Unknown argument: --oops');
   });
 });

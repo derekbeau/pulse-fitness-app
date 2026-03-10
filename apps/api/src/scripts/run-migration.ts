@@ -24,9 +24,7 @@ export type RunMigrationCliOptions = {
   step: MigrationStep | null;
 };
 
-type StatementLike = {
-  get: (...parameters: unknown[]) => unknown;
-};
+type StatementLike = Pick<ReturnType<typeof sqlite.prepare>, 'get'>;
 
 type SqliteLike = {
   exec: (source: string) => unknown;
@@ -59,11 +57,16 @@ export type RunMigrationResult = {
   verification: VerificationSummary;
 };
 
+const sqliteAdapter: SqliteLike = {
+  exec: (source) => sqlite.exec(source),
+  prepare: (source) => sqlite.prepare(source),
+};
+
 const defaultDependencies: RunMigrationDependencies = {
   migrateFoodsDatabase,
   migrateDailyLogsAndBodyWeight,
   migrateWorkoutTemplatesAndSessions,
-  sqlite: sqlite as unknown as SqliteLike,
+  sqlite: sqliteAdapter,
 };
 
 const usage = 'Usage: npx tsx src/scripts/run-migration.ts --user <userId> [--source <path>] [--dry-run] [--step foods|daily|workouts]';
@@ -158,7 +161,7 @@ const toDateOrNull = (value: unknown): string | null => (typeof value === 'strin
 
 export const collectVerificationSummary = (
   userId: string,
-  sqliteDatabase: Pick<SqliteLike, 'prepare'> = sqlite as unknown as Pick<SqliteLike, 'prepare'>,
+  sqliteDatabase: Pick<SqliteLike, 'prepare'> = sqliteAdapter,
 ): VerificationSummary => {
   const foodsCountRow = sqliteDatabase
     .prepare('SELECT COUNT(*) AS count FROM foods WHERE userId = ?')

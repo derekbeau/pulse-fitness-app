@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
-import { and, eq, isNull, max, or } from 'drizzle-orm';
+import { and, eq, isNull, lt, max, or } from 'drizzle-orm';
 
 import {
   bodyWeight,
@@ -22,7 +21,7 @@ import {
 
 export const DEFAULT_STATIC_DATA_ROOT = '/Volumes/meridian/Projects/health-fitness-static/data';
 export const DEFAULT_WORKOUT_TEMPLATE_SUBPATH = join('workouts', 'templates');
-export const DEFAULT_WORKOUT_SESSION_SUBPATH = join('workouts', '2026', 'Q1');
+export const DEFAULT_WORKOUT_SESSION_SUBPATH = 'workouts';
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const DAILY_FILENAME_PATTERN = /^(\d{4}-\d{2}-\d{2})\.json$/u;
@@ -74,11 +73,6 @@ export type FoodsMigrationSummary = {
   inserted: number;
   skipped: number;
   lastUsedAtUpdated: number;
-};
-
-export type CliOptions = {
-  userId: string;
-  dataRoot: string;
 };
 
 export type ParsedMealItem = {
@@ -172,9 +166,9 @@ type ExerciseLookupEntry = {
 };
 
 type ExerciseCreateDefaults = {
-  category: ExerciseCategory;
+  category: ExerciseCategory | null;
   muscleGroups: string[];
-  equipment: string;
+  equipment: string | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -928,6 +922,7 @@ const buildFoodLookup = (rows: Array<{ id: string; name: string }>): FoodLookup 
   const lookup = new Map<string, string>();
 
   for (const row of rows) {
+    // meal_items only stores free-text name, so brand-aware matching is not possible here.
     const key = normalizeLookupKey(row.name);
 
     if (!lookup.has(key)) {
@@ -1006,21 +1001,33 @@ const toTimestampMs = (value: unknown): number | null => {
   return parsed;
 };
 
-const toDurationMs = (value: unknown): number | null => {
+type DurationUnit = 'milliseconds' | 'seconds' | 'minutes' | 'auto';
+
+const toDurationMs = (value: unknown, unit: DurationUnit = 'auto'): number | null => {
   const numeric = toNonnegativeInteger(value);
   if (numeric === null) {
     return null;
   }
 
-  if (numeric >= 100_000) {
+  if (unit === 'milliseconds') {
     return numeric;
   }
 
-  if (numeric <= 600) {
+  if (unit === 'seconds') {
+    return numeric * 1_000;
+  }
+
+  if (unit === 'minutes') {
     return numeric * 60_000;
   }
 
-  return numeric * 1_000;
+  // Ambiguous generic duration fields are interpreted as either milliseconds
+  // (already >= 1 minute) or minutes.
+  if (numeric >= 60_000) {
+    return numeric;
+  }
+
+  return numeric * 60_000;
 };
 
 const toStableMigrationId = (prefix: string, ...parts: string[]) => {
@@ -1647,10 +1654,10 @@ const parseWorkoutSessionRecord = (
     toTimestampMs(getNestedField(objectPayload, 'finishedAt'));
 
   const durationCandidate =
-    toDurationMs(getNestedField(objectPayload, 'duration')) ??
-    toDurationMs(getNestedField(objectPayload, 'durationMs')) ??
-    toDurationMs(getNestedField(objectPayload, 'durationSeconds')) ??
-    toDurationMs(getNestedField(objectPayload, 'durationMinutes'));
+    toDurationMs(getNestedField(objectPayload, 'durationMs'), 'milliseconds') ??
+    toDurationMs(getNestedField(objectPayload, 'durationSeconds'), 'seconds') ??
+    toDurationMs(getNestedField(objectPayload, 'durationMinutes'), 'minutes') ??
+    toDurationMs(getNestedField(objectPayload, 'duration'));
 
   const explicitDate =
     toDateKey(getNestedField(objectPayload, 'date')) ??
@@ -1716,7 +1723,9 @@ const loadWorkoutSessionRecords = async (
     return [];
   }
 
-  const sortedFiles = [...files].sort((left, right) => left.localeCompare(right));
+  const sortedFiles = files
+    .filter((filePath) => !relative(sessionsRoot, filePath).replace(/\\/gu, '/').startsWith('templates/'))
+    .sort((left, right) => left.localeCompare(right));
   const records: ParsedWorkoutSessionRecord[] = [];
 
   for (const filePath of sortedFiles) {
@@ -1771,18 +1780,18 @@ const toExerciseDefaults = (set: {
   muscleGroups: string[];
   equipment: string | null;
 }): ExerciseCreateDefaults => ({
-  category: set.category ?? 'compound',
+  category: set.category,
   muscleGroups: set.muscleGroups.length > 0 ? set.muscleGroups : ['full body'],
-  equipment: set.equipment ?? 'bodyweight',
+  equipment: set.equipment,
 });
 
 const mergeExerciseDefaults = (
   current: ExerciseCreateDefaults,
   incoming: ExerciseCreateDefaults,
 ): ExerciseCreateDefaults => ({
-  category: current.category === 'compound' ? incoming.category : current.category,
+  category: current.category ?? incoming.category,
   muscleGroups: Array.from(new Set([...current.muscleGroups, ...incoming.muscleGroups])),
-  equipment: current.equipment === 'bodyweight' ? incoming.equipment : current.equipment,
+  equipment: current.equipment ?? incoming.equipment,
 });
 
 const collectExerciseDefaults = (
@@ -1880,9 +1889,9 @@ export const migrateWorkoutTemplatesAndSessions = async ({
         id: exerciseId,
         userId,
         name: requirement.displayName,
-        category: requirement.defaults.category,
+        category: requirement.defaults.category ?? 'compound',
         muscleGroups: requirement.defaults.muscleGroups,
-        equipment: requirement.defaults.equipment,
+        equipment: requirement.defaults.equipment ?? 'bodyweight',
         instructions: null,
       })
       .onConflictDoNothing({
@@ -2245,25 +2254,20 @@ export const migrateFoodsDatabase = async ({
     }
 
     const usageTimestamp = new Date(`${usage.latestDate}T00:00:00.000Z`).getTime();
-    const normalizedName = normalizeLookupKey(usage.name);
-
     const updated = db
       .update(foods)
       .set({ lastUsedAt: usageTimestamp })
       .where(
         and(
           eq(foods.userId, userId),
-          or(
-            isNull(foods.lastUsedAt),
-          ),
           eq(foods.name, usage.name),
+          or(isNull(foods.lastUsedAt), lt(foods.lastUsedAt, usageTimestamp)),
         ),
       )
       .run();
 
     if (updated.changes > 0) {
       summary.lastUsedAtUpdated += updated.changes;
-      void normalizedName;
     }
   }
 
@@ -2503,81 +2507,3 @@ export const migrateDailyLogsAndBodyWeight = async ({
 
   return summary;
 };
-
-export const parseCliArgs = (args: string[]): CliOptions => {
-  let userId: string | undefined;
-  let dataRoot = DEFAULT_STATIC_DATA_ROOT;
-
-  for (let index = 0; index < args.length; index += 1) {
-    const current = args[index];
-
-    if (current === '--user') {
-      const next = args[index + 1];
-      if (!next || next.startsWith('--')) {
-        throw new Error('Missing value for --user. Usage: npx tsx src/scripts/migrate-static.ts --user <userId>');
-      }
-
-      userId = next;
-      index += 1;
-      continue;
-    }
-
-    if (current === '--source') {
-      const next = args[index + 1];
-      if (!next || next.startsWith('--')) {
-        throw new Error(
-          'Missing value for --source. Usage: npx tsx src/scripts/migrate-static.ts --user <userId> --source <path>',
-        );
-      }
-
-      dataRoot = next;
-      index += 1;
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${current}`);
-  }
-
-  if (!userId) {
-    throw new Error('Missing required --user <userId> argument.');
-  }
-
-  return {
-    userId,
-    dataRoot,
-  };
-};
-
-const runCli = async () => {
-  const options = parseCliArgs(process.argv.slice(2));
-  await migrateFoodsDatabase({
-    userId: options.userId,
-    dataRoot: options.dataRoot,
-    logger: console,
-  });
-  await migrateDailyLogsAndBodyWeight({
-    userId: options.userId,
-    dataRoot: options.dataRoot,
-    logger: console,
-  });
-  await migrateWorkoutTemplatesAndSessions({
-    userId: options.userId,
-    dataRoot: options.dataRoot,
-    logger: console,
-  });
-};
-
-const isMainModule = () => {
-  if (!process.argv[1]) {
-    return false;
-  }
-
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-};
-
-if (isMainModule()) {
-  runCli().catch((error) => {
-    console.error(`Static migration failed: ${String(error)}`);
-    process.exitCode = 1;
-  });
-}
