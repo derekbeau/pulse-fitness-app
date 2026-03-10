@@ -13,6 +13,11 @@ type SessionSetWithOptionalMetrics = SessionSet & {
 
 export function inferTrackingType(exerciseDescriptor: string): ExerciseTrackingType {
   const normalized = exerciseDescriptor.toLowerCase();
+  const hasTimePattern = /\b(?:sec|secs|second|seconds|min|mins|minute|minutes)\b/.test(normalized);
+
+  if (hasTimePattern) {
+    return 'seconds_only';
+  }
 
   if (normalized.includes('bodyweight')) {
     return 'bodyweight_reps';
@@ -67,7 +72,7 @@ export function getSetTrackingVolume(
     case 'distance':
       return distance;
     case 'cardio':
-      return seconds + distance;
+      return seconds;
     default:
       return 0;
   }

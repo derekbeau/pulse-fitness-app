@@ -385,7 +385,7 @@ function getMetricValue(
     case 'reps_seconds':
       return set.reps ?? 0;
     case 'cardio':
-      return (getSetSeconds(set) ?? 0) + (getSetDistance(set) ?? 0);
+      return getSetSeconds(set) ?? 0;
     default:
       return set.reps ?? 0;
   }
