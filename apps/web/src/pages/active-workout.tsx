@@ -35,7 +35,7 @@ import {
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { useWorkoutSession } from '@/hooks/use-workout-session';
+import { useUpdateSessionStartTime, useWorkoutSession } from '@/hooks/use-workout-session';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -93,6 +93,7 @@ export function ActiveWorkoutPage() {
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
   const updateSetMutation = useUpdateSet(sessionId);
+  const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
   const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
   const shouldLoadApiTemplate = UUID_PATTERN.test(resolvedTemplateId);
@@ -105,9 +106,8 @@ export function ActiveWorkoutPage() {
   );
   const template = apiTemplate ?? selectedMockTemplate ?? defaultTemplate;
 
-  const [fallbackStartTime] = useState(() =>
-    new Date(Date.now() - 16 * 60_000 - 23_000).toISOString(),
-  );
+  const [fallbackStartTime] = useState(() => new Date().toISOString());
+  const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
     createInitialWorkoutSetDrafts(
       template,
@@ -129,9 +129,9 @@ export function ActiveWorkoutPage() {
 
   const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
-  const startTime = activeSession
-    ? new Date(activeSession.startedAt).toISOString()
-    : fallbackStartTime;
+  const startTime =
+    startTimeOverride ??
+    (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
   const redirectToCompletedSessionNotice = useCallback(() => {
     clearStoredActiveWorkoutSessionId();
     navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
@@ -262,6 +262,8 @@ export function ActiveWorkoutPage() {
           <SessionHeader
             completedSets={session.completedSets}
             currentExercise={session.currentExercise}
+            isUpdatingStartTime={updateSessionStartTimeMutation.isPending}
+            onStartTimeChange={handleStartTimeChange}
             startTime={startTime}
             totalExercises={session.totalExercises}
             totalSets={session.totalSets}
@@ -572,6 +574,36 @@ export function ActiveWorkoutPage() {
     setRestTimer(null);
     setFocusSetId(restTimerTargetSetId);
     setRestTimerTargetSetId(null);
+  }
+
+  function handleStartTimeChange(nextStartTimeIso: string) {
+    setStartTimeOverride(nextStartTimeIso);
+    const persistedStartTime = activeSession ? new Date(activeSession.startedAt).toISOString() : null;
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    setSessionError(null);
+    updateSessionStartTimeMutation.mutate(
+      {
+        startedAt: new Date(nextStartTimeIso).getTime(),
+      },
+      {
+        onError: (error) => {
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+
+          setSessionError('Unable to update session start time. Try again.');
+          setStartTimeOverride(persistedStartTime);
+        },
+        onSuccess: (updatedSession) => {
+          setStartTimeOverride(new Date(updatedSession.startedAt).toISOString());
+        },
+      },
+    );
   }
 }
 

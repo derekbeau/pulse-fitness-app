@@ -4,7 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { useStartSession, useWorkoutSession, workoutSessionQueryKeys } from './use-workout-session';
+import {
+  useStartSession,
+  useUpdateSessionStartTime,
+  useWorkoutSession,
+  workoutSessionQueryKeys,
+} from './use-workout-session';
 
 const mockFetch = vi.fn();
 
@@ -94,5 +99,46 @@ describe('use-workout-session hooks', () => {
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
+  });
+
+  it('patches session start time and refreshes the session query', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        ...sessionResponse,
+        startedAt: 200,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateSessionStartTime('session-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        startedAt: 200,
+      });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/workout-sessions/session-1',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+
+    const patchRequest = mockFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/v1/workout-sessions/session-1' && init?.method === 'PATCH',
+    );
+
+    expect(patchRequest).toBeDefined();
+    expect(JSON.parse(String(patchRequest?.[1]?.body))).toMatchObject({
+      startedAt: 200,
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutSessionQueryKeys.detail('session-1'),
+    });
   });
 });

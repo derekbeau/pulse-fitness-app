@@ -145,6 +145,8 @@ const ensureOwnedActiveSession = async ({
   return session;
 };
 
+const isValidTimestamp = (value: number) => Number.isFinite(new Date(value).getTime());
+
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireUserAuth);
 
@@ -405,10 +407,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
+  const updateSessionById = async (
+    request: { body: unknown; params: { id: string }; userId: string },
+    reply: FastifyReply,
+  ) => {
     const parsedBody = updateWorkoutSessionInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    if (parsedBody.data.startedAt !== undefined) {
+      if (!isValidTimestamp(parsedBody.data.startedAt) || parsedBody.data.startedAt > Date.now()) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
     }
 
     const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
@@ -474,7 +485,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({
       data: session,
     });
-  });
+  };
+
+  app.put<{ Params: { id: string } }>('/:id', updateSessionById);
+  app.patch<{ Params: { id: string } }>('/:id', updateSessionById);
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const deleted = await deleteWorkoutSession(request.params.id, request.userId);

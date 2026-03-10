@@ -165,6 +165,12 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
   });
 
+  it('starts fallback elapsed time from now for unsaved sessions', () => {
+    renderActiveWorkoutPage('/workouts/active');
+
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
   it('loads API templates for UUID template ids instead of falling back to mock defaults', async () => {
     vi.useRealTimers();
 

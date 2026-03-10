@@ -1344,6 +1344,72 @@ describe('workout session routes', () => {
     });
   });
 
+  it('patches workout session startedAt and rejects invalid or future timestamps', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const now = Date.now();
+
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      startedAt: 1_000,
+    });
+
+    const validResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        startedAt: now - 60_000,
+      },
+    });
+
+    expect(validResponse.statusCode).toBe(200);
+    expect(validResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-1',
+        startedAt: now - 60_000,
+      }),
+    });
+
+    const [futureResponse, invalidResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          startedAt: now + 60_000,
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          startedAt: Number.MAX_SAFE_INTEGER,
+        },
+      }),
+    ]);
+
+    expect(futureResponse.statusCode).toBe(400);
+    expect(futureResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session payload',
+      },
+    });
+
+    expect(invalidResponse.statusCode).toBe(400);
+    expect(invalidResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session payload',
+      },
+    });
+  });
+
   it('deletes owned workout sessions, cascades set rows, and unlinks scheduled workouts', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
