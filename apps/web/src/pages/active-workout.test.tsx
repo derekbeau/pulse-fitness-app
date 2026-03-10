@@ -46,7 +46,12 @@ describe('ActiveWorkoutPage', () => {
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
     expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
 
-    fireEvent.click(within(inclineCard).getByLabelText('Complete set 3'));
+    fireEvent.change(within(inclineCard).getByLabelText('Weight for set 3'), {
+      target: { value: '40' },
+    });
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 3'), {
+      target: { value: '9' },
+    });
 
     expect(screen.getByText('Rest Timer')).toBeInTheDocument();
     expect(screen.getByText('After Incline Dumbbell Press')).toBeInTheDocument();
@@ -104,7 +109,9 @@ describe('ActiveWorkoutPage', () => {
     completeSet('Rope Triceps Pushdown', 3);
     completeSet('Couch Stretch', 1);
 
-    fireEvent.click(within(getExerciseCard('Couch Stretch')).getByLabelText('Complete set 2'));
+    fireEvent.change(within(getExerciseCard('Couch Stretch')).getByLabelText('Seconds for set 2'), {
+      target: { value: '65' },
+    });
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -240,7 +247,21 @@ function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
 }
 
 function getExerciseCard(name: string) {
-  const card = screen.getByRole('heading', { level: 3, name }).closest('[data-slot="card"]');
+  let heading = screen.queryByRole('heading', { level: 3, name });
+
+  if (!heading) {
+    for (const sectionLabel of ['Warmup', 'Main', 'Cooldown']) {
+      const sectionToggle = screen.queryByRole('button', { name: new RegExp(`^${sectionLabel}`) });
+
+      if (sectionToggle?.getAttribute('aria-expanded') === 'false') {
+        fireEvent.click(sectionToggle);
+      }
+    }
+
+    heading = screen.queryByRole('heading', { level: 3, name });
+  }
+
+  const card = heading?.closest('[data-slot="card"]');
 
   if (!card) {
     throw new Error(`Expected exercise card for ${name}.`);
@@ -250,9 +271,34 @@ function getExerciseCard(name: string) {
 }
 
 function completeSet(exerciseName: string, setNumber: number) {
-  fireEvent.click(
-    within(getExerciseCard(exerciseName)).getByLabelText(`Complete set ${setNumber}`),
-  );
+  const card = getExerciseCard(exerciseName);
+  const weightInput = within(card).queryByLabelText(`Weight for set ${setNumber}`) as
+    | HTMLInputElement
+    | null;
+
+  if (weightInput && weightInput.value === '') {
+    fireEvent.change(weightInput, {
+      target: {
+        value: '10',
+      },
+    });
+  }
+
+  const input =
+    within(card).queryByLabelText(`Reps for set ${setNumber}`) ??
+    within(card).queryByLabelText(`Seconds for set ${setNumber}`) ??
+    within(card).queryByLabelText(`Distance for set ${setNumber}`) ??
+    weightInput;
+
+  if (!input) {
+    throw new Error(`Expected a set input for ${exerciseName} set ${setNumber}.`);
+  }
+
+  fireEvent.change(input, {
+    target: {
+      value: '1',
+    },
+  });
 
   const skipButton = screen.queryByRole('button', { name: 'Skip' });
 

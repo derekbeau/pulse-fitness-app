@@ -6,7 +6,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { AlertTriangle, ArrowUpRight, ChevronDown, Check, Circle, Dot } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Check, Circle, Dot, Plus } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +19,7 @@ import { cn } from '@/lib/utils';
 
 import type {
   ActiveWorkoutExercise,
-  ActiveWorkoutLastPerformance,
   ActiveWorkoutPhaseBadge,
-  ActiveWorkoutReversePyramidTarget,
   ActiveWorkoutSessionData,
 } from '../types';
 import { getDistanceUnit } from '../lib/tracking';
@@ -343,8 +341,11 @@ function ExerciseCardItem({
   const lastPerformanceQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
   });
-  const lastPerformance = enableApiLastPerformance ? (lastPerformanceQuery.data ?? null) : exercise.lastPerformance;
+  const lastPerformance = enableApiLastPerformance
+    ? (lastPerformanceQuery.data ?? null)
+    : exercise.lastPerformance;
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
+  const isExerciseComplete = state === 'completed';
   const isExpanded =
     focusTargetExerciseId === exercise.id
       ? true
@@ -364,6 +365,7 @@ function ExerciseCardItem({
       className={cn(
         'gap-0 overflow-hidden py-0 transition-colors',
         priorityAccentClass,
+        state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
         state === 'in-progress' && 'border-primary/35 shadow-md',
       )}
     >
@@ -383,7 +385,17 @@ function ExerciseCardItem({
           <ExerciseStatusIndicator priority={exercise.priority} state={state} />
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-foreground">{exercise.name}</h3>
+              <h3
+                className={cn(
+                  'text-lg font-semibold text-foreground',
+                  isExerciseComplete && 'text-muted line-through',
+                )}
+              >
+                {exercise.name}
+              </h3>
+              {isExerciseComplete ? (
+                <Check aria-hidden="true" className="size-4 text-emerald-600" />
+              ) : null}
               <Badge
                 className={cn(
                   'border-transparent capitalize',
@@ -409,7 +421,13 @@ function ExerciseCardItem({
               ) : null}
             </div>
             <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
-            <p className="text-sm text-muted">{`Target ${exercise.prescribedReps} • Rest ${exercise.restSeconds}s`}</p>
+            <p className="text-sm text-muted">
+              {formatExerciseSubtitle({
+                exercise,
+                lastPerformance,
+                weightUnit,
+              })}
+            </p>
           </div>
         </div>
 
@@ -470,21 +488,15 @@ function ExerciseCardItem({
               >
                 Notes
               </Button>
+              <Button onClick={() => onAddSet(exercise.id)} size="xs" type="button" variant="outline">
+                <Plus aria-hidden="true" className="size-3.5" />
+                Add Set
+              </Button>
             </div>
 
             <p className="text-sm text-muted">
               {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
             </p>
-
-            {lastPerformance ? (
-              <LastPerformanceSummary
-                lastPerformance={lastPerformance}
-                currentSets={exercise.sets}
-                prescribedReps={exercise.prescribedReps}
-                trackingType={exercise.trackingType}
-                weightUnit={weightUnit}
-              />
-            ) : null}
 
             {hasInjuryCues ? (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/12 p-4 text-amber-950 dark:text-amber-100">
@@ -564,90 +576,32 @@ function ExerciseCardItem({
             </div>
           </div>
 
-          {exercise.sets.map((set, setIndex) => (
-            <SetRow
-              completed={set.completed}
-              isLast={setIndex === exercise.sets.length - 1}
-              key={set.id}
-              onAddSet={() => onAddSet(exercise.id)}
-              onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
-              ref={(element) => {
-                repsInputRefs.current[set.id] = element;
-              }}
-              reps={set.reps}
-              setNumber={set.number}
-              lastPerformance={lastPerformance?.sets.find(
-                (previousSet) => previousSet.setNumber === set.number,
-              )}
-              target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
-              trackingType={exercise.trackingType}
-              distance={set.distance}
-              weight={set.weight}
-              weightUnit={weightUnit}
-              seconds={set.seconds}
-            />
-          ))}
+          <div
+            className="grid grid-cols-2 gap-2"
+            data-slot="set-grid"
+            data-testid={`set-grid-${exercise.id}`}
+          >
+            {exercise.sets.map((set) => (
+              <SetRow
+                completed={set.completed}
+                key={set.id}
+                onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
+                ref={(element) => {
+                  repsInputRefs.current[set.id] = element;
+                }}
+                reps={set.reps}
+                setNumber={set.number}
+                trackingType={exercise.trackingType}
+                distance={set.distance}
+                weight={set.weight}
+                weightUnit={weightUnit}
+                seconds={set.seconds}
+              />
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function LastPerformanceSummary({
-  currentSets,
-  lastPerformance,
-  prescribedReps,
-  trackingType,
-  weightUnit,
-}: {
-  currentSets: ActiveWorkoutExercise['sets'];
-  lastPerformance: ActiveWorkoutLastPerformance;
-  prescribedReps: ActiveWorkoutExercise['prescribedReps'];
-  trackingType: ExerciseTrackingType;
-  weightUnit: WeightUnit;
-}) {
-  const formattedDate = new Date(`${lastPerformance.date}T12:00:00`).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-  });
-  const exceededSetNumbers = new Set(
-    currentSets
-      .filter((set) =>
-        exceedsPreviousSet(
-          set,
-          lastPerformance.sets.find((previousSet) => previousSet.setNumber === set.number) ?? null,
-          trackingType,
-        ),
-      )
-      .map((set) => set.number),
-  );
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-      <span className="font-medium">{`Last: ${formattedDate}`}</span>
-      <span aria-hidden="true">•</span>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {lastPerformance.sets.map((set, index) => (
-            <span className="inline-flex items-center gap-1" key={set.setNumber}>
-              <span>
-                {formatCompactPerformanceSetByTrackingType(
-                  trackingType,
-                  set.weight,
-                  set.reps,
-                  prescribedReps,
-                  weightUnit,
-                )}
-              {index < lastPerformance.sets.length - 1 ? ',' : ''}
-              </span>
-            {exceededSetNumbers.has(set.setNumber) ? (
-              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
-                <ArrowUpRight aria-hidden="true" className="size-3" />
-              </span>
-            ) : null}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -784,107 +738,52 @@ function formatCompactPerformanceSetByTrackingType(
   }
 }
 
-function getSetTarget(
-  reversePyramid: ActiveWorkoutReversePyramidTarget[],
-  setNumber: number,
-  prescribedReps: string,
-) {
-  const currentTarget = reversePyramid.find((target) => target.setNumber === setNumber);
+function formatExerciseSubtitle({
+  exercise,
+  lastPerformance,
+  weightUnit,
+}: {
+  exercise: ActiveWorkoutExercise;
+  lastPerformance: ActiveWorkoutExercise['lastPerformance'];
+  weightUnit: WeightUnit;
+}) {
+  const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
+  const canShowWeightLadder =
+    (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
+    exercise.reversePyramid.some((target) => target.targetWeight > 0);
+  const targetText = canShowWeightLadder
+    ? `${exercise.targetSets} × ${repTarget} | ${exercise.reversePyramid
+        .map((target) => formatWeight(target.targetWeight))
+        .join(' → ')} ${weightUnit}`
+    : `${exercise.targetSets} × ${repTarget}`;
 
-  if (!currentTarget) {
-    return null;
+  if (!lastPerformance || lastPerformance.sets.length === 0) {
+    return targetText;
   }
 
-  const previousTarget = reversePyramid.find((target) => target.setNumber === setNumber - 1);
-  const prescribedRange = parseRepRange(prescribedReps);
-  const minReps =
-    setNumber === 1 ? (prescribedRange?.min ?? currentTarget.targetReps) : currentTarget.targetReps;
-  const maxReps =
-    setNumber === 1
-      ? (prescribedRange?.max ?? currentTarget.targetReps)
-      : (previousTarget?.targetReps ?? currentTarget.targetReps);
+  const lastText = lastPerformance.sets
+    .map((set) =>
+      formatCompactPerformanceSetByTrackingType(
+        exercise.trackingType,
+        set.weight,
+        set.reps,
+        exercise.prescribedReps,
+        weightUnit,
+      ),
+    )
+    .join(', ');
 
-  return {
-    maxReps,
-    minReps,
-    weight: currentTarget.targetWeight,
-  };
+  return `${targetText} • Last: ${lastText}`;
 }
 
-function parseRepRange(prescribedReps: string) {
-  const match = prescribedReps.match(/(\d+)\s*-\s*(\d+)/);
+function parsePrescribedRepTarget(prescribedReps: string) {
+  const range = prescribedReps.match(/(\\d+\\s*-\\s*\\d+)/);
 
-  if (!match) {
-    return null;
+  if (range) {
+    return range[1].replace(/\s+/g, '');
   }
 
-  return {
-    max: Number(match[2]),
-    min: Number(match[1]),
-  };
-}
-
-function exceedsPreviousSet(
-  currentSet: ActiveWorkoutExercise['sets'][number],
-  previousSet: ActiveWorkoutLastPerformance['sets'][number] | null,
-  trackingType: ExerciseTrackingType,
-) {
-  if (!previousSet) {
-    return false;
-  }
-
-  if (trackingType === 'distance') {
-    return false;
-  }
-
-  const currentReps = currentSet.reps;
-  const previousReps = previousSet.reps;
-  const currentSeconds = currentSet.seconds ?? currentSet.reps;
-  const previousSeconds = previousSet.reps;
-
-  if (trackingType === 'seconds_only' || trackingType === 'cardio') {
-    if (currentSeconds === null) {
-      return false;
-    }
-
-    return currentSeconds > previousSeconds;
-  }
-
-  if (trackingType === 'weight_seconds') {
-    if (currentSeconds === null) {
-      return false;
-    }
-
-    if (currentSet.weight !== null && previousSet.weight !== null) {
-      return (
-        currentSet.weight > previousSet.weight ||
-        (currentSet.weight === previousSet.weight && currentSeconds > previousSeconds)
-      );
-    }
-
-    if (currentSet.weight !== null && previousSet.weight === null) {
-      return true;
-    }
-
-    return currentSeconds > previousSeconds;
-  }
-
-  if (currentReps === null) {
-    return false;
-  }
-
-  if (currentSet.weight !== null && previousSet.weight !== null) {
-    return (
-      currentSet.weight > previousSet.weight ||
-      (currentSet.weight === previousSet.weight && currentReps > previousReps)
-    );
-  }
-
-  if (currentSet.weight !== null && previousSet.weight === null) {
-    return true;
-  }
-
-  return currentReps > previousReps;
+  return prescribedReps;
 }
 
 function formatSetPrescription(prescribedReps: string, restSeconds: number) {

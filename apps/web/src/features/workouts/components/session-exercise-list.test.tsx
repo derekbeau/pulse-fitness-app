@@ -80,27 +80,15 @@ describe('SessionExerciseList', () => {
     expect(
       within(currentCard as HTMLElement).getByRole('button', { name: 'Add Set' }),
     ).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === '50x12,45x10,40x9',
-      ),
+      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 50 kg x 8-10',
-      ),
+      within(currentCard as HTMLElement).getByText(/Last: 50x12, 45x10, 40x9/i),
     ).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 45 kg x 10-12',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 40 kg x 9-10',
-      ),
-    ).toBeInTheDocument();
+    expect(within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press')).toHaveClass(
+      'grid-cols-2',
+    );
 
     fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
     expect(within(currentCard as HTMLElement).getByText('Technique')).toBeVisible();
@@ -170,22 +158,21 @@ describe('SessionExerciseList', () => {
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
-    expect(within(squatCard as HTMLElement).queryByText(/^Last:/)).not.toBeInTheDocument();
-    expect(within(squatCard as HTMLElement).queryByText(/^Target:/)).not.toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).getByText(/4 × 5-6/i)).toBeInTheDocument();
   });
 
-  it('shows a PR indicator when the current set exceeds the last performance', () => {
+  it('shows completed exercises with strike-through treatment', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
 
     const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
-    drafts['incline-dumbbell-press'][0] = {
-      ...drafts['incline-dumbbell-press'][0],
+    drafts['incline-dumbbell-press'] = drafts['incline-dumbbell-press'].map((set, index) => ({
+      ...set,
       completed: true,
-      reps: 13,
-      weight: 50,
-    };
+      reps: 13 - index,
+      weight: 50 - index * 5,
+    }));
 
     const session = buildActiveWorkoutSession(activeTemplate, drafts, {
       sessionStartedAt: '2026-03-06T12:00:00Z',
@@ -208,7 +195,12 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
-    expect(within(currentCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
+    expect(
+      within(currentCard as HTMLElement).getByRole('heading', {
+        level: 3,
+        name: 'Incline Dumbbell Press',
+      }),
+    ).toHaveClass('line-through');
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
@@ -344,17 +336,15 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Tempo Squat' })
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText('Last: Mar 2')).toBeInTheDocument();
     expect(
-      within(card as HTMLElement).getAllByText((_, element) => element?.textContent === '10 reps')
-        .length,
-    ).toBeGreaterThan(0);
+      within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold • Last: 10 reps/i),
+    ).toBeInTheDocument();
     expect(
       within(card as HTMLElement).queryByText((_, element) => element?.textContent === '10 x 10 sec'),
     ).not.toBeInTheDocument();
   });
 
-  it('shows a PR indicator for time-based sets using seconds when reps is null', () => {
+  it('renders a compact subtitle for time-based exercises', () => {
     const session: ActiveWorkoutSessionData = {
       completedSets: 1,
       currentExercise: 1,
@@ -421,6 +411,7 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Plank Hold' })
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
-    expect(within(rowErgCard as HTMLElement).getAllByText('PR').length).toBeGreaterThan(0);
+    expect(within(rowErgCard as HTMLElement).getByText(/1 × 30 sec/i)).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).getByText(/Last: 30 sec/i)).toBeInTheDocument();
   });
 });
