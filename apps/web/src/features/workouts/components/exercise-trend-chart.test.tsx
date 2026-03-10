@@ -67,4 +67,20 @@ describe('ExerciseTrendChart', () => {
       screen.getByText(/complete a few sessions for air bike to unlock progression trends/i),
     ).toBeInTheDocument();
   });
+
+  it('renders non-weight trend lines for seconds-only tracking', () => {
+    const { container } = render(
+      <ExerciseTrendChart
+        exerciseName="Couch Stretch"
+        history={[
+          { date: '2026-02-01', seconds: 45 },
+          { date: '2026-02-08', seconds: 60 },
+        ]}
+        trackingType="seconds_only"
+      />,
+    );
+
+    expect(screen.getByText('Latest duration')).toBeInTheDocument();
+    expect(container.querySelectorAll('.recharts-line .recharts-curve')).toHaveLength(1);
+  });
 });

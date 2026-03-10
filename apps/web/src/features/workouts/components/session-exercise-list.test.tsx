@@ -242,7 +242,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
 
-    const rowErgInput = within(rowErgCard as HTMLElement).getByLabelText('Reps for set 1');
+    const rowErgInput = within(rowErgCard as HTMLElement).getByLabelText('Duration for set 1');
     expect(rowErgInput).toHaveFocus();
 
     rerender(
@@ -272,7 +272,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(reopenedRowErgCard).not.toBeNull();
     expect(
-      within(reopenedRowErgCard as HTMLElement).getByLabelText('Weight for set 1'),
-    ).not.toBeVisible();
+      within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
+    ).not.toBeInTheDocument();
   });
 });

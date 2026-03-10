@@ -4,6 +4,15 @@ import { type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/sh
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import {
+  getExerciseTrackingType,
+  getMetricLabelForTrackingType,
+  getMetricSuffixForTrackingType,
+  getSessionMetricKind,
+  getSetDistance,
+  getSetSeconds,
+  getSetTrackingVolume,
+} from '../lib/tracking';
 
 type SessionComparisonProps = {
   currentSession: WorkoutSession;
@@ -26,15 +35,19 @@ type DeltaIndicatorProps = {
 };
 
 type SetComparison = {
+  currentDistance: number | null;
   currentReps: number | null;
+  currentSeconds: number | null;
   currentWeight: number | null;
   hasPr: boolean;
-  repsDelta: number;
+  metricDelta: number;
+  metricLabel: string;
   setNumber: number;
   weightDelta: number | null;
 };
 
 type ExerciseComparison = {
+  metricSuffix: string;
   previousSessionDate: string;
   setComparisons: SetComparison[];
   volumeDelta: number;
@@ -74,6 +87,8 @@ export function SessionComparison({
   const volumeDelta = currentVolume - previousVolume;
   const percentChange =
     previousVolume > 0 ? Math.round((volumeDelta / previousVolume) * 100) : null;
+  const sessionMetric = getSessionMetricKind(currentSession);
+  const sessionMetricSuffix = getSessionMetricSuffix(sessionMetric, weightUnit);
 
   return (
     <Card className="border-transparent bg-[var(--color-accent-mint)] text-on-accent dark:bg-card dark:text-foreground">
@@ -90,13 +105,13 @@ export function SessionComparison({
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             This session
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(currentVolume)} ${weightUnit}`}</p>
+          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(currentVolume)} ${sessionMetricSuffix}`}</p>
         </div>
         <div className="rounded-2xl bg-white/45 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             Previous
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(previousVolume)} ${weightUnit}`}</p>
+          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(previousVolume)} ${sessionMetricSuffix}`}</p>
         </div>
         <div className="rounded-2xl bg-white/55 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
@@ -105,7 +120,7 @@ export function SessionComparison({
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
               direction={getDirection(volumeDelta)}
-              label={`${formatSignedNumber(volumeDelta)} ${weightUnit}`}
+              label={`${formatSignedNumber(volumeDelta)} ${sessionMetricSuffix}`}
             />
             {percentChange != null ? (
               <span className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100">
@@ -125,7 +140,7 @@ export function SessionExerciseComparison({
   previousSession,
   weightUnit = 'lbs',
 }: SessionExerciseComparisonProps) {
-  const comparison = getExerciseComparison(currentSession, previousSession, exerciseId);
+  const comparison = getExerciseComparison(currentSession, previousSession, exerciseId, weightUnit);
 
   if (!comparison) {
     return null;
@@ -141,7 +156,7 @@ export function SessionExerciseComparison({
           <span className="text-muted">{`Volume vs ${comparison.previousSessionDate}`}</span>
           <DeltaIndicator
             direction={getDirection(comparison.volumeDelta)}
-            label={`${formatSignedNumber(comparison.volumeDelta)} ${weightUnit}`}
+            label={`${formatSignedNumber(comparison.volumeDelta)} ${comparison.metricSuffix}`}
           />
         </div>
       </div>
@@ -160,8 +175,8 @@ export function SessionExerciseComparison({
               />
             ) : null}
             <DeltaIndicator
-              direction={getDirection(set.repsDelta)}
-              label={`Reps ${formatSignedInteger(set.repsDelta)}`}
+              direction={getDirection(set.metricDelta)}
+              label={`${formatMetricLabel(set.metricLabel)} ${formatSignedInteger(set.metricDelta)}`}
             />
             {set.hasPr ? (
               <Badge className="border-transparent bg-[var(--color-accent-cream)] text-on-accent">
@@ -203,6 +218,7 @@ function getExerciseComparison(
   currentSession: WorkoutSession,
   previousSession: WorkoutSession | null,
   exerciseId: string,
+  weightUnit: WeightUnit,
 ) {
   if (!previousSession) {
     return null;
@@ -210,6 +226,7 @@ function getExerciseComparison(
 
   const currentSets = getSetsForExercise(currentSession, exerciseId);
   const previousSets = getSetsForExercise(previousSession, exerciseId);
+  const trackingType = getExerciseTrackingType(exerciseId);
 
   if (currentSets.length === 0 || previousSets.length === 0) {
     return null;
@@ -217,49 +234,61 @@ function getExerciseComparison(
 
   return {
     previousSessionDate: dateFormatter.format(new Date(previousSession.startedAt)),
+    metricSuffix: getMetricSuffixForTrackingType(trackingType, weightUnit),
     setComparisons: currentSets.map((set) => {
       const previousSet =
         previousSets.find((candidate) => candidate.setNumber === set.setNumber) ?? null;
+      const currentMetric = getMetricValue(set, trackingType);
+      const previousMetric = previousSet ? getMetricValue(previousSet, trackingType) : 0;
 
       return {
+        currentDistance: getSetDistance(set),
         currentReps: set.reps,
+        currentSeconds: getSetSeconds(set),
         currentWeight: set.weight ?? null,
         hasPr: isPersonalRecord(
-          set.weight ?? null,
-          set.reps ?? 0,
+          set,
+          trackingType,
           previousSet
-            ? [
-                {
-                  reps: previousSet.reps ?? 0,
-                  weight: previousSet.weight ?? null,
-                },
-              ]
+            ? [previousSet]
             : [],
         ),
-        repsDelta: previousSet ? (set.reps ?? 0) - (previousSet.reps ?? 0) : 0,
+        metricDelta: previousSet ? currentMetric - previousMetric : 0,
+        metricLabel: getSetComparisonMetricLabel(trackingType),
         setNumber: set.setNumber,
         weightDelta:
           set.weight != null && previousSet?.weight != null ? set.weight - previousSet.weight : null,
       };
     }),
-    volumeDelta: getExerciseVolumeFromSets(currentSets) - getExerciseVolumeFromSets(previousSets),
+    volumeDelta:
+      getExerciseVolumeFromSets(currentSets, trackingType) -
+      getExerciseVolumeFromSets(previousSets, trackingType),
   } satisfies ExerciseComparison;
 }
 
 function isPersonalRecord(
-  currentWeight: number | null,
-  currentReps: number,
-  previousSets: Array<{ reps: number; weight: number | null }>,
+  currentSet: SessionSet,
+  trackingType: ReturnType<typeof getExerciseTrackingType>,
+  previousSets: SessionSet[],
 ) {
   if (previousSets.length === 0) {
     return false;
   }
 
-  if (currentWeight != null) {
+  if (trackingType === 'weight_reps' || trackingType === 'weight_seconds') {
+    const currentWeight = currentSet.weight ?? null;
+    const currentReps = currentSet.reps ?? 0;
+
+    if (currentWeight == null) {
+      return false;
+    }
+
     const comparableSets = previousSets.reduce<Array<{ reps: number; weight: number }>>(
       (sets, set) => {
-        if (set.weight != null && currentReps >= set.reps) {
-          sets.push({ reps: set.reps, weight: set.weight });
+        const previousWeight = set.weight ?? null;
+        const previousReps = set.reps ?? 0;
+        if (previousWeight != null && currentReps >= previousReps) {
+          sets.push({ reps: previousReps, weight: previousWeight });
         }
 
         return sets;
@@ -272,23 +301,36 @@ function isPersonalRecord(
     }
   }
 
-  const maxPreviousReps = Math.max(0, ...previousSets.map((set) => set.reps));
+  if (trackingType === 'seconds_only' || trackingType === 'weight_seconds') {
+    const currentSeconds = getSetSeconds(currentSet) ?? 0;
+    const maxPreviousSeconds = Math.max(0, ...previousSets.map((set) => getSetSeconds(set) ?? 0));
+    return currentSeconds > maxPreviousSeconds;
+  }
+
+  if (trackingType === 'distance') {
+    const currentDistance = getSetDistance(currentSet) ?? 0;
+    const maxPreviousDistance = Math.max(0, ...previousSets.map((set) => getSetDistance(set) ?? 0));
+    return currentDistance > maxPreviousDistance;
+  }
+
+  const currentReps = currentSet.reps ?? 0;
+  const maxPreviousReps = Math.max(0, ...previousSets.map((set) => set.reps ?? 0));
 
   return currentReps > maxPreviousReps;
 }
 
 function getSessionVolume(session: WorkoutSession) {
-  return session.sets.reduce(
-    (total, set) => total + (set.weight != null && set.reps != null ? set.weight * set.reps : 0),
-    0,
-  );
+  return session.sets.reduce((total, set) => {
+    const trackingType = getExerciseTrackingType(set.exerciseId);
+    return total + getSetTrackingVolume(set, trackingType);
+  }, 0);
 }
 
-function getExerciseVolumeFromSets(sets: SessionSet[]) {
-  return sets.reduce(
-    (total, set) => total + (set.weight != null && set.reps != null ? set.weight * set.reps : 0),
-    0,
-  );
+function getExerciseVolumeFromSets(
+  sets: SessionSet[],
+  trackingType: ReturnType<typeof getExerciseTrackingType>,
+) {
+  return sets.reduce((total, set) => total + getSetTrackingVolume(set, trackingType), 0);
 }
 
 function getDirection(value: number): ComparisonDirection {
@@ -321,4 +363,58 @@ function formatSignedNumber(value: number) {
   }
 
   return `${value > 0 ? '+' : ''}${formatNumber(value)}`;
+}
+
+function getMetricValue(
+  set: SessionSet,
+  trackingType: ReturnType<typeof getExerciseTrackingType>,
+) {
+  switch (trackingType) {
+    case 'weight_reps':
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return set.reps ?? 0;
+    case 'weight_seconds':
+    case 'seconds_only':
+      return getSetSeconds(set) ?? 0;
+    case 'distance':
+      return getSetDistance(set) ?? 0;
+    case 'reps_seconds':
+      return (set.reps ?? 0) + (getSetSeconds(set) ?? 0);
+    case 'cardio':
+      return (getSetSeconds(set) ?? 0) + (getSetDistance(set) ?? 0);
+    default:
+      return set.reps ?? 0;
+  }
+}
+
+function getSetComparisonMetricLabel(trackingType: ReturnType<typeof getExerciseTrackingType>) {
+  if (trackingType === 'weight_reps' || trackingType === 'bodyweight_reps' || trackingType === 'reps_only') {
+    return 'reps';
+  }
+
+  if (trackingType === 'weight_seconds' || trackingType === 'seconds_only') {
+    return 'seconds';
+  }
+
+  return getMetricLabelForTrackingType(trackingType);
+}
+
+function formatMetricLabel(metricLabel: string) {
+  return metricLabel.charAt(0).toUpperCase() + metricLabel.slice(1);
+}
+
+function getSessionMetricSuffix(metric: string, weightUnit: WeightUnit) {
+  switch (metric) {
+    case 'volume':
+      return weightUnit;
+    case 'distance':
+      return weightUnit === 'lbs' ? 'mi' : 'm';
+    case 'reps':
+      return 'reps';
+    case 'seconds':
+      return 'seconds';
+    default:
+      return 'work';
+  }
 }

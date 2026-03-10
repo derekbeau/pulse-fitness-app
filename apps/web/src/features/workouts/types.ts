@@ -1,3 +1,4 @@
+import type { ExerciseTrackingType } from '@pulse/shared';
 import type {
   WorkoutBadgeType,
   WorkoutExerciseCategory,
@@ -9,8 +10,10 @@ import type {
 export type ActiveWorkoutSet = {
   id: string;
   completed: boolean;
+  distance: number | null;
   number: number;
   reps: number | null;
+  seconds: number | null;
   weight: number | null;
 };
 
@@ -18,7 +21,9 @@ export type ActiveWorkoutSetDrafts = Record<string, ActiveWorkoutSet[]>;
 
 export type ActiveWorkoutLastPerformanceSet = {
   completed: boolean;
+  distance?: number | null;
   reps: number;
+  seconds?: number | null;
   setNumber: number;
   weight: number | null;
 };
@@ -42,6 +47,7 @@ export type ActiveWorkoutExerciseMetadata = {
   restSeconds: number;
   reversePyramid: ActiveWorkoutReversePyramidTarget[];
   supersetGroup: string | null;
+  trackingType: ExerciseTrackingType;
 };
 
 export type ActiveWorkoutExercise = ActiveWorkoutExerciseMetadata & {
@@ -164,8 +170,10 @@ export type ActiveWorkoutCompletedSession = {
 
 export type ActiveWorkoutExerciseHistoryPoint = {
   date: string;
-  reps: number;
-  weight: number;
+  distance?: number;
+  reps?: number;
+  seconds?: number;
+  weight?: number;
 };
 
 export type ActiveWorkoutExerciseHistory = Record<string, ActiveWorkoutExerciseHistoryPoint[]>;

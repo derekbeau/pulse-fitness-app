@@ -4,6 +4,7 @@ import {
   type WorkoutTemplate,
   type WorkoutTemplateExercise,
 } from '@/lib/mock-data/workouts';
+import type { ExerciseTrackingType } from '@pulse/shared';
 
 import type {
   ActiveWorkoutEnhancedExercise,
@@ -77,6 +78,7 @@ export function buildActiveWorkoutSession(
         sets,
         supersetGroup: enhancedExercise?.supersetGroup ?? null,
         targetSets: sets.length,
+        trackingType: exercise?.trackingType ?? inferTrackingType(templateExercise.reps),
       };
     });
 
@@ -139,13 +141,19 @@ export function createWorkoutSetDraft(
   completed = false,
 ): ActiveWorkoutSet {
   const exerciseId = templateExercise.exerciseId;
+  const exerciseTrackingType = exerciseById.get(exerciseId)?.trackingType;
+  const trackingType = exerciseTrackingType ?? inferTrackingType(templateExercise.reps);
 
   return {
     id: createWorkoutSetId(exerciseId, setNumber),
     completed,
+    distance: null,
     number: setNumber,
-    reps: completed ? getInitialRepsValue(templateExercise.reps) : null,
-    weight: completed ? (sampleWeightByExerciseId.get(exerciseId) ?? null) : null,
+    reps:
+      completed && acceptsReps(trackingType) ? getInitialRepsValue(templateExercise.reps) : null,
+    seconds:
+      completed && acceptsSeconds(trackingType) ? getInitialSecondsValue(templateExercise.reps) : null,
+    weight: completed && acceptsWeight(trackingType) ? (sampleWeightByExerciseId.get(exerciseId) ?? null) : null,
   };
 }
 
@@ -153,9 +161,15 @@ function getWorkoutSets(
   templateExercise: WorkoutTemplateExercise,
   setDrafts: ActiveWorkoutSetDrafts,
 ) {
-  return [...(setDrafts[templateExercise.exerciseId] ?? [])].sort(
-    (left, right) => left.number - right.number,
-  );
+  return [...(setDrafts[templateExercise.exerciseId] ?? [])]
+    .map((set) => ({
+      ...set,
+      distance: set.distance ?? null,
+      reps: set.reps ?? null,
+      seconds: set.seconds ?? null,
+      weight: set.weight ?? null,
+    }))
+    .sort((left, right) => left.number - right.number);
 }
 
 function getLastPerformance(
@@ -194,7 +208,9 @@ function getLastPerformance(
     sessionId: previousSession.id,
     sets: exerciseLog.sets.map((set) => ({
       completed: set.completed,
+      distance: set.distance ?? null,
       reps: set.reps,
+      seconds: set.seconds ?? null,
       setNumber: set.setNumber,
       weight: set.weight ?? null,
     })),
@@ -205,6 +221,52 @@ function getInitialRepsValue(reps: string) {
   const match = reps.match(/\d+/);
 
   return match ? Number(match[0]) : null;
+}
+
+function getInitialSecondsValue(reps: string) {
+  const minuteMatch = reps.match(/(\d+)\s*min/i);
+  if (minuteMatch) {
+    return Number(minuteMatch[1]) * 60;
+  }
+
+  const secondMatch = reps.match(/(\d+)\s*sec/i);
+  if (secondMatch) {
+    return Number(secondMatch[1]);
+  }
+
+  return null;
+}
+
+function inferTrackingType(reps: string): ExerciseTrackingType {
+  const normalized = reps.toLowerCase();
+
+  if (normalized.includes('min') || normalized.includes('sec')) {
+    return 'seconds_only';
+  }
+
+  return 'weight_reps';
+}
+
+function acceptsWeight(trackingType: ExerciseTrackingType) {
+  return trackingType === 'weight_reps' || trackingType === 'weight_seconds';
+}
+
+function acceptsReps(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_reps' ||
+    trackingType === 'bodyweight_reps' ||
+    trackingType === 'reps_only' ||
+    trackingType === 'reps_seconds'
+  );
+}
+
+function acceptsSeconds(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_seconds' ||
+    trackingType === 'reps_seconds' ||
+    trackingType === 'seconds_only' ||
+    trackingType === 'cardio'
+  );
 }
 
 export function countCompletedReps(setDrafts: ActiveWorkoutSetDrafts) {

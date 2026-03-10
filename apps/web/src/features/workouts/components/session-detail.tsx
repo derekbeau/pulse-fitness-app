@@ -11,7 +11,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import type {
+  ExerciseTrackingType,
   SessionSet,
+  WeightUnit,
   WorkoutSession,
   WorkoutTemplate,
   WorkoutTemplateSectionType,
@@ -35,6 +37,13 @@ import { cn } from '@/lib/utils';
 
 import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
+import {
+  getExerciseTrackingType,
+  getSessionMetricKind,
+  getSetDistance,
+  getSetSeconds,
+  getSetTrackingVolume,
+} from '../lib/tracking';
 import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
@@ -51,6 +60,7 @@ type SessionDetailExercise = {
   notes: string | null;
   phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
   sets: SessionSet[];
+  trackingType: ExerciseTrackingType;
 };
 
 type SessionDetailSection = {
@@ -99,7 +109,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-  const { weightLabel, weightUnit } = useWeightUnit();
+  const { weightUnit } = useWeightUnit();
   const [searchParams] = useSearchParams();
   const sessionQuery = useWorkoutSession(sessionId);
   const completedSessionsQuery = useCompletedSessions();
@@ -153,7 +163,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   const sessionDate = new Date(session.startedAt);
-  const summary = getSessionSummary(session);
+  const summary = getSessionSummary(session, weightUnit);
   const sections = buildSections(session, template);
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
@@ -233,13 +243,13 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         />
         <StatCard
           icon={<Repeat2 aria-hidden="true" className="size-4" />}
-          label="Reps"
-          value={integerFormatter.format(summary.totalReps)}
+          label={summary.primaryLabel}
+          value={integerFormatter.format(summary.primaryTotal)}
         />
         <StatCard
           icon={<Scale aria-hidden="true" className="size-4" />}
-          label="Volume"
-          value={`${formatNumber(summary.totalVolume)} ${weightLabel}`}
+          label={summary.volumeLabel}
+          value={`${formatNumber(summary.totalVolume)} ${summary.volumeSuffix}`}
         />
       </div>
 
@@ -344,7 +354,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                           className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
                           key={set.id}
                         >
-                          {formatSetLabel(set, weightLabel)}
+                          {formatSetLabel(set, exercise.trackingType, weightUnit)}
                         </span>
                       ))}
                     </div>
@@ -431,13 +441,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               <DialogHeader className="px-6 pt-6">
                 <DialogTitle>{`${selectedExercise.name} trends`}</DialogTitle>
                 <DialogDescription>
-                  Review weight and rep progression for this exercise.
+                  Review progression for this exercise.
                 </DialogDescription>
               </DialogHeader>
               <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
                   history={selectedExerciseHistory}
+                  trackingType={selectedExercise.trackingType}
                   weightUnit={weightUnit}
                 />
               </div>
@@ -490,6 +501,7 @@ function buildSections(session: WorkoutSession, template?: WorkoutTemplate): Ses
         notes: sets.find((set) => set.notes)?.notes ?? null,
         phaseBadge: inferPhaseBadge(sectionType),
         sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
+        trackingType: getExerciseTrackingType(exerciseId),
       }));
 
       return {
@@ -509,27 +521,40 @@ function buildSectionSubtitle(sectionType: SessionDetailSectionType, count: numb
   return `${count} exercise${count === 1 ? '' : 's'} logged`;
 }
 
-function getSessionSummary(session: WorkoutSession) {
+function getSessionSummary(session: WorkoutSession, weightUnit: WeightUnit) {
   const exerciseIds = new Set<string>();
+  const metricKind = getSessionMetricKind(session);
+  let totalReps = 0;
+  let totalSeconds = 0;
+  let totalVolume = 0;
+  let totalSets = 0;
 
-  return session.sets.reduce(
-    (summary, set) => {
-      exerciseIds.add(set.exerciseId);
-      summary.totalSets += 1;
-      summary.totalExercises = exerciseIds.size;
+  for (const set of session.sets) {
+    const trackingType = getExerciseTrackingType(set.exerciseId);
+    exerciseIds.add(set.exerciseId);
+    totalSets += 1;
+    totalReps += set.reps ?? 0;
+    totalSeconds += getSetSeconds(set) ?? 0;
+    totalVolume += getSetTrackingVolume(set, trackingType);
+  }
 
-      if (set.reps != null) {
-        summary.totalReps += set.reps;
-      }
-
-      if (set.weight != null && set.reps != null) {
-        summary.totalVolume += set.weight * set.reps;
-      }
-
-      return summary;
-    },
-    { totalExercises: 0, totalReps: 0, totalSets: 0, totalVolume: 0 },
-  );
+  return {
+    primaryLabel: metricKind === 'seconds' ? 'Seconds' : 'Reps',
+    primaryTotal: metricKind === 'seconds' ? totalSeconds : totalReps,
+    totalExercises: exerciseIds.size,
+    totalReps,
+    totalSets,
+    totalVolume,
+    volumeLabel: metricKind === 'volume' ? 'Volume' : formatLabel(metricKind),
+    volumeSuffix:
+      metricKind === 'volume'
+        ? weightUnit
+        : metricKind === 'distance'
+          ? weightUnit === 'lbs'
+            ? 'mi'
+            : 'm'
+          : metricKind,
+  };
 }
 
 function FeedbackScore({ label, score }: { label: string; score: number }) {
@@ -563,10 +588,11 @@ function buildExerciseHistory({
   previousSession: WorkoutSession | null;
 }): ActiveWorkoutExerciseHistoryPoint[] {
   const history: ActiveWorkoutExerciseHistoryPoint[] = [];
+  const trackingType = getExerciseTrackingType(exerciseId);
 
   const previousPoint =
-    previousSession != null ? buildHistoryPoint(previousSession, exerciseId) : null;
-  const currentPoint = buildHistoryPoint(currentSession, exerciseId);
+    previousSession != null ? buildHistoryPoint(previousSession, exerciseId, trackingType) : null;
+  const currentPoint = buildHistoryPoint(currentSession, exerciseId, trackingType);
 
   if (previousPoint) {
     history.push(previousPoint);
@@ -579,22 +605,19 @@ function buildExerciseHistory({
   return history;
 }
 
-function buildHistoryPoint(session: WorkoutSession, exerciseId: string): ActiveWorkoutExerciseHistoryPoint | null {
-  const sets = session.sets.filter((set) => set.exerciseId === exerciseId && set.reps != null);
+function buildHistoryPoint(
+  session: WorkoutSession,
+  exerciseId: string,
+  trackingType: ExerciseTrackingType,
+): ActiveWorkoutExerciseHistoryPoint | null {
+  const sets = session.sets.filter((set) => set.exerciseId === exerciseId);
 
   if (sets.length === 0) {
     return null;
   }
 
   const topSet = sets.reduce<SessionSet>((best, current) => {
-    const bestWeight = best.weight ?? 0;
-    const currentWeight = current.weight ?? 0;
-
-    if (currentWeight > bestWeight) {
-      return current;
-    }
-
-    if (currentWeight === bestWeight && (current.reps ?? 0) > (best.reps ?? 0)) {
+    if (getSetTrackingVolume(current, trackingType) > getSetTrackingVolume(best, trackingType)) {
       return current;
     }
 
@@ -603,20 +626,42 @@ function buildHistoryPoint(session: WorkoutSession, exerciseId: string): ActiveW
 
   return {
     date: session.date,
-    reps: topSet.reps ?? 0,
-    weight: topSet.weight ?? 0,
+    distance: getSetDistance(topSet) ?? undefined,
+    reps: topSet.reps ?? undefined,
+    seconds: getSetSeconds(topSet) ?? undefined,
+    weight: topSet.weight ?? undefined,
   };
 }
 
-function formatSetLabel(set: SessionSet, weightLabel: string) {
+function formatSetLabel(set: SessionSet, trackingType: ExerciseTrackingType, weightUnit: WeightUnit) {
   if (set.skipped) {
     return `Set ${set.setNumber}: Skipped`;
   }
 
-  const repsLabel = set.reps != null ? `${integerFormatter.format(set.reps)} reps` : 'No reps';
-  const formattedWeight = set.weight != null ? `${formatNumber(set.weight)} ${weightLabel} × ` : '';
+  const repsValue = set.reps ?? 0;
+  const secondsValue = getSetSeconds(set) ?? 0;
+  const distanceValue = getSetDistance(set) ?? 0;
+  const distanceUnit = weightUnit === 'lbs' ? 'mi' : 'm';
 
-  return `Set ${set.setNumber}: ${formattedWeight}${repsLabel}`;
+  switch (trackingType) {
+    case 'weight_reps':
+      return `Set ${set.setNumber}: ${formatNumber(set.weight ?? 0)} ${weightUnit} × ${integerFormatter.format(repsValue)} reps`;
+    case 'weight_seconds':
+      return `Set ${set.setNumber}: ${formatNumber(set.weight ?? 0)} ${weightUnit} × ${integerFormatter.format(secondsValue)} sec`;
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return `Set ${set.setNumber}: ${integerFormatter.format(repsValue)} reps`;
+    case 'reps_seconds':
+      return `Set ${set.setNumber}: ${integerFormatter.format(repsValue)} reps × ${integerFormatter.format(secondsValue)} sec`;
+    case 'seconds_only':
+      return `Set ${set.setNumber}: ${integerFormatter.format(secondsValue)} sec`;
+    case 'distance':
+      return `Set ${set.setNumber}: ${formatNumber(distanceValue)} ${distanceUnit}`;
+    case 'cardio':
+      return `Set ${set.setNumber}: ${integerFormatter.format(secondsValue)} sec + ${formatNumber(distanceValue)} ${distanceUnit}`;
+    default:
+      return `Set ${set.setNumber}: ${integerFormatter.format(repsValue)} reps`;
+  }
 }
 
 function formatLabel(value: string) {

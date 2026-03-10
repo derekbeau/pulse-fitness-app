@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SetRow } from './set-row';
 
 describe('SetRow', () => {
-  it('renders touch-friendly inputs and reports field updates', () => {
+  it('renders weight + reps inputs for weight_reps and reports updates', () => {
     const onUpdate = vi.fn();
     const onAddSet = vi.fn();
 
@@ -14,10 +14,12 @@ describe('SetRow', () => {
         isLast
         onAddSet={onAddSet}
         onUpdate={onUpdate}
-        target={{ maxReps: 12, minReps: 8, weight: 50 }}
         reps={8}
         setNumber={3}
+        target={{ maxReps: 12, minReps: 8, weight: 50 }}
+        trackingType="weight_reps"
         weight={55}
+        weightUnit="kg"
       />,
     );
 
@@ -26,7 +28,7 @@ describe('SetRow', () => {
 
     expect(weightInput).toHaveClass('h-11');
     expect(repsInput).toHaveClass('h-11');
-    expect(screen.getByText('Target: 50 lbs x 8-12')).toBeInTheDocument();
+    expect(screen.getByText('Target: 50 kg x 8-12')).toBeInTheDocument();
 
     fireEvent.change(weightInput, { target: { value: '60' } });
     fireEvent.change(repsInput, { target: { value: '10' } });
@@ -39,27 +41,54 @@ describe('SetRow', () => {
     expect(onAddSet).toHaveBeenCalledTimes(1);
   });
 
-  it('applies completed styling and handles cleared numeric values', () => {
+  it('renders seconds-only input without weight or reps fields', () => {
     const onUpdate = vi.fn();
 
     render(
       <SetRow
         completed
         isLast={false}
-        lastPerformance={{ reps: 12, weight: 50 }}
         onUpdate={onUpdate}
-        reps={13}
+        seconds={45}
         setNumber={1}
-        weight={null}
+        trackingType="seconds_only"
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Reps for set 1'), { target: { value: '' } });
+    expect(screen.getByLabelText('Seconds for set 1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reps for set 1')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Seconds for set 1'), { target: { value: '' } });
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
-    expect(onUpdate).toHaveBeenCalledWith({ reps: null });
-    expect(screen.getByText('Last time: 50x12')).toBeInTheDocument();
+    expect(onUpdate).toHaveBeenCalledWith({ seconds: null });
+  });
+
+  it('renders cardio duration + distance and shows PR on better last performance', () => {
+    const onUpdate = vi.fn();
+
+    render(
+      <SetRow
+        completed={false}
+        distance={1.1}
+        isLast={false}
+        lastPerformance={{ distance: 1, reps: 120, weight: null }}
+        onUpdate={onUpdate}
+        seconds={120}
+        setNumber={2}
+        trackingType="cardio"
+        weightUnit="lbs"
+      />,
+    );
+
+    expect(screen.getByLabelText('Duration for set 2')).toBeInTheDocument();
+    expect(screen.getByLabelText('Distance for set 2')).toBeInTheDocument();
+    expect(screen.getByText('Last time: 120 sec + 1 mi')).toBeInTheDocument();
     expect(screen.getByText('PR')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Distance for set 2'), { target: { value: '1.3' } });
+
+    expect(onUpdate).toHaveBeenCalledWith({ distance: 1.3 });
   });
 });

@@ -781,6 +781,12 @@ function createEnhancedExercise(input: {
     sets: templateExercise?.sets ?? input.reversePyramid.length,
     supersetGroup: input.supersetGroup,
     tempo: templateExercise?.tempo ?? '2111',
+    trackingType:
+      catalogExercise?.trackingType ??
+      (templateExercise?.reps.toLowerCase().includes('min') ||
+      templateExercise?.reps.toLowerCase().includes('sec')
+        ? 'seconds_only'
+        : 'weight_reps'),
   };
 }
 

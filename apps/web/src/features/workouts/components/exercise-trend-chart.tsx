@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { type WeightUnit } from '@pulse/shared';
+import { type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
 import {
   CartesianGrid,
   Line,
@@ -20,6 +20,7 @@ type ExerciseTrendChartProps = {
   className?: string;
   exerciseName: string;
   history: ActiveWorkoutExerciseHistoryPoint[];
+  trackingType?: ExerciseTrackingType;
   weightUnit?: WeightUnit;
 };
 
@@ -55,9 +56,11 @@ export function ExerciseTrendChart({
   className,
   exerciseName,
   history,
+  trackingType = 'weight_reps',
   weightUnit = 'lbs',
 }: ExerciseTrendChartProps) {
   const [selectedRange, setSelectedRange] = useState<DateRange>('90d');
+  const seriesConfig = getSeriesConfig(trackingType, weightUnit);
 
   const chartData = useMemo(() => {
     const sortedHistory = [...history].sort((left, right) => left.date.localeCompare(right.date));
@@ -74,7 +77,7 @@ export function ExerciseTrendChart({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">{exerciseName}</CardTitle>
-            <p className="text-sm text-muted">Top-set load and reps across completed sessions.</p>
+            <p className="text-sm text-muted">Top-set trends across completed sessions.</p>
           </div>
 
           <div
@@ -113,16 +116,18 @@ export function ExerciseTrendChart({
         ) : (
           <div className="mx-auto w-full max-w-4xl space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <MetricCard
-                accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
-                label="Latest weight"
-                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} ${weightUnit}`}
-              />
-              <MetricCard
-                accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
-                label="Latest reps"
-                value={`${numberFormatter.format(chartData.at(-1)?.reps ?? 0)} reps`}
-              />
+              {seriesConfig.map((series, index) => (
+                <MetricCard
+                  accentClassName={
+                    index === 0
+                      ? 'bg-[var(--color-accent-mint)] text-on-mint'
+                      : 'bg-[var(--color-accent-cream)] text-on-cream'
+                  }
+                  key={series.key}
+                  label={`Latest ${series.label.toLowerCase()}`}
+                  value={`${numberFormatter.format(getSeriesValue(chartData.at(-1), series.key) ?? 0)} ${series.unit}`}
+                />
+              ))}
             </div>
 
             <div
@@ -144,20 +149,26 @@ export function ExerciseTrendChart({
                     axisLine={false}
                     orientation="left"
                     tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => `${numberFormatter.format(value)} ${weightUnit}`}
+                    tickFormatter={(value: number) =>
+                      `${numberFormatter.format(value)} ${seriesConfig[0]?.unit ?? ''}`.trim()
+                    }
                     tickLine={false}
-                    yAxisId="weight"
+                    yAxisId={seriesConfig[0]?.key ?? 'primary'}
                     width={56}
                   />
-                  <YAxis
-                    axisLine={false}
-                    orientation="right"
-                    tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => `${numberFormatter.format(value)}`}
-                    tickLine={false}
-                    yAxisId="reps"
-                    width={40}
-                  />
+                  {seriesConfig[1] ? (
+                    <YAxis
+                      axisLine={false}
+                      orientation="right"
+                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      tickFormatter={(value: number) =>
+                        `${numberFormatter.format(value)} ${seriesConfig[1]?.unit ?? ''}`.trim()
+                      }
+                      tickLine={false}
+                      yAxisId={seriesConfig[1].key}
+                      width={56}
+                    />
+                  ) : null}
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--color-card)',
@@ -167,12 +178,9 @@ export function ExerciseTrendChart({
                     }}
                     formatter={(value: number | undefined, name: string | undefined) => {
                       const formattedValue = numberFormatter.format(value ?? 0);
-
-                      if (name === 'weight') {
-                        return [`${formattedValue} ${weightUnit}`, 'Weight'];
-                      }
-
-                      return [`${formattedValue} reps`, 'Reps'];
+                      const matchingSeries = seriesConfig.find((series) => series.key === name);
+                      const suffix = matchingSeries?.unit ? ` ${matchingSeries.unit}` : '';
+                      return [`${formattedValue}${suffix}`, matchingSeries?.label ?? 'Value'];
                     }}
                     labelFormatter={(_label, payload) => {
                       const point = payload?.[0]?.payload as ChartDatum | undefined;
@@ -183,30 +191,25 @@ export function ExerciseTrendChart({
                     }}
                     separator=": "
                   />
-                  <Line
-                    dataKey="weight"
-                    dot={{ fill: 'var(--color-primary)', r: 4, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                    name="weight"
-                    stroke="var(--color-primary)"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={3}
-                    type="monotone"
-                    yAxisId="weight"
-                  />
-                  <Line
-                    dataKey="reps"
-                    dot={{ fill: 'var(--color-accent-cream)', r: 4, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                    name="reps"
-                    stroke="var(--color-accent-cream)"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={3}
-                    type="monotone"
-                    yAxisId="reps"
-                  />
+                  {seriesConfig.map((series, index) => (
+                    <Line
+                      dataKey={series.key}
+                      dot={{
+                        fill: index === 0 ? 'var(--color-primary)' : 'var(--color-accent-cream)',
+                        r: 4,
+                        strokeWidth: 0,
+                      }}
+                      isAnimationActive={false}
+                      key={series.key}
+                      name={series.key}
+                      stroke={index === 0 ? 'var(--color-primary)' : 'var(--color-accent-cream)'}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      type="monotone"
+                      yAxisId={series.key}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -245,4 +248,54 @@ function filterHistoryByRange(history: ActiveWorkoutExerciseHistoryPoint[], rang
   startDate.setDate(startDate.getDate() - (windowDays - 1));
 
   return history.filter((point) => new Date(`${point.date}T12:00:00`) >= startDate);
+}
+
+function getSeriesConfig(trackingType: ExerciseTrackingType, weightUnit: WeightUnit) {
+  const distanceUnit = weightUnit === 'lbs' ? 'mi' : 'm';
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return [
+        { key: 'weight', label: 'Weight', unit: weightUnit },
+        { key: 'reps', label: 'Reps', unit: 'reps' },
+      ] as const;
+    case 'weight_seconds':
+      return [
+        { key: 'weight', label: 'Weight', unit: weightUnit },
+        { key: 'seconds', label: 'Duration', unit: 'sec' },
+      ] as const;
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return [{ key: 'reps', label: 'Reps', unit: 'reps' }] as const;
+    case 'reps_seconds':
+      return [
+        { key: 'reps', label: 'Reps', unit: 'reps' },
+        { key: 'seconds', label: 'Duration', unit: 'sec' },
+      ] as const;
+    case 'seconds_only':
+      return [{ key: 'seconds', label: 'Duration', unit: 'sec' }] as const;
+    case 'distance':
+      return [{ key: 'distance', label: 'Distance', unit: distanceUnit }] as const;
+    case 'cardio':
+      return [
+        { key: 'seconds', label: 'Duration', unit: 'sec' },
+        { key: 'distance', label: 'Distance', unit: distanceUnit },
+      ] as const;
+    default:
+      return [
+        { key: 'weight', label: 'Weight', unit: weightUnit },
+        { key: 'reps', label: 'Reps', unit: 'reps' },
+      ] as const;
+  }
+}
+
+function getSeriesValue(
+  point: ActiveWorkoutExerciseHistoryPoint | undefined,
+  key: 'distance' | 'reps' | 'seconds' | 'weight',
+) {
+  if (!point) {
+    return 0;
+  }
+
+  return point[key] ?? 0;
 }

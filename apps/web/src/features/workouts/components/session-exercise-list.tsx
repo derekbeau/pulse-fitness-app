@@ -564,6 +564,7 @@ function ExerciseCardItem({
           {exercise.sets.map((set, setIndex) => (
             <SetRow
               completed={set.completed}
+              distance={set.distance}
               isLast={setIndex === exercise.sets.length - 1}
               key={set.id}
               onAddSet={() => onAddSet(exercise.id)}
@@ -572,11 +573,13 @@ function ExerciseCardItem({
                 repsInputRefs.current[set.id] = element;
               }}
               reps={set.reps}
+              seconds={set.seconds}
               setNumber={set.number}
               lastPerformance={lastPerformance?.sets.find(
                 (previousSet) => previousSet.setNumber === set.number,
               )}
               target={getSetTarget(exercise.reversePyramid, set.number, exercise.prescribedReps)}
+              trackingType={exercise.trackingType}
               weight={set.weight}
               weightUnit={weightUnit}
             />

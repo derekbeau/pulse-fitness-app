@@ -1,4 +1,5 @@
 import { addDays, startOfWeek, toDateKey } from '@/lib/date-utils';
+import type { ExerciseTrackingType } from '@pulse/shared';
 
 export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
 
@@ -34,6 +35,7 @@ export interface WorkoutExercise {
   muscleGroups: string[];
   equipment: string;
   category: WorkoutExerciseCategory;
+  trackingType?: ExerciseTrackingType;
 }
 
 export interface WorkoutTemplateExercise {
@@ -65,6 +67,8 @@ export interface WorkoutLoggedSet {
   setNumber: number;
   weight?: number;
   reps: number;
+  seconds?: number;
+  distance?: number;
   completed: boolean;
   timestamp: string;
 }
@@ -224,6 +228,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['conditioning', 'quads', 'glutes'],
     equipment: 'air bike',
     category: 'cardio',
+    trackingType: 'cardio',
   },
   {
     id: 'row-erg',
@@ -231,6 +236,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['conditioning', 'lats', 'legs'],
     equipment: 'rower',
     category: 'cardio',
+    trackingType: 'cardio',
   },
   {
     id: 'jump-rope',
@@ -238,6 +244,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['calves', 'conditioning', 'coordination'],
     equipment: 'jump rope',
     category: 'cardio',
+    trackingType: 'seconds_only',
   },
   {
     id: 'worlds-greatest-stretch',
@@ -245,6 +252,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['hips', 'hamstrings', 'thoracic spine'],
     equipment: 'bodyweight',
     category: 'mobility',
+    trackingType: 'reps_only',
   },
   {
     id: 'banded-shoulder-external-rotation',
@@ -252,6 +260,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['rotator cuff', 'rear delts'],
     equipment: 'resistance band',
     category: 'mobility',
+    trackingType: 'reps_only',
   },
   {
     id: 'couch-stretch',
@@ -259,6 +268,7 @@ export const mockExercises: WorkoutExercise[] = [
     muscleGroups: ['quads', 'hip flexors'],
     equipment: 'bench or wall',
     category: 'mobility',
+    trackingType: 'seconds_only',
   },
 ];
 

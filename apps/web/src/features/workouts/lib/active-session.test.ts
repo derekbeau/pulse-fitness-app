@@ -105,8 +105,8 @@ describe('active-session helpers', () => {
       date: '2026-03-04',
       sessionId: 'session-upper-push-latest',
       sets: [
-        { completed: true, reps: 10, setNumber: 1, weight: 22.5 },
-        { completed: true, reps: 9, setNumber: 2, weight: 22.5 },
+        { completed: true, distance: null, reps: 10, seconds: null, setNumber: 1, weight: 22.5 },
+        { completed: true, distance: null, reps: 9, seconds: null, setNumber: 2, weight: 22.5 },
       ],
     });
   });
@@ -120,16 +120,20 @@ describe('active-session helpers', () => {
     drafts['incline-dumbbell-press'] = [
       {
         completed: true,
+        distance: null,
         id: createWorkoutSetId('incline-dumbbell-press', 1),
         number: 1,
         reps: 10,
+        seconds: null,
         weight: 50,
       },
       {
         completed: false,
+        distance: null,
         id: createWorkoutSetId('incline-dumbbell-press', 2),
         number: 2,
         reps: 9,
+        seconds: null,
         weight: 50,
       },
     ];

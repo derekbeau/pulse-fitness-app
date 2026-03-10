@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import type {
+  ExerciseTrackingType,
   SessionSet,
   WorkoutSessionFeedback,
   WorkoutTemplate as ApiWorkoutTemplate,
@@ -142,6 +143,8 @@ export function ActiveWorkoutPage() {
             {
               exercise,
               section: section.type,
+              trackingType: mockExercises.find((entry) => entry.id === exercise.exerciseId)
+                ?.trackingType ?? inferTrackingTypeFromTemplateReps(exercise.reps),
             },
           ]),
         ),
@@ -397,9 +400,11 @@ export function ActiveWorkoutPage() {
                   ...currentExerciseSets,
                   {
                     completed: createdSet.completed,
+                    distance: null,
                     id: createdSet.id,
                     number: createdSet.setNumber,
                     reps: createdSet.reps,
+                    seconds: null,
                     weight: createdSet.weight,
                   },
                 ].sort((left, right) => left.number - right.number),
@@ -431,17 +436,45 @@ export function ActiveWorkoutPage() {
   function handleSetUpdate(
     exerciseId: string,
     setId: string,
-    update: { completed?: boolean; reps?: number | null; weight?: number | null },
+    update: {
+      completed?: boolean;
+      distance?: number | null;
+      reps?: number | null;
+      seconds?: number | null;
+      weight?: number | null;
+    },
   ) {
+    const templateExercise = templateExerciseById.get(exerciseId);
+    if (!templateExercise) {
+      return;
+    }
+
     const exerciseSets = setDrafts[exerciseId] ?? [];
-    const updatedSets = exerciseSets.map((set) =>
-      set.id === setId
-        ? {
-            ...set,
-            ...update,
-          }
-        : set,
-    );
+    let normalizedUpdate = update;
+    const updatedSets = exerciseSets.map((set) => {
+      if (set.id !== setId) {
+        return set;
+      }
+
+      const mergedSet = {
+        ...set,
+        ...update,
+      };
+      const nextCompleted =
+        update.completed === undefined
+          ? isSetCompletedForTrackingType(mergedSet, templateExercise.trackingType)
+          : update.completed;
+
+      normalizedUpdate = {
+        ...update,
+        completed: nextCompleted,
+      };
+
+      return {
+        ...mergedSet,
+        completed: nextCompleted,
+      };
+    });
     const nextDrafts = {
       ...setDrafts,
       [exerciseId]: updatedSets,
@@ -451,9 +484,8 @@ export function ActiveWorkoutPage() {
 
     const previousSet = exerciseSets.find((set) => set.id === setId);
     const updatedSet = updatedSets.find((set) => set.id === setId);
-    const templateExercise = templateExerciseById.get(exerciseId);
 
-    if (!previousSet || !updatedSet || !templateExercise) {
+    if (!previousSet || !updatedSet) {
       return;
     }
 
@@ -462,7 +494,7 @@ export function ActiveWorkoutPage() {
       updateSetMutation.mutate(
         {
           setId,
-          update,
+          update: getPersistedSetUpdate(normalizedUpdate),
         },
         {
           onError: (error) => {
@@ -477,7 +509,7 @@ export function ActiveWorkoutPage() {
       );
     }
 
-    if (update.completed === false) {
+    if (normalizedUpdate.completed === false) {
       setRestTimer(null);
       setRestTimerTargetSetId(null);
       setFocusSetId(null);
@@ -538,9 +570,11 @@ function createSessionSetDrafts(template: MockWorkoutTemplate, sessionSets: Sess
   for (const sessionSet of sessionSets) {
     const nextSet = {
       completed: sessionSet.completed,
+      distance: null,
       id: sessionSet.id,
       number: sessionSet.setNumber,
       reps: sessionSet.reps,
+      seconds: null,
       weight: sessionSet.weight,
     };
     const existingSets = drafts[sessionSet.exerciseId] ?? [];
@@ -559,6 +593,50 @@ function createSessionSetDrafts(template: MockWorkoutTemplate, sessionSets: Sess
   }
 
   return drafts;
+}
+
+function getPersistedSetUpdate(update: {
+  completed?: boolean;
+  distance?: number | null;
+  reps?: number | null;
+  seconds?: number | null;
+  weight?: number | null;
+}) {
+  return {
+    completed: update.completed,
+    reps: update.reps,
+    weight: update.weight,
+  };
+}
+
+function isSetCompletedForTrackingType(
+  set: {
+    distance?: number | null;
+    reps?: number | null;
+    seconds?: number | null;
+    weight?: number | null;
+  },
+  trackingType: ExerciseTrackingType,
+) {
+  switch (trackingType) {
+    case 'weight_reps':
+      return (set.weight ?? 0) > 0 && (set.reps ?? 0) > 0;
+    case 'weight_seconds':
+      return (set.weight ?? 0) > 0 && (set.seconds ?? 0) > 0;
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return (set.reps ?? 0) > 0;
+    case 'reps_seconds':
+      return (set.reps ?? 0) > 0 && (set.seconds ?? 0) > 0;
+    case 'seconds_only':
+      return (set.seconds ?? 0) > 0;
+    case 'distance':
+      return (set.distance ?? 0) > 0;
+    case 'cardio':
+      return (set.seconds ?? 0) > 0 || (set.distance ?? 0) > 0;
+    default:
+      return false;
+  }
 }
 
 function mapFeedbackDraftToSessionFeedback(draft: ActiveWorkoutFeedbackDraft): WorkoutSessionFeedback {
@@ -705,4 +783,14 @@ function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | nu
 function getDefaultExerciseBadges(exerciseId: string): MockWorkoutBadgeType[] {
   const categoryBadge = categoryBadgeByExerciseId.get(exerciseId);
   return categoryBadge ? [categoryBadge] : [];
+}
+
+function inferTrackingTypeFromTemplateReps(reps: string): ExerciseTrackingType {
+  const normalized = reps.toLowerCase();
+
+  if (normalized.includes('min') || normalized.includes('sec')) {
+    return 'seconds_only';
+  }
+
+  return 'weight_reps';
 }
