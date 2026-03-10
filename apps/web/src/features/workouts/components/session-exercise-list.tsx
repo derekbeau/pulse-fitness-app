@@ -438,7 +438,7 @@ function ExerciseCardItem({
               {exercise.tempo ? (
                 <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
               ) : null}
-              {exercise.restSeconds !== null ? (
+              {exercise.restSeconds > 0 ? (
                 <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
               ) : null}
             </div>

@@ -60,6 +60,20 @@ describe('time-estimates', () => {
     expect(seconds).toBe(120);
   });
 
+  it('parses hyphen-delimited multi-digit tempo segments correctly', () => {
+    const seconds = estimateExerciseTime(
+      makeExercise({
+        prescribedReps: '5',
+        restSeconds: 60,
+        targetSets: 2,
+        tempo: '10-1-1-0',
+      }),
+    );
+
+    // per rep: 12 sec. per set: 60 sec work + 60 sec rest, no rest after final set.
+    expect(seconds).toBe(180);
+  });
+
   it('estimates remaining time from remaining sets only', () => {
     const remainingSeconds = estimateRemainingExerciseTime(
       makeExercise({

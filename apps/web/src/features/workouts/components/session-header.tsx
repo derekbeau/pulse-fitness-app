@@ -8,6 +8,8 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
+import { formatEstimateMinutes } from '../lib/time-estimates';
+
 type SessionHeaderProps = {
   className?: string;
   completedSets: number;
@@ -40,8 +42,8 @@ export function SessionHeader({
   const [startTimeInput, setStartTimeInput] = useState(() => toTimeInputValue(startTime));
   const elapsedSeconds = getElapsedSeconds(startTime, currentTime);
   const formattedStartTime = formatStartTime(startTime);
-  const totalEstimateLabel = formatApproxMinutes(estimatedTotalSeconds);
-  const remainingEstimateLabel = formatApproxMinutes(remainingSeconds);
+  const totalEstimateLabel = formatEstimateMinutes(estimatedTotalSeconds);
+  const remainingEstimateLabel = formatEstimateMinutes(remainingSeconds);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -232,11 +234,4 @@ function toIsoStringFromTimeInput(startTime: Date | string, value: string) {
   date.setHours(hours, minutes, 0, 0);
 
   return date.toISOString();
-}
-
-function formatApproxMinutes(totalSeconds: number) {
-  const safeSeconds = Math.max(totalSeconds, 0);
-  const roundedMinutes = Math.round(safeSeconds / 60);
-
-  return `~${roundedMinutes} min`;
 }

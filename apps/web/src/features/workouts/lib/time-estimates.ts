@@ -105,11 +105,16 @@ function estimateSecondsPerRep(tempo: string | null | undefined) {
     return DEFAULT_SECONDS_PER_REP;
   }
 
-  const segments = tempo
-    .split('-')
-    .flatMap((segment) => segment.split(''))
-    .map((segment) => Number.parseInt(segment, 10))
-    .filter((segment) => Number.isFinite(segment) && segment >= 0);
+  const normalizedTempo = tempo.trim();
+  const parsedSegments = normalizedTempo.includes('-')
+    ? normalizedTempo.split('-').map((segment) => Number.parseInt(segment.trim(), 10))
+    : normalizedTempo
+        .replace(/[^0-9]/g, '')
+        .split('')
+        .map((segment) => Number.parseInt(segment, 10));
+  const segments = parsedSegments.filter(
+    (segment) => Number.isFinite(segment) && segment >= 0,
+  );
 
   if (segments.length === 0) {
     return DEFAULT_SECONDS_PER_REP;
