@@ -14,6 +14,10 @@ type FoodListResponse = {
   };
 };
 
+type UseFoodsOptions = {
+  enabled?: boolean;
+};
+
 function buildFoodsQueryString(params: FoodQueryParams) {
   const searchParams = new URLSearchParams();
 
@@ -69,10 +73,11 @@ function patchFoodListCache(
   return queries;
 }
 
-export function useFoods(params: FoodQueryParams) {
+export function useFoods(params: FoodQueryParams, options?: UseFoodsOptions) {
   return useQuery({
     queryKey: foodKeys.list(params),
     queryFn: ({ signal }) => fetchFoods(params, signal),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }

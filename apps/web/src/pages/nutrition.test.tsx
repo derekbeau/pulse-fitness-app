@@ -355,7 +355,7 @@ describe('NutritionPage', () => {
     expect(screen.getByText('Friday, Mar 6')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to next day' })).toBeDisabled();
     expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Log Meal' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Go to today' })).not.toBeInTheDocument();
     expect(within(dailyTotals).getByText(/\/ 2300 cal/)).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/nutrition/2026-03-06', expect.any(Object));
@@ -363,6 +363,41 @@ describe('NutritionPage', () => {
       '/api/v1/nutrition/2026-03-06/summary',
       expect.any(Object),
     );
+  });
+
+  it('shows date-aware empty-state copy and go-to-today action on non-today dates', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No meals logged for this day' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Go to today' })).not.toBeInTheDocument();
   });
 
   it('renders previous day meals from API in breakfast, lunch, dinner, snacks order', async () => {

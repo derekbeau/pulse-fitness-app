@@ -15,6 +15,7 @@ import {
   formatCalories,
   formatDayLabel,
   formatGrams,
+  isSameDay,
   sortMeals,
   startOfDay,
   type MacroTotals,
@@ -70,6 +71,7 @@ export function NutritionPage() {
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
   const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
+  const isSelectedDateToday = isSameDay(selectedDate, new Date());
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
@@ -211,13 +213,17 @@ export function NutritionPage() {
               ))
             ) : (
               <EmptyState
-                action={{
-                  label: 'Log Meal',
-                  onClick: () => setSelectedDate(startOfDay(new Date())),
-                }}
+                action={
+                  isSelectedDateToday
+                    ? undefined
+                    : {
+                        label: 'Go to today',
+                        onClick: () => setSelectedDate(startOfDay(new Date())),
+                      }
+                }
                 description="Ask your agent to log a meal."
                 icon={UtensilsCrossed}
-                title="No meals logged today"
+                title={isSelectedDateToday ? 'No meals logged today' : 'No meals logged for this day'}
               />
             )}
           </div>

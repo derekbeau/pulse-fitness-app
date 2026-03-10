@@ -34,7 +34,7 @@ export function FoodsPage() {
           title="Your food database is empty"
         />
       ) : (
-        <FoodList />
+        <FoodList foodsQuery={foodsQuery} />
       )}
     </section>
   );

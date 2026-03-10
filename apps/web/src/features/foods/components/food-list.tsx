@@ -30,6 +30,7 @@ import { accentCardStyles } from '@/lib/accent-card-styles';
 type FoodListProps = {
   now?: Date;
   pageSize?: number;
+  foodsQuery?: ReturnType<typeof useFoods>;
 };
 
 type PendingDeleteFood = Pick<Food, 'id' | 'name'>;
@@ -37,6 +38,8 @@ type PendingDeleteFood = Pick<Food, 'id' | 'name'>;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_PAGE_SIZE = 12;
+const DEFAULT_PAGE = 1;
+const DEFAULT_SORT_BY: FoodSort = 'recent';
 
 const SORT_OPTIONS: Array<{ label: string; value: FoodSort }> = [
   { label: 'Alphabetical', value: 'name' },
@@ -82,11 +85,15 @@ function formatServing(food: Food) {
   return 'Not provided';
 }
 
-export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: FoodListProps) {
+export function FoodList({
+  now = new Date(),
+  pageSize = DEFAULT_PAGE_SIZE,
+  foodsQuery: pageFoodsQuery,
+}: FoodListProps) {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>('recent');
-  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
+  const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -103,12 +110,22 @@ export function FoodList({ now = new Date(), pageSize = DEFAULT_PAGE_SIZE }: Foo
     };
   }, [searchInput]);
 
-  const foodsQuery = useFoods({
-    q: debouncedSearchQuery || undefined,
-    sort: sortBy,
-    page,
-    limit: pageSize,
-  });
+  const shouldUsePageFoodsQuery =
+    pageFoodsQuery !== undefined &&
+    debouncedSearchQuery.length === 0 &&
+    sortBy === DEFAULT_SORT_BY &&
+    page === DEFAULT_PAGE &&
+    pageSize === DEFAULT_PAGE_SIZE;
+  const fallbackFoodsQuery = useFoods(
+    {
+      q: debouncedSearchQuery || undefined,
+      sort: sortBy,
+      page,
+      limit: pageSize,
+    },
+    { enabled: !shouldUsePageFoodsQuery },
+  );
+  const foodsQuery = shouldUsePageFoodsQuery ? pageFoodsQuery : fallbackFoodsQuery;
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 

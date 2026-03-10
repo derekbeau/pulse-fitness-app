@@ -81,7 +81,7 @@ describe('FoodsPage', () => {
   });
 
   it('renders the foods list when food data exists', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const rawUrl =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       const url = new URL(rawUrl, 'https://pulse.test');
@@ -112,5 +112,6 @@ describe('FoodsPage', () => {
 
     expect(await screen.findByText('Search your foods database')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Your food database is empty' })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
