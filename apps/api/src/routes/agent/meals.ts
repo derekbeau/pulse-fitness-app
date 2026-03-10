@@ -5,12 +5,13 @@ import { sendError } from '../../lib/reply.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
 import { createMealForDate } from '../nutrition/store.js';
 
+import { isValidDate } from './date-utils.js';
 import { findFoodByName } from './store.js';
 
 export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
     const parsed = agentCreateMealInputSchema.safeParse(request.body);
-    if (!parsed.success) {
+    if (!parsed.success || !isValidDate(parsed.data.date)) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
     }
 

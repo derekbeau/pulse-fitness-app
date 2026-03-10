@@ -264,5 +264,32 @@ describe('agent meals routes', () => {
         await app.close();
       }
     });
+
+    it('returns 400 for impossible calendar dates', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-02-30',
+            items: [{ foodName: 'Chicken Breast', quantity: 1 }],
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid meal payload' },
+        });
+      } finally {
+        await app.close();
+      }
+    });
   });
 });

@@ -478,6 +478,197 @@ describe('agent workouts routes', () => {
       }
     });
 
+    it('preserves exercise ordering from the existing session when merging sets', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          feedback: null,
+          notes: null,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'exercise-z',
+              setNumber: 1,
+              weight: 100,
+              reps: 8,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 1,
+            },
+            {
+              id: 'set-2',
+              exerciseId: 'exercise-z',
+              setNumber: 2,
+              weight: 100,
+              reps: 8,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 2,
+            },
+            {
+              id: 'set-3',
+              exerciseId: 'exercise-a',
+              setNumber: 1,
+              weight: 50,
+              reps: 12,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 3,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(findVisibleExerciseByName)
+          .mockResolvedValueOnce({
+            id: 'exercise-z',
+            userId: 'user-1',
+            name: 'Bench Press',
+            category: 'compound',
+            muscleGroups: ['Chest'],
+            equipment: 'Barbell',
+            instructions: null,
+            createdAt: 1,
+            updatedAt: 1,
+          })
+          .mockResolvedValueOnce(undefined);
+
+        vi.mocked(createExercise).mockResolvedValue({
+          id: 'exercise-b',
+          userId: 'user-1',
+          name: 'Squat',
+          category: 'compound',
+          muscleGroups: ['Full Body'],
+          equipment: 'Bodyweight',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutSession).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            sets: [
+              { exerciseName: 'Bench Press', setNumber: 2, weight: 105, reps: 7 },
+              { exerciseName: 'Squat', setNumber: 1, weight: 225, reps: 5 },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        const updateCall = vi.mocked(updateWorkoutSession).mock.calls.at(0);
+        const setKeys = updateCall?.[0].input.sets.map((set) => `${set.exerciseId}:${set.setNumber}`);
+        expect(setKeys).toEqual([
+          'exercise-z:1',
+          'exercise-z:2',
+          'exercise-a:1',
+          'exercise-b:1',
+        ]);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('refreshes completedAt when a completed session is patched as completed again', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'completed',
+          startedAt,
+          completedAt: startedAt - 10_000,
+          duration: 10_000,
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutSession).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'completed',
+          startedAt,
+          completedAt: startedAt,
+          duration: 0,
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            status: 'completed',
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        const updateCall = vi.mocked(updateWorkoutSession).mock.calls.at(0);
+        expect(updateCall?.[0].input.completedAt).toBe(startedAt);
+        expect(updateCall?.[0].input.duration).toBe(0);
+      } finally {
+        await app.close();
+      }
+    });
+
     it('returns 404 when the session does not exist', async () => {
       const app = buildServer();
 

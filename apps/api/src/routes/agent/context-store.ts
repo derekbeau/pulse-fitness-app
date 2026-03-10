@@ -347,6 +347,7 @@ export const listAgentContextHabits = async (
         eq(habitEntries.userId, userId),
         eq(habitEntries.completed, true),
         inArray(habitEntries.habitId, habitIds),
+        gte(habitEntries.date, shiftDate(today, -365)),
       ),
     )
     .all();

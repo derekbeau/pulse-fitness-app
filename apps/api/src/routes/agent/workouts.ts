@@ -96,6 +96,8 @@ const buildTemplateSections = async ({
     WorkoutTemplateSectionType,
     CreateWorkoutTemplateInput['sections'][number]['exercises']
   >();
+  // Intentionally merge repeated agent sections that map to the same canonical type.
+  // The template model stores a single section per type (`warmup`/`main`/`cooldown`).
   groupedByType.set('warmup', []);
   groupedByType.set('main', []);
   groupedByType.set('cooldown', []);
@@ -331,12 +333,21 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       const setMap = new Map(
         merged.sets.map((set) => [`${set.exerciseId}:${set.setNumber}`, { ...set }]),
       );
+      const exerciseOrder = new Map<string, number>();
+      for (const set of merged.sets) {
+        if (!exerciseOrder.has(set.exerciseId)) {
+          exerciseOrder.set(set.exerciseId, exerciseOrder.size);
+        }
+      }
 
       for (const set of parsed.data.sets) {
         const exerciseId = await resolveExerciseIdByName({
           name: set.exerciseName,
           userId: request.userId,
         });
+        if (!exerciseOrder.has(exerciseId)) {
+          exerciseOrder.set(exerciseId, exerciseOrder.size);
+        }
 
         const key = `${exerciseId}:${set.setNumber}`;
         const previous = setMap.get(key);
@@ -365,10 +376,11 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       merged.sets = Array.from(setMap.values()).sort((left, right) => {
-        if (left.exerciseId !== right.exerciseId) {
-          return left.exerciseId.localeCompare(right.exerciseId);
+        const leftOrder = exerciseOrder.get(left.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = exerciseOrder.get(right.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
         }
-
         return left.setNumber - right.setNumber;
       });
     }
@@ -377,7 +389,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       merged.status = parsed.data.status;
 
       if (parsed.data.status === 'completed') {
-        const completedAt = merged.completedAt ?? Date.now();
+        const completedAt = Date.now();
         merged.completedAt = completedAt;
         merged.duration = Math.max(0, completedAt - merged.startedAt);
       } else {

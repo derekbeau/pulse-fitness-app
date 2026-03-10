@@ -9,14 +9,8 @@ export const isValidDate = (date: string) => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
 };
 
-const padDatePart = (value: number) => String(value).padStart(2, '0');
-
 export const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = padDatePart(now.getMonth() + 1);
-  const day = padDatePart(now.getDate());
-  return `${year}-${month}-${day}`;
+  return new Date().toISOString().slice(0, 10);
 };
 
 // Interpret YYYY-MM-DD input as UTC midnight to keep calendar-day math timezone-safe.
