@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { dateSchema } from './common.js';
 import { exerciseCategorySchema } from './exercises.js';
 import { workoutSessionStatusSchema } from './workout-sessions.js';
 
@@ -127,6 +128,26 @@ export const agentExerciseSearchParamsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
+export const agentCreateWeightInputSchema = z.object({
+  date: dateSchema,
+  weight: z.number().positive().finite().max(1_500),
+  notes: z.string().trim().max(2_000).optional(),
+});
+
+export const agentUpdateHabitEntryInputSchema = z
+  .object({
+    date: dateSchema,
+    completed: z.boolean().optional(),
+    value: z.number().finite().optional(),
+  })
+  .refine((value) => value.completed !== undefined || value.value !== undefined, {
+    message: 'At least one habit entry field must be provided',
+  });
+
+export const agentNutritionSummaryParamsSchema = z.object({
+  date: dateSchema,
+});
+
 export type AgentFoodSearchParams = z.infer<typeof agentFoodSearchParamsSchema>;
 export type AgentFoodResult = z.infer<typeof agentFoodResultSchema>;
 export type AgentCreateFoodInput = z.infer<typeof agentCreateFoodInputSchema>;
@@ -145,3 +166,6 @@ export type AgentWorkoutSetUpsertInput = z.infer<typeof agentWorkoutSetUpsertInp
 export type AgentUpdateWorkoutSessionInput = z.infer<typeof agentUpdateWorkoutSessionInputSchema>;
 export type AgentCreateExerciseInput = z.infer<typeof agentCreateExerciseInputSchema>;
 export type AgentExerciseSearchParams = z.infer<typeof agentExerciseSearchParamsSchema>;
+export type AgentCreateWeightInput = z.infer<typeof agentCreateWeightInputSchema>;
+export type AgentUpdateHabitEntryInput = z.infer<typeof agentUpdateHabitEntryInputSchema>;
+export type AgentNutritionSummaryParams = z.infer<typeof agentNutritionSummaryParamsSchema>;
