@@ -1,41 +1,28 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, PencilLine, Plus, Trash2 } from 'lucide-react';
-import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
+import type { Habit } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  useCreateHabit,
-  useDeleteHabit,
-  useHabits,
-  useReorderHabits,
-  useUpdateHabit,
-} from '@/features/habits/api/habits';
+import { useDeleteHabit, useHabits, useReorderHabits } from '@/features/habits/api/habits';
 import { trackingSurfaceClasses, trackingTypeLabels } from '@/features/habits/lib/habit-constants';
-import type { HabitConfig, HabitConfigDraft } from '@/features/habits/types';
 import { cn } from '@/lib/utils';
 
-import { HabitForm } from './habit-form';
+import { HabitFormDialog } from './habit-form-dialog';
 
-type HabitEditorState =
-  | {
-      mode: 'create';
-    }
-  | {
-      habitId: string;
-      mode: 'edit';
-    }
-  | null;
-
-function describeHabit(habit: HabitConfig) {
+function describeHabit(habit: Habit) {
   if (habit.trackingType === 'boolean') {
     return 'Check off once per day';
+  }
+
+  if (habit.target == null || habit.unit == null) {
+    return 'Track progress daily';
   }
 
   return `${habit.target} ${habit.unit} target`;
 }
 
-function moveHabit(list: HabitConfig[], fromIndex: number, toIndex: number) {
+function moveHabit(list: Habit[], fromIndex: number, toIndex: number) {
   const nextList = [...list];
   const [habit] = nextList.splice(fromIndex, 1);
 
@@ -44,69 +31,23 @@ function moveHabit(list: HabitConfig[], fromIndex: number, toIndex: number) {
   return nextList;
 }
 
-function toHabitConfig(habit: Habit): HabitConfig {
-  return {
-    id: habit.id,
-    name: habit.name,
-    emoji: habit.emoji ?? '•',
-    trackingType: habit.trackingType,
-    target: habit.target,
-    unit: habit.unit,
-  };
-}
-
-function toCreateHabitInput(values: HabitConfigDraft): CreateHabitInput {
-  return {
-    emoji: values.emoji,
-    name: values.name,
-    target: values.target,
-    trackingType: values.trackingType,
-    unit: values.unit,
-  };
-}
-
-function toUpdateHabitInput(values: HabitConfigDraft): UpdateHabitInput {
-  return {
-    emoji: values.emoji,
-    name: values.name,
-    target: values.target,
-    trackingType: values.trackingType,
-    unit: values.unit,
-  };
-}
-
 export function HabitSettings() {
-  const [editorState, setEditorState] = useState<HabitEditorState>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
   const habitsQuery = useHabits();
-  const createHabitMutation = useCreateHabit();
-  const updateHabitMutation = useUpdateHabit();
   const deleteHabitMutation = useDeleteHabit();
   const reorderHabitsMutation = useReorderHabits();
 
-  const habits = (habitsQuery.data ?? []).map(toHabitConfig);
-  const editingHabit =
-    editorState?.mode === 'edit'
-      ? (habits.find((habit) => habit.id === editorState.habitId) ?? null)
-      : null;
+  const habits = habitsQuery.data ?? [];
+  const editingHabit = editingHabitId ? habits.find((habit) => habit.id === editingHabitId) : null;
 
-  async function handleSave(values: HabitConfigDraft) {
-    setErrorMessage('');
+  function handleFormDialogChange(open: boolean) {
+    setIsFormDialogOpen(open);
 
-    try {
-      if (editorState?.mode === 'edit') {
-        await updateHabitMutation.mutateAsync({
-          id: editorState.habitId,
-          values: toUpdateHabitInput(values),
-        });
-      } else {
-        await createHabitMutation.mutateAsync(toCreateHabitInput(values));
-      }
-
-      setEditorState(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Habit changes could not be saved.');
+    if (!open) {
+      setEditingHabitId(null);
     }
   }
 
@@ -127,9 +68,11 @@ export function HabitSettings() {
 
     try {
       await deleteHabitMutation.mutateAsync({ id: habitId });
-      setEditorState((currentState) =>
-        currentState?.mode === 'edit' && currentState.habitId === habitId ? null : currentState,
-      );
+
+      if (editingHabitId === habitId) {
+        setEditingHabitId(null);
+        setIsFormDialogOpen(false);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Habit changes could not be saved.');
     }
@@ -164,7 +107,7 @@ export function HabitSettings() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
+    <>
       <Card className="gap-5 border-border/70 shadow-sm">
         <CardHeader className="gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -178,7 +121,10 @@ export function HabitSettings() {
             </div>
             <Button
               className="self-start"
-              onClick={() => setEditorState({ mode: 'create' })}
+              onClick={() => {
+                setEditingHabitId(null);
+                setIsFormDialogOpen(true);
+              }}
               type="button"
             >
               <Plus />
@@ -221,7 +167,7 @@ export function HabitSettings() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <span aria-hidden="true" className="text-3xl leading-none">
-                            {habit.emoji}
+                            {habit.emoji ?? '•'}
                           </span>
                           <div className="space-y-1">
                             <h3 className="text-lg font-semibold">{habit.name}</h3>
@@ -256,7 +202,10 @@ export function HabitSettings() {
                         </Button>
                         <Button
                           aria-label={`Edit ${habit.name}`}
-                          onClick={() => setEditorState({ habitId: habit.id, mode: 'edit' })}
+                          onClick={() => {
+                            setEditingHabitId(habit.id);
+                            setIsFormDialogOpen(true);
+                          }}
                           size="sm"
                           type="button"
                           variant="secondary"
@@ -281,47 +230,33 @@ export function HabitSettings() {
               ))}
             </ul>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
-              <p className="text-base font-medium text-foreground">No habits configured yet.</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Add your first habit to start shaping the dashboard streak view.
-              </p>
+            <div className="space-y-4 rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+              <div>
+                <p className="text-base font-medium text-foreground">No habits configured yet.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Add your first habit to start shaping the dashboard streak view.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setEditingHabitId(null);
+                  setIsFormDialogOpen(true);
+                }}
+                type="button"
+              >
+                <Plus />
+                Add habit
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {editorState ? (
-        <HabitForm
-          key={editorState.mode === 'edit' ? editorState.habitId : 'create'}
-          initialHabit={editingHabit}
-          onCancel={() => setEditorState(null)}
-          onSave={(values) => void handleSave(values)}
-        />
-      ) : (
-        <Card className="gap-4 border-dashed border-border/80 shadow-sm">
-          <CardHeader className="gap-2">
-            <CardTitle className="text-xl font-semibold text-foreground">Editor</CardTitle>
-            <CardDescription>
-              Choose a habit to edit or start a new one. Target and unit fields appear only for
-              numeric and time-based habits.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <div className="rounded-2xl bg-muted/40 p-4">
-              <p className="font-medium text-foreground">Configuration tips</p>
-              <p className="mt-2">
-                Use boolean habits for yes/no routines like supplements, and numeric or time habits
-                for measurable goals like water, reading, or sleep.
-              </p>
-            </div>
-            <Button onClick={() => setEditorState({ mode: 'create' })} type="button">
-              <Plus />
-              Add habit
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+      <HabitFormDialog
+        habit={editingHabit ?? undefined}
+        onOpenChange={handleFormDialogChange}
+        open={isFormDialogOpen}
+      />
+    </>
   );
 }

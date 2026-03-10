@@ -69,12 +69,15 @@ const habits: Habit[] = [
 
 function createMutationMock() {
   return {
+    isPending: false,
     mutateAsync: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 describe('HabitSettings', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+
     mockedUseHabits.mockReturnValue({
       data: habits,
       error: null,
@@ -116,13 +119,7 @@ describe('HabitSettings', () => {
 
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
-
-    if (!addHabitButton) {
-      throw new Error('Expected add habit button.');
-    }
-
-    fireEvent.click(addHabitButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Add habit' }));
     fireEvent.change(screen.getByLabelText('Habit name'), { target: { value: 'Stretch' } });
     fireEvent.change(screen.getByLabelText('Tracking type'), { target: { value: 'numeric' } });
     fireEvent.change(screen.getByLabelText('Target'), { target: { value: '15' } });
@@ -143,7 +140,7 @@ describe('HabitSettings', () => {
     );
   });
 
-  it('pre-fills habit data when editing and calls the update mutation', async () => {
+  it('opens edit mode with pre-filled habit values and submits update', async () => {
     const updateMutation = createMutationMock();
     mockedUseUpdateHabit.mockReturnValue(
       updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
@@ -216,37 +213,24 @@ describe('HabitSettings', () => {
     );
   });
 
-  it('shows target and unit fields for boolean habits in a disabled state', () => {
+  it('hides target and unit fields for boolean habits', () => {
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
-
-    if (!addHabitButton) {
-      throw new Error('Expected add habit button.');
-    }
-
-    fireEvent.click(addHabitButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Add habit' }));
 
     expect(screen.getByLabelText('Tracking type')).toHaveValue('boolean');
-    expect(screen.getByLabelText('Target')).toBeDisabled();
-    expect(screen.getByLabelText('Unit')).toBeDisabled();
+    expect(screen.queryByLabelText('Target')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Unit')).not.toBeInTheDocument();
   });
 
-  it('closes the form when cancel is pressed', () => {
+  it('closes the dialog when cancel is pressed', () => {
     render(<HabitSettings />);
 
-    const addHabitButton = screen.getAllByRole('button', { name: 'Add habit' })[0];
-
-    if (!addHabitButton) {
-      throw new Error('Expected add habit button.');
-    }
-
-    fireEvent.click(addHabitButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Add habit' }));
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
-    expect(screen.getByText('Configuration tips')).toBeInTheDocument();
   });
 });
