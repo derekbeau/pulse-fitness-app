@@ -400,6 +400,47 @@ const writeFixtureData = () => {
     }),
     'utf8',
   );
+
+  writeFileSync(
+    join(dataRoot, 'foods.json'),
+    JSON.stringify([
+      {
+        name: 'Greek Yogurt',
+        brand: 'Fage',
+        servingSize: '3/4 cup',
+        servingGrams: 170,
+        calories: 130,
+        protein: 18,
+        carbs: 7,
+        fat: 0,
+        fiber: 0,
+        sugar: 5,
+        verified: true,
+        source: 'manual',
+        notes: 'Plain 0%',
+      },
+      {
+        name: 'Oat Bran',
+        brand: null,
+        servingSize: '1/4 cup dry',
+        calories: 150,
+        protein: 7,
+        carbohydrates: 27,
+        fat: 3,
+        verified: false,
+        source: 'USDA',
+      },
+      {
+        name: 'Large Eggs',
+        brand: null,
+        calories: 140,
+        protein: 12,
+        carbs: 1,
+        fat: 10,
+      },
+    ]),
+    'utf8',
+  );
 };
 
 describe('migrate-static script', () => {
@@ -701,6 +742,95 @@ describe('migrate-static script', () => {
     };
 
     expect(secondPassCounts).toEqual(firstPassCounts);
+  });
+
+  it('migrates foods from foods.json, skipping duplicates and backfilling lastUsedAt', async () => {
+    const captured = buildLogger();
+
+    const summary = await scriptModule.migrateFoodsDatabase({
+      userId: 'user-1',
+      dataRoot,
+      logger: captured.logger,
+    });
+
+    // Greek Yogurt and Oat Bran are new; Large Eggs already seeded → skipped
+    expect(summary.inserted).toBe(2);
+    expect(summary.skipped).toBe(1);
+    expect(captured.warnMessages).toEqual([]);
+
+    const allFoods = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all();
+    expect(allFoods).toHaveLength(4); // 2 seeded + 2 inserted
+
+    const yogurt = dbModule.db
+      .select({ brand: foods.brand, protein: foods.protein, verified: foods.verified, source: foods.source })
+      .from(foods)
+      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Greek Yogurt')))
+      .limit(1)
+      .get();
+
+    expect(yogurt).toEqual({ brand: 'Fage', protein: 18, verified: true, source: 'manual' });
+
+    const oatBran = dbModule.db
+      .select({ carbs: foods.carbs, verified: foods.verified, source: foods.source })
+      .from(foods)
+      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Oat Bran')))
+      .limit(1)
+      .get();
+
+    expect(oatBran).toEqual({ carbs: 27, verified: false, source: 'USDA' });
+  });
+
+  it('skips foods.json gracefully when file is missing', async () => {
+    const captured = buildLogger();
+
+    const summary = await scriptModule.migrateFoodsDatabase({
+      userId: 'user-1',
+      dataRoot: '/nonexistent/path',
+      logger: captured.logger,
+    });
+
+    expect(summary).toEqual({ inserted: 0, skipped: 0, lastUsedAtUpdated: 0 });
+    expect(captured.warnMessages.some((m) => m.includes('not found or unreadable'))).toBe(true);
+  });
+
+  it('backfills lastUsedAt from meal_items after daily logs are migrated', async () => {
+    // First migrate foods (new: Greek Yogurt, Oat Bran; seeded: Large Eggs, Chicken Breast)
+    await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
+
+    // Then migrate daily logs (which inserts meal_items referencing "Large Eggs")
+    await scriptModule.migrateDailyLogsAndBodyWeight({ userId: 'user-1', dataRoot });
+
+    // Re-run foods migration to trigger lastUsedAt backfill
+    const captured = buildLogger();
+    const summary2 = await scriptModule.migrateFoodsDatabase({
+      userId: 'user-1',
+      dataRoot,
+      logger: captured.logger,
+    });
+
+    // All foods skipped on second run (already exist)
+    expect(summary2.inserted).toBe(0);
+    expect(summary2.skipped).toBe(3);
+
+    // lastUsedAt should be set on Large Eggs (used in daily logs)
+    const eggs = dbModule.db
+      .select({ lastUsedAt: foods.lastUsedAt })
+      .from(foods)
+      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Large Eggs')))
+      .limit(1)
+      .get();
+
+    expect(eggs?.lastUsedAt).not.toBeNull();
+  });
+
+  it('is idempotent for foods migration when re-run', async () => {
+    await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
+    const firstCount = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all().length;
+
+    await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
+    const secondCount = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all().length;
+
+    expect(secondCount).toBe(firstCount);
   });
 
   it('parses CLI arguments and enforces required userId', () => {

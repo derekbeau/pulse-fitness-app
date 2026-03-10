@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, isNull, max, or } from 'drizzle-orm';
 
 import {
   bodyWeight,
@@ -68,6 +68,12 @@ export type WorkoutMigrationSummary = {
   totalTemplateExercises: number;
   totalSessionSets: number;
   createdExercises: number;
+};
+
+export type FoodsMigrationSummary = {
+  inserted: number;
+  skipped: number;
+  lastUsedAtUpdated: number;
 };
 
 export type CliOptions = {
@@ -2086,6 +2092,188 @@ export const migrateWorkoutTemplatesAndSessions = async ({
   return summary;
 };
 
+export const migrateFoodsDatabase = async ({
+  userId,
+  dataRoot = DEFAULT_STATIC_DATA_ROOT,
+  logger = console,
+}: MigrationOptions): Promise<FoodsMigrationSummary> => {
+  const resolvedDataRoot = resolve(dataRoot);
+  const foodsFilePath = join(resolvedDataRoot, 'foods.json');
+
+  let rawContent: string;
+  try {
+    rawContent = await readFile(foodsFilePath, 'utf8');
+  } catch (error) {
+    logger.warn(`Foods file not found or unreadable at ${foodsFilePath}: ${String(error)}`);
+    return { inserted: 0, skipped: 0, lastUsedAtUpdated: 0 };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch (error) {
+    logger.warn(`Failed to parse foods.json: ${String(error)}`);
+    return { inserted: 0, skipped: 0, lastUsedAtUpdated: 0 };
+  }
+
+  const foodEntries: Record<string, unknown>[] = [];
+
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      if (isRecord(item)) {
+        foodEntries.push(item);
+      }
+    }
+  } else if (isRecord(parsed)) {
+    const items =
+      getNestedField(parsed, 'foods') ??
+      getNestedField(parsed, 'items') ??
+      getNestedField(parsed, 'data');
+
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (isRecord(item)) {
+          foodEntries.push(item);
+        }
+      }
+    } else {
+      for (const value of Object.values(parsed)) {
+        if (isRecord(value)) {
+          foodEntries.push(value);
+        }
+      }
+    }
+  }
+
+  const { db } = await import('../db/index.js');
+
+  const existingRows = db
+    .select({ name: foods.name, brand: foods.brand })
+    .from(foods)
+    .where(eq(foods.userId, userId))
+    .all();
+
+  const existingSet = new Set(
+    existingRows.map((row) => normalizeLookupKey(`${row.name}|${row.brand ?? ''}`)),
+  );
+
+  const summary: FoodsMigrationSummary = { inserted: 0, skipped: 0, lastUsedAtUpdated: 0 };
+
+  for (const entry of foodEntries) {
+    const name = normalizeText(getNestedField(entry, 'name'));
+    if (!name) {
+      logger.warn(`Skipping food entry with missing name: ${JSON.stringify(entry)}`);
+      continue;
+    }
+
+    const brand = normalizeText(getNestedField(entry, 'brand'));
+    const dedupeKey = normalizeLookupKey(`${name}|${brand ?? ''}`);
+
+    if (existingSet.has(dedupeKey)) {
+      logger.info(`Skipping duplicate food "${name}"${brand ? ` (${brand})` : ''} for user ${userId}.`);
+      summary.skipped += 1;
+      continue;
+    }
+
+    const servingSizeRaw =
+      normalizeText(getNestedField(entry, 'servingSize')) ??
+      normalizeText(getNestedField(entry, 'serving_size')) ??
+      normalizeText(getNestedField(entry, 'serving'));
+
+    const servingGrams =
+      toPositiveNumber(getNestedField(entry, 'servingGrams')) ??
+      toPositiveNumber(getNestedField(entry, 'serving_grams')) ??
+      toPositiveNumber(getNestedField(entry, 'grams'));
+
+    const calories = toNonnegativeNumber(
+      getNestedField(entry, 'calories') ?? getNestedField(entry, 'kcal'),
+    );
+    const protein = toNonnegativeNumber(getNestedField(entry, 'protein'));
+    const carbs = toNonnegativeNumber(
+      getNestedField(entry, 'carbs') ?? getNestedField(entry, 'carbohydrates'),
+    );
+    const fat = toNonnegativeNumber(getNestedField(entry, 'fat'));
+    const fiber = toNumber(getNestedField(entry, 'fiber'));
+    const sugar = toNumber(getNestedField(entry, 'sugar'));
+
+    const verifiedRaw = toBoolean(getNestedField(entry, 'verified'));
+    const verified = verifiedRaw ?? false;
+
+    const source = normalizeText(getNestedField(entry, 'source'));
+    const notes = normalizeText(getNestedField(entry, 'notes'));
+
+    db.insert(foods)
+      .values({
+        userId,
+        name,
+        brand,
+        servingSize: servingSizeRaw,
+        servingGrams,
+        calories,
+        protein,
+        carbs,
+        fat,
+        fiber: fiber !== null && fiber >= 0 ? fiber : null,
+        sugar: sugar !== null && sugar >= 0 ? sugar : null,
+        verified,
+        source,
+        notes,
+        lastUsedAt: null,
+      })
+      .run();
+
+    existingSet.add(dedupeKey);
+    summary.inserted += 1;
+  }
+
+  // Backfill lastUsedAt from existing meal_items usage (name match)
+  const usageRows = db
+    .select({
+      name: mealItems.name,
+      latestDate: max(nutritionLogs.date),
+    })
+    .from(mealItems)
+    .innerJoin(meals, eq(meals.id, mealItems.mealId))
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(eq(nutritionLogs.userId, userId))
+    .groupBy(mealItems.name)
+    .all();
+
+  for (const usage of usageRows) {
+    if (!usage.latestDate) {
+      continue;
+    }
+
+    const usageTimestamp = new Date(`${usage.latestDate}T00:00:00.000Z`).getTime();
+    const normalizedName = normalizeLookupKey(usage.name);
+
+    const updated = db
+      .update(foods)
+      .set({ lastUsedAt: usageTimestamp })
+      .where(
+        and(
+          eq(foods.userId, userId),
+          or(
+            isNull(foods.lastUsedAt),
+          ),
+          eq(foods.name, usage.name),
+        ),
+      )
+      .run();
+
+    if (updated.changes > 0) {
+      summary.lastUsedAtUpdated += updated.changes;
+      void normalizedName;
+    }
+  }
+
+  logger.info(
+    `Foods migration summary: inserted ${summary.inserted}, skipped ${summary.skipped}, lastUsedAt updated ${summary.lastUsedAtUpdated}.`,
+  );
+
+  return summary;
+};
+
 export const migrateDailyLogsAndBodyWeight = async ({
   userId,
   dataRoot = DEFAULT_STATIC_DATA_ROOT,
@@ -2362,6 +2550,11 @@ export const parseCliArgs = (args: string[]): CliOptions => {
 
 const runCli = async () => {
   const options = parseCliArgs(process.argv.slice(2));
+  await migrateFoodsDatabase({
+    userId: options.userId,
+    dataRoot: options.dataRoot,
+    logger: console,
+  });
   await migrateDailyLogsAndBodyWeight({
     userId: options.userId,
     dataRoot: options.dataRoot,
