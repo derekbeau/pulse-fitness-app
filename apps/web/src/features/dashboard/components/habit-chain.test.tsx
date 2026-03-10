@@ -1,6 +1,6 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mockHabits } from '@/lib/mock-data/dashboard';
 
@@ -55,6 +55,10 @@ const habitEntryRecords: HabitEntry[] = mockHabits.flatMap((habit, habitIndex) =
 );
 
 describe('HabitChain', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders an empty state when no habits are provided', () => {
     const { container } = render(<HabitChain />);
 
@@ -68,8 +72,10 @@ describe('HabitChain', () => {
 
     mockHabits.forEach((habit) => {
       expect(screen.getByRole('heading', { name: habit.name })).toBeInTheDocument();
-      expect(screen.getByText(`${habit.currentStreak} day streak`)).toBeInTheDocument();
     });
+
+    const streakLabels = screen.getAllByText(/\d+ day streak/);
+    expect(streakLabels).toHaveLength(mockHabits.length);
 
     const allSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(allSquares).toHaveLength(mockHabits.length * 30);
@@ -128,21 +134,171 @@ describe('HabitChain', () => {
     expect(highlightedSquares[0]).toHaveAttribute('data-date', endDate);
   });
 
-  it('uses mint squares for completed days and gray squares for missed days', () => {
-    const habit = getHabitByIndex(0);
+  it('uses mint, red, and gray squares for completed, missed, and not scheduled', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+    const habit: Habit = {
+      id: 'habit-tri-state',
+      userId: 'user-1',
+      name: 'Tri-state habit',
+      emoji: null,
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'specific_days',
+      frequencyTarget: null,
+      scheduledDays: [1, 3, 5],
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-03-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-03-01T00:00:00Z').getTime(),
+    };
+    const chainEntries: HabitEntry[] = [
+      {
+        id: 'entry-completed',
+        habitId: habit.id,
+        userId: habit.userId,
+        date: '2026-03-09',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-09T12:00:00Z').getTime(),
+      },
+    ];
+
     const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
+      <HabitChain endDate="2026-03-11" entries={chainEntries} habitIds={[habit.id]} habits={[habit]} />,
     );
 
     const completedSquare = container.querySelector(
-      '[data-slot="habit-chain-day"][data-completed="true"]',
+      '[data-slot="habit-chain-day"][data-date="2026-03-09"]',
     );
     const missedSquare = container.querySelector(
-      '[data-slot="habit-chain-day"][data-completed="false"]',
+      '[data-slot="habit-chain-day"][data-date="2026-03-06"]',
+    );
+    const unscheduledSquare = container.querySelector(
+      '[data-slot="habit-chain-day"][data-date="2026-03-11"]',
     );
 
+    expect(completedSquare).toHaveAttribute('data-status', 'completed');
     expect(completedSquare).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(missedSquare).toHaveClass('bg-[var(--color-muted)]/40');
+    expect(missedSquare).toHaveAttribute('data-status', 'missed');
+    expect(missedSquare).toHaveClass('bg-red-400/70');
+    expect(unscheduledSquare).toHaveAttribute('data-status', 'not_scheduled');
+    expect(unscheduledSquare).toHaveClass('bg-[var(--color-muted)]/40');
+  });
+
+  it('does not mark today as missed when scheduled but incomplete', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+    const habit: Habit = {
+      id: 'habit-today',
+      userId: 'user-1',
+      name: 'Today habit',
+      emoji: null,
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+
+    const { container } = render(
+      <HabitChain endDate="2026-03-10" entries={[]} habitIds={[habit.id]} habits={[habit]} />,
+    );
+
+    const todaySquare = container.querySelector(
+      '[data-slot="habit-chain-day"][data-date="2026-03-10"]',
+    );
+
+    expect(todaySquare).toHaveAttribute('data-status', 'not_scheduled');
+    expect(todaySquare).toHaveClass('bg-[var(--color-muted)]/40');
+  });
+
+  it('shows future days as not scheduled', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+    const habit = getHabitByIndex(0);
+    const { container } = render(
+      <HabitChain
+        endDate="2026-03-11"
+        entries={habitEntryRecords}
+        habitIds={[habit.id]}
+        habits={habitRecords}
+      />,
+    );
+
+    const futureSquare = container.querySelector(
+      '[data-slot="habit-chain-day"][data-date="2026-03-11"]',
+    );
+
+    expect(futureSquare).toHaveAttribute('data-status', 'not_scheduled');
+    expect(futureSquare).toHaveClass('bg-[var(--color-muted)]/40');
+  });
+
+  it('counts streak across not scheduled gaps and breaks on missed days', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-13T12:00:00Z'));
+
+    const habit: Habit = {
+      id: 'habit-streak',
+      userId: 'user-1',
+      name: 'Streak habit',
+      emoji: null,
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'specific_days',
+      frequencyTarget: null,
+      scheduledDays: [1, 3, 5],
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+    const entries: HabitEntry[] = [
+      {
+        id: 'entry-mon',
+        habitId: habit.id,
+        userId: habit.userId,
+        date: '2026-03-09',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-09T12:00:00Z').getTime(),
+      },
+      {
+        id: 'entry-wed',
+        habitId: habit.id,
+        userId: habit.userId,
+        date: '2026-03-11',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-11T12:00:00Z').getTime(),
+      },
+      {
+        id: 'entry-fri',
+        habitId: habit.id,
+        userId: habit.userId,
+        date: '2026-03-13',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-13T12:00:00Z').getTime(),
+      },
+    ];
+
+    render(<HabitChain endDate="2026-03-13" entries={entries} habitIds={[habit.id]} habits={[habit]} />);
+
+    expect(screen.getByText('3 day streak')).toBeInTheDocument();
   });
 
   it('filters habits with habitIds', () => {
@@ -176,7 +332,20 @@ describe('HabitChain', () => {
       throw new Error('Expected a day square with date attribute.');
     }
 
-    expect(firstSquare).toHaveAttribute('title', formatDateLabel(date));
+    const status = firstSquare.getAttribute('data-status');
+    const statusLabel =
+      status === 'completed' ? 'Completed' : status === 'missed' ? 'Missed' : 'Not scheduled';
+    expect(firstSquare).toHaveAttribute('title', `${formatDateLabel(date)} — ${statusLabel}`);
+  });
+
+  it('includes the status in square aria labels', () => {
+    const habit = getHabitByIndex(0);
+    const { container } = render(
+      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
+    );
+
+    const square = container.querySelector('[data-slot="habit-chain-day"][data-status="completed"]');
+    expect(square).toHaveAttribute('aria-label', expect.stringContaining('Completed'));
   });
 
   it('renders an empty state when no habits match the filter', () => {
