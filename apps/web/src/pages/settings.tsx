@@ -12,6 +12,7 @@ import { HabitSettings } from '@/features/habits';
 import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
+import { useUpdateUser, useUser } from '@/hooks/use-user';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { formatUtcDateKey } from '@/lib/date';
@@ -256,6 +257,11 @@ function ThemeOptionCard({
 
 export function SettingsPage() {
   const { setTheme, theme } = useThemeContext();
+  const { data: user } = useUser();
+  const updateUserMutation = useUpdateUser();
+  const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
+  const [profileMessage, setProfileMessage] = useState('');
+  const displayName = displayNameDraft ?? user?.name ?? '';
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
   const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
     SettingsFormState['dashboardConfig'] | null
@@ -299,6 +305,37 @@ export function SettingsPage() {
       window.clearTimeout(timeoutId);
     };
   }, [saveMessage]);
+
+  useEffect(() => {
+    if (!profileMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setProfileMessage('');
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [profileMessage]);
+
+  async function handleProfileSave() {
+    const trimmed = displayName.trim();
+
+    if (!trimmed) {
+      setProfileMessage('Display name cannot be empty.');
+      return;
+    }
+
+    try {
+      await updateUserMutation.mutateAsync({ name: trimmed });
+      setDisplayNameDraft(null);
+      setProfileMessage('Profile updated.');
+    } catch {
+      setProfileMessage('Could not save profile. Please try again.');
+    }
+  }
 
   function handleThemeChange(nextValue: string) {
     if (!isTheme(nextValue)) {
@@ -410,18 +447,56 @@ export function SettingsPage() {
             <h2 className="text-xl font-semibold text-foreground">Profile</h2>
           </CardTitle>
           <CardDescription>
-            Profile editing will land in a later phase. This placeholder keeps the future surface
-            visible in the prototype.
+            Update your display name and view account details.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Label className="text-sm font-medium text-foreground" htmlFor="display-name">
-            Display name
-          </Label>
-          <Input id="display-name" placeholder="User" readOnly value="" />
-          <p className="text-sm text-muted-foreground">
-            Profile details are read-only in this prototype.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="display-name">
+              Display name
+            </Label>
+            <Input
+              id="display-name"
+              onChange={(e) => {
+                setDisplayNameDraft(e.target.value);
+                setProfileMessage('');
+              }}
+              placeholder="Enter your name"
+              value={displayName}
+            />
+          </div>
+
+          {user?.username && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Username</p>
+              <p className="text-sm text-muted-foreground">{user.username}</p>
+            </div>
+          )}
+
+          {user?.createdAt && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Member since</p>
+              <p className="text-sm text-muted-foreground">
+                {new Intl.DateTimeFormat('en-US', {
+                  month: 'long',
+                  year: 'numeric',
+                }).format(new Date(user.createdAt))}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {profileMessage || '\u00A0'}
+            </p>
+            <Button
+              disabled={updateUserMutation.isPending}
+              onClick={handleProfileSave}
+              type="button"
+            >
+              {updateUserMutation.isPending ? 'Saving...' : 'Save profile'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
