@@ -39,12 +39,21 @@ type StoredExercise = {
   userId: string;
   name: string;
   category: string;
+  muscleGroups: string[];
+  equipment: string;
+  instructions: string | null;
+  createdAt: number;
+  updatedAt: number;
 };
 type StoredWorkoutTemplate = {
   id: string;
   userId: string;
   name: string;
+  description: string | null;
+  tags: string[];
   sections: Array<{ type: string; exercises: unknown[] }>;
+  createdAt: number;
+  updatedAt: number;
 };
 type StoredWorkoutSession = {
   id: string;
@@ -254,9 +263,28 @@ vi.mock('../routes/nutrition/store.js', () => ({
 
 vi.mock('../routes/exercises/store.js', () => ({
   createExercise: vi.fn(
-    async (input: { id: string; userId: string; name: string; category: string }) => {
-      testState.exercises.set(input.id, input);
-      return input;
+    async (input: {
+      id: string;
+      userId: string;
+      name: string;
+      category: string;
+      muscleGroups?: string[];
+      equipment?: string;
+      instructions?: string | null;
+    }) => {
+      const exercise: StoredExercise = {
+        id: input.id,
+        userId: input.userId,
+        name: input.name,
+        category: input.category,
+        muscleGroups: input.muscleGroups ?? ['Full Body'],
+        equipment: input.equipment ?? 'Bodyweight',
+        instructions: input.instructions ?? null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      testState.exercises.set(input.id, exercise);
+      return exercise;
     },
   ),
   deleteOwnedExercise: vi.fn(),
@@ -270,7 +298,33 @@ vi.mock('../routes/exercises/store.js', () => ({
     return match ?? null;
   }),
   listExerciseFilters: vi.fn(),
-  listExercises: vi.fn(async () => []),
+  listExercises: vi.fn(
+    async ({
+      userId,
+      q,
+      page,
+      limit,
+    }: {
+      userId: string;
+      q?: string;
+      page: number;
+      limit: number;
+    }) => {
+      const visible = [...testState.exercises.values()].filter((exercise) => exercise.userId === userId);
+      const filtered = q
+        ? visible.filter((exercise) => exercise.name.toLowerCase().includes(q.toLowerCase()))
+        : visible;
+
+      return {
+        data: filtered.slice(0, limit),
+        meta: {
+          page,
+          limit,
+          total: filtered.length,
+        },
+      };
+    },
+  ),
   updateOwnedExercise: vi.fn(),
 }));
 
@@ -284,11 +338,25 @@ vi.mock('../routes/workout-templates/store.js', () => ({
     }: {
       id: string;
       userId: string;
-      input: { name: string; sections: Array<{ type: string; exercises: unknown[] }> };
+      input: {
+        name: string;
+        description: string | null;
+        tags: string[];
+        sections: Array<{ type: string; exercises: unknown[] }>;
+      };
     }) => {
-      const template = { id, userId, name: input.name, sections: input.sections };
+      const template: StoredWorkoutTemplate = {
+        id,
+        userId,
+        name: input.name,
+        description: input.description,
+        tags: input.tags,
+        sections: input.sections,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
       testState.workoutTemplates.set(id, template);
-      return { ...template, description: null, tags: [], createdAt: Date.now(), updatedAt: Date.now() };
+      return template;
     },
   ),
   deleteWorkoutTemplate: vi.fn(),
@@ -297,7 +365,39 @@ vi.mock('../routes/workout-templates/store.js', () => ({
     return template && template.userId === userId ? template : undefined;
   }),
   listWorkoutTemplates: vi.fn(async () => []),
-  updateWorkoutTemplate: vi.fn(),
+  updateWorkoutTemplate: vi.fn(
+    async ({
+      id,
+      userId,
+      input,
+    }: {
+      id: string;
+      userId: string;
+      input: {
+        name: string;
+        description: string | null;
+        tags: string[];
+        sections: Array<{ type: string; exercises: unknown[] }>;
+      };
+    }) => {
+      const existing = testState.workoutTemplates.get(id);
+      if (!existing || existing.userId !== userId) {
+        return undefined;
+      }
+
+      const updated: StoredWorkoutTemplate = {
+        ...existing,
+        name: input.name,
+        description: input.description,
+        tags: input.tags,
+        sections: input.sections,
+        updatedAt: Date.now(),
+      };
+
+      testState.workoutTemplates.set(id, updated);
+      return updated;
+    },
+  ),
 }));
 
 vi.mock('../routes/workout-sessions/store.js', () => ({
@@ -381,10 +481,10 @@ vi.mock('../routes/agent/context-store.js', () => ({
 vi.mock('../routes/habit-entries/store.js', () => ({
   findHabitEntryByHabitAndDate: vi.fn(async () => null),
   listHabitEntriesByDateRange: vi.fn(async () => []),
-  upsertHabitEntry: vi.fn(async (_userId: string, input: Record<string, unknown>) => ({
+  upsertHabitEntry: vi.fn(async (input: Record<string, unknown>) => ({
     id: 'entry-1',
     habitId: input.habitId,
-    userId: _userId,
+    userId: input.userId,
     date: input.date,
     completed: input.completed ?? false,
     value: input.value ?? null,
@@ -464,7 +564,6 @@ describe('agent integration', () => {
 
   afterEach(() => {
     delete process.env.JWT_SECRET;
-    vi.resetModules();
   });
 
   // -------------------------------------------------------------------------
@@ -610,6 +709,33 @@ describe('agent integration', () => {
       }
     });
 
+    it('returns 400 for invalid food creation payloads', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/foods',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            name: 'Chicken Breast',
+            protein: 31,
+            carbs: 0,
+            fat: 3.6,
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid food payload' },
+        });
+      } finally {
+        await app.close();
+      }
+    });
+
     it('searches foods via GET /api/agent/foods/search', async () => {
       const app = await createTestApp();
 
@@ -712,6 +838,39 @@ describe('agent integration', () => {
         expect(body.data.items).toHaveLength(1);
         expect(body.data.items[0].name).toBe('Chicken Breast');
         expect(body.data.items[0].amount).toBe(2);
+
+        const foodsStore = await import('../routes/foods/store.js');
+        expect(vi.mocked(foodsStore.updateFoodLastUsedAt)).toHaveBeenCalledWith(
+          'food-chicken',
+          'user-1',
+        );
+        expect(testState.foods.get('food-chicken')?.lastUsedAt).toBeTypeOf('number');
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 400 for invalid meal payloads', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            time: '12:00',
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid meal payload' },
+        });
       } finally {
         await app.close();
       }
@@ -819,6 +978,48 @@ describe('agent integration', () => {
       }
     });
 
+    it('updates an existing workout template via PUT /api/agent/workout-templates/:id', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        testState.workoutTemplates.set('template-1', {
+          id: 'template-1',
+          userId: 'user-1',
+          name: 'Pull Day',
+          description: null,
+          tags: [],
+          sections: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        const response = await app.inject({
+          method: 'PUT',
+          url: '/api/agent/workout-templates/template-1',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            name: 'Pull Day Updated',
+            sections: [
+              {
+                name: 'Main',
+                exercises: [{ name: 'Barbell Row', sets: 4, reps: 8 }],
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        const body = response.json() as { data: { id: string; name: string } };
+        expect(body.data.id).toBe('template-1');
+        expect(body.data.name).toBe('Pull Day Updated');
+      } finally {
+        await app.close();
+      }
+    });
+
     it('patches a workout session with set data', async () => {
       const app = await createTestApp();
 
@@ -847,6 +1048,11 @@ describe('agent integration', () => {
           userId: 'user-1',
           name: 'Bench Press',
           category: 'compound',
+          muscleGroups: ['Chest'],
+          equipment: 'Barbell',
+          instructions: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         });
 
         const response = await app.inject({
@@ -863,6 +1069,188 @@ describe('agent integration', () => {
 
         const body = response.json() as { data: { status: string } };
         expect(body.data.status).toBe('completed');
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Exercise tests
+  // -------------------------------------------------------------------------
+
+  describe('agent exercises', () => {
+    it('creates an exercise via POST /api/agent/exercises', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/exercises',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            name: 'Dumbbell Curl',
+            category: 'isolation',
+            muscleGroups: ['Biceps'],
+            equipment: 'Dumbbell',
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+
+        const body = response.json() as {
+          data: { name: string; category: string; muscleGroups: string[]; equipment: string };
+        };
+        expect(body.data.name).toBe('Dumbbell Curl');
+        expect(body.data.category).toBe('isolation');
+        expect(body.data.muscleGroups).toEqual(['Biceps']);
+        expect(body.data.equipment).toBe('Dumbbell');
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('searches exercises via GET /api/agent/exercises/search', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        testState.exercises.set('exercise-curl', {
+          id: 'exercise-curl',
+          userId: 'user-1',
+          name: 'Dumbbell Curl',
+          category: 'isolation',
+          muscleGroups: ['Biceps'],
+          equipment: 'Dumbbell',
+          instructions: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/exercises/search?q=curl&limit=5',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        const body = response.json() as {
+          data: Array<{ name: string; category: string; muscleGroups: string[]; equipment: string }>;
+        };
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].name).toBe('Dumbbell Curl');
+        expect(body.data[0].category).toBe('isolation');
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Daily tests
+  // -------------------------------------------------------------------------
+
+  describe('agent daily endpoints', () => {
+    it('creates a weight entry via POST /api/agent/weight', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/weight',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            date: '2026-03-09',
+            weight: 180.5,
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+
+        const body = response.json() as { data: { date: string; weight: number } };
+        expect(body.data.date).toBe('2026-03-09');
+        expect(body.data.weight).toBe(180.5);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns active habits via GET /api/agent/habits', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/habits',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({ data: [] });
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('upserts a habit entry via PATCH /api/agent/habits/:id/entries', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/habits/habit-1/entries',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            date: '2026-03-09',
+            completed: true,
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+
+        const body = response.json() as {
+          data: { habitId: string; date: string; completed: boolean };
+        };
+        expect(body.data.habitId).toBe('habit-1');
+        expect(body.data.date).toBe('2026-03-09');
+        expect(body.data.completed).toBe(true);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns nutrition summary via GET /api/agent/nutrition/:date/summary', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/nutrition/2026-03-09/summary',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        const body = response.json() as {
+          data: {
+            summary: { calories: number; protein: number; carbs: number; fat: number };
+            meals: unknown[];
+          };
+        };
+        expect(body.data.summary).toEqual({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+        expect(body.data.meals).toEqual([]);
       } finally {
         await app.close();
       }
