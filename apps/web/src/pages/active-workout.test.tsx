@@ -26,8 +26,11 @@ describe('ActiveWorkoutPage', () => {
 
     const heading = screen.getByRole('heading', { level: 1, name: 'Upper Push' });
     const headerCard = heading.closest('[data-slot="card"]');
+    const progressBar = screen.getByRole('progressbar', { name: 'Workout progress' });
+    const stickyProgressStrip = progressBar.closest('.sticky');
 
-    expect(headerCard).toHaveClass('sticky');
+    expect(headerCard).not.toHaveClass('sticky');
+    expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();

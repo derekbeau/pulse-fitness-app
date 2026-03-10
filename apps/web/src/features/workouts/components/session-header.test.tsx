@@ -14,7 +14,7 @@ describe('SessionHeader', () => {
   });
 
   it('renders workout progress details and counts the timer up in mm:ss', () => {
-    render(
+    const { rerender } = render(
       <SessionHeader
         completedSets={5}
         currentExercise={3}
@@ -29,9 +29,30 @@ describe('SessionHeader', () => {
     expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
     expect(screen.getByText('01:20')).toBeInTheDocument();
     expect(screen.getByText('5 / 17')).toBeInTheDocument();
+    const progressBar = screen.getByRole('progressbar', { name: 'Workout progress' });
+    expect(progressBar).toHaveAttribute('aria-valuenow', '5');
+    expect(progressBar.closest('.sticky')).toHaveClass(
+      'sticky',
+      'top-0',
+      'z-20',
+      'bg-background/95',
+      'backdrop-blur-sm',
+    );
+
+    rerender(
+      <SessionHeader
+        completedSets={6}
+        currentExercise={3}
+        startTime="2026-03-06T11:58:40.000Z"
+        totalExercises={7}
+        totalSets={17}
+        workoutName="Upper Push"
+      />,
+    );
+    expect(screen.getByText('6 / 17')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Workout progress' })).toHaveAttribute(
       'aria-valuenow',
-      '5',
+      '6',
     );
 
     act(() => {

@@ -28,7 +28,10 @@ import {
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
-import { isSetCompleteForTrackingType, resolveTrackingType } from '@/features/workouts/lib/tracking';
+import {
+  isSetCompleteForTrackingType,
+  resolveTrackingType,
+} from '@/features/workouts/lib/tracking';
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
@@ -257,7 +260,6 @@ export function ActiveWorkoutPage() {
       {stage === 'active' ? (
         <>
           <SessionHeader
-            className="sticky top-4 z-20"
             completedSets={session.completedSets}
             currentExercise={session.currentExercise}
             startTime={startTime}
@@ -491,12 +493,9 @@ export function ActiveWorkoutPage() {
 
     if (activeSessionId) {
       setSessionError(null);
-      const isTimeBased = [
-        'weight_seconds',
-        'reps_seconds',
-        'seconds_only',
-        'cardio',
-      ].includes(templateExercise.trackingType);
+      const isTimeBased = ['weight_seconds', 'reps_seconds', 'seconds_only', 'cardio'].includes(
+        templateExercise.trackingType,
+      );
       const persistedUpdate = {
         completed: updatedSet.completed,
         // Bridge for time-based exercises: store seconds in the `reps` column until DB support lands.
@@ -591,7 +590,8 @@ function createSessionSetDrafts(
   const drafts = createInitialWorkoutSetDrafts(template, new Set<string>());
 
   for (const sessionSet of sessionSets) {
-    const trackingType = templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
+    const trackingType =
+      templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
     const nextSeconds =
       trackingType === 'weight_seconds' ||
       trackingType === 'reps_seconds' ||
@@ -600,7 +600,9 @@ function createSessionSetDrafts(
         ? sessionSet.reps
         : null;
     const nextReps =
-      trackingType === 'weight_seconds' || trackingType === 'seconds_only' || trackingType === 'cardio'
+      trackingType === 'weight_seconds' ||
+      trackingType === 'seconds_only' ||
+      trackingType === 'cardio'
         ? null
         : sessionSet.reps;
     const nextSet = {
@@ -630,12 +632,16 @@ function createSessionSetDrafts(
   return drafts;
 }
 
-function mapFeedbackDraftToSessionFeedback(draft: ActiveWorkoutFeedbackDraft): WorkoutSessionFeedback {
+function mapFeedbackDraftToSessionFeedback(
+  draft: ActiveWorkoutFeedbackDraft,
+): WorkoutSessionFeedback {
   const scaleEntries = draft.filter(
     (
       field,
-    ): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale'; value?: number | null }> =>
-      field.type === 'scale',
+    ): field is Extract<
+      ActiveWorkoutFeedbackDraft[number],
+      { type: 'scale'; value?: number | null }
+    > => field.type === 'scale',
   );
 
   return {
@@ -698,9 +704,7 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
 
 function isSessionNotActiveError(error: unknown) {
   return (
-    error instanceof ApiError &&
-    error.status === 409 &&
-    error.code === 'WORKOUT_SESSION_NOT_ACTIVE'
+    error instanceof ApiError && error.status === 409 && error.code === 'WORKOUT_SESSION_NOT_ACTIVE'
   );
 }
 
