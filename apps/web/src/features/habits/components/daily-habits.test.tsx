@@ -177,4 +177,27 @@ describe('DailyHabits', () => {
 
     expect(await screen.findByRole('heading', { name: 'Add habit' })).toBeInTheDocument();
   });
+
+  it('loads entries for the selected date and uses it in updates', () => {
+    const selectedDate = new Date('2026-03-04T00:00:00');
+    const updateMutation = createMutationMock();
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      updateMutation as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+
+    render(<DailyHabits selectedDate={selectedDate} />);
+
+    expect(mockedUseHabitEntries).toHaveBeenCalledWith('2026-03-04', '2026-03-04');
+    const hydrateInput = screen.getByRole('spinbutton', { name: 'Hydrate' });
+    fireEvent.change(hydrateInput, { target: { value: '9' } });
+    fireEvent.blur(hydrateInput);
+
+    expect(updateMutation.mutate).toHaveBeenCalledWith({
+      completed: false,
+      date: '2026-03-04',
+      habitId: 'hydrate',
+      id: 'entry-hydrate',
+      value: 9,
+    });
+  });
 });

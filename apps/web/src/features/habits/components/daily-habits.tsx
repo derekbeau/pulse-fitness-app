@@ -17,13 +17,16 @@ import {
 import { trackingSurfaceClasses } from '@/features/habits/lib/habit-constants';
 import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
-import { toDateKey } from '@/lib/date';
+import { getToday, isSameDay, normalizeDate, toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 import { HabitCardMenu } from './habit-card-menu';
 import { HabitFormDialog } from './habit-form-dialog';
 
 type HabitValue = boolean | number | null;
+type DailyHabitsProps = {
+  selectedDate?: Date;
+};
 
 export type DailyHabit = HabitConfig & {
   entryId: string | null;
@@ -178,17 +181,18 @@ function DailyHabitsLoadingState() {
         ))}
       </div>
 
-      <p className="sr-only">Loading today&apos;s habits.</p>
+      <p className="sr-only">Loading habits for the selected day.</p>
     </div>
   );
 }
 
 type DailyHabitsErrorStateProps = {
+  titleDate: Date;
   message: string;
   onRetry: () => void;
 };
 
-function DailyHabitsErrorState({ message, onRetry }: DailyHabitsErrorStateProps) {
+function DailyHabitsErrorState({ titleDate, message, onRetry }: DailyHabitsErrorStateProps) {
   return (
     <div className="space-y-4">
       <Card className={accentCardStyles.pink}>
@@ -202,7 +206,7 @@ function DailyHabitsErrorState({ message, onRetry }: DailyHabitsErrorStateProps)
               className="text-3xl font-semibold tracking-tight"
               role="heading"
             >
-              {todayFormatter.format(new Date())}
+              {todayFormatter.format(titleDate)}
             </CardTitle>
             <CardDescription className="max-w-2xl text-sm opacity-70 dark:text-muted dark:opacity-100">
               Habit progress could not be loaded right now.
@@ -223,14 +227,16 @@ function DailyHabitsErrorState({ message, onRetry }: DailyHabitsErrorStateProps)
   );
 }
 
-export function DailyHabits() {
-  const today = toDateKey(new Date());
+export function DailyHabits({ selectedDate }: DailyHabitsProps) {
+  const activeDate = normalizeDate(selectedDate ?? getToday());
+  const activeDateKey = toDateKey(activeDate);
+  const isSelectedDateToday = isSameDay(activeDate, getToday());
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
   const habitsQuery = useHabits();
-  const habitEntriesQuery = useHabitEntries(today, today);
+  const habitEntriesQuery = useHabitEntries(activeDateKey, activeDateKey);
   const toggleHabitMutation = useToggleHabit();
   const updateHabitEntryMutation = useUpdateHabitEntry();
 
@@ -286,7 +292,7 @@ export function DailyHabits() {
       updateHabitEntryMutation.mutate({
         id: habit.entryId,
         habitId: habit.id,
-        date: today,
+        date: activeDateKey,
         completed,
         value: nextValue,
       });
@@ -296,7 +302,7 @@ export function DailyHabits() {
     toggleHabitMutation.mutate({
       habitId: habit.id,
       entryId: habit.entryId,
-      date: today,
+      date: activeDateKey,
       completed,
       ...(nextValue === null ? {} : { value: nextValue }),
     });
@@ -311,6 +317,7 @@ export function DailyHabits() {
 
     return (
       <DailyHabitsErrorState
+        titleDate={activeDate}
         message={error instanceof Error ? error.message : 'Unable to load daily habits.'}
         onRetry={() => {
           void Promise.all([habitsQuery.refetch(), habitEntriesQuery.refetch()]);
@@ -333,11 +340,12 @@ export function DailyHabits() {
                 className="text-3xl font-semibold tracking-tight"
                 role="heading"
               >
-                {todayFormatter.format(new Date())}
+                {todayFormatter.format(activeDate)}
               </CardTitle>
               <CardDescription className="max-w-2xl text-sm opacity-70 dark:text-muted dark:opacity-100">
-                Log today&apos;s routines, keep your streak alive, and spot what still needs
-                attention before the day ends.
+                {isSelectedDateToday
+                  ? "Log today's routines, keep your streak alive, and spot what still needs attention before the day ends."
+                  : 'Review and log habits for this day to keep your history accurate.'}
               </CardDescription>
             </div>
             <div className="inline-flex min-h-14 self-start items-center justify-center rounded-full bg-black/10 px-4 py-2 dark:bg-secondary">
@@ -356,7 +364,7 @@ export function DailyHabits() {
               No active habits configured yet.
             </p>
             <p className="mt-2 text-sm text-muted">
-              Add your first habit to start tracking today&apos;s progress.
+              Add your first habit to start tracking progress.
             </p>
             <Button
               className="mt-4"
@@ -466,13 +474,13 @@ export function DailyHabits() {
                             toggleHabitMutation.mutate({
                               habitId: habit.id,
                               entryId: habit.entryId,
-                              date: today,
+                              date: activeDateKey,
                               completed: checked === true,
                             });
                           }}
                         />
                         <span className="text-sm font-medium text-foreground">
-                          Mark this habit complete for today
+                          Mark this habit complete for {isSelectedDateToday ? 'today' : 'this day'}
                         </span>
                       </label>
                     ) : (
