@@ -180,7 +180,33 @@ describe('DailyHabits', () => {
     expect(screen.getByRole('checkbox', { name: 'Mobility' })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Hydrate' })).toHaveValue(6);
     expect(screen.getByRole('spinbutton', { name: 'Sleep' })).toHaveValue(null);
+    expect(screen.getByText('🧘')).toBeInTheDocument();
+    expect(screen.getByText('💧')).toBeInTheDocument();
+    expect(screen.getByText('😴')).toBeInTheDocument();
     expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+  });
+
+  it('renders only active habits and keeps the completion badge centered classes', () => {
+    mockUseHabitsResult({
+      data: [
+        ...habits,
+        {
+          ...habits[0],
+          id: 'habit-archived',
+          name: 'Archived',
+          active: false,
+        },
+      ],
+    });
+
+    render(<DailyHabits />);
+
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument();
+    expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+
+    const badge = screen.getByText('0 of 3 habits complete').closest('div');
+    expect(badge).toHaveClass('items-center', 'justify-center');
+    expect(screen.getByText('0 of 3 habits complete')).toHaveClass('text-center', 'leading-tight');
   });
 
   it('toggles boolean habits through the upsert mutation', () => {

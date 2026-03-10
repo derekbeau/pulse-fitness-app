@@ -179,7 +179,7 @@ export function useHabits() {
         signal,
       });
 
-      return habitsSchema.parse(habits);
+      return habitsSchema.parse(habits).filter((habit) => habit.active);
     },
     queryKey: habitKeys.list(),
   });

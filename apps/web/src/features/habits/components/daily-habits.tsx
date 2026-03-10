@@ -174,9 +174,14 @@ export function DailyHabits() {
   const toggleHabitMutation = useToggleHabit();
   const updateHabitEntryMutation = useUpdateHabitEntry();
 
+  const activeHabits = useMemo(
+    () => (habitsQuery.data ?? []).filter((habit) => habit.active),
+    [habitsQuery.data],
+  );
+
   const dailyHabits = useMemo(
-    () => buildDailyHabits(habitsQuery.data ?? [], habitEntriesQuery.data ?? []),
-    [habitEntriesQuery.data, habitsQuery.data],
+    () => buildDailyHabits(activeHabits, habitEntriesQuery.data ?? []),
+    [activeHabits, habitEntriesQuery.data],
   );
 
   const completedCount = dailyHabits.filter((habit) =>
@@ -267,14 +272,16 @@ export function DailyHabits() {
                 attention before the day ends.
               </CardDescription>
             </div>
-            <div className="inline-flex self-start rounded-full bg-black/10 px-4 py-2 text-sm font-semibold dark:bg-secondary dark:text-foreground">
-              {completedCount} of {dailyHabits.length} habits complete
+            <div className="inline-flex min-h-14 self-start items-center justify-center rounded-full bg-black/10 px-4 py-2 dark:bg-secondary">
+              <span className="text-center text-sm font-semibold leading-tight dark:text-foreground">
+                {completedCount} of {activeHabits.length} habits complete
+              </span>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {dailyHabits.length === 0 ? (
+      {activeHabits.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-6">
             <p className="text-base font-medium text-foreground">
