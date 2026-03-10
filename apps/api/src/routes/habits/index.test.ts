@@ -376,6 +376,94 @@ describe('habit routes', () => {
     }
   });
 
+  it('updates habit scheduling fields via put', async () => {
+    vi.mocked(findHabitById).mockResolvedValue({
+      id: 'habit-2',
+      userId: 'user-1',
+      name: 'Run',
+      emoji: '🏃',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 2,
+      active: true,
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_000_000,
+    });
+    vi.mocked(updateHabit).mockResolvedValue({
+      id: 'habit-2',
+      userId: 'user-1',
+      name: 'Run',
+      emoji: '🏃',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'specific_days',
+      frequencyTarget: null,
+      scheduledDays: [1, 3, 5],
+      pausedUntil: '2026-03-20',
+      sortOrder: 2,
+      active: true,
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_100_000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/habits/habit-2',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          frequency: 'specific_days',
+          scheduledDays: [1, 3, 5],
+          pausedUntil: '2026-03-20',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'habit-2',
+          userId: 'user-1',
+          name: 'Run',
+          emoji: '🏃',
+          trackingType: 'boolean',
+          target: null,
+          unit: null,
+          frequency: 'specific_days',
+          frequencyTarget: null,
+          scheduledDays: [1, 3, 5],
+          pausedUntil: '2026-03-20',
+          sortOrder: 2,
+          active: true,
+          createdAt: 1_700_000_000_000,
+          updatedAt: 1_700_000_100_000,
+        },
+      });
+      expect(vi.mocked(updateHabit)).toHaveBeenCalledWith('habit-2', 'user-1', {
+        name: 'Run',
+        emoji: '🏃',
+        trackingType: 'boolean',
+        target: null,
+        unit: null,
+        frequency: 'specific_days',
+        frequencyTarget: null,
+        scheduledDays: [1, 3, 5],
+        pausedUntil: '2026-03-20',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('returns not found when updating a habit outside the user scope', async () => {
     vi.mocked(findHabitById).mockResolvedValue(undefined);
 
