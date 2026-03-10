@@ -62,6 +62,7 @@ describe('users schema', () => {
       'id',
       'username',
       'name',
+      'weightUnit',
       'passwordHash',
       'preferences',
       'createdAt',
@@ -69,6 +70,7 @@ describe('users schema', () => {
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.weightUnit.default).toBe('lbs');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.updatedAt.default).toBeDefined();
     expect(columns.updatedAt.defaultFn).toBeTypeOf('function');

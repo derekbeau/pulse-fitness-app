@@ -46,6 +46,7 @@ type TestState = {
     id: string;
     username: string;
     name: string | null;
+    weightUnit: 'lbs' | 'kg';
     createdAt: number;
   };
 };
@@ -126,6 +127,7 @@ describe('SettingsPage', () => {
         id: 'user-1',
         username: 'jordan',
         name: 'Jordan Lee',
+        weightUnit: 'lbs',
         createdAt: 1_713_225_600_000,
       },
     };
@@ -234,8 +236,8 @@ describe('SettingsPage', () => {
             );
           }
 
-          const body = JSON.parse(String(init.body)) as { name: string };
-          state.user = { ...state.user, name: body.name };
+          const body = JSON.parse(String(init.body)) as { name?: string; weightUnit?: 'lbs' | 'kg' };
+          state.user = { ...state.user, ...body };
           return Promise.resolve(
             new Response(JSON.stringify({ data: state.user }), {
               headers: { 'Content-Type': 'application/json' },
@@ -424,6 +426,23 @@ describe('SettingsPage', () => {
     });
 
     expect(getLatestPostBody('/api/v1/users/me')).toEqual({ name: 'Jordan Updated' });
+  });
+
+  it('saves weight unit changes via PATCH /api/v1/users/me', async () => {
+    renderSettingsPage();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Jordan Lee')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'kg' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated.')).toBeInTheDocument();
+    });
+
+    expect(getLatestPostBody('/api/v1/users/me')).toEqual({ weightUnit: 'kg' });
   });
 
   it('shows an error message when profile save fails', async () => {

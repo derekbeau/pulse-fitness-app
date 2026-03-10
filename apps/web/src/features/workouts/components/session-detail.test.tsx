@@ -188,7 +188,7 @@ describe('SessionDetail', () => {
 
     expect(await screen.findByText('Volume progression')).toBeInTheDocument();
     expect(screen.getByText('Volume vs Feb 20')).toBeInTheDocument();
-    expect(screen.getByText('Weight +5 kg')).toBeInTheDocument();
+    expect(screen.getByText('Weight +5 lbs')).toBeInTheDocument();
     expect(screen.getByText('Reps +1')).toBeInTheDocument();
     expect(screen.getByText('PR')).toBeInTheDocument();
   });
@@ -286,6 +286,20 @@ function mockSessionDetailRequests({
 }) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = String(input);
+
+    if (url.includes('/api/v1/users/me')) {
+      return Promise.resolve(
+        jsonResponse({
+          data: {
+            id: 'user-1',
+            username: 'jordan',
+            name: 'Jordan',
+            weightUnit: 'lbs',
+            createdAt: 1,
+          },
+        }),
+      );
+    }
 
     if (url.includes('/api/v1/workout-sessions?status=completed')) {
       return Promise.resolve(jsonResponse({ data: sessions }));

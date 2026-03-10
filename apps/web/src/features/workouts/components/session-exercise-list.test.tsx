@@ -86,17 +86,17 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 50 kg x 8-10',
+        (_, element) => element?.textContent === 'Target: 50 lbs x 8-10',
       ),
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 45 kg x 10-12',
+        (_, element) => element?.textContent === 'Target: 45 lbs x 10-12',
       ),
     ).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByText(
-        (_, element) => element?.textContent === 'Target: 40 kg x 9-10',
+        (_, element) => element?.textContent === 'Target: 40 lbs x 9-10',
       ),
     ).toBeInTheDocument();
 

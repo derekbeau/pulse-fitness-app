@@ -29,6 +29,7 @@ describe('users routes', () => {
       id: 'user-1',
       username: 'derek',
       name: 'Derek',
+      weightUnit: 'lbs',
       createdAt: 1709913600000,
     });
 
@@ -49,6 +50,7 @@ describe('users routes', () => {
           id: 'user-1',
           username: 'derek',
           name: 'Derek',
+          weightUnit: 'lbs',
           createdAt: 1709913600000,
         },
       });
@@ -63,6 +65,7 @@ describe('users routes', () => {
       id: 'user-1',
       username: 'derek',
       name: 'Derek B',
+      weightUnit: 'lbs',
       createdAt: 1709913600000,
     });
 
@@ -84,6 +87,7 @@ describe('users routes', () => {
           id: 'user-1',
           username: 'derek',
           name: 'Derek B',
+          weightUnit: 'lbs',
           createdAt: 1709913600000,
         },
       });
@@ -140,6 +144,43 @@ describe('users routes', () => {
         },
       });
       expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('PATCH /api/v1/users/me updates weightUnit', async () => {
+    vi.mocked(updateUser).mockResolvedValue({
+      id: 'user-1',
+      username: 'derek',
+      name: 'Derek',
+      weightUnit: 'kg',
+      createdAt: 1709913600000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/users/me',
+        payload: { weightUnit: 'kg' },
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'user-1',
+          username: 'derek',
+          name: 'Derek',
+          weightUnit: 'kg',
+          createdAt: 1709913600000,
+        },
+      });
+      expect(vi.mocked(updateUser)).toHaveBeenCalledWith('user-1', { weightUnit: 'kg' });
     } finally {
       await app.close();
     }

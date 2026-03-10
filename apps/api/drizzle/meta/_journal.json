@@ -92,6 +92,13 @@
       "when": 1773156922289,
       "tag": "0011_amusing_puck",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1773160800000,
+      "tag": "0012_mighty_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

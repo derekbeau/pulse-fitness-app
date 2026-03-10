@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import { DASHBOARD_WIDGET_IDS, type CreateNutritionTargetInput, type DashboardTrendMetric } from '@pulse/shared';
+import {
+  DASHBOARD_WIDGET_IDS,
+  type CreateNutritionTargetInput,
+  type DashboardTrendMetric,
+  type WeightUnit,
+} from '@pulse/shared';
 import { BackLink } from '@/components/layout/back-link';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -275,9 +280,13 @@ export function SettingsPage() {
   const { data: user } = useUser();
   const updateUserMutation = useUpdateUser();
   const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
+  const [weightUnitDraft, setWeightUnitDraft] = useState<WeightUnit | null>(null);
   const [profileMessage, setProfileMessage] = useState('');
   const displayName = displayNameDraft ?? user?.name ?? '';
-  const isProfileDirty = displayNameDraft !== null && displayName.trim() !== (user?.name ?? '');
+  const currentWeightUnit = weightUnitDraft ?? user?.weightUnit ?? 'lbs';
+  const profileNameDirty = displayNameDraft !== null && displayName.trim() !== (user?.name ?? '');
+  const profileWeightUnitDirty = weightUnitDraft !== null && currentWeightUnit !== (user?.weightUnit ?? 'lbs');
+  const isProfileDirty = profileNameDirty || profileWeightUnitDirty;
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
   const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
     SettingsFormState['dashboardConfig'] | null
@@ -343,14 +352,24 @@ export function SettingsPage() {
 
     const trimmed = displayName.trim();
 
-    if (!trimmed) {
+    if (profileNameDirty && !trimmed) {
       setProfileMessage('Display name cannot be empty.');
       return;
     }
 
     try {
-      await updateUserMutation.mutateAsync({ name: trimmed });
+      const payload: { name?: string; weightUnit?: WeightUnit } = {};
+
+      if (profileNameDirty) {
+        payload.name = trimmed;
+      }
+      if (profileWeightUnitDirty) {
+        payload.weightUnit = currentWeightUnit;
+      }
+
+      await updateUserMutation.mutateAsync(payload);
       setDisplayNameDraft(null);
+      setWeightUnitDraft(null);
       setProfileMessage('Profile updated.');
     } catch {
       setProfileMessage('Could not save profile. Please try again.');
@@ -499,6 +518,46 @@ export function SettingsPage() {
               placeholder="Enter your name"
               value={displayName}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">Weight unit</Label>
+            <RadioGroup
+              aria-label="Weight unit"
+              className="grid gap-2 sm:grid-cols-2"
+              onValueChange={(value) => {
+                if (value === 'lbs' || value === 'kg') {
+                  setWeightUnitDraft(value);
+                  setProfileMessage('');
+                }
+              }}
+              value={currentWeightUnit}
+            >
+              <Label
+                className={cn(
+                  'flex cursor-pointer items-center gap-3 rounded-xl border p-3',
+                  currentWeightUnit === 'lbs'
+                    ? 'border-primary bg-secondary/70'
+                    : 'border-border hover:border-primary/40',
+                )}
+                htmlFor="weight-unit-lbs"
+              >
+                <RadioGroupItem id="weight-unit-lbs" value="lbs" />
+                <span className="text-sm font-medium text-foreground">lbs</span>
+              </Label>
+              <Label
+                className={cn(
+                  'flex cursor-pointer items-center gap-3 rounded-xl border p-3',
+                  currentWeightUnit === 'kg'
+                    ? 'border-primary bg-secondary/70'
+                    : 'border-border hover:border-primary/40',
+                )}
+                htmlFor="weight-unit-kg"
+              >
+                <RadioGroupItem id="weight-unit-kg" value="kg" />
+                <span className="text-sm font-medium text-foreground">kg</span>
+              </Label>
+            </RadioGroup>
           </div>
 
           {user?.username && (
