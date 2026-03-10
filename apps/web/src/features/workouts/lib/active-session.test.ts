@@ -186,4 +186,32 @@ describe('active-session helpers', () => {
 
     expect(firstMainExercise?.name).toBe('DB Bench Press QA');
   });
+
+  it('infers seconds-only tracking for unknown exercises with time-based prescribed reps', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const unknownExerciseTemplate = structuredClone(activeTemplate);
+    const mainSection = unknownExerciseTemplate.sections[1];
+    const firstExercise = mainSection?.exercises[0];
+    if (!mainSection || !firstExercise) {
+      throw new Error('Expected main section with exercises in template.');
+    }
+
+    mainSection.exercises[0] = {
+      ...firstExercise,
+      exerciseId: 'api-exercise-id-2',
+      exerciseName: 'Wall Sit',
+      reps: '30 sec',
+    };
+
+    const session = buildActiveWorkoutSession(
+      unknownExerciseTemplate,
+      createInitialWorkoutSetDrafts(unknownExerciseTemplate, new Set()),
+    );
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')?.exercises[0];
+
+    expect(firstMainExercise?.trackingType).toBe('seconds_only');
+  });
 });
