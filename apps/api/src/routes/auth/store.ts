@@ -40,11 +40,25 @@ const starterHabitDefinitions: Array<{
     unit: null,
   },
   {
+    emoji: '🥗',
+    name: 'Protein goal',
+    trackingType: 'numeric',
+    target: 120,
+    unit: 'grams',
+  },
+  {
     emoji: '😴',
     name: 'Sleep',
     trackingType: 'time',
     target: 8,
     unit: 'hours',
+  },
+  {
+    emoji: '🧘',
+    name: 'Mobility warm-up',
+    trackingType: 'boolean',
+    target: null,
+    unit: null,
   },
 ];
 
