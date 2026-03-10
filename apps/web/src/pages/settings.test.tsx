@@ -7,15 +7,6 @@ import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
 import { createQueryClientWrapper } from '@/test/query-client';
 
-vi.mock('@/features/habits', async () => {
-  const actual = await vi.importActual<typeof import('@/features/habits')>('@/features/habits');
-
-  return {
-    ...actual,
-    HabitSettings: () => <div data-testid="habit-settings" />,
-  };
-});
-
 type TestState = {
   dashboardConfig: {
     habitChainIds: string[];

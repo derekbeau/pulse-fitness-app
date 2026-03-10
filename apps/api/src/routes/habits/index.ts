@@ -91,7 +91,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
     }
 
-    const habit = await updateHabit(habitId, request.userId, mergedHabitInput.data);
+    const habit = await updateHabit(habitId, request.userId, {
+      ...mergedHabitInput.data,
+      ...(parsedBody.data.active === undefined ? {} : { active: parsedBody.data.active }),
+    });
     if (!habit) {
       return sendNotFound(reply);
     }

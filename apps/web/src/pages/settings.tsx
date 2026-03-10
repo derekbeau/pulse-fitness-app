@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { HabitSettings } from '@/features/habits';
 import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
@@ -703,8 +702,6 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      <HabitSettings />
     </section>
   );
 }

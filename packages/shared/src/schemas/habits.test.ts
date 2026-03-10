@@ -58,9 +58,11 @@ describe('updateHabitInputSchema', () => {
   it('accepts partial updates', () => {
     const payload = updateHabitInputSchema.parse({
       unit: ' hours ',
+      active: false,
     });
 
     expect(payload).toEqual({
+      active: false,
       unit: 'hours',
     });
   });

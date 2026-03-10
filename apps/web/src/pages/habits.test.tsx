@@ -34,7 +34,7 @@ describe('HabitsPage', () => {
     vi.restoreAllMocks();
   });
 
-  it('shows the page empty state and navigates to settings from action', async () => {
+  it('shows inline add controls when there are no habits', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const rawUrl =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -55,15 +55,14 @@ describe('HabitsPage', () => {
       <MemoryRouter initialEntries={['/habits']}>
         <Routes>
           <Route element={<HabitsPage />} path="/habits" />
-          <Route element={<h1>Settings</h1>} path="/settings" />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'No habits configured' })).toBeInTheDocument();
+    expect(await screen.findByText('No active habits configured yet.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add Habit' }));
 
-    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Add habit' })).toBeInTheDocument();
   });
 
   it('renders habits content when habits exist', async () => {
