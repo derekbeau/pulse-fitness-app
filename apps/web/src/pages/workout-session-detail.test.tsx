@@ -143,9 +143,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderWithRoute(sessionId: string) {
+function renderWithRoute(sessionId: string, view?: 'list' | 'calendar') {
+  const search = view ? `?view=${view}` : '';
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[`/workouts/session/${sessionId}`]}>
+    <MemoryRouter initialEntries={[`/workouts/session/${sessionId}${search}`]}>
       <Routes>
         <Route element={<WorkoutSessionDetailPage />} path="/workouts/session/:sessionId" />
       </Routes>
@@ -160,7 +161,17 @@ describe('WorkoutSessionDetailPage', () => {
     expect(await screen.findByText('Session not found', {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
       'href',
-      '/workouts',
+      '/workouts?view=calendar',
+    );
+  });
+
+  it('links back to the originating workouts view when view param is present', async () => {
+    renderWithRoute(currentSession.id, 'list');
+
+    expect(await screen.findByText('Upper Push')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
+      'href',
+      '/workouts?view=list',
     );
   });
 

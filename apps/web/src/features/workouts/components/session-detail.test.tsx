@@ -53,7 +53,7 @@ describe('SessionDetail', () => {
     expect(await screen.findByText('Session not found', {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
       'href',
-      '/workouts',
+      '/workouts?view=calendar',
     );
   });
 

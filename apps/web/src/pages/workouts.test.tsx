@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useParams } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -208,6 +208,7 @@ describe('WorkoutsPage', () => {
   it('switches between the workouts views', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts']}>
+        <LocationProbe />
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
         </Routes>
@@ -219,11 +220,13 @@ describe('WorkoutsPage', () => {
       'aria-pressed',
       'true',
     );
+    expect(await screen.findByTestId('location-search')).toHaveTextContent('?view=calendar');
     expect(screen.getByText('Workout Calendar')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
 
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=list');
     expect(await screen.findByRole('heading', { level: 2, name: /week of/i })).toBeInTheDocument();
     expect(screen.queryByText('Workout Calendar')).not.toBeInTheDocument();
 
@@ -234,6 +237,29 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Exercises' }));
 
     expect(screen.getByRole('heading', { level: 2, name: 'Exercise Library' })).toBeInTheDocument();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=exercises');
+  });
+
+  it('includes the current view in session detail links', async () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts?view=list']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'List' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const detailsLink = (await screen.findAllByRole('link')).find(
+      (link) => link.getAttribute('href') === '/workouts/session/session-1?view=list',
+    );
+    if (!detailsLink) {
+      throw new Error('Expected session detail link with view=list query param');
+    }
+    expect(detailsLink).toHaveAttribute('href', '/workouts/session/session-1?view=list');
   });
 
   it('opens template detail when selecting a template card from the templates view', async () => {
@@ -466,6 +492,11 @@ function TemplateRouteProbe() {
 
 function ActiveWorkoutRouteProbe() {
   return <h1>Active workout page</h1>;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <p data-testid="location-search">{location.search}</p>;
 }
 
 function createDeferredResponse() {

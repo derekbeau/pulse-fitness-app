@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ChevronDown,
@@ -98,11 +98,15 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
   const sessionQuery = useWorkoutSession(sessionId);
   const completedSessionsQuery = useCompletedSessions();
   const session = sessionQuery.data;
   const templateQuery = useWorkoutTemplate(session?.templateId ?? '');
   const template = templateQuery.data;
+  const viewParam = searchParams.get('view');
+  const backView = viewParam === 'list' || viewParam === 'calendar' ? viewParam : 'calendar';
+  const backToWorkoutsHref = `/workouts?view=${backView}`;
 
   const previousSessionItem = useMemo(() => {
     if (!session || !completedSessionsQuery.data) {
@@ -138,7 +142,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full sm:w-auto">
-            <Link to="/workouts">Back to Workouts</Link>
+            <Link to={backToWorkoutsHref}>Back to Workouts</Link>
           </Button>
         </CardContent>
       </Card>
@@ -163,7 +167,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   return (
     <section className="space-y-6">
       <Button asChild className="gap-2" size="sm" variant="ghost">
-        <Link to="/workouts">
+        <Link to={backToWorkoutsHref}>
           <ArrowLeft aria-hidden="true" className="size-4" />
           Back to Workouts
         </Link>

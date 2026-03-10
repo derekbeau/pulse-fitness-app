@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { WorkoutSessionListItem } from '@pulse/shared';
+import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -297,7 +298,7 @@ export function WorkoutCalendar({ buildDayHref, buildSessionHref }: WorkoutCalen
               size="sm"
               variant="secondary"
             >
-              <a href={detailHref}>View Session</a>
+              <Link to={detailHref}>View Session</Link>
             </Button>
           ) : null}
         </aside>

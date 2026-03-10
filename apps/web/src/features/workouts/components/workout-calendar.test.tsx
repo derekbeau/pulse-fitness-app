@@ -1,4 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -70,7 +71,9 @@ describe('WorkoutCalendar', () => {
     });
 
     renderWithQueryClient(
-      <WorkoutCalendar buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />,
+      <MemoryRouter>
+        <WorkoutCalendar buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
@@ -105,7 +108,11 @@ describe('WorkoutCalendar', () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithQueryClient(<WorkoutCalendar />);
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect(screen.queryByLabelText('Completed workout')).not.toBeInTheDocument();
@@ -127,7 +134,11 @@ describe('WorkoutCalendar', () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithQueryClient(<WorkoutCalendar />);
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
     await screen.findByText('Workout Calendar');
 
     const today = new Date();

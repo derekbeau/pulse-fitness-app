@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 
@@ -21,13 +21,19 @@ import {
   useWorkoutTemplates,
 } from '@/features/workouts/api/workouts';
 
+const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises'] as const;
+type WorkoutView = (typeof WORKOUT_VIEWS)[number];
+
+function isWorkoutView(value: string | null): value is WorkoutView {
+  return value != null && WORKOUT_VIEWS.includes(value as WorkoutView);
+}
+
 export function WorkoutsPage() {
   const queryClient = useQueryClient();
-  const [activeView, setActiveView] = useState<'calendar' | 'list' | 'templates' | 'exercises'>(
-    'calendar',
-  );
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const activeView: WorkoutView = isWorkoutView(viewParam) ? viewParam : 'calendar';
   const templatesQuery = useWorkoutTemplates();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
@@ -35,6 +41,16 @@ export function WorkoutsPage() {
     !templatesQuery.isLoading &&
     !templatesQuery.isError &&
     (templatesQuery.data?.length ?? 0) === 0;
+
+  useEffect(() => {
+    if (isWorkoutView(viewParam)) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('view', 'calendar');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams, viewParam]);
 
   useEffect(() => {
     if (activeView !== 'list') {
@@ -46,6 +62,18 @@ export function WorkoutsPage() {
       void prefetchWorkoutTemplate(queryClient, templateId);
     }
   }, [activeView, queryClient, templatesQuery.data]);
+
+  function setActiveView(view: WorkoutView) {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('view', view);
+    setSearchParams(nextSearchParams);
+  }
+
+  function buildSessionHref(sessionId: string) {
+    const sessionSearchParams = new URLSearchParams();
+    sessionSearchParams.set('view', activeView);
+    return `/workouts/session/${sessionId}?${sessionSearchParams.toString()}`;
+  }
 
   return (
     <section className="space-y-6">
@@ -113,10 +141,10 @@ export function WorkoutsPage() {
       {activeView === 'calendar' ? (
         <WorkoutCalendar
           buildDayHref={(date) => `/workouts?date=${date}`}
-          buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`}
+          buildSessionHref={buildSessionHref}
         />
       ) : activeView === 'list' ? (
-        <WorkoutList buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
+        <WorkoutList buildSessionHref={buildSessionHref} />
       ) : activeView === 'templates' ? (
         templatesQuery.isLoading ? (
           <div aria-label="Loading workout templates" className="grid gap-4 xl:grid-cols-2">
