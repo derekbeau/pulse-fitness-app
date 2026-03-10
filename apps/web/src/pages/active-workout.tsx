@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import {
+  createWorkoutSessionInputSchema,
   updateWorkoutSessionInputSchema,
   type ExerciseTrackingType,
   type SessionSet,
+  workoutSessionSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionFeedbackResponse,
   WorkoutTemplate as ApiWorkoutTemplate,
@@ -45,7 +49,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
+import { workoutQueryKeys, useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
   resolveTrackingType,
@@ -68,6 +72,7 @@ import {
   extractExerciseNotes,
 } from '@/features/workouts/lib/session-notes';
 import { ApiError, apiRequest } from '@/lib/api-client';
+import { API_TOKEN_STORAGE_KEY } from '@/lib/auth-storage';
 import {
   mockExercises,
   mockTemplates,
@@ -112,6 +117,7 @@ type RestTimerState = {
 };
 
 export function ActiveWorkoutPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('sessionId');
@@ -146,6 +152,7 @@ export function ActiveWorkoutPage() {
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
   const [sessionNotes, setSessionNotes] = useState('');
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [summarySaving, setSummarySaving] = useState(false);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
@@ -396,7 +403,7 @@ export function ActiveWorkoutPage() {
       {stage === 'feedback' ? (
         <SessionFeedback
           fields={workoutFeedbackFields}
-          onSubmit={(feedback) => {
+          onSubmit={async (feedback) => {
             if (completeSessionMutation.isPending) {
               return;
             }
@@ -405,8 +412,40 @@ export function ActiveWorkoutPage() {
             const completedAtIso = new Date(completedAt).toISOString();
             const duration = Math.floor(getElapsedSeconds(startTime, completedAt) / 60);
             const feedbackNotes = extractFeedbackNotes(feedback);
+            const sessionSetInputs = buildSessionSetInputs(
+              setDrafts,
+              templateExerciseById,
+              exerciseNotes,
+            );
 
             if (!activeSessionId) {
+              const authToken = getStoredApiToken();
+
+              if (authToken) {
+                setSessionError(null);
+                try {
+                  const createdSession = await createCompletedWorkoutSession({
+                    completedAt,
+                    date: completedAtIso.slice(0, 10),
+                    duration,
+                    feedback: {
+                      ...mapFeedbackDraftToSessionFeedback(feedback),
+                      notes: feedbackNotes ?? undefined,
+                    },
+                    name: session.workoutName,
+                    sets: sessionSetInputs,
+                    startedAt: new Date(startTime).getTime(),
+                    templateId: shouldLoadApiTemplate ? template.id : null,
+                  });
+                  setCompletedSessionId(createdSession.id);
+                } catch {
+                  setSessionError('Unable to complete this workout. Try again.');
+                  return;
+                }
+
+                void queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all });
+              }
+
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
@@ -425,7 +464,7 @@ export function ActiveWorkoutPage() {
                 },
                 exerciseNotes,
                 notes: null,
-                sets: buildSessionSetInputs(setDrafts, templateExerciseById, exerciseNotes),
+                sets: sessionSetInputs,
               },
               {
                 onError: (error) => {
@@ -438,6 +477,7 @@ export function ActiveWorkoutPage() {
                 },
                 onSuccess: () => {
                   clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+                  setCompletedSessionId(activeSessionId);
                   setSessionFeedback(feedback);
                   setSessionCompletedAt(completedAtIso);
                   setStage('summary');
@@ -460,7 +500,8 @@ export function ActiveWorkoutPage() {
               return;
             }
 
-            if (activeSessionId) {
+            const persistedSessionId = activeSessionId ?? completedSessionId;
+            if (persistedSessionId) {
               const trimmedSessionNotes = sessionNotes.trim();
               if (trimmedSessionNotes.length > 0) {
                 setSessionError(null);
@@ -468,7 +509,7 @@ export function ActiveWorkoutPage() {
                 try {
                   await persistCompletedSessionNotes({
                     notes: trimmedSessionNotes,
-                    sessionId: activeSessionId,
+                    sessionId: persistedSessionId,
                   });
                 } catch {
                   setSessionError('Unable to save session notes. Try again.');
@@ -1055,6 +1096,33 @@ async function persistCompletedSessionNotes({
     body: JSON.stringify(payload),
     method: 'PATCH',
   });
+}
+
+async function createCompletedWorkoutSession(
+  input: z.input<typeof createWorkoutSessionInputSchema>,
+) {
+  const payload = createWorkoutSessionInputSchema.parse({
+    ...input,
+    status: 'completed',
+  });
+  const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
+    body: JSON.stringify(payload),
+    method: 'POST',
+  });
+
+  return workoutSessionSchema.parse(data);
+}
+
+function getStoredApiToken() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 function isSessionNotActiveError(error: unknown) {
