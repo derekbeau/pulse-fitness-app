@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { getWeightLabel, type WeightUnit } from '@pulse/shared';
 import {
   CartesianGrid,
   Line,
@@ -19,6 +20,7 @@ type ExerciseTrendChartProps = {
   className?: string;
   exerciseName: string;
   history: ActiveWorkoutExerciseHistoryPoint[];
+  weightUnit?: WeightUnit;
 };
 
 type DateRange = '30d' | '90d' | 'all';
@@ -53,6 +55,7 @@ export function ExerciseTrendChart({
   className,
   exerciseName,
   history,
+  weightUnit = 'lbs',
 }: ExerciseTrendChartProps) {
   const [selectedRange, setSelectedRange] = useState<DateRange>('90d');
 
@@ -113,7 +116,7 @@ export function ExerciseTrendChart({
               <MetricCard
                 accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
                 label="Latest weight"
-                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} kg`}
+                value={`${numberFormatter.format(chartData.at(-1)?.weight ?? 0)} ${getWeightLabel(weightUnit)}`}
               />
               <MetricCard
                 accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
@@ -141,7 +144,9 @@ export function ExerciseTrendChart({
                     axisLine={false}
                     orientation="left"
                     tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => `${numberFormatter.format(value)} kg`}
+                    tickFormatter={(value: number) =>
+                      `${numberFormatter.format(value)} ${getWeightLabel(weightUnit)}`
+                    }
                     tickLine={false}
                     yAxisId="weight"
                     width={56}
@@ -166,7 +171,7 @@ export function ExerciseTrendChart({
                       const formattedValue = numberFormatter.format(value ?? 0);
 
                       if (name === 'weight') {
-                        return [`${formattedValue} kg`, 'Weight'];
+                        return [`${formattedValue} ${getWeightLabel(weightUnit)}`, 'Weight'];
                       }
 
                       return [`${formattedValue} reps`, 'Reps'];

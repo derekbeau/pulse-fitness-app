@@ -50,6 +50,7 @@ describe('SessionExerciseList', () => {
         onSetUpdate={vi.fn()}
         restTimer={{ duration: 90, exerciseName: 'Incline Dumbbell Press', setNumber: 2, token: 1 }}
         session={session}
+        weightUnit="kg"
       />,
     );
 

@@ -10,12 +10,7 @@ import {
   Scale,
   TrendingUp,
 } from 'lucide-react';
-import type {
-  SessionSet,
-  WorkoutSession,
-  WorkoutTemplate,
-  WorkoutTemplateSectionType,
-} from '@pulse/shared';
+import { getWeightLabel, type SessionSet, type WeightUnit, type WorkoutSession, type WorkoutTemplate, type WorkoutTemplateSectionType } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { cn } from '@/lib/utils';
 
 import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
@@ -95,6 +91,7 @@ const phaseBadgeStyles = {
 } as const;
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
+  const { weightUnit } = useWeightUnit();
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -237,7 +234,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         <StatCard
           icon={<Scale aria-hidden="true" className="size-4" />}
           label="Volume"
-          value={`${formatNumber(summary.totalVolume)} kg`}
+          value={`${formatNumber(summary.totalVolume)} ${getWeightLabel(weightUnit)}`}
         />
       </div>
 
@@ -265,7 +262,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       </Card>
 
       {showComparison && !comparisonToggleDisabled ? (
-        <SessionComparison currentSession={session} previousSession={previousSession} />
+        <SessionComparison
+          currentSession={session}
+          previousSession={previousSession}
+          weightUnit={weightUnit}
+        />
       ) : null}
 
       <div className="space-y-4">
@@ -338,7 +339,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                           className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
                           key={set.id}
                         >
-                          {formatSetLabel(set)}
+                          {formatSetLabel(set, weightUnit)}
                         </span>
                       ))}
                     </div>
@@ -348,6 +349,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         currentSession={session}
                         exerciseId={exercise.exerciseId}
                         previousSession={previousSession}
+                        weightUnit={weightUnit}
                       />
                     ) : null}
 
@@ -431,6 +433,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
                   history={selectedExerciseHistory}
+                  weightUnit={weightUnit}
                 />
               </div>
             </div>
@@ -600,13 +603,14 @@ function buildHistoryPoint(session: WorkoutSession, exerciseId: string): ActiveW
   };
 }
 
-function formatSetLabel(set: SessionSet) {
+function formatSetLabel(set: SessionSet, weightUnit: WeightUnit) {
   if (set.skipped) {
     return `Set ${set.setNumber}: Skipped`;
   }
 
   const repsLabel = set.reps != null ? `${integerFormatter.format(set.reps)} reps` : 'No reps';
-  const weightLabel = set.weight != null ? `${formatNumber(set.weight)} kg × ` : '';
+  const weightLabel =
+    set.weight != null ? `${formatNumber(set.weight)} ${getWeightLabel(weightUnit)} × ` : '';
 
   return `Set ${set.setNumber}: ${weightLabel}${repsLabel}`;
 }

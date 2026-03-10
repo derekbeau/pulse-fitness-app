@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { ArrowUpRight, Check, Plus } from 'lucide-react';
+import { formatWeight as formatWeightWithUnit, type WeightUnit } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,7 @@ type SetRowProps = {
     weight: number;
   } | null;
   weight?: number | null;
+  weightUnit?: WeightUnit;
 };
 
 export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
@@ -41,6 +43,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     setNumber,
     target = null,
     weight = null,
+    weightUnit = 'lbs',
   },
   ref,
 ) {
@@ -83,11 +86,11 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
               value={weight ?? ''}
             />
             <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-muted">
-              kg
+              {weightUnit}
             </span>
           </div>
           {target ? (
-            <p className="text-xs text-muted">{`Target: ${formatWeight(target.weight)} kg x ${formatTargetReps(target)}`}</p>
+            <p className="text-xs text-muted">{`Target: ${formatWeightWithUnit(target.weight, weightUnit)} x ${formatTargetReps(target)}`}</p>
           ) : null}
         </label>
 

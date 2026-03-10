@@ -188,7 +188,7 @@ describe('SessionDetail', () => {
 
     expect(await screen.findByText('Volume progression')).toBeInTheDocument();
     expect(screen.getByText('Volume vs Feb 20')).toBeInTheDocument();
-    expect(screen.getByText('Weight +5 kg')).toBeInTheDocument();
+    expect(screen.getByText('Weight +5 lbs')).toBeInTheDocument();
     expect(screen.getByText('Reps +1')).toBeInTheDocument();
     expect(screen.getByText('PR')).toBeInTheDocument();
   });

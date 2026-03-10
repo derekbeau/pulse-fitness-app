@@ -29,6 +29,7 @@ import {
 import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useWorkoutSession } from '@/hooks/use-workout-session';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
@@ -83,6 +84,7 @@ export function ActiveWorkoutPage() {
   const sessionId = searchParams.get('sessionId');
   const requestedTemplateId = searchParams.get('template');
   const sessionQuery = useWorkoutSession(sessionId);
+  const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
   const updateSetMutation = useUpdateSet(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
@@ -272,6 +274,7 @@ export function ActiveWorkoutPage() {
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
             session={session}
+            weightUnit={weightUnit}
           />
 
           <SupplementalMenu

@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import type { SessionSet, WorkoutSession } from '@pulse/shared';
+import { formatWeight, getWeightLabel, type SessionSet, type WeightUnit, type WorkoutSession } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,12 +8,14 @@ import { cn } from '@/lib/utils';
 type SessionComparisonProps = {
   currentSession: WorkoutSession;
   previousSession: WorkoutSession | null;
+  weightUnit?: WeightUnit;
 };
 
 type SessionExerciseComparisonProps = {
   currentSession: WorkoutSession;
   exerciseId: string;
   previousSession: WorkoutSession | null;
+  weightUnit?: WeightUnit;
 };
 
 type ComparisonDirection = 'down' | 'flat' | 'up';
@@ -49,7 +51,11 @@ const decimalFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
 });
 
-export function SessionComparison({ currentSession, previousSession }: SessionComparisonProps) {
+export function SessionComparison({
+  currentSession,
+  previousSession,
+  weightUnit = 'lbs',
+}: SessionComparisonProps) {
   if (!previousSession) {
     return (
       <Card className="border-dashed">
@@ -84,13 +90,13 @@ export function SessionComparison({ currentSession, previousSession }: SessionCo
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             This session
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(currentVolume)} kg`}</p>
+          <p className="mt-2 text-2xl font-semibold">{formatWeight(currentVolume, weightUnit)}</p>
         </div>
         <div className="rounded-2xl bg-white/45 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
             Previous
           </p>
-          <p className="mt-2 text-2xl font-semibold">{`${formatNumber(previousVolume)} kg`}</p>
+          <p className="mt-2 text-2xl font-semibold">{formatWeight(previousVolume, weightUnit)}</p>
         </div>
         <div className="rounded-2xl bg-white/55 p-4 dark:border dark:border-border dark:bg-secondary/35">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100">
@@ -99,7 +105,7 @@ export function SessionComparison({ currentSession, previousSession }: SessionCo
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
               direction={getDirection(volumeDelta)}
-              label={`${formatSignedNumber(volumeDelta)} kg`}
+              label={`${formatSignedNumber(volumeDelta)} ${getWeightLabel(weightUnit)}`}
             />
             {percentChange != null ? (
               <span className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100">
@@ -117,6 +123,7 @@ export function SessionExerciseComparison({
   currentSession,
   exerciseId,
   previousSession,
+  weightUnit = 'lbs',
 }: SessionExerciseComparisonProps) {
   const comparison = getExerciseComparison(currentSession, previousSession, exerciseId);
 
@@ -134,7 +141,7 @@ export function SessionExerciseComparison({
           <span className="text-muted">{`Volume vs ${comparison.previousSessionDate}`}</span>
           <DeltaIndicator
             direction={getDirection(comparison.volumeDelta)}
-            label={`${formatSignedNumber(comparison.volumeDelta)} kg`}
+            label={`${formatSignedNumber(comparison.volumeDelta)} ${getWeightLabel(weightUnit)}`}
           />
         </div>
       </div>
@@ -149,7 +156,7 @@ export function SessionExerciseComparison({
             {set.currentWeight != null && set.weightDelta != null ? (
               <DeltaIndicator
                 direction={getDirection(set.weightDelta)}
-                label={`Weight ${formatSignedNumber(set.weightDelta)} kg`}
+                label={`Weight ${formatSignedNumber(set.weightDelta)} ${getWeightLabel(weightUnit)}`}
               />
             ) : null}
             <DeltaIndicator

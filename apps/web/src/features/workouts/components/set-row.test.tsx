@@ -18,6 +18,7 @@ describe('SetRow', () => {
         reps={8}
         setNumber={3}
         weight={55}
+        weightUnit="kg"
       />,
     );
 
