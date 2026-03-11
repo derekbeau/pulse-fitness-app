@@ -372,8 +372,8 @@ function ExerciseCardItem({
     focusTargetExerciseId === exercise.id
       ? true
       : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
-  const formCueDetails = exercise.formCues;
-  const hasFormCues = formCueDetails !== null;
+  const formCues = exercise.formCues;
+  const hasFormCues = formCues.length > 0;
   const hasInjuryCues = exercise.injuryCues.length > 0;
   const isCuePanelOpen = hasFormCues && (visibleCuePanels[exercise.id] ?? false);
   const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
@@ -591,22 +591,7 @@ function ExerciseCardItem({
               >
                 <div className="overflow-hidden">
                   <div className="rounded-2xl border border-border bg-background/80 p-4">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                          Technique
-                        </p>
-                        <p className="text-sm text-foreground">{formCueDetails?.technique}</p>
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <CueList items={formCueDetails?.mentalCues ?? []} title="Mental Cues" />
-                        <CueList
-                          items={formCueDetails?.commonMistakes ?? []}
-                          title="Common Mistakes"
-                        />
-                      </div>
-                    </div>
+                    <CueList items={formCues} title="Technique & coaching cues" />
                   </div>
                 </div>
               </div>

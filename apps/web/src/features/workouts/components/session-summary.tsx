@@ -28,8 +28,11 @@ type SessionSummaryProps = {
   exercisesCompleted: number;
   feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
+  onNotesChange?: (notes: string) => void;
+  sessionNotes?: string;
   sessionId?: string | null;
-  completedSets: number;
+  completedSets?: number;
+  summarySaving?: boolean;
   totalReps: number;
   totalSets: number;
   workoutName: string;
@@ -43,8 +46,11 @@ export function SessionSummary({
   exercisesCompleted,
   feedback = [],
   onDone,
+  onNotesChange,
+  sessionNotes: initialSessionNotes = '',
   sessionId = null,
   completedSets,
+  summarySaving = false,
   totalReps,
   totalSets,
   workoutName,
@@ -82,11 +88,32 @@ export function SessionSummary({
             <SummaryStat
               icon={ListChecks}
               label="Sets completed"
-              value={`${completedSets}/${totalSets}`}
+              value={
+                completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`
+              }
             />
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
           </div>
+
+          <section className="space-y-2 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
+            <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
+              Session notes
+            </h2>
+            <Textarea
+              aria-label="Session notes"
+              data-testid="session-summary-notes"
+              id="session-summary-notes"
+              name="session-summary-notes"
+              className="rounded-2xl border-black/10 bg-card dark:border-border"
+              onChange={(event) => {
+                onNotesChange?.(event.target.value);
+              }}
+              placeholder="How did it feel? What would you change?"
+              rows={4}
+              value={initialSessionNotes}
+            />
+          </section>
 
           {feedback.length > 0 ? (
             <section className="space-y-3 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
@@ -107,9 +134,7 @@ export function SessionSummary({
                       {field.label}
                     </p>
                     <p className="mt-2 text-base font-semibold text-foreground">
-                      {field.type === 'scale'
-                        ? `${field.value ?? '-'} / ${field.max}`
-                        : field.value}
+                      {formatFeedbackFieldValue(field)}
                     </p>
                     {field.notes?.trim() ? (
                       <p className="mt-2 text-sm text-muted">{field.notes.trim()}</p>
@@ -139,11 +164,12 @@ export function SessionSummary({
 
             <Button
               className="w-full border-black/10 bg-white/60 hover:bg-white/75 sm:w-auto dark:bg-secondary dark:text-foreground dark:hover:bg-secondary/80"
+              disabled={summarySaving}
               onClick={onDone}
               type="button"
               variant="secondary"
             >
-              Done
+              {summarySaving ? 'Saving...' : 'Done'}
             </Button>
           </div>
 
@@ -236,7 +262,6 @@ export function SessionSummary({
                   return;
                 }
 
-                console.log('Mock save workout template', payload);
                 setSaveMessage(`Saved "${payload.name}" to mock templates.`);
                 setIsSaveDialogOpen(false);
               }}
@@ -249,6 +274,31 @@ export function SessionSummary({
       </Dialog>
     </>
   );
+}
+
+function formatFeedbackFieldValue(field: ActiveWorkoutFeedbackDraft[number]) {
+  switch (field.type) {
+    case 'scale':
+      return `${field.value ?? '-'} / ${field.max}`;
+    case 'text':
+      return field.value?.trim() ? field.value : '-';
+    case 'yes_no':
+      if (field.value === null || field.value === undefined) {
+        return '-';
+      }
+
+      return field.value ? 'Yes' : 'No';
+    case 'emoji':
+      return field.value?.trim() ? field.value : '-';
+    case 'slider':
+      return field.value === null || field.value === undefined
+        ? '-'
+        : `${field.value} (${field.min} - ${field.max})`;
+    case 'multi_select':
+      return (field.value ?? []).length > 0 ? (field.value ?? []).join(', ') : '-';
+    default:
+      return '-';
+  }
 }
 
 function SummaryStat({

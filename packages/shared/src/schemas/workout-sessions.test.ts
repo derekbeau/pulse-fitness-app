@@ -24,6 +24,27 @@ describe('workoutSessionFeedbackSchema', () => {
       recovery: 3,
       technique: 5,
       notes: ' Strong focus today. ',
+      responses: [
+        {
+          id: 'session-rpe',
+          label: 'Session RPE',
+          type: 'scale',
+          value: 8,
+        },
+        {
+          id: 'energy-post-workout',
+          label: 'Energy post workout',
+          type: 'emoji',
+          value: ' 🙂 ',
+        },
+        {
+          id: 'pain-discomfort',
+          label: 'Any pain or discomfort?',
+          type: 'yes_no',
+          value: true,
+          notes: ' Mild right knee discomfort on split squats. ',
+        },
+      ],
     });
 
     expect(feedback).toEqual({
@@ -31,7 +52,62 @@ describe('workoutSessionFeedbackSchema', () => {
       recovery: 3,
       technique: 5,
       notes: 'Strong focus today.',
+      responses: [
+        {
+          id: 'session-rpe',
+          label: 'Session RPE',
+          type: 'scale',
+          value: 8,
+        },
+        {
+          id: 'energy-post-workout',
+          label: 'Energy post workout',
+          type: 'emoji',
+          value: '🙂',
+        },
+        {
+          id: 'pain-discomfort',
+          label: 'Any pain or discomfort?',
+          type: 'yes_no',
+          value: true,
+          notes: 'Mild right knee discomfort on split squats.',
+        },
+      ],
     });
+  });
+
+  it('rejects null values for non-text response types', () => {
+    expect(() =>
+      workoutSessionFeedbackSchema.parse({
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        responses: [
+          {
+            id: 'session-rpe',
+            label: 'Session RPE',
+            type: 'scale',
+            value: null,
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      workoutSessionFeedbackSchema.parse({
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        responses: [
+          {
+            id: 'pain-discomfort',
+            label: 'Any pain or discomfort?',
+            type: 'yes_no',
+            value: null,
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });
 
@@ -239,12 +315,20 @@ describe('updateWorkoutSessionInputSchema', () => {
       templateId: null,
       feedback: null,
       notes: '   ',
+      exerciseNotes: {
+        'incline-dumbbell-press': ' Keep elbows tucked ',
+        'seated-dumbbell-shoulder-press': '   ',
+      },
     });
 
     expect(payload).toEqual({
       templateId: null,
       feedback: null,
       notes: null,
+      exerciseNotes: {
+        'incline-dumbbell-press': 'Keep elbows tucked',
+        'seated-dumbbell-shoulder-press': null,
+      },
     });
   });
 

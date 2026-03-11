@@ -40,6 +40,7 @@ const nullableTemplateIdSchema = z.preprocess(
   requiredStringSchema.nullable(),
 );
 const nullableIntegerSchema = z.number().int().min(0).nullable();
+const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStringSchema);
 
 const validateWorkoutSessionTiming = (
   value: {
@@ -83,11 +84,62 @@ export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(5),
 ]);
 
+export const workoutSessionFeedbackResponseTypeSchema = z.enum([
+  'scale',
+  'text',
+  'yes_no',
+  'emoji',
+  'slider',
+  'multi_select',
+]);
+
+const workoutSessionFeedbackResponseBaseSchema = z.object({
+  id: requiredStringSchema,
+  label: requiredStringSchema,
+  notes: optionalLongStringSchema.optional(),
+});
+
+export const workoutSessionFeedbackResponseSchema = z.discriminatedUnion('type', [
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('scale'),
+    value: z.number(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('slider'),
+    value: z.number(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('yes_no'),
+    value: z.boolean(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('emoji'),
+    value: requiredStringSchema,
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('text'),
+    value: nullableLongStringSchema,
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('multi_select'),
+    value: z.array(requiredStringSchema).max(20),
+  }),
+]);
+
+export const workoutSessionFeedbackResponseValueSchema = z.union([
+  z.number(),
+  z.boolean(),
+  requiredStringSchema,
+  nullableLongStringSchema,
+  z.array(requiredStringSchema).max(20),
+]);
+
 export const workoutSessionFeedbackSchema = z.object({
   energy: workoutSessionFeedbackScoreSchema,
   recovery: workoutSessionFeedbackScoreSchema,
   technique: workoutSessionFeedbackScoreSchema,
   notes: optionalLongStringSchema.optional(),
+  responses: z.array(workoutSessionFeedbackResponseSchema).max(50).optional(),
 });
 
 export const sessionSetSchema = z
@@ -185,6 +237,7 @@ export const updateWorkoutSessionInputSchema = z
     duration: nullableIntegerSchema.optional(),
     feedback: workoutSessionFeedbackSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
+    exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
@@ -214,6 +267,7 @@ export const workoutSessionQueryParamsSchema = z
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
+export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
 export type SessionSet = z.infer<typeof sessionSetSchema>;
 export type WorkoutSession = z.infer<typeof workoutSessionSchema>;
 export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema>;

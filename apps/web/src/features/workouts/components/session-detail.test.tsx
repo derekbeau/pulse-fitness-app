@@ -50,7 +50,9 @@ describe('SessionDetail', () => {
 
     renderSessionDetail('missing-session');
 
-    expect(await screen.findByText('Session not found', {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Session not found', {}, { timeout: 5_000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
       'href',
       '/workouts?view=calendar',
@@ -81,6 +83,7 @@ describe('SessionDetail', () => {
           id: 'set-press-1',
           exerciseId: 'incline-dumbbell-press',
           setNumber: 1,
+          notes: 'Bench at setting 5; keep elbows tucked.',
           reps: 10,
           weight: 50,
           section: 'main',
@@ -115,12 +118,71 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByText('Section breakdown')).toBeInTheDocument();
     expect(screen.getByText('Feedback')).toBeInTheDocument();
-    expect(screen.getByText('Session notes')).toBeInTheDocument();
+    expect(screen.getByText('Session Notes')).toBeInTheDocument();
     expect(screen.getByLabelText(/show comparison/i)).toBeInTheDocument();
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
+    expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
+  });
+
+  it('renders structured feedback responses when available', async () => {
+    const currentSession = createSession({
+      id: 'session-structured-feedback',
+      templateId: 'template-upper-push',
+      feedback: {
+        energy: 4,
+        recovery: 3,
+        technique: 4,
+        notes: 'Felt strong overall.',
+        responses: [
+          {
+            id: 'session-rpe',
+            label: 'Session RPE',
+            type: 'scale',
+            value: 8,
+          },
+          {
+            id: 'energy-post-workout',
+            label: 'Energy post workout',
+            type: 'emoji',
+            value: '💪',
+          },
+          {
+            id: 'pain-discomfort',
+            label: 'Any pain or discomfort?',
+            type: 'yes_no',
+            value: true,
+            notes: 'Mild right knee discomfort during split squats.',
+          },
+        ],
+      },
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Session RPE')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+    expect(screen.getByText('Energy post workout')).toBeInTheDocument();
+    expect(screen.getByText('💪')).toBeInTheDocument();
+    expect(screen.getByText('Any pain or discomfort?')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.getByText('Mild right knee discomfort during split squats.')).toBeInTheDocument();
+    expect(screen.getByText('Felt strong overall.')).toBeInTheDocument();
   });
 
   it('shows volume progression, deltas, and PR badges when comparison is enabled', async () => {
@@ -253,11 +315,53 @@ describe('SessionDetail', () => {
     renderSessionDetail(currentSession.id);
     await screen.findByText('Workout receipt');
 
-    fireEvent.click(screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }),
+    );
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
     expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
+  });
+
+  it('keeps sections with exercise notes expanded by default', async () => {
+    const currentSession = createSession({
+      id: 'session-notes-visible',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-warmup-note',
+          exerciseId: 'row-erg',
+          setNumber: 1,
+          notes: 'Felt strong on this set, increased weight by 5lbs',
+          reps: 240,
+          section: 'warmup',
+          weight: null,
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(
+      await screen.findByText('Felt strong on this set, increased weight by 5lbs'),
+    ).toBeInTheDocument();
+    const warmupHeading = screen.getByRole('heading', { name: 'Warmup' });
+    const warmupDetails = warmupHeading.closest('details');
+    expect(warmupDetails).toHaveAttribute('open');
   });
 });
 
@@ -404,7 +508,9 @@ function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
   };
 }
 
-function createSet(overrides: Partial<WorkoutSession['sets'][number]>): WorkoutSession['sets'][number] {
+function createSet(
+  overrides: Partial<WorkoutSession['sets'][number]>,
+): WorkoutSession['sets'][number] {
   return {
     id: 'set-default',
     exerciseId: 'incline-dumbbell-press',
@@ -420,9 +526,7 @@ function createSet(overrides: Partial<WorkoutSession['sets'][number]>): WorkoutS
   };
 }
 
-function createSessionListItem(
-  overrides: Partial<WorkoutSessionListItem>,
-): WorkoutSessionListItem {
+function createSessionListItem(overrides: Partial<WorkoutSessionListItem>): WorkoutSessionListItem {
   return {
     id: 'session-item-default',
     name: 'Upper Push',

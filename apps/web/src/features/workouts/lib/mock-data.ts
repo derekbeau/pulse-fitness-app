@@ -144,15 +144,6 @@ const sharedLowerSupplemental: ActiveWorkoutSupplementalExercise[] = [
 
 export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
   {
-    id: 'knee-pain',
-    label: 'Knee pain',
-    type: 'scale',
-    min: 1,
-    max: 5,
-    value: 2,
-    notes: 'Right patellar tendon stayed warm after split squats.',
-  },
-  {
     id: 'shoulder-feel',
     label: 'Shoulder feel',
     type: 'scale',
@@ -160,14 +151,6 @@ export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
     max: 5,
     value: 4,
     notes: 'Left shoulder stayed stable with neutral-grip pressing.',
-  },
-  {
-    id: 'energy-post',
-    label: 'Energy post workout',
-    type: 'scale',
-    min: 1,
-    max: 5,
-    value: 4,
   },
   {
     id: 'session-note',

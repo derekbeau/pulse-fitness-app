@@ -15,6 +15,7 @@ import {
   type SessionSet,
   type WeightUnit,
   type WorkoutSession,
+  type WorkoutSessionFeedbackResponse,
   type WorkoutTemplate,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -255,6 +256,22 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         />
       </div>
 
+      {session.notes ? (
+        <Card>
+          <CardHeader className="gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <NotebookPen aria-hidden="true" className="size-5 text-primary" />
+              Session Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm leading-6 text-foreground">
+              {session.notes}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -293,10 +310,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </div>
 
         {sections.map((section) => (
+          // Keep note-bearing sections expanded so logged notes are immediately visible.
+          // This avoids hiding notes behind collapsed warmup/cooldown groups.
+          // Main remains expanded by default even when it has no notes.
+          // Users can still collapse sections manually after first render.
           <details
             className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
             key={section.type}
-            open={section.type === 'main'}
+            open={section.type === 'main' || section.exercises.some((exercise) => Boolean(exercise.notes))}
           >
             <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 sm:py-5">
               <div className="flex items-center justify-between gap-3">
@@ -394,11 +415,32 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         <CardContent className="space-y-5">
           {session.feedback ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <FeedbackScore label="Energy" score={session.feedback.energy} />
-                <FeedbackScore label="Recovery" score={session.feedback.recovery} />
-                <FeedbackScore label="Technique" score={session.feedback.technique} />
-              </div>
+              {session.feedback.responses && session.feedback.responses.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {session.feedback.responses.map((response) => (
+                    <div
+                      className="rounded-2xl border border-border bg-secondary/35 p-4"
+                      key={response.id}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                        {response.label}
+                      </p>
+                      <p className="mt-2 text-base font-semibold text-foreground">
+                        {formatFeedbackResponseValue(response)}
+                      </p>
+                      {response.notes?.trim() ? (
+                        <p className="mt-2 text-sm text-muted">{response.notes.trim()}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FeedbackScore label="Energy" score={session.feedback.energy} />
+                  <FeedbackScore label="Recovery" score={session.feedback.recovery} />
+                  <FeedbackScore label="Technique" score={session.feedback.technique} />
+                </div>
+              )}
 
               {session.feedback.notes ? (
                 <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
@@ -414,22 +456,6 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           )}
         </CardContent>
       </Card>
-
-      {session.notes ? (
-        <Card>
-          <CardHeader className="gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <NotebookPen aria-hidden="true" className="size-5 text-primary" />
-              Session notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm leading-6 text-foreground">
-              {session.notes}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
 
       {session.templateId ? (
         <Button asChild className="w-full sm:w-auto" size="lg">
@@ -592,6 +618,32 @@ function FeedbackScore({ label, score }: { label: string; score: number }) {
       <p className="mt-2 text-base font-semibold text-foreground">{`${score}/5`}</p>
     </div>
   );
+}
+
+function formatFeedbackResponseValue(response: WorkoutSessionFeedbackResponse) {
+  if (response.value === null) {
+    return '-';
+  }
+
+  if (typeof response.value === 'boolean') {
+    return response.value ? 'Yes' : 'No';
+  }
+
+  if (typeof response.value === 'number') {
+    return Number.isInteger(response.value)
+      ? `${response.value}`
+      : decimalFormatter.format(response.value);
+  }
+
+  if (typeof response.value === 'string') {
+    return response.value.trim().length > 0 ? response.value : '-';
+  }
+
+  if (Array.isArray(response.value)) {
+    return response.value.length > 0 ? response.value.join(', ') : '-';
+  }
+
+  return '-';
 }
 
 function inferPhaseBadge(sectionType: SessionDetailSectionType): SessionDetailExercise['phaseBadge'] {

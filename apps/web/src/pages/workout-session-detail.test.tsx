@@ -208,7 +208,7 @@ describe('WorkoutSessionDetailPage', () => {
   it('renders session notes when present', async () => {
     renderWithRoute(currentSession.id);
 
-    expect(await screen.findByText('Session notes')).toBeInTheDocument();
+    expect(await screen.findByText('Session Notes')).toBeInTheDocument();
     expect(screen.getByText(currentSession.notes ?? '')).toBeInTheDocument();
   });
 

@@ -44,6 +44,7 @@ export default defineConfig({
   },
   server: {
     host: true,
+    strictPort: true,
     proxy: {
       '/api': {
         changeOrigin: true,

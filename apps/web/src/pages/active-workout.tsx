@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
-import type {
-  ExerciseTrackingType,
-  SessionSet,
-  WorkoutSessionFeedback,
+import {
+  createWorkoutSessionInputSchema,
+  updateWorkoutSessionInputSchema,
+  type ExerciseTrackingType,
+  type SessionSet,
+  workoutSessionSchema,
+  type WorkoutSessionFeedback,
+  type WorkoutSessionFeedbackResponse,
   WorkoutTemplate as ApiWorkoutTemplate,
-  WorkoutTemplateSectionType,
+  type WorkoutTemplateSectionType,
 } from '@pulse/shared';
 
 import {
@@ -24,6 +30,7 @@ import {
   workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
+  type ActiveWorkoutCustomFeedbackField,
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
@@ -42,7 +49,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useWorkoutTemplate } from '@/features/workouts/api/workouts';
+import { workoutQueryKeys, useWorkoutTemplate } from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
   resolveTrackingType,
@@ -50,20 +57,25 @@ import {
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { useUpdateSessionStartTime, useWorkoutSession } from '@/hooks/use-workout-session';
+import {
+  useUpdateSessionStartTime,
+  useWorkoutSession,
+  workoutSessionQueryKeys,
+} from '@/hooks/use-workout-session';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
-  clearExerciseNotes,
-  clearSetDrafts,
+  clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
-  loadExerciseNotes,
-  loadSetDrafts,
-  saveExerciseNotes,
-  saveSetDrafts,
+  getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
+  setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
-import { ApiError } from '@/lib/api-client';
+import {
+  buildSessionSetInputs,
+  extractExerciseNotes,
+} from '@/features/workouts/lib/session-notes';
+import { ApiError, apiRequest } from '@/lib/api-client';
 import {
   mockExercises,
   mockTemplates,
@@ -108,6 +120,7 @@ type RestTimerState = {
 };
 
 export function ActiveWorkoutPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('sessionId');
@@ -141,6 +154,9 @@ export function ActiveWorkoutPage() {
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
+  const [summarySaving, setSummarySaving] = useState(false);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
@@ -149,29 +165,22 @@ export function ActiveWorkoutPage() {
   const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
+  const hydratedDraftKeyRef = useRef<string | null>(null);
   const supplementalExercises = workoutSupplementalExercises;
 
   const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
-  const persistedSessionId = activeSessionId ?? sessionId;
+  const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
-  const clearSessionDraftPersistence = useCallback((targetSessionId: string | null) => {
-    if (!targetSessionId) {
-      return;
-    }
-
-    clearSetDrafts(targetSessionId);
-    clearExerciseNotes(targetSessionId);
-  }, []);
   const redirectToCompletedSessionNotice = useCallback(() => {
-    clearSessionDraftPersistence(activeSessionId ?? sessionId);
+    clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
     clearStoredActiveWorkoutSessionId();
     navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
       replace: true,
     });
-  }, [activeSessionId, clearSessionDraftPersistence, navigate, sessionId]);
+  }, [activeWorkoutDraftId, navigate]);
 
   const templateExerciseById = useMemo(
     () =>
@@ -204,14 +213,27 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const restoredDrafts = loadSetDrafts(activeSession.id);
-    const restoredNotes = loadExerciseNotes(activeSession.id);
-
-    setSetDrafts(
-      restoredDrafts ?? createSessionSetDrafts(template, activeSession.sets, templateExerciseById),
+    const serverSetDrafts = createSessionSetDrafts(
+      template,
+      activeSession.sets,
+      templateExerciseById,
     );
-    setExerciseNotes(restoredNotes ?? {});
+    const serverExerciseNotes = extractExerciseNotes(activeSession.sets);
+    const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+    const previousDraftKey = hydratedDraftKeyRef.current;
+
+    setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
+    setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
     hydratedSessionIdRef.current = activeSession.id;
+    hydratedDraftKeyRef.current = activeSession.id;
+
+    if (previousDraftKey && previousDraftKey !== activeSession.id) {
+      clearStoredActiveWorkoutDraft(previousDraftKey);
+    }
+
+    if (template.id !== activeSession.id) {
+      clearStoredActiveWorkoutDraft(template.id);
+    }
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -219,50 +241,16 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    setSetDrafts(
-      createInitialWorkoutSetDrafts(
-        template,
-        requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-      ),
+    const initialSetDrafts = createInitialWorkoutSetDrafts(
+      template,
+      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
     );
-    setExerciseNotes({});
-  }, [activeSession, requestedTemplateId, sessionId, template]);
+    const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
 
-  useEffect(() => {
-    if (!persistedSessionId || stage !== 'active') {
-      return;
-    }
-
-    if (sessionId && hydratedSessionIdRef.current === null) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      saveSetDrafts(persistedSessionId, setDrafts);
-    }, 500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [persistedSessionId, sessionId, setDrafts, stage]);
-
-  useEffect(() => {
-    if (!persistedSessionId || stage !== 'active') {
-      return;
-    }
-
-    if (sessionId && hydratedSessionIdRef.current === null) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      saveExerciseNotes(persistedSessionId, exerciseNotes);
-    }, 500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [exerciseNotes, persistedSessionId, sessionId, stage]);
+    setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
+    setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
+    hydratedDraftKeyRef.current = activeWorkoutDraftId;
+  }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {
     if (!activeSession || !sessionId) {
@@ -280,6 +268,21 @@ export function ActiveWorkoutPage() {
       redirectToCompletedSessionNotice();
     }
   }, [activeSession, redirectToCompletedSessionNotice, sessionId, stage]);
+
+  useEffect(() => {
+    if (stage !== 'active') {
+      return;
+    }
+
+    if (hydratedDraftKeyRef.current !== activeWorkoutDraftId) {
+      return;
+    }
+
+    setStoredActiveWorkoutDraft(activeWorkoutDraftId, {
+      exerciseNotes,
+      setDrafts,
+    });
+  }, [activeWorkoutDraftId, exerciseNotes, setDrafts, stage]);
 
   const session = useMemo(
     () =>
@@ -403,7 +406,7 @@ export function ActiveWorkoutPage() {
       {stage === 'feedback' ? (
         <SessionFeedback
           fields={workoutFeedbackFields}
-          onSubmit={(feedback) => {
+          onSubmit={async (feedback) => {
             if (completeSessionMutation.isPending) {
               return;
             }
@@ -411,11 +414,38 @@ export function ActiveWorkoutPage() {
             const completedAt = Date.now();
             const completedAtIso = new Date(completedAt).toISOString();
             const duration = Math.floor(getElapsedSeconds(startTime, completedAt) / 60);
-            const notes = extractFeedbackNotes(feedback);
+            const feedbackNotes = extractFeedbackNotes(feedback);
+            const sessionSetInputs = buildSessionSetInputs(
+              setDrafts,
+              templateExerciseById,
+              exerciseNotes,
+            );
 
             if (!activeSessionId) {
-              // Local-only sessions persist under the route/session fallback ID.
-              clearSessionDraftPersistence(persistedSessionId);
+              setSessionError(null);
+              try {
+                const createdSession = await createCompletedWorkoutSession({
+                  completedAt,
+                  date: completedAtIso.slice(0, 10),
+                  duration,
+                  feedback: {
+                    ...mapFeedbackDraftToSessionFeedback(feedback),
+                    notes: feedbackNotes ?? undefined,
+                  },
+                  name: session.workoutName,
+                  sets: sessionSetInputs,
+                  startedAt: new Date(startTime).getTime(),
+                  templateId: shouldLoadApiTemplate ? template.id : null,
+                });
+                setCompletedSessionId(createdSession.id);
+              } catch {
+                setSessionError('Unable to complete this workout. Try again.');
+                return;
+              }
+
+              void queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all });
+
+              clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
               setStage('summary');
@@ -429,9 +459,11 @@ export function ActiveWorkoutPage() {
                 duration,
                 feedback: {
                   ...mapFeedbackDraftToSessionFeedback(feedback),
-                  notes: notes ?? undefined,
+                  notes: feedbackNotes ?? undefined,
                 },
-                notes,
+                exerciseNotes,
+                notes: null,
+                sets: sessionSetInputs,
               },
               {
                 onError: (error) => {
@@ -443,8 +475,8 @@ export function ActiveWorkoutPage() {
                   setSessionError('Unable to complete this workout. Try again.');
                 },
                 onSuccess: () => {
-                  // API-backed sessions always clear persistence using the canonical server session ID.
-                  clearSessionDraftPersistence(activeSessionId);
+                  clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+                  setCompletedSessionId(activeSessionId);
                   setSessionFeedback(feedback);
                   setSessionCompletedAt(completedAtIso);
                   setStage('summary');
@@ -462,8 +494,46 @@ export function ActiveWorkoutPage() {
           duration={summaryDuration}
           exercisesCompleted={session.totalExercises}
           feedback={sessionFeedback}
-          onDone={() => navigate('/workouts')}
+          onDone={async () => {
+            if (summarySaving) {
+              return;
+            }
+
+            const persistedSessionId = activeSessionId ?? completedSessionId;
+            if (persistedSessionId) {
+              const trimmedSessionNotes = sessionNotes.trim();
+              if (trimmedSessionNotes.length > 0) {
+                setSessionError(null);
+                setSummarySaving(true);
+                try {
+                  await persistCompletedSessionNotes({
+                    notes: trimmedSessionNotes,
+                    sessionId: persistedSessionId,
+                  });
+                  await Promise.all([
+                    queryClient.invalidateQueries({
+                      queryKey: workoutSessionQueryKeys.detail(persistedSessionId),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: workoutQueryKeys.session(persistedSessionId),
+                    }),
+                  ]);
+                } catch {
+                  setSessionError('Unable to save session notes. Try again.');
+                  setSummarySaving(false);
+                  return;
+                }
+                setSummarySaving(false);
+              }
+            }
+
+            clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+            navigate('/workouts');
+          }}
+          onNotesChange={setSessionNotes}
+          sessionNotes={sessionNotes}
           sessionId={activeSessionId}
+          summarySaving={summarySaving}
           totalReps={totalCompletedReps}
           completedSets={session.completedSets}
           totalSets={session.totalSets}
@@ -845,6 +915,18 @@ function createSessionSetDrafts(
 function mapFeedbackDraftToSessionFeedback(
   draft: ActiveWorkoutFeedbackDraft,
 ): WorkoutSessionFeedback {
+  const sessionRpeField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale' }> =>
+      field.id === 'session-rpe' && field.type === 'scale',
+  );
+  const energyEmojiField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'emoji' }> =>
+      field.id === 'energy-post-workout' && field.type === 'emoji',
+  );
+  const painField = draft.find(
+    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'yes_no' }> =>
+      field.id === 'pain-discomfort' && field.type === 'yes_no',
+  );
   const scaleEntries = draft.filter(
     (
       field,
@@ -856,20 +938,93 @@ function mapFeedbackDraftToSessionFeedback(
 
   return {
     energy: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('energy'))?.value ??
+      toEmojiFeedbackScore(energyEmojiField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('energy'))?.value ??
         scaleEntries.at(2)?.value ??
         scaleEntries.at(0)?.value,
     ),
     recovery: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('recovery'))?.value ??
+      toPainFeedbackScore(painField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('recovery'))?.value ??
         scaleEntries.at(0)?.value,
     ),
     technique: toFeedbackScore(
-      scaleEntries.find((field) => field.id.toLowerCase().includes('technique'))?.value ??
+      toRpeFeedbackScore(sessionRpeField?.value) ??
+        scaleEntries.find((field) => field.id.toLowerCase().includes('technique'))?.value ??
         scaleEntries.at(1)?.value ??
         scaleEntries.at(0)?.value,
     ),
+    responses: draft
+      .map(toWorkoutSessionFeedbackResponse)
+      .filter((response): response is WorkoutSessionFeedbackResponse => response !== null),
   };
+}
+
+function toWorkoutSessionFeedbackResponse(
+  field: ActiveWorkoutCustomFeedbackField,
+): WorkoutSessionFeedbackResponse | null {
+  const notes = field.notes?.trim();
+  const base = {
+    id: field.id,
+    label: field.label,
+    ...(notes ? { notes } : {}),
+  };
+
+  switch (field.type) {
+    case 'scale':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'scale', value: field.min };
+      }
+      return {
+        ...base,
+        type: 'scale',
+        value: field.value,
+      };
+    case 'slider':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'slider', value: field.min };
+      }
+      return {
+        ...base,
+        type: 'slider',
+        value: field.value,
+      };
+    case 'text':
+      return {
+        ...base,
+        type: 'text',
+        value: field.value?.trim() ? field.value.trim() : null,
+      };
+    case 'yes_no':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'yes_no', value: false };
+      }
+      return {
+        ...base,
+        type: 'yes_no',
+        value: field.value,
+      };
+    case 'emoji':
+      if (!field.value?.trim()) {
+        return field.optional ? null : { ...base, type: 'emoji', value: field.options[0] ?? '😐' };
+      }
+      return {
+        ...base,
+        type: 'emoji',
+        value: field.value.trim(),
+      };
+    case 'multi_select':
+      if ((field.value ?? []).length === 0) {
+        return field.optional ? null : { ...base, type: 'multi_select', value: [] };
+      }
+      return {
+        ...base,
+        type: 'multi_select',
+        value: field.value ?? [],
+      };
+    default:
+      return null;
+  }
 }
 
 function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
@@ -890,7 +1045,56 @@ function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
   return rounded as 1 | 2 | 3 | 4 | 5;
 }
 
+function toRpeFeedbackScore(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return null;
+  }
+
+  return Math.max(1, Math.min(5, Math.round(value / 2)));
+}
+
+function toEmojiFeedbackScore(value: string | null | undefined) {
+  switch (value) {
+    case '😫':
+      return 1;
+    case '😕':
+      return 2;
+    case '😐':
+      return 3;
+    case '🙂':
+      return 4;
+    case '💪':
+      return 5;
+    default:
+      return null;
+  }
+}
+
+function toPainFeedbackScore(value: boolean | null | undefined) {
+  if (value === true) {
+    return 2;
+  }
+
+  if (value === false) {
+    return 4;
+  }
+
+  return null;
+}
+
 function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
+  const painDetailsField = draft.find(
+    (field) =>
+      field.id === 'pain-discomfort' &&
+      field.type === 'yes_no' &&
+      field.value === true &&
+      (field.notes ?? '').trim().length > 0,
+  );
+
+  if (painDetailsField) {
+    return painDetailsField.notes?.trim() ?? null;
+  }
+
   const textField = draft.find(
     (
       field,
@@ -902,14 +1106,41 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
     return textField.value?.trim() ?? null;
   }
 
-  const scaleFieldWithNotes = draft.find(
-    (
-      field,
-    ): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale'; notes?: string }> =>
-      field.type === 'scale' && (field.notes ?? '').trim().length > 0,
-  );
+  const fieldWithNotes = draft.find((field) => (field.notes ?? '').trim().length > 0);
 
-  return scaleFieldWithNotes?.notes?.trim() ?? null;
+  return fieldWithNotes?.notes?.trim() ?? null;
+}
+
+async function persistCompletedSessionNotes({
+  sessionId,
+  notes,
+}: {
+  sessionId: string;
+  notes: string;
+}) {
+  const payload = updateWorkoutSessionInputSchema.parse({
+    notes,
+  });
+
+  await apiRequest(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(payload),
+    method: 'PATCH',
+  });
+}
+
+async function createCompletedWorkoutSession(
+  input: z.input<typeof createWorkoutSessionInputSchema>,
+) {
+  const payload = createWorkoutSessionInputSchema.parse({
+    ...input,
+    status: 'completed',
+  });
+  const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
+    body: JSON.stringify(payload),
+    method: 'POST',
+  });
+
+  return workoutSessionSchema.parse(data);
 }
 
 function isSessionNotActiveError(error: unknown) {

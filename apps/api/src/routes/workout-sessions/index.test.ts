@@ -1426,6 +1426,179 @@ describe('workout session routes', () => {
     });
   });
 
+  it('patches session notes and exercise notes on an existing completed session', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 4000,
+      duration: 50,
+      notes: 'Old summary',
+    });
+    seedSessionSet({
+      id: 'set-1',
+      sessionId: 'session-1',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      weight: 150,
+      reps: 10,
+      completed: true,
+      section: 'main',
+      notes: 'Old exercise cue',
+    });
+    seedSessionSet({
+      id: 'set-2',
+      sessionId: 'session-1',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 2,
+      weight: 150,
+      reps: 9,
+      completed: true,
+      section: 'main',
+      notes: null,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        notes: ' Better setup today ',
+        exerciseNotes: {
+          'user-1-lat-pulldown': ' Keep elbows tucked ',
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-1',
+        notes: 'Better setup today',
+        sets: [
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            setNumber: 1,
+            notes: 'Keep elbows tucked',
+          }),
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            setNumber: 2,
+            notes: null,
+          }),
+        ],
+      }),
+    });
+  });
+
+  it('rejects reverting a completed session back to in-progress', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 4000,
+      duration: 50,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+        completedAt: null,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_ACTIVE',
+        message: 'Cannot revert a completed session',
+      },
+    });
+  });
+
+  it('does not overwrite first-set notes when exerciseNotes are normalized to null', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 4000,
+      duration: 50,
+    });
+    seedSessionSet({
+      id: 'set-1',
+      sessionId: 'session-1',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      weight: 150,
+      reps: 10,
+      completed: true,
+      section: 'main',
+      notes: 'Keep chest high',
+    });
+    seedSessionSet({
+      id: 'set-2',
+      sessionId: 'session-1',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 2,
+      weight: 145,
+      reps: 9,
+      completed: true,
+      section: 'main',
+      notes: null,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseNotes: {
+          'user-1-lat-pulldown': '   ',
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-1',
+        sets: [
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            setNumber: 1,
+            notes: 'Keep chest high',
+          }),
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            setNumber: 2,
+            notes: null,
+          }),
+        ],
+      }),
+    });
+  });
+
   it('deletes owned workout sessions, cascades set rows, and unlinks scheduled workouts', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

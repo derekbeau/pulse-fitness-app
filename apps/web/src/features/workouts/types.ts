@@ -36,7 +36,7 @@ export type ActiveWorkoutLastPerformance = {
 export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
-  formCues: ActiveWorkoutFormCueDetails | null;
+  formCues: string[];
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;
@@ -48,6 +48,12 @@ export type ActiveWorkoutExerciseMetadata = {
   supersetGroup: string | null;
   tempo: string | null;
   trackingType: ExerciseTrackingType;
+};
+
+export type ActiveWorkoutFormCueDetails = {
+  commonMistakes: string[];
+  mentalCues: string[];
+  technique: string;
 };
 
 export type ActiveWorkoutExercise = ActiveWorkoutExerciseMetadata & {
@@ -108,18 +114,21 @@ export type ActiveWorkoutReversePyramidTarget = {
   targetWeight: number;
 };
 
-export type ActiveWorkoutFormCueDetails = {
-  commonMistakes: string[];
-  mentalCues: string[];
-  technique: string;
-};
-
-export type ActiveWorkoutEnhancedExercise = ActiveWorkoutExerciseMetadata & {
+export type ActiveWorkoutEnhancedExercise = Omit<ActiveWorkoutExerciseMetadata, 'formCues'> & {
   exerciseId: string;
+  formCues: ActiveWorkoutFormCueDetails | null;
   section: WorkoutTemplateSectionType;
   sets: number;
   tempo: string;
 };
+
+export type FeedbackFieldType =
+  | 'scale'
+  | 'text'
+  | 'yes_no'
+  | 'emoji'
+  | 'slider'
+  | 'multi_select';
 
 export type ActiveWorkoutCustomFeedbackField =
   | {
@@ -128,6 +137,7 @@ export type ActiveWorkoutCustomFeedbackField =
       max: number;
       min: number;
       notes?: string;
+      optional?: boolean;
       type: 'scale';
       value?: number | null;
     }
@@ -138,6 +148,43 @@ export type ActiveWorkoutCustomFeedbackField =
       optional?: boolean;
       type: 'text';
       value?: string;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      type: 'yes_no';
+      value?: boolean | null;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      options: string[];
+      type: 'emoji';
+      value?: string | null;
+    }
+  | {
+      id: string;
+      label: string;
+      max: number;
+      min: number;
+      notes?: string;
+      optional?: boolean;
+      step?: number;
+      type: 'slider';
+      value?: number | null;
+    }
+  | {
+      id: string;
+      label: string;
+      notes?: string;
+      optional?: boolean;
+      options: string[];
+      type: 'multi_select';
+      value?: string[];
     };
 
 export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];
