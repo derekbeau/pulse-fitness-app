@@ -84,6 +84,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
 
     const mergedHabitInput = createHabitInputSchema.safeParse({
       name: parsedBody.data.name === undefined ? existingHabit.name : parsedBody.data.name,
+      description:
+        parsedBody.data.description === undefined
+          ? existingHabit.description
+          : parsedBody.data.description,
       emoji: parsedBody.data.emoji === undefined ? existingHabit.emoji : parsedBody.data.emoji,
       trackingType:
         parsedBody.data.trackingType === undefined

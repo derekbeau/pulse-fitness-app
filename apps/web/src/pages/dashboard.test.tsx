@@ -56,6 +56,7 @@ const habits: Habit[] = [
     emoji: '🧘',
     id: 'habit-meditate',
     name: 'Meditate',
+    description: null,
     sortOrder: 0,
     target: null,
     trackingType: 'boolean',

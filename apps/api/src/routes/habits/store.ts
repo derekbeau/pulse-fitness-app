@@ -41,6 +41,7 @@ const habitSelection = {
   id: habits.id,
   userId: habits.userId,
   name: habits.name,
+  description: habits.description,
   emoji: habits.emoji,
   trackingType: habits.trackingType,
   target: habits.target,
@@ -59,6 +60,7 @@ const mapHabitRecord = (record: {
   id: string;
   userId: string;
   name: string;
+  description: string | null;
   emoji: string | null;
   trackingType: Habit['trackingType'];
   target: number | null;
@@ -94,6 +96,7 @@ export const createHabit = async ({
   id,
   userId,
   name,
+  description,
   emoji,
   trackingType,
   target,
@@ -112,6 +115,7 @@ export const createHabit = async ({
       id,
       userId,
       name,
+      description: description ?? null,
       emoji: emoji ?? null,
       trackingType,
       target: target ?? null,
@@ -177,6 +181,7 @@ export const updateHabit = async (
     .update(habits)
     .set({
       name: updates.name,
+      description: updates.description ?? null,
       emoji: updates.emoji ?? null,
       trackingType: updates.trackingType,
       target: updates.target ?? null,

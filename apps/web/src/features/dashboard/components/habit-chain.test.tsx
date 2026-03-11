@@ -28,6 +28,7 @@ const habitRecords: Habit[] = mockHabits.map((habit, index) => ({
   id: habit.id,
   userId: 'user-1',
   name: habit.name,
+  description: null,
   emoji: null,
   trackingType: 'boolean',
   target: null,
@@ -142,6 +143,7 @@ describe('HabitChain', () => {
       id: 'habit-tri-state',
       userId: 'user-1',
       name: 'Tri-state habit',
+      description: null,
       emoji: null,
       trackingType: 'boolean',
       target: null,
@@ -168,7 +170,12 @@ describe('HabitChain', () => {
     ];
 
     const { container } = render(
-      <HabitChain endDate="2026-03-11" entries={chainEntries} habitIds={[habit.id]} habits={[habit]} />,
+      <HabitChain
+        endDate="2026-03-11"
+        entries={chainEntries}
+        habitIds={[habit.id]}
+        habits={[habit]}
+      />,
     );
 
     const completedSquare = container.querySelector(
@@ -197,6 +204,7 @@ describe('HabitChain', () => {
       id: 'habit-today',
       userId: 'user-1',
       name: 'Today habit',
+      description: null,
       emoji: null,
       trackingType: 'boolean',
       target: null,
@@ -253,6 +261,7 @@ describe('HabitChain', () => {
       id: 'habit-streak',
       userId: 'user-1',
       name: 'Streak habit',
+      description: null,
       emoji: null,
       trackingType: 'boolean',
       target: null,
@@ -296,7 +305,9 @@ describe('HabitChain', () => {
       },
     ];
 
-    render(<HabitChain endDate="2026-03-13" entries={entries} habitIds={[habit.id]} habits={[habit]} />);
+    render(
+      <HabitChain endDate="2026-03-13" entries={entries} habitIds={[habit.id]} habits={[habit]} />,
+    );
 
     expect(screen.getByText('3 day streak')).toBeInTheDocument();
   });
@@ -344,7 +355,9 @@ describe('HabitChain', () => {
       <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
     );
 
-    const square = container.querySelector('[data-slot="habit-chain-day"][data-status="completed"]');
+    const square = container.querySelector(
+      '[data-slot="habit-chain-day"][data-status="completed"]',
+    );
     expect(square).toHaveAttribute('aria-label', expect.stringContaining('Completed'));
   });
 

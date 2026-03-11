@@ -113,6 +113,13 @@
       "when": 1773172900000,
       "tag": "0015_parched_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1773173000000,
+      "tag": "0016_add_habit_description",
+      "breakpoints": true
     }
   ]
 }

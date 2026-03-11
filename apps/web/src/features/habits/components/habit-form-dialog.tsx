@@ -45,6 +45,7 @@ function createDefaultValues(habit?: Habit): CreateHabitInput {
   return {
     emoji: habit?.emoji ?? habitEmojiOptions[0],
     name: habit?.name ?? '',
+    description: habit?.description ?? null,
     target: habit?.target ?? null,
     trackingType: habit?.trackingType ?? 'boolean',
     unit: habit?.unit ?? null,
@@ -177,13 +178,44 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             ) : null}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="habit-description">Notes</Label>
+            <Controller
+              control={control}
+              name="description"
+              render={({ field }) => (
+                <textarea
+                  id="habit-description"
+                  className={cn(
+                    'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30',
+                  )}
+                  disabled={isSaving}
+                  placeholder="Why this habit matters, tips for consistency, etc."
+                  name={field.name}
+                  onBlur={field.onBlur}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    field.onChange(nextValue.length === 0 ? null : nextValue);
+                  }}
+                  ref={field.ref}
+                  rows={3}
+                  value={field.value ?? ''}
+                />
+              )}
+            />
+          </div>
+
           <div className="space-y-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Emoji</p>
               <p className="text-sm text-muted">Choose a quick visual cue for the list.</p>
             </div>
 
-            <div aria-label="Emoji picker" className="grid grid-cols-5 gap-2 sm:grid-cols-6" role="group">
+            <div
+              aria-label="Emoji picker"
+              className="grid grid-cols-5 gap-2 sm:grid-cols-6"
+              role="group"
+            >
               {habitEmojiOptions.map((emoji) => {
                 const isSelected = selectedEmoji === emoji;
 
@@ -406,7 +438,12 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
           ) : null}
 
           <DialogFooter>
-            <Button disabled={isSaving} onClick={() => onOpenChange(false)} type="button" variant="outline">
+            <Button
+              disabled={isSaving}
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
               Cancel
             </Button>
             <Button disabled={isSaving} type="submit">

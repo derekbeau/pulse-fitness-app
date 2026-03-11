@@ -18,6 +18,7 @@ type TestState = {
     id: string;
     userId: string;
     name: string;
+    description: string | null;
     emoji: string | null;
     trackingType: 'boolean' | 'numeric' | 'time';
     target: number | null;
@@ -98,6 +99,7 @@ describe('SettingsPage', () => {
           id: 'habit-hydrate',
           userId: 'user-1',
           name: 'Hydrate',
+          description: null,
           emoji: '💧',
           trackingType: 'numeric',
           target: 8,
@@ -115,6 +117,7 @@ describe('SettingsPage', () => {
           id: 'habit-sleep',
           userId: 'user-1',
           name: 'Sleep',
+          description: null,
           emoji: '😴',
           trackingType: 'time',
           target: 8,

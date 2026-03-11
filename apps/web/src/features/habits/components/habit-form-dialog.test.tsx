@@ -19,6 +19,7 @@ const existingHabit: Habit = {
   emoji: '😴',
   id: 'sleep',
   name: 'Sleep',
+  description: null,
   sortOrder: 0,
   target: 8,
   trackingType: 'time',
@@ -67,6 +68,7 @@ describe('HabitFormDialog', () => {
 
     await waitFor(() =>
       expect(createMutation.mutateAsync).toHaveBeenCalledWith({
+        description: null,
         emoji: '💧',
         frequency: 'daily',
         frequencyTarget: null,
@@ -103,6 +105,7 @@ describe('HabitFormDialog', () => {
       expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
         id: 'sleep',
         values: {
+          description: null,
           emoji: '😴',
           frequency: 'daily',
           frequencyTarget: null,
@@ -180,6 +183,7 @@ describe('HabitFormDialog', () => {
 
     await waitFor(() =>
       expect(createMutation.mutateAsync).toHaveBeenCalledWith({
+        description: null,
         emoji: '💧',
         frequency: 'specific_days',
         frequencyTarget: null,

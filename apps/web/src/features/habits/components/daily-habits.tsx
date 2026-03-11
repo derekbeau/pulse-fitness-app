@@ -443,7 +443,8 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                 updateHabitEntryMutation.isPending &&
                 updateHabitEntryMutation.variables?.habitId === habit.id;
               const isSavingToggle =
-                toggleHabitMutation.isPending && toggleHabitMutation.variables?.habitId === habit.id;
+                toggleHabitMutation.isPending &&
+                toggleHabitMutation.variables?.habitId === habit.id;
 
               return (
                 <Card
@@ -472,6 +473,11 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                       ) : null}
                       {pausedLabel ? (
                         <p className="pl-12 text-xs font-medium text-muted">{pausedLabel}</p>
+                      ) : null}
+                      {habit.sourceHabit.description ? (
+                        <p className="pl-12 text-sm whitespace-pre-line opacity-70 dark:text-muted dark:opacity-100">
+                          {habit.sourceHabit.description}
+                        </p>
                       ) : null}
                       <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
                         {progressText}
@@ -570,7 +576,9 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
 
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3 text-sm">
-                            <span className="font-semibold dark:text-foreground">{progressText}</span>
+                            <span className="font-semibold dark:text-foreground">
+                              {progressText}
+                            </span>
                             {percentageLabel ? (
                               <span className={cn('font-semibold', progressTone)}>
                                 — {percentageLabel}

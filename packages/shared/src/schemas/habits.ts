@@ -12,6 +12,7 @@ const scheduledDaysSchema = z.array(z.number().int().min(0).max(6)).min(1).nulla
 
 const habitDefinitionFieldsSchema = z.object({
   name: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(2000).nullable().optional(),
   emoji: nullableTrimmedString(32).optional(),
   trackingType: habitTrackingTypeSchema,
   target: targetSchema.optional(),
@@ -146,6 +147,7 @@ export const habitSchema = z.object({
   id: z.string(),
   userId: z.string(),
   name: z.string(),
+  description: z.string().nullable(),
   emoji: z.string().nullable(),
   trackingType: habitTrackingTypeSchema,
   target: z.number().nullable(),

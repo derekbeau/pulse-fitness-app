@@ -18,6 +18,7 @@ export const habits = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    description: text('description'),
     emoji: text('emoji'),
     trackingType: text('tracking_type').$type<HabitTrackingType>().notNull(),
     target: real('target'),

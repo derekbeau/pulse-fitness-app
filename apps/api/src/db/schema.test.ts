@@ -761,6 +761,7 @@ describe('habits schema', () => {
       'id',
       'userId',
       'name',
+      'description',
       'emoji',
       'trackingType',
       'target',

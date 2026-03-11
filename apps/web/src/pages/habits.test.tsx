@@ -14,6 +14,7 @@ function createHabit(id: string, name: string): Habit {
     id,
     userId: 'user-1',
     name,
+    description: null,
     emoji: '✅',
     trackingType: 'boolean',
     target: null,

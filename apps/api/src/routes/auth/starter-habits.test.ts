@@ -22,6 +22,7 @@ type TestContext = {
 const expectedStarterHabits = [
   {
     name: 'Hydrate',
+    description: null,
     emoji: '💧',
     trackingType: 'numeric',
     target: 8,
@@ -29,6 +30,7 @@ const expectedStarterHabits = [
   },
   {
     name: 'Take vitamins',
+    description: null,
     emoji: '💊',
     trackingType: 'boolean',
     target: null,
@@ -36,6 +38,7 @@ const expectedStarterHabits = [
   },
   {
     name: 'Protein goal',
+    description: null,
     emoji: '🥗',
     trackingType: 'numeric',
     target: 120,
@@ -43,6 +46,7 @@ const expectedStarterHabits = [
   },
   {
     name: 'Sleep',
+    description: null,
     emoji: '😴',
     trackingType: 'time',
     target: 8,
@@ -50,6 +54,7 @@ const expectedStarterHabits = [
   },
   {
     name: 'Mobility warm-up',
+    description: null,
     emoji: '🧘',
     trackingType: 'boolean',
     target: null,
@@ -134,6 +139,7 @@ describe('auth starter habits integration', () => {
     const seededHabits = context.db
       .select({
         name: habits.name,
+        description: habits.description,
         emoji: habits.emoji,
         trackingType: habits.trackingType,
         target: habits.target,
@@ -164,6 +170,7 @@ describe('auth starter habits integration', () => {
     const listPayload = listResponse.json() as {
       data: Array<{
         name: string;
+        description: string | null;
         emoji: string | null;
         trackingType: string;
         target: number | null;
@@ -174,14 +181,17 @@ describe('auth starter habits integration', () => {
 
     expect(listPayload.data).toHaveLength(5);
     expect(
-      listPayload.data.map(({ name, emoji, trackingType, target, unit, sortOrder }) => ({
-        name,
-        emoji,
-        trackingType,
-        target,
-        unit,
-        sortOrder,
-      })),
+      listPayload.data.map(
+        ({ name, description, emoji, trackingType, target, unit, sortOrder }) => ({
+          name,
+          description,
+          emoji,
+          trackingType,
+          target,
+          unit,
+          sortOrder,
+        }),
+      ),
     ).toEqual(
       expectedStarterHabits.map((habit, index) => ({
         ...habit,
