@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { AgentTokensCard } from '@/features/settings/components/agent-tokens-card';
 import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
@@ -406,9 +407,9 @@ export function SettingsPage() {
 
       return {
         ...sourceConfig,
-      habitChainIds: checked
-        ? Array.from(new Set([...sourceConfig.habitChainIds, habitId]))
-        : sourceConfig.habitChainIds.filter((value) => value !== habitId),
+        habitChainIds: checked
+          ? Array.from(new Set([...sourceConfig.habitChainIds, habitId]))
+          : sourceConfig.habitChainIds.filter((value) => value !== habitId),
       };
     });
   }
@@ -421,9 +422,9 @@ export function SettingsPage() {
 
       return {
         ...sourceConfig,
-      trendMetrics: checked
-        ? Array.from(new Set([...sourceConfig.trendMetrics, metric]))
-        : sourceConfig.trendMetrics.filter((value) => value !== metric),
+        trendMetrics: checked
+          ? Array.from(new Set([...sourceConfig.trendMetrics, metric]))
+          : sourceConfig.trendMetrics.filter((value) => value !== metric),
       };
     });
   }
@@ -501,9 +502,7 @@ export function SettingsPage() {
           <CardTitle>
             <h2 className="text-xl font-semibold text-foreground">Profile</h2>
           </CardTitle>
-          <CardDescription>
-            Update your display name and view account details.
-          </CardDescription>
+          <CardDescription>Update your display name and view account details.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -584,6 +583,8 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AgentTokensCard />
 
       <Card className="gap-4 border-border/70 shadow-sm">
         <CardHeader className="space-y-2">
@@ -787,11 +788,15 @@ export function SettingsPage() {
                     <Checkbox
                       checked={settings.dashboardConfig.visibleWidgets.includes(widgetId)}
                       id={checkboxId}
-                      onCheckedChange={(checked) => toggleWidgetVisibility(widgetId, checked === true)}
+                      onCheckedChange={(checked) =>
+                        toggleWidgetVisibility(widgetId, checked === true)
+                      }
                     />
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">{widgetName}</span>
-                      <p className="text-sm text-muted-foreground">{DASHBOARD_WIDGET_DESCRIPTIONS[widgetId]}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {DASHBOARD_WIDGET_DESCRIPTIONS[widgetId]}
+                      </p>
                     </div>
                   </Label>
                 );

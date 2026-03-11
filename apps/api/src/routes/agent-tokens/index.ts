@@ -6,7 +6,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import { requireUserAuth } from '../../middleware/auth.js';
 import { sendError } from '../../lib/reply.js';
 
-import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
+import {
+  createAgentToken,
+  deleteAgentToken,
+  listAgentTokens,
+  regenerateAgentToken,
+} from './store.js';
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -41,6 +46,19 @@ export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       data: tokens,
+    });
+  });
+
+  app.post<{ Params: { id: string } }>('/:id/regenerate', async (request, reply) => {
+    const token = randomBytes(32).toString('hex');
+    const updated = await regenerateAgentToken(request.params.id, request.userId, hashToken(token));
+
+    if (!updated) {
+      return sendError(reply, 404, 'AGENT_TOKEN_NOT_FOUND', 'Agent token not found');
+    }
+
+    return reply.send({
+      data: { token },
     });
   });
 

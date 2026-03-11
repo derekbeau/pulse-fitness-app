@@ -224,6 +224,15 @@ describe('SettingsPage', () => {
           );
         }
 
+        if (url.pathname === '/api/v1/agent-tokens' && (!init?.method || init.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ data: [] }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 200,
+            }),
+          );
+        }
+
         if (url.pathname === '/api/v1/users/me' && (!init?.method || init.method === 'GET')) {
           return Promise.resolve(
             new Response(JSON.stringify({ data: state.user }), {
@@ -246,7 +255,10 @@ describe('SettingsPage', () => {
             );
           }
 
-          const body = JSON.parse(String(init.body)) as { name?: string; weightUnit?: 'kg' | 'lbs' };
+          const body = JSON.parse(String(init.body)) as {
+            name?: string;
+            weightUnit?: 'kg' | 'lbs';
+          };
           state.user = {
             ...state.user,
             ...(body.name !== undefined ? { name: body.name } : {}),

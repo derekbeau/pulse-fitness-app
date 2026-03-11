@@ -60,6 +60,22 @@ export const listAgentTokens = async (userId: string): Promise<AgentTokenListIte
     .all();
 };
 
+export const regenerateAgentToken = async (
+  id: string,
+  userId: string,
+  newTokenHash: string,
+): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const result = db
+    .update(agentTokens)
+    .set({ tokenHash: newTokenHash, lastUsedAt: null })
+    .where(and(eq(agentTokens.id, id), eq(agentTokens.userId, userId)))
+    .run();
+
+  return result.changes === 1;
+};
+
 export const deleteAgentToken = async (id: string, userId: string): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
