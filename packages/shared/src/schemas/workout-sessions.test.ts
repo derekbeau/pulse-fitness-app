@@ -75,6 +75,40 @@ describe('workoutSessionFeedbackSchema', () => {
       ],
     });
   });
+
+  it('rejects null values for non-text response types', () => {
+    expect(() =>
+      workoutSessionFeedbackSchema.parse({
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        responses: [
+          {
+            id: 'session-rpe',
+            label: 'Session RPE',
+            type: 'scale',
+            value: null,
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      workoutSessionFeedbackSchema.parse({
+        energy: 4,
+        recovery: 3,
+        technique: 5,
+        responses: [
+          {
+            id: 'pain-discomfort',
+            label: 'Any pain or discomfort?',
+            type: 'yes_no',
+            value: null,
+          },
+        ],
+      }),
+    ).toThrow();
+  });
 });
 
 describe('sessionSetInputSchema', () => {

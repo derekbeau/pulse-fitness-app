@@ -100,12 +100,6 @@ export function SessionSummary({
             <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
               Session notes
             </h2>
-            <label
-              className="text-xs font-medium text-muted"
-              htmlFor="session-summary-notes"
-            >
-              Session notes
-            </label>
             <Textarea
               aria-label="Session notes"
               data-testid="session-summary-notes"
@@ -268,7 +262,6 @@ export function SessionSummary({
                   return;
                 }
 
-                console.log('Mock save workout template', payload);
                 setSaveMessage(`Saved "${payload.name}" to mock templates.`);
                 setIsSaveDialogOpen(false);
               }}

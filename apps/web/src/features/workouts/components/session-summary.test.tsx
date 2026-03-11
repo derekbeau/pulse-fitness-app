@@ -7,7 +7,6 @@ import { SessionSummary } from './session-summary';
 
 describe('SessionSummary', () => {
   it('opens the save-as-template dialog with prefilled fields and performs a mock save', () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const notesChangeSpy = vi.fn();
 
     renderWithQueryClient(
@@ -118,13 +117,6 @@ describe('SessionSummary', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(logSpy).toHaveBeenCalledWith('Mock save workout template', {
-      description: 'Heavy upper emphasis with a slower incline press tempo.',
-      name: 'Upper Push',
-      tags: ['strength', 'push', 'hypertrophy'],
-    });
     expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();
-
-    logSpy.mockRestore();
   });
 });

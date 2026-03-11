@@ -93,20 +93,46 @@ export const workoutSessionFeedbackResponseTypeSchema = z.enum([
   'multi_select',
 ]);
 
+const workoutSessionFeedbackResponseBaseSchema = z.object({
+  id: requiredStringSchema,
+  label: requiredStringSchema,
+  notes: optionalLongStringSchema.optional(),
+});
+
+export const workoutSessionFeedbackResponseSchema = z.discriminatedUnion('type', [
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('scale'),
+    value: z.number(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('slider'),
+    value: z.number(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('yes_no'),
+    value: z.boolean(),
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('emoji'),
+    value: requiredStringSchema,
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('text'),
+    value: nullableLongStringSchema,
+  }),
+  workoutSessionFeedbackResponseBaseSchema.extend({
+    type: z.literal('multi_select'),
+    value: z.array(requiredStringSchema).max(20),
+  }),
+]);
+
 export const workoutSessionFeedbackResponseValueSchema = z.union([
   z.number(),
   z.boolean(),
-  z.array(requiredStringSchema).max(20),
+  requiredStringSchema,
   nullableLongStringSchema,
+  z.array(requiredStringSchema).max(20),
 ]);
-
-export const workoutSessionFeedbackResponseSchema = z.object({
-  id: requiredStringSchema,
-  label: requiredStringSchema,
-  type: workoutSessionFeedbackResponseTypeSchema,
-  value: workoutSessionFeedbackResponseValueSchema,
-  notes: optionalLongStringSchema.optional(),
-});
 
 export const workoutSessionFeedbackSchema = z.object({
   energy: workoutSessionFeedbackScoreSchema,

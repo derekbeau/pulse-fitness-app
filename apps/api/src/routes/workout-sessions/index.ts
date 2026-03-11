@@ -483,6 +483,18 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    if (
+      existingSession.status === 'completed' &&
+      parsedBody.data.status === 'in-progress'
+    ) {
+      return sendError(
+        reply,
+        409,
+        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+        'Cannot revert a completed session',
+      );
+    }
+
     const mergedPayload = createWorkoutSessionInputSchema.safeParse({
       ...toCreateWorkoutSessionInput(existingSession),
       ...parsedBody.data,

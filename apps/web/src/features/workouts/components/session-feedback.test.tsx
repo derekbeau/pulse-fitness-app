@@ -241,4 +241,34 @@ describe('SessionFeedback', () => {
     expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Coach note' })).toBeInTheDocument();
   });
+
+  it('keeps custom fields whose ids include pain/discomfort substrings', () => {
+    render(
+      <SessionFeedback
+        fields={[
+          {
+            id: 'muscle-pain-scale',
+            label: 'Muscle pain scale',
+            max: 10,
+            min: 1,
+            type: 'slider',
+            value: null,
+          },
+          {
+            id: 'joint-discomfort-check',
+            label: 'Joint discomfort check',
+            optional: true,
+            type: 'text',
+            value: '',
+          },
+        ]}
+        onSubmit={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Muscle pain scale' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Joint discomfort check' }),
+    ).toBeInTheDocument();
+  });
 });

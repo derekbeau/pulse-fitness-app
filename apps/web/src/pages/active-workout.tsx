@@ -57,7 +57,11 @@ import {
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { useUpdateSessionStartTime, useWorkoutSession } from '@/hooks/use-workout-session';
+import {
+  useUpdateSessionStartTime,
+  useWorkoutSession,
+  workoutSessionQueryKeys,
+} from '@/hooks/use-workout-session';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -72,7 +76,6 @@ import {
   extractExerciseNotes,
 } from '@/features/workouts/lib/session-notes';
 import { ApiError, apiRequest } from '@/lib/api-client';
-import { API_TOKEN_STORAGE_KEY } from '@/lib/auth-storage';
 import {
   mockExercises,
   mockTemplates,
@@ -419,32 +422,28 @@ export function ActiveWorkoutPage() {
             );
 
             if (!activeSessionId) {
-              const authToken = getStoredApiToken();
-
-              if (authToken) {
-                setSessionError(null);
-                try {
-                  const createdSession = await createCompletedWorkoutSession({
-                    completedAt,
-                    date: completedAtIso.slice(0, 10),
-                    duration,
-                    feedback: {
-                      ...mapFeedbackDraftToSessionFeedback(feedback),
-                      notes: feedbackNotes ?? undefined,
-                    },
-                    name: session.workoutName,
-                    sets: sessionSetInputs,
-                    startedAt: new Date(startTime).getTime(),
-                    templateId: shouldLoadApiTemplate ? template.id : null,
-                  });
-                  setCompletedSessionId(createdSession.id);
-                } catch {
-                  setSessionError('Unable to complete this workout. Try again.');
-                  return;
-                }
-
-                void queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all });
+              setSessionError(null);
+              try {
+                const createdSession = await createCompletedWorkoutSession({
+                  completedAt,
+                  date: completedAtIso.slice(0, 10),
+                  duration,
+                  feedback: {
+                    ...mapFeedbackDraftToSessionFeedback(feedback),
+                    notes: feedbackNotes ?? undefined,
+                  },
+                  name: session.workoutName,
+                  sets: sessionSetInputs,
+                  startedAt: new Date(startTime).getTime(),
+                  templateId: shouldLoadApiTemplate ? template.id : null,
+                });
+                setCompletedSessionId(createdSession.id);
+              } catch {
+                setSessionError('Unable to complete this workout. Try again.');
+                return;
               }
+
+              void queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all });
 
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
               setSessionFeedback(feedback);
@@ -511,6 +510,14 @@ export function ActiveWorkoutPage() {
                     notes: trimmedSessionNotes,
                     sessionId: persistedSessionId,
                   });
+                  await Promise.all([
+                    queryClient.invalidateQueries({
+                      queryKey: workoutSessionQueryKeys.detail(persistedSessionId),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: workoutQueryKeys.session(persistedSessionId),
+                    }),
+                  ]);
                 } catch {
                   setSessionError('Unable to save session notes. Try again.');
                   setSummarySaving(false);
@@ -947,53 +954,76 @@ function mapFeedbackDraftToSessionFeedback(
         scaleEntries.at(1)?.value ??
         scaleEntries.at(0)?.value,
     ),
-    responses: draft.map(toWorkoutSessionFeedbackResponse),
+    responses: draft
+      .map(toWorkoutSessionFeedbackResponse)
+      .filter((response): response is WorkoutSessionFeedbackResponse => response !== null),
   };
 }
 
 function toWorkoutSessionFeedbackResponse(
   field: ActiveWorkoutCustomFeedbackField,
-): WorkoutSessionFeedbackResponse {
+): WorkoutSessionFeedbackResponse | null {
   const notes = field.notes?.trim();
   const base = {
     id: field.id,
     label: field.label,
-    type: field.type,
     ...(notes ? { notes } : {}),
   };
 
   switch (field.type) {
     case 'scale':
-    case 'slider':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'scale', value: field.min };
+      }
       return {
         ...base,
-        value: field.value ?? null,
+        type: 'scale',
+        value: field.value,
+      };
+    case 'slider':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'slider', value: field.min };
+      }
+      return {
+        ...base,
+        type: 'slider',
+        value: field.value,
       };
     case 'text':
       return {
         ...base,
+        type: 'text',
         value: field.value?.trim() ? field.value.trim() : null,
       };
     case 'yes_no':
+      if (field.value === null || field.value === undefined) {
+        return field.optional ? null : { ...base, type: 'yes_no', value: false };
+      }
       return {
         ...base,
-        value: field.value ?? null,
+        type: 'yes_no',
+        value: field.value,
       };
     case 'emoji':
+      if (!field.value?.trim()) {
+        return field.optional ? null : { ...base, type: 'emoji', value: field.options[0] ?? '😐' };
+      }
       return {
         ...base,
-        value: field.value?.trim() ? field.value.trim() : null,
+        type: 'emoji',
+        value: field.value.trim(),
       };
     case 'multi_select':
+      if ((field.value ?? []).length === 0) {
+        return field.optional ? null : { ...base, type: 'multi_select', value: [] };
+      }
       return {
         ...base,
+        type: 'multi_select',
         value: field.value ?? [],
       };
     default:
-      return {
-        ...base,
-        value: null,
-      };
+      return null;
   }
 }
 
@@ -1111,18 +1141,6 @@ async function createCompletedWorkoutSession(
   });
 
   return workoutSessionSchema.parse(data);
-}
-
-function getStoredApiToken() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
 }
 
 function isSessionNotActiveError(error: unknown) {

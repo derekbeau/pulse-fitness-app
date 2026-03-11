@@ -32,24 +32,22 @@ function isFeedbackResponseType(value: unknown): value is string {
   return typeof value === 'string' && WORKOUT_SESSION_FEEDBACK_RESPONSE_TYPES.has(value);
 }
 
-function isFeedbackResponseValue(value: unknown) {
-  if (value === null) {
-    return true;
+function isFeedbackResponseValueByType(type: string, value: unknown) {
+  switch (type) {
+    case 'scale':
+    case 'slider':
+      return typeof value === 'number' && Number.isFinite(value);
+    case 'yes_no':
+      return typeof value === 'boolean';
+    case 'emoji':
+      return typeof value === 'string' && value.trim().length > 0;
+    case 'text':
+      return value === null || typeof value === 'string';
+    case 'multi_select':
+      return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+    default:
+      return false;
   }
-
-  if (typeof value === 'number') {
-    return Number.isFinite(value);
-  }
-
-  if (typeof value === 'boolean' || typeof value === 'string') {
-    return true;
-  }
-
-  if (Array.isArray(value)) {
-    return value.every((entry) => typeof entry === 'string');
-  }
-
-  return false;
 }
 
 export function serializeWorkoutSessionFeedback(
@@ -94,7 +92,7 @@ export function parseWorkoutSessionFeedback(
             typeof response.label === 'string' &&
             response.label.length > 0 &&
             isFeedbackResponseType(response.type) &&
-            isFeedbackResponseValue(response.value) &&
+            isFeedbackResponseValueByType(response.type, response.value) &&
             (!('notes' in response) ||
               response.notes === undefined ||
               typeof response.notes === 'string') &&
@@ -116,19 +114,49 @@ export function parseWorkoutSessionFeedback(
 
   const notes = typeof parsed.notes === 'string' ? parsed.notes : undefined;
   const responses = Array.isArray(parsed.responses)
-    ? parsed.responses.map((response) => ({
-        id: response.id as string,
-        label: response.label as string,
-        type: response.type as
-          | 'scale'
-          | 'text'
-          | 'yes_no'
-          | 'emoji'
-          | 'slider'
-          | 'multi_select',
-        value: response.value as number | boolean | string | string[] | null,
-        ...(typeof response.notes === 'string' ? { notes: response.notes } : {}),
-      }))
+    ? parsed.responses.map((response) => {
+        const base = {
+          id: response.id as string,
+          label: response.label as string,
+          ...(typeof response.notes === 'string' ? { notes: response.notes } : {}),
+        };
+
+        switch (response.type) {
+          case 'scale':
+          case 'slider':
+            return {
+              ...base,
+              type: response.type,
+              value: response.value as number,
+            };
+          case 'yes_no':
+            return {
+              ...base,
+              type: 'yes_no' as const,
+              value: response.value as boolean,
+            };
+          case 'emoji':
+            return {
+              ...base,
+              type: 'emoji' as const,
+              value: response.value as string,
+            };
+          case 'text':
+            return {
+              ...base,
+              type: 'text' as const,
+              value: response.value as string | null,
+            };
+          case 'multi_select':
+            return {
+              ...base,
+              type: 'multi_select' as const,
+              value: response.value as string[],
+            };
+          default:
+            throw new TypeError(INVALID_WORKOUT_SESSION_FEEDBACK_ERROR);
+        }
+      })
     : undefined;
 
   return {

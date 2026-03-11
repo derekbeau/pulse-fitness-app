@@ -16,10 +16,33 @@ describe('ActiveWorkoutPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'dev-user');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'dev-pass');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.endsWith('/api/v1/auth/register')) {
+          return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+        }
+
+        if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
+          return Promise.resolve(jsonResponse({ data: buildCompletedSessionResponse() }));
+        }
+
+        if (url.includes('/api/v1/workout-sessions/') && init?.method === 'PATCH') {
+          return Promise.resolve(jsonResponse({ data: null }));
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+      }),
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
@@ -98,7 +121,8 @@ describe('ActiveWorkoutPage', () => {
     ).toBeChecked();
   });
 
-  it('moves from session logging to feedback, summary, and back to workouts', () => {
+  it('moves from session logging to feedback, summary, and back to workouts', async () => {
+    vi.useRealTimers();
     renderActiveWorkoutPage();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
@@ -174,7 +198,7 @@ describe('ActiveWorkoutPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
     expect(screen.getByText('Exercises completed')).toBeInTheDocument();
     expect(screen.getByText('Sets completed')).toBeInTheDocument();
     expect(screen.getByText('Total reps')).toBeInTheDocument();
@@ -182,9 +206,15 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
     expect(screen.getByText('3 / 5')).toBeInTheDocument();
     expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
+    const summaryNotesInput = screen.getByRole('textbox', { name: 'Session notes' });
+    expect(summaryNotesInput).toHaveAttribute('id', 'session-summary-notes');
+    fireEvent.change(summaryNotesInput, {
+      target: { value: 'Session summary note from integration test.' },
+    });
+    expect(summaryNotesInput).toHaveValue('Session summary note from integration test.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Workouts' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workouts' })).toBeVisible();
   }, 15_000);
 
   it('uses the selected template from the route query string', () => {
@@ -206,7 +236,8 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('00:00')).toBeInTheDocument();
   });
 
-  it('supports manually finishing an active workout with confirmation and set summary ratio', () => {
+  it('supports manually finishing an active workout with confirmation and set summary ratio', async () => {
+    vi.useRealTimers();
     renderActiveWorkoutPage();
 
     const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
@@ -255,7 +286,7 @@ describe('ActiveWorkoutPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Workout summary' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
     const setsCompletedLabel = screen.getByText('Sets completed');
     const setsCompletedStat = setsCompletedLabel.closest('div')?.parentElement ?? null;
     expect(setsCompletedStat).not.toBeNull();
@@ -352,6 +383,69 @@ describe('ActiveWorkoutPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'API Full Body' })).toBeVisible();
     expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
+  });
+
+  it('creates a completed session without a pre-stored token by using dev auto-session auth', async () => {
+    vi.useRealTimers();
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'dev-user');
+    vi.stubEnv('VITE_PULSE_DEV_PASSWORD', 'dev-pass');
+
+    const mockFetch = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ data: buildCompletedSessionResponse() }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    renderActiveWorkoutPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+        name: '7',
+      }),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole('group', { name: 'Energy post workout options' }),
+      ).getByRole('button', {
+        name: '🙂',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '3',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Session notes' })).toBeInTheDocument();
+    expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBe('dev-generated-token');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/workout-sessions',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
   });
 
   it('extracts one exercise note per exercise from persisted session set rows', () => {
@@ -540,4 +634,23 @@ function completeSet(exerciseName: string, setNumber: number) {
   if (skipButton) {
     fireEvent.click(skipButton);
   }
+}
+
+function buildCompletedSessionResponse() {
+  return {
+    id: 'created-session-id',
+    userId: 'user-1',
+    templateId: null,
+    name: 'Upper Push',
+    date: '2026-03-06',
+    status: 'completed' as const,
+    startedAt: 1_000,
+    completedAt: 2_000,
+    duration: 16,
+    feedback: null,
+    notes: null,
+    sets: [],
+    createdAt: 2_000,
+    updatedAt: 2_000,
+  };
 }

@@ -185,33 +185,31 @@ function mergeFeedbackFields(fields: ActiveWorkoutCustomFeedbackField[]) {
 
 function getCanonicalStandardFieldId(field: ActiveWorkoutCustomFeedbackField) {
   const normalizedId = field.id.trim().toLowerCase();
-  const normalizedLabel = field.label.trim().toLowerCase();
-  const normalizedHaystack = `${normalizedId} ${normalizedLabel}`;
+  const normalizedLabel = field.label.trim().toLowerCase().replace(/\s+/g, ' ');
 
-  if (
-    normalizedId === 'session-rpe' ||
-    normalizedHaystack.includes('session rpe') ||
-    normalizedHaystack.includes('rpe')
-  ) {
+  const sessionRpeIds = new Set(['session-rpe', 'rpe', 'session_rpe']);
+  const energyIds = new Set([
+    'energy-post-workout',
+    'energy-level',
+    'energy-post',
+    'energy_post_workout',
+    'energy_level',
+  ]);
+  const painIds = new Set(['pain-discomfort', 'pain_discomfort', 'knee-pain', 'knee_pain']);
+
+  const sessionRpeLabels = new Set(['session rpe', 'rpe']);
+  const energyLabels = new Set(['energy post workout', 'energy level']);
+  const painLabels = new Set(['any pain or discomfort?', 'pain/discomfort', 'knee pain']);
+
+  if (sessionRpeIds.has(normalizedId) || sessionRpeLabels.has(normalizedLabel)) {
     return 'session-rpe';
   }
 
-  if (
-    normalizedId === 'energy-post-workout' ||
-    normalizedId === 'energy-level' ||
-    normalizedId === 'energy-post' ||
-    normalizedHaystack.includes('energy post workout') ||
-    normalizedHaystack.includes('energy level')
-  ) {
+  if (energyIds.has(normalizedId) || energyLabels.has(normalizedLabel)) {
     return 'energy-post-workout';
   }
 
-  if (
-    normalizedId === 'pain-discomfort' ||
-    normalizedId === 'knee-pain' ||
-    normalizedHaystack.includes('pain') ||
-    normalizedHaystack.includes('discomfort')
-  ) {
+  if (painIds.has(normalizedId) || painLabels.has(normalizedLabel)) {
     return 'pain-discomfort';
   }
 
@@ -249,7 +247,7 @@ function normalizeFeedbackField(field: ActiveWorkoutCustomFeedbackField): Active
         ...field,
         notes: field.notes ?? '',
         step: field.step ?? 1,
-        value: field.value ?? null,
+        value: field.value ?? field.min,
       };
     case 'multi_select':
       return {

@@ -1497,6 +1497,40 @@ describe('workout session routes', () => {
     });
   });
 
+  it('rejects reverting a completed session back to in-progress', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 4000,
+      duration: 50,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+        completedAt: null,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_ACTIVE',
+        message: 'Cannot revert a completed session',
+      },
+    });
+  });
+
   it('does not overwrite first-set notes when exerciseNotes are normalized to null', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
