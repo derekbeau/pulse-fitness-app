@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cce18e47-7c52-458d-b21a-47b711e5452b",
-  "prevId": "500c6eeb-002c-4def-8af7-625f2c2d60a3",
+  "id": "500c6eeb-002c-4def-8af7-625f2c2d60a3",
+  "prevId": "1ab2a642-719f-408b-954d-da8cfbc5e8f2",
   "tables": {
     "activities": {
       "name": "activities",
@@ -683,10 +683,6 @@
         "exercises_category_check": {
           "name": "exercises_category_check",
           "value": "\"exercises\".\"category\" in ('compound', 'isolation', 'cardio', 'mobility')"
-        },
-        "exercises_tracking_type_check": {
-          "name": "exercises_tracking_type_check",
-          "value": "\"exercises\".\"tracking_type\" in ('weight_reps', 'weight_seconds', 'bodyweight_reps', 'reps_only', 'reps_seconds', 'seconds_only', 'distance', 'cardio')"
         }
       }
     },

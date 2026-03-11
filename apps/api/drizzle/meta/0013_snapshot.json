@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "1ab2a642-719f-408b-954d-da8cfbc5e8f2",
-  "prevId": "78de9b20-c5bb-4df5-9ff9-8069f643ffb2",
+  "prevId": "d271b48e-2f77-41fe-afa1-a6690f37892c",
   "tables": {
     "activities": {
       "name": "activities",
@@ -296,20 +296,6 @@
           "autoincrement": false,
           "default": "'[]'"
         },
-        "visible_widgets": {
-          "name": "visible_widgets",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "widget_order": {
-          "name": "widget_order",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -325,6 +311,20 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch() * 1000)"
+        },
+        "widget_order": {
+          "name": "widget_order",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "visible_widgets": {
+          "name": "visible_widgets",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1011,6 +1011,35 @@
           "notNull": false,
           "autoincrement": false
         },
+        "frequency": {
+          "name": "frequency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'daily'"
+        },
+        "frequency_target": {
+          "name": "frequency_target",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scheduled_days": {
+          "name": "scheduled_days",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "paused_until": {
+          "name": "paused_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -1068,6 +1097,10 @@
         "habits_tracking_type_check": {
           "name": "habits_tracking_type_check",
           "value": "\"habits\".\"tracking_type\" in ('boolean', 'numeric', 'time')"
+        },
+        "habits_frequency_check": {
+          "name": "habits_frequency_check",
+          "value": "\"habits\".\"frequency\" in ('daily', 'weekly', 'specific_days')"
         }
       }
     },

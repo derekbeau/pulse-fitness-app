@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cce18e47-7c52-458d-b21a-47b711e5452b",
-  "prevId": "500c6eeb-002c-4def-8af7-625f2c2d60a3",
+  "id": "62cfd18f-164c-4b0a-9967-90c972d8acaa",
+  "prevId": "78de9b20-c5bb-4df5-9ff9-8069f643ffb2",
   "tables": {
     "activities": {
       "name": "activities",
@@ -318,13 +318,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "visible_widgets": {
-          "name": "visible_widgets",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -627,14 +620,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "tracking_type": {
-          "name": "tracking_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'weight_reps'"
-        },
         "instructions": {
           "name": "instructions",
           "type": "text",
@@ -683,10 +668,6 @@
         "exercises_category_check": {
           "name": "exercises_category_check",
           "value": "\"exercises\".\"category\" in ('compound', 'isolation', 'cardio', 'mobility')"
-        },
-        "exercises_tracking_type_check": {
-          "name": "exercises_tracking_type_check",
-          "value": "\"exercises\".\"tracking_type\" in ('weight_reps', 'weight_seconds', 'bodyweight_reps', 'reps_only', 'reps_seconds', 'seconds_only', 'distance', 'cardio')"
         }
       }
     },
@@ -1015,35 +996,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "frequency": {
-          "name": "frequency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'daily'"
-        },
-        "frequency_target": {
-          "name": "frequency_target",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "scheduled_days": {
-          "name": "scheduled_days",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "paused_until": {
-          "name": "paused_until",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -1101,10 +1053,6 @@
         "habits_tracking_type_check": {
           "name": "habits_tracking_type_check",
           "value": "\"habits\".\"tracking_type\" in ('boolean', 'numeric', 'time')"
-        },
-        "habits_frequency_check": {
-          "name": "habits_frequency_check",
-          "value": "\"habits\".\"frequency\" in ('daily', 'weekly', 'specific_days')"
         }
       }
     },
@@ -1525,14 +1473,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(unixepoch() * 1000)"
-        },
-        "weight_unit": {
-          "name": "weight_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'lbs'"
         }
       },
       "indexes": {
