@@ -262,6 +262,42 @@ describe('ActiveWorkoutPage', () => {
     expect(within(setsCompletedStat as HTMLElement).getByText(/\d+\/\d+/)).toBeInTheDocument();
   });
 
+  it('shows standard feedback controls and requires pain details when pain is yes', () => {
+    renderActiveWorkoutPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+    const rpeGroup = screen.getByRole('group', { name: 'Session RPE rating' });
+    expect(rpeGroup).toBeInTheDocument();
+    expect(within(rpeGroup).getByRole('button', { name: '1' })).toBeInTheDocument();
+    expect(within(rpeGroup).getByRole('button', { name: '10' })).toBeInTheDocument();
+
+    const energyGroup = screen.getByRole('group', { name: 'Energy post workout options' });
+    expect(energyGroup).toBeInTheDocument();
+    fireEvent.click(within(energyGroup).getByRole('button', { name: '💪' }));
+
+    const painGroup = screen.getByRole('group', { name: 'Any pain or discomfort? response' });
+    expect(painGroup).toBeInTheDocument();
+    fireEvent.click(within(rpeGroup).getByRole('button', { name: '7' }));
+    fireEvent.click(within(painGroup).getByRole('button', { name: 'Yes' }));
+
+    expect(screen.getByLabelText('Pain/discomfort details')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finalize session' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Pain/discomfort details'), {
+      target: { value: 'Mild discomfort on deep knee bend during split squats.' },
+    });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '3',
+      }),
+    );
+
+    expect(screen.getByRole('button', { name: 'Finalize session' })).toBeEnabled();
+  });
+
   it('loads API templates for UUID template ids instead of falling back to mock defaults', async () => {
     vi.useRealTimers();
 
