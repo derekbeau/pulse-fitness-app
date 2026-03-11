@@ -96,7 +96,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       ...parsedQuery.data,
     });
 
-    reply.header('Cache-Control', 'private, max-age=300');
+    reply.header('Cache-Control', 'private, no-cache');
 
     return reply.send(result);
   });
@@ -104,7 +104,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   app.get('/filters', async (request, reply) => {
     const filters = await listExerciseFilters(request.userId);
 
-    reply.header('Cache-Control', 'private, max-age=300');
+    reply.header('Cache-Control', 'private, no-cache');
 
     return reply.send({
       data: filters,
