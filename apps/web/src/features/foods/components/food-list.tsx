@@ -64,9 +64,11 @@ function formatLastUsed(lastUsedAt: number | null, now: Date) {
   }
 
   const daysAgo = getDaysAgo(lastUsedAt, now);
-  const dayLabel = daysAgo === 1 ? 'day' : 'days';
 
-  return `Last used: ${daysAgo} ${dayLabel} ago`;
+  if (daysAgo === 0) return 'Last used: Today';
+  if (daysAgo === 1) return 'Last used: Yesterday';
+
+  return `Last used: ${daysAgo} days ago`;
 }
 
 function formatServing(food: Food) {
