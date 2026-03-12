@@ -17,6 +17,14 @@ const testState = vi.hoisted(() => {
     values: insertValues,
   }));
 
+  const deleteRun = vi.fn();
+  const deleteWhere = vi.fn(() => ({
+    run: deleteRun,
+  }));
+  const deleteFrom = vi.fn(() => ({
+    where: deleteWhere,
+  }));
+
   const selectGet = vi.fn();
   const selectAll = vi.fn();
   const selectLimit = vi.fn(() => ({
@@ -39,10 +47,14 @@ const testState = vi.hoisted(() => {
 
   return {
     db: {
+      delete: deleteFrom,
       insert,
       select,
     },
     reset() {
+      deleteFrom.mockClear();
+      deleteWhere.mockClear();
+      deleteRun.mockClear();
       insert.mockClear();
       insertValues.mockClear();
       insertOnConflictDoUpdate.mockClear();
@@ -56,6 +68,9 @@ const testState = vi.hoisted(() => {
       selectAll.mockClear();
       selectGet.mockClear();
     },
+    deleteFrom,
+    deleteWhere,
+    deleteRun,
     insert,
     insertValues,
     insertOnConflictDoUpdate,
@@ -239,5 +254,16 @@ describe('weight store', () => {
     });
     await expect(getLatestBodyWeightEntry('user-1')).resolves.toBeNull();
     expect(testState.selectLimit).toHaveBeenCalledTimes(2);
+  });
+
+  it('deletes an entry only when id and userId match', async () => {
+    testState.deleteRun.mockReturnValueOnce({ changes: 1 }).mockReturnValueOnce({ changes: 0 });
+
+    const { deleteBodyWeightEntryById } = await import('./store.js');
+
+    await expect(deleteBodyWeightEntryById('entry-1', 'user-1')).resolves.toBe(true);
+    await expect(deleteBodyWeightEntryById('entry-1', 'other-user')).resolves.toBe(false);
+    expect(testState.deleteFrom).toHaveBeenCalledWith(bodyWeight);
+    expect(testState.deleteWhere).toHaveBeenCalledTimes(2);
   });
 });

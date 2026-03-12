@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   type BodyWeightEntry,
   type CreateWeightInput,
+  type DeleteWeightResult,
   type PatchWeightInput,
   type WeightQueryParams,
   bodyWeightEntrySchema,
   createWeightInputSchema,
+  deleteWeightResultSchema,
   patchWeightInputSchema,
   weightQueryParamsSchema,
 } from './weight';
@@ -201,5 +203,28 @@ describe('weightQueryParamsSchema', () => {
 
     expect(params.to).toBe('2026-03-07');
     expect(params.days).toBe(30);
+  });
+});
+
+describe('deleteWeightResultSchema', () => {
+  it('parses the expected delete response payload', () => {
+    const result = deleteWeightResultSchema.parse({
+      deleted: true,
+      id: 'weight-1',
+    });
+
+    expect(result).toEqual({
+      deleted: true,
+      id: 'weight-1',
+    });
+  });
+
+  it('infers the DeleteWeightResult type from the schema', () => {
+    const result: DeleteWeightResult = {
+      deleted: true,
+      id: 'weight-1',
+    };
+
+    expect(result.deleted).toBe(true);
   });
 });

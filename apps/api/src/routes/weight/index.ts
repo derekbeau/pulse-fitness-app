@@ -9,6 +9,7 @@ import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 
 import {
+  deleteBodyWeightEntryById,
   findBodyWeightEntryById,
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
@@ -66,13 +67,36 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
     }
 
-    const entry = await patchBodyWeightEntryById(request.params.id, request.userId, parsedBody.data);
+    const entry = await patchBodyWeightEntryById(
+      request.params.id,
+      request.userId,
+      parsedBody.data,
+    );
     if (!entry) {
       return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
     }
 
     return reply.send({
       data: entry,
+    });
+  });
+
+  app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    const existingEntry = await findBodyWeightEntryById(request.params.id, request.userId);
+    if (!existingEntry) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    const deleted = await deleteBodyWeightEntryById(request.params.id, request.userId);
+    if (!deleted) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    return reply.send({
+      data: {
+        deleted: true,
+        id: request.params.id,
+      },
     });
   });
 };

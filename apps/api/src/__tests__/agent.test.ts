@@ -173,16 +173,18 @@ vi.mock('../routes/agent/store.js', () => ({
     const filtered = query
       ? userFoods.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()))
       : userFoods;
-    return filtered.slice(0, limit).map(({ id, name, brand, servingSize, calories, protein, carbs, fat }) => ({
-      id,
-      name,
-      brand,
-      servingSize,
-      calories,
-      protein,
-      carbs,
-      fat,
-    }));
+    return filtered
+      .slice(0, limit)
+      .map(({ id, name, brand, servingSize, calories, protein, carbs, fat }) => ({
+        id,
+        name,
+        brand,
+        servingSize,
+        calories,
+        protein,
+        carbs,
+        fat,
+      }));
   }),
   findFoodByName: vi.fn(async (userId: string, foodName: string) => {
     const userFoods = [...testState.foods.values()].filter((f) => f.userId === userId);
@@ -266,7 +268,12 @@ vi.mock('../routes/nutrition/store.js', () => ({
   ),
   deleteMealForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(async () => null),
-  getDailyNutritionSummaryForDate: vi.fn(async () => ({ calories: 0, protein: 0, carbs: 0, fat: 0 })),
+  getDailyNutritionSummaryForDate: vi.fn(async () => ({
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  })),
   findMealForDate: vi.fn(),
   findMealItemForDate: vi.fn(),
   findMealById: vi.fn(),
@@ -331,7 +338,9 @@ vi.mock('../routes/exercises/store.js', () => ({
       page: number;
       limit: number;
     }) => {
-      const visible = [...testState.exercises.values()].filter((exercise) => exercise.userId === userId);
+      const visible = [...testState.exercises.values()].filter(
+        (exercise) => exercise.userId === userId,
+      );
       const filtered = q
         ? visible.filter((exercise) => exercise.name.toLowerCase().includes(q.toLowerCase()))
         : visible;
@@ -347,7 +356,15 @@ vi.mock('../routes/exercises/store.js', () => ({
     },
   ),
   updateOwnedExercise: vi.fn(
-    async ({ id, userId, changes }: { id: string; userId: string; changes: Record<string, unknown> }) => {
+    async ({
+      id,
+      userId,
+      changes,
+    }: {
+      id: string;
+      userId: string;
+      changes: Record<string, unknown>;
+    }) => {
       const exercise = testState.exercises.get(id);
       if (!exercise || exercise.userId !== userId) {
         return undefined;
@@ -465,7 +482,9 @@ vi.mock('../routes/workout-sessions/store.js', () => ({
   findWorkoutSessionAccess: vi.fn(),
   findWorkoutSessionById: vi.fn(async (id: string, userId: string) => {
     const session = testState.workoutSessions.get(id);
-    return session && session.userId === userId ? { ...session, sets: [], createdAt: Date.now(), updatedAt: Date.now() } : undefined;
+    return session && session.userId === userId
+      ? { ...session, sets: [], createdAt: Date.now(), updatedAt: Date.now() }
+      : undefined;
   }),
   listSessionSetGroups: vi.fn(),
   SessionSetNotFoundError: class extends Error {},
@@ -502,7 +521,13 @@ vi.mock('../routes/agent/context-store.js', () => ({
     { name: 'Morning run', trackingType: 'boolean', streak: 3, todayCompleted: true },
   ]),
   listAgentContextRecentWorkouts: vi.fn(async () => [
-    { id: 'session-1', name: 'Push Day', date: '2026-03-08', completedAt: 1741478400000, exercises: [] },
+    {
+      id: 'session-1',
+      name: 'Push Day',
+      date: '2026-03-08',
+      completedAt: 1741478400000,
+      exercises: [],
+    },
   ]),
   listAgentContextScheduledWorkouts: vi.fn(async () => [
     { date: '2026-03-10', templateName: 'Pull Day' },
@@ -543,8 +568,12 @@ vi.mock('../routes/habits/store.js', () => ({
 }));
 
 vi.mock('../routes/weight/store.js', () => ({
+  deleteBodyWeightEntryById: vi.fn(async () => true),
   findBodyWeightEntryByDate: vi.fn(async () => null),
+  findBodyWeightEntryById: vi.fn(async () => null),
   listBodyWeightEntries: vi.fn(async () => []),
+  patchBodyWeightEntryById: vi.fn(async () => null),
+  getLatestBodyWeightEntry: vi.fn(async () => null),
   upsertBodyWeightEntry: vi.fn(async (_userId: string, input: Record<string, unknown>) => ({
     id: 'weight-1',
     userId: _userId,
@@ -1192,7 +1221,12 @@ describe('agent integration', () => {
         expect(response.statusCode).toBe(200);
 
         const body = response.json() as {
-          data: Array<{ name: string; category: string; muscleGroups: string[]; equipment: string }>;
+          data: Array<{
+            name: string;
+            category: string;
+            muscleGroups: string[];
+            equipment: string;
+          }>;
         };
         expect(body.data).toHaveLength(1);
         expect(body.data[0].name).toBe('Dumbbell Curl');

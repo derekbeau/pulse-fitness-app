@@ -208,6 +208,14 @@ vi.mock('../routes/weight/store.js', () => ({
 
     return entry ? withoutUserId(entry) : null;
   }),
+  findBodyWeightEntryById: vi.fn(async (id: string, userId: string) => {
+    const entry =
+      [...testState.weightEntries.values()].find(
+        (candidate) => candidate.id === id && candidate.userId === userId,
+      ) ?? null;
+
+    return entry ? withoutUserId(entry) : null;
+  }),
   upsertBodyWeightEntry: vi.fn(
     async (userId: string, input: { date: string; weight: number; notes?: string }) => {
       const key = getWeightEntryKey(userId, input.date);
@@ -236,33 +244,75 @@ vi.mock('../routes/weight/store.js', () => ({
       return withoutUserId(entry);
     },
   ),
-  listBodyWeightEntries: vi.fn(async (userId: string, query: { from?: string; to?: string; days?: number }) =>
-    [...testState.weightEntries.values()]
-      .filter((entry) => {
-        if (entry.userId !== userId) {
-          return false;
-        }
+  patchBodyWeightEntryById: vi.fn(
+    async (
+      id: string,
+      userId: string,
+      input: {
+        weight?: number;
+        notes?: string | null;
+      },
+    ) => {
+      const entry = [...testState.weightEntries.values()].find(
+        (candidate) => candidate.id === id && candidate.userId === userId,
+      );
+      if (!entry) {
+        return null;
+      }
 
-        if (query.days !== undefined) {
-          const rangeEnd = query.to ?? getTodayDate();
-          const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
-          if (entry.date < rangeStart) {
+      if (input.weight !== undefined) {
+        entry.weight = input.weight;
+      }
+
+      if ('notes' in input) {
+        entry.notes = input.notes ?? null;
+      }
+
+      entry.updatedAt = Date.now();
+
+      return withoutUserId(entry);
+    },
+  ),
+  deleteBodyWeightEntryById: vi.fn(async (id: string, userId: string) => {
+    const entry = [...testState.weightEntries.values()].find(
+      (candidate) => candidate.id === id && candidate.userId === userId,
+    );
+    if (!entry) {
+      return false;
+    }
+
+    testState.weightEntries.delete(getWeightEntryKey(entry.userId, entry.date));
+
+    return true;
+  }),
+  listBodyWeightEntries: vi.fn(
+    async (userId: string, query: { from?: string; to?: string; days?: number }) =>
+      [...testState.weightEntries.values()]
+        .filter((entry) => {
+          if (entry.userId !== userId) {
             return false;
           }
-        }
 
-        if (query.from && entry.date < query.from) {
-          return false;
-        }
+          if (query.days !== undefined) {
+            const rangeEnd = query.to ?? getTodayDate();
+            const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
+            if (entry.date < rangeStart) {
+              return false;
+            }
+          }
 
-        if (query.to && entry.date > query.to) {
-          return false;
-        }
+          if (query.from && entry.date < query.from) {
+            return false;
+          }
 
-        return true;
-      })
-      .sort((left, right) => left.date.localeCompare(right.date))
-      .map((entry) => withoutUserId(entry)),
+          if (query.to && entry.date > query.to) {
+            return false;
+          }
+
+          return true;
+        })
+        .sort((left, right) => left.date.localeCompare(right.date))
+        .map((entry) => withoutUserId(entry)),
   ),
   getLatestBodyWeightEntry: vi.fn(async (userId: string) => {
     const entry =
@@ -678,6 +728,101 @@ describe('weight and nutrition target integration', () => {
             weight: 190.4,
           }),
         ],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('deletes weight entries, updates latest/list reads, and enforces ownership', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const userA = await registerAndLogin(app, 'weight-delete-a');
+      const userB = await registerAndLogin(app, 'weight-delete-b');
+      const agentToken = await createAgentToken(app, userA.token, 'Weight cleanup');
+
+      const olderEntryResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: createAuthorizationHeader(userA.token),
+        payload: {
+          date: '2026-03-01',
+          weight: 183.2,
+        },
+      });
+      const latestEntryResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: createAuthorizationHeader(userA.token),
+        payload: {
+          date: '2026-03-05',
+          weight: 181.4,
+        },
+      });
+
+      expect(olderEntryResponse.statusCode).toBe(201);
+      expect(latestEntryResponse.statusCode).toBe(201);
+      const latestEntryId = (latestEntryResponse.json() as { data: { id: string } }).data.id;
+
+      const unauthorizedDeleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/weight/${latestEntryId}`,
+        headers: createAuthorizationHeader(userB.token),
+      });
+
+      expect(unauthorizedDeleteResponse.statusCode).toBe(404);
+
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/api/agent/weight/${latestEntryId}`,
+        headers: createAuthorizationHeader(agentToken.token, 'AgentToken'),
+      });
+
+      expect(deleteResponse.statusCode).toBe(200);
+      expect(deleteResponse.json()).toEqual({
+        data: {
+          deleted: true,
+          id: latestEntryId,
+        },
+      });
+
+      const missingDeleteResponse = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/weight/${latestEntryId}`,
+        headers: createAuthorizationHeader(userA.token),
+      });
+
+      expect(missingDeleteResponse.statusCode).toBe(404);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?from=2026-03-01&to=2026-03-05',
+        headers: createAuthorizationHeader(userA.token),
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json()).toEqual({
+        data: [
+          expect.objectContaining({
+            date: '2026-03-01',
+            weight: 183.2,
+          }),
+        ],
+      });
+
+      const latestResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight/latest',
+        headers: createAuthorizationHeader(userA.token),
+      });
+
+      expect(latestResponse.statusCode).toBe(200);
+      expect(latestResponse.json()).toEqual({
+        data: expect.objectContaining({
+          date: '2026-03-01',
+          weight: 183.2,
+        }),
       });
     } finally {
       await app.close();
