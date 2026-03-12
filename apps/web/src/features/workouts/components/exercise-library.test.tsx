@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,6 +38,7 @@ const exerciseFixtures = [
     muscleGroups: ['conditioning'],
     equipment: 'bike',
     category: 'cardio',
+    tags: ['conditioning', 'intervals'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -49,6 +50,7 @@ const exerciseFixtures = [
     muscleGroups: ['rear delts', 'rotator cuff'],
     equipment: 'resistance band',
     category: 'mobility',
+    tags: ['prehab'],
     instructions: 'Keep your elbow pinned and move slowly.',
     createdAt: 1,
     updatedAt: 1,
@@ -60,6 +62,7 @@ const exerciseFixtures = [
     muscleGroups: ['chest', 'triceps'],
     equipment: 'barbell',
     category: 'compound',
+    tags: ['pressing'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -71,6 +74,7 @@ const exerciseFixtures = [
     muscleGroups: ['lats', 'upper back'],
     equipment: 'machine',
     category: 'compound',
+    tags: ['back'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -82,6 +86,7 @@ const exerciseFixtures = [
     muscleGroups: ['hip flexors', 'quads'],
     equipment: 'bodyweight',
     category: 'mobility',
+    tags: ['recovery'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -93,6 +98,7 @@ const exerciseFixtures = [
     muscleGroups: ['quads', 'glutes'],
     equipment: 'dumbbell',
     category: 'compound',
+    tags: ['legs'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -104,6 +110,7 @@ const exerciseFixtures = [
     muscleGroups: ['upper chest', 'front delts', 'triceps'],
     equipment: 'dumbbells',
     category: 'compound',
+    tags: ['upper body', 'push'],
     instructions: 'Drive feet into the floor and keep wrists stacked.',
     createdAt: 1,
     updatedAt: 1,
@@ -115,6 +122,7 @@ const exerciseFixtures = [
     muscleGroups: ['lats', 'upper back'],
     equipment: 'cable machine',
     category: 'compound',
+    tags: ['pull'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -126,6 +134,7 @@ const exerciseFixtures = [
     muscleGroups: ['quads'],
     equipment: 'machine',
     category: 'isolation',
+    tags: ['accessory'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -137,6 +146,7 @@ const exerciseFixtures = [
     muscleGroups: ['conditioning', 'upper back'],
     equipment: 'rower',
     category: 'cardio',
+    tags: ['conditioning'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
@@ -234,6 +244,21 @@ describe('ExerciseLibrary', () => {
     expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Row Erg' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+  });
+
+  it('renders exercise tags as muted chips in the library cards', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    const pressCard = (await screen.findByRole('heading', {
+      level: 3,
+      name: 'Incline Dumbbell Press',
+    })).closest('[data-slot="card"]');
+
+    expect(pressCard).not.toBeNull();
+    expect(within(pressCard as HTMLElement).getByText('Upper Body')).toBeInTheDocument();
+    expect(within(pressCard as HTMLElement).getByText('Push')).toBeInTheDocument();
   });
 
   it('shows an empty state and still supports the exercise trend dialog', async () => {

@@ -37,6 +37,7 @@ export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
   formCues: string[];
+  templateCues?: string[];
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;

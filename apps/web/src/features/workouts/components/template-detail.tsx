@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
 import { useWorkoutTemplate } from '../api/workouts';
+import { FormCueChips } from './form-cue-chips';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -156,19 +157,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                         </div>
                       ) : null}
 
-                      {exercise.cues.length > 0 ? (
-                        <details className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-                          <summary className="cursor-pointer text-sm font-medium text-foreground">
-                            Form cues
-                          </summary>
-                          <ul className="mt-3 space-y-2 text-sm text-muted">
-                            {exercise.cues.map((cue) => (
-                              <li className="ml-5 list-disc" key={cue}>
-                                {cue}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
+                      {(exercise.formCues?.length ?? 0) > 0 || exercise.cues.length > 0 ? (
+                        <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+                          <FormCueChips
+                            exerciseCues={exercise.formCues ?? []}
+                            templateCues={exercise.cues}
+                          />
+                        </div>
                       ) : null}
                     </CardContent>
                   </Card>

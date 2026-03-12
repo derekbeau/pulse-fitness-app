@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useExerciseFilters, useExercises } from '../api/workouts';
 import { workoutExerciseHistory } from '../lib/mock-data';
 import { ExerciseTrendChart } from './exercise-trend-chart';
+import { TagChips } from './tag-chips';
 
 const categoryBadgeStyles = {
   compound:
@@ -299,6 +300,7 @@ function ExerciseCard({
                 </button>
               </h3>
               <p className="text-sm text-muted">{formatLabel(exercise.equipment)}</p>
+              <TagChips tags={exercise.tags} />
             </div>
 
             <div className="flex flex-wrap gap-2">

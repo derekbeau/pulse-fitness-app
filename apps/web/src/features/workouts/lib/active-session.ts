@@ -70,6 +70,7 @@ export function buildActiveWorkoutSession(
         category: exercise?.category ?? 'compound',
         completedSets,
         formCues: templateExercise.formCues,
+        templateCues: templateExercise.templateCues ?? [],
         id: templateExercise.exerciseId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
         lastPerformance: sessions

@@ -31,6 +31,7 @@ const templatePayload = {
             restSeconds: 0,
             supersetGroup: null,
             notes: null,
+            formCues: ['Keep cadence steady'],
             cues: ['Build heat before pressing'],
           },
         ],
@@ -49,6 +50,7 @@ const templatePayload = {
             restSeconds: 90,
             supersetGroup: null,
             notes: 'Drive feet into the floor.',
+            formCues: ['Tuck shoulder blades'],
             cues: ['Drive feet into the floor', 'Keep wrists stacked'],
           },
         ],
@@ -142,16 +144,10 @@ describe('WorkoutTemplateDetail', () => {
       within(inclinePressCard as HTMLElement).getByText('Drive feet into the floor.'),
     ).toBeInTheDocument();
 
-    const formCuesDetails = within(inclinePressCard as HTMLElement)
-      .getByText('Form cues')
-      .closest('details');
-
-    expect(formCuesDetails).not.toHaveAttribute('open');
-
-    fireEvent.click(within(inclinePressCard as HTMLElement).getByText('Form cues'));
-
-    expect(formCuesDetails).toHaveAttribute('open');
-    expect(screen.getByText('Keep wrists stacked')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Exercise cues')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Template cues')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked')).toBeInTheDocument();
   });
 
   it('creates a workout session before navigating to the active workout page', async () => {
