@@ -14,6 +14,11 @@ describe('format-utils', () => {
     expect(formatCalories(899.88)).toBe('900');
   });
 
+  it('formats calories with unit suffix', () => {
+    expect(formatCalories(500, 'cal')).toBe('500 cal');
+    expect(formatCalories(500, 'kcal')).toBe('500 kcal');
+  });
+
   it('formats grams as rounded whole numbers with unit', () => {
     expect(formatGrams(83.958)).toBe('84g');
     expect(formatGrams(31.7)).toBe('32g');

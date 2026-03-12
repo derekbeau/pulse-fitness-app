@@ -73,8 +73,7 @@ const formatWeightLabel = (value: number) => formatWeight(value, 'lbs');
 
 const formatInsightChange = (change: number) => {
   const formatted = formatTrendChange(change);
-  const numeric = Number(formatted);
-  const signPrefix = numeric > 0 ? '+' : '';
+  const signPrefix = change > 0 ? '+' : '';
   return `${signPrefix}${formatted} lbs`;
 };
 

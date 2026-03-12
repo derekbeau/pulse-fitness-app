@@ -7,7 +7,7 @@ import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { addDays, parseDateInput, toDateKey } from '@/lib/date';
-import { formatCalories, formatGrams, formatPercent, formatWeight } from '@/lib/format-utils';
+import { formatCalories, formatGrams, formatTrendChange, formatWeight } from '@/lib/format-utils';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
 import { cn } from '@/lib/utils';
 
@@ -86,11 +86,13 @@ const getPreviousValue = (series: TrendSparklineRealDatum[], fallback: number): 
 };
 
 const formatChangePercent = (changePercent: number): string => {
+  const formatted = formatTrendChange(changePercent);
+
   if (changePercent > 0) {
-    return `+${formatPercent(changePercent)}`;
+    return `+${formatted}%`;
   }
 
-  return formatPercent(changePercent);
+  return `${formatted}%`;
 };
 
 const getChangeDirection = (changePercent: number): ChangeDirection => {

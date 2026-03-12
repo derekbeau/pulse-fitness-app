@@ -87,7 +87,7 @@ describe('TrendSparkline', () => {
 
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('-0.4%')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
     expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
     expect(container.querySelector('.recharts-line .recharts-curve')).toBeInTheDocument();

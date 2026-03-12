@@ -200,7 +200,7 @@ function getProgressValue({
 }
 
 function formatValue(value: number, unit: 'cal' | 'g') {
-  return unit === 'cal' ? `${formatCalories(value)} cal` : formatGrams(value);
+  return unit === 'cal' ? formatCalories(value, 'cal') : formatGrams(value);
 }
 
 function RingValue({
