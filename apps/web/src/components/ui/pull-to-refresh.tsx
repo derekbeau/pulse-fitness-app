@@ -1,6 +1,6 @@
 import { ArrowDown, Loader2 } from 'lucide-react';
 
-import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { DEFAULT_THRESHOLD, usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { cn } from '@/lib/utils';
 
 type PullToRefreshProps = {
@@ -8,7 +8,10 @@ type PullToRefreshProps = {
   threshold?: number;
 };
 
-export function PullToRefresh({ onRefresh, threshold = 80 }: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, threshold }: PullToRefreshProps) {
+  const effectiveThreshold = threshold ?? DEFAULT_THRESHOLD;
+  const PULL_INDICATOR_AREA_HEIGHT = 64;
+
   const { isStandalone, pulling, pullDistance, refreshing } = usePullToRefresh({
     onRefresh,
     threshold,
@@ -18,8 +21,8 @@ export function PullToRefresh({ onRefresh, threshold = 80 }: PullToRefreshProps)
     return null;
   }
 
-  const progress = Math.min(pullDistance / threshold, 1);
-  const offsetY = refreshing ? 0 : -64 + progress * 64;
+  const progress = Math.min(pullDistance / effectiveThreshold, 1);
+  const offsetY = refreshing ? 0 : -PULL_INDICATOR_AREA_HEIGHT + progress * PULL_INDICATOR_AREA_HEIGHT;
   const indicatorText = refreshing
     ? 'Refreshing...'
     : progress >= 1
@@ -29,6 +32,8 @@ export function PullToRefresh({ onRefresh, threshold = 80 }: PullToRefreshProps)
   return (
     <div
       aria-hidden={!refreshing && !pulling}
+      aria-live="polite"
+      role="status"
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center"
       style={{ transform: `translateY(${offsetY}px)`, transition: refreshing ? 'transform 180ms ease-out' : 'none' }}
     >

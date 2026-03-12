@@ -16,7 +16,7 @@ type UsePullToRefreshOptions = {
 };
 
 const DISPLAY_MODE_STANDALONE_QUERY = '(display-mode: standalone)';
-const DEFAULT_THRESHOLD = 80;
+export const DEFAULT_THRESHOLD = 80;
 const DEFAULT_MAX_PULL_DISTANCE = 140;
 
 const hasWindow = () => typeof window !== 'undefined';
@@ -38,7 +38,7 @@ const isAtTop = (): boolean => {
     return false;
   }
 
-  return window.scrollY <= 0 || document.documentElement.scrollTop <= 0;
+  return window.scrollY <= 0;
 };
 
 export function usePullToRefresh({
@@ -55,6 +55,7 @@ export function usePullToRefresh({
   const isTouchActiveRef = useRef(false);
   const canPullRef = useRef(false);
   const pullDistanceRef = useRef(0);
+  const refreshingRef = useRef(false);
 
   const updatePullDistance = useCallback((nextDistance: number) => {
     pullDistanceRef.current = nextDistance;
@@ -88,6 +89,10 @@ export function usePullToRefresh({
   }, []);
 
   useEffect(() => {
+    refreshingRef.current = refreshing;
+  }, [refreshing]);
+
+  useEffect(() => {
     if (!hasWindow() || !isStandalone) {
       return;
     }
@@ -100,7 +105,7 @@ export function usePullToRefresh({
     };
 
     const onTouchStart = (event: TouchEvent) => {
-      if (refreshing) {
+      if (refreshingRef.current) {
         return;
       }
 
@@ -115,7 +120,7 @@ export function usePullToRefresh({
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!isTouchActiveRef.current || refreshing) {
+      if (!isTouchActiveRef.current || refreshingRef.current) {
         return;
       }
 
@@ -146,14 +151,18 @@ export function usePullToRefresh({
       const shouldRefresh = pullDistanceRef.current >= threshold;
       resetPullState();
 
-      if (!shouldRefresh || refreshing) {
+      if (!shouldRefresh || refreshingRef.current) {
         return;
       }
 
+      refreshingRef.current = true;
       setRefreshing(true);
       try {
         await onRefresh();
+      } catch (error) {
+        console.error('Pull-to-refresh failed:', error);
       } finally {
+        refreshingRef.current = false;
         setRefreshing(false);
       }
     };
@@ -169,7 +178,7 @@ export function usePullToRefresh({
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [isStandalone, maxPullDistance, onRefresh, refreshing, threshold, updatePullDistance]);
+  }, [isStandalone, maxPullDistance, onRefresh, threshold, updatePullDistance]);
 
   return {
     isStandalone,

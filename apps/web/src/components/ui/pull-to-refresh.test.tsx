@@ -6,6 +6,7 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { PullToRefresh } from './pull-to-refresh';
 
 vi.mock('@/hooks/use-pull-to-refresh', () => ({
+  DEFAULT_THRESHOLD: 80,
   usePullToRefresh: vi.fn(),
 }));
 
