@@ -37,13 +37,14 @@ export function ScheduleWorkoutDialog({
   submitLabel,
   title,
 }: ScheduleWorkoutDialogProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(() => parseDateKey(initialDate));
+  const [pendingSelectedDate, setPendingSelectedDate] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedDate = pendingSelectedDate ?? parseDateKey(initialDate);
   const selectedDateKey = useMemo(() => toDateKey(selectedDate), [selectedDate]);
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
-      setSelectedDate(parseDateKey(initialDate));
+      setPendingSelectedDate(null);
       setErrorMessage(null);
     }
     onOpenChange(nextOpen);
@@ -77,7 +78,7 @@ export function ScheduleWorkoutDialog({
             mode="single"
             onSelect={(date) => {
               if (date) {
-                setSelectedDate(date);
+                setPendingSelectedDate(date);
               }
             }}
             selected={selectedDate}

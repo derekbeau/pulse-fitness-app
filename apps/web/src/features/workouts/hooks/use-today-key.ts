@@ -15,6 +15,7 @@ export function useTodayKey() {
 
   useEffect(() => {
     const syncToday = () => setTodayKey(toDateKey(new Date()));
+    let cleanup = () => {};
 
     syncToday();
     const initialTimeout = window.setTimeout(() => {
@@ -22,8 +23,6 @@ export function useTodayKey() {
       const intervalId = window.setInterval(syncToday, DAY_MS);
       cleanup = () => window.clearInterval(intervalId);
     }, msUntilNextLocalMidnight(new Date()));
-
-    let cleanup = () => {};
 
     return () => {
       window.clearTimeout(initialTimeout);
