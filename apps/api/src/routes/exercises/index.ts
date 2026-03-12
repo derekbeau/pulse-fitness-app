@@ -171,17 +171,9 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       exerciseId: request.params.id,
       userId: request.userId,
     });
-    if (!lastPerformance) {
-      return sendError(
-        reply,
-        404,
-        'EXERCISE_LAST_PERFORMANCE_NOT_FOUND',
-        'No completed performance found for this exercise',
-      );
-    }
 
     return reply.send({
-      data: lastPerformance,
+      data: lastPerformance ?? null,
     });
   });
 

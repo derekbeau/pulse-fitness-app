@@ -69,22 +69,7 @@ describe('use-last-performance hook', () => {
   });
 
   it('returns null when no prior performance exists', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          error: {
-            code: 'EXERCISE_LAST_PERFORMANCE_NOT_FOUND',
-            message: 'No completed performance found for this exercise',
-          },
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          status: 404,
-        },
-      ),
-    );
+    mockFetch.mockResolvedValueOnce(createJsonResponse(null));
 
     const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useLastPerformance('global-bench-press'), { wrapper });
@@ -110,4 +95,3 @@ describe('use-last-performance hook', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
-

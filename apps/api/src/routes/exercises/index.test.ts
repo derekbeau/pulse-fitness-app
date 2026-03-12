@@ -340,12 +340,9 @@ describe('exercise routes', () => {
       headers: createAuthorizationHeader(authToken),
     });
 
-    expect(noDataResponse.statusCode).toBe(404);
+    expect(noDataResponse.statusCode).toBe(200);
     expect(noDataResponse.json()).toEqual({
-      error: {
-        code: 'EXERCISE_LAST_PERFORMANCE_NOT_FOUND',
-        message: 'No completed performance found for this exercise',
-      },
+      data: null,
     });
 
     const privateExerciseResponse = await context.app.inject({

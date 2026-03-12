@@ -14,15 +14,19 @@ const lastPerformanceQueryKeys = {
   detail: (exerciseId: string) => ['exercise-last-performance', exerciseId] as const,
 };
 
-async function getLastPerformance(exerciseId: string): Promise<ActiveWorkoutLastPerformance | null> {
+async function getLastPerformance(
+  exerciseId: string,
+): Promise<ActiveWorkoutLastPerformance | null> {
   try {
     const data = await apiRequest<unknown>(`/api/v1/exercises/${exerciseId}/last-performance`);
+
+    if (data == null) {
+      return null;
+    }
+
     const payload = exerciseLastPerformanceResponseSchema.parse({ data });
     const sets = payload.data.sets
-      .filter(
-        (set): set is typeof set & { reps: number } =>
-          set.reps !== null,
-      )
+      .filter((set): set is typeof set & { reps: number } => set.reps !== null)
       .map((set) => ({
         completed: true,
         reps: set.reps,
@@ -40,11 +44,7 @@ async function getLastPerformance(exerciseId: string): Promise<ActiveWorkoutLast
       sets,
     };
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      error.status === 404 &&
-      (error.code === 'EXERCISE_LAST_PERFORMANCE_NOT_FOUND' || error.code === 'EXERCISE_NOT_FOUND')
-    ) {
+    if (error instanceof ApiError && error.status === 404 && error.code === 'EXERCISE_NOT_FOUND') {
       return null;
     }
 
