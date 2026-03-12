@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { referenceConfigSchema } from '@pulse/shared';
 import type { CreateHabitInput, Habit, ReferenceConfig, UpdateHabitInput } from '@pulse/shared';
 
 import { habits } from '../../db/schema/index.js';
@@ -44,7 +45,9 @@ const parseReferenceConfig = (referenceConfig: string | null): ReferenceConfig =
   }
 
   try {
-    return JSON.parse(referenceConfig) as ReferenceConfig;
+    const parsed = JSON.parse(referenceConfig) as unknown;
+    const result = referenceConfigSchema.safeParse(parsed);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
@@ -217,8 +220,12 @@ export const updateHabit = async (
       frequency: updates.frequency,
       frequencyTarget: updates.frequencyTarget ?? null,
       scheduledDays: serializeScheduledDays(updates.scheduledDays),
-      referenceSource: updates.referenceSource ?? null,
-      referenceConfig: serializeReferenceConfig(updates.referenceConfig),
+      ...(updates.referenceSource === undefined
+        ? {}
+        : { referenceSource: updates.referenceSource ?? null }),
+      ...(updates.referenceConfig === undefined
+        ? {}
+        : { referenceConfig: serializeReferenceConfig(updates.referenceConfig) }),
       pausedUntil: updates.pausedUntil ?? null,
       ...(updates.active === undefined ? {} : { active: updates.active }),
     })

@@ -165,8 +165,10 @@ export function ActiveWorkoutPage() {
     activeSessionsQuery.isSuccess &&
     activeSessions.length > 1;
   const showBackToSessionList = Boolean(requestedSessionId) && activeSessions.length > 1;
+  const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const sessionQuery = useWorkoutSession(sessionId, {
-    refetchInterval: ACTIVE_WORKOUT_POLL_INTERVAL_MS,
+    refetchInterval:
+      stage === 'active' && sessionId != null ? ACTIVE_WORKOUT_POLL_INTERVAL_MS : false,
   });
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
@@ -202,7 +204,6 @@ export function ActiveWorkoutPage() {
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [sessionCuesByExercise, setSessionCuesByExercise] = useState<Record<string, string[]>>({});
-  const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
   const [sessionNotes, setSessionNotes] = useState('');
@@ -1413,6 +1414,8 @@ function mergeServerSetDrafts(
       }
 
       if (currentDraft.completed || serverSetDraft.completed) {
+        // Completed sets are server-authoritative; this may replace uncommitted local input if
+        // an external actor completed the set between poll intervals.
         return serverSetDraft;
       }
 

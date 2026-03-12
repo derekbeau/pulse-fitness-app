@@ -129,6 +129,22 @@ describe('createHabitInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects nutrition_meal configs with unsupported macro fields', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Lunch protein',
+        trackingType: 'boolean',
+        referenceSource: 'nutrition_meal',
+        referenceConfig: {
+          mealType: 'Lunch',
+          field: 'sodium',
+          op: 'gte',
+          value: 40,
+        },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateHabitInputSchema', () => {

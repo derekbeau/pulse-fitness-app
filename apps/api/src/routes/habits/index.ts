@@ -33,6 +33,8 @@ const habitParamsSchema = {
 const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_NOT_FOUND', 'Habit not found');
 const shouldEnsureStarterHabits = () => process.env.NODE_ENV !== 'test';
+const buildResolutionCacheKey = (source: string, config: unknown) =>
+  `${source}:${JSON.stringify(config)}`;
 
 export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -70,6 +72,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
     const today = getTodayDate();
     const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
     const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
+    const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
+      completed: boolean;
+      value?: number;
+    }>>();
 
     const habitsWithResolvedEntries = await Promise.all(
       habits.map(async (habit) => {
@@ -98,7 +104,15 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
           };
         }
 
-        const resolved = await resolveHabitCompletion(habit, request.userId, today);
+        const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
+        const existingResolution = resolutionByKey.get(resolutionKey);
+        const resolutionPromise =
+          existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
+        if (!existingResolution) {
+          resolutionByKey.set(resolutionKey, resolutionPromise);
+        }
+
+        const resolved = await resolutionPromise;
         return {
           ...habit,
           todayEntry: {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import {
   findHabitEntryByHabitAndDate,
   listHabitEntriesByDateRange,
@@ -47,6 +48,9 @@ vi.mock('../nutrition/store.js', () => ({
   getDailyNutritionSummaryForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
 }));
+vi.mock('../../lib/habit-resolvers.js', () => ({
+  resolveHabitCompletion: vi.fn(),
+}));
 
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
@@ -65,6 +69,7 @@ describe('agent daily routes', () => {
     vi.mocked(listHabitEntriesByDateRange).mockReset();
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
+    vi.mocked(resolveHabitCompletion).mockReset();
     process.env.JWT_SECRET = 'test-agent-daily-secret';
   });
 
@@ -318,6 +323,8 @@ describe('agent daily routes', () => {
             frequency: 'daily',
             frequencyTarget: null,
             scheduledDays: null,
+            referenceSource: null,
+            referenceConfig: null,
             pausedUntil: null,
             sortOrder: 0,
             active: true,
@@ -336,6 +343,8 @@ describe('agent daily routes', () => {
             frequency: 'daily',
             frequencyTarget: null,
             scheduledDays: null,
+            referenceSource: null,
+            referenceConfig: null,
             pausedUntil: null,
             sortOrder: 1,
             active: true,
@@ -379,6 +388,7 @@ describe('agent daily routes', () => {
               todayEntry: {
                 value: 8,
                 completed: true,
+                isOverride: false,
               },
             },
           ],
@@ -386,6 +396,73 @@ describe('agent daily routes', () => {
         expect(vi.mocked(listHabitEntriesByDateRange)).toHaveBeenCalledWith(
           'user-1',
           '2026-03-09',
+          '2026-03-09',
+        );
+        expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('resolves referential habits when no override entry exists', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-09T12:00:00'));
+
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(listActiveHabits).mockResolvedValue([
+          {
+            id: 'habit-1',
+            userId: 'user-1',
+            name: 'Protein',
+            description: null,
+            emoji: null,
+            trackingType: 'boolean',
+            target: null,
+            unit: null,
+            frequency: 'daily',
+            frequencyTarget: null,
+            scheduledDays: null,
+            referenceSource: 'nutrition_daily',
+            referenceConfig: { field: 'protein', op: 'gte', value: 150 },
+            pausedUntil: null,
+            sortOrder: 0,
+            active: true,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ]);
+        vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([]);
+        vi.mocked(resolveHabitCompletion).mockResolvedValue({ completed: true, value: 160 });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/habits',
+          headers: createAuthorizationHeader(token),
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: [
+            {
+              id: 'habit-1',
+              name: 'Protein',
+              trackingType: 'boolean',
+              todayEntry: {
+                value: 160,
+                completed: true,
+                isOverride: false,
+              },
+            },
+          ],
+        });
+        expect(vi.mocked(resolveHabitCompletion)).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'habit-1' }),
+          'user-1',
           '2026-03-09',
         );
       } finally {

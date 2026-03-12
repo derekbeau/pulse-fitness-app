@@ -34,14 +34,8 @@ const getDailyMacroFieldValue = (
 
 const getMealFieldValue = (
   row: { calories: number; protein: number; carbs: number; fat: number },
-  field: string,
-): number | null => {
-  if (field === 'calories' || field === 'protein' || field === 'carbs' || field === 'fat') {
-    return row[field];
-  }
-
-  return null;
-};
+  field: 'protein' | 'calories' | 'carbs' | 'fat',
+): number => row[field];
 
 export const resolveWeightCompletion = async (
   userId: string,
@@ -96,16 +90,12 @@ export const resolveNutritionMealCompletion = async (
   date: string,
   config: {
     mealType: string;
-    field: string;
-    op: string;
+    field: 'protein' | 'calories' | 'carbs' | 'fat';
+    op: NumericOp;
     value: number;
   },
 ): Promise<HabitResolution> => {
   const { db } = await import('../db/index.js');
-
-  if (!isNumericOp(config.op)) {
-    return { completed: false };
-  }
 
   const totals = db
     .select({
@@ -128,10 +118,6 @@ export const resolveNutritionMealCompletion = async (
     .get() ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
   const actual = getMealFieldValue(totals, config.field);
-  if (actual === null) {
-    return { completed: false };
-  }
-
   return {
     completed: compareNumber(actual, config.op, config.value),
     value: actual,
@@ -204,9 +190,19 @@ export const resolveHabitCompletion = async (
     'mealType' in referenceConfig &&
     'field' in referenceConfig &&
     'op' in referenceConfig &&
-    'value' in referenceConfig
+    'value' in referenceConfig &&
+    (referenceConfig.field === 'protein' ||
+      referenceConfig.field === 'calories' ||
+      referenceConfig.field === 'carbs' ||
+      referenceConfig.field === 'fat') &&
+    isNumericOp(referenceConfig.op)
   ) {
-    return resolveNutritionMealCompletion(userId, date, referenceConfig);
+    return resolveNutritionMealCompletion(userId, date, {
+      mealType: referenceConfig.mealType,
+      field: referenceConfig.field,
+      op: referenceConfig.op,
+      value: referenceConfig.value,
+    });
   }
 
   if (

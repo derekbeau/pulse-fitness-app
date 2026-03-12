@@ -8,6 +8,7 @@ import {
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
+import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
 import {
   findHabitEntryByHabitAndDate,
@@ -27,6 +28,8 @@ import { getTodayDate, isValidDate } from './date-utils.js';
 
 const parseId = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+const buildResolutionCacheKey = (source: string, config: unknown) =>
+  `${source}:${JSON.stringify(config)}`;
 
 export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
   app.post('/habits', async (request, reply) => {
@@ -67,10 +70,36 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
     const today = getTodayDate();
     const entries = await listHabitEntriesByDateRange(request.userId, today, today);
     const entriesByHabitId = new Map(entries.map((entry) => [entry.habitId, entry]));
+    const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
+      completed: boolean;
+      value?: number;
+    }>>();
 
     return reply.send({
-      data: habits.map((habit) => {
+      data: await Promise.all(habits.map(async (habit) => {
         const entry = entriesByHabitId.get(habit.id);
+
+        if (habit.referenceSource != null && !entry?.isOverride) {
+          const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
+          const existingResolution = resolutionByKey.get(resolutionKey);
+          const resolutionPromise =
+            existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
+          if (!existingResolution) {
+            resolutionByKey.set(resolutionKey, resolutionPromise);
+          }
+
+          const resolved = await resolutionPromise;
+          return {
+            id: habit.id,
+            name: habit.name,
+            trackingType: habit.trackingType,
+            todayEntry: {
+              value: resolved.value ?? null,
+              completed: resolved.completed,
+              isOverride: false,
+            },
+          };
+        }
 
         return {
           id: habit.id,
@@ -80,10 +109,11 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
             ? {
                 value: entry.value,
                 completed: entry.completed,
+                isOverride: entry.isOverride,
               }
             : null,
         };
-      }),
+      })),
     });
   });
 

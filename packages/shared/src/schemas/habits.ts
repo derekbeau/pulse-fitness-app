@@ -18,8 +18,8 @@ const nutritionDailyReferenceConfigSchema = z.object({
 
 const nutritionMealReferenceConfigSchema = z.object({
   mealType: z.string().trim().min(1).max(120),
-  field: z.string().trim().min(1).max(120),
-  op: z.string().trim().min(1).max(16),
+  field: z.enum(['protein', 'calories', 'carbs', 'fat']),
+  op: z.enum(['gte', 'lte', 'eq']),
   value: z.number().finite(),
 });
 
