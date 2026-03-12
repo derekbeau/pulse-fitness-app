@@ -147,6 +147,7 @@ export const updateHabitEntry = async (
   const values = {
     ...(updates.completed !== undefined ? { completed: updates.completed } : {}),
     ...(updates.value !== undefined ? { value: updates.value } : {}),
+    ...(updates.isOverride !== undefined ? { isOverride: updates.isOverride } : {}),
   };
 
   const result = db

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { CheckCheck, Plus } from 'lucide-react';
-import type { Habit, HabitEntry } from '@pulse/shared';
+import { CheckCheck, Link2, Plus } from 'lucide-react';
+import type { Habit, HabitEntry, ReferenceConfig, ReferenceSource } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { HabitRowSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,16 @@ import { HabitCardMenu } from './habit-card-menu';
 import { HabitFormDialog } from './habit-form-dialog';
 
 type HabitValue = boolean | number | null;
+type ResolvedTodayEntry = {
+  completed: boolean;
+  isOverride: boolean;
+  value: number | null;
+};
+
+type HabitWithTodayEntry = Habit & {
+  todayEntry?: ResolvedTodayEntry | null;
+};
+
 type DailyHabitsProps = {
   selectedDate?: Date;
 };
@@ -36,7 +47,10 @@ type DailyHabitsProps = {
 export type DailyHabit = HabitConfig & {
   sourceHabit: Habit;
   entryId: string | null;
+  isOverride: boolean;
+  isReferential: boolean;
   todayValue: HabitValue;
+  autoText: string | null;
 };
 
 const todayFormatter = new Intl.DateTimeFormat('en-US', {
@@ -173,13 +187,78 @@ function parseInputValue(rawValue: string) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
-function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] {
+function getOperatorLabel(operator: string) {
+  if (operator === 'gte') {
+    return '>=';
+  }
+  if (operator === 'lte') {
+    return '<=';
+  }
+  if (operator === 'eq') {
+    return '=';
+  }
+
+  return operator;
+}
+
+function getReferentialAutoText(
+  source: Exclude<ReferenceSource, null>,
+  config: Exclude<ReferenceConfig, null>,
+): string {
+  if (source === 'weight') {
+    return 'Auto: weight logged today';
+  }
+
+  if (source === 'workout') {
+    return 'Auto: workout completed today';
+  }
+
+  if (
+    source === 'nutrition_daily' &&
+    config !== null &&
+    'field' in config &&
+    'op' in config &&
+    'value' in config
+  ) {
+    const fieldLabel = config.field === 'calories' ? 'calories' : `${config.field}g`;
+    return `Auto: ${fieldLabel} ${getOperatorLabel(config.op)} ${formatNumber(config.value)}`;
+  }
+
+  if (
+    source === 'nutrition_meal' &&
+    config !== null &&
+    'mealType' in config &&
+    'field' in config &&
+    'op' in config &&
+    'value' in config
+  ) {
+    return `Auto: ${config.mealType} ${config.field} ${getOperatorLabel(config.op)} ${formatNumber(config.value)}`;
+  }
+
+  return 'Auto: linked data source';
+}
+
+function buildDailyHabits(
+  habits: HabitWithTodayEntry[],
+  entries: HabitEntry[],
+  isSelectedDateToday: boolean,
+): DailyHabit[] {
   const entryByHabitId = new Map(entries.map((entry) => [entry.habitId, entry]));
 
   return habits.map((habit) => {
     const entry = entryByHabitId.get(habit.id);
+    const isReferential = habit.referenceSource !== null && habit.referenceSource !== undefined;
+    const useTodayEntry =
+      isSelectedDateToday &&
+      isReferential &&
+      habit.todayEntry !== undefined &&
+      habit.todayEntry !== null &&
+      (entry?.isOverride ?? false) !== true;
+    const effectiveBooleanValue =
+      useTodayEntry ? habit.todayEntry?.completed : (entry?.completed ?? false);
+    const effectiveNumericValue = useTodayEntry ? habit.todayEntry?.value : (entry?.value ?? null);
     const todayValue: HabitValue =
-      habit.trackingType === 'boolean' ? (entry?.completed ?? false) : (entry?.value ?? null);
+      habit.trackingType === 'boolean' ? (effectiveBooleanValue ?? false) : (effectiveNumericValue ?? null);
 
     return {
       id: habit.id,
@@ -190,7 +269,13 @@ function buildDailyHabits(habits: Habit[], entries: HabitEntry[]): DailyHabit[] 
       unit: habit.unit,
       sourceHabit: habit,
       entryId: entry?.id ?? null,
+      isOverride: entry?.isOverride === true || (useTodayEntry && habit.todayEntry?.isOverride === true),
+      isReferential,
       todayValue,
+      autoText:
+        habit.referenceSource != null && habit.referenceConfig != null
+          ? getReferentialAutoText(habit.referenceSource, habit.referenceConfig)
+          : null,
     };
   });
 }
@@ -281,9 +366,10 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
     ? activeHabits.find((habit) => habit.id === editingHabitId)
     : undefined;
 
-  const dailyHabits = useMemo(
-    () => buildDailyHabits(activeHabits, habitEntriesQuery.data ?? []),
-    [activeHabits, habitEntriesQuery.data],
+  const dailyHabits = buildDailyHabits(
+    activeHabits,
+    habitEntriesQuery.data ?? [],
+    isSelectedDateToday,
   );
 
   const completedCount = dailyHabits.filter((habit) =>
@@ -323,6 +409,11 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
     }
 
     const completed = getHabitCompletion(habit, nextValue);
+    const shouldCreateOverride = habit.isReferential && !habit.isOverride;
+
+    if (shouldCreateOverride) {
+      toast('Manual override - this will override auto-tracking for today');
+    }
 
     if (habit.entryId && nextValue !== null) {
       updateHabitEntryMutation.mutate({
@@ -331,6 +422,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         date: activeDateKey,
         completed,
         value: nextValue,
+        ...(habit.isReferential ? { isOverride: true } : {}),
       });
       return;
     }
@@ -340,6 +432,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
       entryId: habit.entryId,
       date: activeDateKey,
       completed,
+      ...(habit.isReferential ? { isOverride: true } : {}),
       ...(nextValue === null ? {} : { value: nextValue }),
     });
   };
@@ -446,6 +539,9 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
               const isSavingToggle =
                 toggleHabitMutation.isPending &&
                 toggleHabitMutation.variables?.habitId === habit.id;
+              const isAutoManaged = habit.isReferential && !habit.isOverride;
+              const canResetToAuto =
+                habit.isReferential && habit.isOverride && habit.entryId !== null;
 
               return (
                 <Card
@@ -482,6 +578,14 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                         >
                           {habit.name}
                         </CardTitle>
+                        {habit.isReferential ? (
+                          <span
+                            className="inline-flex items-center text-muted-foreground"
+                            title="Auto-managed from linked data"
+                          >
+                            <Link2 className="size-3.5" />
+                          </span>
+                        ) : null}
                         {frequencySummary ? (
                           <span className="hidden shrink-0 text-[11px] font-medium uppercase tracking-wider opacity-50 sm:inline">
                             {frequencySummary}
@@ -491,6 +595,11 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                       {habit.sourceHabit.description ? (
                         <p className="mt-0.5 truncate text-xs italic opacity-55 dark:text-muted-foreground">
                           {habit.sourceHabit.description}
+                        </p>
+                      ) : null}
+                      {habit.autoText ? (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground/85">
+                          {habit.autoText}
                         </p>
                       ) : null}
                     </div>
@@ -535,21 +644,33 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                           id={`habit-${habit.id}`}
                           aria-label={habit.name}
                           checked={value === true}
-                          className="size-5 border-border bg-white dark:bg-background"
+                          className={cn(
+                            'size-5 border-border bg-white dark:bg-background',
+                            isAutoManaged && 'opacity-45',
+                          )}
                           disabled={isSavingToggle}
                           onCheckedChange={(checked) => {
+                            const isManualOverride = habit.isReferential && !habit.isOverride;
+
+                            if (isManualOverride) {
+                              toast('Manual override - this will override auto-tracking for today');
+                            }
+
                             toggleHabitMutation.mutate({
                               habitId: habit.id,
                               entryId: habit.entryId,
                               date: activeDateKey,
                               completed: checked === true,
+                              ...(habit.isReferential ? { isOverride: true } : {}),
                             });
                           }}
                         />
                         <span className="text-sm text-foreground/70 dark:text-muted-foreground">
-                          {value === true
-                            ? 'Completed'
-                            : `Tap to complete${isSelectedDateToday ? '' : ' for this day'}`}
+                          {isAutoManaged
+                            ? 'Auto-tracked - tap to override'
+                            : value === true
+                              ? 'Completed'
+                              : `Tap to complete${isSelectedDateToday ? '' : ' for this day'}`}
                         </span>
                       </label>
                     ) : (
@@ -558,7 +679,10 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                           <Input
                             id={`habit-${habit.id}`}
                             aria-label={habit.name}
-                            className="h-9 w-24 shrink-0 border-border bg-white/75 text-center text-base font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
+                            className={cn(
+                              'h-9 w-24 shrink-0 border-border bg-white/75 text-center text-base font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background',
+                              isAutoManaged && 'opacity-55',
+                            )}
                             disabled={isSavingValue || isSavingToggle}
                             inputMode="decimal"
                             min="0"
@@ -607,8 +731,39 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                             />
                           </div>
                         ) : null}
+
+                        {isAutoManaged ? (
+                          <p className="text-xs text-muted-foreground">
+                            Auto-tracked from linked data. Enter a value to override.
+                          </p>
+                        ) : null}
                       </div>
                     )}
+
+                    {canResetToAuto ? (
+                      <div className="mt-2">
+                        <Button
+                          className="h-auto px-0 text-xs"
+                          disabled={isSavingValue || isSavingToggle}
+                          onClick={() => {
+                            if (!habit.entryId) {
+                              return;
+                            }
+
+                            updateHabitEntryMutation.mutate({
+                              id: habit.entryId,
+                              habitId: habit.id,
+                              date: activeDateKey,
+                              isOverride: false,
+                            });
+                          }}
+                          type="button"
+                          variant="link"
+                        >
+                          Reset to auto
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
               );

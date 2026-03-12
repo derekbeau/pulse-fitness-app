@@ -76,6 +76,11 @@ describe('habit api hooks', () => {
         active: true,
         createdAt: 1,
         updatedAt: 1,
+        todayEntry: {
+          completed: true,
+          isOverride: false,
+          value: 8,
+        },
       },
       {
         id: 'habit-archived',
@@ -94,8 +99,9 @@ describe('habit api hooks', () => {
         active: false,
         createdAt: 2,
         updatedAt: 2,
+        todayEntry: null,
       },
-    ];
+    ] as unknown as Habit[];
 
     mockedApiRequest.mockResolvedValueOnce(habits);
 
@@ -164,6 +170,47 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual(initialEntries);
+    });
+  });
+
+  it('passes isOverride when toggling referential entries', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const serverEntry: HabitEntry = {
+      id: 'entry-3',
+      habitId: 'habit-3',
+      userId: 'user-1',
+      date: '2026-03-07',
+      completed: true,
+      value: null,
+      isOverride: true,
+      createdAt: 3,
+    };
+    mockedApiRequest.mockResolvedValueOnce(serverEntry);
+
+    const { result } = renderHook(() => useToggleHabit(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate({
+        habitId: 'habit-3',
+        date: '2026-03-07',
+        completed: true,
+        isOverride: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockedApiRequest).toHaveBeenCalledWith(
+        '/api/v1/habits/habit-3/entries',
+        expect.objectContaining({
+          body: expect.objectContaining({
+            completed: true,
+            date: '2026-03-07',
+            isOverride: true,
+          }),
+          method: 'POST',
+        }),
+      );
     });
   });
 

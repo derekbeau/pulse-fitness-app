@@ -14,12 +14,14 @@ export const createHabitEntryInputSchema = z.object({
   date: dateSchema,
   completed: z.boolean(),
   value: habitEntryValueSchema.optional(),
+  isOverride: z.boolean().optional(),
 });
 
 export const updateHabitEntryInputSchema = z
   .object({
     completed: z.boolean().optional(),
     value: habitEntryValueSchema.optional(),
+    isOverride: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one field is required',
