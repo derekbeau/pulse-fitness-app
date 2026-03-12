@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.git
+.DS_Store
+*.db
+data/
+apps/web/e2e/

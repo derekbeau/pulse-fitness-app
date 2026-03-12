@@ -1,3 +1,4 @@
+.DS_Store
 .zsh_history
 node_modules/
 .orca/
@@ -15,3 +16,4 @@ data/
 .env
 .env.local
 .env*.local
+.env.production
