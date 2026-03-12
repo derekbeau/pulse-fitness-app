@@ -124,7 +124,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      const updatedMeal = await patchMealById(request.params.mealId, parsedBody.data);
+      const updatedMeal = await patchMealById(request.userId, request.params.mealId, parsedBody.data);
       if (!updatedMeal) {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
@@ -162,6 +162,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const updatedMealItem = await patchMealItemById(
+        request.userId,
         request.params.mealId,
         request.params.itemId,
         parsedBody.data,

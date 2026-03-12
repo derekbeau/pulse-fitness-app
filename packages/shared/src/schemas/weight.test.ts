@@ -113,6 +113,24 @@ describe('patchWeightInputSchema', () => {
     });
   });
 
+  it('allows null notes to explicitly clear an existing note', () => {
+    const payload = patchWeightInputSchema.parse({
+      notes: null,
+    });
+
+    expect(payload).toEqual({
+      notes: null,
+    });
+  });
+
+  it('rejects blank notes when no other patch fields are provided', () => {
+    expect(() =>
+      patchWeightInputSchema.parse({
+        notes: '   ',
+      }),
+    ).toThrow();
+  });
+
   it('rejects an empty patch payload', () => {
     expect(() => patchWeightInputSchema.parse({})).toThrow();
   });

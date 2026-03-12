@@ -62,9 +62,7 @@ export const updateFoodInputSchema = foodMutationFieldsSchema
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'At least one field must be provided');
 
-export const patchFoodInputSchema = foodMutationFieldsSchema
-  .partial()
-  .refine((value) => Object.keys(value).length > 0, 'At least one field must be provided');
+export const patchFoodInputSchema = updateFoodInputSchema;
 
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,

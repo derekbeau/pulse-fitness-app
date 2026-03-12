@@ -98,12 +98,9 @@ export const patchMealInputSchema = z
     time: mealTimeSchema.nullable().optional(),
     notes: z.string().trim().max(2_000).nullable().optional(),
   })
-  .refine(
-    (value) => value.name !== undefined || value.time !== undefined || value.notes !== undefined,
-    {
-      message: 'At least one field must be provided',
-    },
-  );
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one field must be provided',
+  });
 
 export const patchMealItemInputSchema = z
   .object({
@@ -117,21 +114,9 @@ export const patchMealItemInputSchema = z
     fiber: nonnegativeNumber.nullable().optional(),
     sugar: nonnegativeNumber.nullable().optional(),
   })
-  .refine(
-    (value) =>
-      value.name !== undefined ||
-      value.amount !== undefined ||
-      value.unit !== undefined ||
-      value.calories !== undefined ||
-      value.protein !== undefined ||
-      value.carbs !== undefined ||
-      value.fat !== undefined ||
-      value.fiber !== undefined ||
-      value.sugar !== undefined,
-    {
-      message: 'At least one field must be provided',
-    },
-  );
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one field must be provided',
+  });
 
 export type MealItemInput = z.infer<typeof mealItemInputSchema>;
 export type CreateMealInput = z.infer<typeof createMealInputSchema>;

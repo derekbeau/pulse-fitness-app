@@ -362,6 +362,7 @@ export const findMealById = async (userId: string, mealId: string): Promise<Meal
 };
 
 export const patchMealById = async (
+  userId: string,
   mealId: string,
   updates: PatchMealInput,
 ): Promise<MealRecord | undefined> => {
@@ -382,7 +383,17 @@ export const patchMealById = async (
     mealUpdate.notes = updates.notes;
   }
 
-  return db.update(meals).set(mealUpdate).where(eq(meals.id, mealId)).returning(mealSelection).get();
+  const scopedNutritionLogIds = db
+    .select({ id: nutritionLogs.id })
+    .from(nutritionLogs)
+    .where(eq(nutritionLogs.userId, userId));
+
+  return db
+    .update(meals)
+    .set(mealUpdate)
+    .where(and(eq(meals.id, mealId), inArray(meals.nutritionLogId, scopedNutritionLogIds)))
+    .returning(mealSelection)
+    .get();
 };
 
 export const findMealItemForDate = async (
@@ -430,6 +441,7 @@ export const findMealItemById = async (
 };
 
 export const patchMealItemById = async (
+  userId: string,
   mealId: string,
   itemId: string,
   updates: PatchMealItemInput,
@@ -465,10 +477,22 @@ export const patchMealItemById = async (
     itemUpdate.sugar = updates.sugar;
   }
 
+  const scopedMealIds = db
+    .select({ id: meals.id })
+    .from(meals)
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(eq(nutritionLogs.userId, userId));
+
   return db
     .update(mealItems)
     .set(itemUpdate)
-    .where(and(eq(mealItems.id, itemId), eq(mealItems.mealId, mealId)))
+    .where(
+      and(
+        eq(mealItems.id, itemId),
+        eq(mealItems.mealId, mealId),
+        inArray(mealItems.mealId, scopedMealIds),
+      ),
+    )
     .returning(mealItemSelection)
     .get();
 };

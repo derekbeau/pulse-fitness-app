@@ -366,13 +366,13 @@ describe('agent meals routes', () => {
         expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1');
         expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1');
         expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1');
-        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'meal-1', {
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
           name: 'Updated Lunch',
         });
-        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'meal-1', {
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', {
           time: '13:00',
         });
-        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'meal-1', {
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', {
           name: 'Updated Lunch',
           time: '13:00',
           notes: 'changed by agent',
@@ -483,16 +483,16 @@ describe('agent meals routes', () => {
         expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1');
         expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1');
         expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'meal-1', 'item-1', {
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
           amount: 2.5,
         });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'meal-1', 'item-1', {
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
           calories: 345,
           protein: 63,
           carbs: 2,
           fat: 8,
         });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'meal-1', 'item-1', {
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
           amount: 2.5,
           calories: 345,
           protein: 63,

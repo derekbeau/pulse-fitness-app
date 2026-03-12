@@ -468,13 +468,13 @@ describe('nutrition routes', () => {
       expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(5, 'user-2', '2026-03-09', 'meal-1');
       expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(6, 'user-1', '2026-03-09', 'meal-404');
 
-      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'meal-1', {
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
         name: 'Updated Lunch',
       });
-      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'meal-1', {
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', {
         time: '13:15',
       });
-      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'meal-1', {
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', {
         notes: 'Updated note',
         name: 'Updated Lunch',
       });
@@ -613,16 +613,16 @@ describe('nutrition routes', () => {
         'item-404',
       );
 
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'meal-1', 'item-1', {
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
         amount: 9,
       });
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'meal-1', 'item-1', {
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
         calories: 400,
         protein: 78,
         carbs: 1,
         fat: 9,
       });
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'meal-1', 'item-1', {
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
         amount: 9,
         calories: 420,
         protein: 78,

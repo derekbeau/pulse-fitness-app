@@ -119,7 +119,7 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
     }
 
-    const updatedMeal = await patchMealById(request.params.id, parsed.data);
+    const updatedMeal = await patchMealById(request.userId, request.params.id, parsed.data);
     if (!updatedMeal) {
       return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
     }
@@ -140,7 +140,12 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
     }
 
-    const updatedMealItem = await patchMealItemById(request.params.id, request.params.itemId, parsed.data);
+    const updatedMealItem = await patchMealItemById(
+      request.userId,
+      request.params.id,
+      request.params.itemId,
+      parsed.data,
+    );
     if (!updatedMealItem) {
       return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
     }

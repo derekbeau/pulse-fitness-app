@@ -21,9 +21,9 @@ export const createWeightInputSchema = z.object({
 export const patchWeightInputSchema = z
   .object({
     weight: bodyWeightValueSchema.optional(),
-    notes: z.string().trim().max(2000).optional(),
+    notes: weightNotesSchema.nullable().optional(),
   })
-  .refine((value) => value.weight !== undefined || value.notes !== undefined, {
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one field must be provided',
   });
 
