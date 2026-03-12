@@ -192,6 +192,7 @@ export const findExerciseById = async (id: string): Promise<Exercise | undefined
 
 export const findExerciseOwnership = async (
   id: string,
+  userId: string,
 ): Promise<ExerciseOwnershipRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -201,7 +202,15 @@ export const findExerciseOwnership = async (
       userId: exercises.userId,
     })
     .from(exercises)
-    .where(and(eq(exercises.id, id), or(isNull(exercises.userId), isNull(exercises.deletedAt))))
+    .where(
+      and(
+        eq(exercises.id, id),
+        or(
+          and(isNull(exercises.userId), isNull(exercises.deletedAt)),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .limit(1)
     .get();
 };

@@ -182,7 +182,7 @@ export function TrashManager() {
 
       <AlertDialog
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isPurgePending) {
             setPurgeTarget(null);
           }
         }}

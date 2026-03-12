@@ -40,7 +40,7 @@ const ensureOwnedMutableExercise = async ({
   reply: FastifyReply;
   userId: string;
 }) => {
-  const exerciseOwnership = await findExerciseOwnership(exerciseId);
+  const exerciseOwnership = await findExerciseOwnership(exerciseId, userId);
   if (!exerciseOwnership) {
     sendError(reply, 404, EXERCISE_NOT_FOUND_RESPONSE.code, EXERCISE_NOT_FOUND_RESPONSE.message);
     return false;

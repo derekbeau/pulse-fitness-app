@@ -30,6 +30,14 @@ const TRASH_INVALID_TYPE_RESPONSE = {
 const parseId = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
+const requireDeletedAt = (value: string | null): string => {
+  if (value === null) {
+    throw new Error('deletedAt unexpectedly null in trash list');
+  }
+
+  return value;
+};
+
 const listTrash = async (userId: string): Promise<TrashListResponse> => {
   const { db } = await import('../../db/index.js');
 
@@ -79,31 +87,31 @@ const listTrash = async (userId: string): Promise<TrashListResponse> => {
       id: row.id,
       type: 'habits',
       name: row.name,
-      deletedAt: row.deletedAt ?? '',
+      deletedAt: requireDeletedAt(row.deletedAt),
     })),
     'workout-templates': templateRows.map((row) => ({
       id: row.id,
       type: 'workout-templates',
       name: row.name,
-      deletedAt: row.deletedAt ?? '',
+      deletedAt: requireDeletedAt(row.deletedAt),
     })),
     exercises: exerciseRows.map((row) => ({
       id: row.id,
       type: 'exercises',
       name: row.name,
-      deletedAt: row.deletedAt ?? '',
+      deletedAt: requireDeletedAt(row.deletedAt),
     })),
     foods: foodRows.map((row) => ({
       id: row.id,
       type: 'foods',
       name: row.name,
-      deletedAt: row.deletedAt ?? '',
+      deletedAt: requireDeletedAt(row.deletedAt),
     })),
     'workout-sessions': sessionRows.map((row) => ({
       id: row.id,
       type: 'workout-sessions',
       name: row.name,
-      deletedAt: row.deletedAt ?? '',
+      deletedAt: requireDeletedAt(row.deletedAt),
     })),
   };
 };
@@ -235,6 +243,17 @@ const purgeTrashItem = async ({
 
     case 'exercises':
       return db.transaction((tx) => {
+        const target = tx
+          .select({ id: exercises.id })
+          .from(exercises)
+          .where(and(eq(exercises.id, id), eq(exercises.userId, userId), isNotNull(exercises.deletedAt)))
+          .limit(1)
+          .get();
+
+        if (!target) {
+          return false;
+        }
+
         tx.delete(templateExercises)
           .where(
             and(
@@ -263,14 +282,13 @@ const purgeTrashItem = async ({
           )
           .run();
 
-        const deletedExercise = tx
-          .delete(exercises)
+        tx.delete(exercises)
           .where(
             and(eq(exercises.id, id), eq(exercises.userId, userId), isNotNull(exercises.deletedAt)),
           )
           .run();
 
-        return deletedExercise.changes === 1;
+        return true;
       });
 
     case 'foods':
@@ -306,20 +324,39 @@ const purgeTrashItem = async ({
         return deletedFood.changes === 1;
       });
 
-    case 'workout-sessions': {
-      const result = db
-        .delete(workoutSessions)
-        .where(
-          and(
-            eq(workoutSessions.id, id),
-            eq(workoutSessions.userId, userId),
-            isNotNull(workoutSessions.deletedAt),
-          ),
-        )
-        .run();
+    case 'workout-sessions':
+      return db.transaction((tx) => {
+        const target = tx
+          .select({ id: workoutSessions.id })
+          .from(workoutSessions)
+          .where(
+            and(
+              eq(workoutSessions.id, id),
+              eq(workoutSessions.userId, userId),
+              isNotNull(workoutSessions.deletedAt),
+            ),
+          )
+          .limit(1)
+          .get();
 
-      return result.changes === 1;
-    }
+        if (!target) {
+          return false;
+        }
+
+        tx.delete(sessionSets).where(eq(sessionSets.sessionId, id)).run();
+
+        tx.delete(workoutSessions)
+          .where(
+            and(
+              eq(workoutSessions.id, id),
+              eq(workoutSessions.userId, userId),
+              isNotNull(workoutSessions.deletedAt),
+            ),
+          )
+          .run();
+
+        return true;
+      });
   }
 };
 
