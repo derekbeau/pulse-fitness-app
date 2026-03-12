@@ -162,6 +162,16 @@ const allSessionsResponse = [
     createdAt: 3,
   },
 ];
+const scheduledWorkoutsResponse = [
+  {
+    id: 'schedule-1',
+    date: '2026-03-14',
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    sessionId: null,
+    createdAt: 1,
+  },
+];
 
 describe('WorkoutsPage', () => {
   beforeEach(() => {
@@ -210,6 +220,14 @@ describe('WorkoutsPage', () => {
               url.searchParams.get('status') === 'completed'
                 ? completedSessionsResponse
                 : allSessionsResponse,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: scheduledWorkoutsResponse,
           }),
         );
       }
@@ -398,6 +416,14 @@ describe('WorkoutsPage', () => {
         );
       }
 
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: scheduledWorkoutsResponse,
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/exercises') {
         return Promise.resolve(
           jsonResponse({
@@ -463,6 +489,14 @@ describe('WorkoutsPage', () => {
               url.searchParams.get('status') === 'completed'
                 ? completedSessionsResponse
                 : allSessionsResponse,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: scheduledWorkoutsResponse,
           }),
         );
       }
