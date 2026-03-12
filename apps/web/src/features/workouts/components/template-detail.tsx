@@ -18,7 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, MoreVertical } from 'lucide-react';
 
-import type { WorkoutTemplate, WorkoutTemplateExercise } from '@pulse/shared';
+import type { WorkoutTemplateExercise } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,7 @@ import {
   useReorderTemplateExercises,
   useWorkoutTemplate,
 } from '../api/workouts';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -530,23 +531,4 @@ function formatRepTarget(repsMin: number | null, repsMax: number | null) {
 
 function formatTempo(tempo: string) {
   return tempo.split('').join('-');
-}
-
-function buildInitialSessionSets(template: WorkoutTemplate) {
-  return template.sections.flatMap((section) =>
-    section.exercises.flatMap((exercise, exerciseIndex) => {
-      if (exercise.sets === null || exercise.sets < 1) {
-        return [];
-      }
-
-      return Array.from({ length: exercise.sets }, (_, index) => ({
-        exerciseId: exercise.exerciseId,
-        orderIndex: exerciseIndex,
-        reps: null,
-        section: section.type,
-        setNumber: index + 1,
-        weight: null,
-      }));
-    }),
-  );
 }

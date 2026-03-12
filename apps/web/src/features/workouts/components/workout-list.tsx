@@ -15,7 +15,6 @@ import type {
   ScheduledWorkoutListItem,
   WorkoutSessionListItem,
   WorkoutSessionStatus,
-  WorkoutTemplate,
 } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,7 @@ import {
   useWorkoutSessions,
 } from '../api/workouts';
 import { isActiveSessionListItem } from '../lib/workout-filters';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
@@ -259,10 +259,6 @@ function ScheduledWorkoutCard({
   }
 
   async function handleRemove() {
-    if (!scheduledWorkout.id) {
-      return;
-    }
-
     await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
     setIsRemoveDialogOpen(false);
   }
@@ -372,6 +368,8 @@ function ScheduledWorkoutCard({
         onOpenChange={setIsRescheduleDialogOpen}
         onSubmitDate={handleReschedule}
         open={isRescheduleDialogOpen}
+        disallowDateKey={scheduledWorkout.date}
+        disallowDateMessage="Pick a different date to reschedule."
         submitLabel="Save"
         title="Reschedule workout"
       />
@@ -585,23 +583,4 @@ function getScheduledRange(today: string) {
     from: toDateKey(from),
     to: toDateKey(to),
   };
-}
-
-function buildInitialSessionSets(template: WorkoutTemplate) {
-  return template.sections.flatMap((section) =>
-    section.exercises.flatMap((exercise, exerciseIndex) => {
-      if (exercise.sets === null || exercise.sets < 1) {
-        return [];
-      }
-
-      return Array.from({ length: exercise.sets }, (_, index) => ({
-        exerciseId: exercise.exerciseId,
-        orderIndex: exerciseIndex,
-        reps: null,
-        section: section.type,
-        setNumber: index + 1,
-        weight: null,
-      }));
-    }),
-  );
 }

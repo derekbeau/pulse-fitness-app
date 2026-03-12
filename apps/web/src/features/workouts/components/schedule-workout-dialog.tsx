@@ -14,6 +14,8 @@ import { parseDateKey, toDateKey } from '@/lib/date-utils';
 
 type ScheduleWorkoutDialogProps = {
   description: string;
+  disallowDateKey?: string;
+  disallowDateMessage?: string;
   initialDate: string;
   isPending: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,6 +27,8 @@ type ScheduleWorkoutDialogProps = {
 
 export function ScheduleWorkoutDialog({
   description,
+  disallowDateKey,
+  disallowDateMessage = 'Pick a different date.',
   initialDate,
   isPending,
   onOpenChange,
@@ -47,6 +51,12 @@ export function ScheduleWorkoutDialog({
 
   async function handleSubmit() {
     setErrorMessage(null);
+
+    if (disallowDateKey != null && selectedDateKey === disallowDateKey) {
+      setErrorMessage(disallowDateMessage);
+      return;
+    }
+
     try {
       await onSubmitDate(selectedDateKey);
       handleOpenChange(false);

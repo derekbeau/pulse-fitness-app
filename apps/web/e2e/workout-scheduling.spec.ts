@@ -38,6 +38,14 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function getDateRange() {
+  const today = new Date();
+  return {
+    from: toDateKey(addDays(today, -7)),
+    to: toDateKey(addDays(today, 14)),
+  };
+}
+
 async function createAuthorizedApiContext() {
   return request.newContext({
     baseURL: apiBaseURL,
@@ -65,6 +73,22 @@ async function fetchScheduledWorkouts(apiContext: APIRequestContext, from: strin
 
 async function pickDayInDialog(page: Page, dateKey: string) {
   await page.locator(`[role="dialog"] [data-day="${dateKey}"]`).first().click();
+}
+
+async function openTemplatesAndSchedule(page: Page, dateKey?: string) {
+  await page.getByRole('button', { exact: true, name: 'Templates' }).click();
+  await page.getByRole('button', { name: `Template actions for ${seededTemplate.name}` }).click();
+  await page.getByRole('menuitem', { name: 'Schedule workout' }).click();
+
+  if (dateKey) {
+    await pickDayInDialog(page, dateKey);
+  }
+
+  await page.getByRole('dialog').getByRole('button', { name: 'Schedule' }).click();
+}
+
+function getScheduledCard(page: Page) {
+  return page.locator('[data-slot="card"]').filter({ hasText: seededTemplate.name }).first();
 }
 
 test.describe.serial('workout scheduling flow', () => {
@@ -153,78 +177,100 @@ test.describe.serial('workout scheduling flow', () => {
     }
   });
 
-  test('schedules, reschedules, removes, and starts from scheduled workouts', async ({ page }) => {
+  test('schedules a workout from template actions and renders in calendar/list', async ({ page }) => {
     test.setTimeout(90_000);
-
-    const today = new Date();
-    const secondDate = toDateKey(addDays(today, 4));
-    const thirdDate = toDateKey(today);
-    const rangeFrom = toDateKey(addDays(today, -7));
-    const rangeTo = toDateKey(addDays(today, 14));
 
     await authenticatePage(page);
     await page.goto('/workouts');
 
-    await page.getByRole('button', { exact: true, name: 'Templates' }).click();
-    await page.getByRole('button', { name: `Template actions for ${seededTemplate.name}` }).click();
-    await page.getByRole('menuitem', { name: 'Schedule workout' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Schedule' }).click();
+    await openTemplatesAndSchedule(page);
 
     await page.getByRole('button', { exact: true, name: 'Calendar' }).click();
     await expect(page.getByText(seededTemplate.name).first()).toBeVisible();
 
     await page.getByRole('button', { exact: true, name: 'List' }).click();
-    const scheduledCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: seededTemplate.name })
-      .first();
-    await expect(scheduledCard).toBeVisible();
+    await expect(getScheduledCard(page)).toBeVisible();
+  });
 
+  test('reschedules a scheduled workout', async ({ page }) => {
+    test.setTimeout(90_000);
+
+    const secondDate = toDateKey(addDays(new Date(), 4));
+    const range = getDateRange();
+
+    await authenticatePage(page);
+    await page.goto('/workouts');
+    await page.getByRole('button', { exact: true, name: 'List' }).click();
+
+    const scheduledCard = getScheduledCard(page);
+    await expect(scheduledCard).toBeVisible();
     await scheduledCard.getByRole('button', { name: 'Reschedule' }).click();
     await pickDayInDialog(page, secondDate);
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
 
     const apiContext = await createAuthorizedApiContext();
     try {
-      let scheduledRows = await fetchScheduledWorkouts(apiContext, rangeFrom, rangeTo);
-      let targetSchedule = scheduledRows.find(
+      const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+      const targetSchedule = scheduledRows.find(
         (row) => row.templateId === seededTemplateId && row.date === secondDate,
       );
       expect(targetSchedule).toBeTruthy();
+    } finally {
+      await apiContext.dispose();
+    }
+  });
 
-      await scheduledCard.getByRole('button', { name: 'Remove from schedule' }).click();
-      await page.getByRole('button', { name: 'Remove' }).click();
-      await expect(
-        page.locator('[data-slot="card"]').filter({ hasText: seededTemplate.name }),
-      ).toHaveCount(0);
+  test('removes a scheduled workout', async ({ page }) => {
+    test.setTimeout(90_000);
 
-      scheduledRows = await fetchScheduledWorkouts(apiContext, rangeFrom, rangeTo);
-      targetSchedule = scheduledRows.find((row) => row.templateId === seededTemplateId);
+    const range = getDateRange();
+
+    await authenticatePage(page);
+    await page.goto('/workouts');
+    await page.getByRole('button', { exact: true, name: 'List' }).click();
+
+    const scheduledCard = getScheduledCard(page);
+    await expect(scheduledCard).toBeVisible();
+
+    await scheduledCard.getByRole('button', { name: 'Remove from schedule' }).click();
+    await page.getByRole('button', { name: 'Remove' }).click();
+    await expect(getScheduledCard(page)).toHaveCount(0);
+
+    const apiContext = await createAuthorizedApiContext();
+    try {
+      const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+      const targetSchedule = scheduledRows.find((row) => row.templateId === seededTemplateId);
       expect(targetSchedule).toBeUndefined();
+    } finally {
+      await apiContext.dispose();
+    }
+  });
 
-      await page.getByRole('button', { exact: true, name: 'Templates' }).click();
-      await page
-        .getByRole('button', { name: `Template actions for ${seededTemplate.name}` })
-        .click();
-      await page.getByRole('menuitem', { name: 'Schedule workout' }).click();
-      await pickDayInDialog(page, thirdDate);
-      await page.getByRole('dialog').getByRole('button', { name: 'Schedule' }).click();
+  test('starts now from a scheduled workout and links schedule to session', async ({ page }) => {
+    test.setTimeout(90_000);
 
-      await page.getByRole('button', { exact: true, name: 'List' }).click();
-      const startCard = page
-        .locator('[data-slot="card"]')
-        .filter({ hasText: seededTemplate.name })
-        .first();
-      await expect(startCard).toBeVisible();
-      await startCard.getByRole('button', { name: 'Start now' }).click();
-      await expect(page).toHaveURL(/\/workouts\/active\?/);
+    const today = toDateKey(new Date());
+    const range = getDateRange();
 
-      const sessionId = new URL(page.url()).searchParams.get('sessionId');
-      expect(sessionId).toBeTruthy();
+    await authenticatePage(page);
+    await page.goto('/workouts');
 
-      const postStartRows = await fetchScheduledWorkouts(apiContext, rangeFrom, rangeTo);
+    await openTemplatesAndSchedule(page, today);
+
+    await page.getByRole('button', { exact: true, name: 'List' }).click();
+    const startCard = getScheduledCard(page);
+    await expect(startCard).toBeVisible();
+    await startCard.getByRole('button', { name: 'Start now' }).click();
+    await expect(page).toHaveURL(/\/workouts\/active\?/);
+
+    const sessionId = new URL(page.url()).searchParams.get('sessionId');
+    expect(sessionId).toBeTruthy();
+
+    const apiContext = await createAuthorizedApiContext();
+    try {
+      const postStartRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
       const linkedRow = postStartRows.find(
-        (row) => row.templateId === seededTemplateId && row.date === thirdDate,
+        (row) => row.templateId === seededTemplateId && row.date === today,
       );
       expect(linkedRow?.sessionId).toBe(sessionId);
     } finally {

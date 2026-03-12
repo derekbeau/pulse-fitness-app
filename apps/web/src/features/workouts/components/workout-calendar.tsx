@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, EllipsisVertical } from 'lucide-react';
-import type { WorkoutSessionListItem } from '@pulse/shared';
+import { ChevronLeft, ChevronRight, EllipsisVertical, TriangleAlert } from 'lucide-react';
+import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
@@ -27,8 +27,6 @@ import {
   useWorkoutSessions,
 } from '../api/workouts';
 import {
-  ActiveScheduledWorkoutListItem,
-  isActiveScheduledWorkout,
   isActiveSessionListItem,
 } from '../lib/workout-filters';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -63,7 +61,7 @@ type DayDetails = {
   dateKey: string;
   completedSession: WorkoutSessionListItem | null;
   inProgressSession: WorkoutSessionListItem | null;
-  scheduledWorkouts: ActiveScheduledWorkoutListItem[];
+  scheduledWorkouts: ScheduledWorkoutListItem[];
   status: DayStatus;
   templateName: string | null;
   notes: string | null;
@@ -71,7 +69,7 @@ type DayDetails = {
 
 type DayLookupContext = {
   completedSessionByDate: Map<string, WorkoutSessionListItem>;
-  scheduledByDate: Map<string, ActiveScheduledWorkoutListItem[]>;
+  scheduledByDate: Map<string, ScheduledWorkoutListItem[]>;
   inProgressTodaySession: WorkoutSessionListItem | null;
 };
 
@@ -127,8 +125,8 @@ export function WorkoutCalendar({
     [activeCompletedSessions],
   );
   const scheduledByDate = useMemo(() => {
-    const grouped = new Map<string, ActiveScheduledWorkoutListItem[]>();
-    for (const scheduledWorkout of (scheduledQuery.data ?? []).filter(isActiveScheduledWorkout)) {
+    const grouped = new Map<string, ScheduledWorkoutListItem[]>();
+    for (const scheduledWorkout of scheduledQuery.data ?? []) {
       const scheduledOnDate = grouped.get(scheduledWorkout.date) ?? [];
       scheduledOnDate.push(scheduledWorkout);
       grouped.set(scheduledWorkout.date, scheduledOnDate);
@@ -287,11 +285,21 @@ export function WorkoutCalendar({
                         </Link>
                       ) : null}
                       {details.scheduledWorkouts[0] ? (
-                        <ScheduledWorkoutActions
-                          buildStartWorkoutHref={buildStartWorkoutHref}
-                          compact
-                          scheduledWorkout={details.scheduledWorkouts[0]}
-                        />
+                        details.scheduledWorkouts[0].templateId != null &&
+                        details.scheduledWorkouts[0].templateName != null ? (
+                          <ScheduledWorkoutActions
+                            buildStartWorkoutHref={buildStartWorkoutHref}
+                            compact
+                            scheduledWorkout={details.scheduledWorkouts[0]}
+                          />
+                        ) : (
+                          <span
+                            aria-label="Unavailable scheduled workout"
+                            className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive"
+                          >
+                            <TriangleAlert aria-hidden="true" className="size-3" />
+                          </span>
+                        )
                       ) : null}
                       {details.scheduledWorkouts.length > 1 ? (
                         <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -326,6 +334,15 @@ export function WorkoutCalendar({
                       <span
                         aria-label="Scheduled workout"
                         className="size-2 rounded-full border border-slate-500 bg-transparent sm:size-2.5"
+                      />
+                    ) : null}
+                    {details.scheduledWorkouts.some(
+                      (scheduledWorkout) =>
+                        scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
+                    ) ? (
+                      <span
+                        aria-label="Unavailable scheduled workout"
+                        className="size-2 rounded-full bg-destructive/80 sm:size-2.5"
                       />
                     ) : null}
                     {details.inProgressSession ? (
@@ -440,9 +457,13 @@ export function WorkoutCalendar({
                   >
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {scheduledWorkout.templateName}
+                        {scheduledWorkout.templateName ?? 'Workout unavailable'}
                       </p>
-                      <p className="text-xs text-muted">Scheduled</p>
+                      <p className="text-xs text-muted">
+                        {scheduledWorkout.templateName == null || scheduledWorkout.templateId == null
+                          ? 'Unavailable'
+                          : 'Scheduled'}
+                      </p>
                     </div>
                     <ScheduledWorkoutActions
                       buildStartWorkoutHref={buildStartWorkoutHref}
@@ -472,13 +493,20 @@ function ScheduledWorkoutActions({
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
   compact?: boolean;
-  scheduledWorkout: ActiveScheduledWorkoutListItem;
+  scheduledWorkout: ScheduledWorkoutListItem;
 }) {
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const isUnavailable =
+    scheduledWorkout.templateId == null || scheduledWorkout.templateName == null;
+  const templateId = scheduledWorkout.templateId;
 
   async function handleReschedule(requestedDate: string) {
+    if (isUnavailable) {
+      return;
+    }
+
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
@@ -503,16 +531,30 @@ function ScheduledWorkoutActions({
         <DropdownMenuTrigger asChild>
           <button
             aria-label={
-              compact ? 'Scheduled workout actions' : `Actions for ${scheduledWorkout.templateName}`
+              compact
+                ? 'Scheduled workout actions'
+                : `Actions for ${scheduledWorkout.templateName ?? 'scheduled workout'}`
             }
             className={cn(
               'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
+              isUnavailable &&
+                'border-destructive/55 bg-destructive/10 text-destructive hover:bg-destructive/20',
               compact && 'size-5 border-slate-500/70 px-0 py-0',
             )}
             onClick={(event) => event.stopPropagation()}
             type="button"
           >
-            {compact ? <EllipsisVertical aria-hidden="true" className="size-3" /> : 'Scheduled'}
+            {compact ? (
+              isUnavailable ? (
+                <TriangleAlert aria-hidden="true" className="size-3" />
+              ) : (
+                <EllipsisVertical aria-hidden="true" className="size-3" />
+              )
+            ) : isUnavailable ? (
+              'Unavailable'
+            ) : (
+              'Scheduled'
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -520,27 +562,35 @@ function ScheduledWorkoutActions({
           className="w-44"
           onClick={(event) => event.stopPropagation()}
         >
-          <DropdownMenuItem asChild>
-            <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>Start workout</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>
-            Reschedule
-          </DropdownMenuItem>
+          {!isUnavailable && templateId ? (
+            <DropdownMenuItem asChild>
+              <Link to={buildStartWorkoutHref(templateId)}>Start workout</Link>
+            </DropdownMenuItem>
+          ) : null}
+          {!isUnavailable ? (
+            <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>
+              Reschedule
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={handleRemove} variant="destructive">
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ScheduleWorkoutDialog
-        description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
-        initialDate={scheduledWorkout.date}
-        isPending={rescheduleWorkoutMutation.isPending}
-        onOpenChange={setIsRescheduleDialogOpen}
-        onSubmitDate={handleReschedule}
-        open={isRescheduleDialogOpen}
-        submitLabel="Save"
-        title="Reschedule workout"
-      />
+      {!isUnavailable ? (
+        <ScheduleWorkoutDialog
+          description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
+          disallowDateKey={scheduledWorkout.date}
+          disallowDateMessage="Pick a different date to reschedule."
+          initialDate={scheduledWorkout.date}
+          isPending={rescheduleWorkoutMutation.isPending}
+          onOpenChange={setIsRescheduleDialogOpen}
+          onSubmitDate={handleReschedule}
+          open={isRescheduleDialogOpen}
+          submitLabel="Save"
+          title="Reschedule workout"
+        />
+      ) : null}
     </>
   );
 }
@@ -577,7 +627,9 @@ function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
 
   const templateName =
     completedSession?.templateName ??
-    scheduledWorkouts[0]?.templateName ??
+    (scheduledWorkouts[0]
+      ? (scheduledWorkouts[0].templateName ?? 'Workout unavailable')
+      : null) ??
     inProgressSession?.templateName ??
     null;
   const notes = hasCompleted
@@ -657,7 +709,7 @@ function getDetailStats(selectedDay: DayDetails) {
 function getDefaultSelectedDateKey(
   month: Date,
   completedByDate: Map<string, WorkoutSessionListItem>,
-  scheduledByDate: Map<string, ActiveScheduledWorkoutListItem[]>,
+  scheduledByDate: Map<string, ScheduledWorkoutListItem[]>,
 ): string {
   if (
     isSameMonth(parseDateKey(TODAY_KEY), month) &&
