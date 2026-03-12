@@ -41,7 +41,7 @@ export const nutritionMealItemSchema = z.object({
   amount: z.number().positive().finite(),
   unit: requiredText(50),
   displayQuantity: z.number().positive().finite().nullable(),
-  displayUnit: z.string().max(50).nullable(),
+  displayUnit: z.string().trim().max(50).nullable(),
   calories: nonnegativeNumber,
   protein: nonnegativeNumber,
   carbs: nonnegativeNumber,

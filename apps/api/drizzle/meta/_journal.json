@@ -169,13 +169,6 @@
       "when": 1773339325000,
       "tag": "0023_meal_item_display_units",
       "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "6",
-      "when": 1773339325001,
-      "tag": "0024_meal_item_display_unit",
-      "breakpoints": true
     }
   ]
 }

@@ -326,7 +326,7 @@ describe('dailyNutritionSchema', () => {
               amount: 3,
               unit: 'eggs',
               displayQuantity: 3,
-              displayUnit: 'eggs',
+              displayUnit: ' eggs ',
               calories: 210,
               protein: 18,
               carbs: 1,
