@@ -13,6 +13,8 @@ const breakfastMeal = {
       name: 'Large Eggs',
       amount: 3,
       unit: 'eggs',
+      displayQuantity: null,
+      displayUnit: null,
       calories: 210,
       protein: 18,
       carbs: 1,
@@ -23,6 +25,8 @@ const breakfastMeal = {
       name: 'Whole Wheat Bread',
       amount: 2,
       unit: 'slices',
+      displayQuantity: 5.5,
+      displayUnit: 'oz',
       calories: 220,
       protein: 10,
       carbs: 44,
@@ -33,6 +37,8 @@ const breakfastMeal = {
       name: 'Whey Protein',
       amount: 1,
       unit: 'scoop',
+      displayQuantity: 2,
+      displayUnit: 'scoops',
       calories: 105,
       protein: 1,
       carbs: 27,
@@ -63,6 +69,8 @@ describe('MealCard', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
+    expect(screen.getByText('5.5 oz')).toBeInTheDocument();
+    expect(screen.getByText('2 scoops')).toBeInTheDocument();
     expect(screen.getByText('210 cal')).toBeInTheDocument();
     expect(screen.getByText('18g')).toBeInTheDocument();
     expect(screen.getByText('44g')).toBeInTheDocument();

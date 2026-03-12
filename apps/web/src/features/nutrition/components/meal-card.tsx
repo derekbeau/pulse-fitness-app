@@ -20,6 +20,8 @@ export type MealCardMeal = {
     name: string;
     amount: number;
     unit: string;
+    displayQuantity?: number | null;
+    displayUnit?: string | null;
     calories: number;
     protein: number;
     carbs: number;

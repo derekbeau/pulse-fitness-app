@@ -64,6 +64,8 @@ export function NutritionPage() {
         name: item.name,
         amount: item.amount,
         unit: item.unit,
+        displayQuantity: item.displayQuantity,
+        displayUnit: item.displayUnit,
         calories: item.calories,
         protein: item.protein,
         carbs: item.carbs,
