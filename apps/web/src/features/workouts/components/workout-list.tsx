@@ -1,12 +1,50 @@
-import { Activity, CalendarCheck2, CalendarDays, CalendarPlus2, CheckCircle2, Dumbbell, Timer } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  Activity,
+  CalendarCheck2,
+  CalendarClock,
+  CalendarDays,
+  CalendarPlus2,
+  CheckCircle2,
+  Dumbbell,
+  Timer,
+  TriangleAlert,
+} from 'lucide-react';
 import { Link } from 'react-router';
-import type { WorkoutSessionListItem, WorkoutSessionStatus } from '@pulse/shared';
+import type {
+  ScheduledWorkoutListItem,
+  WorkoutSessionListItem,
+  WorkoutSessionStatus,
+} from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router';
+import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
-import { useWorkoutSessions } from '../api/workouts';
+import {
+  useRescheduleWorkout,
+  useScheduledWorkouts,
+  useUnscheduleWorkout,
+  useWorkoutTemplate,
+  useWorkoutSessions,
+} from '../api/workouts';
+import { useTodayKey } from '../hooks/use-today-key';
+import { hasAvailableTemplate } from '../lib/workout-filters';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { useStartSession } from '@/hooks/use-workout-session';
+import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -18,7 +56,9 @@ type WorkoutListProps = {
   buildSessionHref?: (sessionId: string, status: WorkoutSessionStatus) => string;
   buildTemplatesHref?: () => string;
   buildPlanWorkoutHref?: () => string;
+  buildStartWorkoutHref?: (templateId: string) => string;
   sessions?: WorkoutSessionListItem[];
+  scheduledWorkouts?: ScheduledWorkoutListItem[];
 };
 
 type WorkoutListViewItem = {
@@ -41,26 +81,42 @@ export function WorkoutList({
       : `/workouts/session/${sessionId}`,
   buildTemplatesHref = () => '/workouts?view=templates',
   buildPlanWorkoutHref = () => '/workouts?view=templates',
+  buildStartWorkoutHref = (templateId) => `/workouts/active?template=${templateId}`,
   sessions,
+  scheduledWorkouts,
 }: WorkoutListProps) {
+  const todayKey = useTodayKey();
   const sessionsQuery = useWorkoutSessions({}, { enabled: sessions === undefined });
+  const scheduledRange = useMemo(() => getScheduledRange(todayKey), [todayKey]);
+  const scheduledQuery = useScheduledWorkouts(scheduledRange, {
+    enabled: scheduledWorkouts === undefined,
+  });
 
   const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
-  const listItems = resolvedSessions.map((session) => buildWorkoutListItem(session));
+  const activeSessions = resolvedSessions.filter(hasAvailableTemplate);
+  const linkedSessionIds = new Set(activeSessions.map((session) => session.id));
+  const resolvedScheduledWorkouts = scheduledWorkouts ?? scheduledQuery.data ?? [];
+
+  const scheduledItems = resolvedScheduledWorkouts
+    .map((scheduledWorkout) => ({
+      ...scheduledWorkout,
+      isMissed:
+        scheduledWorkout.date < todayKey &&
+        (scheduledWorkout.sessionId == null || !linkedSessionIds.has(scheduledWorkout.sessionId)),
+      isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+
+  const listItems = activeSessions.map((session) => buildWorkoutListItem(session));
   const upcomingSessions = listItems
-    .filter((session) => session.status !== 'completed')
+    .filter((session) => session.status !== 'completed' && session.status !== 'scheduled')
     .sort((left, right) => left.date.getTime() - right.date.getTime());
   const completedSessions = listItems
     .filter((session) => session.status === 'completed')
     .sort((left, right) => right.date.getTime() - left.date.getTime());
-  const hasPlannedWorkouts = listItems.some(
-    (session) =>
-      session.status === 'scheduled' ||
-      session.status === 'in-progress' ||
-      session.status === 'paused',
-  );
+  const hasPlannedWorkouts = scheduledItems.length > 0 || upcomingSessions.length > 0;
 
-  if (sessionsQuery.isLoading && !sessions) {
+  if ((sessionsQuery.isLoading && !sessions) || (scheduledQuery.isLoading && !scheduledWorkouts)) {
     return (
       <Card>
         <CardContent className="py-6">
@@ -70,7 +126,7 @@ export function WorkoutList({
     );
   }
 
-  if (listItems.length === 0) {
+  if (listItems.length === 0 && scheduledItems.length === 0) {
     return (
       <Card>
         <CardContent className="py-6">
@@ -82,6 +138,23 @@ export function WorkoutList({
 
   return (
     <div className="space-y-6">
+      <section className="space-y-3">
+        <SectionHeading count={scheduledItems.length} title="Scheduled" />
+        {scheduledItems.length > 0 ? (
+          <div className="grid gap-3">
+            {scheduledItems.map((scheduledWorkout) => (
+              <ScheduledWorkoutCard
+                buildStartWorkoutHref={buildStartWorkoutHref}
+                key={scheduledWorkout.id}
+                scheduledWorkout={scheduledWorkout}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No scheduled workouts right now.</p>
+        )}
+      </section>
+
       <section className="space-y-3">
         <SectionHeading count={upcomingSessions.length} title="Upcoming" />
         {!hasPlannedWorkouts ? (
@@ -139,6 +212,185 @@ export function WorkoutList({
   );
 }
 
+function ScheduledWorkoutCard({
+  buildStartWorkoutHref,
+  scheduledWorkout,
+}: {
+  buildStartWorkoutHref: (templateId: string) => string;
+  scheduledWorkout: ScheduledWorkoutListItem & { isMissed: boolean; isUnavailable: boolean };
+}) {
+  const navigate = useNavigate();
+  const rescheduleWorkoutMutation = useRescheduleWorkout();
+  const unscheduleWorkoutMutation = useUnscheduleWorkout();
+  const startSessionMutation = useStartSession();
+  const templateId = scheduledWorkout.templateId ?? '';
+  const templateQuery = useWorkoutTemplate(templateId);
+
+  const isMutating =
+    rescheduleWorkoutMutation.isPending ||
+    unscheduleWorkoutMutation.isPending ||
+    startSessionMutation.isPending;
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
+  const isStartDisabled = isMutating || !isTemplateAvailable || templateQuery.isPending;
+
+  async function handleReschedule(requestedDate: string) {
+    await rescheduleWorkoutMutation.mutateAsync({
+      date: requestedDate,
+      id: scheduledWorkout.id,
+    });
+  }
+
+  async function handleStartNow() {
+    if (!templateQuery.data || !scheduledWorkout.templateId || !scheduledWorkout.templateName) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const session = await startSessionMutation.mutateAsync({
+      date: toDateKey(new Date(startedAt)),
+      name: scheduledWorkout.templateName,
+      sets: buildInitialSessionSets(templateQuery.data),
+      startedAt,
+      templateId: scheduledWorkout.templateId,
+    });
+    navigate(`/workouts/active?template=${scheduledWorkout.templateId}&sessionId=${session.id}`);
+  }
+
+  async function handleRemove() {
+    await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+    setIsRemoveDialogOpen(false);
+  }
+
+  return (
+    <Card
+      className={cn(
+        'gap-4 border-l-4 py-0',
+        scheduledWorkout.isUnavailable
+          ? 'border-destructive/45 bg-destructive/5'
+          : scheduledWorkout.isMissed
+            ? 'border-amber-500/55 bg-amber-500/6'
+            : 'border-slate-300/70 dark:border-slate-700/70',
+      )}
+    >
+      <CardHeader className="gap-3 py-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle>{scheduledWorkout.templateName ?? 'Workout unavailable'}</CardTitle>
+            <p className="text-sm text-muted">
+              {sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}
+            </p>
+          </div>
+
+          <span
+            className={cn(
+              'inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
+              scheduledWorkout.isUnavailable
+                ? 'bg-destructive/10 text-destructive'
+                : scheduledWorkout.isMissed
+                  ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                  : 'bg-secondary text-muted-foreground',
+            )}
+          >
+            {scheduledWorkout.isUnavailable ? (
+              <TriangleAlert aria-hidden="true" className="size-3.5" />
+            ) : scheduledWorkout.isMissed ? (
+              <TriangleAlert aria-hidden="true" className="size-3.5" />
+            ) : (
+              <CalendarClock aria-hidden="true" className="size-3.5" />
+            )}
+            {scheduledWorkout.isUnavailable
+              ? 'Unavailable'
+              : scheduledWorkout.isMissed
+                ? 'Missed'
+                : 'Scheduled'}
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 pb-5">
+        <ul className="flex flex-wrap gap-3 text-sm text-muted">
+          <WorkoutStat
+            icon={CalendarPlus2}
+            label={`Scheduled ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}`}
+          />
+          {scheduledWorkout.isUnavailable ? (
+            <WorkoutStat icon={TriangleAlert} label="Template was deleted from trash/soft delete" />
+          ) : null}
+          {scheduledWorkout.isMissed ? (
+            <WorkoutStat icon={TriangleAlert} label="No active linked session" />
+          ) : null}
+        </ul>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            disabled={isStartDisabled}
+            onClick={() => {
+              void handleStartNow();
+            }}
+            size="sm"
+            type="button"
+          >
+            Start now
+          </Button>
+          <Button
+            disabled={isMutating || !isTemplateAvailable}
+            onClick={() => setIsRescheduleDialogOpen(true)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Reschedule
+          </Button>
+          <Button
+            disabled={isMutating}
+            onClick={() => setIsRemoveDialogOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Remove from schedule
+          </Button>
+          {!isTemplateAvailable && scheduledWorkout.templateId ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>
+                Open template view
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+      </CardContent>
+      <ScheduleWorkoutDialog
+        description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
+        initialDate={scheduledWorkout.date}
+        isPending={rescheduleWorkoutMutation.isPending}
+        onOpenChange={setIsRescheduleDialogOpen}
+        onSubmitDate={handleReschedule}
+        open={isRescheduleDialogOpen}
+        disallowDateKey={scheduledWorkout.date}
+        disallowDateMessage="Pick a different date to reschedule."
+        submitLabel="Save"
+        title="Reschedule workout"
+      />
+      <AlertDialog onOpenChange={setIsRemoveDialogOpen} open={isRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this scheduled workout?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove it from your calendar.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={isMutating} onClick={() => void handleRemove()}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}
+
 function SectionHeading({ count, title }: { count: number; title: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -191,7 +443,11 @@ function WorkoutListCard({
         <CardContent className="pb-5">
           <ul className="flex flex-wrap gap-3 text-sm text-muted">
             {buildStatusStats(session).map((stat) => (
-              <WorkoutStat icon={stat.icon} key={`${session.id}-${stat.label}`} label={stat.label} />
+              <WorkoutStat
+                icon={stat.icon}
+                key={`${session.id}-${stat.label}`}
+                label={stat.label}
+              />
             ))}
           </ul>
         </CardContent>
@@ -210,7 +466,7 @@ function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: 
 }
 
 function buildWorkoutListItem(session: WorkoutSessionListItem): WorkoutListViewItem {
-  const date = new Date(`${session.date}T12:00:00`);
+  const date = parseDateForDisplay(session.date);
   const presentation = getWorkoutPresentation(session.status);
 
   return {
@@ -310,4 +566,21 @@ function getStatusBadgeIcon(status: WorkoutSessionStatus) {
   }
 
   return <CalendarDays aria-hidden="true" className="size-3.5" />;
+}
+
+function parseDateForDisplay(dateKey: string) {
+  return new Date(`${dateKey}T12:00:00`);
+}
+
+function getScheduledRange(today: string) {
+  const pivot = new Date(`${today}T12:00:00`);
+  const from = new Date(pivot);
+  const to = new Date(pivot);
+  from.setDate(from.getDate() - 30);
+  to.setDate(to.getDate() + 90);
+
+  return {
+    from: toDateKey(from),
+    to: toDateKey(to),
+  };
 }

@@ -8,8 +8,10 @@ Use this flow when an agent creates exercises/templates and then logs workout se
 2. Create with dedup guard: call `POST /api/agent/exercises`.
 3. If the response is `{ "data": { "created": false, "candidates": [...] } }`, inspect candidates and only retry with `force: true` when a true new exercise is required.
 4. Create template with `POST /api/agent/workout-templates`.
-5. Read `data.newExercises` from template creation response.
-6. For each new exercise id in `newExercises`, call `PATCH /api/agent/exercises/:id` to enrich:
+5. Schedule the template on calendar date(s) with `POST /api/agent/scheduled-workouts`.
+6. Review upcoming scheduled workouts via `GET /api/agent/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`.
+7. Read `data.newExercises` from template creation response.
+8. For each new exercise id in `newExercises`, call `PATCH /api/agent/exercises/:id` to enrich:
    - `muscleGroups`
    - `equipment`
    - `category`
@@ -17,7 +19,7 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - `instructions`
    - `formCues`
    - `tags`
-7. Start session via `POST /api/agent/workout-sessions` and log progress via `PATCH /api/agent/workout-sessions/:id`.
+9. Start session via `POST /api/agent/workout-sessions` and log progress via `PATCH /api/agent/workout-sessions/:id`.
 
 ## Notes
 

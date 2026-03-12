@@ -8,7 +8,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { scheduledWorkouts, users, workoutTemplates } from '../../db/schema/index.js';
+import { scheduledWorkouts, users, workoutSessions, workoutTemplates } from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -42,6 +42,7 @@ const seedTemplate = (values: {
   name: string;
   description?: string | null;
   tags?: string[];
+  deletedAt?: string | null;
 }) =>
   context.db
     .insert(workoutTemplates)
@@ -49,6 +50,7 @@ const seedTemplate = (values: {
       ...values,
       description: values.description ?? null,
       tags: values.tags ?? [],
+      deletedAt: values.deletedAt ?? null,
     })
     .run();
 
@@ -64,6 +66,35 @@ const seedScheduledWorkout = (values: {
     .values({
       ...values,
       sessionId: values.sessionId ?? null,
+    })
+    .run();
+
+const seedWorkoutSession = (values: {
+  id: string;
+  userId: string;
+  templateId?: string | null;
+  name: string;
+  date: string;
+  status?: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
+  startedAt?: number;
+  timeSegments?: string;
+}) =>
+  context.db
+    .insert(workoutSessions)
+    .values({
+      id: values.id,
+      userId: values.userId,
+      templateId: values.templateId ?? null,
+      name: values.name,
+      date: values.date,
+      status: values.status ?? 'completed',
+      startedAt: values.startedAt ?? Date.UTC(2026, 2, 12, 10, 0, 0),
+      completedAt: Date.UTC(2026, 2, 12, 10, 45, 0),
+      duration: 45,
+      timeSegments: values.timeSegments ?? '[]',
+      feedback: null,
+      notes: null,
+      deletedAt: null,
     })
     .run();
 
@@ -147,7 +178,7 @@ describe('scheduled workout routes', () => {
         url: '/api/v1/scheduled-workouts?from=2026-03-10&to=2026-03-16',
       }),
       context.app.inject({
-        method: 'PUT',
+        method: 'PATCH',
         url: '/api/v1/scheduled-workouts/schedule-1',
         payload: {
           date: '2026-03-11',
@@ -254,22 +285,29 @@ describe('scheduled workout routes', () => {
     });
   });
 
-  it('updates the scheduled date or template within the user scope', async () => {
+  it('reschedules a workout date within the user scope', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+    });
     seedScheduledWorkout({
       id: 'schedule-1',
       userId: 'user-1',
       templateId: 'template-1',
       date: '2026-03-12',
+      sessionId: 'session-1',
     });
 
     const response = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: '/api/v1/scheduled-workouts/schedule-1',
       headers: createAuthorizationHeader(authToken),
       payload: {
-        templateId: 'template-2',
         date: '2026-03-13',
       },
     });
@@ -279,7 +317,7 @@ describe('scheduled workout routes', () => {
       data: {
         id: 'schedule-1',
         userId: 'user-1',
-        templateId: 'template-2',
+        templateId: 'template-1',
         date: '2026-03-13',
         sessionId: null,
         createdAt: expect.any(Number),
@@ -291,6 +329,7 @@ describe('scheduled workout routes', () => {
       .select({
         templateId: scheduledWorkouts.templateId,
         date: scheduledWorkouts.date,
+        sessionId: scheduledWorkouts.sessionId,
       })
       .from(scheduledWorkouts)
       .where(eq(scheduledWorkouts.id, 'schedule-1'))
@@ -298,8 +337,9 @@ describe('scheduled workout routes', () => {
       .get();
 
     expect(updatedRow).toEqual({
-      templateId: 'template-2',
+      templateId: 'template-1',
       date: '2026-03-13',
+      sessionId: null,
     });
   });
 
@@ -336,37 +376,89 @@ describe('scheduled workout routes', () => {
     expect(deletedRow).toBeUndefined();
   });
 
-  it('rejects creation or updates that reference missing or inaccessible templates', async () => {
+  it('does not expose soft-deleted template metadata in list responses', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
-    seedScheduledWorkout({
-      id: 'schedule-1',
+    seedTemplate({
+      id: 'template-soft-deleted-list',
       userId: 'user-1',
-      templateId: 'template-1',
+      name: 'Old Plan',
+      deletedAt: '2026-03-01T00:00:00.000Z',
+    });
+    seedScheduledWorkout({
+      id: 'schedule-soft-deleted',
+      userId: 'user-1',
+      templateId: 'template-soft-deleted-list',
       date: '2026-03-12',
     });
 
-    const [createResponse, updateResponse] = await Promise.all([
-      context.app.inject({
-        method: 'POST',
-        url: '/api/v1/scheduled-workouts',
-        headers: createAuthorizationHeader(authToken),
-        payload: {
-          templateId: 'template-3',
-          date: '2026-03-14',
-        },
-      }),
-      context.app.inject({
-        method: 'PUT',
-        url: '/api/v1/scheduled-workouts/schedule-1',
-        headers: createAuthorizationHeader(authToken),
-        payload: {
-          templateId: 'missing-template',
-        },
-      }),
-    ]);
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/scheduled-workouts?from=2026-03-10&to=2026-03-16',
+      headers: createAuthorizationHeader(authToken),
+    });
 
-    for (const response of [createResponse, updateResponse]) {
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        {
+          id: 'schedule-soft-deleted',
+          date: '2026-03-12',
+          templateId: 'template-soft-deleted-list',
+          templateName: null,
+          sessionId: null,
+          createdAt: expect.any(Number),
+        },
+      ],
+    });
+  });
+
+  it('rejects creation against missing, inaccessible, or soft-deleted templates', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedTemplate({
+      id: 'template-soft-deleted',
+      userId: 'user-1',
+      name: 'Archived Plan',
+      deletedAt: '2026-03-01T00:00:00.000Z',
+    });
+
+    const [createOtherUserResponse, createMissingResponse, createSoftDeletedResponse] =
+      await Promise.all([
+        context.app.inject({
+          method: 'POST',
+          url: '/api/v1/scheduled-workouts',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            templateId: 'template-3',
+            date: '2026-03-14',
+          },
+        }),
+        context.app.inject({
+          method: 'POST',
+          url: '/api/v1/scheduled-workouts',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            templateId: 'missing-template',
+            date: '2026-03-15',
+          },
+        }),
+        context.app.inject({
+          method: 'POST',
+          url: '/api/v1/scheduled-workouts',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            templateId: 'template-soft-deleted',
+            date: '2026-03-16',
+          },
+        }),
+      ]);
+
+    for (const response of [
+      createOtherUserResponse,
+      createMissingResponse,
+      createSoftDeletedResponse,
+    ]) {
       expect(response.statusCode).toBe(404);
       expect(response.json()).toEqual({
         error: {
@@ -380,7 +472,7 @@ describe('scheduled workout routes', () => {
   it('returns validation errors for invalid schedule payloads and queries', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
-    const [postResponse, getResponse, putResponse] = await Promise.all([
+    const [postResponse, getResponse, patchResponse] = await Promise.all([
       context.app.inject({
         method: 'POST',
         url: '/api/v1/scheduled-workouts',
@@ -396,7 +488,7 @@ describe('scheduled workout routes', () => {
         headers: createAuthorizationHeader(authToken),
       }),
       context.app.inject({
-        method: 'PUT',
+        method: 'PATCH',
         url: '/api/v1/scheduled-workouts/schedule-1',
         headers: createAuthorizationHeader(authToken),
         payload: {},
@@ -419,8 +511,8 @@ describe('scheduled workout routes', () => {
       },
     });
 
-    expect(putResponse.statusCode).toBe(400);
-    expect(putResponse.json()).toEqual({
+    expect(patchResponse.statusCode).toBe(400);
+    expect(patchResponse.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid scheduled workout payload',
@@ -440,7 +532,7 @@ describe('scheduled workout routes', () => {
 
     const [updateResponse, deleteResponse] = await Promise.all([
       context.app.inject({
-        method: 'PUT',
+        method: 'PATCH',
         url: '/api/v1/scheduled-workouts/other-user-schedule',
         headers: createAuthorizationHeader(authToken),
         payload: {

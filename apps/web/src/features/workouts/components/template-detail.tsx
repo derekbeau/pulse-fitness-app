@@ -18,7 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, MoreVertical } from 'lucide-react';
 
-import type { WorkoutTemplate, WorkoutTemplateExercise } from '@pulse/shared';
+import type { WorkoutTemplateExercise } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -35,12 +35,15 @@ import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
 import {
+  useScheduleWorkout,
   useRenameExercise,
   useReorderTemplateExercises,
   useWorkoutTemplate,
 } from '../api/workouts';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
+import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -57,12 +60,14 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const navigate = useNavigate();
   const templateQuery = useWorkoutTemplate(templateId);
   const startWorkoutMutation = useStartSession();
+  const scheduleWorkoutMutation = useScheduleWorkout();
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
   } | null>(null);
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -288,37 +293,63 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       />
 
       <div className="space-y-2">
-        <Button
-          className="w-full sm:w-auto"
-          disabled={startWorkoutMutation.isPending}
-          onClick={() => {
-            const startedAt = Date.now();
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={startWorkoutMutation.isPending}
+            onClick={() => {
+              const startedAt = Date.now();
 
-            startWorkoutMutation.mutate(
-              {
-                date: toDateKey(new Date(startedAt)),
-                name: template.name,
-                sets: buildInitialSessionSets(template),
-                startedAt,
-                templateId: template.id,
-              },
-              {
-                onSuccess: (session) => {
-                  navigate(`/workouts/active?template=${template.id}&sessionId=${session.id}`);
+              startWorkoutMutation.mutate(
+                {
+                  date: toDateKey(new Date(startedAt)),
+                  name: template.name,
+                  sets: buildInitialSessionSets(template),
+                  startedAt,
+                  templateId: template.id,
                 },
-              },
-            );
-          }}
-          size="lg"
-          type="button"
-        >
-          {startWorkoutMutation.isPending ? 'Starting workout...' : 'Start Workout'}
-        </Button>
+                {
+                  onSuccess: (session) => {
+                    navigate(`/workouts/active?template=${template.id}&sessionId=${session.id}`);
+                  },
+                },
+              );
+            }}
+            size="lg"
+            type="button"
+          >
+            {startWorkoutMutation.isPending ? 'Starting workout...' : 'Start Workout'}
+          </Button>
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => setIsScheduleDialogOpen(true)}
+            size="lg"
+            type="button"
+            variant="outline"
+          >
+            Schedule
+          </Button>
+        </div>
 
         {startWorkoutMutation.isError ? (
           <p className="text-sm text-destructive">Unable to start the workout. Try again.</p>
         ) : null}
       </div>
+      <ScheduleWorkoutDialog
+        description={`Pick a date for ${template.name}.`}
+        initialDate={toDateKey(new Date())}
+        isPending={scheduleWorkoutMutation.isPending}
+        onOpenChange={setIsScheduleDialogOpen}
+        onSubmitDate={(date) =>
+          scheduleWorkoutMutation.mutateAsync({
+            date,
+            templateId: template.id,
+          })
+        }
+        open={isScheduleDialogOpen}
+        submitLabel="Schedule"
+        title="Schedule workout"
+      />
     </section>
   );
 }
@@ -500,23 +531,4 @@ function formatRepTarget(repsMin: number | null, repsMax: number | null) {
 
 function formatTempo(tempo: string) {
   return tempo.split('').join('-');
-}
-
-function buildInitialSessionSets(template: WorkoutTemplate) {
-  return template.sections.flatMap((section) =>
-    section.exercises.flatMap((exercise, exerciseIndex) => {
-      if (exercise.sets === null || exercise.sets < 1) {
-        return [];
-      }
-
-      return Array.from({ length: exercise.sets }, (_, index) => ({
-        exerciseId: exercise.exerciseId,
-        orderIndex: exerciseIndex,
-        reps: null,
-        section: section.type,
-        setNumber: index + 1,
-        weight: null,
-      }));
-    }),
-  );
 }

@@ -1364,6 +1364,50 @@ describe('workout session routes', () => {
     });
   });
 
+  it('links a newly started session to an unclaimed scheduled workout for today', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const today = new Date().toISOString().slice(0, 10);
+
+    seedScheduledWorkout({
+      id: 'schedule-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: today,
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        name: 'Upper Push',
+        date: today,
+        status: 'in-progress',
+        startedAt: 1_700_000_100_000,
+        completedAt: null,
+        duration: null,
+        feedback: null,
+        notes: null,
+        sets: [],
+      },
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+    const sessionId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    const linkedSchedule = context.db
+      .select({ sessionId: scheduledWorkouts.sessionId })
+      .from(scheduledWorkouts)
+      .where(eq(scheduledWorkouts.id, 'schedule-1'))
+      .limit(1)
+      .get();
+
+    expect(linkedSchedule).toEqual({
+      sessionId,
+    });
+  });
+
   it('backfills empty time segments for in-progress sessions at read time', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
     const startedAt = Date.UTC(2026, 2, 12, 14, 30, 0);

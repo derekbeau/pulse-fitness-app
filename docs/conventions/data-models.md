@@ -222,6 +222,10 @@ Constraints:
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
+Behavior:
+
+- When a workout session is started from a template on the current date, the first matching `scheduled_workouts` row with `sessionId = null` is linked by setting `sessionId` to the created session id.
+
 Indexes and constraints:
 
 - `scheduled_workouts_user_date_idx`

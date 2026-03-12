@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('WorkoutCalendar', () => {
-  it('renders completed sessions from the API and links to session details', async () => {
+  it('renders completed and scheduled workouts with session links', async () => {
     const sessionDate = new Date();
     sessionDate.setDate(Math.min(sessionDate.getDate(), 10));
     const sessionDateKey = toDateKey(sessionDate);
@@ -38,36 +38,47 @@ describe('WorkoutCalendar', () => {
     };
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = String(input);
+      const url = new URL(String(input), 'https://pulse.test');
 
-      if (url.includes('/api/v1/workout-sessions?status=completed')) {
-        return Promise.resolve(jsonResponse({ data: [completedSession] }));
+      if (url.pathname === '/api/v1/workout-sessions') {
+        const statuses = url.searchParams.getAll('status');
+        if (statuses.includes('completed')) {
+          return Promise.resolve(jsonResponse({ data: [completedSession] }));
+        }
+
+        if (statuses.includes('in-progress') || statuses.includes('paused')) {
+          return Promise.resolve(jsonResponse({ data: [] }));
+        }
+
+        return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      if (url.includes('/api/v1/workout-templates')) {
+      if (url.pathname === '/api/v1/scheduled-workouts') {
         return Promise.resolve(
           jsonResponse({
             data: [
               {
-                id: 'template-1',
-                userId: 'user-1',
-                name: 'Upper Push',
-                description: null,
-                tags: ['push'],
-                sections: [
-                  { type: 'warmup', exercises: [] },
-                  { type: 'main', exercises: [] },
-                  { type: 'cooldown', exercises: [] },
-                ],
+                id: 'schedule-1',
+                date: sessionDateKey,
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                sessionId: null,
                 createdAt: 1,
-                updatedAt: 1,
+              },
+              {
+                id: 'schedule-2',
+                date: sessionDateKey,
+                templateId: 'template-2',
+                templateName: 'Accessory',
+                sessionId: null,
+                createdAt: 2,
               },
             ],
           }),
         );
       }
 
-      throw new Error(`Unhandled request: ${url}`);
+      throw new Error(`Unhandled request: ${url.pathname}`);
     });
 
     renderWithQueryClient(
@@ -78,34 +89,28 @@ describe('WorkoutCalendar', () => {
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: formatFullDate(new Date(`${sessionDateKey}T12:00:00`)),
-      }),
-    );
-
-    expect(screen.getByRole('heading', { name: 'Upper Push' })).toBeInTheDocument();
-    expect(screen.getByText('Completed')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View Session' })).toHaveAttribute(
+    expect((await screen.findAllByLabelText('Scheduled workout')).length).toBeGreaterThan(0);
+    expect(screen.getByText('+1')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
       '/workouts/session/session-1',
     );
+    expect(screen.getByRole('button', { name: /selected/i })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows empty calendar details when no completed sessions exist', async () => {
+  it('shows empty calendar details when no workouts exist', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = String(input);
+      const url = new URL(String(input), 'https://pulse.test');
 
-      if (url.includes('/api/v1/workout-sessions?status=completed')) {
+      if (url.pathname === '/api/v1/workout-sessions') {
         return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      if (url.includes('/api/v1/workout-templates')) {
+      if (url.pathname === '/api/v1/scheduled-workouts') {
         return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      throw new Error(`Unhandled request: ${url}`);
+      throw new Error(`Unhandled request: ${url.pathname}`);
     });
 
     renderWithQueryClient(
@@ -117,22 +122,21 @@ describe('WorkoutCalendar', () => {
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect(screen.queryByLabelText('Completed workout')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No workout planned' })).toBeInTheDocument();
-    expect(document.getElementById('workout-day-details')).toHaveClass('order-first');
   });
 
   it('navigates between months', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = String(input);
+      const url = new URL(String(input), 'https://pulse.test');
 
-      if (url.includes('/api/v1/workout-sessions?status=completed')) {
+      if (url.pathname === '/api/v1/workout-sessions') {
         return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      if (url.includes('/api/v1/workout-templates')) {
+      if (url.pathname === '/api/v1/scheduled-workouts') {
         return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      throw new Error(`Unhandled request: ${url}`);
+      throw new Error(`Unhandled request: ${url.pathname}`);
     });
 
     renderWithQueryClient(
@@ -150,15 +154,6 @@ describe('WorkoutCalendar', () => {
     expect(screen.getByText(formatMonth(nextMonth))).toBeInTheDocument();
   });
 });
-
-function formatFullDate(date: Date) {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date);
-}
 
 function formatMonth(date: Date) {
   return new Intl.DateTimeFormat('en-US', {

@@ -266,6 +266,55 @@ describe('WorkoutTemplateDetail', () => {
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 
+  it('schedules a workout from the template detail view', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.endsWith('/api/v1/scheduled-workouts') && init?.method === 'POST') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'scheduled-1',
+              userId: 'user-1',
+              templateId: 'upper-push',
+              date: '2026-03-20',
+              sessionId: null,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Schedule' }));
+
+    await waitFor(() => {
+      const scheduleCall = fetchSpy.mock.calls.find(([input, init]) => {
+        const requestMethod = input instanceof Request ? input.method : (init?.method ?? 'GET');
+        const requestUrl = input instanceof Request ? input.url : String(input);
+
+        return requestUrl.endsWith('/api/v1/scheduled-workouts') && requestMethod === 'POST';
+      });
+
+      expect(scheduleCall).toBeDefined();
+    });
+  });
+
   it('renames an exercise from the template exercise menu', async () => {
     const mutableTemplate = structuredClone(templatePayload);
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {

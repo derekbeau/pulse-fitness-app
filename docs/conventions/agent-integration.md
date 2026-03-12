@@ -451,6 +451,62 @@ Response (`200`):
 
 - `404 WORKOUT_TEMPLATE_NOT_FOUND` if template is missing or not user-owned.
 
+#### `POST /api/agent/scheduled-workouts`
+
+Schedules a template for a specific date.
+
+Request:
+
+```json
+{
+  "templateId": "template-1",
+  "date": "2026-03-12"
+}
+```
+
+Response (`201`):
+
+```json
+{
+  "data": {
+    "id": "schedule-1",
+    "userId": "user-1",
+    "templateId": "template-1",
+    "date": "2026-03-12",
+    "sessionId": null,
+    "createdAt": 1700000000000,
+    "updatedAt": 1700000000000
+  }
+}
+```
+
+- `404 WORKOUT_TEMPLATE_NOT_FOUND` if template is missing, not user-owned, or soft-deleted.
+
+#### `GET /api/agent/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`
+
+Lists scheduled workouts in the requested date window.
+
+Response (`200`):
+
+```json
+{
+  "data": [
+    {
+      "id": "schedule-1",
+      "date": "2026-03-12",
+      "templateId": "template-1",
+      "templateName": "Upper Push",
+      "sessionId": null,
+      "createdAt": 1700000000000
+    }
+  ]
+}
+```
+
+Notes:
+
+- If a referenced template has been soft-deleted, `templateName` is `null`.
+
 #### `POST /api/agent/workout-sessions`
 
 Starts an in-progress session.
@@ -738,9 +794,10 @@ Response:
 1. Search/create exercises (`GET /api/agent/exercises/search`, `POST /api/agent/exercises`).
 2. If `POST /api/agent/exercises` returns `created: false`, review `candidates` and retry with `force: true` only when intentional.
 3. Create/update template (`POST/PUT /api/agent/workout-templates`).
-4. Read `newExercises` from template create response and enrich each via `PATCH /api/agent/exercises/:id`.
-5. Start session (`POST /api/agent/workout-sessions`).
-6. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
+4. Schedule template (`POST /api/agent/scheduled-workouts`) and review upcoming plan (`GET /api/agent/scheduled-workouts`).
+5. Read `newExercises` from template create response and enrich each via `PATCH /api/agent/exercises/:id`.
+6. Start session (`POST /api/agent/workout-sessions`).
+7. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
 
 ## Error Handling Conventions
 

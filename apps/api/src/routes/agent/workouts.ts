@@ -6,9 +6,11 @@ import {
   agentCreateWorkoutTemplateInputSchema,
   agentUpdateWorkoutSessionInputSchema,
   agentUpdateWorkoutTemplateInputSchema,
+  createScheduledWorkoutInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutTemplateInput,
   type CreateWorkoutSessionInput,
+  scheduledWorkoutQueryParamsSchema,
   type WorkoutSession,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -16,11 +18,17 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import {
+  createScheduledWorkout,
+  linkTodayScheduledWorkoutToSession,
+  listScheduledWorkouts,
+} from '../scheduled-workouts/store.js';
+import {
   createExercise,
   findExerciseDedupCandidates,
   findVisibleExerciseByName,
   updateOwnedExercise,
 } from '../exercises/store.js';
+import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -288,6 +296,52 @@ const buildInitialSessionSets = (
 };
 
 export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
+  app.post('/scheduled-workouts', async (request, reply) => {
+    const parsedBody = createScheduledWorkoutInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
+    }
+
+    const templateAccessible = await templateBelongsToUser(
+      parsedBody.data.templateId,
+      request.userId,
+    );
+    if (!templateAccessible) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const scheduledWorkout = await createScheduledWorkout({
+      id: randomUUID(),
+      userId: request.userId,
+      input: parsedBody.data,
+    });
+
+    return reply.code(201).send({
+      data: scheduledWorkout,
+    });
+  });
+
+  app.get('/scheduled-workouts', async (request, reply) => {
+    const parsedQuery = scheduledWorkoutQueryParamsSchema.safeParse(request.query);
+    if (!parsedQuery.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout query');
+    }
+
+    const scheduledWorkoutItems = await listScheduledWorkouts({
+      userId: request.userId,
+      ...parsedQuery.data,
+    });
+
+    return reply.send({
+      data: scheduledWorkoutItems,
+    });
+  });
+
   app.post('/workout-templates', async (request, reply) => {
     const parsed = agentCreateWorkoutTemplateInputSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -417,6 +471,15 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       userId: request.userId,
       input: payload.data,
     });
+
+    if (payload.data.templateId !== null) {
+      await linkTodayScheduledWorkoutToSession({
+        userId: request.userId,
+        templateId: payload.data.templateId,
+        date: payload.data.date,
+        sessionId: session.id,
+      });
+    }
 
     return reply.code(201).send({ data: session });
   });

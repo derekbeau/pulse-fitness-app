@@ -30,7 +30,6 @@ export const createScheduledWorkoutInputSchema = z.object({
 
 export const updateScheduledWorkoutInputSchema = z
   .object({
-    templateId: requiredStringSchema.optional(),
     date: dateSchema.optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
