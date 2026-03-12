@@ -26,7 +26,6 @@ import {
   countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
-  createWorkoutSetId,
   workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
@@ -103,14 +102,6 @@ const categoryBadgeByExerciseId = new Map(
 );
 const mockExerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
 
-const completedSetIds = [
-  createWorkoutSetId('row-erg', 1),
-  createWorkoutSetId('banded-shoulder-external-rotation', 1),
-  createWorkoutSetId('banded-shoulder-external-rotation', 2),
-  createWorkoutSetId('incline-dumbbell-press', 1),
-  createWorkoutSetId('incline-dumbbell-press', 2),
-];
-
 type RestTimerState = {
   duration: number;
   exerciseId: string;
@@ -148,10 +139,7 @@ export function ActiveWorkoutPage() {
   const [fallbackStartTime] = useState(() => new Date().toISOString());
   const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
-    createInitialWorkoutSetDrafts(
-      template,
-      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-    ),
+    createInitialWorkoutSetDrafts(template, new Set<string>()),
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
@@ -244,10 +232,7 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const initialSetDrafts = createInitialWorkoutSetDrafts(
-      template,
-      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-    );
+    const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
 
     setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);

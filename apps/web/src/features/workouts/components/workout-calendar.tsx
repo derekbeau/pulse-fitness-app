@@ -35,6 +35,8 @@ const timeFormatter = new Intl.DateTimeFormat('en-US', {
 
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
+  // Calendar only renders completed sessions from `useCompletedSessions`,
+  // so the session link does not need status-aware routing.
   buildSessionHref?: (sessionId: string) => string;
 };
 

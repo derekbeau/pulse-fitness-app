@@ -481,7 +481,7 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 
     expect(await screen.findByRole('heading', { name: 'No workouts yet' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Browse Templates' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Browse Templates' })).not.toBeInTheDocument();
     expect(
       screen.getByText('Ask your agent to build a template, then start a session from it.'),
     ).toBeInTheDocument();

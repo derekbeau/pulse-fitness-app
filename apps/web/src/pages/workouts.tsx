@@ -215,10 +215,6 @@ export function WorkoutsPage() {
           </div>
         ) : shouldShowTemplatesEmptyState ? (
           <EmptyState
-            action={{
-              label: 'Browse Templates',
-              onClick: () => setActiveView('templates'),
-            }}
             description="Ask your agent to build a template, then start a session from it."
             icon={Dumbbell}
             title="No workouts yet"
