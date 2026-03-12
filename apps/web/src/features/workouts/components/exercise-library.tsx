@@ -351,7 +351,6 @@ function ExerciseCard({
                   {exercise.name}
                 </button>
               </h3>
-              <p className="text-sm text-muted">{formatLabel(exercise.equipment)}</p>
               <TagChips tags={exercise.tags} />
             </div>
 

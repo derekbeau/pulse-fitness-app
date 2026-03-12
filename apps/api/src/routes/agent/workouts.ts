@@ -331,7 +331,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const { sections } = await buildTemplateSections({
+    const { sections, newExercises } = await buildTemplateSections({
       sections: parsed.data.sections,
       userId: request.userId,
     });
@@ -356,7 +356,12 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({ data: template });
+    return reply.send({
+      data: {
+        template,
+        newExercises,
+      },
+    });
   });
 
   app.post('/workout-sessions', async (request, reply) => {

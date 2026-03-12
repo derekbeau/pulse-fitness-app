@@ -44,12 +44,18 @@ describe('session-persistence', () => {
       exerciseNotes: {
         'incline-dumbbell-press': 'Keep elbows tucked.',
       },
+      sessionCuesByExercise: {
+        'incline-dumbbell-press': ['Keep shoulders down and back'],
+      },
       setDrafts,
     });
 
     expect(getStoredActiveWorkoutDraft('session-a')).toEqual({
       exerciseNotes: {
         'incline-dumbbell-press': 'Keep elbows tucked.',
+      },
+      sessionCuesByExercise: {
+        'incline-dumbbell-press': ['Keep shoulders down and back'],
       },
       setDrafts,
     });
@@ -71,6 +77,7 @@ describe('session-persistence', () => {
 
     expect(getStoredActiveWorkoutDraft('session-a')).toEqual({
       exerciseNotes: {},
+      sessionCuesByExercise: {},
       setDrafts: {},
     });
   });

@@ -302,7 +302,7 @@ export function useRenameExercise() {
           queryKey: workoutQueryKeys.all,
         }),
         queryClient.invalidateQueries({
-          queryKey: ['workout-sessions'],
+          queryKey: workoutQueryKeys.sessions(),
         }),
       ]);
       toast.success('Exercise renamed');

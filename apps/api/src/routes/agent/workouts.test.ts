@@ -473,6 +473,21 @@ describe('agent workouts routes', () => {
         });
 
         expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: {
+            template: {
+              id: 'template-1',
+              userId: 'user-1',
+              name: 'Upper A',
+              description: null,
+              tags: [],
+              sections: [],
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            newExercises: [],
+          },
+        });
         expect(vi.mocked(updateWorkoutTemplate)).toHaveBeenCalledWith(
           expect.objectContaining({
             id: 'template-1',
@@ -567,6 +582,21 @@ describe('agent workouts routes', () => {
         });
 
         expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: {
+            template: {
+              id: 'template-1',
+              userId: 'user-1',
+              name: 'Leg A',
+              description: null,
+              tags: [],
+              sections: [],
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            newExercises: [],
+          },
+        });
         expect(vi.mocked(updateOwnedExercise)).not.toHaveBeenCalled();
       } finally {
         await app.close();

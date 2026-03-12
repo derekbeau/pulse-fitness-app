@@ -142,6 +142,7 @@ export function ActiveWorkoutPage() {
     createInitialWorkoutSetDrafts(template, new Set<string>()),
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
+  const [sessionCuesByExercise, setSessionCuesByExercise] = useState<Record<string, string[]>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
@@ -215,6 +216,7 @@ export function ActiveWorkoutPage() {
 
     setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
+    setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
     hydratedSessionIdRef.current = activeSession.id;
     hydratedDraftKeyRef.current = activeSession.id;
 
@@ -237,6 +239,7 @@ export function ActiveWorkoutPage() {
 
     setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
+    setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
@@ -268,9 +271,10 @@ export function ActiveWorkoutPage() {
 
     setStoredActiveWorkoutDraft(activeWorkoutDraftId, {
       exerciseNotes,
+      sessionCuesByExercise,
       setDrafts,
     });
-  }, [activeWorkoutDraftId, exerciseNotes, setDrafts, stage]);
+  }, [activeWorkoutDraftId, exerciseNotes, sessionCuesByExercise, setDrafts, stage]);
 
   const session = useMemo(
     () =>
@@ -379,9 +383,16 @@ export function ActiveWorkoutPage() {
             onFocusSetHandled={() => setFocusSetId(null)}
             onRemoveSet={handleRemoveSet}
             onRestTimerComplete={handleRestTimerComplete}
+            onSessionCuesChange={(exerciseId, cues) =>
+              setSessionCuesByExercise((current) => ({
+                ...current,
+                [exerciseId]: cues,
+              }))
+            }
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
             session={session}
+            sessionCuesByExercise={sessionCuesByExercise}
             weightUnit={weightUnit}
           />
 

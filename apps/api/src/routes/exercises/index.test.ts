@@ -796,6 +796,39 @@ describe('exercise routes', () => {
     });
   });
 
+  it('agent create exercise: returns dedup candidates for close typo matches', async () => {
+    seedExercise({
+      id: 'existing-bench',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Benchpress',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      data: {
+        created: false;
+        candidates: Array<{ id: string; name: string; similarity: number }>;
+      };
+    };
+    expect(body.data.created).toBe(false);
+    expect(body.data.candidates[0]?.id).toBe('existing-bench');
+    expect(body.data.candidates[0]?.name).toBe('Bench Press');
+    expect(body.data.candidates[0]?.similarity ?? 0).toBeGreaterThanOrEqual(0.5);
+  });
+
   it('agent create exercise: force=true bypasses dedup and still creates', async () => {
     seedExercise({
       id: 'existing-row',

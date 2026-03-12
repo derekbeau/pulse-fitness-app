@@ -67,7 +67,7 @@ describe('exerciseSchema', () => {
     expect(payload.formCues).toEqual([]);
   });
 
-  it('rejects invalid categories and empty muscle group arrays', () => {
+  it('rejects invalid categories', () => {
     expect(() =>
       exerciseSchema.parse({
         id: 'exercise-1',
@@ -84,6 +84,25 @@ describe('exerciseSchema', () => {
         updatedAt: 2,
       }),
     ).toThrow();
+  });
+
+  it('allows empty muscle groups on API payloads for agent-created placeholders', () => {
+    const payload = exerciseSchema.parse({
+      id: 'exercise-1',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: [],
+      equipment: '',
+      category: 'compound',
+      trackingType: 'weight_reps',
+      tags: [],
+      formCues: [],
+      instructions: null,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    expect(payload.muscleGroups).toEqual([]);
   });
 
   it('infers the Exercise type from the schema', () => {

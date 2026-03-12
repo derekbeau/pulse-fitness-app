@@ -63,9 +63,11 @@ type SessionExerciseListProps = {
   onFocusSetHandled?: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
+  onSessionCuesChange?: (exerciseId: string, cues: string[]) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
   session: ActiveWorkoutSessionData;
+  sessionCuesByExercise?: Record<string, string[]>;
   weightUnit?: WeightUnit;
 };
 
@@ -107,14 +109,18 @@ export function SessionExerciseList({
   onFocusSetHandled,
   onRemoveSet,
   onRestTimerComplete,
+  onSessionCuesChange,
   onSetUpdate,
   restTimer = null,
   session,
+  sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
-  const [sessionCuesByExercise, setSessionCuesByExercise] = useState<Record<string, string[]>>({});
+  const [localSessionCuesByExercise, setLocalSessionCuesByExercise] = useState<
+    Record<string, string[]>
+  >({});
   const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
@@ -123,6 +129,7 @@ export function SessionExerciseList({
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
+  const resolvedSessionCuesByExercise = sessionCuesByExercise ?? localSessionCuesByExercise;
 
   const exerciseNumberMap = new Map<string, number>();
   let exerciseCounter = 1;
@@ -241,12 +248,12 @@ export function SessionExerciseList({
                         setExpandedExercises={setExpandedExercises}
                         setVisibleNotesPanels={setVisibleNotesPanels}
                         onAddSessionCue={(cue) =>
-                          setSessionCuesByExercise((current) => ({
-                            ...current,
-                            [item.exercise.id]: [...(current[item.exercise.id] ?? []), cue],
-                          }))
+                          updateSessionCues(item.exercise.id, [
+                            ...(resolvedSessionCuesByExercise[item.exercise.id] ?? []),
+                            cue,
+                          ])
                         }
-                        sessionCues={sessionCuesByExercise[item.exercise.id] ?? []}
+                        sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
                         visibleNotesPanels={visibleNotesPanels}
                         weightUnit={weightUnit}
                         key={item.exercise.id}
@@ -315,12 +322,12 @@ export function SessionExerciseList({
                               setExpandedExercises={setExpandedExercises}
                               setVisibleNotesPanels={setVisibleNotesPanels}
                               onAddSessionCue={(cue) =>
-                                setSessionCuesByExercise((current) => ({
-                                  ...current,
-                                  [exercise.id]: [...(current[exercise.id] ?? []), cue],
-                                }))
+                                updateSessionCues(exercise.id, [
+                                  ...(resolvedSessionCuesByExercise[exercise.id] ?? []),
+                                  cue,
+                                ])
                               }
-                              sessionCues={sessionCuesByExercise[exercise.id] ?? []}
+                              sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
                               visibleNotesPanels={visibleNotesPanels}
                               weightUnit={weightUnit}
                             />
@@ -385,6 +392,18 @@ export function SessionExerciseList({
       />
     </div>
   );
+
+  function updateSessionCues(exerciseId: string, cues: string[]) {
+    if (onSessionCuesChange) {
+      onSessionCuesChange(exerciseId, cues);
+      return;
+    }
+
+    setLocalSessionCuesByExercise((current) => ({
+      ...current,
+      [exerciseId]: cues,
+    }));
+  }
 }
 
 type ExerciseCardItemProps = {

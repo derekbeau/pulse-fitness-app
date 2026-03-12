@@ -87,6 +87,16 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
     }
 
+    const updated = await updateOwnedExercise({
+      id: request.params.id,
+      userId: request.userId,
+      changes: parsed.data,
+    });
+
+    if (updated) {
+      return reply.send({ data: updated });
+    }
+
     const ownership = await findExerciseOwnership(request.params.id);
     if (!ownership) {
       return sendError(
@@ -115,22 +125,12 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const updated = await updateOwnedExercise({
-      id: request.params.id,
-      userId: request.userId,
-      changes: parsed.data,
-    });
-
-    if (!updated) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({ data: updated });
+    return sendError(
+      reply,
+      404,
+      EXERCISE_NOT_FOUND_RESPONSE.code,
+      EXERCISE_NOT_FOUND_RESPONSE.message,
+    );
   });
 
   app.get('/search', async (request, reply) => {

@@ -1044,9 +1044,20 @@ describe('agent integration', () => {
 
         expect(response.statusCode).toBe(200);
 
-        const body = response.json() as { data: { id: string; name: string } };
-        expect(body.data.id).toBe('template-1');
-        expect(body.data.name).toBe('Pull Day Updated');
+        const body = response.json() as {
+          data: {
+            template: { id: string; name: string };
+            newExercises: Array<{ id: string; name: string; possibleDuplicates: string[] }>;
+          };
+        };
+        expect(body.data.template.id).toBe('template-1');
+        expect(body.data.template.name).toBe('Pull Day Updated');
+        expect(body.data.newExercises).toHaveLength(1);
+        expect(body.data.newExercises[0]).toEqual({
+          id: expect.any(String),
+          name: 'Barbell Row',
+          possibleDuplicates: [],
+        });
       } finally {
         await app.close();
       }

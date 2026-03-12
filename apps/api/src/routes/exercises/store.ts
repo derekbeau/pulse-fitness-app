@@ -275,6 +275,7 @@ export const findVisibleExerciseByName = async ({
 };
 
 const EXERCISE_PREFIXES = ['barbell', 'dumbbell', 'kettlebell', 'cable', 'machine', 'smith'];
+const SQL_LIKE_ESCAPE_PATTERN = /[%_\\]/g;
 
 const normalizeExerciseName = (name: string): string => {
   const normalized = name
@@ -294,6 +295,55 @@ const normalizeExerciseName = (name: string): string => {
   return filtered.join(' ').trim();
 };
 
+const escapeSqlLikePattern = (value: string): string =>
+  value.replace(SQL_LIKE_ESCAPE_PATTERN, (match) => `\\${match}`);
+
+const levenshteinDistance = (left: string, right: string): number => {
+  if (left === right) {
+    return 0;
+  }
+
+  if (left.length === 0) {
+    return right.length;
+  }
+
+  if (right.length === 0) {
+    return left.length;
+  }
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = Array.from({ length: right.length + 1 }, () => 0);
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    current[0] = leftIndex;
+
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const cost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + cost,
+      );
+    }
+
+    for (let rightIndex = 0; rightIndex <= right.length; rightIndex += 1) {
+      previous[rightIndex] = current[rightIndex];
+    }
+  }
+
+  return previous[right.length] ?? 0;
+};
+
+const calculateLevenshteinSimilarity = (input: string, candidate: string): number => {
+  if (input.length === 0 || candidate.length === 0) {
+    return 0;
+  }
+
+  const maxLength = Math.max(input.length, candidate.length);
+  const distance = levenshteinDistance(input, candidate);
+  return Number((1 - distance / maxLength).toFixed(2));
+};
+
 const calculateExerciseSimilarity = (input: string, candidate: string): number => {
   if (input === candidate) {
     return 1;
@@ -307,7 +357,7 @@ const calculateExerciseSimilarity = (input: string, candidate: string): number =
     return Number((Math.min(input.length, candidate.length) / Math.max(input.length, candidate.length)).toFixed(2));
   }
 
-  return 0;
+  return calculateLevenshteinSimilarity(input, candidate);
 };
 
 export const findExerciseDedupCandidates = async ({
@@ -322,15 +372,38 @@ export const findExerciseDedupCandidates = async ({
   const { db } = await import('../../db/index.js');
   const inputNormalized = normalizeExerciseName(name);
   const inputLower = name.trim().toLowerCase();
+  const firstToken = (inputNormalized || inputLower).split(' ').find((token) => token.length > 0);
+  const tokenMatch = firstToken
+    ? firstToken.slice(0, Math.min(firstToken.length, 5))
+    : undefined;
+  const visibilityWhereClause = or(isNull(exercises.userId), eq(exercises.userId, userId));
+  const candidateFilter =
+    tokenMatch && tokenMatch.length > 0
+      ? sql`lower(${exercises.name}) like ${`%${escapeSqlLikePattern(tokenMatch)}%`} escape '\\'`
+      : undefined;
+  const dedupWhereClause = candidateFilter
+    ? and(visibilityWhereClause, candidateFilter)
+    : visibilityWhereClause;
 
-  const visibleExercises = await db
+  let visibleExercises = await db
     .select({
       id: exercises.id,
       name: exercises.name,
     })
     .from(exercises)
-    .where(or(isNull(exercises.userId), eq(exercises.userId, userId)))
+    .where(dedupWhereClause)
     .all();
+
+  if (visibleExercises.length === 0 && candidateFilter) {
+    visibleExercises = await db
+      .select({
+        id: exercises.id,
+        name: exercises.name,
+      })
+      .from(exercises)
+      .where(visibilityWhereClause)
+      .all();
+  }
 
   return visibleExercises
     .map((exercise) => {

@@ -263,6 +263,46 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
   });
 
+  it('calls onSessionCuesChange when session cues are controlled by the parent', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onSessionCuesChange = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSessionCuesChange={onSessionCuesChange}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionCuesByExercise={{}}
+      />,
+    );
+
+    const currentCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    expect(currentCard).not.toBeNull();
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }));
+    fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
+      target: { value: 'Pause one second at full extension' },
+    });
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add' }));
+
+    expect(onSessionCuesChange).toHaveBeenCalledWith('row-erg', [
+      'Pause one second at full extension',
+    ]);
+  });
+
   it('still renders template form cues and omits injury warnings when enhanced injury data is unavailable', () => {
     if (!lowerTemplate) {
       throw new Error('Expected lower-quad-dominant template in mock data.');

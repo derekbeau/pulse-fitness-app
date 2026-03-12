@@ -7,6 +7,7 @@ export const WORKOUT_SESSION_COMPLETED_NOTICE = 'completed';
 
 type ActiveWorkoutDraft = {
   exerciseNotes: Record<string, string>;
+  sessionCuesByExercise: Record<string, string[]>;
   setDrafts: ActiveWorkoutSetDrafts;
 };
 
@@ -78,6 +79,7 @@ export function getStoredActiveWorkoutDraft(id: string): ActiveWorkoutDraft | nu
 
     return {
       exerciseNotes: parsed.exerciseNotes ?? {},
+      sessionCuesByExercise: parsed.sessionCuesByExercise ?? {},
       setDrafts: parsed.setDrafts ?? {},
     };
   } catch {
