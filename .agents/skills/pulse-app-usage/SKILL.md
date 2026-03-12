@@ -19,7 +19,28 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - `instructions`
    - `formCues`
    - `tags`
-9. Start session via `POST /api/agent/workout-sessions` and log progress via `PATCH /api/agent/workout-sessions/:id`.
+9. Start session via `POST /api/agent/workout-sessions`.
+10. During the session, use `PATCH /api/agent/workout-sessions/:id` for:
+   - set logs: `sets: [{ exerciseName, setNumber, weight, reps }]`
+   - add exercises: `addExercises: [{ name, sets, reps, section }]`
+   - remove unstarted exercises: `removeExercises: [exerciseId]`
+   - reorder exercises: `reorderExercises: [exerciseId, ...]`
+11. Do not remove exercises that already have completed sets (`409 WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS`).
+
+## Habits
+
+Use referential habits when completion should be inferred from other tracked data.
+
+1. Create a habit with `POST /api/agent/habits`.
+2. For referential habits, include:
+   - `referenceSource`: `weight | nutrition_daily | nutrition_meal | workout`
+   - `referenceConfig`:
+     - `weight`: `{ "condition": "exists_today" }`
+     - `nutrition_daily`: `{ "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
+     - `nutrition_meal`: `{ "mealType": string, "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
+     - `workout`: `{ "condition": "session_completed_today" }`
+3. Read habits with `GET /api/v1/habits`; referential habits auto-resolve completion for today.
+4. Manually override a referential habit with `PATCH /api/agent/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.
 
 ## Notes
 

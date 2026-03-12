@@ -1,5 +1,6 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,6 +25,9 @@ vi.mock('@/features/habits/api/habits', () => ({
   useUpdateHabit: vi.fn(),
   useUpdateHabitEntry: vi.fn(),
 }));
+vi.mock('sonner', () => ({
+  toast: vi.fn(),
+}));
 
 const mockedUseCreateHabit = vi.mocked(useCreateHabit);
 const mockedUseDeleteHabit = vi.mocked(useDeleteHabit);
@@ -33,6 +37,7 @@ const mockedUseReorderHabits = vi.mocked(useReorderHabits);
 const mockedUseToggleHabit = vi.mocked(useToggleHabit);
 const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
 const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
+const mockedToast = vi.mocked(toast);
 
 function createMutationMock() {
   return {
@@ -221,6 +226,107 @@ describe('DailyHabits', () => {
       habitId: 'hydrate',
       id: 'entry-hydrate',
       value: 9,
+    });
+  });
+
+  it('shows referential auto-managed state and creates manual override on toggle', () => {
+    const toggleMutation = createMutationMock();
+    mockedUseToggleHabit.mockReturnValue(toggleMutation as unknown as ReturnType<typeof useToggleHabit>);
+    mockedUseHabits.mockReturnValue({
+      data: [
+        {
+          ...habits[0],
+          id: 'weight-link',
+          name: 'Weight linked',
+          trackingType: 'boolean',
+          target: null,
+          unit: null,
+          referenceSource: 'weight',
+          referenceConfig: { condition: 'exists_today' },
+          todayEntry: { completed: true, value: null, isOverride: false },
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabits>);
+    mockedUseHabitEntries.mockReturnValue({
+      data: [],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabitEntries>);
+
+    render(<DailyHabits selectedDate={new Date('2026-03-10T00:00:00')} />);
+
+    expect(screen.getByText('Auto: weight logged today')).toBeInTheDocument();
+    const checkbox = screen.getByRole('checkbox', { name: 'Weight linked' });
+    expect(checkbox).toHaveClass('opacity-45');
+
+    fireEvent.click(checkbox);
+
+    expect(mockedToast).toHaveBeenCalledWith(
+      'Manual override - this will override auto-tracking for today',
+    );
+    expect(toggleMutation.mutate).toHaveBeenCalledWith({
+      completed: true,
+      date: '2026-03-10',
+      entryId: null,
+      habitId: 'weight-link',
+      isOverride: true,
+    });
+  });
+
+  it('shows reset action for referential override entries', () => {
+    const updateMutation = createMutationMock();
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      updateMutation as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+    mockedUseHabits.mockReturnValue({
+      data: [
+        {
+          ...habits[0],
+          id: 'protein-link',
+          name: 'Protein auto',
+          referenceSource: 'nutrition_daily',
+          referenceConfig: { field: 'protein', op: 'gte', value: 150 },
+          todayEntry: { completed: true, value: 160, isOverride: true },
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabits>);
+    mockedUseHabitEntries.mockReturnValue({
+      data: [
+        {
+          completed: true,
+          createdAt: 1,
+          date: '2026-03-10',
+          habitId: 'protein-link',
+          id: 'entry-protein-link',
+          isOverride: true,
+          userId: 'user-1',
+          value: 160,
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabitEntries>);
+
+    render(<DailyHabits selectedDate={new Date('2026-03-10T00:00:00')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to auto' }));
+
+    expect(updateMutation.mutate).toHaveBeenCalledWith({
+      date: '2026-03-10',
+      habitId: 'protein-link',
+      id: 'entry-protein-link',
+      isOverride: false,
     });
   });
 });

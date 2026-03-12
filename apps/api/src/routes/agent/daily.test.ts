@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import {
   findHabitEntryByHabitAndDate,
   listHabitEntriesByDateRange,
   upsertHabitEntry,
 } from '../habit-entries/store.js';
-import { findHabitById, listActiveHabits } from '../habits/store.js';
+import {
+  createHabit,
+  findHabitById,
+  getNextHabitSortOrder,
+  listActiveHabits,
+} from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
 
@@ -42,6 +48,9 @@ vi.mock('../nutrition/store.js', () => ({
   getDailyNutritionSummaryForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
 }));
+vi.mock('../../lib/habit-resolvers.js', () => ({
+  resolveHabitCompletion: vi.fn(),
+}));
 
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
@@ -51,6 +60,8 @@ describe('agent daily routes', () => {
   beforeEach(() => {
     vi.mocked(findBodyWeightEntryByDate).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
+    vi.mocked(getNextHabitSortOrder).mockReset();
+    vi.mocked(createHabit).mockReset();
     vi.mocked(listActiveHabits).mockReset();
     vi.mocked(findHabitById).mockReset();
     vi.mocked(findHabitEntryByHabitAndDate).mockReset();
@@ -58,12 +69,83 @@ describe('agent daily routes', () => {
     vi.mocked(listHabitEntriesByDateRange).mockReset();
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
+    vi.mocked(resolveHabitCompletion).mockReset();
     process.env.JWT_SECRET = 'test-agent-daily-secret';
   });
 
   afterEach(() => {
     delete process.env.JWT_SECRET;
     vi.useRealTimers();
+  });
+
+  describe('POST /api/agent/habits', () => {
+    it('creates a referential habit and returns 201', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(getNextHabitSortOrder).mockResolvedValue(2);
+        vi.mocked(createHabit).mockResolvedValue({
+          id: 'habit-1',
+          userId: 'user-1',
+          name: 'Protein',
+          description: null,
+          emoji: null,
+          trackingType: 'boolean',
+          target: null,
+          unit: null,
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
+          referenceSource: 'nutrition_daily',
+          referenceConfig: {
+            field: 'protein',
+            op: 'gte',
+            value: 150,
+          },
+          sortOrder: 2,
+          active: true,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/habits',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Protein',
+            trackingType: 'boolean',
+            referenceSource: 'nutrition_daily',
+            referenceConfig: {
+              field: 'protein',
+              op: 'gte',
+              value: 150,
+            },
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(getNextHabitSortOrder)).toHaveBeenCalledWith('user-1');
+        expect(vi.mocked(createHabit)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: 'user-1',
+            sortOrder: 2,
+            referenceSource: 'nutrition_daily',
+            referenceConfig: {
+              field: 'protein',
+              op: 'gte',
+              value: 150,
+            },
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
   });
 
   describe('POST /api/agent/weight', () => {
@@ -241,6 +323,8 @@ describe('agent daily routes', () => {
             frequency: 'daily',
             frequencyTarget: null,
             scheduledDays: null,
+            referenceSource: null,
+            referenceConfig: null,
             pausedUntil: null,
             sortOrder: 0,
             active: true,
@@ -259,6 +343,8 @@ describe('agent daily routes', () => {
             frequency: 'daily',
             frequencyTarget: null,
             scheduledDays: null,
+            referenceSource: null,
+            referenceConfig: null,
             pausedUntil: null,
             sortOrder: 1,
             active: true,
@@ -274,6 +360,7 @@ describe('agent daily routes', () => {
             date: '2026-03-09',
             completed: true,
             value: 8,
+            isOverride: false,
             createdAt: 2,
           },
         ]);
@@ -301,6 +388,7 @@ describe('agent daily routes', () => {
               todayEntry: {
                 value: 8,
                 completed: true,
+                isOverride: false,
               },
             },
           ],
@@ -308,6 +396,73 @@ describe('agent daily routes', () => {
         expect(vi.mocked(listHabitEntriesByDateRange)).toHaveBeenCalledWith(
           'user-1',
           '2026-03-09',
+          '2026-03-09',
+        );
+        expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('resolves referential habits when no override entry exists', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-09T12:00:00'));
+
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(listActiveHabits).mockResolvedValue([
+          {
+            id: 'habit-1',
+            userId: 'user-1',
+            name: 'Protein',
+            description: null,
+            emoji: null,
+            trackingType: 'boolean',
+            target: null,
+            unit: null,
+            frequency: 'daily',
+            frequencyTarget: null,
+            scheduledDays: null,
+            referenceSource: 'nutrition_daily',
+            referenceConfig: { field: 'protein', op: 'gte', value: 150 },
+            pausedUntil: null,
+            sortOrder: 0,
+            active: true,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ]);
+        vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([]);
+        vi.mocked(resolveHabitCompletion).mockResolvedValue({ completed: true, value: 160 });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/habits',
+          headers: createAuthorizationHeader(token),
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: [
+            {
+              id: 'habit-1',
+              name: 'Protein',
+              trackingType: 'boolean',
+              todayEntry: {
+                value: 160,
+                completed: true,
+                isOverride: false,
+              },
+            },
+          ],
+        });
+        expect(vi.mocked(resolveHabitCompletion)).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'habit-1' }),
+          'user-1',
           '2026-03-09',
         );
       } finally {
@@ -370,6 +525,7 @@ describe('agent daily routes', () => {
           date: '2026-03-09',
           completed: true,
           value: 8,
+          isOverride: false,
           createdAt: 1,
         });
 
@@ -393,6 +549,7 @@ describe('agent daily routes', () => {
             date: '2026-03-09',
             completed: true,
             value: 8,
+            isOverride: false,
           }),
         );
       } finally {
@@ -431,6 +588,7 @@ describe('agent daily routes', () => {
           date: '2026-03-09',
           completed: true,
           value: 7,
+          isOverride: false,
           createdAt: 1,
         });
         vi.mocked(upsertHabitEntry).mockResolvedValue({
@@ -440,6 +598,7 @@ describe('agent daily routes', () => {
           date: '2026-03-09',
           completed: true,
           value: 8,
+          isOverride: false,
           createdAt: 1,
         });
 
@@ -462,6 +621,72 @@ describe('agent daily routes', () => {
             date: '2026-03-09',
             completed: true,
             value: 8,
+            isOverride: false,
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('marks manual entries as overrides for referential habits', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findHabitById).mockResolvedValue({
+          id: 'habit-1',
+          userId: 'user-1',
+          name: 'Protein',
+          description: null,
+          emoji: null,
+          trackingType: 'boolean',
+          target: null,
+          unit: null,
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
+          referenceSource: 'nutrition_daily',
+          referenceConfig: {
+            field: 'protein',
+            op: 'gte',
+            value: 150,
+          },
+          sortOrder: 0,
+          active: true,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        vi.mocked(findHabitEntryByHabitAndDate).mockResolvedValue(undefined);
+        vi.mocked(upsertHabitEntry).mockResolvedValue({
+          id: 'entry-1',
+          habitId: 'habit-1',
+          userId: 'user-1',
+          date: '2026-03-09',
+          completed: true,
+          value: null,
+          isOverride: true,
+          createdAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/habits/habit-1/entries',
+          headers: createAuthorizationHeader(token),
+          body: {
+            date: '2026-03-09',
+            completed: true,
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(upsertHabitEntry)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            habitId: 'habit-1',
+            isOverride: true,
           }),
         );
       } finally {

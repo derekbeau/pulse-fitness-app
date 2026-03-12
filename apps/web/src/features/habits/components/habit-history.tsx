@@ -28,6 +28,7 @@ type HabitHistoryEntry = {
   date: Date;
   dateKey: string;
   isComplete: boolean;
+  isOverride: boolean;
   isScheduled: boolean;
   tooltipLabel: string;
 };
@@ -80,14 +81,17 @@ function getTooltipLabel(
   }
 
   if (habit.trackingType === 'boolean') {
-    return `${formattedDate} - ${entry?.completed === true ? 'Completed' : 'Not completed'}`;
+    const status = entry?.completed === true ? 'Completed' : 'Not completed';
+    const suffix = habit.referenceSource != null && entry?.isOverride ? ' (manual override)' : '';
+    return `${formattedDate} - ${status}${suffix}`;
   }
 
   if (typeof entry?.value !== 'number') {
     return `${formattedDate} - No entry`;
   }
 
-  return `${formattedDate} - ${formatNumber(entry.value)}/${formatNumber(habit.target ?? 0)} ${habit.unit}`;
+  const suffix = habit.referenceSource != null && entry.isOverride ? ' (manual override)' : '';
+  return `${formattedDate} - ${formatNumber(entry.value)}/${formatNumber(habit.target ?? 0)} ${habit.unit}${suffix}`;
 }
 
 function getCurrentStreakCount(history: HabitHistoryEntry[]) {
@@ -147,6 +151,7 @@ function buildHabitHistoryRows(habits: Habit[], entries: HabitEntry[], dates: Da
         date,
         dateKey,
         isComplete: isScheduled && matchingEntry?.completed === true,
+        isOverride: matchingEntry?.isOverride === true,
         isScheduled,
         tooltipLabel: getTooltipLabel(habit, date, matchingEntry, isScheduled),
       };
@@ -172,6 +177,8 @@ function getProgressCellColor(percent: number) {
 }
 
 function getCellPresentation(habit: Habit, entry: HabitHistoryEntry) {
+  const hasOverrideAccent = habit.referenceSource != null && entry.isOverride;
+
   if (!entry.isScheduled) {
     return {
       className:
@@ -182,15 +189,21 @@ function getCellPresentation(habit: Habit, entry: HabitHistoryEntry) {
 
   if (habit.trackingType === 'boolean') {
     return {
-      className: entry.isComplete
-        ? 'border-emerald-700/20 bg-emerald-500'
-        : 'border-slate-400/50 bg-slate-300/70 dark:border-slate-600/60 dark:bg-slate-600/45',
+      className: cn(
+        entry.isComplete
+          ? 'border-emerald-700/20 bg-emerald-500'
+          : 'border-slate-400/50 bg-slate-300/70 dark:border-slate-600/60 dark:bg-slate-600/45',
+        hasOverrideAccent && 'ring-1 ring-amber-500/70 ring-offset-0',
+      ),
       style: undefined,
     };
   }
 
   return {
-    className: 'border-black/5 dark:border-white/10',
+    className: cn(
+      'border-black/5 dark:border-white/10',
+      hasOverrideAccent && 'ring-1 ring-amber-500/70 ring-offset-0',
+    ),
     style: {
       backgroundColor: getProgressCellColor(entry.completionPercent),
     } satisfies CSSProperties,

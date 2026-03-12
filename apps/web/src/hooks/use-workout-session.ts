@@ -131,11 +131,20 @@ async function syncSessionMutationCache(
   ]);
 }
 
-export function useWorkoutSession(sessionId: string | null | undefined) {
+type UseWorkoutSessionOptions = {
+  refetchInterval?: number | false;
+};
+
+export function useWorkoutSession(
+  sessionId: string | null | undefined,
+  options?: UseWorkoutSessionOptions,
+) {
   const normalizedSessionId = sessionId?.trim() ?? '';
 
   return useQuery<WorkoutSession>({
     enabled: normalizedSessionId.length > 0,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchInterval !== undefined,
     queryFn: () => getWorkoutSession(normalizedSessionId),
     queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),
   });

@@ -4,6 +4,7 @@ import { dateSchema } from './common.js';
 import { exerciseCategorySchema, exerciseTrackingTypeSchema } from './exercises.js';
 import { habitTrackingTypeSchema } from './habits.js';
 import { workoutSessionStatusSchema } from './workout-sessions.js';
+import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
@@ -107,14 +108,31 @@ export const agentWorkoutSetUpsertInputSchema = z.object({
   reps: z.number().int().min(0).nullable(),
 });
 
+export const agentWorkoutSessionExerciseMutationSchema = z.object({
+  name: requiredText(),
+  sets: z.number().int().min(1).max(100),
+  reps: z.number().int().min(0).max(1000).nullable().optional(),
+  weight: z.number().min(0).nullable().optional(),
+  section: workoutTemplateSectionTypeSchema.optional().default('main'),
+});
+
 export const agentUpdateWorkoutSessionInputSchema = z
   .object({
     sets: z.array(agentWorkoutSetUpsertInputSchema).min(1).max(500).optional(),
+    addExercises: z.array(agentWorkoutSessionExerciseMutationSchema).min(1).max(100).optional(),
+    removeExercises: z.array(z.string().trim().min(1)).min(1).max(100).optional(),
+    reorderExercises: z.array(z.string().trim().min(1)).min(1).max(200).optional(),
     status: workoutSessionStatusSchema.optional(),
     notes: optionalText(4000),
   })
   .refine(
-    (value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined,
+    (value) =>
+      value.sets !== undefined ||
+      value.addExercises !== undefined ||
+      value.removeExercises !== undefined ||
+      value.reorderExercises !== undefined ||
+      value.status !== undefined ||
+      value.notes !== undefined,
     {
       message: 'At least one workout session field must be provided',
     },

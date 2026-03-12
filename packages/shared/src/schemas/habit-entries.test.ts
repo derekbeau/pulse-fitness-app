@@ -16,12 +16,14 @@ describe('createHabitEntryInputSchema', () => {
       date: '2026-03-07',
       completed: true,
       value: 8,
+      isOverride: true,
     });
 
     expect(payload).toEqual({
       date: '2026-03-07',
       completed: true,
       value: 8,
+      isOverride: true,
     });
   });
 
@@ -48,10 +50,12 @@ describe('updateHabitEntryInputSchema', () => {
   it('accepts partial updates', () => {
     const payload = updateHabitEntryInputSchema.parse({
       value: 45,
+      isOverride: false,
     });
 
     expect(payload).toEqual({
       value: 45,
+      isOverride: false,
     });
   });
 
@@ -118,6 +122,7 @@ describe('habitEntrySchema', () => {
       date: '2026-03-07',
       completed: true,
       value: null,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -132,6 +137,7 @@ describe('habitEntrySchema', () => {
       date: '2026-03-07',
       completed: false,
       value: 30,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     };
 

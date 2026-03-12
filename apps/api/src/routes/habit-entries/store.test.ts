@@ -95,6 +95,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: true,
       value: 8,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -114,6 +115,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: true,
       value: 8,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
     expect(testState.db.insert).toHaveBeenCalledOnce();
@@ -126,6 +128,7 @@ describe('habit entry store', () => {
         date: '2026-03-07',
         completed: true,
         value: 8,
+        isOverride: false,
       },
     ]);
     expect(testState.upsertConfigs).toEqual([
@@ -133,6 +136,7 @@ describe('habit entry store', () => {
         set: {
           completed: true,
           value: 8,
+          isOverride: false,
         },
       }),
     ]);
@@ -148,6 +152,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: false,
       value: null,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -166,6 +171,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: false,
       value: null,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
     expect(testState.db.insert).toHaveBeenCalledOnce();
@@ -178,6 +184,7 @@ describe('habit entry store', () => {
         date: '2026-03-07',
         completed: false,
         value: null,
+        isOverride: false,
       },
     ]);
     expect(testState.upsertConfigs).toEqual([
@@ -185,6 +192,7 @@ describe('habit entry store', () => {
         set: {
           completed: false,
           value: null,
+          isOverride: false,
         },
       }),
     ]);
@@ -200,6 +208,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: false,
       value: 6,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -215,6 +224,7 @@ describe('habit entry store', () => {
       date: '2026-03-07',
       completed: false,
       value: 6,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
     expect(testState.updateSets).toEqual([

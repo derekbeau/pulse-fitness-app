@@ -31,6 +31,8 @@ const habits: Habit[] = [
     frequencyTarget: null,
     scheduledDays: null,
     pausedUntil: null,
+    referenceSource: 'weight',
+    referenceConfig: { condition: 'exists_today' },
     updatedAt: 1,
     userId: 'user-1',
   },
@@ -49,6 +51,8 @@ const habits: Habit[] = [
     frequencyTarget: null,
     scheduledDays: [1],
     pausedUntil: null,
+    referenceSource: null,
+    referenceConfig: null,
     updatedAt: 2,
     userId: 'user-1',
   },
@@ -67,6 +71,8 @@ const habits: Habit[] = [
     frequencyTarget: null,
     scheduledDays: null,
     pausedUntil: null,
+    referenceSource: null,
+    referenceConfig: null,
     updatedAt: 3,
     userId: 'user-1',
   },
@@ -79,6 +85,7 @@ const entries: HabitEntry[] = [
     date: '2026-03-10',
     habitId: 'hydrate',
     id: 'entry-hydrate',
+    isOverride: true,
     userId: 'user-1',
     value: 5,
   },
@@ -88,6 +95,7 @@ const entries: HabitEntry[] = [
     date: '2026-03-10',
     habitId: 'mobility',
     id: 'entry-mobility',
+    isOverride: false,
     userId: 'user-1',
     value: null,
   },
@@ -143,10 +151,11 @@ describe('HabitHistory', () => {
     );
 
     const hydrateToday = screen.getByRole('button', {
-      name: 'Hydrate: Mar 10 - 5/10 glasses',
+      name: 'Hydrate: Mar 10 - 5/10 glasses (manual override)',
     });
 
     expect(hydrateToday).toHaveAttribute('data-percent', '50');
+    expect(hydrateToday).toHaveClass('ring-amber-500/70');
     expect(hydrateToday.getAttribute('style')).toContain(
       'background-color: color-mix(in srgb, #10b981 50%, var(--color-border));',
     );

@@ -250,6 +250,14 @@ export const sessionSetSchema = z
     path: ['skipped'],
   });
 
+export const workoutSessionExerciseSchema = z.object({
+  exerciseId: requiredStringSchema,
+  exerciseName: requiredStringSchema,
+  orderIndex: z.number().int().min(0),
+  section: workoutTemplateSectionTypeSchema.nullable(),
+  sets: z.array(sessionSetSchema).max(500),
+});
+
 export const workoutSessionSchema = z
   .object({
     id: z.string(),
@@ -264,6 +272,7 @@ export const workoutSessionSchema = z
     timeSegments: timeSegmentsSchema,
     feedback: workoutSessionFeedbackSchema.nullable(),
     notes: nullableLongStringSchema,
+    exercises: z.array(workoutSessionExerciseSchema).optional(),
     sets: z.array(sessionSetSchema).max(500),
     createdAt: z.number().int(),
     updatedAt: z.number().int(),
@@ -381,6 +390,7 @@ export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[numbe
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
 export type SessionSet = z.infer<typeof sessionSetSchema>;
+export type WorkoutSessionExercise = z.infer<typeof workoutSessionExerciseSchema>;
 export type WorkoutSession = z.infer<typeof workoutSessionSchema>;
 export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema>;
 export type SessionSetInput = z.infer<typeof sessionSetInputSchema>;

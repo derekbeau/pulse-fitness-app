@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { MoreVertical, Pause, Play } from 'lucide-react';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import {
@@ -9,6 +10,7 @@ import {
   updateWorkoutSessionTimeSegmentsInputSchema,
   updateWorkoutSessionInputSchema,
   type ExerciseTrackingType,
+  type WorkoutSession as ApiWorkoutSession,
   type SessionSet,
   type WorkoutSessionTimeSegment,
   workoutSessionSchema,
@@ -130,6 +132,8 @@ type RestTimerState = {
   token: number;
 };
 
+const ACTIVE_WORKOUT_POLL_INTERVAL_MS = 10_000;
+
 export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -161,7 +165,11 @@ export function ActiveWorkoutPage() {
     activeSessionsQuery.isSuccess &&
     activeSessions.length > 1;
   const showBackToSessionList = Boolean(requestedSessionId) && activeSessions.length > 1;
-  const sessionQuery = useWorkoutSession(sessionId);
+  const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
+  const sessionQuery = useWorkoutSession(sessionId, {
+    refetchInterval:
+      stage === 'active' && sessionId != null ? ACTIVE_WORKOUT_POLL_INTERVAL_MS : false,
+  });
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
   const updateSetMutation = useUpdateSet(sessionId);
@@ -179,7 +187,12 @@ export function ActiveWorkoutPage() {
     () => (templateQuery.data ? toMockWorkoutTemplate(templateQuery.data) : null),
     [templateQuery.data],
   );
-  const template = apiTemplate ?? selectedMockTemplate ?? defaultTemplate;
+  const fallbackTemplate = apiTemplate ?? selectedMockTemplate ?? defaultTemplate;
+  const activeSession = sessionQuery.data;
+  const template = useMemo(
+    () => buildTemplateFromSession(activeSession, fallbackTemplate),
+    [activeSession, fallbackTemplate],
+  );
 
   const [fallbackStartTime] = useState(() => new Date().toISOString());
   const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
@@ -191,7 +204,6 @@ export function ActiveWorkoutPage() {
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [sessionCuesByExercise, setSessionCuesByExercise] = useState<Record<string, string[]>>({});
-  const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
   const [sessionCompletedAt, setSessionCompletedAt] = useState<string | null>(null);
   const [sessionFeedback, setSessionFeedback] = useState<ActiveWorkoutFeedbackDraft>([]);
   const [sessionNotes, setSessionNotes] = useState('');
@@ -210,9 +222,10 @@ export function ActiveWorkoutPage() {
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
   const hydratedDraftKeyRef = useRef<string | null>(null);
+  const lastServerUpdateRef = useRef<number | null>(null);
+  const lastSessionStructureRef = useRef<string | null>(null);
   const supplementalExercises = workoutSupplementalExercises;
 
-  const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
   const activeSessionStatus = activeSession?.status ?? null;
   const isPaused = activeSessionStatus === 'paused';
@@ -259,33 +272,70 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    if (hydratedSessionIdRef.current === activeSession.id) {
-      return;
-    }
-
     const serverSetDrafts = createSessionSetDrafts(
       template,
       activeSession.sets,
       templateExerciseById,
     );
     const serverExerciseNotes = extractExerciseNotes(activeSession.sets);
-    const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+    const serverExerciseOrder = buildExerciseOrderFromSessionSets(template, activeSession.sets);
+    const sessionStructureSignature = buildSessionStructureSignature(activeSession);
+    const isSessionSwitch = hydratedSessionIdRef.current !== activeSession.id;
+
+    if (!isSessionSwitch && lastServerUpdateRef.current === activeSession.updatedAt) {
+      return;
+    }
+
     const previousDraftKey = hydratedDraftKeyRef.current;
 
-    setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
-    setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
-    setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
-    setExerciseOrderBySection(buildExerciseOrderFromSessionSets(template, activeSession.sets));
-    hydratedSessionIdRef.current = activeSession.id;
-    hydratedDraftKeyRef.current = activeSession.id;
+    if (isSessionSwitch) {
+      const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+      setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
+      setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
+      setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+      setExerciseOrderBySection(serverExerciseOrder);
+      hydratedSessionIdRef.current = activeSession.id;
+      hydratedDraftKeyRef.current = activeSession.id;
 
-    if (previousDraftKey && previousDraftKey !== activeSession.id) {
-      clearStoredActiveWorkoutDraft(previousDraftKey);
+      if (previousDraftKey && previousDraftKey !== activeSession.id) {
+        clearStoredActiveWorkoutDraft(previousDraftKey);
+      }
+
+      if (template.id !== activeSession.id) {
+        clearStoredActiveWorkoutDraft(template.id);
+      }
+    } else {
+      setSetDrafts((current) => mergeServerSetDrafts(current, serverSetDrafts));
+      setExerciseOrderBySection(serverExerciseOrder);
+      setExerciseNotes((current) => {
+        const nextNotes: Record<string, string> = {};
+        const activeExerciseIds = new Set(activeSession.sets.map((set) => set.exerciseId));
+
+        for (const exerciseId of activeExerciseIds) {
+          const currentNote = current[exerciseId];
+          if (currentNote !== undefined) {
+            nextNotes[exerciseId] = currentNote;
+            continue;
+          }
+          const serverNote = serverExerciseNotes[exerciseId];
+          if (serverNote !== undefined) {
+            nextNotes[exerciseId] = serverNote;
+          }
+        }
+
+        return nextNotes;
+      });
+
+      if (
+        lastSessionStructureRef.current &&
+        lastSessionStructureRef.current !== sessionStructureSignature
+      ) {
+        toast('Workout updated by agent');
+      }
     }
 
-    if (template.id !== activeSession.id) {
-      clearStoredActiveWorkoutDraft(template.id);
-    }
+    lastServerUpdateRef.current = activeSession.updatedAt;
+    lastSessionStructureRef.current = sessionStructureSignature;
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -300,7 +350,10 @@ export function ActiveWorkoutPage() {
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
     setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
     setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
+    hydratedSessionIdRef.current = null;
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
+    lastServerUpdateRef.current = null;
+    lastSessionStructureRef.current = null;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {
@@ -387,7 +440,7 @@ export function ActiveWorkoutPage() {
     );
   }
 
-  if (shouldLoadApiTemplate && templateQuery.isPending) {
+  if (shouldLoadApiTemplate && templateQuery.isPending && !activeSession) {
     return (
       <section className="space-y-3 pb-8">
         <h1 className="text-2xl font-semibold text-foreground">Loading workout template</h1>
@@ -405,7 +458,7 @@ export function ActiveWorkoutPage() {
     );
   }
 
-  if (shouldLoadApiTemplate && templateQuery.isError) {
+  if (shouldLoadApiTemplate && templateQuery.isError && !activeSession) {
     return (
       <section className="space-y-3 pb-8">
         <h1 className="text-2xl font-semibold text-foreground">Unable to load template</h1>
@@ -1344,6 +1397,65 @@ function createSessionSetDrafts(
   return drafts;
 }
 
+function mergeServerSetDrafts(
+  currentSetDrafts: ActiveWorkoutSetDrafts,
+  serverSetDrafts: ActiveWorkoutSetDrafts,
+) {
+  const nextDrafts: ActiveWorkoutSetDrafts = {};
+
+  for (const [exerciseId, serverExerciseDrafts] of Object.entries(serverSetDrafts)) {
+    const currentExerciseDrafts = currentSetDrafts[exerciseId] ?? [];
+
+    nextDrafts[exerciseId] = serverExerciseDrafts.map((serverSetDraft) => {
+      const currentDraft = currentExerciseDrafts.find((set) => set.number === serverSetDraft.number);
+
+      if (!currentDraft) {
+        return serverSetDraft;
+      }
+
+      if (currentDraft.completed || serverSetDraft.completed) {
+        // Completed sets are server-authoritative; this may replace uncommitted local input if
+        // an external actor completed the set between poll intervals.
+        return serverSetDraft;
+      }
+
+      return {
+        ...serverSetDraft,
+        distance: currentDraft.distance,
+        reps: currentDraft.reps,
+        seconds: currentDraft.seconds,
+        weight: currentDraft.weight,
+      };
+    });
+  }
+
+  return nextDrafts;
+}
+
+function buildSessionStructureSignature(session: ApiWorkoutSession) {
+  const sortedSets = [...session.sets].sort((left, right) => {
+    const leftSection = left.section ?? 'main';
+    const rightSection = right.section ?? 'main';
+    if (leftSection !== rightSection) {
+      return leftSection.localeCompare(rightSection);
+    }
+
+    if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+      return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+    }
+
+    if (left.exerciseId !== right.exerciseId) {
+      return left.exerciseId.localeCompare(right.exerciseId);
+    }
+
+    return left.setNumber - right.setNumber;
+  });
+
+  return sortedSets
+    .map((set) => `${set.section ?? 'main'}:${set.exerciseId}:${set.orderIndex ?? 0}:${set.setNumber}`)
+    .join('|');
+}
+
 function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): ExerciseOrderBySection {
   return {
     warmup:
@@ -1812,4 +1924,139 @@ function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | nu
 function getDefaultExerciseBadges(exerciseId: string): MockWorkoutBadgeType[] {
   const categoryBadge = categoryBadgeByExerciseId.get(exerciseId);
   return categoryBadge ? [categoryBadge] : [];
+}
+
+function buildTemplateFromSession(
+  activeSession: ApiWorkoutSession | undefined,
+  fallbackTemplate: MockWorkoutTemplate,
+): MockWorkoutTemplate {
+  if (!activeSession) {
+    return fallbackTemplate;
+  }
+
+  const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+  const fallbackExerciseById = new Map(
+    fallbackTemplate.sections.flatMap((section) =>
+      section.exercises.map((exercise) => [exercise.exerciseId, { exercise, section: section.type }]),
+    ),
+  );
+  const fallbackExerciseNameById = new Map(
+    fallbackTemplate.sections.flatMap((section) =>
+      section.exercises.map((exercise) => [exercise.exerciseId, exercise.exerciseName]),
+    ),
+  );
+  const sessionExercises =
+    activeSession.exercises && activeSession.exercises.length > 0
+      ? activeSession.exercises
+      : buildSessionExercisesFromSets(activeSession);
+  const sectionsByType = new Map<WorkoutTemplateSectionType, MockWorkoutTemplate['sections'][number]>(
+    sectionOrder.map((type) => [type, { type, title: sectionTitleByType[type], exercises: [] }]),
+  );
+
+  for (const sessionExercise of sessionExercises) {
+    const sectionType = sessionExercise.section ?? 'main';
+    const targetSection = sectionsByType.get(sectionType);
+    if (!targetSection) {
+      continue;
+    }
+
+    const fallbackExercise = fallbackExerciseById.get(sessionExercise.exerciseId)?.exercise;
+    const defaultReps = fallbackExercise?.reps ?? inferExerciseRepsFromSets(sessionExercise.sets);
+
+    targetSection.exercises.push({
+      exerciseId: sessionExercise.exerciseId,
+      exerciseName:
+        sessionExercise.exerciseName ||
+        fallbackExerciseNameById.get(sessionExercise.exerciseId) ||
+        'Unknown Exercise',
+      sets: Math.max(
+        fallbackExercise?.sets ?? 0,
+        sessionExercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0),
+      ),
+      reps: defaultReps,
+      tempo: fallbackExercise?.tempo ?? '2111',
+      restSeconds: fallbackExercise?.restSeconds ?? 60,
+      formCues: fallbackExercise?.formCues ?? [],
+      templateCues: fallbackExercise?.templateCues ?? [],
+      badges: fallbackExercise?.badges ?? getDefaultExerciseBadges(sessionExercise.exerciseId),
+    });
+  }
+
+  for (const section of sectionsByType.values()) {
+    section.exercises.sort((left, right) => {
+      const leftOrder = sessionExercises.find((exercise) => exercise.exerciseId === left.exerciseId)?.orderIndex;
+      const rightOrder = sessionExercises.find((exercise) => exercise.exerciseId === right.exerciseId)?.orderIndex;
+      if ((leftOrder ?? 0) !== (rightOrder ?? 0)) {
+        return (leftOrder ?? 0) - (rightOrder ?? 0);
+      }
+      return (left.exerciseName ?? '').localeCompare(right.exerciseName ?? '');
+    });
+  }
+
+  return {
+    ...fallbackTemplate,
+    id: activeSession.templateId ?? fallbackTemplate.id,
+    name: activeSession.name,
+    sections: sectionOrder
+      .map((type) => sectionsByType.get(type))
+      .filter((section): section is MockWorkoutTemplate['sections'][number] =>
+        Boolean(section && section.exercises.length > 0),
+      ),
+  };
+}
+
+function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
+  const namesById = new Map(
+    session.sets.map((set) => [set.exerciseId, mockExerciseById.get(set.exerciseId)?.name ?? 'Unknown Exercise']),
+  );
+  const grouped = new Map<
+    string,
+    {
+      exerciseId: string;
+      exerciseName: string;
+      orderIndex: number;
+      section: WorkoutTemplateSectionType | null;
+      sets: SessionSet[];
+    }
+  >();
+
+  for (const set of session.sets) {
+    const existing = grouped.get(set.exerciseId);
+    if (existing) {
+      existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex ?? 0);
+      existing.sets.push(set);
+      continue;
+    }
+
+    grouped.set(set.exerciseId, {
+      exerciseId: set.exerciseId,
+      exerciseName: namesById.get(set.exerciseId) ?? 'Unknown Exercise',
+      orderIndex: set.orderIndex ?? 0,
+      section: set.section,
+      sets: [set],
+    });
+  }
+
+  return Array.from(grouped.values()).sort((left, right) => {
+    const leftSection = left.section ?? 'main';
+    const rightSection = right.section ?? 'main';
+    if (leftSection !== rightSection) {
+      return leftSection.localeCompare(rightSection);
+    }
+
+    if (left.orderIndex !== right.orderIndex) {
+      return left.orderIndex - right.orderIndex;
+    }
+
+    return left.exerciseName.localeCompare(right.exerciseName);
+  });
+}
+
+function inferExerciseRepsFromSets(sets: SessionSet[]) {
+  const defaultReps = sets.find((set) => !set.completed && set.reps !== null)?.reps;
+  if (defaultReps !== undefined && defaultReps !== null) {
+    return String(defaultReps);
+  }
+
+  return '';
 }

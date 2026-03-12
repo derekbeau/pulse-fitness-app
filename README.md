@@ -5,10 +5,14 @@ A personal health and fitness tracking app. Most data entry happens via AI agent
 ## Features
 
 - **Dashboard** — Configurable widgets with habit chains, trend sparklines, macro progress rings, and calendar navigation
-- **Workouts** — Interactive session logging with reusable templates, set tracking, rest timers, and session feedback
+- **Workouts** — Interactive session logging with reusable templates, set tracking, rest timers, pause/resume, cancel flows, and session feedback
+- **Active Workout Sessions** — Multiple concurrent active sessions, server-side session state, and agent-driven mid-session exercise add/remove/reorder updates
+- **Workout Planning** — Calendar scheduling plus reschedule/remove workflows linked to templates and sessions
+- **Exercise Management** — Taxonomy improvements (category/form cues/tags), dedup-aware creation, and metadata enrichment workflows
 - **Nutrition** — Daily meal cards with macro progress visualization (meals entered via agent API)
-- **Foods** — Per-user food database with search, management, and recency tracking
-- **Habits** — Configurable daily habits with don't-break-the-chain visualization
+- **Foods** — Per-user food database with search, management, soft delete support, and recency tracking (`lastUsedAt`)
+- **Habits** — Configurable daily habits, referential auto-complete (weight/nutrition/workout), and manual override/reset behavior
+- **Trash & Restore** — Soft delete for user content (habits, templates, exercises, foods, workout sessions) with restore/purge tools in Settings
 - **Trends** — Charts for weight, macros, workout consistency, and exercise progress
 - **Multi-user** — Fully isolated data per user with separate agent API tokens
 - **Themes** — Dark/light mode with switchable accent themes

@@ -83,8 +83,8 @@ pnpm --filter shared build  # Build shared package
 ## Key Domain Notes
 
 - **Nutrition**: Meals are entered by AI agents only — no manual entry UI. The frontend is read-only for meal data.
-- **Workouts**: The most complex UI domain. Templates → Sessions → Sets. Active session state persists in localStorage.
-- **Habits**: User-configurable with boolean/numeric/time tracking types. Feed into dashboard "don't break the chain" widgets.
+- **Workouts**: The most complex UI domain. Templates → Sessions → Sets. Active session state is server-side.
+- **Habits**: User-configurable with boolean/numeric/time tracking types, plus referential habits (`weight`, `nutrition_daily`, `nutrition_meal`, `workout`) that auto-resolve completion from linked data unless manually overridden. Feed into dashboard "don't break the chain" widgets.
 - **Foods**: Per-user database. `lastUsedAt` tracks recency for agent quick-matching.
 - **Trash & Soft Delete**: User-facing habits, workout templates, exercises, foods, and workout sessions use `deletedAt` soft delete; restore/purge flows are handled via `/api/v1/trash`.
 

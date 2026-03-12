@@ -49,6 +49,7 @@ export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
       habitId,
       userId: request.userId,
       ...parsedBody.data,
+      isOverride: parsedBody.data.isOverride,
     });
 
     return reply.code(201).send({

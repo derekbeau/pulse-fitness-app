@@ -9,6 +9,7 @@ import type {
   SessionSet,
   UpdateSetInput,
   WorkoutSession,
+  WorkoutSessionExercise,
   WorkoutSessionListItem,
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -188,6 +189,7 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
 const buildWorkoutSession = (
   session: WorkoutSessionRecord,
   sets: SessionSetRecord[],
+  exerciseNamesById: Map<string, string>,
 ): WorkoutSession => {
   const parsedTimeSegments = parseWorkoutSessionTimeSegments(session.timeSegments);
   const timeSegments =
@@ -208,10 +210,64 @@ const buildWorkoutSession = (
     timeSegments,
     feedback: parseWorkoutSessionFeedback(session.feedback),
     notes: session.notes,
+    exercises: buildWorkoutSessionExercises(sets, exerciseNamesById),
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
+};
+
+const buildWorkoutSessionExercises = (
+  sets: SessionSetRecord[],
+  exerciseNamesById: Map<string, string>,
+): WorkoutSessionExercise[] => {
+  const groupedByExercise = new Map<
+    string,
+    {
+      exerciseId: string;
+      exerciseName: string;
+      orderIndex: number;
+      section: WorkoutTemplateSectionType | null;
+      sets: SessionSet[];
+    }
+  >();
+
+  for (const set of sets.sort(sortSessionSets)) {
+    const existing = groupedByExercise.get(set.exerciseId);
+    const parsedSet = buildSessionSet(set);
+    const exerciseName = exerciseNamesById.get(set.exerciseId) ?? 'Unknown Exercise';
+
+    if (existing) {
+      existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
+      existing.sets.push(parsedSet);
+      continue;
+    }
+
+    groupedByExercise.set(set.exerciseId, {
+      exerciseId: set.exerciseId,
+      exerciseName,
+      orderIndex: set.orderIndex,
+      section: set.section,
+      sets: [parsedSet],
+    });
+  }
+
+  return Array.from(groupedByExercise.values()).sort((left, right) => {
+    const leftSectionIndex =
+      left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
+    const rightSectionIndex =
+      right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
+
+    if (leftSectionIndex !== rightSectionIndex) {
+      return leftSectionIndex - rightSectionIndex;
+    }
+
+    if (left.orderIndex !== right.orderIndex) {
+      return left.orderIndex - right.orderIndex;
+    }
+
+    return left.exerciseName.localeCompare(right.exerciseName);
+  });
 };
 
 const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput['sets']) =>
@@ -621,7 +677,18 @@ export const findWorkoutSessionById = async (
     .where(eq(sessionSets.sessionId, id))
     .all();
 
-  return buildWorkoutSession(session, sets);
+  const uniqueExerciseIds = [...new Set(sets.map((set) => set.exerciseId))];
+  const exerciseNameRows =
+    uniqueExerciseIds.length === 0
+      ? []
+      : db
+          .select({ id: exercises.id, name: exercises.name })
+          .from(exercises)
+          .where(inArray(exercises.id, uniqueExerciseIds))
+          .all();
+  const exerciseNamesById = new Map(exerciseNameRows.map((row) => [row.id, row.name]));
+
+  return buildWorkoutSession(session, sets, exerciseNamesById);
 };
 
 export const updateWorkoutSession = async ({

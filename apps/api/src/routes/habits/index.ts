@@ -7,8 +7,11 @@ import {
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
+import { getTodayDate } from '../../lib/date.js';
+import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
 import { habitEntryNestedRoutes } from '../habit-entries/index.js';
 import { ensureStarterHabitsForUser } from '../auth/store.js';
 
@@ -30,6 +33,8 @@ const habitParamsSchema = {
 const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_NOT_FOUND', 'Habit not found');
 const shouldEnsureStarterHabits = () => process.env.NODE_ENV !== 'test';
+const buildResolutionCacheKey = (source: string, config: unknown) =>
+  `${source}:${JSON.stringify(config)}`;
 
 export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -60,9 +65,67 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const habits = await listActiveHabits(request.userId);
+    if (habits.length === 0) {
+      return reply.send({ data: [] });
+    }
+
+    const today = getTodayDate();
+    const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
+    const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
+    const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
+      completed: boolean;
+      value?: number;
+    }>>();
+
+    const habitsWithResolvedEntries = await Promise.all(
+      habits.map(async (habit) => {
+        const todayEntry = todayEntriesByHabitId.get(habit.id);
+        if (habit.referenceSource == null) {
+          return {
+            ...habit,
+            todayEntry: todayEntry
+              ? {
+                  completed: todayEntry.completed,
+                  value: todayEntry.value,
+                  isOverride: todayEntry.isOverride,
+                }
+              : null,
+          };
+        }
+
+        if (todayEntry?.isOverride) {
+          return {
+            ...habit,
+            todayEntry: {
+              completed: todayEntry.completed,
+              value: todayEntry.value,
+              isOverride: true,
+            },
+          };
+        }
+
+        const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
+        const existingResolution = resolutionByKey.get(resolutionKey);
+        const resolutionPromise =
+          existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
+        if (!existingResolution) {
+          resolutionByKey.set(resolutionKey, resolutionPromise);
+        }
+
+        const resolved = await resolutionPromise;
+        return {
+          ...habit,
+          todayEntry: {
+            completed: resolved.completed,
+            value: resolved.value ?? null,
+            isOverride: false,
+          },
+        };
+      }),
+    );
 
     return reply.send({
-      data: habits,
+      data: habitsWithResolvedEntries,
     });
   });
 
@@ -111,6 +174,14 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
         parsedBody.data.pausedUntil === undefined
           ? existingHabit.pausedUntil
           : parsedBody.data.pausedUntil,
+      referenceSource:
+        parsedBody.data.referenceSource === undefined
+          ? existingHabit.referenceSource
+          : parsedBody.data.referenceSource,
+      referenceConfig:
+        parsedBody.data.referenceConfig === undefined
+          ? existingHabit.referenceConfig
+          : parsedBody.data.referenceConfig,
     });
 
     if (!mergedHabitInput.success) {

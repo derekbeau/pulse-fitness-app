@@ -18,7 +18,15 @@ import { apiRequest } from '@/lib/api-client';
 
 import { habitKeys } from './keys';
 
-const habitsSchema = z.array(habitSchema);
+const resolvedTodayEntrySchema = z.object({
+  completed: z.boolean(),
+  value: z.number().nullable(),
+  isOverride: z.boolean(),
+});
+const habitWithTodayEntrySchema = habitSchema.extend({
+  todayEntry: resolvedTodayEntrySchema.nullable().optional(),
+});
+const habitsWithTodayEntrySchema = z.array(habitWithTodayEntrySchema);
 const habitEntriesSchema = z.array(habitEntrySchema);
 const habitEntriesKeyPrefix = [...habitKeys.all, 'entries'] as const;
 const successSchema = z.object({
@@ -36,6 +44,7 @@ type ToggleHabitVariables = {
   completed: boolean;
   entryId?: string | null;
   value?: number;
+  isOverride?: boolean;
 };
 
 type UpdateHabitEntryVariables = {
@@ -44,6 +53,7 @@ type UpdateHabitEntryVariables = {
   date: string;
   completed?: boolean;
   value?: number;
+  isOverride?: boolean;
 };
 
 type HabitEntryQuerySnapshot = Array<readonly [QueryKey, HabitEntry[] | undefined]>;
@@ -179,7 +189,7 @@ export function useHabits() {
         signal,
       });
 
-      return habitsSchema.parse(habits).filter((habit) => habit.active);
+      return habitsWithTodayEntrySchema.parse(habits).filter((habit) => habit.active);
     },
     queryKey: habitKeys.list(),
   });
@@ -323,11 +333,12 @@ export function useToggleHabit() {
   const queryClient = useQueryClient();
 
   return useMutation<HabitEntry, Error, ToggleHabitVariables, MutationContext>({
-    mutationFn: async ({ habitId, date, completed, value }) => {
+    mutationFn: async ({ habitId, date, completed, value, isOverride }) => {
       const entry = await apiRequest<HabitEntry>(`/api/v1/habits/${habitId}/entries`, {
         body: {
           completed,
           ...(value === undefined ? {} : { value }),
+          ...(isOverride === undefined ? {} : { isOverride }),
           date,
         },
         method: 'POST',
@@ -346,6 +357,7 @@ export function useToggleHabit() {
         date: variables.date,
         completed: variables.completed,
         value: variables.value ?? null,
+        isOverride: variables.isOverride ?? false,
         createdAt: Date.now(),
       };
 
@@ -376,11 +388,12 @@ export function useUpdateHabitEntry() {
   const queryClient = useQueryClient();
 
   return useMutation<HabitEntry, Error, UpdateHabitEntryVariables, MutationContext>({
-    mutationFn: async ({ id, completed, value }) => {
+    mutationFn: async ({ id, completed, value, isOverride }) => {
       const entry = await apiRequest<HabitEntry>(`/api/v1/habit-entries/${id}`, {
         body: {
           ...(completed === undefined ? {} : { completed }),
           ...(value === undefined ? {} : { value }),
+          ...(isOverride === undefined ? {} : { isOverride }),
         },
         method: 'PATCH',
       });
@@ -399,6 +412,7 @@ export function useUpdateHabitEntry() {
         date: variables.date,
         completed: variables.completed ?? existingEntry?.completed ?? false,
         value: variables.value ?? existingEntry?.value ?? null,
+        isOverride: variables.isOverride ?? existingEntry?.isOverride ?? false,
         createdAt: existingEntry?.createdAt ?? Date.now(),
       };
 

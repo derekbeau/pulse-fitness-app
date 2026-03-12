@@ -773,6 +773,8 @@ describe('habits schema', () => {
       'frequency',
       'frequencyTarget',
       'scheduledDays',
+      'referenceSource',
+      'referenceConfig',
       'pausedUntil',
       'deletedAt',
       'sortOrder',
@@ -1007,11 +1009,13 @@ describe('habitEntries schema', () => {
       'date',
       'completed',
       'value',
+      'isOverride',
       'createdAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.completed.default).toBe(false);
+    expect(columns.isOverride.default).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
