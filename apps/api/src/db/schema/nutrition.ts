@@ -98,6 +98,10 @@ export const mealItems = sqliteTable(
     index('meal_items_food_id_idx').on(table.foodId),
     check('meal_items_amount_check', sql`${table.amount} > 0`),
     check(
+      'meal_items_display_quantity_check',
+      sql`${table.displayQuantity} is null or ${table.displayQuantity} > 0`,
+    ),
+    check(
       'meal_items_macros_nonnegative_check',
       sql`${table.calories} >= 0 and ${table.protein} >= 0 and ${table.carbs} >= 0 and ${table.fat} >= 0`,
     ),

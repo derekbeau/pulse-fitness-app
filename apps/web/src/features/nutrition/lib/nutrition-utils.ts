@@ -101,10 +101,6 @@ export function formatDisplayServing({
   return `${formatServingValue(amount)} ${unit}`;
 }
 
-export function formatServing(item: ServingSource): string {
-  return formatDisplayServing(item);
-}
-
 export function formatDayLabel(date: string): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'long',

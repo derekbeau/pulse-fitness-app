@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 import {
   calculateMacroTotals,
   formatCalories,
+  formatDisplayServing,
   formatGrams,
-  formatServing,
 } from '@/features/nutrition/lib/nutrition-utils';
 
 export type MealCardMeal = {
@@ -121,7 +121,7 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-foreground">{item.name}</p>
-                  <p className="text-sm text-muted">{formatServing(item)}</p>
+                  <p className="text-sm text-muted">{formatDisplayServing(item)}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm sm:contents">

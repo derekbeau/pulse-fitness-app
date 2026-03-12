@@ -41,7 +41,7 @@ export const agentMealItemInputSchema = z.object({
   quantity: z.number().positive().finite(),
   unit: z.string().trim().min(1).max(50).default('serving'),
   displayQuantity: z.number().positive().finite().optional(),
-  displayUnit: z.string().trim().max(50).optional(),
+  displayUnit: z.string().trim().min(1).max(50).optional(),
 });
 
 export const agentCreateMealInputSchema = z.object({

@@ -80,7 +80,7 @@ export const mealItemInputSchema = z.object({
   amount: z.number().positive().finite(),
   unit: requiredText(50),
   displayQuantity: z.number().positive().finite().nullable().optional(),
-  displayUnit: z.string().trim().max(50).nullable().optional(),
+  displayUnit: z.string().trim().min(1).max(50).nullable().optional(),
   calories: nonnegativeNumber,
   protein: nonnegativeNumber,
   carbs: nonnegativeNumber,
