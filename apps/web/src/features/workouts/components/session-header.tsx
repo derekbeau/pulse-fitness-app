@@ -162,6 +162,18 @@ export function SessionHeader({
                 >
                   Set
                 </Button>
+                <Button
+                  className="h-8 px-3 text-xs"
+                  disabled={isUpdatingStartTime}
+                  onClick={() => {
+                    setStartTimeInput(toTimeInputValue(startTime));
+                    setIsEditingStartTime(false);
+                  }}
+                  type="button"
+                  variant="ghost"
+                >
+                  Cancel
+                </Button>
               </div>
             ) : (
               <button

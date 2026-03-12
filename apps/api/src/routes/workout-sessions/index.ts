@@ -630,6 +630,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       ...toCreateWorkoutSessionInput(existingSession),
       ...parsedBody.data,
     };
+
+    // When startedAt changes, update the first time segment's start to match
+    if (
+      parsedBody.data.startedAt !== undefined &&
+      basePayload.timeSegments.length > 0 &&
+      basePayload.timeSegments[0].start !== toIsoString(parsedBody.data.startedAt)
+    ) {
+      basePayload.timeSegments = [
+        { ...basePayload.timeSegments[0], start: toIsoString(parsedBody.data.startedAt) },
+        ...basePayload.timeSegments.slice(1),
+      ];
+    }
+
     const transitionStatus = parsedBody.data.status ?? existingSession.status;
     const transitionResult = resolveSessionTransition({
       existingStatus: existingSession.status,
