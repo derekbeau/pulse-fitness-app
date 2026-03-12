@@ -71,4 +71,34 @@ describe('workout session time segment helpers', () => {
       ]),
     ).toBe(930);
   });
+
+  it('calculates duration for a single continuous closed segment', () => {
+    expect(
+      calculateActiveDuration([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:45:00.000Z',
+        },
+      ]),
+    ).toBe(2700);
+  });
+
+  it('calculates duration across multiple segments with pause gaps', () => {
+    expect(
+      calculateActiveDuration([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:20:00.000Z',
+        },
+        {
+          start: '2026-03-12T10:30:00.000Z',
+          end: '2026-03-12T10:40:00.000Z',
+        },
+      ]),
+    ).toBe(1800);
+  });
+
+  it('returns zero for empty segment arrays', () => {
+    expect(calculateActiveDuration([])).toBe(0);
+  });
 });
