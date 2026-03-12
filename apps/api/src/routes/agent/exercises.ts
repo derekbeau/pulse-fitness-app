@@ -97,7 +97,7 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({ data: updated });
     }
 
-    const ownership = await findExerciseOwnership(request.params.id);
+    const ownership = await findExerciseOwnership(request.params.id, request.userId);
     if (!ownership) {
       return sendError(
         reply,

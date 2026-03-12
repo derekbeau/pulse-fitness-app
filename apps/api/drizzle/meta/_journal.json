@@ -148,6 +148,13 @@
       "when": 1773303265036,
       "tag": "0020_session_set_order_index",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1773306865036,
+      "tag": "0021_soft_delete_columns",
+      "breakpoints": true
     }
   ]
 }

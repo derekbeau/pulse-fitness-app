@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { AgentContextResponse } from '@pulse/shared';
 
 import {
@@ -61,7 +61,13 @@ export const listAgentContextRecentWorkouts = async (
       createdAt: workoutSessions.createdAt,
     })
     .from(workoutSessions)
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.status, 'completed')))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+        eq(workoutSessions.status, 'completed'),
+      ),
+    )
     .orderBy(
       desc(workoutSessions.date),
       desc(workoutSessions.completedAt),
@@ -87,7 +93,15 @@ export const listAgentContextRecentWorkouts = async (
     })
     .from(sessionSets)
     .innerJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
-    .where(inArray(sessionSets.sessionId, sessionIds))
+    .where(
+      and(
+        inArray(sessionSets.sessionId, sessionIds),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .orderBy(asc(sessionSets.createdAt), asc(sessionSets.setNumber))
     .all();
 
@@ -149,24 +163,23 @@ export const getAgentContextTodayNutrition = async (
 ): Promise<AgentContextResponse['todayNutrition']> => {
   const { db } = await import('../../db/index.js');
 
-  const actual =
-    db
-      .select({
-        calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
-        protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
-        carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
-        fat: sql<number>`coalesce(sum(${mealItems.fat}), 0)`,
-      })
-      .from(nutritionLogs)
-      .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
-      .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
-      .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
-      .get() ?? {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-    };
+  const actual = db
+    .select({
+      calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
+      protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
+      carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
+      fat: sql<number>`coalesce(sum(${mealItems.fat}), 0)`,
+    })
+    .from(nutritionLogs)
+    .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+    .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+    .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+    .get() ?? {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  };
 
   const target =
     db
@@ -327,7 +340,7 @@ export const listAgentContextHabits = async (
       createdAt: habits.createdAt,
     })
     .from(habits)
-    .where(and(eq(habits.userId, userId), eq(habits.active, true)))
+    .where(and(eq(habits.userId, userId), eq(habits.active, true), isNull(habits.deletedAt)))
     .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
     .all();
 
@@ -397,7 +410,13 @@ export const listAgentContextScheduledWorkouts = async ({
       createdAt: scheduledWorkouts.createdAt,
     })
     .from(scheduledWorkouts)
-    .leftJoin(workoutTemplates, eq(workoutTemplates.id, scheduledWorkouts.templateId))
+    .leftJoin(
+      workoutTemplates,
+      and(
+        eq(workoutTemplates.id, scheduledWorkouts.templateId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .where(
       and(
         eq(scheduledWorkouts.userId, userId),

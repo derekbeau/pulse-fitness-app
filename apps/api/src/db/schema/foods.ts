@@ -8,7 +8,9 @@ import { users } from './users.js';
 export const foods = sqliteTable(
   'foods',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -26,6 +28,7 @@ export const foods = sqliteTable(
     source: text('source'),
     notes: text('notes'),
     lastUsedAt: integer('last_used_at', { mode: 'number' }),
+    deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
@@ -38,7 +41,10 @@ export const foods = sqliteTable(
   },
   (table) => [
     index('foods_user_last_used_at_idx').on(table.userId, table.lastUsedAt),
-    check('foods_serving_grams_check', sql`${table.servingGrams} is null or ${table.servingGrams} > 0`),
+    check(
+      'foods_serving_grams_check',
+      sql`${table.servingGrams} is null or ${table.servingGrams} > 0`,
+    ),
     check(
       'foods_macros_nonnegative_check',
       sql`${table.calories} >= 0 and ${table.protein} >= 0 and ${table.carbs} >= 0 and ${table.fat} >= 0`,

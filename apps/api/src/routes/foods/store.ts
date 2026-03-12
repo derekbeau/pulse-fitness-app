@@ -1,4 +1,4 @@
-import { and, count, eq, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type {
   CreateFoodInput,
   Food,
@@ -46,7 +46,7 @@ const toNullable = <T>(value: T | undefined): T | null => value ?? null;
 const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
 
 const buildFoodFilters = (userId: string, query?: string) => {
-  const filters: SQL<unknown>[] = [eq(foods.userId, userId)];
+  const filters: SQL<unknown>[] = [eq(foods.userId, userId), isNull(foods.deletedAt)];
 
   if (query) {
     const pattern = `%${escapeLikePattern(query)}%`;
@@ -80,7 +80,7 @@ const getFoodById = async (id: string, userId: string): Promise<FoodRecord | und
   return db
     .select(foodSelection)
     .from(foods)
-    .where(and(eq(foods.id, id), eq(foods.userId, userId)))
+    .where(and(eq(foods.id, id), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .limit(1)
     .get();
 };
@@ -234,7 +234,7 @@ export const updateFood = async (
   const result = db
     .update(foods)
     .set(nextValues)
-    .where(and(eq(foods.id, id), eq(foods.userId, userId)))
+    .where(and(eq(foods.id, id), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .run();
 
   if (result.changes !== 1) {
@@ -248,8 +248,11 @@ export const deleteFood = async (id: string, userId: string): Promise<boolean> =
   const { db } = await import('../../db/index.js');
 
   const result = db
-    .delete(foods)
-    .where(and(eq(foods.id, id), eq(foods.userId, userId)))
+    .update(foods)
+    .set({
+      deletedAt: new Date().toISOString(),
+    })
+    .where(and(eq(foods.id, id), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .run();
 
   return result.changes === 1;
@@ -267,7 +270,7 @@ export const updateFoodLastUsedAt = async (
     .set({
       lastUsedAt,
     })
-    .where(and(eq(foods.id, foodId), eq(foods.userId, userId)))
+    .where(and(eq(foods.id, foodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .run();
 
   if (result.changes !== 1) {

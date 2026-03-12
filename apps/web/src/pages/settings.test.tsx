@@ -236,6 +236,26 @@ describe('SettingsPage', () => {
           );
         }
 
+        if (url.pathname === '/api/v1/trash' && (!init?.method || init.method === 'GET')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  habits: [],
+                  'workout-templates': [],
+                  exercises: [],
+                  foods: [],
+                  'workout-sessions': [],
+                },
+              }),
+              {
+                headers: { 'Content-Type': 'application/json' },
+                status: 200,
+              },
+            ),
+          );
+        }
+
         if (url.pathname === '/api/v1/users/me' && (!init?.method || init.method === 'GET')) {
           return Promise.resolve(
             new Response(JSON.stringify({ data: state.user }), {
@@ -294,6 +314,7 @@ describe('SettingsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Theme' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Trash' })).toBeInTheDocument();
     expect(screen.getByLabelText('Daily calories')).toHaveValue(
       DEFAULT_SETTINGS.nutritionTargets.calories,
     );

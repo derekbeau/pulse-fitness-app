@@ -249,7 +249,10 @@ export const allSessionExercisesAccessible = async ({
     .where(
       and(
         inArray(exercises.id, uniqueIds),
-        or(isNull(exercises.userId), eq(exercises.userId, userId)),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
       ),
     )
     .all()
@@ -277,7 +280,13 @@ export const findWorkoutSessionAccess = async (
   return db
     .select(workoutSessionAccessSelection)
     .from(workoutSessions)
-    .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
+    .where(
+      and(
+        eq(workoutSessions.id, id),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
     .limit(1)
     .get();
 };
@@ -548,7 +557,7 @@ export const listWorkoutSessions = async ({
   limit?: number;
 }): Promise<WorkoutSessionListItem[]> => {
   const { db } = await import('../../db/index.js');
-  const whereClauses = [eq(workoutSessions.userId, userId)];
+  const whereClauses = [eq(workoutSessions.userId, userId), isNull(workoutSessions.deletedAt)];
 
   if (from) {
     whereClauses.push(gte(workoutSessions.date, from));
@@ -565,7 +574,10 @@ export const listWorkoutSessions = async ({
   const query = db
     .select(workoutSessionListSelection)
     .from(workoutSessions)
-    .leftJoin(workoutTemplates, eq(workoutTemplates.id, workoutSessions.templateId))
+    .leftJoin(
+      workoutTemplates,
+      and(eq(workoutTemplates.id, workoutSessions.templateId), isNull(workoutTemplates.deletedAt)),
+    )
     .where(and(...whereClauses))
     .orderBy(
       desc(workoutSessions.date),
@@ -589,7 +601,13 @@ export const findWorkoutSessionById = async (
   const session = db
     .select(workoutSessionSelection)
     .from(workoutSessions)
-    .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
+    .where(
+      and(
+        eq(workoutSessions.id, id),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
     .limit(1)
     .get();
 
@@ -633,7 +651,13 @@ export const updateWorkoutSession = async ({
         feedback: serializeWorkoutSessionFeedback(input.feedback),
         notes: input.notes,
       })
-      .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
+      .where(
+        and(
+          eq(workoutSessions.id, id),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
       .run();
 
     if (updateResult.changes !== 1) {
@@ -660,8 +684,17 @@ export const deleteWorkoutSession = async (id: string, userId: string): Promise<
   const { db } = await import('../../db/index.js');
 
   const result = db
-    .delete(workoutSessions)
-    .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
+    .update(workoutSessions)
+    .set({
+      deletedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(workoutSessions.id, id),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
     .run();
 
   return result.changes === 1;
@@ -684,7 +717,13 @@ export const reorderWorkoutSessionExercises = async ({
     const session = tx
       .select(workoutSessionAccessSelection)
       .from(workoutSessions)
-      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
       .limit(1)
       .get();
 
@@ -707,7 +746,13 @@ export const reorderWorkoutSessionExercises = async ({
 
     tx.update(workoutSessions)
       .set({ updatedAt: Date.now() })
-      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
       .run();
 
     return true;

@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { foods } from '../../db/schema/index.js';
 
@@ -35,7 +35,7 @@ export const searchFoodsByName = async (
 ): Promise<AgentFoodRecord[]> => {
   const { db } = await import('../../db/index.js');
 
-  const conditions = [eq(foods.userId, userId)];
+  const conditions = [eq(foods.userId, userId), isNull(foods.deletedAt)];
   if (query) {
     const pattern = `%${escapeLikePattern(query)}%`;
     conditions.push(
@@ -45,7 +45,13 @@ export const searchFoodsByName = async (
 
   const where = conditions.length === 1 ? conditions[0] : and(...conditions);
 
-  return db.select(agentFoodSelection).from(foods).where(where).orderBy(recentSortExpr).limit(limit).all();
+  return db
+    .select(agentFoodSelection)
+    .from(foods)
+    .where(where)
+    .orderBy(recentSortExpr)
+    .limit(limit)
+    .all();
 };
 
 export const findFoodByName = async (
@@ -59,7 +65,13 @@ export const findFoodByName = async (
   const exact = db
     .select(agentFoodSelection)
     .from(foods)
-    .where(and(eq(foods.userId, userId), sql`lower(${foods.name}) = ${nameLower}`))
+    .where(
+      and(
+        eq(foods.userId, userId),
+        isNull(foods.deletedAt),
+        sql`lower(${foods.name}) = ${nameLower}`,
+      ),
+    )
     .orderBy(recentSortExpr)
     .limit(1)
     .get();
@@ -73,7 +85,11 @@ export const findFoodByName = async (
     .select(agentFoodSelection)
     .from(foods)
     .where(
-      and(eq(foods.userId, userId), sql`lower(${foods.name}) like ${pattern} escape '\\'`),
+      and(
+        eq(foods.userId, userId),
+        isNull(foods.deletedAt),
+        sql`lower(${foods.name}) like ${pattern} escape '\\'`,
+      ),
     )
     .orderBy(recentSortExpr)
     .limit(1)

@@ -35,6 +35,7 @@ export const exercises = sqliteTable(
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
     formCues: text('form_cues', { mode: 'json' }).$type<string[]>().notNull().default([]),
     instructions: text('instructions'),
+    deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

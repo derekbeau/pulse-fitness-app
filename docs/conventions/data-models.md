@@ -12,7 +12,7 @@ Pulse stores application data in SQLite through Drizzle ORM. This document is th
 - Booleans: SQLite booleans are stored as `integer` `0`/`1`, usually through Drizzle `integer(..., { mode: 'boolean' })`.
 - Numeric measurements: weights, macros, and habit values use `real` or `integer` depending on whether fractional values are needed.
 - JSON-backed fields: prefer `text('col', { mode: 'json' }).$type<T>()` when the value should serialize and deserialize automatically. If a field stays as plain `text().$type<T>()`, pair it with explicit parse/serialize helpers.
-- Soft delete: use an `active` flag instead of deleting when historical visibility matters. `habits.active` is the current example.
+- Soft delete: user-facing entities use nullable `deletedAt` (`text` ISO timestamp). API reads must exclude rows where `deletedAt` is not `null`; restore clears `deletedAt`, and purge performs hard delete. `habits.active` remains for habit visibility state, but deletion semantics are tracked by `deletedAt`.
 - SQLite bootstrap: enable `journal_mode = WAL`, `busy_timeout = 5000`, `synchronous = NORMAL`, and `foreign_keys = ON`.
 
 ## User Scope Rules
@@ -88,6 +88,7 @@ Inherited ownership comes from foreign-key chains:
 - `unit`: nullable `text`
 - `sortOrder`: `integer`, required, default `0`
 - `active`: boolean-backed `integer`, required, default `true`
+- `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
@@ -124,6 +125,7 @@ Constraints:
 - `tags`: JSON text array for exercise classification labels, default `[]`
 - `formCues`: JSON text array for durable technique guidance, default `[]`
 - `instructions`: nullable `text`
+- `deletedAt`: nullable `text` ISO timestamp for soft delete (applies to user-owned rows)
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
@@ -139,6 +141,7 @@ Constraints:
 - `name`: `text`, required
 - `description`: nullable `text`
 - `tags`: JSON text array for template labels
+- `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
@@ -178,6 +181,7 @@ Constraints:
 - `timeSegments`: required JSON text array of `{ start: string, end: string | null }`, default `'[]'`
 - `feedback`: nullable JSON text object for post-session ratings and notes
 - `notes`: nullable `text`
+- `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
@@ -245,6 +249,7 @@ Indexes and constraints:
 - `source`: nullable `text`
 - `notes`: nullable `text`
 - `lastUsedAt`: nullable `integer` Unix ms
+- `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 

@@ -58,7 +58,7 @@ const buildListWhereClause = ({
   category,
 }: Omit<ListExercisesInput, 'page' | 'limit'>) =>
   and(
-    or(isNull(exercises.userId), eq(exercises.userId, userId)),
+    or(isNull(exercises.userId), and(eq(exercises.userId, userId), isNull(exercises.deletedAt))),
     q ? sql`lower(${exercises.name}) like ${`%${q.toLowerCase()}%`}` : undefined,
     muscleGroup
       ? sql`exists (
@@ -166,7 +166,9 @@ export const listExerciseFilters = async (userId: string): Promise<ExerciseFilte
       equipment: exercises.equipment,
     })
     .from(exercises)
-    .where(or(isNull(exercises.userId), eq(exercises.userId, userId)))
+    .where(
+      or(isNull(exercises.userId), and(eq(exercises.userId, userId), isNull(exercises.deletedAt))),
+    )
     .all();
 
   return {
@@ -180,11 +182,17 @@ export const listExerciseFilters = async (userId: string): Promise<ExerciseFilte
 export const findExerciseById = async (id: string): Promise<Exercise | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  return db.select(exerciseSelection).from(exercises).where(eq(exercises.id, id)).limit(1).get();
+  return db
+    .select(exerciseSelection)
+    .from(exercises)
+    .where(and(eq(exercises.id, id), isNull(exercises.deletedAt)))
+    .limit(1)
+    .get();
 };
 
 export const findExerciseOwnership = async (
   id: string,
+  userId: string,
 ): Promise<ExerciseOwnershipRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -194,7 +202,15 @@ export const findExerciseOwnership = async (
       userId: exercises.userId,
     })
     .from(exercises)
-    .where(eq(exercises.id, id))
+    .where(
+      and(
+        eq(exercises.id, id),
+        or(
+          and(isNull(exercises.userId), isNull(exercises.deletedAt)),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .limit(1)
     .get();
 };
@@ -213,7 +229,7 @@ export const updateOwnedExercise = async ({
   const [updatedExercise] = await db
     .update(exercises)
     .set(changes)
-    .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
+    .where(and(eq(exercises.id, id), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
     .returning(exerciseSelection);
 
   return updatedExercise;
@@ -223,8 +239,11 @@ export const deleteOwnedExercise = async (id: string, userId: string): Promise<b
   const { db } = await import('../../db/index.js');
 
   const result = db
-    .delete(exercises)
-    .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
+    .update(exercises)
+    .set({
+      deletedAt: new Date().toISOString(),
+    })
+    .where(and(eq(exercises.id, id), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
     .run();
 
   return result.changes === 1;
@@ -245,7 +264,15 @@ export const findVisibleExerciseById = async ({
       userId: exercises.userId,
     })
     .from(exercises)
-    .where(and(eq(exercises.id, id), or(isNull(exercises.userId), eq(exercises.userId, userId))))
+    .where(
+      and(
+        eq(exercises.id, id),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .limit(1)
     .get();
 };
@@ -266,7 +293,10 @@ export const findVisibleExerciseByName = async ({
     .where(
       and(
         sql`lower(${exercises.name}) = ${normalizedName}`,
-        or(isNull(exercises.userId), eq(exercises.userId, userId)),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
       ),
     )
     .orderBy(sql`case when ${exercises.userId} is null then 1 else 0 end asc`, asc(exercises.name))
@@ -290,7 +320,9 @@ const normalizeExerciseName = (name: string): string => {
   }
 
   const parts = normalized.split(' ');
-  const filtered = parts.filter((part, index) => !(index === 0 && EXERCISE_PREFIXES.includes(part)));
+  const filtered = parts.filter(
+    (part, index) => !(index === 0 && EXERCISE_PREFIXES.includes(part)),
+  );
 
   return filtered.join(' ').trim();
 };
@@ -354,7 +386,11 @@ const calculateExerciseSimilarity = (input: string, candidate: string): number =
   }
 
   if (input.includes(candidate) || candidate.includes(input)) {
-    return Number((Math.min(input.length, candidate.length) / Math.max(input.length, candidate.length)).toFixed(2));
+    return Number(
+      (Math.min(input.length, candidate.length) / Math.max(input.length, candidate.length)).toFixed(
+        2,
+      ),
+    );
   }
 
   return calculateLevenshteinSimilarity(input, candidate);
@@ -373,10 +409,11 @@ export const findExerciseDedupCandidates = async ({
   const inputNormalized = normalizeExerciseName(name);
   const inputLower = name.trim().toLowerCase();
   const firstToken = (inputNormalized || inputLower).split(' ').find((token) => token.length > 0);
-  const tokenMatch = firstToken
-    ? firstToken.slice(0, Math.min(firstToken.length, 5))
-    : undefined;
-  const visibilityWhereClause = or(isNull(exercises.userId), eq(exercises.userId, userId));
+  const tokenMatch = firstToken ? firstToken.slice(0, Math.min(firstToken.length, 5)) : undefined;
+  const visibilityWhereClause = or(
+    isNull(exercises.userId),
+    and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+  );
   const candidateFilter =
     tokenMatch && tokenMatch.length > 0
       ? sql`lower(${exercises.name}) like ${`%${escapeSqlLikePattern(tokenMatch)}%`} escape '\\'`
@@ -449,6 +486,7 @@ export const findExerciseLastPerformance = async ({
     .where(
       and(
         eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
         eq(workoutSessions.status, 'completed'),
         sql`exists (
           select 1

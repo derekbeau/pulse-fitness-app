@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AgentTokensCard } from '@/features/settings/components/agent-tokens-card';
+import { TrashManager } from '@/features/settings/components/trash-manager';
 import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
@@ -820,6 +821,8 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <TrashManager />
     </section>
   );
 }

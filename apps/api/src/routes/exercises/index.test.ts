@@ -679,8 +679,15 @@ describe('exercise routes', () => {
       },
     });
 
-    const remainingExerciseIds = context.db.select({ id: exercises.id }).from(exercises).all();
-    expect(remainingExerciseIds).toEqual([{ id: 'global-exercise' }]);
+    const remainingExercises = context.db
+      .select({ id: exercises.id, deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .orderBy(exercises.id)
+      .all();
+    expect(remainingExercises).toEqual([
+      { id: 'global-exercise', deletedAt: null },
+      { id: 'user-exercise', deletedAt: expect.any(String) },
+    ]);
 
     const globalResponse = await context.app.inject({
       method: 'DELETE',
@@ -962,6 +969,56 @@ describe('exercise routes', () => {
         formCues: ['slight elbow bend'],
         tags: ['hypertrophy'],
       }),
+    });
+  });
+
+  it('agent exercise search excludes soft-deleted user exercises', async () => {
+    context.db
+      .insert(exercises)
+      .values({
+        id: 'active-owned',
+        userId: 'user-1',
+        name: 'Cable Curl',
+        muscleGroups: ['biceps'],
+        equipment: 'cable',
+        category: 'isolation',
+        tags: [],
+        formCues: [],
+        instructions: null,
+      })
+      .run();
+    context.db
+      .insert(exercises)
+      .values({
+        id: 'deleted-owned',
+        userId: 'user-1',
+        name: 'Cable Curl Old',
+        muscleGroups: ['biceps'],
+        equipment: 'cable',
+        category: 'isolation',
+        tags: [],
+        formCues: [],
+        instructions: null,
+        deletedAt: new Date().toISOString(),
+      })
+      .run();
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/agent/exercises/search?q=cable%20curl&limit=10',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'active-owned',
+          name: 'Cable Curl',
+        }),
+      ],
     });
   });
 });

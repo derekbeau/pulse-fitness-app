@@ -12,6 +12,7 @@ import { habitRoutes } from './routes/habits/index.js';
 import { nutritionRoutes } from './routes/nutrition/index.js';
 import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
 import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
+import { trashRoutes } from './routes/trash/index.js';
 import { v1Routes } from './routes/v1/index.js';
 import { weightRoutes } from './routes/weight/index.js';
 import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
@@ -49,6 +50,7 @@ export const buildServer = () => {
   app.register(nutritionRoutes, { prefix: '/api/v1/nutrition' });
   app.register(nutritionTargetRoutes, { prefix: '/api/v1/nutrition-targets' });
   app.register(scheduledWorkoutRoutes, { prefix: '/api/v1/scheduled-workouts' });
+  app.register(trashRoutes, { prefix: '/api/v1/trash' });
   app.register(v1Routes, { prefix: '/api/v1' });
   app.register(weightRoutes, { prefix: '/api/v1/weight' });
   app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });

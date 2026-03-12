@@ -642,7 +642,7 @@ describe('workout template routes', () => {
     ]);
   });
 
-  it('deletes only owned templates and cascades template exercise rows', async () => {
+  it('soft-deletes only owned templates', async () => {
     seedTemplate({
       id: 'template-1',
       userId: 'user-1',
@@ -679,9 +679,30 @@ describe('workout template routes', () => {
     });
 
     expect(context.db.select().from(workoutTemplates).all()).toEqual([
-      expect.objectContaining({ id: 'template-2' }),
+      expect.objectContaining({ id: 'template-1', deletedAt: expect.any(String) }),
+      expect.objectContaining({ id: 'template-2', deletedAt: null }),
     ]);
-    expect(context.db.select().from(templateExercises).all()).toEqual([]);
+    expect(context.db.select().from(templateExercises).all()).toEqual([
+      expect.objectContaining({ id: 'template-exercise-1', templateId: 'template-1' }),
+    ]);
+
+    const getDeletedResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-templates/template-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(getDeletedResponse.statusCode).toBe(404);
+
+    const listResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-templates',
+      headers: createAuthorizationHeader(authToken),
+    });
+    const listPayload = listResponse.json() as { data: Array<{ id: string }> };
+
+    expect(listResponse.statusCode).toBe(200);
+    expect(listPayload.data.map((template) => template.id)).toEqual([]);
 
     const otherUserResponse = await context.app.inject({
       method: 'DELETE',
