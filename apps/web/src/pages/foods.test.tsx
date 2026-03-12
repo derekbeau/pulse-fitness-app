@@ -114,4 +114,53 @@ describe('FoodsPage', () => {
     expect(screen.queryByRole('heading', { name: 'Your food database is empty' })).not.toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('shows contextual help for foods management', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/foods') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: 1,
+              limit: 12,
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/foods']}>
+        <Routes>
+          <Route element={<FoodsPage />} path="/foods" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Your food database is empty' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('heading', { name: 'Foods help' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Foods is your personal food database that the AI agent uses to match and log meal items.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Deleting a food soft-deletes it, so you can restore it later from Trash.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Food changes are snapshot-safe: past meal logs keep their original macro values.'),
+    ).toBeInTheDocument();
+  });
 });
