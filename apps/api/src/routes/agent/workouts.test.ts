@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { createExercise, findVisibleExerciseByName } from '../exercises/store.js';
+import {
+  createExercise,
+  findExerciseDedupCandidates,
+  findVisibleExerciseByName,
+} from '../exercises/store.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -17,6 +21,7 @@ vi.mock('../exercises/store.js', () => ({
   createExercise: vi.fn(),
   deleteOwnedExercise: vi.fn(),
   findExerciseLastPerformance: vi.fn(),
+  findExerciseDedupCandidates: vi.fn(),
   findExerciseOwnership: vi.fn(),
   findVisibleExerciseById: vi.fn(),
   findVisibleExerciseByName: vi.fn(),
@@ -60,6 +65,7 @@ describe('agent workouts routes', () => {
 
   beforeEach(() => {
     vi.mocked(createExercise).mockReset();
+    vi.mocked(findExerciseDedupCandidates).mockReset();
     vi.mocked(findVisibleExerciseByName).mockReset();
     vi.mocked(createWorkoutTemplate).mockReset();
     vi.mocked(findWorkoutTemplateById).mockReset();
@@ -84,6 +90,7 @@ describe('agent workouts routes', () => {
         await app.ready();
 
         vi.mocked(findVisibleExerciseByName).mockResolvedValue(undefined);
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
         vi.mocked(createExercise).mockResolvedValue({
           id: 'exercise-1',
           userId: 'user-1',
@@ -92,8 +99,8 @@ describe('agent workouts routes', () => {
           trackingType: 'weight_reps',
           tags: [],
           formCues: [],
-          muscleGroups: ['Chest'],
-          equipment: 'Barbell',
+          muscleGroups: [],
+          equipment: '',
           instructions: null,
           createdAt: 1,
           updatedAt: 1,
@@ -136,10 +143,33 @@ describe('agent workouts routes', () => {
         });
 
         expect(response.statusCode).toBe(201);
+        expect(response.json()).toEqual({
+          data: {
+            template: {
+              id: 'template-1',
+              userId: 'user-1',
+              name: 'Push Day',
+              description: null,
+              tags: [],
+              sections: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+            newExercises: [
+              {
+                id: 'exercise-1',
+                name: 'Bench Press',
+                possibleDuplicates: [],
+              },
+            ],
+          },
+        });
         expect(vi.mocked(createExercise)).toHaveBeenCalledWith(
           expect.objectContaining({
             userId: 'user-1',
             name: 'Bench Press',
+            muscleGroups: [],
+            equipment: '',
             tags: ['rehab', 'core'],
             formCues: ['chest up', 'drive through heels'],
           }),
@@ -166,6 +196,88 @@ describe('agent workouts routes', () => {
             }),
           }),
         );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns dedup hints for newly created exercises', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findVisibleExerciseByName).mockResolvedValue(undefined);
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([
+          {
+            id: 'exercise-existing-1',
+            name: 'Bench Press',
+            similarity: 0.83,
+          },
+        ]);
+        vi.mocked(createExercise).mockResolvedValue({
+          id: 'exercise-2',
+          userId: 'user-1',
+          name: 'Incline Bench Press',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: [],
+          muscleGroups: [],
+          equipment: '',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        vi.mocked(createWorkoutTemplate).mockResolvedValue({
+          id: 'template-2',
+          userId: 'user-1',
+          name: 'Push Day',
+          description: null,
+          tags: [],
+          sections: [],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/workout-templates',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Push Day',
+            sections: [
+              {
+                name: 'Main',
+                exercises: [{ name: 'Incline Bench Press', sets: 4, reps: 8 }],
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.json()).toEqual({
+          data: {
+            template: {
+              id: 'template-2',
+              userId: 'user-1',
+              name: 'Push Day',
+              description: null,
+              tags: [],
+              sections: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+            newExercises: [
+              {
+                id: 'exercise-2',
+                name: 'Incline Bench Press',
+                possibleDuplicates: ['exercise-existing-1'],
+              },
+            ],
+          },
+        });
       } finally {
         await app.close();
       }
@@ -219,6 +331,7 @@ describe('agent workouts routes', () => {
             createdAt: 1,
             updatedAt: 1,
           });
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
 
         vi.mocked(updateWorkoutTemplate).mockResolvedValue({
           id: 'template-1',
@@ -422,6 +535,7 @@ describe('agent workouts routes', () => {
             updatedAt: 1,
           })
           .mockResolvedValueOnce(undefined);
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
 
         vi.mocked(createExercise).mockResolvedValue({
           id: 'exercise-squat',
@@ -431,8 +545,8 @@ describe('agent workouts routes', () => {
           trackingType: 'weight_reps',
           tags: [],
           formCues: [],
-          muscleGroups: ['Full Body'],
-          equipment: 'Bodyweight',
+          muscleGroups: [],
+          equipment: '',
           instructions: null,
           createdAt: 1,
           updatedAt: 1,
@@ -580,6 +694,7 @@ describe('agent workouts routes', () => {
             updatedAt: 1,
           })
           .mockResolvedValueOnce(undefined);
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
 
         vi.mocked(createExercise).mockResolvedValue({
           id: 'exercise-b',
@@ -589,8 +704,8 @@ describe('agent workouts routes', () => {
           trackingType: 'weight_reps',
           tags: [],
           formCues: [],
-          muscleGroups: ['Full Body'],
-          equipment: 'Bodyweight',
+          muscleGroups: [],
+          equipment: '',
           instructions: null,
           createdAt: 1,
           updatedAt: 1,

@@ -254,33 +254,75 @@ Behavior notes:
 
 #### `POST /api/agent/exercises`
 
-Creates an exercise. Optional fields default to:
-
-- `category: "compound"`
-- `muscleGroups: ["Full Body"]`
-- `equipment: "Bodyweight"`
+Creates an exercise with fuzzy dedup protection.
 
 Request:
 
 ```json
 {
-  "name": "Dumbbell Row"
+  "name": "Dumbbell Row",
+  "force": false
 }
 ```
 
-Response (`201`):
+Response (`201`, created):
 
 ```json
 {
   "data": {
-    "id": "exercise-1",
-    "name": "Dumbbell Row",
-    "category": "compound",
-    "muscleGroups": ["Full Body"],
-    "equipment": "Bodyweight"
+    "created": true,
+    "exercise": {
+      "id": "exercise-1",
+      "name": "Dumbbell Row",
+      "category": "compound",
+      "trackingType": "weight_reps",
+      "muscleGroups": [],
+      "equipment": "",
+      "instructions": null,
+      "tags": [],
+      "formCues": []
+    }
   }
 }
 ```
+
+Response (`200`, dedup candidate found and `force` omitted/false):
+
+```json
+{
+  "data": {
+    "created": false,
+    "candidates": [
+      {
+        "id": "exercise-existing-1",
+        "name": "Barbell Row",
+        "similarity": 0.83
+      }
+    ]
+  }
+}
+```
+
+Behavior notes:
+
+- Dedup checks user-visible exercises with normalized matching (case-insensitive plus prefix normalization such as `barbell`/`dumbbell`).
+- If candidates are returned, no exercise is created unless `force: true` is provided.
+
+#### `PATCH /api/agent/exercises/:id`
+
+Enriches metadata for a user-owned exercise after creation.
+
+Patchable fields:
+
+- `muscleGroups`
+- `equipment`
+- `category`
+- `trackingType`
+- `instructions`
+- `formCues`
+- `tags`
+
+`404 EXERCISE_NOT_FOUND` is returned when the row is missing or not owned by the caller.
 
 #### `GET /api/agent/exercises/search?q=<term>&limit=<n>`
 
@@ -325,29 +367,38 @@ Response (`201`):
 ```json
 {
   "data": {
-    "id": "template-1",
-    "userId": "user-1",
-    "name": "Push Day",
-    "description": null,
-    "tags": [],
-    "sections": [
+    "template": {
+      "id": "template-1",
+      "userId": "user-1",
+      "name": "Push Day",
+      "description": null,
+      "tags": [],
+      "sections": [
+        {
+          "type": "main",
+          "exercises": [
+            {
+              "id": "template-exercise-1",
+              "exerciseId": "exercise-1",
+              "exerciseName": "Bench Press",
+              "sets": 4,
+              "repsMin": 8,
+              "repsMax": 8,
+              "tempo": null,
+              "restSeconds": 120,
+              "supersetGroup": null,
+              "notes": null,
+              "cues": []
+            }
+          ]
+        }
+      ]
+    },
+    "newExercises": [
       {
-        "type": "main",
-        "exercises": [
-          {
-            "id": "template-exercise-1",
-            "exerciseId": "exercise-1",
-            "exerciseName": "Bench Press",
-            "sets": 4,
-            "repsMin": 8,
-            "repsMax": 8,
-            "tempo": null,
-            "restSeconds": 120,
-            "supersetGroup": null,
-            "notes": null,
-            "cues": []
-          }
-        ]
+        "id": "exercise-1",
+        "name": "Bench Press",
+        "possibleDuplicates": ["exercise-existing-1"]
       }
     ]
   }
@@ -356,7 +407,8 @@ Response (`201`):
 
 Behavior notes:
 
-- Unknown exercise names are auto-created.
+- Unknown exercise names are auto-created with placeholder metadata (`muscleGroups: []`, `equipment: ""`, `instructions: null`) and then returned in `newExercises` for enrichment.
+- Template creation never blocks on dedup candidates; candidate ids are surfaced in `newExercises[*].possibleDuplicates`.
 - Section names are normalized to `warmup | main | cooldown` by keyword inference.
 
 #### `PUT /api/agent/workout-templates/:id`
@@ -684,9 +736,11 @@ Response:
 ### 3) Workout Creation + Session Logging
 
 1. Search/create exercises (`GET /api/agent/exercises/search`, `POST /api/agent/exercises`).
-2. Create/update template (`POST/PUT /api/agent/workout-templates`).
-3. Start session (`POST /api/agent/workout-sessions`).
-4. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
+2. If `POST /api/agent/exercises` returns `created: false`, review `candidates` and retry with `force: true` only when intentional.
+3. Create/update template (`POST/PUT /api/agent/workout-templates`).
+4. Read `newExercises` from template create response and enrich each via `PATCH /api/agent/exercises/:id`.
+5. Start session (`POST /api/agent/workout-sessions`).
+6. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
 
 ## Error Handling Conventions
 

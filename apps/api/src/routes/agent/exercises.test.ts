@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { createExercise, listExercises } from '../exercises/store.js';
+import {
+  createExercise,
+  findExerciseDedupCandidates,
+  findExerciseOwnership,
+  listExercises,
+  updateOwnedExercise,
+} from '../exercises/store.js';
 
 vi.mock('../exercises/store.js', () => ({
   createExercise: vi.fn(),
   deleteOwnedExercise: vi.fn(),
+  findExerciseDedupCandidates: vi.fn(),
   findExerciseLastPerformance: vi.fn(),
   findExerciseOwnership: vi.fn(),
   findVisibleExerciseById: vi.fn(),
@@ -22,7 +29,10 @@ const createAuthorizationHeader = (token: string) => ({
 describe('agent exercises routes', () => {
   beforeEach(() => {
     vi.mocked(createExercise).mockReset();
+    vi.mocked(findExerciseDedupCandidates).mockReset();
+    vi.mocked(findExerciseOwnership).mockReset();
     vi.mocked(listExercises).mockReset();
+    vi.mocked(updateOwnedExercise).mockReset();
     process.env.JWT_SECRET = 'test-agent-exercises-secret';
   });
 
@@ -31,12 +41,13 @@ describe('agent exercises routes', () => {
   });
 
   describe('POST /api/agent/exercises', () => {
-    it('creates an exercise with defaults when optional fields are omitted', async () => {
+    it('creates an exercise when no dedup candidates are found', async () => {
       const app = buildServer();
 
       try {
         await app.ready();
 
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
         vi.mocked(createExercise).mockResolvedValue({
           id: 'exercise-1',
           userId: 'user-1',
@@ -45,8 +56,8 @@ describe('agent exercises routes', () => {
           trackingType: 'weight_reps',
           tags: [],
           formCues: [],
-          muscleGroups: ['Full Body'],
-          equipment: 'Bodyweight',
+          muscleGroups: [],
+          equipment: '',
           instructions: null,
           createdAt: 1,
           updatedAt: 1,
@@ -65,11 +76,18 @@ describe('agent exercises routes', () => {
         expect(response.statusCode).toBe(201);
         expect(response.json()).toEqual({
           data: {
-            id: 'exercise-1',
-            name: 'Dumbbell Row',
-            category: 'compound',
-            muscleGroups: ['Full Body'],
-            equipment: 'Bodyweight',
+            created: true,
+            exercise: {
+              id: 'exercise-1',
+              name: 'Dumbbell Row',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              muscleGroups: [],
+              equipment: '',
+              instructions: null,
+              tags: [],
+              formCues: [],
+            },
           },
         });
 
@@ -79,11 +97,181 @@ describe('agent exercises routes', () => {
             name: 'Dumbbell Row',
             category: 'compound',
             trackingType: 'weight_reps',
-            muscleGroups: ['Full Body'],
-            equipment: 'Bodyweight',
+            muscleGroups: [],
+            equipment: '',
             instructions: null,
           }),
         );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns candidates without creating for an exact duplicate name', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([
+          {
+            id: 'exercise-existing',
+            name: 'Dumbbell Row',
+            similarity: 1,
+          },
+        ]);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/exercises',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Dumbbell Row',
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: {
+            created: false,
+            candidates: [
+              {
+                id: 'exercise-existing',
+                name: 'Dumbbell Row',
+                similarity: 1,
+              },
+            ],
+          },
+        });
+        expect(vi.mocked(createExercise)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('creates when force is true despite duplicate candidates', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([
+          {
+            id: 'exercise-existing',
+            name: 'Dumbbell Row',
+            similarity: 1,
+          },
+        ]);
+        vi.mocked(createExercise).mockResolvedValue({
+          id: 'exercise-2',
+          userId: 'user-1',
+          name: 'Dumbbell Row',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: [],
+          muscleGroups: [],
+          equipment: '',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/exercises',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Dumbbell Row',
+            force: true,
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.json()).toEqual({
+          data: {
+            created: true,
+            exercise: {
+              id: 'exercise-2',
+              name: 'Dumbbell Row',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              muscleGroups: [],
+              equipment: '',
+              instructions: null,
+              tags: [],
+              formCues: [],
+            },
+          },
+        });
+        expect(vi.mocked(createExercise)).toHaveBeenCalledTimes(1);
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  describe('PATCH /api/agent/exercises/:id', () => {
+    it('updates exercise metadata for a user-owned exercise', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findExerciseOwnership).mockResolvedValue({
+          id: 'exercise-1',
+          userId: 'user-1',
+        });
+        vi.mocked(updateOwnedExercise).mockResolvedValue({
+          id: 'exercise-1',
+          userId: 'user-1',
+          name: 'Dumbbell Row',
+          category: 'isolation',
+          trackingType: 'reps_only',
+          tags: ['pull'],
+          formCues: ['elbow to hip'],
+          muscleGroups: ['Back'],
+          equipment: 'Dumbbell',
+          instructions: 'Pull toward hip.',
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/exercises/exercise-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            category: 'isolation',
+            trackingType: 'reps_only',
+            muscleGroups: ['Back'],
+            equipment: 'Dumbbell',
+            instructions: 'Pull toward hip.',
+            formCues: ['elbow to hip'],
+            tags: ['pull'],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: {
+            id: 'exercise-1',
+            userId: 'user-1',
+            name: 'Dumbbell Row',
+            category: 'isolation',
+            trackingType: 'reps_only',
+            tags: ['pull'],
+            formCues: ['elbow to hip'],
+            muscleGroups: ['Back'],
+            equipment: 'Dumbbell',
+            instructions: 'Pull toward hip.',
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        });
       } finally {
         await app.close();
       }

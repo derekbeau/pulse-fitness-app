@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  type AgentTemplateNewExercise,
   agentCreateWorkoutSessionInputSchema,
   agentCreateWorkoutTemplateInputSchema,
   agentUpdateWorkoutSessionInputSchema,
@@ -14,7 +15,11 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { createExercise, findVisibleExerciseByName } from '../exercises/store.js';
+import {
+  createExercise,
+  findExerciseDedupCandidates,
+  findVisibleExerciseByName,
+} from '../exercises/store.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -39,8 +44,6 @@ const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
 } as const;
 
 const DEFAULT_EXERCISE_CATEGORY = 'compound' as const;
-const DEFAULT_EXERCISE_MUSCLE_GROUPS = ['Full Body'];
-const DEFAULT_EXERCISE_EQUIPMENT = 'Bodyweight';
 const DEFAULT_EXERCISE_TRACKING_TYPE = 'weight_reps' as const;
 
 const inferSectionType = (name: string): WorkoutTemplateSectionType => {
@@ -67,11 +70,16 @@ const resolveExerciseIdByName = async ({
   userId: string;
   tags?: string[];
   formCues?: string[];
-}): Promise<string> => {
+}): Promise<{ exerciseId: string; newExercise: AgentTemplateNewExercise | null }> => {
   const existingExercise = await findVisibleExerciseByName({ name, userId });
   if (existingExercise) {
-    return existingExercise.id;
+    return { exerciseId: existingExercise.id, newExercise: null };
   }
+
+  const possibleDuplicates = await findExerciseDedupCandidates({
+    userId,
+    name,
+  });
 
   const createdExercise = await createExercise({
     id: randomUUID(),
@@ -79,14 +87,21 @@ const resolveExerciseIdByName = async ({
     name,
     category: DEFAULT_EXERCISE_CATEGORY,
     trackingType: DEFAULT_EXERCISE_TRACKING_TYPE,
-    muscleGroups: DEFAULT_EXERCISE_MUSCLE_GROUPS,
-    equipment: DEFAULT_EXERCISE_EQUIPMENT,
+    muscleGroups: [],
+    equipment: '',
     tags,
     formCues,
     instructions: null,
   });
 
-  return createdExercise.id;
+  return {
+    exerciseId: createdExercise.id,
+    newExercise: {
+      id: createdExercise.id,
+      name: createdExercise.name,
+      possibleDuplicates: possibleDuplicates.map((candidate) => candidate.id),
+    },
+  };
 };
 
 const buildTemplateSections = async ({
@@ -115,6 +130,7 @@ const buildTemplateSections = async ({
   groupedByType.set('warmup', []);
   groupedByType.set('main', []);
   groupedByType.set('cooldown', []);
+  const newExercises: AgentTemplateNewExercise[] = [];
 
   for (const section of sections) {
     const sectionType = inferSectionType(section.name);
@@ -124,15 +140,18 @@ const buildTemplateSections = async ({
     }
 
     for (const exercise of section.exercises) {
-      const exerciseId = await resolveExerciseIdByName({
+      const resolvedExercise = await resolveExerciseIdByName({
         name: exercise.name,
         userId,
         tags: exercise.tags,
         formCues: exercise.formCues,
       });
+      if (resolvedExercise.newExercise) {
+        newExercises.push(resolvedExercise.newExercise);
+      }
 
       existingExercises.push({
-        exerciseId,
+        exerciseId: resolvedExercise.exerciseId,
         sets: exercise.sets,
         repsMin: exercise.reps,
         repsMax: exercise.reps,
@@ -145,10 +164,13 @@ const buildTemplateSections = async ({
     }
   }
 
-  return SECTION_ORDER.flatMap((type) => {
-    const exercises = groupedByType.get(type) ?? [];
-    return exercises.length > 0 ? [{ type, exercises }] : [];
-  });
+  return {
+    sections: SECTION_ORDER.flatMap((type) => {
+      const exercises = groupedByType.get(type) ?? [];
+      return exercises.length > 0 ? [{ type, exercises }] : [];
+    }),
+    newExercises,
+  };
 };
 
 const toCreateWorkoutSessionInput = (session: WorkoutSession): CreateWorkoutSessionInput => ({
@@ -210,7 +232,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
     }
 
-    const sections = await buildTemplateSections({
+    const { sections, newExercises } = await buildTemplateSections({
       sections: parsed.data.sections,
       userId: request.userId,
     });
@@ -226,7 +248,12 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       },
     });
 
-    return reply.code(201).send({ data: template });
+    return reply.code(201).send({
+      data: {
+        template,
+        newExercises,
+      },
+    });
   });
 
   app.put<{ Params: { id: string } }>('/workout-templates/:id', async (request, reply) => {
@@ -245,7 +272,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const sections = await buildTemplateSections({
+    const { sections } = await buildTemplateSections({
       sections: parsed.data.sections,
       userId: request.userId,
     });
@@ -357,10 +384,11 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       for (const set of parsed.data.sets) {
-        const exerciseId = await resolveExerciseIdByName({
+        const resolvedExercise = await resolveExerciseIdByName({
           name: set.exerciseName,
           userId: request.userId,
         });
+        const exerciseId = resolvedExercise.exerciseId;
         if (!exerciseOrder.has(exerciseId)) {
           exerciseOrder.set(exerciseId, exerciseOrder.size);
         }
