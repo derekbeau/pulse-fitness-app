@@ -52,6 +52,11 @@ const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
   message: 'Workout session not found',
 } as const;
 
+const WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE = {
+  code: 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS',
+  message: 'Cannot remove an exercise with logged sets',
+} as const;
+
 const DEFAULT_EXERCISE_CATEGORY = 'compound' as const;
 const DEFAULT_EXERCISE_TRACKING_TYPE = 'weight_reps' as const;
 const SITUATIONAL_CUE_PATTERN =
@@ -293,6 +298,83 @@ const buildInitialSessionSets = (
   }
 
   return sets;
+};
+
+const buildExerciseSectionOrder = (
+  sets: CreateWorkoutSessionInput['sets'],
+): Map<string, { section: WorkoutTemplateSectionType | null; orderIndex: number }> => {
+  const byExerciseId = new Map<string, { section: WorkoutTemplateSectionType | null; orderIndex: number }>();
+
+  for (const set of sets) {
+    const existing = byExerciseId.get(set.exerciseId);
+    const setOrderIndex = set.orderIndex ?? 0;
+    if (!existing || setOrderIndex < existing.orderIndex) {
+      byExerciseId.set(set.exerciseId, {
+        section: set.section,
+        orderIndex: setOrderIndex,
+      });
+    }
+  }
+
+  return byExerciseId;
+};
+
+const reorderSessionSetsByExercise = (
+  sets: CreateWorkoutSessionInput['sets'],
+  reorderExerciseIds: string[],
+) => {
+  const exerciseOrder = buildExerciseSectionOrder(sets);
+  const existingBySection = new Map<WorkoutTemplateSectionType | null, string[]>();
+
+  for (const [exerciseId, metadata] of exerciseOrder.entries()) {
+    const current = existingBySection.get(metadata.section) ?? [];
+    current.push(exerciseId);
+    existingBySection.set(metadata.section, current);
+  }
+
+  for (const [section, exerciseIds] of existingBySection.entries()) {
+    exerciseIds.sort((left, right) => {
+      const leftOrder = exerciseOrder.get(left)?.orderIndex ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = exerciseOrder.get(right)?.orderIndex ?? Number.MAX_SAFE_INTEGER;
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      return left.localeCompare(right);
+    });
+    existingBySection.set(section, exerciseIds);
+  }
+
+  const reorderedBySection = new Map<WorkoutTemplateSectionType | null, string[]>();
+
+  for (const exerciseId of reorderExerciseIds) {
+    const metadata = exerciseOrder.get(exerciseId);
+    if (!metadata) {
+      continue;
+    }
+    const sectionExerciseIds = reorderedBySection.get(metadata.section) ?? [];
+    if (!sectionExerciseIds.includes(exerciseId)) {
+      sectionExerciseIds.push(exerciseId);
+      reorderedBySection.set(metadata.section, sectionExerciseIds);
+    }
+  }
+
+  for (const [section, currentIds] of existingBySection.entries()) {
+    const preferred = reorderedBySection.get(section) ?? [];
+    const merged = [...preferred, ...currentIds.filter((exerciseId) => !preferred.includes(exerciseId))];
+    reorderedBySection.set(section, merged);
+  }
+
+  const nextOrderIndexByExerciseId = new Map<string, number>();
+  for (const exerciseIds of reorderedBySection.values()) {
+    exerciseIds.forEach((exerciseId, index) => {
+      nextOrderIndexByExerciseId.set(exerciseId, index);
+    });
+  }
+
+  return sets.map((set) => ({
+    ...set,
+    orderIndex: nextOrderIndexByExerciseId.get(set.exerciseId) ?? set.orderIndex ?? 0,
+  }));
 };
 
 export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
@@ -558,6 +640,86 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
         }
         return left.setNumber - right.setNumber;
       });
+    }
+
+    if (parsed.data.addExercises) {
+      const exerciseSectionOrder = buildExerciseSectionOrder(merged.sets);
+      const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType | null, number>();
+
+      for (const metadata of exerciseSectionOrder.values()) {
+        const current = nextOrderIndexBySection.get(metadata.section) ?? 0;
+        nextOrderIndexBySection.set(metadata.section, Math.max(current, metadata.orderIndex + 1));
+      }
+
+      for (const exercise of parsed.data.addExercises) {
+        const resolvedExercise = await resolveExerciseIdByName({
+          name: exercise.name,
+          userId: request.userId,
+        });
+        const existingMetadata = exerciseSectionOrder.get(resolvedExercise.exerciseId);
+        const targetSection = existingMetadata?.section ?? exercise.section;
+        const orderIndex =
+          existingMetadata?.orderIndex ?? nextOrderIndexBySection.get(targetSection) ?? 0;
+        const maxSetNumber = merged.sets
+          .filter((set) => set.exerciseId === resolvedExercise.exerciseId)
+          .reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0);
+
+        for (let setOffset = 1; setOffset <= exercise.sets; setOffset += 1) {
+          merged.sets.push({
+            exerciseId: resolvedExercise.exerciseId,
+            orderIndex,
+            setNumber: maxSetNumber + setOffset,
+            weight: exercise.weight ?? null,
+            reps: exercise.reps ?? null,
+            completed: false,
+            skipped: false,
+            section: targetSection,
+            notes: null,
+          });
+        }
+
+        if (!existingMetadata) {
+          exerciseSectionOrder.set(resolvedExercise.exerciseId, {
+            section: targetSection,
+            orderIndex,
+          });
+          nextOrderIndexBySection.set(targetSection, orderIndex + 1);
+        }
+      }
+    }
+
+    if (parsed.data.removeExercises) {
+      const removeExerciseIds = new Set(parsed.data.removeExercises);
+      const hasLoggedSets = merged.sets.some(
+        (set) => removeExerciseIds.has(set.exerciseId) && set.completed,
+      );
+      if (hasLoggedSets) {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE.code,
+          WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE.message,
+        );
+      }
+
+      merged.sets = merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId));
+    }
+
+    if (parsed.data.reorderExercises) {
+      const currentExerciseIds = new Set(merged.sets.map((set) => set.exerciseId));
+      const hasUnknownExercise = parsed.data.reorderExercises.some(
+        (exerciseId) => !currentExerciseIds.has(exerciseId),
+      );
+      if (hasUnknownExercise) {
+        return sendError(
+          reply,
+          400,
+          'VALIDATION_ERROR',
+          'reorderExercises contains unknown exercise ids',
+        );
+      }
+
+      merged.sets = reorderSessionSetsByExercise(merged.sets, parsed.data.reorderExercises);
     }
 
     if (parsed.data.status !== undefined) {

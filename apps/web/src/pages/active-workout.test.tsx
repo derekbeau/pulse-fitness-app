@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
@@ -10,8 +11,24 @@ import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/sess
 
 import { ActiveWorkoutPage } from './active-workout';
 
+vi.mock('sonner', () => {
+  const toastMock = vi.fn() as ReturnType<typeof vi.fn> & {
+    success: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
+  toastMock.success = vi.fn();
+  toastMock.error = vi.fn();
+
+  return {
+    toast: toastMock,
+  };
+});
+
 describe('ActiveWorkoutPage', () => {
   beforeEach(() => {
+    vi.mocked(toast).mockClear();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
     vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'dev-user');
@@ -242,6 +259,167 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage('/workouts/active?template=upper-push');
 
     expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('polls for agent session updates and preserves in-progress inputs', async () => {
+    const sessionId = 'session-polling-1';
+    const fetchMock = vi.fn();
+    const baseStartedAt = Date.parse('2026-03-06T12:00:00.000Z');
+    let currentSession = {
+      id: sessionId,
+      userId: 'user-1',
+      templateId: 'upper-push',
+      name: 'Upper Push',
+      date: '2026-03-06',
+      status: 'in-progress' as const,
+      startedAt: baseStartedAt,
+      completedAt: null,
+      duration: null,
+      timeSegments: [{ start: '2026-03-06T12:00:00.000Z', end: null }],
+      feedback: null,
+      notes: null,
+      sets: [
+        {
+          id: 'set-1',
+          exerciseId: 'incline-dumbbell-press',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'main' as const,
+          notes: null,
+          createdAt: baseStartedAt,
+        },
+      ],
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 0,
+          section: 'main' as const,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'incline-dumbbell-press',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main' as const,
+              notes: null,
+              createdAt: baseStartedAt,
+            },
+          ],
+        },
+      ],
+      createdAt: baseStartedAt,
+      updatedAt: baseStartedAt,
+    };
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [buildWorkoutSessionListItem({ id: sessionId, exerciseCount: 1 })],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions/') && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    const firstExerciseCard = screen.getByRole('heading', {
+      level: 3,
+      name: 'Incline Dumbbell Press',
+    });
+    expect(firstExerciseCard).toBeInTheDocument();
+
+    const inclineCard = getExerciseCard('Incline Dumbbell Press');
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 1'), {
+      target: { value: '9' },
+    });
+
+    currentSession = {
+      ...currentSession,
+      sets: [
+        ...currentSession.sets,
+        {
+          id: 'set-2',
+          exerciseId: 'seated-dumbbell-shoulder-press',
+          orderIndex: 1,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'main',
+          notes: null,
+          createdAt: baseStartedAt + 1,
+        },
+      ],
+      exercises: [
+        ...currentSession.exercises,
+        {
+          exerciseId: 'seated-dumbbell-shoulder-press',
+          exerciseName: 'Seated Dumbbell Shoulder Press',
+          orderIndex: 1,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-2',
+              exerciseId: 'seated-dumbbell-shoulder-press',
+              orderIndex: 1,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: baseStartedAt + 1,
+            },
+          ],
+        },
+      ],
+      updatedAt: baseStartedAt + 10_000,
+    };
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_200);
+    });
+
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Seated Dumbbell Shoulder Press' }),
+    ).toBeInTheDocument();
+    expect(within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Reps for set 1')).toHaveValue(9);
+    expect(vi.mocked(toast)).toHaveBeenCalledWith('Workout updated by agent');
   });
 
   it('pauses and resumes an active session timer using segmented duration', async () => {

@@ -559,18 +559,20 @@ Response (`201`):
 
 #### `PATCH /api/agent/workout-sessions/:id`
 
-Updates session status/notes and upserts set logs by `exerciseName + setNumber`.
+Updates session status/notes, upserts set logs by `exerciseName + setNumber`, and supports
+mid-session structural edits.
 
 Request:
 
 ```json
 {
-  "status": "completed",
-  "notes": "Solid session",
+  "notes": "Agent adjusted plan mid-session",
   "sets": [
-    { "exerciseName": "Bench Press", "setNumber": 1, "weight": 105, "reps": 7 },
-    { "exerciseName": "Squat", "setNumber": 1, "weight": 225, "reps": 5 }
-  ]
+    { "exerciseName": "Bench Press", "setNumber": 1, "weight": 105, "reps": 7 }
+  ],
+  "addExercises": [{ "name": "Goblet Squat", "sets": 2, "reps": 10, "section": "main" }],
+  "removeExercises": ["exercise-unstarted-isolation"],
+  "reorderExercises": ["exercise-bench-press", "exercise-goblet-squat"]
 }
 ```
 
@@ -590,6 +592,22 @@ Response (`200`):
     "duration": 62,
     "feedback": null,
     "notes": "Solid session",
+    "exercises": [
+      {
+        "exerciseId": "exercise-bench-press",
+        "exerciseName": "Bench Press",
+        "orderIndex": 0,
+        "section": "main",
+        "sets": [{ "id": "set-1", "exerciseId": "exercise-bench-press", "setNumber": 1 }]
+      },
+      {
+        "exerciseId": "exercise-goblet-squat",
+        "exerciseName": "Goblet Squat",
+        "orderIndex": 1,
+        "section": "main",
+        "sets": [{ "id": "set-2", "exerciseId": "exercise-goblet-squat", "setNumber": 1 }]
+      }
+    ],
     "sets": [
       {
         "id": "set-1",
@@ -626,8 +644,12 @@ Behavior notes:
 
 - Unknown exercise names are auto-created.
 - Upserted sets are marked `completed: true`, `skipped: false`.
+- `addExercises` appends planned sets for the exercise (`completed: false`).
+- `removeExercises` is allowed only when that exercise has no completed sets.
+- `reorderExercises` updates exercise order while preserving set data.
 - Completing a session sets `completedAt` and duration.
 - `404 WORKOUT_SESSION_NOT_FOUND` if missing.
+- `409 WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS` when removing an exercise that has logged sets.
 
 ### Daily Tracking
 

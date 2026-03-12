@@ -19,7 +19,13 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - `instructions`
    - `formCues`
    - `tags`
-9. Start session via `POST /api/agent/workout-sessions` and log progress via `PATCH /api/agent/workout-sessions/:id`.
+9. Start session via `POST /api/agent/workout-sessions`.
+10. During the session, use `PATCH /api/agent/workout-sessions/:id` for:
+   - set logs: `sets: [{ exerciseName, setNumber, weight, reps }]`
+   - add exercises: `addExercises: [{ name, sets, reps, section }]`
+   - remove unstarted exercises: `removeExercises: [exerciseId]`
+   - reorder exercises: `reorderExercises: [exerciseId, ...]`
+11. Do not remove exercises that already have completed sets (`409 WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS`).
 
 ## Habits
 

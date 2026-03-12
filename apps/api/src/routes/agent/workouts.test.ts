@@ -828,6 +828,368 @@ describe('agent workouts routes', () => {
   });
 
   describe('PATCH /api/agent/workout-sessions/:id', () => {
+    it('adds exercises to an active session', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'exercise-bench',
+              setNumber: 1,
+              weight: 100,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 1,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(findVisibleExerciseByName).mockResolvedValue(undefined);
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
+        vi.mocked(createExercise).mockResolvedValue({
+          id: 'exercise-goblet-squat',
+          userId: 'user-1',
+          name: 'Goblet Squat',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: [],
+          muscleGroups: [],
+          equipment: '',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutSession).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10, section: 'main' }],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(vi.mocked(updateWorkoutSession)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            input: expect.objectContaining({
+              sets: expect.arrayContaining([
+                expect.objectContaining({
+                  exerciseId: 'exercise-bench',
+                  setNumber: 1,
+                  completed: true,
+                }),
+                expect.objectContaining({
+                  exerciseId: 'exercise-goblet-squat',
+                  setNumber: 1,
+                  reps: 10,
+                  completed: false,
+                  section: 'main',
+                }),
+                expect.objectContaining({
+                  exerciseId: 'exercise-goblet-squat',
+                  setNumber: 2,
+                  reps: 10,
+                  completed: false,
+                  section: 'main',
+                }),
+              ]),
+            }),
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('blocks removing exercises that have logged sets', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'exercise-bench',
+              setNumber: 1,
+              weight: 100,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 1,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            removeExercises: ['exercise-bench'],
+          },
+        });
+
+        expect(response.statusCode).toBe(409);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS',
+            message: 'Cannot remove an exercise with logged sets',
+          },
+        });
+        expect(vi.mocked(updateWorkoutSession)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('removes exercises that have no logged sets', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'exercise-bench',
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 1,
+            },
+            {
+              id: 'set-2',
+              exerciseId: 'exercise-row',
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 2,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutSession).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            removeExercises: ['exercise-bench'],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const updateCall = vi.mocked(updateWorkoutSession).mock.calls.at(0);
+        expect(updateCall?.[0].input.sets.map((set) => set.exerciseId)).toEqual(['exercise-row']);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('reorders exercises while preserving logged set data', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutSessionById).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'exercise-bench',
+              setNumber: 1,
+              weight: 105,
+              reps: 7,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 1,
+            },
+            {
+              id: 'set-2',
+              exerciseId: 'exercise-row',
+              setNumber: 1,
+              weight: 85,
+              reps: 10,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: 2,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutSession).mockResolvedValue({
+          id: 'session-1',
+          userId: 'user-1',
+          templateId: null,
+          name: 'Upper Session',
+          date: '2023-11-14',
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/workout-sessions/session-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            reorderExercises: ['exercise-row', 'exercise-bench'],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const updateCall = vi.mocked(updateWorkoutSession).mock.calls.at(0);
+        expect(updateCall?.[0].input.sets).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exerciseId: 'exercise-row',
+              orderIndex: 0,
+              completed: true,
+              weight: 85,
+              reps: 10,
+            }),
+            expect.objectContaining({
+              exerciseId: 'exercise-bench',
+              orderIndex: 1,
+              completed: true,
+              weight: 105,
+              reps: 7,
+            }),
+          ]),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
     it('resolves exercise names and upserts sets', async () => {
       const app = buildServer();
 
