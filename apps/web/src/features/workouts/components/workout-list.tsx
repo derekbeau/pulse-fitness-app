@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Activity,
   CalendarCheck2,
@@ -15,33 +15,35 @@ import type {
   ScheduledWorkoutListItem,
   WorkoutSessionListItem,
   WorkoutSessionStatus,
+  WorkoutTemplate,
 } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 import {
-  useDeleteScheduledWorkout,
+  useRescheduleWorkout,
   useScheduledWorkouts,
-  useUpdateScheduledWorkout,
+  useUnscheduleWorkout,
+  useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
-import {
-  ActiveScheduledWorkoutListItem,
-  isActiveScheduledWorkout,
-  isActiveSessionListItem,
-} from '../lib/workout-filters';
+import { isActiveSessionListItem } from '../lib/workout-filters';
+import { useStartSession } from '@/hooks/use-workout-session';
+import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -93,9 +95,7 @@ export function WorkoutList({
   const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
   const activeSessions = resolvedSessions.filter(isActiveSessionListItem);
   const linkedSessionIds = new Set(activeSessions.map((session) => session.id));
-  const resolvedScheduledWorkouts = (scheduledWorkouts ?? scheduledQuery.data ?? []).filter(
-    isActiveScheduledWorkout,
-  );
+  const resolvedScheduledWorkouts = scheduledWorkouts ?? scheduledQuery.data ?? [];
 
   const scheduledItems = resolvedScheduledWorkouts
     .map((scheduledWorkout) => ({
@@ -103,6 +103,7 @@ export function WorkoutList({
       isMissed:
         scheduledWorkout.date < TODAY_KEY &&
         (scheduledWorkout.sessionId == null || !linkedSessionIds.has(scheduledWorkout.sessionId)),
+      isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
     }))
     .sort((left, right) => left.date.localeCompare(right.date));
 
@@ -216,64 +217,98 @@ function ScheduledWorkoutCard({
   scheduledWorkout,
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
-  scheduledWorkout: ActiveScheduledWorkoutListItem & { isMissed: boolean };
+  scheduledWorkout: ScheduledWorkoutListItem & { isMissed: boolean; isUnavailable: boolean };
 }) {
-  const updateScheduledWorkoutMutation = useUpdateScheduledWorkout();
-  const deleteScheduledWorkoutMutation = useDeleteScheduledWorkout();
+  const navigate = useNavigate();
+  const rescheduleWorkoutMutation = useRescheduleWorkout();
+  const unscheduleWorkoutMutation = useUnscheduleWorkout();
+  const startSessionMutation = useStartSession();
+  const templateId = scheduledWorkout.templateId ?? '';
+  const templateQuery = useWorkoutTemplate(templateId);
 
   const isMutating =
-    updateScheduledWorkoutMutation.isPending || deleteScheduledWorkoutMutation.isPending;
+    rescheduleWorkoutMutation.isPending ||
+    unscheduleWorkoutMutation.isPending ||
+    startSessionMutation.isPending;
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
+  const isStartDisabled = isMutating || !isTemplateAvailable || templateQuery.isPending;
 
   async function handleReschedule(requestedDate: string) {
-    await updateScheduledWorkoutMutation.mutateAsync({
+    await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
   }
 
-  function handleRemove() {
-    if (typeof window === 'undefined') {
+  async function handleStartNow() {
+    if (!templateQuery.data || !scheduledWorkout.templateId || !scheduledWorkout.templateName) {
       return;
     }
 
-    if (!window.confirm('Remove this scheduled workout?')) {
+    const startedAt = Date.now();
+    const session = await startSessionMutation.mutateAsync({
+      date: toDateKey(new Date(startedAt)),
+      name: scheduledWorkout.templateName,
+      sets: buildInitialSessionSets(templateQuery.data),
+      startedAt,
+      templateId: scheduledWorkout.templateId,
+    });
+    navigate(`/workouts/active?template=${scheduledWorkout.templateId}&sessionId=${session.id}`);
+  }
+
+  async function handleRemove() {
+    if (!scheduledWorkout.id) {
       return;
     }
 
-    void deleteScheduledWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+    await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+    setIsRemoveDialogOpen(false);
   }
 
   return (
     <Card
       className={cn(
         'gap-4 border-l-4 py-0',
-        scheduledWorkout.isMissed
-          ? 'border-amber-500/55 bg-amber-500/6'
-          : 'border-slate-300/70 dark:border-slate-700/70',
+        scheduledWorkout.isUnavailable
+          ? 'border-destructive/45 bg-destructive/5'
+          : scheduledWorkout.isMissed
+            ? 'border-amber-500/55 bg-amber-500/6'
+            : 'border-slate-300/70 dark:border-slate-700/70',
       )}
     >
       <CardHeader className="gap-3 py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle>{scheduledWorkout.templateName}</CardTitle>
-            <p className="text-sm text-muted">{sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}</p>
+            <CardTitle>{scheduledWorkout.templateName ?? 'Workout unavailable'}</CardTitle>
+            <p className="text-sm text-muted">
+              {sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}
+            </p>
           </div>
 
           <span
             className={cn(
               'inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
-              scheduledWorkout.isMissed
-                ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-                : 'bg-secondary text-muted-foreground',
+              scheduledWorkout.isUnavailable
+                ? 'bg-destructive/10 text-destructive'
+                : scheduledWorkout.isMissed
+                  ? 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                  : 'bg-secondary text-muted-foreground',
             )}
           >
-            {scheduledWorkout.isMissed ? (
+            {scheduledWorkout.isUnavailable ? (
+              <TriangleAlert aria-hidden="true" className="size-3.5" />
+            ) : scheduledWorkout.isMissed ? (
               <TriangleAlert aria-hidden="true" className="size-3.5" />
             ) : (
               <CalendarClock aria-hidden="true" className="size-3.5" />
             )}
-            {scheduledWorkout.isMissed ? 'Missed' : 'Scheduled'}
+            {scheduledWorkout.isUnavailable
+              ? 'Unavailable'
+              : scheduledWorkout.isMissed
+                ? 'Missed'
+                : 'Scheduled'}
           </span>
         </div>
       </CardHeader>
@@ -284,15 +319,27 @@ function ScheduledWorkoutCard({
             icon={CalendarPlus2}
             label={`Scheduled ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}`}
           />
-          {scheduledWorkout.isMissed ? <WorkoutStat icon={TriangleAlert} label="No active linked session" /> : null}
+          {scheduledWorkout.isUnavailable ? (
+            <WorkoutStat icon={TriangleAlert} label="Template was deleted from trash/soft delete" />
+          ) : null}
+          {scheduledWorkout.isMissed ? (
+            <WorkoutStat icon={TriangleAlert} label="No active linked session" />
+          ) : null}
         </ul>
 
         <div className="flex flex-wrap gap-2">
-          <Button asChild disabled={isMutating} size="sm">
-            <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>Start</Link>
+          <Button
+            disabled={isStartDisabled}
+            onClick={() => {
+              void handleStartNow();
+            }}
+            size="sm"
+            type="button"
+          >
+            Start now
           </Button>
           <Button
-            disabled={isMutating}
+            disabled={isMutating || !isTemplateAvailable}
             onClick={() => setIsRescheduleDialogOpen(true)}
             size="sm"
             type="button"
@@ -300,101 +347,49 @@ function ScheduledWorkoutCard({
           >
             Reschedule
           </Button>
-          <Button disabled={isMutating} onClick={handleRemove} size="sm" type="button" variant="ghost">
-            Remove
+          <Button
+            disabled={isMutating}
+            onClick={() => setIsRemoveDialogOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Remove from schedule
           </Button>
+          {!isTemplateAvailable && scheduledWorkout.templateId ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>
+                Open template view
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </CardContent>
-      <RescheduleScheduledWorkoutDialog
-        currentDate={scheduledWorkout.date}
-        isPending={updateScheduledWorkoutMutation.isPending}
+      <ScheduleWorkoutDialog
+        description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
+        initialDate={scheduledWorkout.date}
+        isPending={rescheduleWorkoutMutation.isPending}
         onOpenChange={setIsRescheduleDialogOpen}
-        onReschedule={handleReschedule}
+        onSubmitDate={handleReschedule}
         open={isRescheduleDialogOpen}
-        templateName={scheduledWorkout.templateName}
+        submitLabel="Save"
+        title="Reschedule workout"
       />
+      <AlertDialog onOpenChange={setIsRemoveDialogOpen} open={isRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this scheduled workout?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove it from your calendar.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={isMutating} onClick={() => void handleRemove()}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
-  );
-}
-
-function RescheduleScheduledWorkoutDialog({
-  currentDate,
-  isPending,
-  onOpenChange,
-  onReschedule,
-  open,
-  templateName,
-}: {
-  currentDate: string;
-  isPending: boolean;
-  onOpenChange: (open: boolean) => void;
-  onReschedule: (date: string) => Promise<unknown>;
-  open: boolean;
-  templateName: string | null;
-}) {
-  const [requestedDate, setRequestedDate] = useState(currentDate);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      setRequestedDate(currentDate);
-      setErrorMessage(null);
-    }
-    onOpenChange(nextOpen);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalized = requestedDate.trim();
-    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
-    if (!isIsoDate) {
-      setErrorMessage('Enter a valid date in YYYY-MM-DD format.');
-      return;
-    }
-
-    if (normalized === currentDate) {
-      setErrorMessage('Pick a different date to reschedule.');
-      return;
-    }
-
-    setErrorMessage(null);
-    try {
-      await onReschedule(normalized);
-      handleOpenChange(false);
-    } catch {
-      setErrorMessage('Unable to reschedule right now. Try again.');
-    }
-  }
-
-  return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reschedule workout</DialogTitle>
-          <DialogDescription>
-            Move {templateName ?? 'this workout'} to a new date.
-          </DialogDescription>
-        </DialogHeader>
-        <form className="space-y-3" onSubmit={handleSubmit}>
-          <Input
-            aria-invalid={errorMessage != null}
-            min="1900-01-01"
-            onChange={(event) => setRequestedDate(event.target.value)}
-            type="date"
-            value={requestedDate}
-          />
-          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
-          <DialogFooter>
-            <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
-              Cancel
-            </Button>
-            <Button disabled={isPending} type="submit">
-              Save
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -450,7 +445,11 @@ function WorkoutListCard({
         <CardContent className="pb-5">
           <ul className="flex flex-wrap gap-3 text-sm text-muted">
             {buildStatusStats(session).map((stat) => (
-              <WorkoutStat icon={stat.icon} key={`${session.id}-${stat.label}`} label={stat.label} />
+              <WorkoutStat
+                icon={stat.icon}
+                key={`${session.id}-${stat.label}`}
+                label={stat.label}
+              />
             ))}
           </ul>
         </CardContent>
@@ -586,4 +585,23 @@ function getScheduledRange(today: string) {
     from: toDateKey(from),
     to: toDateKey(to),
   };
+}
+
+function buildInitialSessionSets(template: WorkoutTemplate) {
+  return template.sections.flatMap((section) =>
+    section.exercises.flatMap((exercise, exerciseIndex) => {
+      if (exercise.sets === null || exercise.sets < 1) {
+        return [];
+      }
+
+      return Array.from({ length: exercise.sets }, (_, index) => ({
+        exerciseId: exercise.exerciseId,
+        orderIndex: exerciseIndex,
+        reps: null,
+        section: section.type,
+        setNumber: index + 1,
+        weight: null,
+      }));
+    }),
+  );
 }

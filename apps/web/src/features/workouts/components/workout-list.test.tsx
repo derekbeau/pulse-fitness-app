@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -57,16 +57,13 @@ describe('WorkoutList', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
-    const startLinks = screen.getAllByRole('link', { name: 'Start' });
-    expect(
-      startLinks.some((link) => link.getAttribute('href') === '/workouts/active?template=template-push'),
-    ).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Start now' }).length).toBeGreaterThan(0);
     expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Paused').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
   });
 
-  it('filters soft-deleted template rows from scheduled and session lists', async () => {
+  it('shows unavailable state for soft-deleted scheduled templates and hides stale start actions', async () => {
     const sessions = [
       createSession({
         id: 'session-hidden',
@@ -95,7 +92,12 @@ describe('WorkoutList', () => {
     renderWorkoutList(sessions, scheduledWorkouts);
 
     expect(await screen.findByRole('link', { name: /visible workout/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Start' })).toHaveLength(1);
+    expect(screen.getByText('Workout unavailable')).toBeInTheDocument();
+    const unavailableCard = screen.getByText('Workout unavailable').closest('[data-slot="card"]');
+    expect(unavailableCard).not.toBeNull();
+    expect(
+      within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start now' }),
+    ).toBeDisabled();
   });
 
   it('shows planned-workout onboarding when no scheduled or active workouts exist', async () => {
@@ -124,10 +126,12 @@ describe('WorkoutList', () => {
   it('shows an empty state when no workout sessions or schedules are returned', async () => {
     renderWorkoutList([], []);
 
-    expect(await screen.findByText('No workouts yet. Plan one to get started.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No workouts yet. Plan one to get started.'),
+    ).toBeInTheDocument();
   });
 
-  it('opens a date-input dialog for rescheduling', async () => {
+  it('opens a calendar dialog for rescheduling', async () => {
     const sessions = [
       createSession({
         id: 'session-completed',
@@ -150,7 +154,7 @@ describe('WorkoutList', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
 
     expect(await screen.findByRole('heading', { name: 'Reschedule workout' })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('2026-03-15')).toHaveAttribute('type', 'date');
+    expect(screen.getByText('Move Upper Push to a new date.')).toBeInTheDocument();
   });
 });
 

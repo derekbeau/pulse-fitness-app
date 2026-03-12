@@ -7,6 +7,7 @@ import { TemplateBrowser } from './template-browser';
 
 const renameMutateMock = vi.fn();
 const deleteMutateMock = vi.fn();
+const scheduleMutateAsyncMock = vi.fn();
 
 vi.mock('@/features/workouts/api/workouts', () => ({
   useRenameTemplate: () => ({
@@ -16,6 +17,10 @@ vi.mock('@/features/workouts/api/workouts', () => ({
   useDeleteTemplate: () => ({
     isPending: false,
     mutate: deleteMutateMock,
+  }),
+  useScheduleWorkout: () => ({
+    isPending: false,
+    mutateAsync: scheduleMutateAsyncMock,
   }),
 }));
 
@@ -40,6 +45,7 @@ describe('TemplateBrowser', () => {
   beforeEach(() => {
     renameMutateMock.mockReset();
     deleteMutateMock.mockReset();
+    scheduleMutateAsyncMock.mockReset();
   });
 
   it('renders updated copy and empty state for users without templates', () => {
@@ -164,6 +170,37 @@ describe('TemplateBrowser', () => {
       expect.objectContaining({
         onError: expect.any(Function),
         onSuccess: expect.any(Function),
+      }),
+    );
+  });
+
+  it('opens schedule dialog from template actions and submits selected date', async () => {
+    scheduleMutateAsyncMock.mockResolvedValue({});
+
+    render(
+      <MemoryRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            {
+              id: 'template-1',
+              name: 'Upper Push',
+              description: 'Chest and shoulders',
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Template actions for Upper Push' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule workout' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule' }));
+
+    expect(scheduleMutateAsyncMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateId: 'template-1',
       }),
     );
   });

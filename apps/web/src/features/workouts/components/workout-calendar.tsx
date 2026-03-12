@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, EllipsisVertical } from 'lucide-react';
 import type { WorkoutSessionListItem } from '@pulse/shared';
 import { Link } from 'react-router';
@@ -6,20 +6,11 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import {
   addDays,
   differenceInDays,
@@ -30,9 +21,9 @@ import {
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 import {
-  useDeleteScheduledWorkout,
+  useRescheduleWorkout,
   useScheduledWorkouts,
-  useUpdateScheduledWorkout,
+  useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
 import {
@@ -40,6 +31,7 @@ import {
   isActiveScheduledWorkout,
   isActiveSessionListItem,
 } from '../lib/workout-filters';
+import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const TODAY_KEY = toDateKey(new Date());
@@ -118,7 +110,9 @@ export function WorkoutCalendar({
     () =>
       activeSessions.filter(
         (session) =>
-          session.status === 'completed' && session.date >= dateRange.from && session.date <= dateRange.to,
+          session.status === 'completed' &&
+          session.date >= dateRange.from &&
+          session.date <= dateRange.to,
       ),
     [activeSessions, dateRange.from, dateRange.to],
   );
@@ -172,7 +166,9 @@ export function WorkoutCalendar({
   function handleMonthChange(offset: number) {
     const nextMonth = addMonths(visibleMonth, offset);
     setVisibleMonth(nextMonth);
-    setSelectedDateKey(getDefaultSelectedDateKey(nextMonth, completedSessionByDate, scheduledByDate));
+    setSelectedDateKey(
+      getDefaultSelectedDateKey(nextMonth, completedSessionByDate, scheduledByDate),
+    );
   }
 
   return (
@@ -215,7 +211,9 @@ export function WorkoutCalendar({
           <LegendDot className="bg-emerald-500" label="Completed" />
           <LegendDot className="border border-slate-500 bg-transparent" label="Scheduled" />
           <LegendDot className="bg-orange-500" label="In progress" />
-          <span className="rounded-full border border-primary/30 px-2 py-1 text-foreground">Today</span>
+          <span className="rounded-full border border-primary/30 px-2 py-1 text-foreground">
+            Today
+          </span>
         </div>
       </CardHeader>
 
@@ -312,7 +310,9 @@ export function WorkoutCalendar({
                     >
                       {details.templateName ?? 'No workout'}
                     </p>
-                    <p className="truncate text-[10px] leading-snug text-muted">{details.notes ?? ''}</p>
+                    <p className="truncate text-[10px] leading-snug text-muted">
+                      {details.notes ?? ''}
+                    </p>
                   </div>
 
                   <div className="mt-auto flex items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
@@ -335,7 +335,9 @@ export function WorkoutCalendar({
                       />
                     ) : null}
                     {isToday ? (
-                      <span className="hidden text-[11px] font-medium text-primary sm:inline">Today</span>
+                      <span className="hidden text-[11px] font-medium text-primary sm:inline">
+                        Today
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -360,7 +362,9 @@ export function WorkoutCalendar({
             >
               Day details
             </p>
-            <h3 className="text-2xl font-semibold">{selectedDay.templateName ?? 'No workout planned'}</h3>
+            <h3 className="text-2xl font-semibold">
+              {selectedDay.templateName ?? 'No workout planned'}
+            </h3>
             <p
               className={cn(
                 'text-sm',
@@ -425,7 +429,9 @@ export function WorkoutCalendar({
 
           {selectedDay.scheduledWorkouts.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Scheduled</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                Scheduled
+              </p>
               <div className="space-y-2">
                 {selectedDay.scheduledWorkouts.map((scheduledWorkout) => (
                   <div
@@ -433,7 +439,9 @@ export function WorkoutCalendar({
                     key={scheduledWorkout.id}
                   >
                     <div>
-                      <p className="text-sm font-medium text-foreground">{scheduledWorkout.templateName}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {scheduledWorkout.templateName}
+                      </p>
                       <p className="text-xs text-muted">Scheduled</p>
                     </div>
                     <ScheduledWorkoutActions
@@ -466,12 +474,12 @@ function ScheduledWorkoutActions({
   compact?: boolean;
   scheduledWorkout: ActiveScheduledWorkoutListItem;
 }) {
-  const updateScheduledWorkoutMutation = useUpdateScheduledWorkout();
-  const deleteScheduledWorkoutMutation = useDeleteScheduledWorkout();
+  const rescheduleWorkoutMutation = useRescheduleWorkout();
+  const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
 
   async function handleReschedule(requestedDate: string) {
-    await updateScheduledWorkoutMutation.mutateAsync({
+    await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
@@ -486,7 +494,7 @@ function ScheduledWorkoutActions({
       return;
     }
 
-    void deleteScheduledWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+    void unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
   }
 
   return (
@@ -494,7 +502,9 @@ function ScheduledWorkoutActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            aria-label={compact ? 'Scheduled workout actions' : `Actions for ${scheduledWorkout.templateName}`}
+            aria-label={
+              compact ? 'Scheduled workout actions' : `Actions for ${scheduledWorkout.templateName}`
+            }
             className={cn(
               'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
               compact && 'size-5 border-slate-500/70 px-0 py-0',
@@ -505,106 +515,33 @@ function ScheduledWorkoutActions({
             {compact ? <EllipsisVertical aria-hidden="true" className="size-3" /> : 'Scheduled'}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44" onClick={(event) => event.stopPropagation()}>
+        <DropdownMenuContent
+          align="end"
+          className="w-44"
+          onClick={(event) => event.stopPropagation()}
+        >
           <DropdownMenuItem asChild>
             <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>Start workout</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>Reschedule</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>
+            Reschedule
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleRemove} variant="destructive">
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <RescheduleScheduledWorkoutDialog
-        currentDate={scheduledWorkout.date}
-        isPending={updateScheduledWorkoutMutation.isPending}
+      <ScheduleWorkoutDialog
+        description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
+        initialDate={scheduledWorkout.date}
+        isPending={rescheduleWorkoutMutation.isPending}
         onOpenChange={setIsRescheduleDialogOpen}
-        onReschedule={handleReschedule}
+        onSubmitDate={handleReschedule}
         open={isRescheduleDialogOpen}
-        templateName={scheduledWorkout.templateName}
+        submitLabel="Save"
+        title="Reschedule workout"
       />
     </>
-  );
-}
-
-function RescheduleScheduledWorkoutDialog({
-  currentDate,
-  isPending,
-  onOpenChange,
-  onReschedule,
-  open,
-  templateName,
-}: {
-  currentDate: string;
-  isPending: boolean;
-  onOpenChange: (open: boolean) => void;
-  onReschedule: (date: string) => Promise<unknown>;
-  open: boolean;
-  templateName: string | null;
-}) {
-  const [requestedDate, setRequestedDate] = useState(currentDate);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      setRequestedDate(currentDate);
-      setErrorMessage(null);
-    }
-    onOpenChange(nextOpen);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalized = requestedDate.trim();
-    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
-    if (!isIsoDate) {
-      setErrorMessage('Enter a valid date in YYYY-MM-DD format.');
-      return;
-    }
-
-    if (normalized === currentDate) {
-      setErrorMessage('Pick a different date to reschedule.');
-      return;
-    }
-
-    setErrorMessage(null);
-    try {
-      await onReschedule(normalized);
-      handleOpenChange(false);
-    } catch {
-      setErrorMessage('Unable to reschedule right now. Try again.');
-    }
-  }
-
-  return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reschedule workout</DialogTitle>
-          <DialogDescription>
-            Move {templateName ?? 'this workout'} to a new date.
-          </DialogDescription>
-        </DialogHeader>
-        <form className="space-y-3" onSubmit={handleSubmit}>
-          <Input
-            aria-invalid={errorMessage != null}
-            min="1900-01-01"
-            onChange={(event) => setRequestedDate(event.target.value)}
-            type="date"
-            value={requestedDate}
-          />
-          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
-          <DialogFooter>
-            <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
-              Cancel
-            </Button>
-            <Button disabled={isPending} type="submit">
-              Save
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -639,7 +576,10 @@ function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
   }
 
   const templateName =
-    completedSession?.templateName ?? scheduledWorkouts[0]?.templateName ?? inProgressSession?.templateName ?? null;
+    completedSession?.templateName ??
+    scheduledWorkouts[0]?.templateName ??
+    inProgressSession?.templateName ??
+    null;
   const notes = hasCompleted
     ? `${completedSession.exerciseCount} exercise${completedSession.exerciseCount === 1 ? '' : 's'} logged`
     : hasScheduled
@@ -687,7 +627,10 @@ function getDetailStats(selectedDay: DayDetails) {
       { label: 'Status', value: 'In progress' },
       { label: 'Duration', value: 'Timer running' },
       { label: 'Exercises', value: `${selectedDay.inProgressSession.exerciseCount}` },
-      { label: 'Started', value: timeFormatter.format(new Date(selectedDay.inProgressSession.startedAt)) },
+      {
+        label: 'Started',
+        value: timeFormatter.format(new Date(selectedDay.inProgressSession.startedAt)),
+      },
     ];
   }
 
@@ -695,7 +638,10 @@ function getDetailStats(selectedDay: DayDetails) {
     return [
       { label: 'Status', value: 'Scheduled' },
       { label: 'Planned', value: `${selectedDay.scheduledWorkouts.length} workouts` },
-      { label: 'Focus', value: selectedDay.scheduledWorkouts[0]?.templateName ?? 'Workout planned' },
+      {
+        label: 'Focus',
+        value: selectedDay.scheduledWorkouts[0]?.templateName ?? 'Workout planned',
+      },
       { label: 'Readiness', value: 'Ready to start' },
     ];
   }

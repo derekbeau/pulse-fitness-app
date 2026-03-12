@@ -31,9 +31,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { useDeleteTemplate, useRenameTemplate } from '@/features/workouts/api/workouts';
+import {
+  useDeleteTemplate,
+  useRenameTemplate,
+  useScheduleWorkout,
+} from '@/features/workouts/api/workouts';
+import { toDateKey } from '@/lib/date-utils';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { ScheduleWorkoutDialog } from '@/features/workouts/components/schedule-workout-dialog';
 
 // Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
 interface TemplateSummary {
@@ -58,9 +64,11 @@ export function TemplateBrowser({
   const [searchQuery, setSearchQuery] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameTemplateMutation = useRenameTemplate();
   const deleteTemplateMutation = useDeleteTemplate();
+  const scheduleWorkoutMutation = useScheduleWorkout();
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const filteredTemplates = useMemo(
@@ -149,6 +157,16 @@ export function TemplateBrowser({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
+                      onSelect={() =>
+                        setScheduleTarget({
+                          id: template.id,
+                          name: template.name,
+                        })
+                      }
+                    >
+                      Schedule workout
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       onSelect={() => {
                         setRenameTarget({
                           id: template.id,
@@ -179,34 +197,38 @@ export function TemplateBrowser({
                   to={buildTemplateHref(template.id)}
                 >
                   <div className="flex flex-col gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-xl font-semibold text-foreground">{template.name}</h3>
-                      <ArrowRight aria-hidden="true" className="size-4 text-muted" />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-xl font-semibold text-foreground">{template.name}</h3>
+                        <ArrowRight aria-hidden="true" className="size-4 text-muted" />
+                      </div>
+                      {template.description ? (
+                        <p className="text-sm text-muted">{template.description}</p>
+                      ) : null}
                     </div>
-                    {template.description ? (
-                      <p className="text-sm text-muted">{template.description}</p>
-                    ) : null}
-                  </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {template.tags.map((tag) => (
-                      <Badge className="border-border bg-secondary/70" key={tag} variant="outline">
-                        {formatLabel(tag)}
-                      </Badge>
-                    ))}
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      {template.tags.map((tag) => (
+                        <Badge
+                          className="border-border bg-secondary/70"
+                          key={tag}
+                          variant="outline"
+                        >
+                          {formatLabel(tag)}
+                        </Badge>
+                      ))}
+                    </div>
 
-                  <div className="flex flex-wrap gap-3 text-sm text-muted">
-                    <div className="inline-flex items-center gap-2">
-                      <ListChecks aria-hidden="true" className="size-4" />
-                      <span>{`${exerciseCount} exercises`}</span>
+                    <div className="flex flex-wrap gap-3 text-sm text-muted">
+                      <div className="inline-flex items-center gap-2">
+                        <ListChecks aria-hidden="true" className="size-4" />
+                        <span>{`${exerciseCount} exercises`}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-2">
+                        <Tag aria-hidden="true" className="size-4" />
+                        <span>{`${template.tags.length} tags`}</span>
+                      </div>
                     </div>
-                    <div className="inline-flex items-center gap-2">
-                      <Tag aria-hidden="true" className="size-4" />
-                      <span>{`${template.tags.length} tags`}</span>
-                    </div>
-                  </div>
                   </div>
                 </Link>
               </div>
@@ -283,12 +305,12 @@ export function TemplateBrowser({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this template?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTemplateMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteTemplateMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleteTemplateMutation.isPending}
               onClick={(event) => {
@@ -320,6 +342,29 @@ export function TemplateBrowser({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ScheduleWorkoutDialog
+        description={`Pick a date for ${scheduleTarget?.name ?? 'this workout'}.`}
+        initialDate={toDateKey(new Date())}
+        isPending={scheduleWorkoutMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setScheduleTarget(null);
+          }
+        }}
+        onSubmitDate={async (date) => {
+          if (!scheduleTarget) {
+            return;
+          }
+
+          await scheduleWorkoutMutation.mutateAsync({
+            date,
+            templateId: scheduleTarget.id,
+          });
+        }}
+        open={scheduleTarget != null}
+        submitLabel="Schedule"
+        title="Schedule workout"
+      />
     </section>
   );
 }

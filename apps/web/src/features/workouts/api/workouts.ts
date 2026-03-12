@@ -1,5 +1,6 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  createScheduledWorkoutInputSchema,
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
@@ -12,6 +13,7 @@ import {
   updateWorkoutTemplateInputSchema,
   type Exercise,
   type ExerciseQueryParams,
+  type CreateScheduledWorkoutInput,
   type ScheduledWorkout,
   type ScheduledWorkoutListItem,
   type ScheduledWorkoutQueryParams,
@@ -67,6 +69,7 @@ type ReorderTemplateExercisesRequest = {
   section: 'warmup' | 'main' | 'cooldown';
   exerciseIds: string[];
 };
+type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
   id: string;
   date: string;
@@ -315,6 +318,17 @@ async function reorderTemplateExercises(input: ReorderTemplateExercisesRequest) 
   return payload.data;
 }
 
+async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
+  const parsedInput = createScheduledWorkoutInputSchema.parse(input);
+  const data = await apiRequest<unknown>('/api/v1/scheduled-workouts', {
+    body: JSON.stringify(parsedInput),
+    method: 'POST',
+  });
+  const payload = z.object({ data: scheduledWorkoutSchema }).parse({ data });
+
+  return payload.data;
+}
+
 async function updateScheduledWorkout(input: UpdateScheduledWorkoutRequest) {
   const parsedInput = updateScheduledWorkoutInputSchema.parse({
     date: input.date,
@@ -430,7 +444,31 @@ export function useStartWorkoutSession() {
   });
 }
 
-export function useUpdateScheduledWorkout() {
+export function useScheduleWorkout() {
+  const queryClient = useQueryClient();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  return useMutation<ScheduledWorkout, Error, CreateScheduledWorkoutRequest>({
+    mutationFn: createScheduledWorkout,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+      ]);
+      toast.success(`Scheduled for ${formatter.format(new Date(`${variables.date}T12:00:00`))}`);
+    },
+  });
+}
+
+export function useRescheduleWorkout() {
   const queryClient = useQueryClient();
 
   return useMutation<ScheduledWorkout, Error, UpdateScheduledWorkoutRequest>({
@@ -449,7 +487,7 @@ export function useUpdateScheduledWorkout() {
   });
 }
 
-export function useDeleteScheduledWorkout() {
+export function useUnscheduleWorkout() {
   const queryClient = useQueryClient();
 
   return useMutation<DeleteScheduledWorkoutResponse, Error, DeleteScheduledWorkoutRequest>({
@@ -467,6 +505,9 @@ export function useDeleteScheduledWorkout() {
     },
   });
 }
+
+export const useUpdateScheduledWorkout = useRescheduleWorkout;
+export const useDeleteScheduledWorkout = useUnscheduleWorkout;
 
 export function useRenameExercise() {
   const queryClient = useQueryClient();
