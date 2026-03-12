@@ -227,7 +227,7 @@ describe('agent exercises routes', () => {
         vi.mocked(updateOwnedExercise).mockResolvedValue({
           id: 'exercise-1',
           userId: 'user-1',
-          name: 'Dumbbell Row',
+          name: 'Chest Supported Row',
           category: 'isolation',
           trackingType: 'reps_only',
           tags: ['pull'],
@@ -245,6 +245,7 @@ describe('agent exercises routes', () => {
           url: '/api/agent/exercises/exercise-1',
           headers: createAuthorizationHeader(token),
           body: {
+            name: 'Chest Supported Row',
             category: 'isolation',
             trackingType: 'reps_only',
             muscleGroups: ['Back'],
@@ -260,7 +261,7 @@ describe('agent exercises routes', () => {
           data: {
             id: 'exercise-1',
             userId: 'user-1',
-            name: 'Dumbbell Row',
+            name: 'Chest Supported Row',
             category: 'isolation',
             trackingType: 'reps_only',
             tags: ['pull'],
@@ -270,6 +271,20 @@ describe('agent exercises routes', () => {
             instructions: 'Pull toward hip.',
             createdAt: 1,
             updatedAt: 2,
+          },
+        });
+        expect(vi.mocked(updateOwnedExercise)).toHaveBeenCalledWith({
+          id: 'exercise-1',
+          userId: 'user-1',
+          changes: {
+            name: 'Chest Supported Row',
+            category: 'isolation',
+            trackingType: 'reps_only',
+            muscleGroups: ['Back'],
+            equipment: 'Dumbbell',
+            instructions: 'Pull toward hip.',
+            formCues: ['elbow to hip'],
+            tags: ['pull'],
           },
         });
       } finally {

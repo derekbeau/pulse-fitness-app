@@ -3,6 +3,7 @@ import {
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
+  updateExerciseInputSchema,
   type Exercise,
   type ExerciseQueryParams,
   type WorkoutSession,
@@ -36,6 +37,10 @@ type ExerciseFiltersResponse = {
   };
 };
 type WorkoutSessionResponse = { data: WorkoutSession };
+type RenameExerciseRequest = {
+  id: string;
+  name: string;
+};
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutTemplateResponseSchema = z.object({
@@ -195,6 +200,19 @@ async function createWorkoutSession(input: CreateWorkoutSessionRequest) {
   return payload.data;
 }
 
+async function renameExercise(input: RenameExerciseRequest) {
+  const parsedInput = updateExerciseInputSchema.parse({
+    name: input.name,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/exercises/${input.id}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = z.object({ data: exerciseSchema }).parse({ data });
+
+  return payload.data;
+}
+
 export function useWorkoutTemplates() {
   return useQuery<WorkoutTemplate[]>({
     queryFn: getWorkoutTemplates,
@@ -269,6 +287,25 @@ export function useStartWorkoutSession() {
         queryKey: workoutQueryKeys.sessions(),
       });
       toast.success('Workout started');
+    },
+  });
+}
+
+export function useRenameExercise() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Exercise, Error, RenameExerciseRequest>({
+    mutationFn: renameExercise,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['workout-sessions'],
+        }),
+      ]);
+      toast.success('Exercise renamed');
     },
   });
 }

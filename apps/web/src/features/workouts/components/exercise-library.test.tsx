@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type { MouseEvent, ReactNode } from 'react';
 import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,25 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
 import { ExerciseLibrary } from './exercise-library';
+
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    disabled,
+    onClick,
+  }: {
+    children: ReactNode;
+    disabled?: boolean;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  }) => (
+    <button disabled={disabled} onClick={onClick} type="button">
+      {children}
+    </button>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
@@ -261,6 +281,32 @@ describe('ExerciseLibrary', () => {
     expect(within(pressCard as HTMLElement).getByText('Push')).toBeInTheDocument();
   });
 
+  it('renames an exercise from the card actions menu', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    const airBikeCard = (await screen.findByRole('heading', { level: 3, name: 'Air Bike' })).closest(
+      '[data-slot="card"]',
+    );
+    expect(airBikeCard).not.toBeNull();
+
+    fireEvent.click(
+      within(airBikeCard as HTMLElement).getByRole('button', { name: 'Exercise actions for Air Bike' }),
+    );
+    fireEvent.click(within(airBikeCard as HTMLElement).getByRole('button', { name: 'Rename' }));
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText('Exercise name');
+    expect(input).toHaveValue('Air Bike');
+
+    fireEvent.change(input, { target: { value: 'Assault Bike' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Assault Bike' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+  });
+
   it('shows an empty state and still supports the exercise trend dialog', async () => {
     mockExerciseRequests();
 
@@ -341,7 +387,9 @@ function renderExerciseLibrary() {
 }
 
 function mockExerciseRequests() {
-  return vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+  const mockExercises = exerciseFixtures.map((exercise) => ({ ...exercise }));
+
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = new URL(String(input), 'https://pulse.test');
 
     if (url.pathname === '/api/v1/exercises/filters') {
@@ -349,12 +397,41 @@ function mockExerciseRequests() {
         jsonResponse({
           data: {
             muscleGroups: Array.from(
-              new Set(exerciseFixtures.flatMap((exercise) => exercise.muscleGroups)),
+              new Set(mockExercises.flatMap((exercise) => exercise.muscleGroups)),
             ).sort(),
             equipment: Array.from(
-              new Set(exerciseFixtures.map((exercise) => exercise.equipment)),
+              new Set(mockExercises.map((exercise) => exercise.equipment)),
             ).sort(),
           },
+        }),
+      );
+    }
+
+    if (url.pathname.startsWith('/api/v1/exercises/') && init?.method === 'PATCH') {
+      const exerciseId = url.pathname.split('/').at(-1);
+      const exercise = mockExercises.find((item) => item.id === exerciseId);
+      const body = JSON.parse(String(init.body ?? '{}')) as { name?: string };
+
+      if (!exercise || !body.name) {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'EXERCISE_NOT_FOUND',
+                message: 'Exercise not found',
+              },
+            },
+            { status: 404 },
+          ),
+        );
+      }
+
+      exercise.name = body.name;
+      exercise.updatedAt = exercise.updatedAt + 1;
+
+      return Promise.resolve(
+        jsonResponse({
+          data: exercise,
         }),
       );
     }
@@ -370,7 +447,7 @@ function mockExerciseRequests() {
     const page = Number(url.searchParams.get('page') ?? '1');
     const limit = Number(url.searchParams.get('limit') ?? '20');
 
-    const filteredExercises = [...exerciseFixtures]
+    const filteredExercises = [...mockExercises]
       .filter((exercise) => (q ? exercise.name.toLowerCase().includes(q) : true))
       .filter((exercise) =>
         muscleGroup

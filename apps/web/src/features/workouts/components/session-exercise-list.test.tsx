@@ -189,6 +189,44 @@ describe('SessionExerciseList', () => {
     expect(onRemoveSet).not.toHaveBeenCalled();
   });
 
+  it('opens rename dialog from the exercise actions menu', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Rename exercise' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Exercise name')).toHaveValue('Row Erg');
+    expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeDisabled();
+  });
+
   it('allows adding a session-specific cue from the exercise card', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');

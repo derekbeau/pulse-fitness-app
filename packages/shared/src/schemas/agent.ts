@@ -130,6 +130,7 @@ export const agentCreateExerciseInputSchema = z.object({
 
 export const agentPatchExerciseInputSchema = z
   .object({
+    name: requiredText().optional(),
     muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
     equipment: requiredText().optional(),
     category: exerciseCategorySchema.optional(),

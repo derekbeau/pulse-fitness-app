@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  agentPatchExerciseInputSchema,
   agentCreateWorkoutTemplateInputSchema,
   type AgentCreateWorkoutTemplateInput,
 } from './agent.js';
@@ -41,6 +42,18 @@ describe('agentCreateWorkoutTemplateInputSchema', () => {
           ],
         },
       ],
+    });
+  });
+});
+
+describe('agentPatchExerciseInputSchema', () => {
+  it('accepts name updates for exercise rename operations', () => {
+    const payload = agentPatchExerciseInputSchema.parse({
+      name: ' Incline Dumbbell Press ',
+    });
+
+    expect(payload).toEqual({
+      name: 'Incline Dumbbell Press',
     });
   });
 });

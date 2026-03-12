@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { AlertTriangle, ChevronDown, Check, Circle, Dot, MoreVertical, Plus } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,9 +23,11 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
+import { ApiError } from '@/lib/api-client';
 import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
+import { useRenameExercise } from '../api/workouts';
 import type {
   ActiveWorkoutExercise,
   ActiveWorkoutPhaseBadge,
@@ -39,6 +42,7 @@ import {
 } from '../lib/time-estimates';
 import { getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
+import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
@@ -112,8 +116,13 @@ export function SessionExerciseList({
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
   const [sessionCuesByExercise, setSessionCuesByExercise] = useState<Record<string, string[]>>({});
   const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
+  const [renameTarget, setRenameTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+  } | null>(null);
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
+  const renameExerciseMutation = useRenameExercise();
 
   const exerciseNumberMap = new Map<string, number>();
   let exerciseCounter = 1;
@@ -218,6 +227,12 @@ export function SessionExerciseList({
                         }
                         onAddSet={onAddSet}
                         onExerciseNotesChange={onExerciseNotesChange}
+                        onRenameExercise={() =>
+                          setRenameTarget({
+                            exerciseId: item.exercise.id,
+                            exerciseName: item.exercise.name,
+                          })
+                        }
                         onRemoveSet={onRemoveSet}
                         onRestTimerComplete={onRestTimerComplete}
                         onSetUpdate={onSetUpdate}
@@ -286,6 +301,12 @@ export function SessionExerciseList({
                               inlineRestTimer={null}
                               onAddSet={onAddSet}
                               onExerciseNotesChange={onExerciseNotesChange}
+                              onRenameExercise={() =>
+                                setRenameTarget({
+                                  exerciseId: exercise.id,
+                                  exerciseName: exercise.name,
+                                })
+                              }
                               onRemoveSet={onRemoveSet}
                               onRestTimerComplete={onRestTimerComplete}
                               onSetUpdate={onSetUpdate}
@@ -325,6 +346,43 @@ export function SessionExerciseList({
           </section>
         );
       })}
+
+      <RenameExerciseDialog
+        key={renameTarget ? `${renameTarget.exerciseId}-open` : 'rename-session-closed'}
+        isPending={renameExerciseMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+          }
+        }}
+        onRename={(name) => {
+          if (!renameTarget) {
+            return;
+          }
+
+          renameExerciseMutation.mutate(
+            {
+              id: renameTarget.exerciseId,
+              name,
+            },
+            {
+              onError: (error) => {
+                const message =
+                  error instanceof ApiError
+                    ? error.message
+                    : 'Unable to rename exercise. Try again.';
+                toast.error(message);
+              },
+              onSuccess: () => {
+                setRenameTarget(null);
+              },
+            },
+          );
+        }}
+        open={renameTarget != null}
+        sourceLabel="the active workout"
+        value={renameTarget?.exerciseName ?? ''}
+      />
     </div>
   );
 }
@@ -338,6 +396,7 @@ type ExerciseCardItemProps = {
   inlineRestTimer: RestTimerState | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onRenameExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onAddSessionCue: (cue: string) => void;
@@ -360,6 +419,7 @@ function ExerciseCardItem({
   inlineRestTimer,
   onAddSet,
   onExerciseNotesChange,
+  onRenameExercise,
   onRemoveSet,
   onRestTimerComplete,
   onAddSessionCue,
@@ -506,6 +566,7 @@ function ExerciseCardItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onRenameExercise}>Rename exercise</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
             <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
               Remove Last Set

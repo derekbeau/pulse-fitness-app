@@ -592,7 +592,7 @@ describe('exercise routes', () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     const updateResponse = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: '/api/v1/exercises/user-exercise',
       headers: createAuthorizationHeader(authToken),
       payload: {
@@ -612,7 +612,7 @@ describe('exercise routes', () => {
     });
 
     const globalResponse = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: '/api/v1/exercises/global-exercise',
       headers: createAuthorizationHeader(authToken),
       payload: {
@@ -626,6 +626,23 @@ describe('exercise routes', () => {
         code: 'GLOBAL_EXERCISE_READ_ONLY',
         message: 'Global exercises cannot be modified',
       },
+    });
+
+    const putResponse = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/user-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Narrow-Grip Lat Pulldown',
+      },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+    expect(putResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'user-exercise',
+        name: 'Narrow-Grip Lat Pulldown',
+      }),
     });
   });
 

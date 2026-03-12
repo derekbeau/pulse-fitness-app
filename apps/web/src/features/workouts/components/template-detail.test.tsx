@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type { MouseEvent, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +9,25 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutTemplateDetail } from './template-detail';
+
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    disabled,
+    onClick,
+  }: {
+    children: ReactNode;
+    disabled?: boolean;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  }) => (
+    <button disabled={disabled} onClick={onClick} type="button">
+      {children}
+    </button>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
 
 const templatePayload = {
   data: {
@@ -230,6 +250,71 @@ describe('WorkoutTemplateDetail', () => {
       }),
     ]);
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
+  });
+
+  it('renames an exercise from the template exercise menu', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { name?: string };
+        const nextName = body.name ?? '';
+
+        mutableTemplate.data.sections[1].exercises[0].exerciseName = nextName;
+
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'incline-dumbbell-press',
+              userId: 'user-1',
+              name: nextName,
+              muscleGroups: ['upper chest', 'front delts', 'triceps'],
+              equipment: 'dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: [],
+              instructions: null,
+              createdAt: 1,
+              updatedAt: 2,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest('[data-slot="card"]');
+    expect(exerciseCard).not.toBeNull();
+
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    );
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', { name: 'Rename exercise' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText('Exercise name');
+    fireEvent.change(input, { target: { value: 'Incline DB Press' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
+
+    expect(await screen.findByText('Incline DB Press')).toBeInTheDocument();
+    expect(screen.queryByText('Incline Dumbbell Press')).not.toBeInTheDocument();
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

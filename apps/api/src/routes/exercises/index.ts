@@ -68,6 +68,48 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
   app.addHook('onRequest', requireUserAuth);
 
+  const updateExerciseHandler = async (
+    request: {
+      body: unknown;
+      params: { id: string };
+      userId: string;
+    },
+    reply: FastifyReply,
+  ) => {
+    const parsedBody = updateExerciseInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
+    }
+
+    const canMutate = await ensureOwnedMutableExercise({
+      exerciseId: request.params.id,
+      reply,
+      userId: request.userId,
+    });
+    if (!canMutate) {
+      return reply;
+    }
+
+    const exercise = await updateOwnedExercise({
+      id: request.params.id,
+      userId: request.userId,
+      changes: parsedBody.data,
+    });
+
+    if (!exercise) {
+      return sendError(
+        reply,
+        404,
+        EXERCISE_NOT_FOUND_RESPONSE.code,
+        EXERCISE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    return reply.send({
+      data: exercise,
+    });
+  };
+
   app.post('/', async (request, reply) => {
     const parsedBody = createExerciseInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
@@ -144,38 +186,11 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const parsedBody = updateExerciseInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
-    }
+    return updateExerciseHandler(request, reply);
+  });
 
-    const canMutate = await ensureOwnedMutableExercise({
-      exerciseId: request.params.id,
-      reply,
-      userId: request.userId,
-    });
-    if (!canMutate) {
-      return reply;
-    }
-
-    const exercise = await updateOwnedExercise({
-      id: request.params.id,
-      userId: request.userId,
-      changes: parsedBody.data,
-    });
-
-    if (!exercise) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({
-      data: exercise,
-    });
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    return updateExerciseHandler(request, reply);
   });
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
