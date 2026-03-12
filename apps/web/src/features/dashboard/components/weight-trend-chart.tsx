@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/api-client';
+import { formatTrendChange, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type RangeOption = {
@@ -39,7 +40,6 @@ const RANGE_OPTIONS: RangeOption[] = [
 ];
 
 const DEFAULT_RANGE: RangeOption = RANGE_OPTIONS[1];
-const INSIGHT_PRECISION = 1;
 const SERIES_COLORS = {
   scale: 'var(--color-primary)',
   trend: 'var(--color-accent-cream)',
@@ -56,11 +56,6 @@ const tooltipDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-const numberFormatter = new Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-});
-
 const fetchWeightEntries = async (days: number | null) => {
   const params = new URLSearchParams();
 
@@ -74,12 +69,11 @@ const fetchWeightEntries = async (days: number | null) => {
   return apiRequest<BodyWeightEntry[]>(path, { method: 'GET' });
 };
 
-const formatWeight = (value: number) => `${numberFormatter.format(value)} lbs`;
+const formatWeightLabel = (value: number) => formatWeight(value, 'lbs');
 
 const formatInsightChange = (change: number) => {
-  const formatted = change.toFixed(INSIGHT_PRECISION);
-  const numeric = Number(formatted);
-  const signPrefix = numeric > 0 ? '+' : '';
+  const formatted = formatTrendChange(change);
+  const signPrefix = change > 0 ? '+' : '';
   return `${signPrefix}${formatted} lbs`;
 };
 
@@ -165,7 +159,10 @@ export function WeightTrendChart() {
       <CardHeader className="gap-4 border-b border-border/70 pb-5">
         <div className="space-y-1">
           <CardTitle>
-            <h2 className="text-xl font-semibold text-foreground md:text-2xl" id="weight-trend-chart-heading">
+            <h2
+              className="text-xl font-semibold text-foreground md:text-2xl"
+              id="weight-trend-chart-heading"
+            >
               Weight Trend
             </h2>
           </CardTitle>
@@ -177,16 +174,22 @@ export function WeightTrendChart() {
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Current trend
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground" data-slot="weight-trend-current-trend">
-              {chartData.length > 0 ? formatWeight(headerInsights.currentTrend) : '--'}
+            <p
+              className="mt-1 text-2xl font-semibold text-foreground"
+              data-slot="weight-trend-current-trend"
+            >
+              {chartData.length > 0 ? formatWeightLabel(headerInsights.currentTrend) : '--'}
             </p>
           </div>
           <div className="rounded-xl bg-secondary/45 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Period average
             </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground" data-slot="weight-trend-period-average">
-              {chartData.length > 0 ? formatWeight(headerInsights.avgWeight) : '--'}
+            <p
+              className="mt-1 text-2xl font-semibold text-foreground"
+              data-slot="weight-trend-period-average"
+            >
+              {chartData.length > 0 ? formatWeightLabel(headerInsights.avgWeight) : '--'}
             </p>
           </div>
         </div>
@@ -214,7 +217,10 @@ export function WeightTrendChart() {
 
       <CardContent className="space-y-5 px-4 py-5 sm:px-6">
         {weightEntriesQuery.isLoading ? (
-          <div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted/50" data-slot="weight-trend-loading" />
+          <div
+            className="h-[280px] w-full animate-pulse rounded-2xl bg-muted/50"
+            data-slot="weight-trend-loading"
+          />
         ) : weightEntriesQuery.isError ? (
           <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border/70 bg-muted/20 px-6 text-center">
             <p className="text-sm text-muted-foreground">Unable to load weight trend data.</p>
@@ -222,8 +228,13 @@ export function WeightTrendChart() {
         ) : chartData.length === 0 ? (
           <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/15 px-6 text-center">
             <div className="space-y-2">
-              <p className="text-base font-semibold text-foreground">Log your weight to see trends</p>
-              <a className="text-sm font-medium text-primary hover:underline" href="#dashboard-log-weight-card">
+              <p className="text-base font-semibold text-foreground">
+                Log your weight to see trends
+              </p>
+              <a
+                className="text-sm font-medium text-primary hover:underline"
+                href="#dashboard-log-weight-card"
+              >
                 Go to weight entry
               </a>
             </div>
@@ -235,7 +246,11 @@ export function WeightTrendChart() {
                 Enable at least one series to display the chart.
               </div>
             ) : (
-              <div aria-label="Weight trend chart" className="h-[280px] w-full sm:h-[320px]" role="img">
+              <div
+                aria-label="Weight trend chart"
+                className="h-[280px] w-full sm:h-[320px]"
+                role="img"
+              >
                 <ResponsiveContainer height="100%" width="100%">
                   <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 6, left: 2 }}>
                     <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
@@ -244,14 +259,16 @@ export function WeightTrendChart() {
                       dataKey="date"
                       minTickGap={20}
                       tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                      tickFormatter={(value: string) => axisDateFormatter.format(new Date(`${value}T12:00:00`))}
+                      tickFormatter={(value: string) =>
+                        axisDateFormatter.format(new Date(`${value}T12:00:00`))
+                      }
                       tickLine={false}
                     />
                     <YAxis
                       axisLine={false}
                       domain={yDomain}
                       tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                      tickFormatter={(value: number) => numberFormatter.format(value)}
+                      tickFormatter={(value: number) => formatTrendChange(value)}
                       tickLine={false}
                       width={50}
                     />
@@ -264,10 +281,10 @@ export function WeightTrendChart() {
                       }}
                       formatter={(value: number | undefined, name: string | undefined) => {
                         if (name === 'scale') {
-                          return [formatWeight(value ?? 0), 'Scale Weight'];
+                          return [formatWeightLabel(value ?? 0), 'Scale Weight'];
                         }
 
-                        return [formatWeight(value ?? 0), 'Trend Weight'];
+                        return [formatWeightLabel(value ?? 0), 'Trend Weight'];
                       }}
                       labelFormatter={(label) =>
                         typeof label === 'string'
@@ -292,7 +309,12 @@ export function WeightTrendChart() {
                     {visibleSeries.trend ? (
                       <Line
                         dataKey="trend"
-                        dot={{ fill: SERIES_COLORS.trend, r: 4, stroke: 'var(--color-card)', strokeWidth: 1.5 }}
+                        dot={{
+                          fill: SERIES_COLORS.trend,
+                          r: 4,
+                          stroke: 'var(--color-card)',
+                          strokeWidth: 1.5,
+                        }}
                         isAnimationActive={false}
                         name="trend"
                         stroke={SERIES_COLORS.trend}
@@ -323,7 +345,10 @@ export function WeightTrendChart() {
               />
             </div>
 
-            <div className="grid gap-2 rounded-xl border border-border/70 bg-secondary/25 px-4 py-3" data-slot="weight-trend-insights">
+            <div
+              className="grid gap-2 rounded-xl border border-border/70 bg-secondary/25 px-4 py-3"
+              data-slot="weight-trend-insights"
+            >
               <p className="text-sm text-foreground">
                 3-day change: {formatInsightChange(threeDayInsights.periodChange)}{' '}
                 <span aria-label={`3-day direction ${threeDayInsights.direction}`}>
@@ -360,12 +385,18 @@ function LegendToggle({
       aria-pressed={active}
       className={cn(
         'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-        active ? 'border-border bg-secondary/55 text-foreground' : 'border-border/70 bg-background text-muted-foreground',
+        active
+          ? 'border-border bg-secondary/55 text-foreground'
+          : 'border-border/70 bg-background text-muted-foreground',
       )}
       onClick={onClick}
       type="button"
     >
-      <span aria-hidden="true" className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
+      <span
+        aria-hidden="true"
+        className="size-2.5 rounded-full"
+        style={{ backgroundColor: color }}
+      />
       <span>{label}</span>
     </button>
   );

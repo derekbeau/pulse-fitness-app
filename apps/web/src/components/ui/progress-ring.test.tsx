@@ -38,4 +38,11 @@ describe('ProgressRing', () => {
     expect(progress).toHaveClass('custom-ring');
     expect(progress).toHaveAttribute('aria-valuenow', '0');
   });
+
+  it('scales label max-width proportionally to ring size', () => {
+    render(<ProgressRing value={40} size={116} strokeWidth={10} label="1850 cal" />);
+
+    const label = screen.getByText('1850 cal') as HTMLElement;
+    expect(label.style.maxWidth).toMatch(/^74\.13/);
+  });
 });

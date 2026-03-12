@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { addDays, getToday, toDateKey } from '@/lib/date';
+import { formatPercent, formatServing } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 const HISTORY_DAYS = 90;
@@ -43,7 +44,7 @@ function clampPercent(percent: number) {
 }
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+  return formatServing(value);
 }
 
 function getCompletionPercent(habit: Habit, entry: HabitEntry | undefined, isScheduled: boolean) {
@@ -173,7 +174,8 @@ function getProgressCellColor(percent: number) {
 function getCellPresentation(habit: Habit, entry: HabitHistoryEntry) {
   if (!entry.isScheduled) {
     return {
-      className: 'border-slate-300/50 bg-slate-200/45 dark:border-slate-700/60 dark:bg-slate-700/35',
+      className:
+        'border-slate-300/50 bg-slate-200/45 dark:border-slate-700/60 dark:bg-slate-700/35',
       style: undefined,
     };
   }
@@ -254,7 +256,11 @@ export function HabitHistory() {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
-          <CardTitle aria-level={2} className="text-2xl font-semibold text-foreground" role="heading">
+          <CardTitle
+            aria-level={2}
+            className="text-2xl font-semibold text-foreground"
+            role="heading"
+          >
             Last 90 days
           </CardTitle>
           <CardDescription>Loading habit history.</CardDescription>
@@ -277,7 +283,11 @@ export function HabitHistory() {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
-          <CardTitle aria-level={2} className="text-2xl font-semibold text-foreground" role="heading">
+          <CardTitle
+            aria-level={2}
+            className="text-2xl font-semibold text-foreground"
+            role="heading"
+          >
             Last 90 days
           </CardTitle>
           <CardDescription>{message}</CardDescription>
@@ -304,7 +314,11 @@ export function HabitHistory() {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
-          <CardTitle aria-level={2} className="text-2xl font-semibold text-foreground" role="heading">
+          <CardTitle
+            aria-level={2}
+            className="text-2xl font-semibold text-foreground"
+            role="heading"
+          >
             Last 90 days
           </CardTitle>
           <CardDescription>No habits yet. Add a habit to start tracking history.</CardDescription>
@@ -321,7 +335,11 @@ export function HabitHistory() {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
               Habit history
             </p>
-            <CardTitle aria-level={2} className="text-2xl font-semibold text-foreground" role="heading">
+            <CardTitle
+              aria-level={2}
+              className="text-2xl font-semibold text-foreground"
+              role="heading"
+            >
               Last 90 days
             </CardTitle>
             <CardDescription className="max-w-2xl">
@@ -357,14 +375,17 @@ export function HabitHistory() {
                       </span>
                       {habit.name}
                     </p>
-                    <p className="text-xs font-medium text-muted-foreground" data-testid={`habit-streak-${habit.id}`}>
+                    <p
+                      className="text-xs font-medium text-muted-foreground"
+                      data-testid={`habit-streak-${habit.id}`}
+                    >
                       {habit.streakCount}-day streak
                     </p>
                     <p
                       className="text-xs font-medium text-muted-foreground"
                       data-testid={`habit-completion-rate-${habit.id}`}
                     >
-                      {habit.completionRate}% completion rate (last 90 days)
+                      {formatPercent(habit.completionRate)} completion rate (last 90 days)
                     </p>
                   </div>
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { ProgressRing } from '@/components/ui/progress-ring';
+import { formatCalories, formatGrams } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type MacroValues = {
@@ -63,14 +64,21 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {MACRO_RING_CONFIG.map((macro) => {
           const actual = actuals[macro.key];
           const target = targets[macro.key];
           const isOverTarget = target <= 0 ? actual > 0 : actual > target;
           const remaining = Math.max(target - actual, 0);
           const progress = getProgressValue({ actual, target, isOverTarget, view });
-          const display = getDisplayValue({ actual, remaining, target, isOverTarget, unit: macro.unit, view });
+          const display = getDisplayValue({
+            actual,
+            remaining,
+            target,
+            isOverTarget,
+            unit: macro.unit,
+            view,
+          });
 
           return (
             <article
@@ -80,8 +88,15 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
               <ProgressRing
                 aria-label={`${macro.label} ${view} progress`}
                 color={isOverTarget ? OVER_TARGET_COLOR : macro.color}
-                label={<RingValue primary={display.primary} secondary={display.secondary} tone={display.tone} />}
+                label={
+                  <RingValue
+                    primary={display.primary}
+                    secondary={display.secondary}
+                    tone={display.tone}
+                  />
+                }
                 labelClassName="leading-none"
+                className="w-[90px] sm:w-[104px] md:w-[116px]"
                 size={116}
                 strokeWidth={10}
                 value={progress}
@@ -108,7 +123,9 @@ function ToggleButton({ isActive, label, onClick }: ToggleButtonProps) {
       aria-pressed={isActive}
       className={cn(
         'min-h-[44px] min-w-[44px] cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4',
-        isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted hover:text-foreground',
+        isActive
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-muted hover:text-foreground',
       )}
       type="button"
       onClick={onClick}
@@ -127,7 +144,14 @@ type DisplayValueArgs = {
   view: MacroView;
 };
 
-function getDisplayValue({ actual, remaining, target, isOverTarget, unit, view }: DisplayValueArgs) {
+function getDisplayValue({
+  actual,
+  remaining,
+  target,
+  isOverTarget,
+  unit,
+  view,
+}: DisplayValueArgs) {
   if (isOverTarget) {
     return {
       primary: `+${formatValue(actual - target, unit)}`,
@@ -176,7 +200,7 @@ function getProgressValue({
 }
 
 function formatValue(value: number, unit: 'cal' | 'g') {
-  return `${Math.round(value)}${unit === 'cal' ? ' cal' : 'g'}`;
+  return unit === 'cal' ? formatCalories(value, 'cal') : formatGrams(value);
 }
 
 function RingValue({

@@ -68,14 +68,14 @@ describe('ActiveWorkoutPage', () => {
 
     expect(headerCard).not.toHaveClass('sticky');
     expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
-    expect(screen.getByText('Exercise 3 of 7')).toBeInTheDocument();
+    expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
     expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
     expect(screen.getByText('Recovery Status')).toBeInTheDocument();
     expect(screen.getByText('Active Injuries')).toBeInTheDocument();
     expect(screen.getByText('Training Phase')).toBeInTheDocument();
-    expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
+    expect(screen.getByText(/Warmup \(\d+\/2 exercises done\)/)).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
@@ -97,8 +97,8 @@ describe('ActiveWorkoutPage', () => {
       vi.advanceTimersByTime(90_100);
     });
 
-    const nextExerciseCard = getExerciseCard('Seated Dumbbell Shoulder Press');
-    expect(within(nextExerciseCard).getByLabelText('Reps for set 1')).toHaveFocus();
+    const nextExerciseCard = getExerciseCard('Row Erg');
+    expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).toHaveFocus();
     expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
@@ -135,6 +135,11 @@ describe('ActiveWorkoutPage', () => {
       within(inclineCard).getByDisplayValue('Lower the bench by one notch before the top set.'),
     ).toBeVisible();
 
+    completeSet('Row Erg', 1);
+    completeSet('Banded Shoulder External Rotation', 1);
+    completeSet('Banded Shoulder External Rotation', 2);
+    completeSet('Incline Dumbbell Press', 1);
+    completeSet('Incline Dumbbell Press', 2);
     completeSet('Incline Dumbbell Press', 3);
     completeSet('Seated Dumbbell Shoulder Press', 1);
     completeSet('Seated Dumbbell Shoulder Press', 2);
@@ -153,6 +158,9 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.change(within(getExerciseCard('Couch Stretch')).getByLabelText('Seconds for set 2'), {
       target: { value: '65' },
     });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -231,9 +239,22 @@ describe('ActiveWorkoutPage', () => {
   });
 
   it('starts fallback elapsed time from now for unsaved sessions', () => {
-    renderActiveWorkoutPage('/workouts/active');
+    renderActiveWorkoutPage('/workouts/active?template=upper-push');
 
     expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('renders an empty state when there is no active session and no selected template', () => {
+    renderActiveWorkoutPage('/workouts/active');
+
+    expect(screen.getByRole('heading', { level: 1, name: 'No active workout' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Start a session from one of your existing templates to begin logging sets.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Browse templates' })).toHaveAttribute(
+      'href',
+      '/workouts?view=templates',
+    );
   });
 
   it('supports manually finishing an active workout with confirmation and set summary ratio', async () => {
@@ -564,7 +585,7 @@ describe('ActiveWorkoutPage', () => {
   });
 });
 
-function renderActiveWorkoutPage(initialEntry = '/workouts/active') {
+function renderActiveWorkoutPage(initialEntry = '/workouts/active?template=upper-push') {
   return renderWithQueryClient(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -594,6 +615,13 @@ function getExerciseCard(name: string) {
 
   if (!card) {
     throw new Error(`Expected exercise card for ${name}.`);
+  }
+
+  const exerciseToggle = within(card as HTMLElement)
+    .queryAllByRole('button')
+    .find((button) => button.getAttribute('aria-controls')?.startsWith('exercise-panel-'));
+  if (exerciseToggle?.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(exerciseToggle);
   }
 
   return card as HTMLElement;

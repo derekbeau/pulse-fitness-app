@@ -109,25 +109,21 @@ describe('SessionExerciseList', () => {
       within(currentCard as HTMLElement).getAllByRole('button', { name: 'Add Set' }).length,
     ).toBeGreaterThan(0);
     expect(
-      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
+      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50\.0 → 45\.0 → 40\.0 kg/i),
     ).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByText('Rest: 1:30')).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByText('~5 min')).toBeInTheDocument();
     expect(
-      within(currentCard as HTMLElement).getByText(/Last: 50x12, 45x10, 40x9/i),
+      within(currentCard as HTMLElement).getByText(/Last: 50\.0x12, 45\.0x10, 40\.0x9/i),
     ).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press')).toHaveClass(
-      'grid-cols-2',
-    );
+    expect(
+      within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press'),
+    ).toHaveClass('grid-cols-2');
 
     fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
     expect(within(currentCard as HTMLElement).getByText('Technique & coaching cues')).toBeVisible();
-    expect(
-      within(currentCard as HTMLElement).getByText(
-        'Drive feet into the floor',
-      ),
-    ).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Drive feet into the floor')).toBeVisible();
     expect(
       within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows'),
     ).toBeVisible();
@@ -187,7 +183,9 @@ describe('SessionExerciseList', () => {
     fireEvent.click(addSetItem);
     expect(onAddSet).toHaveBeenCalledWith('row-erg');
 
-    expect(within(rowErgCardElement).getByRole('button', { name: 'Remove Last Set' })).toBeDisabled();
+    expect(
+      within(rowErgCardElement).getByRole('button', { name: 'Remove Last Set' }),
+    ).toBeDisabled();
     expect(onRemoveSet).not.toHaveBeenCalled();
   });
 
@@ -455,7 +453,9 @@ describe('SessionExerciseList', () => {
       within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold • Last: 10 reps/i),
     ).toBeInTheDocument();
     expect(
-      within(card as HTMLElement).queryByText((_, element) => element?.textContent === '10 x 10 sec'),
+      within(card as HTMLElement).queryByText(
+        (_, element) => element?.textContent === '10 x 10 sec',
+      ),
     ).not.toBeInTheDocument();
   });
 

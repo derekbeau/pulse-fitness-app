@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -26,7 +26,6 @@ import {
   countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
-  createWorkoutSetId,
   workoutFeedbackFields,
   workoutSessionContext,
   workoutSupplementalExercises,
@@ -67,6 +66,7 @@ import {
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
+  getStoredActiveWorkoutSessionId,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
@@ -102,14 +102,6 @@ const categoryBadgeByExerciseId = new Map(
 );
 const mockExerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
 
-const completedSetIds = [
-  createWorkoutSetId('row-erg', 1),
-  createWorkoutSetId('banded-shoulder-external-rotation', 1),
-  createWorkoutSetId('banded-shoulder-external-rotation', 2),
-  createWorkoutSetId('incline-dumbbell-press', 1),
-  createWorkoutSetId('incline-dumbbell-press', 2),
-];
-
 type RestTimerState = {
   duration: number;
   exerciseId: string;
@@ -123,8 +115,10 @@ export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('sessionId');
+  const requestedSessionId = searchParams.get('sessionId');
+  const sessionId = requestedSessionId ?? getStoredActiveWorkoutSessionId();
   const requestedTemplateId = searchParams.get('template');
+  const shouldRenderEmptyState = !sessionId && !requestedTemplateId;
   const sessionQuery = useWorkoutSession(sessionId);
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
@@ -145,10 +139,7 @@ export function ActiveWorkoutPage() {
   const [fallbackStartTime] = useState(() => new Date().toISOString());
   const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
-    createInitialWorkoutSetDrafts(
-      template,
-      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-    ),
+    createInitialWorkoutSetDrafts(template, new Set<string>()),
   );
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<'active' | 'feedback' | 'summary'>('active');
@@ -241,10 +232,7 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const initialSetDrafts = createInitialWorkoutSetDrafts(
-      template,
-      requestedTemplateId || sessionId ? new Set<string>() : new Set(completedSetIds),
-    );
+    const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
 
     setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
@@ -339,6 +327,20 @@ export function ActiveWorkoutPage() {
       <section className="space-y-3 pb-8">
         <h1 className="text-2xl font-semibold text-foreground">Unable to load template</h1>
         <p className="text-sm text-muted">Refresh and try again.</p>
+      </section>
+    );
+  }
+
+  if (shouldRenderEmptyState) {
+    return (
+      <section className="space-y-4 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">No active workout</h1>
+        <p className="text-sm text-muted">
+          Start a session from one of your existing templates to begin logging sets.
+        </p>
+        <Button asChild type="button">
+          <Link to="/workouts?view=templates">Browse templates</Link>
+        </Button>
       </section>
     );
   }

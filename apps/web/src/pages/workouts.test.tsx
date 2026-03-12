@@ -274,7 +274,7 @@ describe('WorkoutsPage', () => {
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=exercises');
   });
 
-  it('includes the current view in session detail links', async () => {
+  it('includes the current view in session links and routes in-progress sessions to active workout', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts?view=list']}>
         <Routes>
@@ -294,6 +294,17 @@ describe('WorkoutsPage', () => {
       throw new Error('Expected session detail link with view=list query param');
     }
     expect(detailsLink).toHaveAttribute('href', '/workouts/session/session-1?view=list');
+
+    const activeSessionLink = (await screen.findAllByRole('link')).find(
+      (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-2',
+    );
+    if (!activeSessionLink) {
+      throw new Error('Expected in-progress session link to the active workout route');
+    }
+    expect(activeSessionLink).toHaveAttribute(
+      'href',
+      '/workouts/active?view=list&sessionId=session-2',
+    );
   });
 
   it('opens template detail when selecting a template card from the templates view', async () => {
@@ -408,7 +419,7 @@ describe('WorkoutsPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
   });
 
-  it('renders the templates empty state and navigates to workout creation flow', async () => {
+  it('renders the templates empty state with browse templates messaging', async () => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
@@ -463,7 +474,6 @@ describe('WorkoutsPage', () => {
       <MemoryRouter initialEntries={['/workouts']}>
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
-          <Route element={<ActiveWorkoutRouteProbe />} path="/workouts/active" />
         </Routes>
       </MemoryRouter>,
     );
@@ -471,9 +481,10 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 
     expect(await screen.findByRole('heading', { name: 'No workouts yet' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Create Template' }));
-
-    expect(await screen.findByRole('heading', { name: 'Active workout page' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Browse Templates' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Ask your agent to build a template, then start a session from it.'),
+    ).toBeInTheDocument();
   });
 
   it('shows a completion notice when redirected from an already-completed active session', () => {
@@ -565,7 +576,7 @@ describe('WorkoutsPage', () => {
     expect(screen.queryByText('How workouts flow in Pulse')).not.toBeInTheDocument();
   });
 
-  it('navigates to active workout flow from onboarding create CTA', async () => {
+  it('does not render onboarding create-template CTA', async () => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
@@ -613,15 +624,12 @@ describe('WorkoutsPage', () => {
       <MemoryRouter initialEntries={['/workouts']}>
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />
-          <Route element={<ActiveWorkoutRouteProbe />} path="/workouts/active" />
         </Routes>
       </MemoryRouter>,
     );
 
     expect(await screen.findByText('How workouts flow in Pulse')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Create a template' }));
-
-    expect(await screen.findByRole('heading', { name: 'Active workout page' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create a template' })).not.toBeInTheDocument();
   });
 
   it('prefetches top template details when the list view is active', async () => {
@@ -656,10 +664,6 @@ function TemplateRouteProbe() {
   const { templateId } = useParams();
 
   return <h1>{`Template ${templateId}`}</h1>;
-}
-
-function ActiveWorkoutRouteProbe() {
-  return <h1>Active workout page</h1>;
 }
 
 function LocationProbe() {

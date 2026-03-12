@@ -22,6 +22,7 @@ import {
 import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { getToday, isSameDay, normalizeDate, toDateKey } from '@/lib/date';
+import { formatPercent, formatServing } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import { HabitCardMenu } from './habit-card-menu';
@@ -45,7 +46,7 @@ const todayFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+  return formatServing(value);
 }
 
 function getDisplayUnit(habit: DailyHabit) {
@@ -434,7 +435,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
               const progressPercent = getProgressPercent(habit, value);
               const hasTargetProgress =
                 habit.trackingType !== 'boolean' && habit.target !== null && habit.target > 0;
-              const percentageLabel = hasTargetProgress ? `${Math.round(progressPercent)}%` : null;
+              const percentageLabel = hasTargetProgress ? formatPercent(progressPercent) : null;
               const progressTone = hasTargetProgress ? getPercentTone(progressPercent) : null;
               const progressFillTone = hasTargetProgress
                 ? getProgressBarTone(progressPercent)

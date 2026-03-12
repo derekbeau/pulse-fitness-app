@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Dumbbell, X } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 
 import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,6 @@ function isWorkoutView(value: string | null): value is WorkoutView {
 
 export function WorkoutsPage() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     if (typeof window === 'undefined') {
@@ -88,9 +87,15 @@ export function WorkoutsPage() {
     setSearchParams(nextSearchParams);
   }
 
-  function buildSessionHref(sessionId: string) {
+  function buildSessionHref(sessionId: string, status?: 'scheduled' | 'in-progress' | 'completed') {
     const sessionSearchParams = new URLSearchParams();
     sessionSearchParams.set('view', activeView);
+
+    if (status === 'in-progress') {
+      sessionSearchParams.set('sessionId', sessionId);
+      return `/workouts/active?${sessionSearchParams.toString()}`;
+    }
+
     return `/workouts/session/${sessionId}?${sessionSearchParams.toString()}`;
   }
 
@@ -119,7 +124,7 @@ export function WorkoutsPage() {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">How workouts flow in Pulse</h2>
               <p className="text-sm text-muted">
-                Create a template, start a session from it, then log sets as you go.
+                Ask your agent to create a template, then start a session and log sets as you go.
               </p>
             </div>
             <Button
@@ -134,9 +139,6 @@ export function WorkoutsPage() {
             </Button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => navigate('/workouts/active')} size="sm" type="button">
-              Create a template
-            </Button>
             <Button onClick={() => setActiveView('templates')} size="sm" type="button" variant="secondary">
               Browse templates
             </Button>
@@ -213,11 +215,7 @@ export function WorkoutsPage() {
           </div>
         ) : shouldShowTemplatesEmptyState ? (
           <EmptyState
-            action={{
-              label: 'Create Template',
-              onClick: () => navigate('/workouts/active'),
-            }}
-            description="Create a template or ask your agent to build one."
+            description="Ask your agent to build a template, then start a session from it."
             icon={Dumbbell}
             title="No workouts yet"
           />

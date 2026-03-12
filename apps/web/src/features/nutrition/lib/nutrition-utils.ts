@@ -1,3 +1,9 @@
+import {
+  formatCalories as formatCaloriesValue,
+  formatGrams as formatGramsValue,
+  formatServing as formatServingValue,
+} from '@/lib/format-utils';
+
 export type MacroTotals = {
   calories: number;
   protein: number;
@@ -23,9 +29,7 @@ const DEFAULT_TOTALS: MacroTotals = {
   fat: 0,
 };
 
-export function calculateMacroTotals(
-  sources: Array<MacroSource | MealSource>,
-): MacroTotals {
+export function calculateMacroTotals(sources: Array<MacroSource | MealSource>): MacroTotals {
   return sources.reduce<MacroTotals>((totals, source) => {
     const macrosToAdd = 'items' in source ? calculateMacroTotals(source.items) : source;
 
@@ -68,15 +72,15 @@ export function sortMeals<T extends { name: string }>(meals: T[]): T[] {
 }
 
 export function formatCalories(value: number): string {
-  return `${Math.round(value)} cal`;
+  return `${formatCaloriesValue(value)} cal`;
 }
 
 export function formatGrams(value: number): string {
-  return `${Math.round(value)}g`;
+  return formatGramsValue(value);
 }
 
 export function formatServing(item: ServingSource): string {
-  return `${formatNumber(item.amount)} ${item.unit}`;
+  return `${formatServingValue(item.amount)} ${item.unit}`;
 }
 
 export function formatDayLabel(date: string): string {
@@ -120,10 +124,4 @@ export function startOfDay(date: Date): Date {
   normalizedDate.setHours(0, 0, 0, 0);
 
   return normalizedDate;
-}
-
-function formatNumber(value: number): string {
-  const rounded = Number(value.toFixed(2));
-
-  return `${rounded}`;
 }

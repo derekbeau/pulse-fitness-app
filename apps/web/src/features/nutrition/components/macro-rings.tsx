@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { Button } from '@/components/ui/button';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { formatGrams } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type MacroKey = 'protein' | 'carbs' | 'fat';
@@ -26,7 +27,7 @@ const macroConfig: Array<{
 ];
 
 function formatMacroValue(value: number) {
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}g`;
+  return formatGrams(value);
 }
 
 export function MacroRings({ actual, targets }: MacroRingsProps) {
@@ -37,9 +38,9 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <CardTitle aria-level={2} className="text-2xl font-semibold" role="heading">
+            <h2 className="text-2xl leading-none font-semibold">
               Macro rings
-            </CardTitle>
+            </h2>
             <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
               Toggle between what you&apos;ve eaten and what remains to hit today&apos;s targets.
             </CardDescription>
@@ -76,7 +77,7 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-3">
+      <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {macroConfig.map((macro) => {
           const target = targets[macro.key];
           const eaten = actual[macro.key];

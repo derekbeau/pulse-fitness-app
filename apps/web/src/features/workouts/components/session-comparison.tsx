@@ -1,6 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import {
-  formatWeight,
   type ExerciseTrackingType,
   type SessionSet,
   type WeightUnit,
@@ -9,9 +8,19 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  formatPercent,
+  formatServing,
+  formatWeight as formatWeightValue,
+} from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
-import { getSetSeconds, getSetVolume, getTrackingVolumeLabel, resolveTrackingType } from '../lib/tracking';
+import {
+  getSetSeconds,
+  getSetVolume,
+  getTrackingVolumeLabel,
+  resolveTrackingType,
+} from '../lib/tracking';
 
 type SessionComparisonProps = {
   currentSession: WorkoutSession;
@@ -57,10 +66,6 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const integerFormatter = new Intl.NumberFormat('en-US');
-const decimalFormatter = new Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 0,
-});
 
 export function SessionComparison({
   currentSession,
@@ -125,7 +130,7 @@ export function SessionComparison({
             />
             {percentChange != null ? (
               <span className="text-sm font-medium opacity-80 dark:text-muted dark:opacity-100">
-                {`${percentChange > 0 ? '+' : ''}${percentChange}%`}
+                {`${percentChange > 0 ? '+' : ''}${formatPercent(percentChange)}`}
               </span>
             ) : null}
           </div>
@@ -259,11 +264,15 @@ function getExerciseComparison(
         metricLabel,
         setNumber: set.setNumber,
         weightDelta:
-          set.weight != null && previousSet?.weight != null ? set.weight - previousSet.weight : null,
+          set.weight != null && previousSet?.weight != null
+            ? set.weight - previousSet.weight
+            : null,
       };
     }),
     trackingType,
-    volumeDelta: getExerciseVolumeFromSets(currentSets, trackingType) - getExerciseVolumeFromSets(previousSets, trackingType),
+    volumeDelta:
+      getExerciseVolumeFromSets(currentSets, trackingType) -
+      getExerciseVolumeFromSets(previousSets, trackingType),
   } satisfies ExerciseComparison;
 }
 
@@ -283,14 +292,18 @@ function isPersonalRecord(
       return false;
     }
 
-    const currentMetric = trackingType === 'weight_seconds' ? (getSetSeconds(currentSet) ?? 0) : (currentSet.reps ?? 0);
-    const comparableSets = previousSets.reduce<Array<{ metric: number; weight: number }>>((sets, set) => {
-      if (set.weight != null && currentMetric >= getPrimarySetMetric(set, trackingType)) {
-        sets.push({ metric: getPrimarySetMetric(set, trackingType), weight: set.weight });
-      }
+    const currentMetric =
+      trackingType === 'weight_seconds' ? (getSetSeconds(currentSet) ?? 0) : (currentSet.reps ?? 0);
+    const comparableSets = previousSets.reduce<Array<{ metric: number; weight: number }>>(
+      (sets, set) => {
+        if (set.weight != null && currentMetric >= getPrimarySetMetric(set, trackingType)) {
+          sets.push({ metric: getPrimarySetMetric(set, trackingType), weight: set.weight });
+        }
 
-      return sets;
-    }, []);
+        return sets;
+      },
+      [],
+    );
 
     if (comparableSets.length > 0) {
       return currentWeight > Math.max(...comparableSets.map((set) => set.weight));
@@ -300,7 +313,10 @@ function isPersonalRecord(
   }
 
   const currentMetric = getPrimarySetMetric(currentSet, trackingType);
-  const maxPreviousMetric = Math.max(0, ...previousSets.map((set) => getPrimarySetMetric(set, trackingType)));
+  const maxPreviousMetric = Math.max(
+    0,
+    ...previousSets.map((set) => getPrimarySetMetric(set, trackingType)),
+  );
 
   return currentMetric > maxPreviousMetric;
 }
@@ -310,7 +326,10 @@ function getSessionVolume(session: WorkoutSession) {
   // exercise IDs, resolveTrackingType({ exerciseId }) often falls back to weight_reps.
   // Replace this inference once the API includes tracking metadata on session sets.
   const trackingByExerciseId = new Map(
-    session.sets.map((set) => [set.exerciseId, resolveTrackingType({ exerciseId: set.exerciseId })]),
+    session.sets.map((set) => [
+      set.exerciseId,
+      resolveTrackingType({ exerciseId: set.exerciseId }),
+    ]),
   );
 
   return session.sets.reduce((total, set) => {
@@ -337,7 +356,11 @@ function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType
 }
 
 function getSetDeltaLabel(trackingType: ExerciseTrackingType) {
-  if (trackingType === 'weight_seconds' || trackingType === 'seconds_only' || trackingType === 'cardio') {
+  if (
+    trackingType === 'weight_seconds' ||
+    trackingType === 'seconds_only' ||
+    trackingType === 'cardio'
+  ) {
     return 'Seconds';
   }
 
@@ -355,7 +378,9 @@ function getSessionVolumeLabel(session: WorkoutSession) {
 
   // TODO: same metadata gap as getSessionVolume; volume labels can be inaccurate for UUID IDs
   // until session sets include trackingType or exercise metadata in the API payload.
-  const trackingTypes = new Set(session.sets.map((set) => resolveTrackingType({ exerciseId: set.exerciseId })));
+  const trackingTypes = new Set(
+    session.sets.map((set) => resolveTrackingType({ exerciseId: set.exerciseId })),
+  );
 
   if (trackingTypes.size === 1) {
     const only = [...trackingTypes][0];
@@ -367,7 +392,7 @@ function getSessionVolumeLabel(session: WorkoutSession) {
 
 function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
   if (label === 'volume') {
-    return formatWeight(value, weightUnit);
+    return `${formatWeightValue(value)} ${weightUnit}`;
   }
 
   if (label === 'seconds') {
@@ -406,7 +431,11 @@ function getDirection(value: number): ComparisonDirection {
 }
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? integerFormatter.format(value) : decimalFormatter.format(value);
+  if (Number.isInteger(value)) {
+    return integerFormatter.format(value);
+  }
+
+  return formatServing(value);
 }
 
 function formatSignedInteger(value: number) {
