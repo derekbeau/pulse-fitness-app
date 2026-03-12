@@ -67,4 +67,22 @@ describe('NutritionMacroRings', () => {
     const indicator = proteinCard.querySelector('[data-slot="progress-ring-indicator"]');
     expect(indicator).toHaveAttribute('stroke', 'var(--color-destructive)');
   });
+
+  it('uses responsive grid layout and ring sizing classes for mobile and desktop', () => {
+    const { container } = render(
+      <NutritionMacroRings
+        actuals={{ calories: 1850, protein: 160, carbs: 190, fat: 60 }}
+        targets={{ calories: 2200, protein: 180, carbs: 250, fat: 73 }}
+      />,
+    );
+
+    const ringsGrid = container.querySelector('.grid.grid-cols-2.md\\:grid-cols-4');
+    expect(ringsGrid).toBeInTheDocument();
+
+    const progressRings = screen.getAllByRole('progressbar');
+
+    for (const ring of progressRings) {
+      expect(ring).toHaveClass('w-[90px]', 'sm:w-[104px]', 'md:w-[116px]');
+    }
+  });
 });

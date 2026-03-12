@@ -77,7 +77,7 @@ export function MacroRings({ actual, targets }: MacroRingsProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-3">
+      <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {macroConfig.map((macro) => {
           const target = targets[macro.key];
           const eaten = actual[macro.key];

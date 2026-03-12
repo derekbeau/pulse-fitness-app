@@ -64,7 +64,7 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {MACRO_RING_CONFIG.map((macro) => {
           const actual = actuals[macro.key];
           const target = targets[macro.key];
@@ -96,6 +96,7 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
                   />
                 }
                 labelClassName="leading-none"
+                className="w-[90px] sm:w-[104px] md:w-[116px]"
                 size={116}
                 strokeWidth={10}
                 value={progress}
