@@ -717,6 +717,8 @@ describe('mealItems schema', () => {
       'name',
       'amount',
       'unit',
+      'displayQuantity',
+      'displayUnit',
       'calories',
       'protein',
       'carbs',

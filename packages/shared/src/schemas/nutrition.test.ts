@@ -24,6 +24,8 @@ describe('mealItemInputSchema', () => {
       name: ' Cooked Rice ',
       amount: 1.5,
       unit: ' cup ',
+      displayQuantity: 2,
+      displayUnit: ' scoops ',
       calories: 300,
       protein: 6,
       carbs: 65,
@@ -37,12 +39,60 @@ describe('mealItemInputSchema', () => {
       name: 'Cooked Rice',
       amount: 1.5,
       unit: 'cup',
+      displayQuantity: 2,
+      displayUnit: 'scoops',
       calories: 300,
       protein: 6,
       carbs: 65,
       fat: 1,
       fiber: 2.5,
       sugar: 1,
+    });
+  });
+
+  it('accepts omitted or null display fields', () => {
+    expect(
+      mealItemInputSchema.parse({
+        name: 'Protein Powder',
+        amount: 1,
+        unit: 'serving',
+        calories: 120,
+        protein: 24,
+        carbs: 3,
+        fat: 1.5,
+      }),
+    ).toEqual({
+      name: 'Protein Powder',
+      amount: 1,
+      unit: 'serving',
+      calories: 120,
+      protein: 24,
+      carbs: 3,
+      fat: 1.5,
+    });
+
+    expect(
+      mealItemInputSchema.parse({
+        name: 'Protein Powder',
+        amount: 1,
+        unit: 'serving',
+        displayQuantity: null,
+        displayUnit: null,
+        calories: 120,
+        protein: 24,
+        carbs: 3,
+        fat: 1.5,
+      }),
+    ).toEqual({
+      name: 'Protein Powder',
+      amount: 1,
+      unit: 'serving',
+      displayQuantity: null,
+      displayUnit: null,
+      calories: 120,
+      protein: 24,
+      carbs: 3,
+      fat: 1.5,
     });
   });
 
@@ -57,6 +107,32 @@ describe('mealItemInputSchema', () => {
         carbs: 65,
         fat: 1,
         fiber: -1,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      mealItemInputSchema.parse({
+        name: 'Cooked Rice',
+        amount: 1,
+        unit: 'cup',
+        displayQuantity: 0,
+        calories: 100,
+        protein: 2,
+        carbs: 20,
+        fat: 0,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      mealItemInputSchema.parse({
+        name: 'Cooked Rice',
+        amount: 1,
+        unit: 'cup',
+        displayUnit: 'x'.repeat(51),
+        calories: 100,
+        protein: 2,
+        carbs: 20,
+        fat: 0,
       }),
     ).toThrow();
   });
@@ -249,6 +325,8 @@ describe('dailyNutritionSchema', () => {
               name: 'Large Eggs',
               amount: 3,
               unit: 'eggs',
+              displayQuantity: 3,
+              displayUnit: 'eggs',
               calories: 210,
               protein: 18,
               carbs: 1,
@@ -264,6 +342,7 @@ describe('dailyNutritionSchema', () => {
 
     expect(payload?.meals).toHaveLength(1);
     expect(payload?.meals[0]?.items[0]?.name).toBe('Large Eggs');
+    expect(payload?.meals[0]?.items[0]?.displayUnit).toBe('eggs');
   });
 
   it('accepts null when no log exists for the date', () => {

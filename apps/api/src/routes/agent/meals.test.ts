@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
-import { createMealForDate, findMealById, findMealItemById, patchMealById, patchMealItemById } from '../nutrition/store.js';
+import {
+  createMealForDate,
+  findMealById,
+  findMealItemById,
+  patchMealById,
+  patchMealItemById,
+} from '../nutrition/store.js';
 
 import { findFoodByName } from './store.js';
 
@@ -80,6 +86,8 @@ const createdItems = [
     fat: 7.2,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_001,
   },
   {
@@ -95,6 +103,8 @@ const createdItems = [
     fat: 0.4,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_002,
   },
 ];
@@ -326,7 +336,10 @@ describe('agent meals routes', () => {
 
       try {
         await app.ready();
-        vi.mocked(findMealById).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal);
+        vi.mocked(findMealById)
+          .mockResolvedValueOnce(createdMeal)
+          .mockResolvedValueOnce(createdMeal)
+          .mockResolvedValueOnce(createdMeal);
         vi.mocked(patchMealById).mockResolvedValue(patchedMeal);
 
         const token = app.jwt.sign({ userId: 'user-1' });
@@ -480,27 +493,60 @@ describe('agent meals routes', () => {
         expect(patchMacrosResponse.json()).toEqual({
           data: patchedMealItem,
         });
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
-          amount: 2.5,
-        });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
-          calories: 345,
-          protein: 63,
-          carbs: 2,
-          fat: 8,
-        });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
-          amount: 2.5,
-          calories: 345,
-          protein: 63,
-          carbs: 2,
-          fat: 8,
-          fiber: 1,
-          sugar: 0,
-        });
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          1,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          2,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          3,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          1,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            amount: 2.5,
+          },
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          2,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+          },
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          3,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            amount: 2.5,
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+            fiber: 1,
+            sugar: 0,
+          },
+        );
       } finally {
         await app.close();
       }

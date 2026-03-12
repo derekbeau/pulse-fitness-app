@@ -48,6 +48,8 @@ type StoredMealItem = {
   name: string;
   amount: number;
   unit: string;
+  displayQuantity: number | null;
+  displayUnit: string | null;
   calories: number;
   protein: number;
   carbs: number;
@@ -303,6 +305,8 @@ vi.mock('../routes/nutrition/store.js', () => ({
           name: item.name,
           amount: item.amount,
           unit: item.unit,
+          displayQuantity: null,
+          displayUnit: null,
           calories: item.calories,
           protein: item.protein,
           carbs: item.carbs,
@@ -726,10 +730,13 @@ describe('foods and nutrition integration', () => {
         meals: Array<{ meal: StoredMeal; items: StoredMealItem[] }>;
       }>(afterDeleteResponse);
       expect(afterDeleteData.meals).toHaveLength(2);
-      expect(afterDeleteData.meals.map((entry) => entry.meal.name)).toEqual(['Breakfast', 'Dinner']);
-      expect(afterDeleteData.meals.flatMap((entry) => entry.items).map((item) => item.mealId)).not.toContain(
-        lunch.meal.id,
-      );
+      expect(afterDeleteData.meals.map((entry) => entry.meal.name)).toEqual([
+        'Breakfast',
+        'Dinner',
+      ]);
+      expect(
+        afterDeleteData.meals.flatMap((entry) => entry.items).map((item) => item.mealId),
+      ).not.toContain(lunch.meal.id);
     } finally {
       await app.close();
     }

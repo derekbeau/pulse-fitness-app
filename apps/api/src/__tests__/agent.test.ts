@@ -261,6 +261,8 @@ vi.mock('../routes/nutrition/store.js', () => ({
         fat: item.fat,
         fiber: null,
         sugar: null,
+        displayQuantity: null,
+        displayUnit: null,
         createdAt: Date.now(),
       }));
       return { meal, items };

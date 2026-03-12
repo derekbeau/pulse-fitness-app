@@ -94,6 +94,8 @@ function createMeal(args: {
       fat: item.fat,
       fiber: null,
       sugar: null,
+      displayQuantity: null,
+      displayUnit: null,
       createdAt: 1,
     })),
   };
@@ -397,7 +399,9 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'No meals logged for this day' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'No meals logged for this day' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
 
     await vi.runAllTimersAsync();
