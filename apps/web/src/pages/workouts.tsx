@@ -92,7 +92,7 @@ export function WorkoutsPage() {
     const sessionSearchParams = new URLSearchParams();
     sessionSearchParams.set('view', activeView);
 
-    if (status === 'in-progress') {
+    if (status === 'in-progress' || status === 'paused') {
       sessionSearchParams.set('sessionId', sessionId);
       return `/workouts/active?${sessionSearchParams.toString()}`;
     }

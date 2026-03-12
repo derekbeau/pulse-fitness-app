@@ -257,6 +257,21 @@ describe('ActiveWorkoutPage', () => {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
       }
 
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: currentSession.status,
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
       if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
         return Promise.resolve(jsonResponse({ data: currentSession }));
       }
@@ -327,12 +342,30 @@ describe('ActiveWorkoutPage', () => {
     ).toBe(true);
   });
 
-  it('renders an empty state when there is no active session and no selected template', () => {
+  it('renders an empty state when there is no active session and no selected template', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
     renderActiveWorkoutPage('/workouts/active');
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'No active workout' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'No active workout' })).toBeInTheDocument();
     expect(
       screen.getByText(
         'Start a session from one of your existing templates to begin logging sets.',
@@ -342,6 +375,142 @@ describe('ActiveWorkoutPage', () => {
       'href',
       '/workouts?view=templates',
     );
+  });
+
+  it('shows a session picker when multiple active sessions exist', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: 'session-active',
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+              buildWorkoutSessionListItem({
+                id: 'session-paused',
+                status: 'paused',
+                templateName: null,
+                name: 'Ad-hoc Conditioning',
+              }),
+            ],
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage('/workouts/active?view=list');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Choose an active workout' })).toBeVisible();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /upper push/i })).toHaveAttribute(
+      'href',
+      '/workouts/active?sessionId=session-active&view=list',
+    );
+    expect(screen.getByRole('link', { name: /ad-hoc conditioning/i })).toHaveAttribute(
+      'href',
+      '/workouts/active?sessionId=session-paused&view=list',
+    );
+  });
+
+  it('shows back-to-session-list navigation while editing one of multiple active sessions', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-single-active';
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+              buildWorkoutSessionListItem({
+                id: 'session-other',
+                status: 'paused',
+                templateName: 'Lower Body',
+                name: 'Lower Body',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&view=list`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Back to session list' })).toHaveAttribute(
+      'href',
+      '/workouts/active?view=list',
+    );
+  });
+
+  it('skips the session picker and opens the editor when exactly one active session exists', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-only-active';
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage('/workouts/active');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Choose an active workout' })).not.toBeInTheDocument();
   });
 
   it('supports manually finishing an active workout with confirmation and set summary ratio', async () => {
@@ -802,6 +971,33 @@ function buildInProgressSessionResponse(sessionId: string) {
     sets: [],
     createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
     updatedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+  };
+}
+
+function buildWorkoutSessionListItem(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    status: 'in-progress' | 'paused';
+    templateId: string | null;
+    templateName: string | null;
+    startedAt: number;
+    exerciseCount: number;
+  }> = {},
+) {
+  return {
+    id: 'session-list-item',
+    name: 'Workout Session',
+    date: '2026-03-06',
+    status: 'in-progress' as const,
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    completedAt: null,
+    duration: null,
+    exerciseCount: 4,
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    ...overrides,
   };
 }
 

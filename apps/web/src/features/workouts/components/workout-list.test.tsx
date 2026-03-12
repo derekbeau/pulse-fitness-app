@@ -25,6 +25,13 @@ describe('WorkoutList', () => {
         templateName: 'Upper Push',
       }),
       createSession({
+        id: 'session-paused',
+        date: '2026-03-13',
+        status: 'paused',
+        templateId: 'template-pull',
+        templateName: 'Upper Pull',
+      }),
+      createSession({
         id: 'session-completed',
         date: '2026-03-10',
         status: 'completed',
@@ -40,6 +47,7 @@ describe('WorkoutList', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
     expect(screen.getByText('Planned')).toBeInTheDocument();
     expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
     expect(screen.getByText(/Scheduled /)).toBeInTheDocument();
     expect(screen.getByText('49 min')).toBeInTheDocument();
@@ -47,6 +55,10 @@ describe('WorkoutList', () => {
       .getAllByRole('link', { name: /upper push/i })
       .find((link) => link.getAttribute('href') === '/workouts/active?sessionId=session-in-progress');
     expect(inProgressLink).toBeDefined();
+    const pausedLink = screen
+      .getAllByRole('link', { name: /upper pull/i })
+      .find((link) => link.getAttribute('href') === '/workouts/active?sessionId=session-paused');
+    expect(pausedLink).toBeDefined();
   });
 
   it('renders a workout card with summary stats and session detail link', async () => {

@@ -66,7 +66,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { workoutQueryKeys, useWorkoutTemplate } from '@/features/workouts/api/workouts';
+import {
+  workoutQueryKeys,
+  useWorkoutSessions,
+  useWorkoutTemplate,
+} from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
   resolveTrackingType,
@@ -86,7 +90,6 @@ import {
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
-  getStoredActiveWorkoutSessionId,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
@@ -135,10 +138,33 @@ export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const returnView = searchParams.get('view');
+  const returnToActiveListHref = returnView
+    ? `/workouts/active?${new URLSearchParams({ view: returnView }).toString()}`
+    : '/workouts/active';
   const requestedSessionId = searchParams.get('sessionId');
-  const sessionId = requestedSessionId ?? getStoredActiveWorkoutSessionId();
   const requestedTemplateId = searchParams.get('template');
-  const shouldRenderEmptyState = !sessionId && !requestedTemplateId;
+  const activeSessionsQuery = useWorkoutSessions(
+    { status: ['in-progress', 'paused'] },
+    { enabled: !requestedTemplateId },
+  );
+  const activeSessions = activeSessionsQuery.data ?? [];
+  const sessionId =
+    requestedSessionId ??
+    (!requestedTemplateId && !requestedSessionId && activeSessions.length === 1
+      ? activeSessions[0]?.id ?? null
+      : null);
+  const shouldRenderEmptyState =
+    !requestedTemplateId &&
+    !requestedSessionId &&
+    activeSessionsQuery.isSuccess &&
+    activeSessions.length === 0;
+  const shouldRenderSessionPicker =
+    !requestedTemplateId &&
+    !requestedSessionId &&
+    activeSessionsQuery.isSuccess &&
+    activeSessions.length > 1;
+  const showBackToSessionList = Boolean(requestedSessionId) && activeSessions.length > 1;
   const sessionQuery = useWorkoutSession(sessionId);
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
@@ -327,6 +353,24 @@ export function ActiveWorkoutPage() {
     ? formatElapsedTime(getElapsedSeconds(startTime, new Date(sessionCompletedAt).getTime()))
     : formatElapsedTime(getElapsedSeconds(startTime, Date.now()));
 
+  if (!requestedTemplateId && !requestedSessionId && activeSessionsQuery.isPending) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Loading active workouts</h1>
+        <p className="text-sm text-muted">Fetching in-progress and paused sessions...</p>
+      </section>
+    );
+  }
+
+  if (!requestedTemplateId && !requestedSessionId && activeSessionsQuery.isError) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Unable to load active workouts</h1>
+        <p className="text-sm text-muted">Refresh and try again.</p>
+      </section>
+    );
+  }
+
   if (sessionId && sessionQuery.isPending) {
     return (
       <section className="space-y-3 pb-8">
@@ -377,8 +421,61 @@ export function ActiveWorkoutPage() {
     );
   }
 
+  if (shouldRenderSessionPicker) {
+    return (
+      <section className="space-y-4 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Choose an active workout</h1>
+        <p className="text-sm text-muted">
+          You have multiple sessions in progress. Select one to continue logging.
+        </p>
+        <div className="grid gap-3">
+          {activeSessions.map((activeWorkoutSession) => (
+            <Link
+              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+              key={activeWorkoutSession.id}
+              to={buildActiveWorkoutSessionHref(activeWorkoutSession.id, returnView)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-foreground">
+                    {activeWorkoutSession.templateName ?? activeWorkoutSession.name}
+                  </h2>
+                  <p className="text-sm text-muted">
+                    {`Started ${formatStartedRelativeTime(activeWorkoutSession.startedAt)}`}
+                  </p>
+                </div>
+                <span
+                  className={
+                    activeWorkoutSession.status === 'paused'
+                      ? 'inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                      : 'inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                  }
+                >
+                  {activeWorkoutSession.status === 'paused' ? 'Paused' : 'Active'}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-muted">
+                {`${activeWorkoutSession.exerciseCount} exercise${
+                  activeWorkoutSession.exerciseCount === 1 ? '' : 's'
+                }`}
+              </p>
+            </Link>
+          ))}
+        </div>
+        <Button asChild type="button">
+          <Link to="/workouts?view=templates">Start from template</Link>
+        </Button>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-5 pb-8">
+      {showBackToSessionList ? (
+        <Button asChild size="sm" type="button" variant="ghost">
+          <Link to={returnToActiveListHref}>Back to session list</Link>
+        </Button>
+      ) : null}
       {sessionError ? <p className="text-sm text-destructive">{sessionError}</p> : null}
 
       {stage === 'active' ? (
@@ -1494,6 +1591,38 @@ function parseEditableTimeSegments(timeSegments: WorkoutSessionTimeSegment[]) {
       error: 'Time segments must be ordered, non-overlapping, and each end must be after start.',
     };
   }
+}
+
+function buildActiveWorkoutSessionHref(sessionId: string, view: string | null) {
+  const searchParams = new URLSearchParams();
+  searchParams.set('sessionId', sessionId);
+
+  if (view) {
+    searchParams.set('view', view);
+  }
+
+  return `/workouts/active?${searchParams.toString()}`;
+}
+
+function formatStartedRelativeTime(startedAt: number) {
+  const elapsedMs = Date.now() - startedAt;
+  const elapsedMinutes = Math.max(0, Math.round(elapsedMs / 60_000));
+
+  if (elapsedMinutes < 1) {
+    return 'just now';
+  }
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} min ago`;
+  }
+
+  const elapsedHours = Math.round(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours} hr ago`;
+  }
+
+  const elapsedDays = Math.round(elapsedHours / 24);
+  return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
 }
 
 function getElapsedSeconds(startTime: Date | string, currentTime: number) {

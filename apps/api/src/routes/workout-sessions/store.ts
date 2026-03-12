@@ -494,7 +494,7 @@ export const listWorkoutSessions = async ({
   userId: string;
   from?: string;
   to?: string;
-  status?: WorkoutSession['status'];
+  status?: WorkoutSession['status'][];
   limit?: number;
 }): Promise<WorkoutSessionListItem[]> => {
   const { db } = await import('../../db/index.js');
@@ -508,8 +508,8 @@ export const listWorkoutSessions = async ({
     whereClauses.push(lte(workoutSessions.date, to));
   }
 
-  if (status) {
-    whereClauses.push(eq(workoutSessions.status, status));
+  if (status && status.length > 0) {
+    whereClauses.push(inArray(workoutSessions.status, status));
   }
 
   const query = db

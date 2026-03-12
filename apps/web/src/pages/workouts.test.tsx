@@ -136,6 +136,19 @@ const allSessionsResponse = [
     createdAt: 2,
   },
   {
+    id: 'session-4',
+    name: 'Upper Push',
+    date: '2026-03-13',
+    status: 'paused',
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-13T18:00:00Z'),
+    completedAt: null,
+    duration: null,
+    exerciseCount: 5,
+    createdAt: 4,
+  },
+  {
     id: 'session-3',
     name: 'Upper Push',
     date: '2026-03-14',
@@ -274,7 +287,7 @@ describe('WorkoutsPage', () => {
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=exercises');
   });
 
-  it('includes the current view in session links and routes in-progress sessions to active workout', async () => {
+  it('includes the current view in session links and routes in-progress/paused sessions to active workout', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts?view=list']}>
         <Routes>
@@ -304,6 +317,17 @@ describe('WorkoutsPage', () => {
     expect(activeSessionLink).toHaveAttribute(
       'href',
       '/workouts/active?view=list&sessionId=session-2',
+    );
+
+    const pausedSessionLink = (await screen.findAllByRole('link')).find(
+      (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-4',
+    );
+    if (!pausedSessionLink) {
+      throw new Error('Expected paused session link to the active workout route');
+    }
+    expect(pausedSessionLink).toHaveAttribute(
+      'href',
+      '/workouts/active?view=list&sessionId=session-4',
     );
   });
 

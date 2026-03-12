@@ -1200,6 +1200,60 @@ describe('workout session routes', () => {
     });
   });
 
+  it('filters workout session listings by multiple statuses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-paused',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Paused Upper Push',
+      date: '2026-03-16',
+      status: 'paused',
+      startedAt: 1_700_110_000_000,
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress-2',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Active Lower Body',
+      date: '2026-03-15',
+      status: 'in-progress',
+      startedAt: 1_700_109_000_000,
+    });
+    seedWorkoutSession({
+      id: 'session-completed-4',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Completed Session',
+      date: '2026-03-14',
+      status: 'completed',
+      startedAt: 1_700_108_000_000,
+      completedAt: 1_700_108_003_000,
+      duration: 47,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions?status=in-progress&status=paused',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'session-paused',
+          status: 'paused',
+        }),
+        expect.objectContaining({
+          id: 'session-in-progress-2',
+          status: 'in-progress',
+        }),
+      ],
+    });
+  });
+
   it('backfills empty time segments for in-progress sessions at read time', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
     const startedAt = Date.UTC(2026, 2, 12, 14, 30, 0);

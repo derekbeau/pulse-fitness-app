@@ -514,12 +514,19 @@ describe('workoutSessionQueryParamsSchema', () => {
     ).toEqual({
       from: '2026-03-10',
       to: '2026-03-12',
-      status: 'completed',
+      status: ['completed'],
       limit: 5,
     });
     expect(workoutSessionQueryParamsSchema.parse({ status: 'in-progress', limit: 10 })).toEqual({
-      status: 'in-progress',
+      status: ['in-progress'],
       limit: 10,
+    });
+    expect(
+      workoutSessionQueryParamsSchema.parse({
+        status: ['in-progress', 'paused'],
+      }),
+    ).toEqual({
+      status: ['in-progress', 'paused'],
     });
   });
 

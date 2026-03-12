@@ -118,7 +118,9 @@ async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal
   }
 
   if (parsedParams.status) {
-    searchParams.set('status', parsedParams.status);
+    for (const status of parsedParams.status) {
+      searchParams.append('status', status);
+    }
   }
 
   if (parsedParams.limit) {

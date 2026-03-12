@@ -352,7 +352,18 @@ export const workoutSessionQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
     to: dateSchema.optional(),
-    status: workoutSessionStatusSchema.optional(),
+    status: z
+      .preprocess(
+        (value) => {
+          if (value === undefined) {
+            return undefined;
+          }
+
+          return Array.isArray(value) ? value : [value];
+        },
+        z.array(workoutSessionStatusSchema).min(1),
+      )
+      .optional(),
     limit: z.coerce.number().int().min(1).max(50).optional(),
   })
   .refine((value) => !value.from || !value.to || value.from <= value.to, {

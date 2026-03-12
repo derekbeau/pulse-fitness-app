@@ -198,6 +198,14 @@ describe('App', () => {
         return Promise.resolve(jsonResponse(completedSessionsPayload));
       }
 
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
       if (url.pathname.startsWith('/api/v1/workout-sessions/')) {
         return Promise.resolve(jsonResponse(workoutSessionPayload));
       }
