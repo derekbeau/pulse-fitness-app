@@ -310,6 +310,14 @@ describe('workout session routes', () => {
         method: 'POST',
         url: '/api/v1/workout-sessions/session-1/save-as-template',
       }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1/reorder',
+        payload: {
+          section: 'main',
+          exerciseIds: [],
+        },
+      }),
     ]);
 
     for (const response of responses) {
@@ -501,6 +509,85 @@ describe('workout session routes', () => {
         message: 'Workout session not found',
       },
     });
+  });
+
+  it('reorders active session exercises by updating set orderIndex', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-reorder',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-press-1',
+      sessionId: 'session-reorder',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'set-press-2',
+      sessionId: 'session-reorder',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'set-pulldown-1',
+      sessionId: 'session-reorder',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-reorder/reorder',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        exerciseIds: ['user-1-lat-pulldown', 'global-bench-press'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-reorder',
+        sets: [
+          expect.objectContaining({ exerciseId: 'user-1-lat-pulldown', orderIndex: 0 }),
+          expect.objectContaining({ exerciseId: 'global-bench-press', orderIndex: 1 }),
+          expect.objectContaining({ exerciseId: 'global-bench-press', orderIndex: 1 }),
+        ],
+      }),
+    });
+
+    const persistedOrder = context.db
+      .select({
+        exerciseId: sessionSets.exerciseId,
+        orderIndex: sessionSets.orderIndex,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-reorder'))
+      .all()
+      .sort((left, right) => {
+        if (left.orderIndex !== right.orderIndex) {
+          return left.orderIndex - right.orderIndex;
+        }
+
+        return left.exerciseId.localeCompare(right.exerciseId);
+      });
+
+    expect(persistedOrder).toEqual([
+      { exerciseId: 'user-1-lat-pulldown', orderIndex: 0 },
+      { exerciseId: 'global-bench-press', orderIndex: 1 },
+      { exerciseId: 'global-bench-press', orderIndex: 1 },
+    ]);
   });
 
   it('applies save-as-template metadata overrides when provided', async () => {
@@ -704,19 +791,6 @@ describe('workout session routes', () => {
     expect(batchResponse.json()).toEqual({
       data: [
         {
-          exerciseId: 'global-bench-press',
-          sets: [
-            expect.objectContaining({
-              id: createPayload.data.id,
-              setNumber: 1,
-              weight: 190,
-              reps: 9,
-              completed: true,
-              notes: 'Last hard rep',
-            }),
-          ],
-        },
-        {
           exerciseId: 'user-1-lat-pulldown',
           sets: [
             expect.objectContaining({
@@ -729,6 +803,19 @@ describe('workout session routes', () => {
               setNumber: 2,
               weight: 130,
               reps: 11,
+            }),
+          ],
+        },
+        {
+          exerciseId: 'global-bench-press',
+          sets: [
+            expect.objectContaining({
+              id: createPayload.data.id,
+              setNumber: 1,
+              weight: 190,
+              reps: 9,
+              completed: true,
+              notes: 'Last hard rep',
             }),
           ],
         },

@@ -234,6 +234,7 @@ export const sessionSetSchema = z
   .object({
     id: z.string(),
     exerciseId: requiredStringSchema,
+    orderIndex: z.number().int().min(0).optional(),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable(),
     reps: nullableIntegerSchema,
@@ -287,6 +288,7 @@ export const workoutSessionListItemSchema = z
 export const sessionSetInputSchema = z
   .object({
     exerciseId: requiredStringSchema,
+    orderIndex: z.number().int().min(0).optional().default(0),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable().optional().default(null),
     reps: nullableIntegerSchema.optional().default(null),
@@ -339,6 +341,11 @@ export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
   timeSegments: timeSegmentsSchema.superRefine(validateTimeSegments),
 });
 
+export const reorderWorkoutSessionExercisesInputSchema = z.object({
+  section: workoutTemplateSectionTypeSchema,
+  exerciseIds: z.array(requiredStringSchema).max(100),
+});
+
 export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
   (value) => (value === null || value === undefined ? {} : value),
   z.object({
@@ -353,16 +360,13 @@ export const workoutSessionQueryParamsSchema = z
     from: dateSchema.optional(),
     to: dateSchema.optional(),
     status: z
-      .preprocess(
-        (value) => {
-          if (value === undefined) {
-            return undefined;
-          }
+      .preprocess((value) => {
+        if (value === undefined) {
+          return undefined;
+        }
 
-          return Array.isArray(value) ? value : [value];
-        },
-        z.array(workoutSessionStatusSchema).min(1),
-      )
+        return Array.isArray(value) ? value : [value];
+      }, z.array(workoutSessionStatusSchema).min(1))
       .optional(),
     limit: z.coerce.number().int().min(1).max(50).optional(),
   })
@@ -383,6 +387,9 @@ export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInput
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
   typeof updateWorkoutSessionTimeSegmentsInputSchema
+>;
+export type ReorderWorkoutSessionExercisesInput = z.infer<
+  typeof reorderWorkoutSessionExercisesInputSchema
 >;
 export type SaveWorkoutSessionAsTemplateInput = z.infer<
   typeof saveWorkoutSessionAsTemplateInputSchema

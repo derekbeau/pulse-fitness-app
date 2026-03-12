@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   createWorkoutTemplateInputSchema,
+  reorderWorkoutTemplateExercisesInputSchema,
   type UpdateWorkoutTemplateInput,
   updateWorkoutTemplateInputSchema,
 } from '@pulse/shared';
@@ -16,6 +17,7 @@ import {
   deleteWorkoutTemplate,
   findWorkoutTemplateById,
   listWorkoutTemplates,
+  reorderWorkoutTemplateExercises,
   updateWorkoutTemplate,
 } from './store.js';
 
@@ -180,6 +182,62 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({
       data: template,
     });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
+    const parsedBody = reorderWorkoutTemplateExercisesInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
+    }
+
+    const existingTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
+    if (!existingTemplate) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const currentSection = existingTemplate.sections.find(
+      (section) => section.type === parsedBody.data.section,
+    );
+    const currentExerciseIds = currentSection?.exercises.map((exercise) => exercise.id) ?? [];
+    const requestedIds = parsedBody.data.exerciseIds;
+    const hasSameMembership =
+      currentExerciseIds.length === requestedIds.length &&
+      currentExerciseIds.every((exerciseId) => requestedIds.includes(exerciseId));
+    if (!hasSameMembership) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
+    }
+
+    const reordered = await reorderWorkoutTemplateExercises({
+      templateId: request.params.id,
+      userId: request.userId,
+      section: parsedBody.data.section,
+      exerciseIds: requestedIds,
+    });
+    if (!reordered) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const template = await findWorkoutTemplateById(request.params.id, request.userId);
+    if (!template) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    return reply.send({ data: template });
   });
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {

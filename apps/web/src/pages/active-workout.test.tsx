@@ -272,7 +272,10 @@ describe('ActiveWorkoutPage', () => {
         );
       }
 
-      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
         return Promise.resolve(jsonResponse({ data: currentSession }));
       }
 
@@ -365,7 +368,9 @@ describe('ActiveWorkoutPage', () => {
 
     renderActiveWorkoutPage('/workouts/active');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'No active workout' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'No active workout' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         'Start a session from one of your existing templates to begin logging sets.',
@@ -413,7 +418,9 @@ describe('ActiveWorkoutPage', () => {
 
     renderActiveWorkoutPage('/workouts/active?view=list');
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Choose an active workout' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Choose an active workout' }),
+    ).toBeVisible();
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Paused')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /upper push/i })).toHaveAttribute(
@@ -457,7 +464,10 @@ describe('ActiveWorkoutPage', () => {
         );
       }
 
-      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
         return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
       }
 
@@ -499,7 +509,10 @@ describe('ActiveWorkoutPage', () => {
         );
       }
 
-      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
         return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
       }
 
@@ -510,7 +523,9 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage('/workouts/active');
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
-    expect(screen.queryByRole('heading', { level: 1, name: 'Choose an active workout' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Choose an active workout' }),
+    ).not.toBeInTheDocument();
   });
 
   it('supports manually finishing an active workout with confirmation and set summary ratio', async () => {
@@ -824,6 +839,7 @@ describe('ActiveWorkoutPage', () => {
       {
         completed: true,
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         notes: 'Keep shoulders packed',
         reps: 10,
         section: 'main',
@@ -834,6 +850,7 @@ describe('ActiveWorkoutPage', () => {
       {
         completed: true,
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         notes: null,
         reps: 9,
         section: 'main',

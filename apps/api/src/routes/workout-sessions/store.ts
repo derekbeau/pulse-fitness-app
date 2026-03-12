@@ -54,6 +54,7 @@ type SessionSetRecord = {
   id: string;
   sessionId: string;
   exerciseId: string;
+  orderIndex: number;
   setNumber: number;
   weight: number | null;
   reps: number | null;
@@ -113,6 +114,7 @@ const sessionSetSelection = {
   id: sessionSets.id,
   sessionId: sessionSets.sessionId,
   exerciseId: sessionSets.exerciseId,
+  orderIndex: sessionSets.orderIndex,
   setNumber: sessionSets.setNumber,
   weight: sessionSets.weight,
   reps: sessionSets.reps,
@@ -133,8 +135,10 @@ const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
     return leftSectionIndex - rightSectionIndex;
   }
 
-  // TODO(pr-12): Persist session-set exercise order explicitly (orderIndex) once session editing supports reordering.
-  // Session sets do not yet persist an exercise order index, so UUID order is the deterministic fallback.
+  if (left.orderIndex !== right.orderIndex) {
+    return left.orderIndex - right.orderIndex;
+  }
+
   if (left.exerciseId !== right.exerciseId) {
     return left.exerciseId.localeCompare(right.exerciseId);
   }
@@ -149,6 +153,7 @@ const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
 const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   id: set.id,
   exerciseId: set.exerciseId,
+  orderIndex: set.orderIndex,
   setNumber: set.setNumber,
   weight: set.weight,
   reps: set.reps,
@@ -214,6 +219,7 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     id: randomUUID(),
     sessionId,
     exerciseId: set.exerciseId,
+    orderIndex: set.orderIndex,
     setNumber: set.setNumber,
     weight: set.weight,
     reps: set.reps,
@@ -286,6 +292,18 @@ export const createSessionSet = async ({
   input: CreateSetInput;
 }): Promise<SessionSet> => {
   const { db } = await import('../../db/index.js');
+  const existingSets = db
+    .select(sessionSetSelection)
+    .from(sessionSets)
+    .where(eq(sessionSets.sessionId, sessionId))
+    .all();
+  const sameExerciseOrderIndex = existingSets.find(
+    (set) => set.exerciseId === input.exerciseId && set.section === input.section,
+  )?.orderIndex;
+  const maxOrderIndexInSection = existingSets
+    .filter((set) => set.section === input.section)
+    .reduce((maxValue, set) => Math.max(maxValue, set.orderIndex), -1);
+  const nextOrderIndex = sameExerciseOrderIndex ?? maxOrderIndexInSection + 1;
 
   const result = db
     .insert(sessionSets)
@@ -293,6 +311,7 @@ export const createSessionSet = async ({
       id,
       sessionId,
       exerciseId: input.exerciseId,
+      orderIndex: nextOrderIndex,
       setNumber: input.setNumber,
       weight: input.weight,
       reps: input.reps,
@@ -382,7 +401,36 @@ export const batchUpsertSessionSets = async ({
   const { db } = await import('../../db/index.js');
 
   const groupedSets = db.transaction((tx) => {
+    const existingSets = tx
+      .select(sessionSetSelection)
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, sessionId))
+      .all();
+    const orderIndexByExerciseAndSection = new Map<string, number>();
+    const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType | null, number>();
+
+    for (const set of existingSets) {
+      const key = `${set.section ?? 'null'}:${set.exerciseId}`;
+      if (!orderIndexByExerciseAndSection.has(key)) {
+        orderIndexByExerciseAndSection.set(key, set.orderIndex);
+      }
+
+      const currentNextOrderIndex = nextOrderIndexBySection.get(set.section) ?? 0;
+      nextOrderIndexBySection.set(set.section, Math.max(currentNextOrderIndex, set.orderIndex + 1));
+    }
+
     for (const set of input.sets) {
+      const orderIndexKey = `${set.section ?? 'null'}:${set.exerciseId}`;
+      const hasExistingOrderIndex = orderIndexByExerciseAndSection.has(orderIndexKey);
+      const nextOrderIndex =
+        orderIndexByExerciseAndSection.get(orderIndexKey) ??
+        nextOrderIndexBySection.get(set.section) ??
+        0;
+      orderIndexByExerciseAndSection.set(orderIndexKey, nextOrderIndex);
+      if (!nextOrderIndexBySection.has(set.section) || !hasExistingOrderIndex) {
+        nextOrderIndexBySection.set(set.section, nextOrderIndex + 1);
+      }
+
       if (set.id) {
         // Batch upsert intentionally syncs structural/performance fields only.
         // `completed`, `skipped`, and `notes` are controlled via PATCH /sets/:setId.
@@ -390,6 +438,7 @@ export const batchUpsertSessionSets = async ({
           .update(sessionSets)
           .set({
             exerciseId: set.exerciseId,
+            orderIndex: nextOrderIndex,
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
@@ -410,6 +459,7 @@ export const batchUpsertSessionSets = async ({
           id: randomUUID(),
           sessionId,
           exerciseId: set.exerciseId,
+          orderIndex: nextOrderIndex,
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
@@ -615,6 +665,48 @@ export const deleteWorkoutSession = async (id: string, userId: string): Promise<
     .run();
 
   return result.changes === 1;
+};
+
+export const reorderWorkoutSessionExercises = async ({
+  sessionId,
+  userId,
+  section,
+  exerciseIds,
+}: {
+  sessionId: string;
+  userId: string;
+  section: WorkoutTemplateSectionType;
+  exerciseIds: string[];
+}): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const session = tx
+      .select(workoutSessionAccessSelection)
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+      .limit(1)
+      .get();
+
+    if (!session) {
+      return false;
+    }
+
+    for (const [orderIndex, exerciseId] of exerciseIds.entries()) {
+      tx.update(sessionSets)
+        .set({ orderIndex })
+        .where(
+          and(
+            eq(sessionSets.sessionId, sessionId),
+            eq(sessionSets.exerciseId, exerciseId),
+            eq(sessionSets.section, section),
+          ),
+        )
+        .run();
+    }
+
+    return true;
+  });
 };
 
 const mapSessionSectionToTemplateSection = (

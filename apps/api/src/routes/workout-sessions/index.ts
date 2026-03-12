@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   batchUpsertSetsSchema,
   createSetSchema,
+  reorderWorkoutSessionExercisesInputSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
@@ -27,6 +28,7 @@ import {
   findWorkoutSessionAccess,
   findWorkoutSessionById,
   listSessionSetGroups,
+  reorderWorkoutSessionExercises,
   SessionSetNotFoundError,
   listWorkoutSessions,
   saveCompletedSessionAsTemplate,
@@ -90,6 +92,7 @@ const toCreateWorkoutSessionInput = (
     notes: session.notes,
     sets: session.sets.map((set) => ({
       exerciseId: set.exerciseId,
+      orderIndex: set.orderIndex ?? 0,
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
@@ -736,6 +739,83 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       userId: request.userId,
       input: payload,
     });
+    if (!updated) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    return reply.send({
+      data: updated,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
+    const parsedBody = reorderWorkoutSessionExercisesInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+    if (!existingSession) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    if (existingSession.status !== 'in-progress' && existingSession.status !== 'paused') {
+      return sendError(
+        reply,
+        409,
+        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.message,
+      );
+    }
+
+    const currentExerciseIds = Array.from(
+      new Set(
+        existingSession.sets
+          .filter((set) => set.section === parsedBody.data.section)
+          .sort((left, right) => {
+            if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+              return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+            }
+
+            return left.exerciseId.localeCompare(right.exerciseId);
+          })
+          .map((set) => set.exerciseId),
+      ),
+    );
+    const requestedIds = parsedBody.data.exerciseIds;
+    const hasSameMembership =
+      currentExerciseIds.length === requestedIds.length &&
+      currentExerciseIds.every((exerciseId) => requestedIds.includes(exerciseId));
+    if (!hasSameMembership) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const reordered = await reorderWorkoutSessionExercises({
+      sessionId: request.params.id,
+      userId: request.userId,
+      section: parsedBody.data.section,
+      exerciseIds: requestedIds,
+    });
+    if (!reordered) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const updated = await findWorkoutSessionById(request.params.id, request.userId);
     if (!updated) {
       return sendError(
         reply,

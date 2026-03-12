@@ -5,6 +5,7 @@ import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/sess
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
+  useReorderSessionExercises,
   useStartSession,
   useUpdateSessionStartTime,
   useUpdateSessionStatus,
@@ -220,6 +221,27 @@ describe('use-workout-session hooks', () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/workout-sessions/session-1/time-segments',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+  });
+
+  it('reorders workout session exercises via dedicated endpoint', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse(sessionResponse));
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useReorderSessionExercises('session-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        section: 'main',
+        exerciseIds: ['exercise-2', 'exercise-1'],
+      });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/workout-sessions/session-1/reorder',
       expect.objectContaining({
         method: 'PATCH',
       }),

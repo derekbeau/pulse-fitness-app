@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createWorkoutSessionInputSchema,
+  reorderWorkoutSessionExercisesInputSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
@@ -124,6 +125,7 @@ describe('sessionSetInputSchema', () => {
       }),
     ).toEqual({
       exerciseId: 'bench-press',
+      orderIndex: 0,
       setNumber: 1,
       weight: null,
       reps: null,
@@ -280,6 +282,7 @@ describe('createWorkoutSessionInputSchema', () => {
       sets: [
         {
           exerciseId: 'high-bar-back-squat',
+          orderIndex: 0,
           setNumber: 1,
           reps: 5,
           weight: 275,
@@ -314,6 +317,7 @@ describe('createWorkoutSessionInputSchema', () => {
       sets: [
         {
           exerciseId: 'high-bar-back-squat',
+          orderIndex: 0,
           setNumber: 1,
           reps: 5,
           weight: 275,
@@ -345,6 +349,29 @@ describe('createWorkoutSessionInputSchema', () => {
         startedAt: 10,
       }).timeSegments,
     ).toEqual([]);
+  });
+});
+
+describe('reorderWorkoutSessionExercisesInputSchema', () => {
+  it('accepts section exercise reorder payloads', () => {
+    expect(
+      reorderWorkoutSessionExercisesInputSchema.parse({
+        section: 'warmup',
+        exerciseIds: ['exercise-1', 'exercise-2'],
+      }),
+    ).toEqual({
+      section: 'warmup',
+      exerciseIds: ['exercise-1', 'exercise-2'],
+    });
+  });
+
+  it('rejects blank exercise ids', () => {
+    expect(() =>
+      reorderWorkoutSessionExercisesInputSchema.parse({
+        section: 'warmup',
+        exerciseIds: ['exercise-1', ''],
+      }),
+    ).toThrow();
   });
 });
 

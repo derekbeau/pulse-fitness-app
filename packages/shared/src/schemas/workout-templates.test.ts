@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createWorkoutTemplateInputSchema,
+  reorderWorkoutTemplateExercisesInputSchema,
   type CreateWorkoutTemplateInput,
   type UpdateWorkoutTemplateInput,
   type WorkoutTemplate,
@@ -226,6 +227,29 @@ describe('updateWorkoutTemplateInputSchema', () => {
           { type: 'main', exercises: [] },
           { type: 'main', exercises: [] },
         ],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('reorderWorkoutTemplateExercisesInputSchema', () => {
+  it('accepts section exercise reorder payloads', () => {
+    expect(
+      reorderWorkoutTemplateExercisesInputSchema.parse({
+        section: 'main',
+        exerciseIds: ['exercise-1', 'exercise-2'],
+      }),
+    ).toEqual({
+      section: 'main',
+      exerciseIds: ['exercise-1', 'exercise-2'],
+    });
+  });
+
+  it('rejects blank exercise ids', () => {
+    expect(() =>
+      reorderWorkoutTemplateExercisesInputSchema.parse({
+        section: 'main',
+        exerciseIds: ['exercise-1', '  '],
       }),
     ).toThrow();
   });

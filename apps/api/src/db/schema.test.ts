@@ -1042,6 +1042,7 @@ describe('sessionSets schema', () => {
       'id',
       'sessionId',
       'exerciseId',
+      'orderIndex',
       'setNumber',
       'weight',
       'reps',
@@ -1055,6 +1056,7 @@ describe('sessionSets schema', () => {
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.completed.default).toBe(false);
     expect(columns.skipped.default).toBe(false);
+    expect(columns.orderIndex.default).toBe(0);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 

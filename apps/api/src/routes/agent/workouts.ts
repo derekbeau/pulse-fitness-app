@@ -245,6 +245,7 @@ const toCreateWorkoutSessionInput = (session: WorkoutSession): CreateWorkoutSess
   notes: session.notes,
   sets: session.sets.map((set) => ({
     exerciseId: set.exerciseId,
+    orderIndex: set.orderIndex ?? 0,
     setNumber: set.setNumber,
     weight: set.weight,
     reps: set.reps,
@@ -264,12 +265,13 @@ const buildInitialSessionSets = (
   const sets: CreateWorkoutSessionInput['sets'] = [];
 
   for (const section of sections) {
-    for (const exercise of section.exercises) {
+    for (const [exerciseIndex, exercise] of section.exercises.entries()) {
       const setCount = exercise.sets ?? 1;
 
       for (let setNumber = 1; setNumber <= setCount; setNumber += 1) {
         sets.push({
           exerciseId: exercise.exerciseId,
+          orderIndex: exerciseIndex,
           setNumber,
           weight: null,
           reps: null,
@@ -474,6 +476,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
 
         setMap.set(key, {
           exerciseId,
+          orderIndex: exerciseOrder.get(exerciseId) ?? 0,
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,

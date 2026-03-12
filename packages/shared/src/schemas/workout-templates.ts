@@ -175,9 +175,17 @@ export const updateWorkoutTemplateInputSchema = z
     });
   });
 
+export const reorderWorkoutTemplateExercisesInputSchema = z.object({
+  section: workoutTemplateSectionTypeSchema,
+  exerciseIds: z.array(z.string().trim().min(1)).max(100),
+});
+
 export type WorkoutTemplateSectionType = z.infer<typeof workoutTemplateSectionTypeSchema>;
 export type WorkoutTemplateExercise = z.infer<typeof workoutTemplateExerciseSchema>;
 export type WorkoutTemplateSection = z.infer<typeof workoutTemplateSectionSchema>;
 export type WorkoutTemplate = z.infer<typeof workoutTemplateSchema>;
 export type CreateWorkoutTemplateInput = z.infer<typeof createWorkoutTemplateInputSchema>;
 export type UpdateWorkoutTemplateInput = z.infer<typeof updateWorkoutTemplateInputSchema>;
+export type ReorderWorkoutTemplateExercisesInput = z.infer<
+  typeof reorderWorkoutTemplateExercisesInputSchema
+>;

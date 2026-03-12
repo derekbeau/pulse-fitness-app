@@ -141,6 +141,13 @@
       "when": 1773295200000,
       "tag": "0019_workout_session_time_segments",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1773303265036,
+      "tag": "0020_session_set_order_index",
+      "breakpoints": true
     }
   ]
 }

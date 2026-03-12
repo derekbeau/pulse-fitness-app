@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkoutSessionInputSchema,
+  reorderWorkoutSessionExercisesInputSchema,
+  type ReorderWorkoutSessionExercisesInput,
   type WorkoutSessionTimeSegment,
   type WorkoutSession,
   updateWorkoutSessionTimeSegmentsInputSchema,
@@ -28,6 +30,7 @@ type UpdateSessionStatusRequest = {
 type UpdateSessionTimeSegmentsRequest = {
   timeSegments: WorkoutSessionTimeSegment[];
 };
+type ReorderSessionExercisesRequest = ReorderWorkoutSessionExercisesInput;
 
 export const workoutSessionQueryKeys = {
   all: ['workout-sessions'] as const,
@@ -94,7 +97,21 @@ async function updateSessionTimeSegments(
   return payload.data;
 }
 
-async function syncSessionMutationCache(queryClient: ReturnType<typeof useQueryClient>, session: WorkoutSession) {
+async function reorderSessionExercises(sessionId: string, input: ReorderSessionExercisesRequest) {
+  const parsedInput = reorderWorkoutSessionExercisesInputSchema.parse(input);
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}/reorder`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function syncSessionMutationCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  session: WorkoutSession,
+) {
   queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
   queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
 
@@ -193,6 +210,24 @@ export function useUpdateSessionTimeSegments(sessionId: string | null | undefine
       }
 
       return updateSessionTimeSegments(normalizedSessionId, input);
+    },
+    onSuccess: async (session) => {
+      await syncSessionMutationCache(queryClient, session);
+    },
+  });
+}
+
+export function useReorderSessionExercises(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<WorkoutSession, Error, ReorderSessionExercisesRequest>({
+    mutationFn: async (input) => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to reorder exercises');
+      }
+
+      return reorderSessionExercises(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session);

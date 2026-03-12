@@ -127,6 +127,7 @@ export const sessionSets = sqliteTable(
     exerciseId: text('exercise_id')
       .notNull()
       .references(() => exercises.id, { onDelete: 'restrict' }),
+    orderIndex: integer('order_index').notNull().default(0),
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),
     reps: integer('reps'),

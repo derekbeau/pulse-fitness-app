@@ -36,10 +36,7 @@ import {
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
-import {
-  estimateRemainingTime,
-  estimateTotalTime,
-} from '@/features/workouts/lib/time-estimates';
+import { estimateRemainingTime, estimateTotalTime } from '@/features/workouts/lib/time-estimates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,6 +79,7 @@ import {
   useUpdateSessionStatus,
   useUpdateSessionStartTime,
   useUpdateSessionTimeSegments,
+  useReorderSessionExercises,
   useWorkoutSession,
   workoutSessionQueryKeys,
 } from '@/hooks/use-workout-session';
@@ -94,10 +92,7 @@ import {
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
-import {
-  buildSessionSetInputs,
-  extractExerciseNotes,
-} from '@/features/workouts/lib/session-notes';
+import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import {
   mockExercises,
@@ -124,6 +119,7 @@ const categoryBadgeByExerciseId = new Map(
   mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
 );
 const mockExerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
+type ExerciseOrderBySection = Record<WorkoutTemplateSectionType, string[]>;
 
 type RestTimerState = {
   duration: number;
@@ -152,7 +148,7 @@ export function ActiveWorkoutPage() {
   const sessionId =
     requestedSessionId ??
     (!requestedTemplateId && !requestedSessionId && activeSessions.length === 1
-      ? activeSessions[0]?.id ?? null
+      ? (activeSessions[0]?.id ?? null)
       : null);
   const shouldRenderEmptyState =
     !requestedTemplateId &&
@@ -172,6 +168,7 @@ export function ActiveWorkoutPage() {
   const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
   const updateSessionStatusMutation = useUpdateSessionStatus(sessionId);
   const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
+  const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
   const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
   const shouldLoadApiTemplate = UUID_PATTERN.test(resolvedTemplateId);
@@ -186,6 +183,9 @@ export function ActiveWorkoutPage() {
 
   const [fallbackStartTime] = useState(() => new Date().toISOString());
   const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
+  const [exerciseOrderBySection, setExerciseOrderBySection] = useState<ExerciseOrderBySection>(() =>
+    buildExerciseOrderFromTemplate(template),
+  );
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
     createInitialWorkoutSetDrafts(template, new Set<string>()),
   );
@@ -249,6 +249,10 @@ export function ActiveWorkoutPage() {
       ),
     [template],
   );
+  const exerciseOrderIndexById = useMemo(
+    () => buildExerciseOrderIndexById(template, exerciseOrderBySection),
+    [exerciseOrderBySection, template],
+  );
 
   useEffect(() => {
     if (!activeSession) {
@@ -271,6 +275,7 @@ export function ActiveWorkoutPage() {
     setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
     setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+    setExerciseOrderBySection(buildExerciseOrderFromSessionSets(template, activeSession.sets));
     hydratedSessionIdRef.current = activeSession.id;
     hydratedDraftKeyRef.current = activeSession.id;
 
@@ -294,6 +299,7 @@ export function ActiveWorkoutPage() {
     setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
     setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+    setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
@@ -333,10 +339,11 @@ export function ActiveWorkoutPage() {
   const session = useMemo(
     () =>
       buildActiveWorkoutSession(template, setDrafts, {
+        exerciseOrderBySection,
         exerciseNotes,
         sessionStartedAt: startTime,
       }),
-    [exerciseNotes, setDrafts, startTime, template],
+    [exerciseOrderBySection, exerciseNotes, setDrafts, startTime, template],
   );
   const remainingSetCount = useMemo(
     () => session.totalSets - session.completedSets,
@@ -494,7 +501,8 @@ export function ActiveWorkoutPage() {
             workoutName={session.workoutName}
           />
 
-          {activeSessionId && (activeSessionStatus === 'paused' || activeSessionStatus === 'in-progress') ? (
+          {activeSessionId &&
+          (activeSessionStatus === 'paused' || activeSessionStatus === 'in-progress') ? (
             <div className="flex items-center justify-between gap-3">
               <Button
                 className="min-w-32"
@@ -548,6 +556,7 @@ export function ActiveWorkoutPage() {
               }))
             }
             onFocusSetHandled={() => setFocusSetId(null)}
+            onReorderExercises={handleReorderExercises}
             onRemoveSet={handleRemoveSet}
             onRestTimerComplete={handleRestTimerComplete}
             onSessionCuesChange={(exerciseId, cues) =>
@@ -599,6 +608,7 @@ export function ActiveWorkoutPage() {
               setDrafts,
               templateExerciseById,
               exerciseNotes,
+              exerciseOrderIndexById,
             );
 
             if (!activeSessionId) {
@@ -774,7 +784,10 @@ export function ActiveWorkoutPage() {
 
           <div className="space-y-3">
             {editableTimeSegments.map((segment, index) => (
-              <div className="grid grid-cols-1 gap-2 rounded-lg border border-border p-3 sm:grid-cols-[1fr_1fr_auto]" key={`${segment.start}-${index}`}>
+              <div
+                className="grid grid-cols-1 gap-2 rounded-lg border border-border p-3 sm:grid-cols-[1fr_1fr_auto]"
+                key={`${segment.start}-${index}`}
+              >
                 <Input
                   aria-label={`Segment ${index + 1} start`}
                   onChange={(event) => updateEditableSegment(index, 'start', event.target.value)}
@@ -784,7 +797,11 @@ export function ActiveWorkoutPage() {
                 <Input
                   aria-label={`Segment ${index + 1} end`}
                   onChange={(event) =>
-                    updateEditableSegment(index, 'end', event.target.value.trim().length ? event.target.value : null)
+                    updateEditableSegment(
+                      index,
+                      'end',
+                      event.target.value.trim().length ? event.target.value : null,
+                    )
                   }
                   placeholder="Now (open)"
                   type="datetime-local"
@@ -1019,6 +1036,7 @@ export function ActiveWorkoutPage() {
     }
 
     const updatedSession = buildActiveWorkoutSession(template, nextDrafts, {
+      exerciseOrderBySection,
       exerciseNotes,
       sessionStartedAt: startTime,
     });
@@ -1053,6 +1071,35 @@ export function ActiveWorkoutPage() {
     setFocusSetId(null);
   }
 
+  function handleReorderExercises(section: WorkoutTemplateSectionType, exerciseIds: string[]) {
+    setExerciseOrderBySection((current) => ({
+      ...current,
+      [section]: exerciseIds,
+    }));
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    setSessionError(null);
+    reorderSessionExercisesMutation.mutate(
+      {
+        section,
+        exerciseIds,
+      },
+      {
+        onError: (error) => {
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+
+          setSessionError('Unable to reorder exercises. Try again.');
+        },
+      },
+    );
+  }
+
   function handleRestTimerComplete() {
     setRestTimer(null);
     setFocusSetId(restTimerTargetSetId);
@@ -1083,7 +1130,9 @@ export function ActiveWorkoutPage() {
 
   function handleStartTimeChange(nextStartTimeIso: string) {
     setStartTimeOverride(nextStartTimeIso);
-    const persistedStartTime = activeSession ? new Date(activeSession.startedAt).toISOString() : null;
+    const persistedStartTime = activeSession
+      ? new Date(activeSession.startedAt).toISOString()
+      : null;
 
     if (!activeSessionId) {
       return;
@@ -1178,14 +1227,12 @@ export function ActiveWorkoutPage() {
   }
 
   function removeEditableSegment(index: number) {
-    setEditableTimeSegments((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    setEditableTimeSegments((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index),
+    );
   }
 
-  function updateEditableSegment(
-    index: number,
-    field: 'start' | 'end',
-    value: string | null,
-  ) {
+  function updateEditableSegment(index: number, field: 'start' | 'end', value: string | null) {
     setEditableTimeSegments((current) =>
       current.map((segment, currentIndex) => {
         if (currentIndex !== index) {
@@ -1227,7 +1274,9 @@ export function ActiveWorkoutPage() {
       },
       {
         onError: () => {
-          setTimeSegmentError('Unable to save time segments. Fix any invalid values and try again.');
+          setTimeSegmentError(
+            'Unable to save time segments. Fix any invalid values and try again.',
+          );
         },
         onSuccess: () => {
           setIsEditTimeDialogOpen(false);
@@ -1293,6 +1342,87 @@ function createSessionSetDrafts(
   }
 
   return drafts;
+}
+
+function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): ExerciseOrderBySection {
+  return {
+    warmup:
+      template.sections
+        .find((section) => section.type === 'warmup')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+    main:
+      template.sections
+        .find((section) => section.type === 'main')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+    cooldown:
+      template.sections
+        .find((section) => section.type === 'cooldown')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+  };
+}
+
+function buildExerciseOrderFromSessionSets(
+  template: MockWorkoutTemplate,
+  sessionSets: SessionSet[],
+): ExerciseOrderBySection {
+  const templateOrder = buildExerciseOrderFromTemplate(template);
+  const sectionOrder = {
+    warmup: [] as string[],
+    main: [] as string[],
+    cooldown: [] as string[],
+  };
+
+  const sortedSets = [...sessionSets].sort((left, right) => {
+    if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+      return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+    }
+
+    if (left.exerciseId !== right.exerciseId) {
+      return left.exerciseId.localeCompare(right.exerciseId);
+    }
+
+    return left.setNumber - right.setNumber;
+  });
+
+  for (const set of sortedSets) {
+    if (set.section !== 'warmup' && set.section !== 'main' && set.section !== 'cooldown') {
+      continue;
+    }
+
+    if (sectionOrder[set.section].includes(set.exerciseId)) {
+      continue;
+    }
+
+    sectionOrder[set.section].push(set.exerciseId);
+  }
+
+  return {
+    warmup: mergeExerciseOrder(sectionOrder.warmup, templateOrder.warmup),
+    main: mergeExerciseOrder(sectionOrder.main, templateOrder.main),
+    cooldown: mergeExerciseOrder(sectionOrder.cooldown, templateOrder.cooldown),
+  };
+}
+
+function mergeExerciseOrder(primary: string[], fallback: string[]) {
+  return Array.from(new Set([...primary, ...fallback]));
+}
+
+function buildExerciseOrderIndexById(
+  template: MockWorkoutTemplate,
+  exerciseOrderBySection: ExerciseOrderBySection,
+) {
+  const fallbackOrder = buildExerciseOrderFromTemplate(template);
+  const orderIndexById: Record<string, number> = {};
+  const sections: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+
+  for (const section of sections) {
+    const mergedOrder = mergeExerciseOrder(exerciseOrderBySection[section], fallbackOrder[section]);
+    mergedOrder.forEach((exerciseId, index) => {
+      orderIndexById[exerciseId] = index;
+    });
+  }
+
+  return orderIndexById;
 }
 
 function mapFeedbackDraftToSessionFeedback(

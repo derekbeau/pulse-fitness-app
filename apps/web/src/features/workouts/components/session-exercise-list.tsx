@@ -7,7 +7,34 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
-import { AlertTriangle, ChevronDown, Check, Circle, Dot, MoreVertical, Plus } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Check,
+  Circle,
+  Dot,
+  GripVertical,
+  MoreVertical,
+  Plus,
+} from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -61,6 +88,10 @@ type SessionExerciseListProps = {
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onFocusSetHandled?: () => void;
+  onReorderExercises?: (
+    section: 'warmup' | 'main' | 'cooldown',
+    exerciseIds: string[],
+  ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onSessionCuesChange?: (exerciseId: string, cues: string[]) => void;
@@ -107,6 +138,7 @@ export function SessionExerciseList({
   onAddSet,
   onExerciseNotesChange,
   onFocusSetHandled,
+  onReorderExercises,
   onRemoveSet,
   onRestTimerComplete,
   onSessionCuesChange,
@@ -130,6 +162,16 @@ export function SessionExerciseList({
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
   const resolvedSessionCuesByExercise = sessionCuesByExercise ?? localSessionCuesByExercise;
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const exerciseNumberMap = new Map<string, number>();
   let exerciseCounter = 1;
@@ -166,6 +208,9 @@ export function SessionExerciseList({
         const completedExercises = section.exercises.filter(
           (exercise) => exercise.completedSets >= exercise.targetSets,
         ).length;
+        const exerciseIndexById = new Map(
+          section.exercises.map((exercise, index) => [exercise.id, index]),
+        );
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinutes(estimateSectionTime(section));
         const sectionSummary = `${sectionLabel} (${completedExercises}/${section.exercises.length} exercises done)`;
@@ -174,6 +219,26 @@ export function SessionExerciseList({
             ? true
             : (openSections[section.id] ??
               section.exercises.some((exercise) => exercise.id === session.currentExerciseId));
+        const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
+          if (!onReorderExercises) {
+            return;
+          }
+
+          if (
+            currentIndex < 0 ||
+            nextIndex < 0 ||
+            currentIndex >= section.exercises.length ||
+            nextIndex >= section.exercises.length
+          ) {
+            return;
+          }
+
+          const reordered = arrayMove(section.exercises, currentIndex, nextIndex);
+          void onReorderExercises(
+            section.type,
+            reordered.map((exercise) => exercise.id),
+          );
+        };
 
         return (
           <section
@@ -219,136 +284,178 @@ export function SessionExerciseList({
               hidden={!isOpen}
               id={`section-panel-${section.id}`}
             >
-              <div className="space-y-3">
-                {groupExercises(section.exercises).map((item) => {
-                  if (item.type === 'single') {
-                    return (
-                      <ExerciseCardItem
-                        exercise={item.exercise}
-                        exerciseNumber={exerciseNumberMap.get(item.exercise.id) ?? 0}
-                        enableApiLastPerformance={enableApiLastPerformance}
-                        expandedExercises={expandedExercises}
-                        focusTargetExerciseId={focusTarget?.exerciseId ?? null}
-                        inlineRestTimer={
-                          restTimer && restTimer.exerciseId === item.exercise.id ? restTimer : null
-                        }
-                        onAddSet={onAddSet}
-                        onExerciseNotesChange={onExerciseNotesChange}
-                        onRenameExercise={() =>
-                          setRenameTarget({
-                            exerciseId: item.exercise.id,
-                            exerciseName: item.exercise.name,
-                          })
-                        }
-                        onRemoveSet={onRemoveSet}
-                        onRestTimerComplete={onRestTimerComplete}
-                        onSetUpdate={onSetUpdate}
-                        repsInputRefs={repsInputRefs}
-                        sessionCurrentExerciseId={session.currentExerciseId}
-                        setExpandedExercises={setExpandedExercises}
-                        setVisibleNotesPanels={setVisibleNotesPanels}
-                        onAddSessionCue={(cue) =>
-                          updateSessionCues(item.exercise.id, [
-                            ...(resolvedSessionCuesByExercise[item.exercise.id] ?? []),
-                            cue,
-                          ])
-                        }
-                        sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
-                        visibleNotesPanels={visibleNotesPanels}
-                        weightUnit={weightUnit}
-                        key={item.exercise.id}
-                      />
-                    );
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={({ active, over }) => {
+                  if (!over || active.id === over.id) {
+                    return;
                   }
 
-                  const supersetAccentClass = getSupersetAccentClass(item.groupId);
-                  const sharedRestSeconds = Math.max(
-                    ...item.exercises.map((exercise) => exercise.restSeconds),
-                  );
+                  const currentIndex = exerciseIndexById.get(String(active.id)) ?? -1;
+                  const nextIndex = exerciseIndexById.get(String(over.id)) ?? -1;
+                  reorderSectionExercises(currentIndex, nextIndex);
+                }}
+                sensors={sensors}
+              >
+                <SortableContext
+                  items={section.exercises.map((exercise) => exercise.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {groupExercises(section.exercises).map((item) => {
+                      if (item.type === 'single') {
+                        const exerciseIndex = exerciseIndexById.get(item.exercise.id) ?? -1;
+                        return (
+                          <ExerciseCardItem
+                            exercise={item.exercise}
+                            exerciseNumber={exerciseNumberMap.get(item.exercise.id) ?? 0}
+                            enableApiLastPerformance={enableApiLastPerformance}
+                            expandedExercises={expandedExercises}
+                            focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                            inlineRestTimer={
+                              restTimer && restTimer.exerciseId === item.exercise.id
+                                ? restTimer
+                                : null
+                            }
+                            isMoveDownDisabled={exerciseIndex >= section.exercises.length - 1}
+                            isMoveUpDisabled={exerciseIndex <= 0}
+                            onAddSet={onAddSet}
+                            onExerciseNotesChange={onExerciseNotesChange}
+                            onMoveDown={() =>
+                              reorderSectionExercises(exerciseIndex, exerciseIndex + 1)
+                            }
+                            onMoveUp={() =>
+                              reorderSectionExercises(exerciseIndex, exerciseIndex - 1)
+                            }
+                            onRenameExercise={() =>
+                              setRenameTarget({
+                                exerciseId: item.exercise.id,
+                                exerciseName: item.exercise.name,
+                              })
+                            }
+                            onRemoveSet={onRemoveSet}
+                            onRestTimerComplete={onRestTimerComplete}
+                            onSetUpdate={onSetUpdate}
+                            repsInputRefs={repsInputRefs}
+                            sessionCurrentExerciseId={session.currentExerciseId}
+                            setExpandedExercises={setExpandedExercises}
+                            setVisibleNotesPanels={setVisibleNotesPanels}
+                            onAddSessionCue={(cue) =>
+                              updateSessionCues(item.exercise.id, [
+                                ...(resolvedSessionCuesByExercise[item.exercise.id] ?? []),
+                                cue,
+                              ])
+                            }
+                            sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
+                            visibleNotesPanels={visibleNotesPanels}
+                            weightUnit={weightUnit}
+                            key={item.exercise.id}
+                          />
+                        );
+                      }
 
-                  return (
-                    <div
-                      aria-label={`Superset ${formatSupersetGroupLabel(item.groupId)}`}
-                      className={cn(
-                        'relative rounded-[1.75rem] border border-border/70 bg-secondary/20 p-3 pl-5 sm:p-4 sm:pl-6',
-                        "before:absolute before:top-4 before:bottom-4 before:left-3 before:w-1 before:rounded-full before:content-['']",
-                        supersetAccentClass,
-                      )}
-                      key={`${section.id}-${item.groupId}`}
-                    >
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <Badge
-                          className="border-transparent bg-primary/12 text-primary"
-                          variant="outline"
+                      const supersetAccentClass = getSupersetAccentClass(item.groupId);
+                      const sharedRestSeconds = Math.max(
+                        ...item.exercises.map((exercise) => exercise.restSeconds),
+                      );
+
+                      return (
+                        <div
+                          aria-label={`Superset ${formatSupersetGroupLabel(item.groupId)}`}
+                          className={cn(
+                            'relative rounded-[1.75rem] border border-border/70 bg-secondary/20 p-3 pl-5 sm:p-4 sm:pl-6',
+                            "before:absolute before:top-4 before:bottom-4 before:left-3 before:w-1 before:rounded-full before:content-['']",
+                            supersetAccentClass,
+                          )}
+                          key={`${section.id}-${item.groupId}`}
                         >
-                          Superset
-                        </Badge>
-                        <p className="text-sm text-muted">
-                          {`Alternate exercises, then rest ${sharedRestSeconds}s after each round.`}
-                        </p>
-                      </div>
-
-                      <div className="space-y-3">
-                        {item.exercises.map((exercise, exerciseIndex) => (
-                          <div className="space-y-3" key={exercise.id}>
-                            {exerciseIndex > 0 ? (
-                              <div className="flex items-center gap-3 pl-1 text-xs font-medium tracking-[0.16em] text-muted uppercase">
-                                <span className="h-px flex-1 bg-border/80" />
-                                <span>{`Shared rest ${sharedRestSeconds}s`}</span>
-                                <span className="h-px flex-1 bg-border/80" />
-                              </div>
-                            ) : null}
-
-                            <ExerciseCardItem
-                              exercise={exercise}
-                              exerciseNumber={exerciseNumberMap.get(exercise.id) ?? 0}
-                              enableApiLastPerformance={enableApiLastPerformance}
-                              expandedExercises={expandedExercises}
-                              focusTargetExerciseId={focusTarget?.exerciseId ?? null}
-                              inlineRestTimer={null}
-                              onAddSet={onAddSet}
-                              onExerciseNotesChange={onExerciseNotesChange}
-                              onRenameExercise={() =>
-                                setRenameTarget({
-                                  exerciseId: exercise.id,
-                                  exerciseName: exercise.name,
-                                })
-                              }
-                              onRemoveSet={onRemoveSet}
-                              onRestTimerComplete={onRestTimerComplete}
-                              onSetUpdate={onSetUpdate}
-                              repsInputRefs={repsInputRefs}
-                              sessionCurrentExerciseId={session.currentExerciseId}
-                              setExpandedExercises={setExpandedExercises}
-                              setVisibleNotesPanels={setVisibleNotesPanels}
-                              onAddSessionCue={(cue) =>
-                                updateSessionCues(exercise.id, [
-                                  ...(resolvedSessionCuesByExercise[exercise.id] ?? []),
-                                  cue,
-                                ])
-                              }
-                              sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
-                              visibleNotesPanels={visibleNotesPanels}
-                              weightUnit={weightUnit}
-                            />
-                            {restTimer &&
-                            restTimer.exerciseId === exercise.id &&
-                            exercise.supersetGroup ? (
-                              <InlineRestTimer
-                                duration={restTimer.duration}
-                                exerciseName={restTimer.exerciseName}
-                                key={restTimer.token}
-                                onComplete={onRestTimerComplete}
-                                setNumber={restTimer.setNumber}
-                              />
-                            ) : null}
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <Badge
+                              className="border-transparent bg-primary/12 text-primary"
+                              variant="outline"
+                            >
+                              Superset
+                            </Badge>
+                            <p className="text-sm text-muted">
+                              {`Alternate exercises, then rest ${sharedRestSeconds}s after each round.`}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+
+                          <div className="space-y-3">
+                            {item.exercises.map((exercise, exerciseIndex) => {
+                              const itemIndex = exerciseIndexById.get(exercise.id) ?? -1;
+
+                              return (
+                                <div className="space-y-3" key={exercise.id}>
+                                  {exerciseIndex > 0 ? (
+                                    <div className="flex items-center gap-3 pl-1 text-xs font-medium tracking-[0.16em] text-muted uppercase">
+                                      <span className="h-px flex-1 bg-border/80" />
+                                      <span>{`Shared rest ${sharedRestSeconds}s`}</span>
+                                      <span className="h-px flex-1 bg-border/80" />
+                                    </div>
+                                  ) : null}
+
+                                  <ExerciseCardItem
+                                    exercise={exercise}
+                                    exerciseNumber={exerciseNumberMap.get(exercise.id) ?? 0}
+                                    enableApiLastPerformance={enableApiLastPerformance}
+                                    expandedExercises={expandedExercises}
+                                    focusTargetExerciseId={focusTarget?.exerciseId ?? null}
+                                    inlineRestTimer={null}
+                                    isMoveDownDisabled={itemIndex >= section.exercises.length - 1}
+                                    isMoveUpDisabled={itemIndex <= 0}
+                                    onAddSet={onAddSet}
+                                    onExerciseNotesChange={onExerciseNotesChange}
+                                    onMoveDown={() =>
+                                      reorderSectionExercises(itemIndex, itemIndex + 1)
+                                    }
+                                    onMoveUp={() =>
+                                      reorderSectionExercises(itemIndex, itemIndex - 1)
+                                    }
+                                    onRenameExercise={() =>
+                                      setRenameTarget({
+                                        exerciseId: exercise.id,
+                                        exerciseName: exercise.name,
+                                      })
+                                    }
+                                    onRemoveSet={onRemoveSet}
+                                    onRestTimerComplete={onRestTimerComplete}
+                                    onSetUpdate={onSetUpdate}
+                                    repsInputRefs={repsInputRefs}
+                                    sessionCurrentExerciseId={session.currentExerciseId}
+                                    setExpandedExercises={setExpandedExercises}
+                                    setVisibleNotesPanels={setVisibleNotesPanels}
+                                    onAddSessionCue={(cue) =>
+                                      updateSessionCues(exercise.id, [
+                                        ...(resolvedSessionCuesByExercise[exercise.id] ?? []),
+                                        cue,
+                                      ])
+                                    }
+                                    sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
+                                    visibleNotesPanels={visibleNotesPanels}
+                                    weightUnit={weightUnit}
+                                  />
+                                  {restTimer &&
+                                  restTimer.exerciseId === exercise.id &&
+                                  exercise.supersetGroup ? (
+                                    <InlineRestTimer
+                                      duration={restTimer.duration}
+                                      exerciseName={restTimer.exerciseName}
+                                      key={restTimer.token}
+                                      onComplete={onRestTimerComplete}
+                                      setNumber={restTimer.setNumber}
+                                    />
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           </section>
         );
@@ -413,8 +520,12 @@ type ExerciseCardItemProps = {
   expandedExercises: Record<string, boolean>;
   focusTargetExerciseId: string | null;
   inlineRestTimer: RestTimerState | null;
+  isMoveDownDisabled: boolean;
+  isMoveUpDisabled: boolean;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
   onRenameExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
@@ -436,8 +547,12 @@ function ExerciseCardItem({
   expandedExercises,
   focusTargetExerciseId,
   inlineRestTimer,
+  isMoveDownDisabled,
+  isMoveUpDisabled,
   onAddSet,
   onExerciseNotesChange,
+  onMoveDown,
+  onMoveUp,
   onRenameExercise,
   onRemoveSet,
   onRestTimerComplete,
@@ -473,6 +588,9 @@ function ExerciseCardItem({
       : 'border-l-4 border-dashed border-l-border';
   const exerciseEstimate = formatEstimateMinutes(estimateExerciseTime(exercise));
   const canRemoveSet = exercise.sets.length > 1;
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: exercise.id,
+  });
 
   return (
     <Card
@@ -482,8 +600,24 @@ function ExerciseCardItem({
         state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
         state === 'in-progress' && 'border-primary/35 shadow-md',
       )}
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
     >
       <div className="flex items-start gap-2 px-4 py-5 sm:px-5">
+        <Button
+          aria-label={`Drag handle for ${exercise.name}`}
+          className="mt-0.5 size-9 touch-none shrink-0"
+          size="icon"
+          type="button"
+          variant="ghost"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical aria-hidden="true" className="size-4" />
+        </Button>
         <button
           aria-controls={`exercise-panel-${exercise.id}`}
           aria-expanded={isExpanded}
@@ -585,6 +719,14 @@ function ExerciseCardItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
+              <ArrowUp aria-hidden="true" className="size-4" />
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
+              <ArrowDown aria-hidden="true" className="size-4" />
+              Move down
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onRenameExercise}>Rename exercise</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
             <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
