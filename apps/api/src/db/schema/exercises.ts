@@ -32,6 +32,8 @@ export const exercises = sqliteTable(
       .$type<WorkoutExerciseTrackingType>()
       .notNull()
       .default('weight_reps'),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
+    formCues: text('form_cues', { mode: 'json' }).$type<string[]>().notNull().default([]),
     instructions: text('instructions'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()

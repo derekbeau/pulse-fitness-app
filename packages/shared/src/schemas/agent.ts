@@ -56,6 +56,8 @@ export const agentWorkoutTemplateExerciseInputSchema = z.object({
   sets: z.number().int().min(1).max(100),
   reps: z.number().int().min(1).max(1000),
   restSeconds: z.number().int().min(0).max(3600).optional(),
+  tags: z.array(requiredText()).max(20).optional(),
+  formCues: z.array(requiredText(500)).max(50).optional(),
 });
 
 export const agentWorkoutTemplateSectionInputSchema = z.object({
@@ -71,25 +73,22 @@ export const agentCreateWorkoutTemplateInputSchema = z.object({
 export const agentUpdateWorkoutTemplateInputSchema = agentCreateWorkoutTemplateInputSchema;
 
 const optionalText = (maxLength = 4000) =>
-  z.preprocess(
-    (value) => {
-      if (value === undefined) {
-        return undefined;
-      }
+  z.preprocess((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
 
-      if (value === null) {
-        return null;
-      }
+    if (value === null) {
+      return null;
+    }
 
-      if (typeof value !== 'string') {
-        return value;
-      }
+    if (typeof value !== 'string') {
+      return value;
+    }
 
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    },
-    z.string().trim().min(1).max(maxLength).nullable().optional(),
-  );
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, z.string().trim().min(1).max(maxLength).nullable().optional());
 
 export const agentCreateWorkoutSessionInputSchema = z
   .object({
@@ -113,9 +112,12 @@ export const agentUpdateWorkoutSessionInputSchema = z
     status: workoutSessionStatusSchema.optional(),
     notes: optionalText(4000),
   })
-  .refine((value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined, {
-    message: 'At least one workout session field must be provided',
-  });
+  .refine(
+    (value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined,
+    {
+      message: 'At least one workout session field must be provided',
+    },
+  );
 
 export const agentCreateExerciseInputSchema = z.object({
   name: requiredText(),

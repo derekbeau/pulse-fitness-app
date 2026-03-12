@@ -53,6 +53,8 @@ export const exerciseSchema = z.object({
   equipment: requiredStringSchema,
   category: exerciseCategorySchema,
   trackingType: exerciseTrackingTypeSchema.default('weight_reps'),
+  tags: z.array(z.string()).default([]),
+  formCues: z.array(z.string()).default([]),
   instructions: nullableInstructionsSchema,
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -64,6 +66,8 @@ export const createExerciseInputSchema = z.object({
   equipment: requiredStringSchema,
   category: exerciseCategorySchema,
   trackingType: exerciseTrackingTypeSchema.optional().default('weight_reps'),
+  tags: z.array(z.string()).optional(),
+  formCues: z.array(z.string()).optional(),
   instructions: nullableInstructionsSchema.optional().default(null),
 });
 
@@ -74,6 +78,8 @@ export const updateExerciseInputSchema = z
     equipment: optionalStringSchema,
     category: exerciseCategorySchema.optional(),
     trackingType: exerciseTrackingTypeSchema.optional(),
+    tags: z.array(z.string()).optional(),
+    formCues: z.array(z.string()).optional(),
     instructions: nullableInstructionsSchema.optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {

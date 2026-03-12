@@ -127,6 +127,13 @@
       "when": 1773273600000,
       "tag": "0017_fix_exercise_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1773294126906,
+      "tag": "0018_graceful_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,8 @@ describe('exerciseSchema', () => {
       equipment: ' dumbbells ',
       category: 'compound',
       trackingType: 'bodyweight_reps',
+      tags: ['push', 'upper-body'],
+      formCues: ['chest up', 'drive through heels'],
       instructions: ' Drive feet into the floor. ',
       createdAt: 1,
       updatedAt: 2,
@@ -39,6 +41,8 @@ describe('exerciseSchema', () => {
       equipment: 'dumbbells',
       category: 'compound',
       trackingType: 'bodyweight_reps',
+      tags: ['push', 'upper-body'],
+      formCues: ['chest up', 'drive through heels'],
       instructions: 'Drive feet into the floor.',
       createdAt: 1,
       updatedAt: 2,
@@ -59,6 +63,8 @@ describe('exerciseSchema', () => {
     });
 
     expect(payload.trackingType).toBe('weight_reps');
+    expect(payload.tags).toEqual([]);
+    expect(payload.formCues).toEqual([]);
   });
 
   it('rejects invalid categories and empty muscle group arrays', () => {
@@ -71,6 +77,8 @@ describe('exerciseSchema', () => {
         equipment: 'cable',
         category: 'strength',
         trackingType: 'invalid',
+        tags: [],
+        formCues: [],
         instructions: null,
         createdAt: 1,
         updatedAt: 2,
@@ -88,6 +96,8 @@ describe('exerciseSchema', () => {
       equipment: 'bodyweight',
       category,
       trackingType: 'reps_only',
+      tags: ['mobility'],
+      formCues: ['slow and controlled'],
       instructions: null,
       createdAt: 10,
       updatedAt: 10,
@@ -105,6 +115,8 @@ describe('createExerciseInputSchema', () => {
       equipment: ' barbell ',
       category: 'compound',
       trackingType: 'cardio',
+      tags: ['hinge'],
+      formCues: ['hips back'],
       instructions: '   ',
     });
 
@@ -114,6 +126,8 @@ describe('createExerciseInputSchema', () => {
       equipment: 'barbell',
       category: 'compound',
       trackingType: 'cardio',
+      tags: ['hinge'],
+      formCues: ['hips back'],
       instructions: null,
     });
   });
@@ -125,6 +139,8 @@ describe('createExerciseInputSchema', () => {
       equipment: 'air bike',
       category: 'cardio',
       trackingType: 'cardio',
+      tags: ['conditioning'],
+      formCues: ['steady pace'],
       instructions: null,
     };
 
@@ -149,6 +165,8 @@ describe('updateExerciseInputSchema', () => {
     const payload: UpdateExerciseInput = {
       equipment: 'cable',
       trackingType: 'weight_seconds',
+      tags: ['back'],
+      formCues: ['lead with elbows'],
     };
 
     expect(payload.equipment).toBe('cable');

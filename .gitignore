@@ -3,6 +3,9 @@ node_modules/
 .orca/
 .worktrees/
 .agents/
+!.agents/skills/
+!.agents/skills/pulse-app-usage/
+!.agents/skills/pulse-app-usage/**
 .claude/
 .agent/
 .turbo/

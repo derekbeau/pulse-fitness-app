@@ -60,9 +60,13 @@ const inferSectionType = (name: string): WorkoutTemplateSectionType => {
 const resolveExerciseIdByName = async ({
   name,
   userId,
+  tags,
+  formCues,
 }: {
   name: string;
   userId: string;
+  tags?: string[];
+  formCues?: string[];
 }): Promise<string> => {
   const existingExercise = await findVisibleExerciseByName({ name, userId });
   if (existingExercise) {
@@ -77,6 +81,8 @@ const resolveExerciseIdByName = async ({
     trackingType: DEFAULT_EXERCISE_TRACKING_TYPE,
     muscleGroups: DEFAULT_EXERCISE_MUSCLE_GROUPS,
     equipment: DEFAULT_EXERCISE_EQUIPMENT,
+    tags,
+    formCues,
     instructions: null,
   });
 
@@ -94,6 +100,8 @@ const buildTemplateSections = async ({
       sets: number;
       reps: number;
       restSeconds?: number;
+      tags?: string[];
+      formCues?: string[];
     }>;
   }>;
   userId: string;
@@ -119,6 +127,8 @@ const buildTemplateSections = async ({
       const exerciseId = await resolveExerciseIdByName({
         name: exercise.name,
         userId,
+        tags: exercise.tags,
+        formCues: exercise.formCues,
       });
 
       existingExercises.push({

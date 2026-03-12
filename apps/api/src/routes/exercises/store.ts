@@ -37,6 +37,8 @@ const exerciseSelection = {
   equipment: exercises.equipment,
   category: exercises.category,
   trackingType: exercises.trackingType,
+  tags: exercises.tags,
+  formCues: exercises.formCues,
   instructions: exercises.instructions,
   createdAt: exercises.createdAt,
   updatedAt: exercises.updatedAt,
@@ -71,6 +73,8 @@ export const createExercise = async ({
   equipment,
   category,
   trackingType,
+  tags,
+  formCues,
   instructions,
 }: CreateExerciseInput & { id: string; userId: string }): Promise<Exercise> => {
   const { db } = await import('../../db/index.js');
@@ -85,6 +89,8 @@ export const createExercise = async ({
       equipment,
       category,
       trackingType,
+      tags,
+      formCues,
       instructions,
     })
     .run();

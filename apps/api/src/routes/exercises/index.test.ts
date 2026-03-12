@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,12 +43,16 @@ const seedExercise = (values: {
   muscleGroups: string[];
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  tags?: string[];
+  formCues?: string[];
   instructions?: string | null;
 }) =>
   context.db
     .insert(exercises)
     .values({
       ...values,
+      tags: values.tags ?? [],
+      formCues: values.formCues ?? [],
       instructions: values.instructions ?? null,
     })
     .run();
@@ -361,6 +366,8 @@ describe('exercise routes', () => {
         muscleGroups: ['lats', 'upper back'],
         equipment: ' cable machine ',
         category: 'compound',
+        tags: ['rehab', 'core'],
+        formCues: ['chest up', 'drive through heels'],
         instructions: ' Pull elbow toward hip. ',
       },
     });
@@ -375,6 +382,8 @@ describe('exercise routes', () => {
         muscleGroups: string[];
         equipment: string;
         category: string;
+        tags: string[];
+        formCues: string[];
         instructions: string | null;
         createdAt: number;
         updatedAt: number;
@@ -387,11 +396,51 @@ describe('exercise routes', () => {
       muscleGroups: ['lats', 'upper back'],
       equipment: 'cable machine',
       category: 'compound',
+      tags: ['rehab', 'core'],
+      formCues: ['chest up', 'drive through heels'],
       instructions: 'Pull elbow toward hip.',
     });
     expect(payload.data.id).toBeTruthy();
     expect(payload.data.createdAt).toBeTypeOf('number');
     expect(payload.data.updatedAt).toBeTypeOf('number');
+
+    const storedExercise = context.db
+      .select({
+        tags: exercises.tags,
+        formCues: exercises.formCues,
+      })
+      .from(exercises)
+      .where(eq(exercises.id, payload.data.id))
+      .get();
+    expect(storedExercise).toEqual({
+      tags: ['rehab', 'core'],
+      formCues: ['chest up', 'drive through heels'],
+    });
+  });
+
+  it('defaults tags and formCues to empty arrays when omitted', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Goblet Squat',
+        muscleGroups: ['quads', 'glutes'],
+        equipment: 'dumbbell',
+        category: 'compound',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Goblet Squat',
+        tags: [],
+        formCues: [],
+      }),
+    });
   });
 
   it('lists visible exercises with case-insensitive search, filtering, and pagination', async () => {
@@ -457,8 +506,18 @@ describe('exercise routes', () => {
     expect(searchResponse.headers['cache-control']).toBe('private, no-cache');
     expect(searchResponse.json()).toEqual({
       data: [
-        expect.objectContaining({ id: 'user-press', name: 'Cable Press Around' }),
-        expect.objectContaining({ id: 'global-press', name: 'Incline Press' }),
+        expect.objectContaining({
+          id: 'user-press',
+          name: 'Cable Press Around',
+          tags: [],
+          formCues: [],
+        }),
+        expect.objectContaining({
+          id: 'global-press',
+          name: 'Incline Press',
+          tags: [],
+          formCues: [],
+        }),
       ],
       meta: {
         page: 1,
