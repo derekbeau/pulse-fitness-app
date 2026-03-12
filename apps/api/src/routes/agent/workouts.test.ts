@@ -7,7 +7,11 @@ import {
   findVisibleExerciseByName,
   updateOwnedExercise,
 } from '../exercises/store.js';
-import { createScheduledWorkout, listScheduledWorkouts } from '../scheduled-workouts/store.js';
+import {
+  createScheduledWorkout,
+  linkTodayScheduledWorkoutToSession,
+  listScheduledWorkouts,
+} from '../scheduled-workouts/store.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -60,6 +64,7 @@ vi.mock('../workout-sessions/store.js', () => ({
 
 vi.mock('../scheduled-workouts/store.js', () => ({
   createScheduledWorkout: vi.fn(),
+  linkTodayScheduledWorkoutToSession: vi.fn(),
   listScheduledWorkouts: vi.fn(),
 }));
 
@@ -87,6 +92,7 @@ describe('agent workouts routes', () => {
     vi.mocked(findWorkoutSessionById).mockReset();
     vi.mocked(updateWorkoutSession).mockReset();
     vi.mocked(createScheduledWorkout).mockReset();
+    vi.mocked(linkTodayScheduledWorkoutToSession).mockReset();
     vi.mocked(listScheduledWorkouts).mockReset();
     vi.mocked(templateBelongsToUser).mockReset();
     process.env.JWT_SECRET = 'test-agent-workouts-secret';
@@ -772,6 +778,7 @@ describe('agent workouts routes', () => {
           createdAt: 1,
           updatedAt: 1,
         });
+        vi.mocked(linkTodayScheduledWorkoutToSession).mockResolvedValue(true);
 
         const token = app.jwt.sign({ userId: 'user-1' });
         const response = await app.inject({
@@ -808,6 +815,12 @@ describe('agent workouts routes', () => {
             }),
           }),
         );
+        expect(vi.mocked(linkTodayScheduledWorkoutToSession)).toHaveBeenCalledWith({
+          userId: 'user-1',
+          templateId: 'template-1',
+          date: '2023-11-14',
+          sessionId: 'session-1',
+        });
       } finally {
         await app.close();
       }

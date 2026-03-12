@@ -261,12 +261,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       input: inputWithInitialSegment,
     });
 
-    const today = new Date().toISOString().slice(0, 10);
-    if (inputWithInitialSegment.templateId !== null && inputWithInitialSegment.date === today) {
+    if (inputWithInitialSegment.templateId !== null) {
       await linkTodayScheduledWorkoutToSession({
         userId: request.userId,
         templateId: inputWithInitialSegment.templateId,
-        date: today,
+        date: inputWithInitialSegment.date,
         sessionId: session.id,
       });
     }

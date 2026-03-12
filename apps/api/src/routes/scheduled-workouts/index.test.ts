@@ -8,7 +8,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { scheduledWorkouts, users, workoutTemplates } from '../../db/schema/index.js';
+import { scheduledWorkouts, users, workoutSessions, workoutTemplates } from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -66,6 +66,35 @@ const seedScheduledWorkout = (values: {
     .values({
       ...values,
       sessionId: values.sessionId ?? null,
+    })
+    .run();
+
+const seedWorkoutSession = (values: {
+  id: string;
+  userId: string;
+  templateId?: string | null;
+  name: string;
+  date: string;
+  status?: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
+  startedAt?: number;
+  timeSegments?: string;
+}) =>
+  context.db
+    .insert(workoutSessions)
+    .values({
+      id: values.id,
+      userId: values.userId,
+      templateId: values.templateId ?? null,
+      name: values.name,
+      date: values.date,
+      status: values.status ?? 'completed',
+      startedAt: values.startedAt ?? Date.UTC(2026, 2, 12, 10, 0, 0),
+      completedAt: Date.UTC(2026, 2, 12, 10, 45, 0),
+      duration: 45,
+      timeSegments: values.timeSegments ?? '[]',
+      feedback: null,
+      notes: null,
+      deletedAt: null,
     })
     .run();
 
@@ -259,11 +288,19 @@ describe('scheduled workout routes', () => {
   it('reschedules a workout date within the user scope', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
+    seedWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+    });
     seedScheduledWorkout({
       id: 'schedule-1',
       userId: 'user-1',
       templateId: 'template-1',
       date: '2026-03-12',
+      sessionId: 'session-1',
     });
 
     const response = await context.app.inject({
@@ -292,6 +329,7 @@ describe('scheduled workout routes', () => {
       .select({
         templateId: scheduledWorkouts.templateId,
         date: scheduledWorkouts.date,
+        sessionId: scheduledWorkouts.sessionId,
       })
       .from(scheduledWorkouts)
       .where(eq(scheduledWorkouts.id, 'schedule-1'))
@@ -301,6 +339,7 @@ describe('scheduled workout routes', () => {
     expect(updatedRow).toEqual({
       templateId: 'template-1',
       date: '2026-03-13',
+      sessionId: null,
     });
   });
 

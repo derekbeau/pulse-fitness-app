@@ -40,7 +40,8 @@ import {
   useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
-import { isActiveSessionListItem } from '../lib/workout-filters';
+import { useTodayKey } from '../hooks/use-today-key';
+import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -50,8 +51,6 @@ const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
 });
-
-const TODAY_KEY = toDateKey(new Date());
 
 type WorkoutListProps = {
   buildSessionHref?: (sessionId: string, status: WorkoutSessionStatus) => string;
@@ -86,14 +85,15 @@ export function WorkoutList({
   sessions,
   scheduledWorkouts,
 }: WorkoutListProps) {
+  const todayKey = useTodayKey();
   const sessionsQuery = useWorkoutSessions({}, { enabled: sessions === undefined });
-  const scheduledRange = useMemo(() => getScheduledRange(TODAY_KEY), []);
+  const scheduledRange = useMemo(() => getScheduledRange(todayKey), [todayKey]);
   const scheduledQuery = useScheduledWorkouts(scheduledRange, {
     enabled: scheduledWorkouts === undefined,
   });
 
   const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
-  const activeSessions = resolvedSessions.filter(isActiveSessionListItem);
+  const activeSessions = resolvedSessions.filter(hasAvailableTemplate);
   const linkedSessionIds = new Set(activeSessions.map((session) => session.id));
   const resolvedScheduledWorkouts = scheduledWorkouts ?? scheduledQuery.data ?? [];
 
@@ -101,7 +101,7 @@ export function WorkoutList({
     .map((scheduledWorkout) => ({
       ...scheduledWorkout,
       isMissed:
-        scheduledWorkout.date < TODAY_KEY &&
+        scheduledWorkout.date < todayKey &&
         (scheduledWorkout.sessionId == null || !linkedSessionIds.has(scheduledWorkout.sessionId)),
       isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
     }))

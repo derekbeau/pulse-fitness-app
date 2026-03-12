@@ -5,7 +5,7 @@ export type ActiveScheduledWorkoutListItem = ScheduledWorkoutListItem & {
   templateName: string;
 };
 
-export function isActiveSessionListItem(session: WorkoutSessionListItem) {
+export function hasAvailableTemplate(session: WorkoutSessionListItem) {
   return session.templateId == null || session.templateName != null;
 }
 

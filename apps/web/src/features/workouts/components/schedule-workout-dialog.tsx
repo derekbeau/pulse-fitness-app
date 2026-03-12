@@ -42,7 +42,7 @@ export function ScheduleWorkoutDialog({
   const selectedDateKey = useMemo(() => toDateKey(selectedDate), [selectedDate]);
 
   function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
+    if (!nextOpen) {
       setSelectedDate(parseDateKey(initialDate));
       setErrorMessage(null);
     }

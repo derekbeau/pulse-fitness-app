@@ -17,7 +17,11 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { createScheduledWorkout, listScheduledWorkouts } from '../scheduled-workouts/store.js';
+import {
+  createScheduledWorkout,
+  linkTodayScheduledWorkoutToSession,
+  listScheduledWorkouts,
+} from '../scheduled-workouts/store.js';
 import {
   createExercise,
   findExerciseDedupCandidates,
@@ -467,6 +471,15 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       userId: request.userId,
       input: payload.data,
     });
+
+    if (payload.data.templateId !== null) {
+      await linkTodayScheduledWorkoutToSession({
+        userId: request.userId,
+        templateId: payload.data.templateId,
+        date: payload.data.date,
+        sessionId: session.id,
+      });
+    }
 
     return reply.code(201).send({ data: session });
   });

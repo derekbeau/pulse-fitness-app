@@ -117,9 +117,17 @@ export const updateScheduledWorkout = async ({
 }): Promise<ScheduledWorkout | undefined> => {
   const { db } = await import('../../db/index.js');
 
+  const existingWorkout = await findScheduledWorkoutById(id, userId);
+  if (!existingWorkout) {
+    return undefined;
+  }
+
+  const shouldClearSessionLink = existingWorkout.date !== changes.date;
+  const updatePayload = shouldClearSessionLink ? { ...changes, sessionId: null } : changes;
+
   const [updatedWorkout] = await db
     .update(scheduledWorkouts)
-    .set(changes)
+    .set(updatePayload)
     .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
     .returning(scheduledWorkoutSelection);
 

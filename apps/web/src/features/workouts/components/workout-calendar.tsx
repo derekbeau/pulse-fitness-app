@@ -6,6 +6,16 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,13 +36,11 @@ import {
   useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
-import {
-  isActiveSessionListItem,
-} from '../lib/workout-filters';
+import { useTodayKey } from '../hooks/use-today-key';
+import { hasAvailableTemplate } from '../lib/workout-filters';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-const TODAY_KEY = toDateKey(new Date());
 const monthFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
   year: 'numeric',
@@ -78,7 +86,8 @@ export function WorkoutCalendar({
   buildSessionHref,
   buildStartWorkoutHref = (templateId) => `/workouts/active?template=${templateId}`,
 }: WorkoutCalendarProps) {
-  const initialMonth = startOfMonth(parseDateKey(TODAY_KEY));
+  const todayKey = useTodayKey();
+  const initialMonth = startOfMonth(parseDateKey(todayKey));
   const [visibleMonth, setVisibleMonth] = useState(initialMonth);
 
   const calendarDays = buildCalendarDays(visibleMonth);
@@ -101,7 +110,7 @@ export function WorkoutCalendar({
   });
 
   const activeSessions = useMemo(
-    () => (sessionsQuery.data ?? []).filter(isActiveSessionListItem),
+    () => (sessionsQuery.data ?? []).filter(hasAvailableTemplate),
     [sessionsQuery.data],
   );
   const activeCompletedSessions = useMemo(
@@ -138,8 +147,8 @@ export function WorkoutCalendar({
     () =>
       activeSessions
         .filter((session) => session.status === 'in-progress' || session.status === 'paused')
-        .find((session) => spansToday(session, TODAY_KEY)) ?? null,
-    [activeSessions],
+        .find((session) => spansToday(session, todayKey)) ?? null,
+    [activeSessions, todayKey],
   );
 
   const lookupContext = useMemo(
@@ -152,10 +161,10 @@ export function WorkoutCalendar({
   );
 
   const [selectedDateKey, setSelectedDateKey] = useState(
-    getDefaultSelectedDateKey(initialMonth, completedSessionByDate, scheduledByDate),
+    getDefaultSelectedDateKey(initialMonth, completedSessionByDate, scheduledByDate, todayKey),
   );
 
-  const selectedDay = getDayDetails(selectedDateKey, lookupContext);
+  const selectedDay = getDayDetails(selectedDateKey, lookupContext, todayKey);
   const openDayHref = buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`;
   const detailStats = getDetailStats(selectedDay);
   const hasWorkout = selectedDay.status !== 'none';
@@ -165,7 +174,7 @@ export function WorkoutCalendar({
     const nextMonth = addMonths(visibleMonth, offset);
     setVisibleMonth(nextMonth);
     setSelectedDateKey(
-      getDefaultSelectedDateKey(nextMonth, completedSessionByDate, scheduledByDate),
+      getDefaultSelectedDateKey(nextMonth, completedSessionByDate, scheduledByDate, todayKey),
     );
   }
 
@@ -231,9 +240,9 @@ export function WorkoutCalendar({
           <div className="grid grid-cols-7 gap-2">
             {calendarDays.map((day) => {
               const dateKey = toDateKey(day);
-              const details = getDayDetails(dateKey, lookupContext);
+              const details = getDayDetails(dateKey, lookupContext, todayKey);
               const isSelected = selectedDateKey === dateKey;
-              const isToday = dateKey === TODAY_KEY;
+              const isToday = dateKey === todayKey;
               const isInMonth = day.getMonth() === visibleMonth.getMonth();
 
               return (
@@ -498,6 +507,7 @@ function ScheduledWorkoutActions({
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const isUnavailable =
     scheduledWorkout.templateId == null || scheduledWorkout.templateName == null;
   const templateId = scheduledWorkout.templateId;
@@ -514,15 +524,8 @@ function ScheduledWorkoutActions({
   }
 
   function handleRemove() {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (!window.confirm('Remove this scheduled workout?')) {
-      return;
-    }
-
     void unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+    setIsRemoveDialogOpen(false);
   }
 
   return (
@@ -572,7 +575,7 @@ function ScheduledWorkoutActions({
               Reschedule
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={handleRemove} variant="destructive">
+          <DropdownMenuItem onSelect={() => setIsRemoveDialogOpen(true)} variant="destructive">
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -591,6 +594,23 @@ function ScheduledWorkoutActions({
           title="Reschedule workout"
         />
       ) : null}
+      <AlertDialog onOpenChange={setIsRemoveDialogOpen} open={isRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this scheduled workout?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove it from your calendar.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unscheduleWorkoutMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unscheduleWorkoutMutation.isPending}
+              onClick={handleRemove}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -604,11 +624,11 @@ function LegendDot({ className, label }: { className: string; label: string }) {
   );
 }
 
-function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
+function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: string): DayDetails {
   const date = parseDateKey(dateKey);
   const completedSession = context.completedSessionByDate.get(dateKey) ?? null;
   const scheduledWorkouts = context.scheduledByDate.get(dateKey) ?? [];
-  const inProgressSession = dateKey === TODAY_KEY ? context.inProgressTodaySession : null;
+  const inProgressSession = dateKey === todayKey ? context.inProgressTodaySession : null;
 
   const hasCompleted = completedSession != null;
   const hasScheduled = scheduledWorkouts.length > 0;
@@ -710,12 +730,13 @@ function getDefaultSelectedDateKey(
   month: Date,
   completedByDate: Map<string, WorkoutSessionListItem>,
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>,
+  todayKey: string,
 ): string {
   if (
-    isSameMonth(parseDateKey(TODAY_KEY), month) &&
-    (completedByDate.has(TODAY_KEY) || (scheduledByDate.get(TODAY_KEY)?.length ?? 0) > 0)
+    isSameMonth(parseDateKey(todayKey), month) &&
+    (completedByDate.has(todayKey) || (scheduledByDate.get(todayKey)?.length ?? 0) > 0)
   ) {
-    return TODAY_KEY;
+    return todayKey;
   }
 
   const monthActivity = [...completedByDate.keys(), ...scheduledByDate.keys()]
@@ -727,7 +748,7 @@ function getDefaultSelectedDateKey(
     return toDateKey(monthActivity[0]);
   }
 
-  return isSameMonth(parseDateKey(TODAY_KEY), month) ? TODAY_KEY : toDateKey(month);
+  return isSameMonth(parseDateKey(todayKey), month) ? todayKey : toDateKey(month);
 }
 
 function buildCalendarDays(month: Date): Date[] {

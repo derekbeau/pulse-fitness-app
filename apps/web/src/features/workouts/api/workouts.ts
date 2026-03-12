@@ -118,6 +118,7 @@ export const workoutQueryKeys = {
   completedSessions: () => ['workouts', 'completed-sessions'] as const,
   exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
+  scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
   scheduledWorkouts: (params: ScheduledWorkoutQueryParams) =>
     ['workouts', 'scheduled-workouts', params] as const,
   session: (id: string) => ['workouts', 'session', id] as const,
@@ -457,7 +458,7 @@ export function useScheduleWorkout() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.all,
+          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -476,7 +477,7 @@ export function useRescheduleWorkout() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.all,
+          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -495,7 +496,7 @@ export function useUnscheduleWorkout() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.all,
+          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -505,9 +506,6 @@ export function useUnscheduleWorkout() {
     },
   });
 }
-
-export const useUpdateScheduledWorkout = useRescheduleWorkout;
-export const useDeleteScheduledWorkout = useUnscheduleWorkout;
 
 export function useRenameExercise() {
   const queryClient = useQueryClient();
