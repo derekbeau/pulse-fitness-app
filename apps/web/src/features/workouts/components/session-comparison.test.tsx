@@ -28,7 +28,12 @@ function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
   };
 }
 
-function createSet(exerciseId: string, setNumber: number, reps: number, weight: number | null = null) {
+function createSet(
+  exerciseId: string,
+  setNumber: number,
+  reps: number,
+  weight: number | null = null,
+) {
   return {
     id: `set-${exerciseId}-${setNumber}`,
     exerciseId,
@@ -49,10 +54,7 @@ describe('SessionExerciseComparison', () => {
       id: 'previous-session',
       startedAt: Date.parse('2026-02-20T18:00:00Z'),
       completedAt: Date.parse('2026-02-20T19:00:00Z'),
-      sets: [
-        createSet('bodyweight-row', 1, 7),
-        createSet('bodyweight-row', 3, 8),
-      ],
+      sets: [createSet('bodyweight-row', 1, 7), createSet('bodyweight-row', 3, 8)],
     });
     const currentSession = createSession({
       id: 'current-session',
@@ -96,8 +98,8 @@ describe('SessionComparison', () => {
       />,
     );
 
-    expect(screen.getByText('850 kg')).toBeInTheDocument();
-    expect(screen.getByText('640 kg')).toBeInTheDocument();
+    expect(screen.getByText('850.0 kg')).toBeInTheDocument();
+    expect(screen.getByText('640.0 kg')).toBeInTheDocument();
   });
 
   it('uses seconds metric labels for time-based sessions', () => {

@@ -34,6 +34,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
+import { formatServing, formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
@@ -103,8 +104,7 @@ const phaseBadgeStyles = {
     'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
   moderate:
     'border-transparent bg-secondary text-secondary-foreground dark:bg-secondary/80 dark:text-foreground',
-  test:
-    'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
+  test: 'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
 } as const;
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
@@ -317,12 +317,17 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           <details
             className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
             key={section.type}
-            open={section.type === 'main' || section.exercises.some((exercise) => Boolean(exercise.notes))}
+            open={
+              section.type === 'main' ||
+              section.exercises.some((exercise) => Boolean(exercise.notes))
+            }
           >
             <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 sm:py-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-foreground">{sectionLabels[section.type]}</h3>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {sectionLabels[section.type]}
+                  </h3>
                   <p className="text-sm text-muted">{section.subtitle}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -346,7 +351,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         <div className="flex flex-wrap items-center gap-2">
                           <CardTitle>{exercise.name}</CardTitle>
                           <Badge
-                            className={cn('border-transparent', phaseBadgeStyles[exercise.phaseBadge])}
+                            className={cn(
+                              'border-transparent',
+                              phaseBadgeStyles[exercise.phaseBadge],
+                            )}
                             variant="outline"
                           >
                             {formatLabel(exercise.phaseBadge)}
@@ -463,7 +471,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </Button>
       ) : null}
 
-      <Dialog onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)} open={selectedExercise != null}>
+      <Dialog
+        onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)}
+        open={selectedExercise != null}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
           {selectedExercise ? (
             <div className="space-y-0">
@@ -489,7 +500,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   );
 }
 
-function buildSections(session: WorkoutSession, template?: WorkoutTemplate): SessionDetailSection[] {
+function buildSections(
+  session: WorkoutSession,
+  template?: WorkoutTemplate,
+): SessionDetailSection[] {
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
 
@@ -646,7 +660,9 @@ function formatFeedbackResponseValue(response: WorkoutSessionFeedbackResponse) {
   return '-';
 }
 
-function inferPhaseBadge(sectionType: SessionDetailSectionType): SessionDetailExercise['phaseBadge'] {
+function inferPhaseBadge(
+  sectionType: SessionDetailSectionType,
+): SessionDetailExercise['phaseBadge'] {
   switch (sectionType) {
     case 'warmup':
     case 'cooldown':
@@ -748,7 +764,11 @@ function buildHistoryPoint(
   };
 }
 
-function formatSetLabel(set: SessionSet, trackingType: ExerciseTrackingType, weightUnit: WeightUnit) {
+function formatSetLabel(
+  set: SessionSet,
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+) {
   if (set.skipped) {
     return `Set ${set.setNumber}: Skipped`;
   }
@@ -767,23 +787,28 @@ function formatSetLabel(set: SessionSet, trackingType: ExerciseTrackingType, wei
   }
 
   if (trackingType === 'weight_seconds') {
-    const weightLabel = set.weight != null ? `${formatNumber(set.weight)} ${weightUnit} × ` : '';
+    const weightLabel =
+      set.weight != null ? `${formatWeightValue(set.weight)} ${weightUnit} × ` : '';
     return `Set ${set.setNumber}: ${weightLabel}${secondsValue} sec`;
   }
 
   const repsLabel = `${repsValue} reps`;
-  const weightLabel = set.weight != null ? `${formatNumber(set.weight)} ${weightUnit} × ` : '';
+  const weightLabel = set.weight != null ? `${formatWeightValue(set.weight)} ${weightUnit} × ` : '';
 
   return `Set ${set.setNumber}: ${weightLabel}${repsLabel}`;
 }
 
-function formatSummaryMetric(value: number, label: 'reps' | 'seconds' | 'volume', weightUnit: WeightUnit) {
+function formatSummaryMetric(
+  value: number,
+  label: 'reps' | 'seconds' | 'volume',
+  weightUnit: WeightUnit,
+) {
   if (label === 'volume') {
-    return `${formatNumber(value)} ${weightUnit}`;
+    return `${formatWeightValue(value)} ${weightUnit}`;
   }
 
   if (label === 'seconds') {
-    return `${formatNumber(value)} sec`;
+    return `${formatServing(value)} sec`;
   }
 
   return integerFormatter.format(value);
@@ -798,5 +823,9 @@ function formatLabel(value: string) {
 }
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? integerFormatter.format(value) : decimalFormatter.format(value);
+  if (Number.isInteger(value)) {
+    return integerFormatter.format(value);
+  }
+
+  return formatServing(value);
 }

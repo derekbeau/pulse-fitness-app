@@ -87,7 +87,7 @@ describe('TrendSparkline', () => {
 
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('-0.4%')).toBeInTheDocument();
+    expect(screen.getByText('0%')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
     expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
     expect(container.querySelector('.recharts-line .recharts-curve')).toBeInTheDocument();
@@ -159,8 +159,8 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('2,050 kcal')).toBeInTheDocument();
-    expect(screen.getByText('170 g')).toBeInTheDocument();
+    expect(screen.getByText('2050 kcal')).toBeInTheDocument();
+    expect(screen.getByText('170g')).toBeInTheDocument();
 
     const weightCard = screen
       .getByText('Weight Trend')
@@ -185,16 +185,12 @@ describe('TrendSparklines', () => {
     expect(
       within(weightCard as HTMLElement).getByRole('img', { name: 'Weight Trend sparkline' }),
     ).toBeInTheDocument();
-    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: true },
-    );
-    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: true },
-    );
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: true,
+    });
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: true,
+    });
   });
 
   it('shows skeleton cards while trend queries are loading', () => {
@@ -209,7 +205,9 @@ describe('TrendSparklines', () => {
 
     const { container } = render(<TrendSparklines />);
 
-    expect(container.querySelectorAll('[data-slot="trend-sparkline-card-skeleton"]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-slot="trend-sparkline-card-skeleton"]')).toHaveLength(
+      3,
+    );
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
   });
 
@@ -230,16 +228,12 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
     expect(screen.queryByText('Calorie Trend')).not.toBeInTheDocument();
-    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: false },
-    );
-    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: true },
-    );
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: false,
+    });
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: true,
+    });
   });
 
   it('renders an empty state when no metrics are selected', () => {
@@ -256,16 +250,12 @@ describe('TrendSparklines', () => {
 
     expect(screen.getByText('No trend metrics selected.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
-    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: false },
-    );
-    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      { enabled: false },
-    );
+    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: false,
+    });
+    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      enabled: false,
+    });
   });
 
   it('renders an error state when a required trend query fails', () => {
@@ -324,8 +314,12 @@ describe('TrendSparklines', () => {
 
     expect(within(calorieCard).getByText('--')).toBeInTheDocument();
     expect(within(proteinCard).getByText('--')).toBeInTheDocument();
-    expect(within(calorieCard).getByRole('img', { name: 'Calorie Trend sparkline' })).toBeInTheDocument();
-    expect(within(proteinCard).getByRole('img', { name: 'Protein Trend sparkline' })).toBeInTheDocument();
+    expect(
+      within(calorieCard).getByRole('img', { name: 'Calorie Trend sparkline' }),
+    ).toBeInTheDocument();
+    expect(
+      within(proteinCard).getByRole('img', { name: 'Protein Trend sparkline' }),
+    ).toBeInTheDocument();
   });
 
   it('shows the selected date weight value instead of the latest in-range value', () => {
@@ -389,6 +383,8 @@ describe('TrendSparklines', () => {
 
     expect(within(calorieCard).getByText('--')).toBeInTheDocument();
     expect(within(calorieCard).getByText('No data')).toBeInTheDocument();
-    expect(within(calorieCard).queryByRole('img', { name: 'Calorie Trend sparkline' })).not.toBeInTheDocument();
+    expect(
+      within(calorieCard).queryByRole('img', { name: 'Calorie Trend sparkline' }),
+    ).not.toBeInTheDocument();
   });
 });

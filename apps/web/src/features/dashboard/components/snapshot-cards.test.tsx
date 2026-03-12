@@ -95,8 +95,8 @@ describe('SnapshotCards', () => {
     expect(cards).toHaveLength(5);
 
     expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
-    expect(screen.getByText('1,900 / 2,300')).toBeInTheDocument();
-    expect(screen.getByText('170 g / 190 g')).toBeInTheDocument();
+    expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
+    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
   });
@@ -206,11 +206,11 @@ describe('SnapshotCards', () => {
               ...snapshotFixture.macros,
               actual: {
                 ...snapshotFixture.macros.actual,
-                calories: 2450,
+                calories: 12450,
               },
               target: {
                 ...snapshotFixture.macros.target,
-                calories: 2200,
+                calories: 11200,
               },
             },
           }}
@@ -218,7 +218,7 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    const caloriesValue = screen.getByText('2,450 / 2,200');
+    const caloriesValue = screen.getByText('12450 / 11200');
     expect(caloriesValue).toHaveClass('text-lg', 'sm:text-xl', 'lg:text-2xl');
   });
 });

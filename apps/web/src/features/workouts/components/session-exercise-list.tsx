@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
+import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -900,7 +901,7 @@ function formatPerformedReps(reps: number, prescribedReps: string) {
 }
 
 function formatWeight(weight: number) {
-  return Number.isInteger(weight) ? `${weight}` : weight.toFixed(1);
+  return formatWeightValue(weight);
 }
 
 function formatPhaseBadge(phaseBadge: ActiveWorkoutPhaseBadge) {

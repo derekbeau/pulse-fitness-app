@@ -4,12 +4,12 @@ import { Link } from 'react-router';
 
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { formatCalories, formatGrams, formatTrendChange, formatWeight } from '@/lib/format-utils';
 
 type SnapshotCardsProps = {
   snapshot?: DashboardSnapshot;
 };
 
-const numberFormatter = new Intl.NumberFormat('en-US');
 const notConfiguredCardClassName =
   'border-dashed border-border/80 bg-muted/35 text-muted-foreground shadow-none';
 const notConfiguredAccentTextClassName = 'text-muted-foreground';
@@ -20,9 +20,12 @@ export const getSnapshotValueClassName = (value: string) => {
   return value.length >= 13 ? longValueClassName : shortValueClassName;
 };
 
-const formatMacroProgressValue = (actual: number, target: number, suffix = '') => {
-  const suffixPart = suffix ? ` ${suffix}` : '';
-  return `${numberFormatter.format(actual)}${suffixPart} / ${numberFormatter.format(target)}${suffixPart}`;
+const formatMacroProgressValue = (actual: number, target: number, mode: 'calories' | 'grams') => {
+  if (mode === 'grams') {
+    return `${formatGrams(actual)} / ${formatGrams(target)}`;
+  }
+
+  return `${formatCalories(actual)} / ${formatCalories(target)}`;
 };
 
 export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
@@ -36,7 +39,7 @@ export const calculateWeightTrend = (weight: number, weightYesterday: number): S
     return { direction: 'neutral', value: 0 };
   }
 
-  const percent = Number(((Math.abs(change) / weightYesterday) * 100).toFixed(1));
+  const percent = Number(formatTrendChange((Math.abs(change) / weightYesterday) * 100));
 
   return {
     direction: change > 0 ? 'up' : 'down',
@@ -64,7 +67,7 @@ const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
     return 'Log weight';
   }
 
-  return `${snapshot.weight.value.toFixed(1)} lbs`;
+  return formatWeight(snapshot.weight.value, 'lbs');
 };
 
 const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {
@@ -86,7 +89,11 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   const weightValue = formatWeightValue(snapshot);
   const caloriesValueText = snapshot
     ? hasCaloriesTarget
-      ? formatMacroProgressValue(snapshot.macros.actual.calories, snapshot.macros.target.calories)
+      ? formatMacroProgressValue(
+          snapshot.macros.actual.calories,
+          snapshot.macros.target.calories,
+          'calories',
+        )
       : 'No targets set'
     : '--';
   const caloriesValue = snapshot
@@ -106,7 +113,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       ? formatMacroProgressValue(
           snapshot.macros.actual.protein,
           snapshot.macros.target.protein,
-          'g',
+          'grams',
         )
       : 'No targets set'
     : '--';

@@ -7,12 +7,11 @@ import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { addDays, parseDateInput, toDateKey } from '@/lib/date';
+import { formatCalories, formatGrams, formatPercent, formatWeight } from '@/lib/format-utils';
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
 import { cn } from '@/lib/utils';
 
 const TREND_DAYS = 30;
-const numberFormatter = new Intl.NumberFormat('en-US');
-
 type ChangeDirection = 'up' | 'down' | 'neutral';
 
 type TrendMetricCardProps = {
@@ -88,10 +87,10 @@ const getPreviousValue = (series: TrendSparklineRealDatum[], fallback: number): 
 
 const formatChangePercent = (changePercent: number): string => {
   if (changePercent > 0) {
-    return `+${changePercent}%`;
+    return `+${formatPercent(changePercent)}`;
   }
 
-  return `${changePercent}%`;
+  return formatPercent(changePercent);
 };
 
 const getChangeDirection = (changePercent: number): ChangeDirection => {
@@ -165,7 +164,10 @@ export function TrendSparkline({
       </div>
 
       {plottedData.length === 0 ? (
-        <div className="flex h-[60px] items-center justify-center rounded-md bg-muted/35" data-slot="trend-sparkline-empty">
+        <div
+          className="flex h-[60px] items-center justify-center rounded-md bg-muted/35"
+          data-slot="trend-sparkline-empty"
+        >
           <p className="text-sm text-muted">{emptyMessage}</p>
         </div>
       ) : (
@@ -179,7 +181,9 @@ export function TrendSparkline({
             <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
               <Line
                 dataKey="value"
-                dot={hasSingleDataPoint ? { fill: color, r: 4, stroke: color, strokeWidth: 0 } : false}
+                dot={
+                  hasSingleDataPoint ? { fill: color, r: 4, stroke: color, strokeWidth: 0 } : false
+                }
                 isAnimationActive={false}
                 stroke={color}
                 strokeLinecap="round"
@@ -229,7 +233,10 @@ function TrendMetricCard({
 
 function TrendMetricCardSkeleton() {
   return (
-    <Card className="gap-0 border-transparent py-5 shadow-sm" data-slot="trend-sparkline-card-skeleton">
+    <Card
+      className="gap-0 border-transparent py-5 shadow-sm"
+      data-slot="trend-sparkline-card-skeleton"
+    >
       <CardContent className="h-full px-5">
         <div className="flex h-full flex-col gap-4" data-slot="trend-sparkline-skeleton">
           <div className="flex items-start justify-between gap-4">
@@ -249,8 +256,7 @@ function TrendMetricCardSkeleton() {
 export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
   const needsWeight = resolvedMetrics.includes('weight');
-  const needsMacros =
-    resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
+  const needsMacros = resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
   const range = resolveTrendRange(endDate);
   const weightTrendQuery = useWeightTrend(range.from, range.to, { enabled: needsWeight });
   const macroTrendQuery = useMacroTrend(range.from, range.to, { enabled: needsMacros });
@@ -304,13 +310,10 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
-      currentValue: hasSelectedWeightValue ? `${selectedWeightValue.toFixed(1)} lbs` : '--',
+      currentValue: hasSelectedWeightValue ? formatWeight(selectedWeightValue, 'lbs') : '--',
       changePercent:
         weightSeries.length > 1
-          ? calculateTrendChangePercent(
-              latestWeight,
-              getPreviousValue(weightSeries, latestWeight),
-            )
+          ? calculateTrendChangePercent(latestWeight, getPreviousValue(weightSeries, latestWeight))
           : 0,
       color: 'var(--color-on-cream)',
       data: weightSeries,
@@ -319,9 +322,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     calories: {
       label: 'Calorie Trend',
-      currentValue: hasSelectedCalorieValue
-        ? `${numberFormatter.format(selectedCalorieValue)} kcal`
-        : '--',
+      currentValue: hasSelectedCalorieValue ? `${formatCalories(selectedCalorieValue)} kcal` : '--',
       changePercent:
         calorieSeries.length > 1
           ? calculateTrendChangePercent(
@@ -336,9 +337,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     protein: {
       label: 'Protein Trend',
-      currentValue: hasSelectedProteinValue
-        ? `${numberFormatter.format(selectedProteinValue)} g`
-        : '--',
+      currentValue: hasSelectedProteinValue ? formatGrams(selectedProteinValue) : '--',
       changePercent:
         proteinSeries.length > 1
           ? calculateTrendChangePercent(

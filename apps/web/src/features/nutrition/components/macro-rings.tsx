@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { Button } from '@/components/ui/button';
 import { accentCardStyles } from '@/lib/accent-card-styles';
+import { formatGrams } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type MacroKey = 'protein' | 'carbs' | 'fat';
@@ -26,7 +27,7 @@ const macroConfig: Array<{
 ];
 
 function formatMacroValue(value: number) {
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}g`;
+  return formatGrams(value);
 }
 
 export function MacroRings({ actual, targets }: MacroRingsProps) {
