@@ -1,15 +1,26 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { MoreVertical } from 'lucide-react';
 
 import type { WorkoutTemplate, WorkoutTemplateExercise } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
-import { useWorkoutTemplate } from '../api/workouts';
+import { useRenameExercise, useWorkoutTemplate } from '../api/workouts';
+import { FormCueChips } from './form-cue-chips';
+import { RenameExerciseDialog } from './rename-exercise-dialog';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -26,6 +37,11 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const navigate = useNavigate();
   const templateQuery = useWorkoutTemplate(templateId);
   const startWorkoutMutation = useStartSession();
+  const renameExerciseMutation = useRenameExercise();
+  const [renameTarget, setRenameTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+  } | null>(null);
 
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
@@ -131,11 +147,37 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                 section.exercises.map((exercise) => (
                   <Card className="gap-4 py-0" key={exercise.id}>
                     <CardHeader className="gap-3 py-5">
-                      <div className="space-y-2">
-                        <CardTitle>{exercise.exerciseName}</CardTitle>
-                        <p className="text-sm font-medium text-foreground">
-                          {formatPrescription(exercise)}
-                        </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <CardTitle>{exercise.exerciseName}</CardTitle>
+                          <p className="text-sm font-medium text-foreground">
+                            {formatPrescription(exercise)}
+                          </p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-label={`Exercise actions for ${exercise.exerciseName}`}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <MoreVertical aria-hidden="true" className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setRenameTarget({
+                                  exerciseId: exercise.exerciseId,
+                                  exerciseName: exercise.exerciseName,
+                                })
+                              }
+                            >
+                              Rename exercise
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardHeader>
 
@@ -156,19 +198,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                         </div>
                       ) : null}
 
-                      {exercise.cues.length > 0 ? (
-                        <details className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-                          <summary className="cursor-pointer text-sm font-medium text-foreground">
-                            Form cues
-                          </summary>
-                          <ul className="mt-3 space-y-2 text-sm text-muted">
-                            {exercise.cues.map((cue) => (
-                              <li className="ml-5 list-disc" key={cue}>
-                                {cue}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
+                      {(exercise.formCues?.length ?? 0) > 0 || exercise.cues.length > 0 ? (
+                        <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+                          <FormCueChips
+                            exerciseCues={exercise.formCues ?? []}
+                            templateCues={exercise.cues}
+                          />
+                        </div>
                       ) : null}
                     </CardContent>
                   </Card>
@@ -178,6 +214,43 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
           </details>
         ))}
       </div>
+
+      <RenameExerciseDialog
+        key={renameTarget ? `${renameTarget.exerciseId}-open` : 'rename-template-closed'}
+        isPending={renameExerciseMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+          }
+        }}
+        onRename={(name) => {
+          if (!renameTarget) {
+            return;
+          }
+
+          renameExerciseMutation.mutate(
+            {
+              id: renameTarget.exerciseId,
+              name,
+            },
+            {
+              onError: (error) => {
+                const message =
+                  error instanceof ApiError
+                    ? error.message
+                    : 'Unable to rename exercise. Try again.';
+                toast.error(message);
+              },
+              onSuccess: () => {
+                setRenameTarget(null);
+              },
+            },
+          );
+        }}
+        open={renameTarget != null}
+        sourceLabel="this template"
+        value={renameTarget?.exerciseName ?? ''}
+      />
 
       <div className="space-y-2">
         <Button

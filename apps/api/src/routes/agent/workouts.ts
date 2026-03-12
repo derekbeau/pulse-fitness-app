@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  type AgentTemplateNewExercise,
   agentCreateWorkoutSessionInputSchema,
   agentCreateWorkoutTemplateInputSchema,
   agentUpdateWorkoutSessionInputSchema,
@@ -14,7 +15,12 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { createExercise, findVisibleExerciseByName } from '../exercises/store.js';
+import {
+  createExercise,
+  findExerciseDedupCandidates,
+  findVisibleExerciseByName,
+  updateOwnedExercise,
+} from '../exercises/store.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -39,9 +45,37 @@ const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
 } as const;
 
 const DEFAULT_EXERCISE_CATEGORY = 'compound' as const;
-const DEFAULT_EXERCISE_MUSCLE_GROUPS = ['Full Body'];
-const DEFAULT_EXERCISE_EQUIPMENT = 'Bodyweight';
 const DEFAULT_EXERCISE_TRACKING_TYPE = 'weight_reps' as const;
+const SITUATIONAL_CUE_PATTERN =
+  /\b(today|tonight|tomorrow|this week|next week|week \d+|day \d+|block|phase|cycle|mesocycle|deload|amrap|top set|backoff|back-off|drop set|rpe|rir|percent|%|heavy|light)\b/i;
+
+const dedupeStrings = (values: string[] | undefined): string[] =>
+  values ? [...new Set(values)] : [];
+
+const classifyCues = ({
+  cues,
+  formCues,
+}: {
+  cues?: string[];
+  formCues?: string[];
+}): { durable: string[]; situational: string[] } => {
+  const durable = [...(formCues ?? [])];
+  const situational: string[] = [];
+
+  for (const cue of cues ?? []) {
+    if (SITUATIONAL_CUE_PATTERN.test(cue)) {
+      situational.push(cue);
+      continue;
+    }
+
+    durable.push(cue);
+  }
+
+  return {
+    durable: dedupeStrings(durable),
+    situational: dedupeStrings(situational),
+  };
+};
 
 const inferSectionType = (name: string): WorkoutTemplateSectionType => {
   const normalized = name.trim().toLowerCase();
@@ -60,14 +94,48 @@ const inferSectionType = (name: string): WorkoutTemplateSectionType => {
 const resolveExerciseIdByName = async ({
   name,
   userId,
+  tags,
+  cues,
+  formCues,
 }: {
   name: string;
   userId: string;
-}): Promise<string> => {
+  tags?: string[];
+  cues?: string[];
+  formCues?: string[];
+}): Promise<{
+  exerciseId: string;
+  newExercise: AgentTemplateNewExercise | null;
+  templateCues: string[];
+}> => {
+  const classifiedCues = classifyCues({ cues, formCues });
   const existingExercise = await findVisibleExerciseByName({ name, userId });
   if (existingExercise) {
-    return existingExercise.id;
+    if (existingExercise.userId === userId && classifiedCues.durable.length > 0) {
+      const mergedFormCues = dedupeStrings([
+        ...(existingExercise.formCues ?? []),
+        ...classifiedCues.durable,
+      ]);
+      if (mergedFormCues.length !== (existingExercise.formCues ?? []).length) {
+        await updateOwnedExercise({
+          id: existingExercise.id,
+          userId,
+          changes: { formCues: mergedFormCues },
+        });
+      }
+    }
+
+    return {
+      exerciseId: existingExercise.id,
+      newExercise: null,
+      templateCues: classifiedCues.situational,
+    };
   }
+
+  const possibleDuplicates = await findExerciseDedupCandidates({
+    userId,
+    name,
+  });
 
   const createdExercise = await createExercise({
     id: randomUUID(),
@@ -75,12 +143,22 @@ const resolveExerciseIdByName = async ({
     name,
     category: DEFAULT_EXERCISE_CATEGORY,
     trackingType: DEFAULT_EXERCISE_TRACKING_TYPE,
-    muscleGroups: DEFAULT_EXERCISE_MUSCLE_GROUPS,
-    equipment: DEFAULT_EXERCISE_EQUIPMENT,
+    muscleGroups: [],
+    equipment: '',
+    tags,
+    formCues: classifiedCues.durable,
     instructions: null,
   });
 
-  return createdExercise.id;
+  return {
+    exerciseId: createdExercise.id,
+    templateCues: classifiedCues.situational,
+    newExercise: {
+      id: createdExercise.id,
+      name: createdExercise.name,
+      possibleDuplicates: possibleDuplicates.map((candidate) => candidate.id),
+    },
+  };
 };
 
 const buildTemplateSections = async ({
@@ -94,6 +172,9 @@ const buildTemplateSections = async ({
       sets: number;
       reps: number;
       restSeconds?: number;
+      tags?: string[];
+      cues?: string[];
+      formCues?: string[];
     }>;
   }>;
   userId: string;
@@ -107,6 +188,7 @@ const buildTemplateSections = async ({
   groupedByType.set('warmup', []);
   groupedByType.set('main', []);
   groupedByType.set('cooldown', []);
+  const newExercises: AgentTemplateNewExercise[] = [];
 
   for (const section of sections) {
     const sectionType = inferSectionType(section.name);
@@ -116,13 +198,19 @@ const buildTemplateSections = async ({
     }
 
     for (const exercise of section.exercises) {
-      const exerciseId = await resolveExerciseIdByName({
+      const resolvedExercise = await resolveExerciseIdByName({
         name: exercise.name,
         userId,
+        tags: exercise.tags,
+        cues: exercise.cues,
+        formCues: exercise.formCues,
       });
+      if (resolvedExercise.newExercise) {
+        newExercises.push(resolvedExercise.newExercise);
+      }
 
       existingExercises.push({
-        exerciseId,
+        exerciseId: resolvedExercise.exerciseId,
         sets: exercise.sets,
         repsMin: exercise.reps,
         repsMax: exercise.reps,
@@ -130,15 +218,18 @@ const buildTemplateSections = async ({
         restSeconds: exercise.restSeconds ?? null,
         supersetGroup: null,
         notes: null,
-        cues: [],
+        cues: resolvedExercise.templateCues,
       });
     }
   }
 
-  return SECTION_ORDER.flatMap((type) => {
-    const exercises = groupedByType.get(type) ?? [];
-    return exercises.length > 0 ? [{ type, exercises }] : [];
-  });
+  return {
+    sections: SECTION_ORDER.flatMap((type) => {
+      const exercises = groupedByType.get(type) ?? [];
+      return exercises.length > 0 ? [{ type, exercises }] : [];
+    }),
+    newExercises,
+  };
 };
 
 const toCreateWorkoutSessionInput = (session: WorkoutSession): CreateWorkoutSessionInput => ({
@@ -200,7 +291,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
     }
 
-    const sections = await buildTemplateSections({
+    const { sections, newExercises } = await buildTemplateSections({
       sections: parsed.data.sections,
       userId: request.userId,
     });
@@ -216,7 +307,12 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       },
     });
 
-    return reply.code(201).send({ data: template });
+    return reply.code(201).send({
+      data: {
+        template,
+        newExercises,
+      },
+    });
   });
 
   app.put<{ Params: { id: string } }>('/workout-templates/:id', async (request, reply) => {
@@ -235,7 +331,7 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const sections = await buildTemplateSections({
+    const { sections, newExercises } = await buildTemplateSections({
       sections: parsed.data.sections,
       userId: request.userId,
     });
@@ -260,7 +356,12 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({ data: template });
+    return reply.send({
+      data: {
+        template,
+        newExercises,
+      },
+    });
   });
 
   app.post('/workout-sessions', async (request, reply) => {
@@ -347,10 +448,11 @@ export const agentWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       for (const set of parsed.data.sets) {
-        const exerciseId = await resolveExerciseIdByName({
+        const resolvedExercise = await resolveExerciseIdByName({
           name: set.exerciseName,
           userId: request.userId,
         });
+        const exerciseId = resolvedExercise.exerciseId;
         if (!exerciseOrder.has(exerciseId)) {
           exerciseOrder.set(exerciseId, exerciseOrder.size);
         }

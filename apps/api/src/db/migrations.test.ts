@@ -133,15 +133,7 @@ describe('migration 0014_lazy_bromley', () => {
           )
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
-      ).run(
-        'user-pre-migration',
-        'derek',
-        'Derek',
-        'hash',
-        null,
-        Date.now(),
-        Date.now(),
-      );
+      ).run('user-pre-migration', 'derek', 'Derek', 'hash', null, Date.now(), Date.now());
 
       const migrationSql = readFileSync(
         join(process.cwd(), 'drizzle/0014_lazy_bromley.sql'),
@@ -204,8 +196,9 @@ describe('migration 0015_parched_katie_power', () => {
       runSqlStatements(db, migrationSql);
 
       expect(() =>
-        db.prepare(
-          `
+        db
+          .prepare(
+            `
             INSERT INTO exercises (
               id,
               user_id,
@@ -220,18 +213,19 @@ describe('migration 0015_parched_katie_power', () => {
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
-        ).run(
-          'exercise-invalid-tracking',
-          null,
-          'Bench Press',
-          JSON.stringify(['chest']),
-          'barbell',
-          'compound',
-          'invalid_type',
-          null,
-          Date.now(),
-          Date.now(),
-        ),
+          )
+          .run(
+            'exercise-invalid-tracking',
+            null,
+            'Bench Press',
+            JSON.stringify(['chest']),
+            'barbell',
+            'compound',
+            'invalid_type',
+            null,
+            Date.now(),
+            Date.now(),
+          ),
       ).toThrow(/CHECK constraint failed/);
     } finally {
       db.close();
@@ -405,6 +399,85 @@ describe('migration 0017_fix_exercise_categories', () => {
         { id: 'exercise-7', category: 'cardio' },
         { id: 'exercise-8', category: 'mobility' },
       ]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('migration 0018_graceful_lord_hawal', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds tags and form_cues with [] defaults for existing exercises', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0018-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT,
+          name TEXT NOT NULL,
+          muscle_groups TEXT NOT NULL,
+          equipment TEXT NOT NULL,
+          category TEXT NOT NULL,
+          tracking_type TEXT DEFAULT 'weight_reps' NOT NULL,
+          instructions TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO exercises (
+            id,
+            user_id,
+            name,
+            muscle_groups,
+            equipment,
+            category,
+            tracking_type,
+            instructions,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'exercise-pre-migration',
+        'user-1',
+        'Back Squat',
+        JSON.stringify(['quads', 'glutes']),
+        'barbell',
+        'compound',
+        'weight_reps',
+        null,
+        Date.now(),
+        Date.now(),
+      );
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0018_graceful_lord_hawal.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const migratedRow = db
+        .prepare(`SELECT tags, form_cues AS formCues FROM exercises WHERE id = ?`)
+        .get('exercise-pre-migration') as { tags: string; formCues: string };
+
+      expect(JSON.parse(migratedRow.tags)).toEqual([]);
+      expect(JSON.parse(migratedRow.formCues)).toEqual([]);
     } finally {
       db.close();
     }

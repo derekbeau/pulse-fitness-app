@@ -3,11 +3,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { exercises, sessionSets, users, workoutSessions } from '../../db/schema/index.js';
+import {
+  exercises,
+  sessionSets,
+  templateExercises,
+  users,
+  workoutSessions,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -42,12 +50,16 @@ const seedExercise = (values: {
   muscleGroups: string[];
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  tags?: string[];
+  formCues?: string[];
   instructions?: string | null;
 }) =>
   context.db
     .insert(exercises)
     .values({
       ...values,
+      tags: values.tags ?? [],
+      formCues: values.formCues ?? [],
       instructions: values.instructions ?? null,
     })
     .run();
@@ -145,6 +157,8 @@ describe('exercise routes', () => {
   beforeEach(() => {
     context.db.delete(sessionSets).run();
     context.db.delete(workoutSessions).run();
+    context.db.delete(templateExercises).run();
+    context.db.delete(workoutTemplates).run();
     context.db.delete(exercises).run();
     context.db.delete(users).run();
 
@@ -361,6 +375,8 @@ describe('exercise routes', () => {
         muscleGroups: ['lats', 'upper back'],
         equipment: ' cable machine ',
         category: 'compound',
+        tags: ['rehab', 'core'],
+        formCues: ['chest up', 'drive through heels'],
         instructions: ' Pull elbow toward hip. ',
       },
     });
@@ -375,6 +391,8 @@ describe('exercise routes', () => {
         muscleGroups: string[];
         equipment: string;
         category: string;
+        tags: string[];
+        formCues: string[];
         instructions: string | null;
         createdAt: number;
         updatedAt: number;
@@ -387,11 +405,51 @@ describe('exercise routes', () => {
       muscleGroups: ['lats', 'upper back'],
       equipment: 'cable machine',
       category: 'compound',
+      tags: ['rehab', 'core'],
+      formCues: ['chest up', 'drive through heels'],
       instructions: 'Pull elbow toward hip.',
     });
     expect(payload.data.id).toBeTruthy();
     expect(payload.data.createdAt).toBeTypeOf('number');
     expect(payload.data.updatedAt).toBeTypeOf('number');
+
+    const storedExercise = context.db
+      .select({
+        tags: exercises.tags,
+        formCues: exercises.formCues,
+      })
+      .from(exercises)
+      .where(eq(exercises.id, payload.data.id))
+      .get();
+    expect(storedExercise).toEqual({
+      tags: ['rehab', 'core'],
+      formCues: ['chest up', 'drive through heels'],
+    });
+  });
+
+  it('defaults tags and formCues to empty arrays when omitted', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Goblet Squat',
+        muscleGroups: ['quads', 'glutes'],
+        equipment: 'dumbbell',
+        category: 'compound',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Goblet Squat',
+        tags: [],
+        formCues: [],
+      }),
+    });
   });
 
   it('lists visible exercises with case-insensitive search, filtering, and pagination', async () => {
@@ -457,8 +515,18 @@ describe('exercise routes', () => {
     expect(searchResponse.headers['cache-control']).toBe('private, no-cache');
     expect(searchResponse.json()).toEqual({
       data: [
-        expect.objectContaining({ id: 'user-press', name: 'Cable Press Around' }),
-        expect.objectContaining({ id: 'global-press', name: 'Incline Press' }),
+        expect.objectContaining({
+          id: 'user-press',
+          name: 'Cable Press Around',
+          tags: [],
+          formCues: [],
+        }),
+        expect.objectContaining({
+          id: 'global-press',
+          name: 'Incline Press',
+          tags: [],
+          formCues: [],
+        }),
       ],
       meta: {
         page: 1,
@@ -524,7 +592,7 @@ describe('exercise routes', () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     const updateResponse = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: '/api/v1/exercises/user-exercise',
       headers: createAuthorizationHeader(authToken),
       payload: {
@@ -544,7 +612,7 @@ describe('exercise routes', () => {
     });
 
     const globalResponse = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: '/api/v1/exercises/global-exercise',
       headers: createAuthorizationHeader(authToken),
       payload: {
@@ -558,6 +626,23 @@ describe('exercise routes', () => {
         code: 'GLOBAL_EXERCISE_READ_ONLY',
         message: 'Global exercises cannot be modified',
       },
+    });
+
+    const putResponse = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/user-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Narrow-Grip Lat Pulldown',
+      },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+    expect(putResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'user-exercise',
+        name: 'Narrow-Grip Lat Pulldown',
+      }),
     });
   });
 
@@ -648,6 +733,235 @@ describe('exercise routes', () => {
         code: 'VALIDATION_ERROR',
         message: 'Invalid exercise query',
       },
+    });
+  });
+
+  it('agent create exercise: creates when no close dedup candidates are found', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Landmine Press',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: {
+        created: true,
+        exercise: expect.objectContaining({
+          name: 'Landmine Press',
+          muscleGroups: [],
+          equipment: '',
+        }),
+      },
+    });
+  });
+
+  it('agent create exercise: returns dedup candidates for an exact name match', async () => {
+    seedExercise({
+      id: 'existing-row',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Bench Press',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        created: false,
+        candidates: [
+          {
+            id: 'existing-row',
+            name: 'Bench Press',
+            similarity: 1,
+          },
+        ],
+      },
+    });
+  });
+
+  it('agent create exercise: returns dedup candidates for close typo matches', async () => {
+    seedExercise({
+      id: 'existing-bench',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Benchpress',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      data: {
+        created: false;
+        candidates: Array<{ id: string; name: string; similarity: number }>;
+      };
+    };
+    expect(body.data.created).toBe(false);
+    expect(body.data.candidates[0]?.id).toBe('existing-bench');
+    expect(body.data.candidates[0]?.name).toBe('Bench Press');
+    expect(body.data.candidates[0]?.similarity ?? 0).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('agent create exercise: force=true bypasses dedup and still creates', async () => {
+    seedExercise({
+      id: 'existing-row',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Bench Press',
+        force: true,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: {
+        created: true,
+        exercise: expect.objectContaining({
+          name: 'Bench Press',
+        }),
+      },
+    });
+    expect(context.db.select({ id: exercises.id }).from(exercises).all()).toHaveLength(2);
+  });
+
+  it('agent template creation returns newExercises and creates empty metadata for unknown exercises', async () => {
+    seedExercise({
+      id: 'similar-global',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/agent/workout-templates',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Push Day',
+        sections: [
+          {
+            name: 'Main',
+            exercises: [{ name: 'Incline Bench Press', sets: 3, reps: 8 }],
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: {
+        template: expect.objectContaining({
+          name: 'Push Day',
+        }),
+        newExercises: [
+          {
+            id: expect.any(String),
+            name: 'Incline Bench Press',
+            possibleDuplicates: ['similar-global'],
+          },
+        ],
+      },
+    });
+
+    const created = context.db
+      .select({
+        name: exercises.name,
+        muscleGroups: exercises.muscleGroups,
+        equipment: exercises.equipment,
+        instructions: exercises.instructions,
+      })
+      .from(exercises)
+      .where(eq(exercises.name, 'Incline Bench Press'))
+      .get();
+
+    expect(created).toEqual({
+      name: 'Incline Bench Press',
+      muscleGroups: [],
+      equipment: '',
+      instructions: null,
+    });
+  });
+
+  it('agent patch exercise metadata updates enrichment fields', async () => {
+    seedExercise({
+      id: 'to-enrich',
+      userId: 'user-1',
+      name: 'Cable Fly',
+      muscleGroups: [],
+      equipment: '',
+      category: 'compound',
+      instructions: null,
+    });
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/agent/exercises/to-enrich',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        category: 'isolation',
+        trackingType: 'reps_only',
+        muscleGroups: ['Chest'],
+        equipment: 'Cable',
+        instructions: 'Control the eccentric.',
+        formCues: ['slight elbow bend'],
+        tags: ['hypertrophy'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'to-enrich',
+        category: 'isolation',
+        trackingType: 'reps_only',
+        muscleGroups: ['Chest'],
+        equipment: 'Cable',
+        instructions: 'Control the eccentric.',
+        formCues: ['slight elbow bend'],
+        tags: ['hypertrophy'],
+      }),
     });
   });
 });

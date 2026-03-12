@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
+import { MoreVertical } from 'lucide-react';
 import type { Exercise } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,11 +15,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
-import { useExerciseFilters, useExercises } from '../api/workouts';
+import { useExerciseFilters, useExercises, useRenameExercise } from '../api/workouts';
 import { workoutExerciseHistory } from '../lib/mock-data';
 import { ExerciseTrendChart } from './exercise-trend-chart';
+import { RenameExerciseDialog } from './rename-exercise-dialog';
+import { TagChips } from './tag-chips';
 
 const categoryBadgeStyles = {
   compound:
@@ -41,6 +52,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<Exercise | null>(null);
 
   const currentQuery = searchParams.get('q') ?? '';
   const muscleGroup = searchParams.get('muscleGroup') ?? 'all';
@@ -83,6 +95,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   });
 
   const exerciseFiltersQuery = useExerciseFilters();
+  const renameExerciseMutation = useRenameExercise();
   const filteredExercises: Exercise[] = exercisesQuery.data?.data ?? [];
   const totalResults = exercisesQuery.data?.meta.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
@@ -232,11 +245,49 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
             <ExerciseCard
               exercise={exercise}
               key={exercise.id}
+              onRename={() => setRenameTarget(exercise)}
               onSelectTrend={() => setSelectedExerciseId(exercise.id)}
             />
           ))}
         </div>
       )}
+
+      <RenameExerciseDialog
+        key={renameTarget ? `${renameTarget.id}-open` : 'rename-library-closed'}
+        isPending={renameExerciseMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+          }
+        }}
+        onRename={(name) => {
+          if (!renameTarget) {
+            return;
+          }
+
+          renameExerciseMutation.mutate(
+            {
+              id: renameTarget.id,
+              name,
+            },
+            {
+              onError: (error) => {
+                const message =
+                  error instanceof ApiError
+                    ? error.message
+                    : 'Unable to rename exercise. Try again.';
+                toast.error(message);
+              },
+              onSuccess: () => {
+                setRenameTarget(null);
+              },
+            },
+          );
+        }}
+        open={renameTarget != null}
+        sourceLabel="the exercise library"
+        value={renameTarget?.name ?? ''}
+      />
 
       <Dialog
         onOpenChange={(open) => {
@@ -278,9 +329,11 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
 
 function ExerciseCard({
   exercise,
+  onRename,
   onSelectTrend,
 }: {
   exercise: Exercise;
+  onRename: () => void;
   onSelectTrend: () => void;
 }) {
   return (
@@ -298,7 +351,7 @@ function ExerciseCard({
                   {exercise.name}
                 </button>
               </h3>
-              <p className="text-sm text-muted">{formatLabel(exercise.equipment)}</p>
+              <TagChips tags={exercise.tags} />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -311,6 +364,21 @@ function ExerciseCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={`Exercise actions for ${exercise.name}`}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MoreVertical aria-hidden="true" className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Badge className="border-border bg-card" variant="outline">
               {formatLabel(exercise.equipment)}
             </Badge>

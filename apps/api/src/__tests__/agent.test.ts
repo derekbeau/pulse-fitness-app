@@ -39,6 +39,9 @@ type StoredExercise = {
   userId: string;
   name: string;
   category: string;
+  trackingType?: string;
+  tags?: string[];
+  formCues?: string[];
   muscleGroups: string[];
   equipment: string;
   instructions: string | null;
@@ -273,6 +276,9 @@ vi.mock('../routes/exercises/store.js', () => ({
       userId: string;
       name: string;
       category: string;
+      trackingType?: string;
+      tags?: string[];
+      formCues?: string[];
       muscleGroups?: string[];
       equipment?: string;
       instructions?: string | null;
@@ -282,8 +288,11 @@ vi.mock('../routes/exercises/store.js', () => ({
         userId: input.userId,
         name: input.name,
         category: input.category,
-        muscleGroups: input.muscleGroups ?? ['Full Body'],
-        equipment: input.equipment ?? 'Bodyweight',
+        trackingType: input.trackingType ?? 'weight_reps',
+        tags: input.tags ?? [],
+        formCues: input.formCues ?? [],
+        muscleGroups: input.muscleGroups ?? [],
+        equipment: input.equipment ?? '',
         instructions: input.instructions ?? null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -293,6 +302,7 @@ vi.mock('../routes/exercises/store.js', () => ({
     },
   ),
   deleteOwnedExercise: vi.fn(),
+  findExerciseDedupCandidates: vi.fn(async () => []),
   findExerciseLastPerformance: vi.fn(),
   findExerciseOwnership: vi.fn(),
   findVisibleExerciseById: vi.fn(),
@@ -330,7 +340,17 @@ vi.mock('../routes/exercises/store.js', () => ({
       };
     },
   ),
-  updateOwnedExercise: vi.fn(),
+  updateOwnedExercise: vi.fn(
+    async ({ id, userId, changes }: { id: string; userId: string; changes: Record<string, unknown> }) => {
+      const exercise = testState.exercises.get(id);
+      if (!exercise || exercise.userId !== userId) {
+        return undefined;
+      }
+
+      Object.assign(exercise, changes, { updatedAt: Date.now() });
+      return exercise;
+    },
+  ),
 }));
 
 vi.mock('../routes/workout-templates/store.js', () => ({
@@ -941,8 +961,15 @@ describe('agent integration', () => {
 
         expect(response.statusCode).toBe(201);
 
-        const body = response.json() as { data: { name: string } };
-        expect(body.data.name).toBe('Push Day');
+        const body = response.json() as {
+          data: {
+            template: { name: string };
+            newExercises: Array<{ id: string; name: string; possibleDuplicates: string[] }>;
+          };
+        };
+        expect(body.data.template.name).toBe('Push Day');
+        expect(body.data.newExercises).toHaveLength(2);
+        expect(body.data.newExercises[0].possibleDuplicates).toEqual([]);
 
         // Both exercises should have been auto-created
         const createdExercises = [...testState.exercises.values()].filter(
@@ -1017,9 +1044,20 @@ describe('agent integration', () => {
 
         expect(response.statusCode).toBe(200);
 
-        const body = response.json() as { data: { id: string; name: string } };
-        expect(body.data.id).toBe('template-1');
-        expect(body.data.name).toBe('Pull Day Updated');
+        const body = response.json() as {
+          data: {
+            template: { id: string; name: string };
+            newExercises: Array<{ id: string; name: string; possibleDuplicates: string[] }>;
+          };
+        };
+        expect(body.data.template.id).toBe('template-1');
+        expect(body.data.template.name).toBe('Pull Day Updated');
+        expect(body.data.newExercises).toHaveLength(1);
+        expect(body.data.newExercises[0]).toEqual({
+          id: expect.any(String),
+          name: 'Barbell Row',
+          possibleDuplicates: [],
+        });
       } finally {
         await app.close();
       }
@@ -1106,12 +1144,16 @@ describe('agent integration', () => {
         expect(response.statusCode).toBe(201);
 
         const body = response.json() as {
-          data: { name: string; category: string; muscleGroups: string[]; equipment: string };
+          data: {
+            created: boolean;
+            exercise: { name: string; category: string; muscleGroups: string[]; equipment: string };
+          };
         };
-        expect(body.data.name).toBe('Dumbbell Curl');
-        expect(body.data.category).toBe('isolation');
-        expect(body.data.muscleGroups).toEqual(['Biceps']);
-        expect(body.data.equipment).toBe('Dumbbell');
+        expect(body.data.created).toBe(true);
+        expect(body.data.exercise.name).toBe('Dumbbell Curl');
+        expect(body.data.exercise.category).toBe('isolation');
+        expect(body.data.exercise.muscleGroups).toEqual(['Biceps']);
+        expect(body.data.exercise.equipment).toBe('Dumbbell');
       } finally {
         await app.close();
       }

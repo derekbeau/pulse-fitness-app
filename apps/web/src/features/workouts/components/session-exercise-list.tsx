@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { AlertTriangle, ChevronDown, Check, Circle, Dot, MoreVertical, Plus } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,9 +23,11 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
+import { ApiError } from '@/lib/api-client';
 import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
+import { useRenameExercise } from '../api/workouts';
 import type {
   ActiveWorkoutExercise,
   ActiveWorkoutPhaseBadge,
@@ -38,6 +41,8 @@ import {
   formatTempo,
 } from '../lib/time-estimates';
 import { getDistanceUnit } from '../lib/tracking';
+import { FormCueChips } from './form-cue-chips';
+import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 
@@ -58,9 +63,11 @@ type SessionExerciseListProps = {
   onFocusSetHandled?: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
+  onSessionCuesChange?: (exerciseId: string, cues: string[]) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
   session: ActiveWorkoutSessionData;
+  sessionCuesByExercise?: Record<string, string[]>;
   weightUnit?: WeightUnit;
 };
 
@@ -102,17 +109,27 @@ export function SessionExerciseList({
   onFocusSetHandled,
   onRemoveSet,
   onRestTimerComplete,
+  onSessionCuesChange,
   onSetUpdate,
   restTimer = null,
   session,
+  sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
-  const [visibleCuePanels, setVisibleCuePanels] = useState<Record<string, boolean>>({});
+  const [localSessionCuesByExercise, setLocalSessionCuesByExercise] = useState<
+    Record<string, string[]>
+  >({});
   const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
+  const [renameTarget, setRenameTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+  } | null>(null);
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
+  const renameExerciseMutation = useRenameExercise();
+  const resolvedSessionCuesByExercise = sessionCuesByExercise ?? localSessionCuesByExercise;
 
   const exerciseNumberMap = new Map<string, number>();
   let exerciseCounter = 1;
@@ -217,15 +234,26 @@ export function SessionExerciseList({
                         }
                         onAddSet={onAddSet}
                         onExerciseNotesChange={onExerciseNotesChange}
+                        onRenameExercise={() =>
+                          setRenameTarget({
+                            exerciseId: item.exercise.id,
+                            exerciseName: item.exercise.name,
+                          })
+                        }
                         onRemoveSet={onRemoveSet}
                         onRestTimerComplete={onRestTimerComplete}
                         onSetUpdate={onSetUpdate}
                         repsInputRefs={repsInputRefs}
                         sessionCurrentExerciseId={session.currentExerciseId}
                         setExpandedExercises={setExpandedExercises}
-                        setVisibleCuePanels={setVisibleCuePanels}
                         setVisibleNotesPanels={setVisibleNotesPanels}
-                        visibleCuePanels={visibleCuePanels}
+                        onAddSessionCue={(cue) =>
+                          updateSessionCues(item.exercise.id, [
+                            ...(resolvedSessionCuesByExercise[item.exercise.id] ?? []),
+                            cue,
+                          ])
+                        }
+                        sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
                         visibleNotesPanels={visibleNotesPanels}
                         weightUnit={weightUnit}
                         key={item.exercise.id}
@@ -280,15 +308,26 @@ export function SessionExerciseList({
                               inlineRestTimer={null}
                               onAddSet={onAddSet}
                               onExerciseNotesChange={onExerciseNotesChange}
+                              onRenameExercise={() =>
+                                setRenameTarget({
+                                  exerciseId: exercise.id,
+                                  exerciseName: exercise.name,
+                                })
+                              }
                               onRemoveSet={onRemoveSet}
                               onRestTimerComplete={onRestTimerComplete}
                               onSetUpdate={onSetUpdate}
                               repsInputRefs={repsInputRefs}
                               sessionCurrentExerciseId={session.currentExerciseId}
                               setExpandedExercises={setExpandedExercises}
-                              setVisibleCuePanels={setVisibleCuePanels}
                               setVisibleNotesPanels={setVisibleNotesPanels}
-                              visibleCuePanels={visibleCuePanels}
+                              onAddSessionCue={(cue) =>
+                                updateSessionCues(exercise.id, [
+                                  ...(resolvedSessionCuesByExercise[exercise.id] ?? []),
+                                  cue,
+                                ])
+                              }
+                              sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
                               visibleNotesPanels={visibleNotesPanels}
                               weightUnit={weightUnit}
                             />
@@ -314,8 +353,57 @@ export function SessionExerciseList({
           </section>
         );
       })}
+
+      <RenameExerciseDialog
+        key={renameTarget ? `${renameTarget.exerciseId}-open` : 'rename-session-closed'}
+        isPending={renameExerciseMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameTarget(null);
+          }
+        }}
+        onRename={(name) => {
+          if (!renameTarget) {
+            return;
+          }
+
+          renameExerciseMutation.mutate(
+            {
+              id: renameTarget.exerciseId,
+              name,
+            },
+            {
+              onError: (error) => {
+                const message =
+                  error instanceof ApiError
+                    ? error.message
+                    : 'Unable to rename exercise. Try again.';
+                toast.error(message);
+              },
+              onSuccess: () => {
+                setRenameTarget(null);
+              },
+            },
+          );
+        }}
+        open={renameTarget != null}
+        sourceLabel="the active workout"
+        value={renameTarget?.exerciseName ?? ''}
+      />
     </div>
   );
+
+  function updateSessionCues(exerciseId: string, cues: string[]) {
+    if (onSessionCuesChange) {
+      onSessionCuesChange(exerciseId, cues);
+      return;
+    }
+
+    setLocalSessionCuesByExercise((current) => ({
+      ...current,
+      [exerciseId]: cues,
+    }));
+  }
 }
 
 type ExerciseCardItemProps = {
@@ -327,15 +415,16 @@ type ExerciseCardItemProps = {
   inlineRestTimer: RestTimerState | null;
   onAddSet: (exerciseId: string) => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
+  onRenameExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
+  onAddSessionCue: (cue: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
+  sessionCues: string[];
   sessionCurrentExerciseId: string | null;
   setExpandedExercises: Dispatch<SetStateAction<Record<string, boolean>>>;
-  setVisibleCuePanels: Dispatch<SetStateAction<Record<string, boolean>>>;
   setVisibleNotesPanels: Dispatch<SetStateAction<Record<string, boolean>>>;
-  visibleCuePanels: Record<string, boolean>;
   visibleNotesPanels: Record<string, boolean>;
   weightUnit: WeightUnit;
 };
@@ -349,15 +438,16 @@ function ExerciseCardItem({
   inlineRestTimer,
   onAddSet,
   onExerciseNotesChange,
+  onRenameExercise,
   onRemoveSet,
   onRestTimerComplete,
+  onAddSessionCue,
   onSetUpdate,
   repsInputRefs,
+  sessionCues,
   sessionCurrentExerciseId,
   setExpandedExercises,
-  setVisibleCuePanels,
   setVisibleNotesPanels,
-  visibleCuePanels,
   visibleNotesPanels,
   weightUnit,
 }: ExerciseCardItemProps) {
@@ -374,9 +464,8 @@ function ExerciseCardItem({
       ? true
       : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
   const formCues = exercise.formCues;
-  const hasFormCues = formCues.length > 0;
+  const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
-  const isCuePanelOpen = hasFormCues && (visibleCuePanels[exercise.id] ?? false);
   const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
   const priorityAccentClass =
     exercise.priority === 'required'
@@ -496,6 +585,7 @@ function ExerciseCardItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onRenameExercise}>Rename exercise</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
             <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
               Remove Last Set
@@ -512,28 +602,6 @@ function ExerciseCardItem({
         <div className="space-y-4">
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              {hasFormCues ? (
-                <Button
-                  aria-controls={`exercise-cues-${exercise.id}`}
-                  aria-expanded={isCuePanelOpen}
-                  className="cursor-pointer gap-1.5"
-                  onClick={() =>
-                    setVisibleCuePanels((current) => ({
-                      ...current,
-                      [exercise.id]: !isCuePanelOpen,
-                    }))
-                  }
-                  size="xs"
-                  type="button"
-                  variant={isCuePanelOpen ? 'secondary' : 'outline'}
-                >
-                  Form Cues
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn('size-3.5 transition-transform', isCuePanelOpen && 'rotate-180')}
-                  />
-                </Button>
-              ) : null}
               <Button
                 aria-controls={`exercise-notes-${exercise.id}`}
                 aria-expanded={isNotesPanelOpen}
@@ -581,22 +649,14 @@ function ExerciseCardItem({
               </div>
             ) : null}
 
-            {hasFormCues ? (
-              <div
-                aria-hidden={!isCuePanelOpen}
-                className={cn(
-                  'grid transition-all duration-300 ease-out',
-                  isCuePanelOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-                )}
-                id={`exercise-cues-${exercise.id}`}
-              >
-                <div className="overflow-hidden">
-                  <div className="rounded-2xl border border-border bg-background/80 p-4">
-                    <CueList items={formCues} title="Technique & coaching cues" />
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            <div className="rounded-2xl border border-border bg-background/80 p-4">
+              <FormCueChips
+                exerciseCues={formCues}
+                onAddSessionCue={onAddSessionCue}
+                sessionCues={sessionCues}
+                templateCues={templateCues}
+              />
+            </div>
 
             <div
               className="space-y-2"
@@ -666,22 +726,6 @@ function ExerciseCardItem({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function CueList({ items, title }: { items: string[]; title: string }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">{title}</p>
-      <ul className="space-y-2 text-sm text-foreground">
-        {items.map((item) => (
-          <li className="flex items-start gap-2" key={item}>
-            <span aria-hidden="true" className="mt-1 size-1.5 rounded-full bg-primary" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

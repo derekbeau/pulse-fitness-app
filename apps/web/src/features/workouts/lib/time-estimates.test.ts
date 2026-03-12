@@ -30,6 +30,7 @@ function makeExercise(overrides: Partial<ActiveWorkoutExercise> = {}): ActiveWor
     reversePyramid: [],
     sets: [],
     supersetGroup: null,
+    templateCues: [],
     targetSets: 3,
     tempo: '3110',
     trackingType: 'weight_reps',

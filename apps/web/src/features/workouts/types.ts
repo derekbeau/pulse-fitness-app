@@ -37,6 +37,7 @@ export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
   formCues: string[];
+  templateCues: string[];
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;
@@ -114,7 +115,10 @@ export type ActiveWorkoutReversePyramidTarget = {
   targetWeight: number;
 };
 
-export type ActiveWorkoutEnhancedExercise = Omit<ActiveWorkoutExerciseMetadata, 'formCues'> & {
+export type ActiveWorkoutEnhancedExercise = Omit<
+  ActiveWorkoutExerciseMetadata,
+  'formCues' | 'templateCues'
+> & {
   exerciseId: string;
   formCues: ActiveWorkoutFormCueDetails | null;
   section: WorkoutTemplateSectionType;

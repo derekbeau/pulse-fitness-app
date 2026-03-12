@@ -25,6 +25,7 @@ const normalizeNullableString = (value: unknown) => {
 };
 
 const requiredStringSchema = z.string().trim().min(1).max(255);
+const responseStringSchema = z.string().trim().max(255);
 
 const optionalStringSchema = z.preprocess(normalizeOptionalString, requiredStringSchema.optional());
 
@@ -49,10 +50,12 @@ export const exerciseSchema = z.object({
   id: z.string(),
   userId: z.string().nullable(),
   name: requiredStringSchema,
-  muscleGroups: z.array(requiredStringSchema).min(1).max(20),
-  equipment: requiredStringSchema,
+  muscleGroups: z.array(requiredStringSchema).min(0).max(20),
+  equipment: responseStringSchema,
   category: exerciseCategorySchema,
   trackingType: exerciseTrackingTypeSchema.default('weight_reps'),
+  tags: z.array(z.string()).default([]),
+  formCues: z.array(z.string()).default([]),
   instructions: nullableInstructionsSchema,
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -64,6 +67,8 @@ export const createExerciseInputSchema = z.object({
   equipment: requiredStringSchema,
   category: exerciseCategorySchema,
   trackingType: exerciseTrackingTypeSchema.optional().default('weight_reps'),
+  tags: z.array(z.string()).optional(),
+  formCues: z.array(z.string()).optional(),
   instructions: nullableInstructionsSchema.optional().default(null),
 });
 
@@ -74,6 +79,8 @@ export const updateExerciseInputSchema = z
     equipment: optionalStringSchema,
     category: exerciseCategorySchema.optional(),
     trackingType: exerciseTrackingTypeSchema.optional(),
+    tags: z.array(z.string()).optional(),
+    formCues: z.array(z.string()).optional(),
     instructions: nullableInstructionsSchema.optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {

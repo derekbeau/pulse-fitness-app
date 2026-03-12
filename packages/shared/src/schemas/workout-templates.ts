@@ -41,6 +41,7 @@ export const workoutTemplateExerciseSchema = z
     id: z.string(),
     exerciseId: requiredStringSchema,
     exerciseName: requiredStringSchema,
+    formCues: z.array(requiredStringSchema).max(50).optional(),
     sets: nullablePositiveIntSchema,
     repsMin: nullablePositiveIntSchema,
     repsMax: nullablePositiveIntSchema,
@@ -48,7 +49,7 @@ export const workoutTemplateExerciseSchema = z
     restSeconds: nullableRestSecondsSchema,
     supersetGroup: nullableShortStringSchema,
     notes: nullableStringSchema,
-    cues: z.array(requiredStringSchema).max(20),
+    cues: z.array(requiredStringSchema).max(20).default([]),
   })
   .refine(
     (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,

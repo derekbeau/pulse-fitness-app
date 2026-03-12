@@ -121,12 +121,12 @@ describe('SessionExerciseList', () => {
       within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press'),
     ).toHaveClass('grid-cols-2');
 
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: /Form Cues/i }));
-    expect(within(currentCard as HTMLElement).getByText('Technique & coaching cues')).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Exercise cues')).toBeVisible();
     expect(within(currentCard as HTMLElement).getByText('Drive feet into the floor')).toBeVisible();
     expect(
       within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows'),
     ).toBeVisible();
+    expect(within(currentCard as HTMLElement).getByText('Form cues')).toBeVisible();
     expect(within(currentCard as HTMLElement).getByText('Injury-aware cues')).toBeVisible();
     expect(
       within(currentCard as HTMLElement).getByText(
@@ -189,7 +189,121 @@ describe('SessionExerciseList', () => {
     expect(onRemoveSet).not.toHaveBeenCalled();
   });
 
-  it('omits cue toggles and injury warnings when enhanced cue data is unavailable', () => {
+  it('opens rename dialog from the exercise actions menu', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Rename exercise' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Exercise name')).toHaveValue('Row Erg');
+    expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeDisabled();
+  });
+
+  it('allows adding a session-specific cue from the exercise card', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const currentCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    expect(currentCard).not.toBeNull();
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }));
+    fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
+      target: { value: 'Keep elbows soft at lockout' },
+    });
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add' }));
+    expect(
+      within(currentCard as HTMLElement).getByText('Keep elbows soft at lockout'),
+    ).toBeInTheDocument();
+  });
+
+  it('calls onSessionCuesChange when session cues are controlled by the parent', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onSessionCuesChange = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSessionCuesChange={onSessionCuesChange}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionCuesByExercise={{}}
+      />,
+    );
+
+    const currentCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    expect(currentCard).not.toBeNull();
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }));
+    fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
+      target: { value: 'Pause one second at full extension' },
+    });
+    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add' }));
+
+    expect(onSessionCuesChange).toHaveBeenCalledWith('row-erg', [
+      'Pause one second at full extension',
+    ]);
+  });
+
+  it('still renders template form cues and omits injury warnings when enhanced injury data is unavailable', () => {
     if (!lowerTemplate) {
       throw new Error('Expected lower-quad-dominant template in mock data.');
     }
@@ -217,9 +331,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
 
     expect(squatCard).not.toBeNull();
-    expect(
-      within(squatCard as HTMLElement).queryByRole('button', { name: /Form Cues/i }),
-    ).not.toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
@@ -419,6 +531,7 @@ describe('SessionExerciseList', () => {
                 },
               ],
               supersetGroup: null,
+              templateCues: [],
               tempo: null,
               targetSets: 1,
               trackingType: 'reps_seconds',
@@ -498,6 +611,7 @@ describe('SessionExerciseList', () => {
                 },
               ],
               supersetGroup: null,
+              templateCues: [],
               tempo: null,
               targetSets: 1,
               trackingType: 'seconds_only',

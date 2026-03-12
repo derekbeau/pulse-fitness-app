@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
-import { exerciseCategorySchema } from './exercises.js';
+import { exerciseCategorySchema, exerciseTrackingTypeSchema } from './exercises.js';
 import { habitTrackingTypeSchema } from './habits.js';
 import { workoutSessionStatusSchema } from './workout-sessions.js';
 
@@ -56,6 +56,9 @@ export const agentWorkoutTemplateExerciseInputSchema = z.object({
   sets: z.number().int().min(1).max(100),
   reps: z.number().int().min(1).max(1000),
   restSeconds: z.number().int().min(0).max(3600).optional(),
+  tags: z.array(requiredText()).max(20).optional(),
+  cues: z.array(requiredText(500)).max(50).optional(),
+  formCues: z.array(requiredText(500)).max(50).optional(),
 });
 
 export const agentWorkoutTemplateSectionInputSchema = z.object({
@@ -71,25 +74,22 @@ export const agentCreateWorkoutTemplateInputSchema = z.object({
 export const agentUpdateWorkoutTemplateInputSchema = agentCreateWorkoutTemplateInputSchema;
 
 const optionalText = (maxLength = 4000) =>
-  z.preprocess(
-    (value) => {
-      if (value === undefined) {
-        return undefined;
-      }
+  z.preprocess((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
 
-      if (value === null) {
-        return null;
-      }
+    if (value === null) {
+      return null;
+    }
 
-      if (typeof value !== 'string') {
-        return value;
-      }
+    if (typeof value !== 'string') {
+      return value;
+    }
 
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    },
-    z.string().trim().min(1).max(maxLength).nullable().optional(),
-  );
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, z.string().trim().min(1).max(maxLength).nullable().optional());
 
 export const agentCreateWorkoutSessionInputSchema = z
   .object({
@@ -113,15 +113,67 @@ export const agentUpdateWorkoutSessionInputSchema = z
     status: workoutSessionStatusSchema.optional(),
     notes: optionalText(4000),
   })
-  .refine((value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined, {
-    message: 'At least one workout session field must be provided',
-  });
+  .refine(
+    (value) => value.sets !== undefined || value.status !== undefined || value.notes !== undefined,
+    {
+      message: 'At least one workout session field must be provided',
+    },
+  );
 
 export const agentCreateExerciseInputSchema = z.object({
   name: requiredText(),
   category: exerciseCategorySchema.optional(),
   muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
   equipment: requiredText().optional(),
+  force: z.boolean().optional().default(false),
+});
+
+export const agentPatchExerciseInputSchema = z
+  .object({
+    name: requiredText().optional(),
+    muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
+    equipment: requiredText().optional(),
+    category: exerciseCategorySchema.optional(),
+    trackingType: exerciseTrackingTypeSchema.optional(),
+    instructions: optionalText(4000),
+    formCues: z.array(requiredText(500)).max(50).optional(),
+    tags: z.array(requiredText()).max(20).optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one exercise field must be provided',
+  });
+
+export const agentExerciseDedupCandidateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  similarity: z.number().min(0).max(1),
+});
+
+export const agentExerciseCreateResponseSchema = z.discriminatedUnion('created', [
+  z.object({
+    created: z.literal(false),
+    candidates: z.array(agentExerciseDedupCandidateSchema).min(1),
+  }),
+  z.object({
+    created: z.literal(true),
+    exercise: z.object({
+      id: z.string(),
+      name: z.string(),
+      category: exerciseCategorySchema,
+      trackingType: exerciseTrackingTypeSchema,
+      muscleGroups: z.array(z.string()),
+      equipment: z.string(),
+      instructions: z.string().nullable(),
+      tags: z.array(z.string()),
+      formCues: z.array(z.string()),
+    }),
+  }),
+]);
+
+export const agentTemplateNewExerciseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  possibleDuplicates: z.array(z.string()).default([]),
 });
 
 export const agentExerciseSearchParamsSchema = z.object({
@@ -235,6 +287,10 @@ export type AgentCreateWorkoutSessionInput = z.infer<typeof agentCreateWorkoutSe
 export type AgentWorkoutSetUpsertInput = z.infer<typeof agentWorkoutSetUpsertInputSchema>;
 export type AgentUpdateWorkoutSessionInput = z.infer<typeof agentUpdateWorkoutSessionInputSchema>;
 export type AgentCreateExerciseInput = z.infer<typeof agentCreateExerciseInputSchema>;
+export type AgentPatchExerciseInput = z.infer<typeof agentPatchExerciseInputSchema>;
+export type AgentExerciseDedupCandidate = z.infer<typeof agentExerciseDedupCandidateSchema>;
+export type AgentExerciseCreateResponse = z.infer<typeof agentExerciseCreateResponseSchema>;
+export type AgentTemplateNewExercise = z.infer<typeof agentTemplateNewExerciseSchema>;
 export type AgentExerciseSearchParams = z.infer<typeof agentExerciseSearchParamsSchema>;
 export type AgentCreateWeightInput = z.infer<typeof agentCreateWeightInputSchema>;
 export type AgentUpdateHabitEntryInput = z.infer<typeof agentUpdateHabitEntryInputSchema>;

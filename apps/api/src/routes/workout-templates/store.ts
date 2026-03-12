@@ -29,6 +29,7 @@ type TemplateExerciseRecord = {
   templateId: string;
   exerciseId: string;
   exerciseName: string;
+  exerciseFormCues: string[];
   orderIndex: number;
   sets: number | null;
   repsMin: number | null;
@@ -56,6 +57,7 @@ const templateExerciseSelection = {
   templateId: templateExercises.templateId,
   exerciseId: templateExercises.exerciseId,
   exerciseName: exercises.name,
+  exerciseFormCues: exercises.formCues,
   orderIndex: templateExercises.orderIndex,
   sets: templateExercises.sets,
   repsMin: templateExercises.repsMin,
@@ -80,6 +82,7 @@ const buildTemplateSections = (
         id: row.id,
         exerciseId: row.exerciseId,
         exerciseName: row.exerciseName,
+        formCues: row.exerciseFormCues ?? [],
         sets: row.sets,
         repsMin: row.repsMin,
         repsMax: row.repsMax,

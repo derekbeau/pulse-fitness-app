@@ -120,6 +120,9 @@ Constraints:
 - `muscleGroups`: JSON text array of muscle-group keys
 - `equipment`: `text`, required
 - `category`: `text`, required, one of `compound | isolation | cardio | mobility`
+- `trackingType`: `text`, required, one of `weight_reps | weight_seconds | bodyweight_reps | reps_only | reps_seconds | seconds_only | distance | cardio`
+- `tags`: JSON text array for exercise classification labels, default `[]`
+- `formCues`: JSON text array for durable technique guidance, default `[]`
 - `instructions`: nullable `text`
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -127,6 +130,7 @@ Constraints:
 Constraints:
 
 - `exercises_category_check`
+- `exercises_tracking_type_check`
 
 #### `workout_templates`
 

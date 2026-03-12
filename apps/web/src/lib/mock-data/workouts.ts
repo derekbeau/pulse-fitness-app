@@ -44,6 +44,7 @@ export interface WorkoutTemplateExercise {
   tempo: string;
   restSeconds: number;
   formCues: string[];
+  templateCues?: string[];
   badges: WorkoutBadgeType[];
 }
 
