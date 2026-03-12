@@ -211,6 +211,14 @@ describe('workout template routes', () => {
         },
       }),
       context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-templates/template-1/reorder',
+        payload: {
+          section: 'main',
+          exerciseIds: [],
+        },
+      }),
+      context.app.inject({
         method: 'DELETE',
         url: '/api/v1/workout-templates/template-1',
       }),
@@ -514,6 +522,39 @@ describe('workout template routes', () => {
       },
     ]);
 
+    const renameOnlyResponse = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/workout-templates/template-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Upper Push v3',
+      },
+    });
+
+    expect(renameOnlyResponse.statusCode).toBe(200);
+    expect(renameOnlyResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'template-1',
+        name: 'Upper Push v3',
+        description: 'Updated notes',
+        tags: ['push', 'hypertrophy'],
+        sections: [
+          {
+            type: 'warmup',
+            exercises: [expect.objectContaining({ exerciseId: 'global-row-erg' })],
+          },
+          {
+            type: 'main',
+            exercises: [expect.objectContaining({ exerciseId: 'user-row' })],
+          },
+          {
+            type: 'cooldown',
+            exercises: [],
+          },
+        ],
+      }),
+    });
+
     const otherUserResponse = await context.app.inject({
       method: 'PUT',
       url: '/api/v1/workout-templates/template-2',
@@ -531,6 +572,74 @@ describe('workout template routes', () => {
         message: 'Workout template not found',
       },
     });
+  });
+
+  it('reorders exercises in a section for owned templates', async () => {
+    seedTemplate({
+      id: 'template-1',
+      userId: 'user-1',
+      name: 'Upper Push',
+      tags: ['push'],
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-main-1',
+      templateId: 'template-1',
+      exerciseId: 'user-press',
+      orderIndex: 0,
+      section: 'main',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-main-2',
+      templateId: 'template-1',
+      exerciseId: 'user-row',
+      orderIndex: 1,
+      section: 'main',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-templates/template-1/reorder',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        exerciseIds: ['template-exercise-main-2', 'template-exercise-main-1'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'template-1',
+        sections: [
+          { type: 'warmup', exercises: [] },
+          {
+            type: 'main',
+            exercises: [
+              expect.objectContaining({ id: 'template-exercise-main-2' }),
+              expect.objectContaining({ id: 'template-exercise-main-1' }),
+            ],
+          },
+          { type: 'cooldown', exercises: [] },
+        ],
+      }),
+    });
+
+    const persistedRows = context.db
+      .select({
+        id: templateExercises.id,
+        orderIndex: templateExercises.orderIndex,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, 'template-1'))
+      .all()
+      .sort((left, right) => left.orderIndex - right.orderIndex);
+
+    expect(persistedRows).toEqual([
+      { id: 'template-exercise-main-2', orderIndex: 0 },
+      { id: 'template-exercise-main-1', orderIndex: 1 },
+    ]);
   });
 
   it('deletes only owned templates and cascades template exercise rows', async () => {

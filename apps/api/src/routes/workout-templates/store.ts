@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
-  UpdateWorkoutTemplateInput,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WorkoutTemplateSection,
@@ -108,10 +107,7 @@ const buildTemplate = (
   updatedAt: template.updatedAt,
 });
 
-const flattenSections = (
-  templateId: string,
-  sections: CreateWorkoutTemplateInput['sections'] | UpdateWorkoutTemplateInput['sections'],
-) =>
+const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInput['sections']) =>
   SECTION_ORDER.flatMap((sectionType) => {
     const section = sections.find((value) => value.type === sectionType);
     if (!section) {
@@ -278,7 +274,7 @@ export const updateWorkoutTemplate = async ({
 }: {
   id: string;
   userId: string;
-  input: UpdateWorkoutTemplateInput;
+  input: CreateWorkoutTemplateInput;
 }): Promise<WorkoutTemplate | undefined> => {
   const { db } = await import('../../db/index.js');
   const nestedRows = flattenSections(id, input.sections);
@@ -312,6 +308,79 @@ export const updateWorkoutTemplate = async ({
   }
 
   return findWorkoutTemplateById(id, userId);
+};
+
+export const reorderWorkoutTemplateExercises = async ({
+  templateId,
+  userId,
+  section,
+  exerciseIds,
+}: {
+  templateId: string;
+  userId: string;
+  section: WorkoutTemplateSectionType;
+  exerciseIds: string[];
+}): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const templateExists = tx
+      .select({ id: workoutTemplates.id })
+      .from(workoutTemplates)
+      .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
+      .limit(1)
+      .get();
+
+    if (!templateExists) {
+      return false;
+    }
+
+    // Two-pass updates avoid transient duplicates on (templateId, section, orderIndex).
+    for (const [orderIndex, exerciseId] of exerciseIds.entries()) {
+      const updateResult = tx
+        .update(templateExercises)
+        .set({ orderIndex: orderIndex + exerciseIds.length })
+        .where(
+          and(
+            eq(templateExercises.templateId, templateId),
+            eq(templateExercises.id, exerciseId),
+            eq(templateExercises.section, section),
+          ),
+        )
+        .run();
+
+      if (updateResult.changes !== 1) {
+        return false;
+      }
+    }
+
+    for (const [orderIndex, exerciseId] of exerciseIds.entries()) {
+      const updateResult = tx
+        .update(templateExercises)
+        .set({ orderIndex })
+        .where(
+          and(
+            eq(templateExercises.templateId, templateId),
+            eq(templateExercises.id, exerciseId),
+            eq(templateExercises.section, section),
+          ),
+        )
+        .run();
+
+      if (updateResult.changes !== 1) {
+        return false;
+      }
+    }
+
+    tx.update(workoutTemplates)
+      .set({
+        updatedAt: Date.now(),
+      })
+      .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
+      .run();
+
+    return true;
+  });
 };
 
 export const deleteWorkoutTemplate = async (id: string, userId: string): Promise<boolean> => {

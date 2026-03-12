@@ -41,6 +41,7 @@ export function createWorkoutSetId(exerciseId: string, setNumber: number) {
 }
 
 type BuildActiveWorkoutSessionOptions = {
+  exerciseOrderBySection?: Partial<Record<ActiveWorkoutSection['type'], string[]>>;
   exerciseNotes?: Record<string, string>;
   sessionStartedAt?: Date | string;
   sessions?: WorkoutSession[];
@@ -51,9 +52,18 @@ export function buildActiveWorkoutSession(
   setDrafts: ActiveWorkoutSetDrafts,
   options: BuildActiveWorkoutSessionOptions = {},
 ): ActiveWorkoutSessionData {
-  const { exerciseNotes = {}, sessionStartedAt = new Date().toISOString(), sessions } = options;
+  const {
+    exerciseOrderBySection,
+    exerciseNotes = {},
+    sessionStartedAt = new Date().toISOString(),
+    sessions,
+  } = options;
   const sections = template.sections.map((section): ActiveWorkoutSection => {
-    const exercises = section.exercises.map((templateExercise): ActiveWorkoutExercise => {
+    const orderedTemplateExercises = sortTemplateExercisesByOrder(
+      section.exercises,
+      exerciseOrderBySection?.[section.type],
+    );
+    const exercises = orderedTemplateExercises.map((templateExercise): ActiveWorkoutExercise => {
       const exercise = exerciseById.get(templateExercise.exerciseId);
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
       const trackingType = resolveTrackingType({
@@ -122,6 +132,30 @@ export function buildActiveWorkoutSession(
     totalSets,
     workoutName: template.name,
   };
+}
+
+function sortTemplateExercisesByOrder(
+  exercises: WorkoutTemplate['sections'][number]['exercises'],
+  orderedExerciseIds: string[] | undefined,
+) {
+  if (!orderedExerciseIds || orderedExerciseIds.length === 0) {
+    return exercises;
+  }
+
+  const orderIndexByExerciseId = new Map(
+    orderedExerciseIds.map((exerciseId, index) => [exerciseId, index]),
+  );
+
+  return [...exercises].sort((left, right) => {
+    const leftIndex = orderIndexByExerciseId.get(left.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = orderIndexByExerciseId.get(right.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftIndex !== rightIndex) {
+      return leftIndex - rightIndex;
+    }
+
+    return left.exerciseId.localeCompare(right.exerciseId);
+  });
 }
 
 export function createInitialWorkoutSetDrafts(

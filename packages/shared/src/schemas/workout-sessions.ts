@@ -44,7 +44,7 @@ const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStri
 
 const validateWorkoutSessionTiming = (
   value: {
-    status: 'scheduled' | 'in-progress' | 'completed';
+    status: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
     startedAt: number;
     completedAt: number | null;
   },
@@ -75,7 +75,96 @@ const validateWorkoutSessionTiming = (
   }
 };
 
-export const workoutSessionStatusSchema = z.enum(['scheduled', 'in-progress', 'completed']);
+export const workoutSessionStatusSchema = z.enum([
+  'scheduled',
+  'in-progress',
+  'paused',
+  'cancelled',
+  'completed',
+]);
+export const timeSegmentsSchema = z.array(
+  z.object({
+    start: z.string(),
+    end: z.string().nullable(),
+  }),
+);
+
+const parseIsoTimestamp = (value: string) => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const validateTimeSegments = (
+  timeSegments: z.infer<typeof timeSegmentsSchema>,
+  context: z.RefinementCtx,
+) => {
+  let previousEnd: number | null = null;
+
+  for (const [index, segment] of timeSegments.entries()) {
+    const start = parseIsoTimestamp(segment.start);
+
+    if (start === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Segment start must be a valid ISO timestamp',
+        path: [index, 'start'],
+      });
+      return;
+    }
+
+    if (segment.end !== null) {
+      const end = parseIsoTimestamp(segment.end);
+      if (end === null) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Segment end must be a valid ISO timestamp',
+          path: [index, 'end'],
+        });
+        return;
+      }
+
+      if (end < start) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Segment end must be greater than or equal to segment start',
+          path: [index, 'end'],
+        });
+        return;
+      }
+
+      if (previousEnd !== null && start < previousEnd) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Time segments must be chronologically ordered and non-overlapping',
+          path: [index, 'start'],
+        });
+        return;
+      }
+
+      previousEnd = end;
+      continue;
+    }
+
+    if (index !== timeSegments.length - 1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Only the final segment may be open',
+        path: [index, 'end'],
+      });
+      return;
+    }
+
+    if (previousEnd !== null && start < previousEnd) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Time segments must be chronologically ordered and non-overlapping',
+        path: [index, 'start'],
+      });
+      return;
+    }
+  }
+};
+export const validatedTimeSegmentsSchema = timeSegmentsSchema.superRefine(validateTimeSegments);
 export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -146,6 +235,7 @@ export const sessionSetSchema = z
   .object({
     id: z.string(),
     exerciseId: requiredStringSchema,
+    orderIndex: z.number().int().min(0).optional(),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable(),
     reps: nullableIntegerSchema,
@@ -171,6 +261,7 @@ export const workoutSessionSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
+    timeSegments: timeSegmentsSchema,
     feedback: workoutSessionFeedbackSchema.nullable(),
     notes: nullableLongStringSchema,
     sets: z.array(sessionSetSchema).max(500),
@@ -198,6 +289,7 @@ export const workoutSessionListItemSchema = z
 export const sessionSetInputSchema = z
   .object({
     exerciseId: requiredStringSchema,
+    orderIndex: z.number().int().min(0).optional().default(0),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable().optional().default(null),
     reps: nullableIntegerSchema.optional().default(null),
@@ -220,6 +312,7 @@ export const createWorkoutSessionInputSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable().optional().default(null),
     duration: nullableIntegerSchema.optional().default(null),
+    timeSegments: validatedTimeSegmentsSchema.optional().default([]),
     feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
     notes: nullableLongStringSchema.optional().default(null),
     sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
@@ -235,6 +328,7 @@ export const updateWorkoutSessionInputSchema = z
     startedAt: z.number().int().optional(),
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
+    timeSegments: validatedTimeSegmentsSchema.optional(),
     feedback: workoutSessionFeedbackSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
@@ -243,6 +337,15 @@ export const updateWorkoutSessionInputSchema = z
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one workout session field must be provided',
   });
+
+export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
+  timeSegments: validatedTimeSegmentsSchema,
+});
+
+export const reorderWorkoutSessionExercisesInputSchema = z.object({
+  section: workoutTemplateSectionTypeSchema,
+  exerciseIds: z.array(requiredStringSchema).max(100),
+});
 
 export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
   (value) => (value === null || value === undefined ? {} : value),
@@ -257,7 +360,15 @@ export const workoutSessionQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
     to: dateSchema.optional(),
-    status: workoutSessionStatusSchema.optional(),
+    status: z
+      .preprocess((value) => {
+        if (value === undefined) {
+          return undefined;
+        }
+
+        return Array.isArray(value) ? value : [value];
+      }, z.array(workoutSessionStatusSchema).min(1))
+      .optional(),
     limit: z.coerce.number().int().min(1).max(50).optional(),
   })
   .refine((value) => !value.from || !value.to || value.from <= value.to, {
@@ -266,6 +377,7 @@ export const workoutSessionQueryParamsSchema = z
   });
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
+export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[number];
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
 export type SessionSet = z.infer<typeof sessionSetSchema>;
@@ -274,6 +386,12 @@ export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema
 export type SessionSetInput = z.infer<typeof sessionSetInputSchema>;
 export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
+export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
+  typeof updateWorkoutSessionTimeSegmentsInputSchema
+>;
+export type ReorderWorkoutSessionExercisesInput = z.infer<
+  typeof reorderWorkoutSessionExercisesInputSchema
+>;
 export type SaveWorkoutSessionAsTemplateInput = z.infer<
   typeof saveWorkoutSessionAsTemplateInputSchema
 >;

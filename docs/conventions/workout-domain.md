@@ -55,10 +55,11 @@ Example shape:
 A workout session is the user-specific execution record of a template.
 
 - `templateId`: source template reference
-- `status`: `scheduled`, `in-progress`, or `completed`
+- `status`: `scheduled`, `in-progress`, `paused`, `cancelled`, or `completed`
 - `startedAt`: ISO timestamp for session start
 - `completedAt`: ISO timestamp for session finish; optional until complete
 - `duration`: total elapsed minutes for the session
+- `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp and nullable `end`
 
 Completed sessions should also store exercise-level set logs and post-workout feedback.
 

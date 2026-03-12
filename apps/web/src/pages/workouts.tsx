@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import type { WorkoutSessionStatus } from '@pulse/shared';
 import { useEffect, useState } from 'react';
 import { Dumbbell, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
@@ -87,11 +88,11 @@ export function WorkoutsPage() {
     setSearchParams(nextSearchParams);
   }
 
-  function buildSessionHref(sessionId: string, status?: 'scheduled' | 'in-progress' | 'completed') {
+  function buildSessionHref(sessionId: string, status?: WorkoutSessionStatus) {
     const sessionSearchParams = new URLSearchParams();
     sessionSearchParams.set('view', activeView);
 
-    if (status === 'in-progress') {
+    if (status === 'in-progress' || status === 'paused') {
       sessionSearchParams.set('sessionId', sessionId);
       return `/workouts/active?${sessionSearchParams.toString()}`;
     }
@@ -139,7 +140,12 @@ export function WorkoutsPage() {
             </Button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => setActiveView('templates')} size="sm" type="button" variant="secondary">
+            <Button
+              onClick={() => setActiveView('templates')}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
               Browse templates
             </Button>
           </div>

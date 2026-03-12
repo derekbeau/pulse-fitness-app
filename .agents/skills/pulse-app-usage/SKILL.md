@@ -23,6 +23,12 @@ Use this flow when an agent creates exercises/templates and then logs workout se
 
 - New exercises auto-created during template creation intentionally use placeholder metadata (`muscleGroups: []`, `equipment: ""`, `instructions: null`) until enriched.
 - Template creation is non-blocking: possible duplicate hints are returned in `newExercises[*].possibleDuplicates`.
+- Workout session status transitions:
+  - `in-progress -> paused`: closes the current open `timeSegments` entry.
+  - `paused -> in-progress`: appends a new open `timeSegments` entry.
+  - `in-progress|paused -> cancelled`: closes any open segment and keeps the session row for history.
+  - `in-progress|paused -> completed`: closes the final segment and computes duration from summed segment time.
+  - Manual correction is supported via `PATCH /api/v1/workout-sessions/:id/time-segments` with full segment array replacement.
 - Form-cue routing for agent template create/update:
   - `formCues` are durable and persist to `exercises.formCues`.
   - `cues` are template-scoped and persist to `template_exercises.cues`.

@@ -47,6 +47,7 @@ export function buildSessionSetInputs(
   setDrafts: ActiveWorkoutSetDrafts,
   templateExerciseById: TemplateExerciseLookup,
   exerciseNotes: Record<string, string>,
+  exerciseOrderIndexById: Record<string, number> = {},
 ): SessionSetInput[] {
   const sessionSets: SessionSetInput[] = [];
 
@@ -64,6 +65,7 @@ export function buildSessionSetInputs(
       sessionSets.push({
         completed: draftSet.completed,
         exerciseId,
+        orderIndex: exerciseOrderIndexById[exerciseId] ?? 0,
         notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
         reps: isTimeBased ? draftSet.seconds : draftSet.reps,
         section: templateExercise?.section ?? null,

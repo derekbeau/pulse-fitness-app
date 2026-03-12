@@ -16,6 +16,7 @@ import type {
   ResourceType,
   WorkoutExerciseCategory,
   WorkoutSessionFeedback,
+  WorkoutSessionTimeSegment,
   WorkoutSessionStatus,
   WorkoutTemplateSectionType,
 } from './schema/index.js';
@@ -42,11 +43,13 @@ import {
   nutritionLogs,
   parseJsonStringArray,
   parseWorkoutSessionFeedback,
+  parseWorkoutSessionTimeSegments,
   resources,
   scheduledWorkouts,
   sessionSets,
   serializeJsonStringArray,
   serializeWorkoutSessionFeedback,
+  serializeWorkoutSessionTimeSegments,
   workoutSessions,
   templateExercises,
   users,
@@ -943,6 +946,7 @@ describe('workoutSessions schema', () => {
       'startedAt',
       'completedAt',
       'duration',
+      'timeSegments',
       'feedback',
       'notes',
       'createdAt',
@@ -953,6 +957,7 @@ describe('workoutSessions schema', () => {
     expect(columns.templateId.notNull).toBe(false);
     expect(columns.status.default).toBe('in-progress');
     expect(columns.duration.getSQLType()).toBe('integer');
+    expect(columns.timeSegments.default).toBe('[]');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
@@ -1037,6 +1042,7 @@ describe('sessionSets schema', () => {
       'id',
       'sessionId',
       'exerciseId',
+      'orderIndex',
       'setNumber',
       'weight',
       'reps',
@@ -1050,6 +1056,7 @@ describe('sessionSets schema', () => {
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.completed.default).toBe(false);
     expect(columns.skipped.default).toBe(false);
+    expect(columns.orderIndex.default).toBe(0);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
@@ -1202,6 +1209,41 @@ describe('workout session feedback helpers', () => {
       parseWorkoutSessionFeedback(
         '{"energy":4,"recovery":3,"technique":4,"responses":[{"id":"session-rpe","label":"Session RPE","type":"scale","value":{"bad":true}}]}',
       ),
+    ).toThrow(TypeError);
+  });
+});
+
+describe('workout session time segment helpers', () => {
+  it('serializes and parses time segments for SQLite text columns', () => {
+    const timeSegments: WorkoutSessionTimeSegment[] = [
+      {
+        start: '2026-03-12T10:00:00.000Z',
+        end: null,
+      },
+      {
+        start: '2026-03-12T10:15:00.000Z',
+        end: '2026-03-12T10:45:00.000Z',
+      },
+    ];
+
+    const serialized = serializeWorkoutSessionTimeSegments(timeSegments);
+
+    expect(serialized).toBe(
+      '[{"start":"2026-03-12T10:00:00.000Z","end":null},{"start":"2026-03-12T10:15:00.000Z","end":"2026-03-12T10:45:00.000Z"}]',
+    );
+    expect(parseWorkoutSessionTimeSegments(serialized)).toEqual(timeSegments);
+    expect(parseWorkoutSessionTimeSegments(null)).toEqual([]);
+    expect(serializeWorkoutSessionTimeSegments(null)).toBe('[]');
+  });
+
+  it('rejects invalid time segment payloads', () => {
+    expect(() => parseWorkoutSessionTimeSegments('not-json')).toThrow(TypeError);
+    expect(() => parseWorkoutSessionTimeSegments('{"start":"2026-03-12T10:00:00.000Z"}')).toThrow(
+      TypeError,
+    );
+    expect(() => parseWorkoutSessionTimeSegments('[{"start":123,"end":null}]')).toThrow(TypeError);
+    expect(() =>
+      parseWorkoutSessionTimeSegments('[{"start":"2026-03-12T10:00:00.000Z","end":0}]'),
     ).toThrow(TypeError);
   });
 });

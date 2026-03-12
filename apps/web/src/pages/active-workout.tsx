@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { MoreVertical, Pause, Play } from 'lucide-react';
 import { z } from 'zod';
 
 import {
   createWorkoutSessionInputSchema,
+  updateWorkoutSessionTimeSegmentsInputSchema,
   updateWorkoutSessionInputSchema,
   type ExerciseTrackingType,
   type SessionSet,
+  type WorkoutSessionTimeSegment,
   workoutSessionSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionFeedbackResponse,
@@ -33,10 +36,7 @@ import {
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
-import {
-  estimateRemainingTime,
-  estimateTotalTime,
-} from '@/features/workouts/lib/time-estimates';
+import { estimateRemainingTime, estimateTotalTime } from '@/features/workouts/lib/time-estimates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +48,26 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { workoutQueryKeys, useWorkoutTemplate } from '@/features/workouts/api/workouts';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  workoutQueryKeys,
+  useWorkoutSessions,
+  useWorkoutTemplate,
+} from '@/features/workouts/api/workouts';
 import {
   isSetCompleteForTrackingType,
   resolveTrackingType,
@@ -57,7 +76,10 @@ import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
+  useUpdateSessionStatus,
   useUpdateSessionStartTime,
+  useUpdateSessionTimeSegments,
+  useReorderSessionExercises,
   useWorkoutSession,
   workoutSessionQueryKeys,
 } from '@/hooks/use-workout-session';
@@ -66,15 +88,11 @@ import {
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
-  getStoredActiveWorkoutSessionId,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
-import {
-  buildSessionSetInputs,
-  extractExerciseNotes,
-} from '@/features/workouts/lib/session-notes';
+import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import {
   mockExercises,
@@ -101,6 +119,7 @@ const categoryBadgeByExerciseId = new Map(
   mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
 );
 const mockExerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
+type ExerciseOrderBySection = Record<WorkoutTemplateSectionType, string[]>;
 
 type RestTimerState = {
   duration: number;
@@ -115,15 +134,41 @@ export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const returnView = searchParams.get('view');
+  const returnToActiveListHref = returnView
+    ? `/workouts/active?${new URLSearchParams({ view: returnView }).toString()}`
+    : '/workouts/active';
   const requestedSessionId = searchParams.get('sessionId');
-  const sessionId = requestedSessionId ?? getStoredActiveWorkoutSessionId();
   const requestedTemplateId = searchParams.get('template');
-  const shouldRenderEmptyState = !sessionId && !requestedTemplateId;
+  const activeSessionsQuery = useWorkoutSessions(
+    { status: ['in-progress', 'paused'] },
+    { enabled: !requestedTemplateId },
+  );
+  const activeSessions = activeSessionsQuery.data ?? [];
+  const sessionId =
+    requestedSessionId ??
+    (!requestedTemplateId && !requestedSessionId && activeSessions.length === 1
+      ? (activeSessions[0]?.id ?? null)
+      : null);
+  const shouldRenderEmptyState =
+    !requestedTemplateId &&
+    !requestedSessionId &&
+    activeSessionsQuery.isSuccess &&
+    activeSessions.length === 0;
+  const shouldRenderSessionPicker =
+    !requestedTemplateId &&
+    !requestedSessionId &&
+    activeSessionsQuery.isSuccess &&
+    activeSessions.length > 1;
+  const showBackToSessionList = Boolean(requestedSessionId) && activeSessions.length > 1;
   const sessionQuery = useWorkoutSession(sessionId);
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
   const updateSetMutation = useUpdateSet(sessionId);
   const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
+  const updateSessionStatusMutation = useUpdateSessionStatus(sessionId);
+  const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
+  const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
   const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
   const shouldLoadApiTemplate = UUID_PATTERN.test(resolvedTemplateId);
@@ -138,6 +183,9 @@ export function ActiveWorkoutPage() {
 
   const [fallbackStartTime] = useState(() => new Date().toISOString());
   const [startTimeOverride, setStartTimeOverride] = useState<string | null>(null);
+  const [exerciseOrderBySection, setExerciseOrderBySection] = useState<ExerciseOrderBySection>(() =>
+    buildExerciseOrderFromTemplate(template),
+  );
   const [setDrafts, setSetDrafts] = useState<ActiveWorkoutSetDrafts>(() =>
     createInitialWorkoutSetDrafts(template, new Set<string>()),
   );
@@ -153,6 +201,10 @@ export function ActiveWorkoutPage() {
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isEditTimeDialogOpen, setIsEditTimeDialogOpen] = useState(false);
+  const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
+  const [timeSegmentError, setTimeSegmentError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
@@ -162,6 +214,8 @@ export function ActiveWorkoutPage() {
 
   const activeSession = sessionQuery.data;
   const activeSessionId = activeSession?.id ?? null;
+  const activeSessionStatus = activeSession?.status ?? null;
+  const isPaused = activeSessionStatus === 'paused';
   const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
     startTimeOverride ??
@@ -195,6 +249,10 @@ export function ActiveWorkoutPage() {
       ),
     [template],
   );
+  const exerciseOrderIndexById = useMemo(
+    () => buildExerciseOrderIndexById(template, exerciseOrderBySection),
+    [exerciseOrderBySection, template],
+  );
 
   useEffect(() => {
     if (!activeSession) {
@@ -217,6 +275,7 @@ export function ActiveWorkoutPage() {
     setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
     setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+    setExerciseOrderBySection(buildExerciseOrderFromSessionSets(template, activeSession.sets));
     hydratedSessionIdRef.current = activeSession.id;
     hydratedDraftKeyRef.current = activeSession.id;
 
@@ -240,6 +299,7 @@ export function ActiveWorkoutPage() {
     setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
     setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
     setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+    setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
@@ -279,10 +339,11 @@ export function ActiveWorkoutPage() {
   const session = useMemo(
     () =>
       buildActiveWorkoutSession(template, setDrafts, {
+        exerciseOrderBySection,
         exerciseNotes,
         sessionStartedAt: startTime,
       }),
-    [exerciseNotes, setDrafts, startTime, template],
+    [exerciseOrderBySection, exerciseNotes, setDrafts, startTime, template],
   );
   const remainingSetCount = useMemo(
     () => session.totalSets - session.completedSets,
@@ -298,6 +359,24 @@ export function ActiveWorkoutPage() {
   const summaryDuration = sessionCompletedAt
     ? formatElapsedTime(getElapsedSeconds(startTime, new Date(sessionCompletedAt).getTime()))
     : formatElapsedTime(getElapsedSeconds(startTime, Date.now()));
+
+  if (!requestedTemplateId && !requestedSessionId && activeSessionsQuery.isPending) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Loading active workouts</h1>
+        <p className="text-sm text-muted">Fetching in-progress and paused sessions...</p>
+      </section>
+    );
+  }
+
+  if (!requestedTemplateId && !requestedSessionId && activeSessionsQuery.isError) {
+    return (
+      <section className="space-y-3 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Unable to load active workouts</h1>
+        <p className="text-sm text-muted">Refresh and try again.</p>
+      </section>
+    );
+  }
 
   if (sessionId && sessionQuery.isPending) {
     return (
@@ -349,8 +428,61 @@ export function ActiveWorkoutPage() {
     );
   }
 
+  if (shouldRenderSessionPicker) {
+    return (
+      <section className="space-y-4 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">Choose an active workout</h1>
+        <p className="text-sm text-muted">
+          You have multiple sessions in progress. Select one to continue logging.
+        </p>
+        <div className="grid gap-3">
+          {activeSessions.map((activeWorkoutSession) => (
+            <Link
+              className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+              key={activeWorkoutSession.id}
+              to={buildActiveWorkoutSessionHref(activeWorkoutSession.id, returnView)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-foreground">
+                    {activeWorkoutSession.templateName ?? activeWorkoutSession.name}
+                  </h2>
+                  <p className="text-sm text-muted">
+                    {`Started ${formatStartedRelativeTime(activeWorkoutSession.startedAt)}`}
+                  </p>
+                </div>
+                <span
+                  className={
+                    activeWorkoutSession.status === 'paused'
+                      ? 'inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                      : 'inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                  }
+                >
+                  {activeWorkoutSession.status === 'paused' ? 'Paused' : 'Active'}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-muted">
+                {`${activeWorkoutSession.exerciseCount} exercise${
+                  activeWorkoutSession.exerciseCount === 1 ? '' : 's'
+                }`}
+              </p>
+            </Link>
+          ))}
+        </div>
+        <Button asChild type="button">
+          <Link to="/workouts?view=templates">Start from template</Link>
+        </Button>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-5 pb-8">
+      {showBackToSessionList ? (
+        <Button asChild size="sm" type="button" variant="ghost">
+          <Link to={returnToActiveListHref}>Back to session list</Link>
+        </Button>
+      ) : null}
       {sessionError ? <p className="text-sm text-destructive">{sessionError}</p> : null}
 
       {stage === 'active' ? (
@@ -363,10 +495,53 @@ export function ActiveWorkoutPage() {
             onStartTimeChange={handleStartTimeChange}
             remainingSeconds={remainingEstimatedSeconds}
             startTime={startTime}
+            timeSegments={activeSession?.timeSegments}
             totalExercises={session.totalExercises}
             totalSets={session.totalSets}
             workoutName={session.workoutName}
           />
+
+          {activeSessionId &&
+          (activeSessionStatus === 'paused' || activeSessionStatus === 'in-progress') ? (
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                className="min-w-32"
+                disabled={updateSessionStatusMutation.isPending}
+                onClick={handlePauseResumeToggle}
+                type="button"
+                variant={isPaused ? 'default' : 'secondary'}
+              >
+                {isPaused ? (
+                  <Play aria-hidden="true" className="size-4" />
+                ) : (
+                  <Pause aria-hidden="true" className="size-4" />
+                )}
+                {isPaused ? 'Resume' : 'Pause'}
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    aria-label="Workout session options"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <MoreVertical aria-hidden="true" className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={openEditTimeDialog}>Edit time</DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsCancelDialogOpen(true)}
+                    variant="destructive"
+                  >
+                    Cancel workout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
 
           <SessionContext context={workoutSessionContext} />
 
@@ -381,6 +556,7 @@ export function ActiveWorkoutPage() {
               }))
             }
             onFocusSetHandled={() => setFocusSetId(null)}
+            onReorderExercises={handleReorderExercises}
             onRemoveSet={handleRemoveSet}
             onRestTimerComplete={handleRestTimerComplete}
             onSessionCuesChange={(exerciseId, cues) =>
@@ -432,6 +608,7 @@ export function ActiveWorkoutPage() {
               setDrafts,
               templateExerciseById,
               exerciseNotes,
+              exerciseOrderIndexById,
             );
 
             if (!activeSessionId) {
@@ -570,6 +747,91 @@ export function ActiveWorkoutPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog onOpenChange={setIsCancelDialogOpen} open={isCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this workout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This marks the current session as cancelled and keeps it in your history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Keep session</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancelWorkout} type="button">
+              Cancel workout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          setIsEditTimeDialogOpen(open);
+          if (!open) {
+            setTimeSegmentError(null);
+          }
+        }}
+        open={isEditTimeDialogOpen}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit workout time</DialogTitle>
+            <DialogDescription>
+              Adjust segment start/end times to correct pauses or missed pauses.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {editableTimeSegments.map((segment, index) => (
+              <div
+                className="grid grid-cols-1 gap-2 rounded-lg border border-border p-3 sm:grid-cols-[1fr_1fr_auto]"
+                key={`${segment.start}-${index}`}
+              >
+                <Input
+                  aria-label={`Segment ${index + 1} start`}
+                  onChange={(event) => updateEditableSegment(index, 'start', event.target.value)}
+                  type="datetime-local"
+                  value={toDateTimeLocalValue(segment.start)}
+                />
+                <Input
+                  aria-label={`Segment ${index + 1} end`}
+                  onChange={(event) =>
+                    updateEditableSegment(
+                      index,
+                      'end',
+                      event.target.value.trim().length ? event.target.value : null,
+                    )
+                  }
+                  placeholder="Now (open)"
+                  type="datetime-local"
+                  value={segment.end ? toDateTimeLocalValue(segment.end) : ''}
+                />
+                <Button
+                  aria-label={`Delete segment ${index + 1}`}
+                  onClick={() => removeEditableSegment(index)}
+                  type="button"
+                  variant="outline"
+                >
+                  Delete
+                </Button>
+              </div>
+            ))}
+
+            <Button onClick={addEditableSegment} type="button" variant="secondary">
+              Add segment
+            </Button>
+          </div>
+
+          {timeSegmentError ? <p className="text-sm text-destructive">{timeSegmentError}</p> : null}
+
+          <DialogFooter>
+            <Button onClick={saveEditedTimeSegments} type="button">
+              Save time
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 
@@ -774,6 +1036,7 @@ export function ActiveWorkoutPage() {
     }
 
     const updatedSession = buildActiveWorkoutSession(template, nextDrafts, {
+      exerciseOrderBySection,
       exerciseNotes,
       sessionStartedAt: startTime,
     });
@@ -808,6 +1071,35 @@ export function ActiveWorkoutPage() {
     setFocusSetId(null);
   }
 
+  function handleReorderExercises(section: WorkoutTemplateSectionType, exerciseIds: string[]) {
+    setExerciseOrderBySection((current) => ({
+      ...current,
+      [section]: exerciseIds,
+    }));
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    setSessionError(null);
+    reorderSessionExercisesMutation.mutate(
+      {
+        section,
+        exerciseIds,
+      },
+      {
+        onError: (error) => {
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+
+          setSessionError('Unable to reorder exercises. Try again.');
+        },
+      },
+    );
+  }
+
   function handleRestTimerComplete() {
     setRestTimer(null);
     setFocusSetId(restTimerTargetSetId);
@@ -838,7 +1130,9 @@ export function ActiveWorkoutPage() {
 
   function handleStartTimeChange(nextStartTimeIso: string) {
     setStartTimeOverride(nextStartTimeIso);
-    const persistedStartTime = activeSession ? new Date(activeSession.startedAt).toISOString() : null;
+    const persistedStartTime = activeSession
+      ? new Date(activeSession.startedAt).toISOString()
+      : null;
 
     if (!activeSessionId) {
       return;
@@ -861,6 +1155,131 @@ export function ActiveWorkoutPage() {
         },
         onSuccess: (updatedSession) => {
           setStartTimeOverride(new Date(updatedSession.startedAt).toISOString());
+        },
+      },
+    );
+  }
+
+  function handlePauseResumeToggle() {
+    if (!activeSessionId || !activeSessionStatus) {
+      return;
+    }
+
+    const nextStatus = activeSessionStatus === 'paused' ? 'in-progress' : 'paused';
+
+    setSessionError(null);
+    updateSessionStatusMutation.mutate(
+      {
+        status: nextStatus,
+      },
+      {
+        onError: () => {
+          setSessionError(`Unable to ${nextStatus === 'paused' ? 'pause' : 'resume'} workout.`);
+        },
+      },
+    );
+  }
+
+  function confirmCancelWorkout() {
+    if (!activeSessionId) {
+      return;
+    }
+
+    setSessionError(null);
+    updateSessionStatusMutation.mutate(
+      {
+        status: 'cancelled',
+      },
+      {
+        onError: () => {
+          setSessionError('Unable to cancel workout. Try again.');
+        },
+        onSettled: () => {
+          setIsCancelDialogOpen(false);
+        },
+        onSuccess: () => {
+          clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+          clearStoredActiveWorkoutSessionId();
+          navigate('/workouts', { replace: true });
+        },
+      },
+    );
+  }
+
+  function openEditTimeDialog() {
+    if (!activeSession) {
+      return;
+    }
+
+    setTimeSegmentError(null);
+    setEditableTimeSegments(activeSession.timeSegments);
+    setIsEditTimeDialogOpen(true);
+  }
+
+  function addEditableSegment() {
+    setEditableTimeSegments((current) => [
+      ...current,
+      {
+        start: new Date().toISOString(),
+        end: null,
+      },
+    ]);
+  }
+
+  function removeEditableSegment(index: number) {
+    setEditableTimeSegments((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index),
+    );
+  }
+
+  function updateEditableSegment(index: number, field: 'start' | 'end', value: string | null) {
+    setEditableTimeSegments((current) =>
+      current.map((segment, currentIndex) => {
+        if (currentIndex !== index) {
+          return segment;
+        }
+
+        if (field === 'start') {
+          const nextStartIso = toIsoStringFromDateTimeLocal(value ?? '');
+          return {
+            ...segment,
+            start: nextStartIso ?? segment.start,
+          };
+        }
+
+        return {
+          ...segment,
+          end: value === null ? null : (toIsoStringFromDateTimeLocal(value) ?? segment.end),
+        };
+      }),
+    );
+  }
+
+  function saveEditedTimeSegments() {
+    if (!activeSessionId) {
+      return;
+    }
+
+    const parsed = parseEditableTimeSegments(editableTimeSegments);
+    if (!parsed.success) {
+      setTimeSegmentError(parsed.error);
+      return;
+    }
+
+    setTimeSegmentError(null);
+    setSessionError(null);
+    updateSessionTimeSegmentsMutation.mutate(
+      {
+        timeSegments: parsed.data,
+      },
+      {
+        onError: () => {
+          setTimeSegmentError(
+            'Unable to save time segments. Fix any invalid values and try again.',
+          );
+        },
+        onSuccess: () => {
+          setIsEditTimeDialogOpen(false);
         },
       },
     );
@@ -923,6 +1342,87 @@ function createSessionSetDrafts(
   }
 
   return drafts;
+}
+
+function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): ExerciseOrderBySection {
+  return {
+    warmup:
+      template.sections
+        .find((section) => section.type === 'warmup')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+    main:
+      template.sections
+        .find((section) => section.type === 'main')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+    cooldown:
+      template.sections
+        .find((section) => section.type === 'cooldown')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+  };
+}
+
+function buildExerciseOrderFromSessionSets(
+  template: MockWorkoutTemplate,
+  sessionSets: SessionSet[],
+): ExerciseOrderBySection {
+  const templateOrder = buildExerciseOrderFromTemplate(template);
+  const sectionOrder = {
+    warmup: [] as string[],
+    main: [] as string[],
+    cooldown: [] as string[],
+  };
+
+  const sortedSets = [...sessionSets].sort((left, right) => {
+    if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+      return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+    }
+
+    if (left.exerciseId !== right.exerciseId) {
+      return left.exerciseId.localeCompare(right.exerciseId);
+    }
+
+    return left.setNumber - right.setNumber;
+  });
+
+  for (const set of sortedSets) {
+    if (set.section !== 'warmup' && set.section !== 'main' && set.section !== 'cooldown') {
+      continue;
+    }
+
+    if (sectionOrder[set.section].includes(set.exerciseId)) {
+      continue;
+    }
+
+    sectionOrder[set.section].push(set.exerciseId);
+  }
+
+  return {
+    warmup: mergeExerciseOrder(sectionOrder.warmup, templateOrder.warmup),
+    main: mergeExerciseOrder(sectionOrder.main, templateOrder.main),
+    cooldown: mergeExerciseOrder(sectionOrder.cooldown, templateOrder.cooldown),
+  };
+}
+
+function mergeExerciseOrder(primary: string[], fallback: string[]) {
+  return Array.from(new Set([...primary, ...fallback]));
+}
+
+function buildExerciseOrderIndexById(
+  template: MockWorkoutTemplate,
+  exerciseOrderBySection: ExerciseOrderBySection,
+) {
+  const fallbackOrder = buildExerciseOrderFromTemplate(template);
+  const orderIndexById: Record<string, number> = {};
+  const sections: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+
+  for (const section of sections) {
+    const mergedOrder = mergeExerciseOrder(exerciseOrderBySection[section], fallbackOrder[section]);
+    mergedOrder.forEach((exerciseId, index) => {
+      orderIndexById[exerciseId] = index;
+    });
+  }
+
+  return orderIndexById;
 }
 
 function mapFeedbackDraftToSessionFeedback(
@@ -1174,6 +1674,85 @@ function findNextPendingSetId(session: ReturnType<typeof buildActiveWorkoutSessi
   }
 
   return null;
+}
+
+function toDateTimeLocalValue(isoString: string) {
+  const date = new Date(isoString);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toIsoStringFromDateTimeLocal(value: string) {
+  if (value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function parseEditableTimeSegments(timeSegments: WorkoutSessionTimeSegment[]) {
+  try {
+    const parsed = updateWorkoutSessionTimeSegmentsInputSchema.parse({
+      timeSegments,
+    });
+
+    return {
+      success: true as const,
+      data: parsed.timeSegments,
+    };
+  } catch {
+    return {
+      success: false as const,
+      error: 'Time segments must be ordered, non-overlapping, and each end must be after start.',
+    };
+  }
+}
+
+function buildActiveWorkoutSessionHref(sessionId: string, view: string | null) {
+  const searchParams = new URLSearchParams();
+  searchParams.set('sessionId', sessionId);
+
+  if (view) {
+    searchParams.set('view', view);
+  }
+
+  return `/workouts/active?${searchParams.toString()}`;
+}
+
+function formatStartedRelativeTime(startedAt: number) {
+  const elapsedMs = Date.now() - startedAt;
+  const elapsedMinutes = Math.max(0, Math.round(elapsedMs / 60_000));
+
+  if (elapsedMinutes < 1) {
+    return 'just now';
+  }
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} min ago`;
+  }
+
+  const elapsedHours = Math.round(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours} hr ago`;
+  }
+
+  const elapsedDays = Math.round(elapsedHours / 24);
+  return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
 }
 
 function getElapsedSeconds(startTime: Date | string, currentTime: number) {

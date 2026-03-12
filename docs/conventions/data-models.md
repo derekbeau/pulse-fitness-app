@@ -171,10 +171,11 @@ Constraints:
 - `templateId`: nullable `text`, FK -> `workout_templates.id`, `ON DELETE SET NULL`
 - `name`: `text`, required
 - `date`: `text`, required, `YYYY-MM-DD`, indexed
-- `status`: `text`, required, default `in-progress`, one of `scheduled | in-progress | completed`
+- `status`: `text`, required, default `in-progress`, one of `scheduled | in-progress | paused | cancelled | completed`
 - `startedAt`: `integer` Unix ms, required
 - `completedAt`: nullable `integer` Unix ms
 - `duration`: nullable `integer` minutes
+- `timeSegments`: required JSON text array of `{ start: string, end: string | null }`, default `'[]'`
 - `feedback`: nullable JSON text object for post-session ratings and notes
 - `notes`: nullable `text`
 - `createdAt`: `integer` Unix ms, required, default now

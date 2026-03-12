@@ -8,7 +8,17 @@ import type { WorkoutTemplateSectionType } from './workout-templates.js';
 import { workoutTemplates } from './workout-templates.js';
 import { users } from './users.js';
 
-export type WorkoutSessionStatus = 'scheduled' | 'in-progress' | 'completed';
+export type WorkoutSessionStatus =
+  | 'scheduled'
+  | 'in-progress'
+  | 'paused'
+  | 'cancelled'
+  | 'completed';
+
+export type WorkoutSessionTimeSegment = {
+  start: string;
+  end: string | null;
+};
 
 export type WorkoutSessionFeedback = {
   energy: 1 | 2 | 3 | 4 | 5;
@@ -72,6 +82,8 @@ export const workoutSessions = sqliteTable(
     startedAt: integer('started_at', { mode: 'number' }).notNull(),
     completedAt: integer('completed_at', { mode: 'number' }),
     duration: integer('duration', { mode: 'number' }).$type<number>(),
+    // JSON-encoded WorkoutSessionTimeSegment[]; use the serializer helpers when reading or writing.
+    timeSegments: text('time_segments').notNull().default('[]').$type<string>(),
     // JSON-encoded WorkoutSessionFeedback; use the serializer helpers when reading or writing.
     feedback: text('feedback'),
     notes: text('notes'),
@@ -94,7 +106,7 @@ export const workoutSessions = sqliteTable(
     ),
     check(
       'workout_sessions_status_check',
-      sql`${table.status} in ('scheduled', 'in-progress', 'completed')`,
+      sql`${table.status} in ('scheduled', 'in-progress', 'paused', 'cancelled', 'completed')`,
     ),
     check(
       'workout_sessions_completed_at_check',
@@ -115,6 +127,7 @@ export const sessionSets = sqliteTable(
     exerciseId: text('exercise_id')
       .notNull()
       .references(() => exercises.id, { onDelete: 'restrict' }),
+    orderIndex: integer('order_index').notNull().default(0),
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),
     reps: integer('reps'),

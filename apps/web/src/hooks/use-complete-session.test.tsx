@@ -29,6 +29,12 @@ const completedSessionResponse = {
   startedAt: 100,
   completedAt: 2_700_000,
   duration: 45,
+  timeSegments: [
+    {
+      start: '2026-03-08T00:00:00.000Z',
+      end: '2026-03-08T00:45:00.000Z',
+    },
+  ],
   feedback: {
     energy: 4,
     recovery: 3,
@@ -109,7 +115,8 @@ describe('use-complete-session hook', () => {
     );
 
     const request = mockFetch.mock.calls.find(
-      ([input, init]) => String(input) === '/api/v1/workout-sessions/session-1' && init?.method === 'PUT',
+      ([input, init]) =>
+        String(input) === '/api/v1/workout-sessions/session-1' && init?.method === 'PUT',
     );
 
     expect(request).toBeDefined();
@@ -135,7 +142,9 @@ describe('use-complete-session hook', () => {
     });
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBeNull();
 
-    expect(queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}))).toEqual([
+    expect(
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({})),
+    ).toEqual([
       {
         completedAt: 2_700_000,
         createdAt: 100,
@@ -153,7 +162,9 @@ describe('use-complete-session hook', () => {
     expect(queryClient.getQueryData(workoutQueryKeys.session('session-1'))).toEqual(
       completedSessionResponse,
     );
-    expect(queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessions())).toEqual([
+    expect(
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessions()),
+    ).toEqual([
       {
         completedAt: 2_700_000,
         createdAt: 100,
@@ -214,7 +225,9 @@ describe('use-complete-session hook', () => {
       });
     });
 
-    expect(queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}))).toEqual([
+    expect(
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({})),
+    ).toEqual([
       {
         completedAt: 2_700_000,
         createdAt: 100,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Clock3, Dumbbell, ListChecks } from 'lucide-react';
+import type { WorkoutSessionTimeSegment } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +16,7 @@ type SessionHeaderProps = {
   completedSets: number;
   currentExercise: number;
   estimatedTotalSeconds?: number;
+  timeSegments?: WorkoutSessionTimeSegment[];
   remainingSeconds?: number;
   startTime: Date | string;
   totalExercises: number;
@@ -29,6 +31,7 @@ export function SessionHeader({
   completedSets,
   currentExercise,
   estimatedTotalSeconds = 0,
+  timeSegments,
   remainingSeconds = 0,
   startTime,
   totalExercises,
@@ -40,7 +43,10 @@ export function SessionHeader({
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isEditingStartTime, setIsEditingStartTime] = useState(false);
   const [startTimeInput, setStartTimeInput] = useState(() => toTimeInputValue(startTime));
-  const elapsedSeconds = getElapsedSeconds(startTime, currentTime);
+  const elapsedSeconds =
+    timeSegments && timeSegments.length > 0
+      ? getActiveElapsedSeconds(timeSegments, currentTime)
+      : getElapsedSeconds(startTime, currentTime);
   const formattedStartTime = formatStartTime(startTime);
   const totalEstimateLabel = formatEstimateMinutes(estimatedTotalSeconds);
   const remainingEstimateLabel = formatEstimateMinutes(remainingSeconds);
@@ -205,6 +211,19 @@ function getElapsedSeconds(startTime: Date | string, currentTime: number) {
   const elapsedMilliseconds = currentTime - startedAt;
 
   return Math.max(0, Math.floor(elapsedMilliseconds / 1000));
+}
+
+function getActiveElapsedSeconds(timeSegments: WorkoutSessionTimeSegment[], currentTime: number) {
+  return timeSegments.reduce((total, segment) => {
+    const startedAt = Date.parse(segment.start);
+    const endedAt = segment.end ? Date.parse(segment.end) : currentTime;
+
+    if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt < startedAt) {
+      return total;
+    }
+
+    return total + Math.floor((endedAt - startedAt) / 1000);
+  }, 0);
 }
 
 function formatElapsedTime(totalSeconds: number) {

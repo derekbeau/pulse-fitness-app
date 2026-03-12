@@ -158,7 +158,9 @@ describe('WorkoutSessionDetailPage', () => {
   it('renders not-found state for unknown sessionId', async () => {
     renderWithRoute('nonexistent-id');
 
-    expect(await screen.findByText('Session not found', {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Session not found', {}, { timeout: 5_000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to workouts/i })).toHaveAttribute(
       'href',
       '/workouts?view=calendar',
@@ -231,6 +233,7 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
     startedAt: Date.parse('2026-03-02T18:00:00Z'),
     completedAt: Date.parse('2026-03-02T19:00:00Z'),
     duration: 60,
+    timeSegments: [],
     feedback: {
       energy: 4,
       recovery: 4,
@@ -262,7 +265,9 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
   };
 }
 
-function createSet(overrides: Partial<WorkoutSession['sets'][number]>): WorkoutSession['sets'][number] {
+function createSet(
+  overrides: Partial<WorkoutSession['sets'][number]>,
+): WorkoutSession['sets'][number] {
   return {
     id: 'set-default',
     exerciseId: 'incline-dumbbell-press',

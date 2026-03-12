@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import {
   batchUpsertSetsSchema,
   createSetSchema,
+  reorderWorkoutSessionExercisesInputSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
   type SessionSetInput,
   updateSetSchema,
   updateWorkoutSessionInputSchema,
+  updateWorkoutSessionTimeSegmentsInputSchema,
   workoutSessionQueryParamsSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
@@ -26,12 +28,14 @@ import {
   findWorkoutSessionAccess,
   findWorkoutSessionById,
   listSessionSetGroups,
+  reorderWorkoutSessionExercises,
   SessionSetNotFoundError,
   listWorkoutSessions,
   saveCompletedSessionAsTemplate,
   updateSessionSet,
   updateWorkoutSession,
 } from './store.js';
+import { calculateActiveDuration, closeOpenTimeSegment, openTimeSegment } from './time-segments.js';
 
 const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_FOUND',
@@ -58,6 +62,11 @@ const WORKOUT_SESSION_NOT_COMPLETED_RESPONSE = {
   message: 'Workout session must be completed before saving as template',
 } as const;
 
+const WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE = {
+  code: 'WORKOUT_SESSION_INVALID_TRANSITION',
+  message: 'Invalid workout session status transition',
+} as const;
+
 const SESSION_SET_NOT_FOUND_RESPONSE = {
   code: 'SESSION_SET_NOT_FOUND',
   message: 'Session set not found',
@@ -78,10 +87,12 @@ const toCreateWorkoutSessionInput = (
     startedAt: session.startedAt,
     completedAt: session.completedAt,
     duration: session.duration,
+    timeSegments: session.timeSegments,
     feedback: session.feedback,
     notes: session.notes,
     sets: session.sets.map((set) => ({
       exerciseId: set.exerciseId,
+      orderIndex: set.orderIndex ?? 0,
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
@@ -194,6 +205,10 @@ const MIN_VALID_STARTED_AT_TIMESTAMP = Date.UTC(2020, 0, 1);
 const isValidTimestamp = (value: number) =>
   Number.isFinite(new Date(value).getTime()) && value >= MIN_VALID_STARTED_AT_TIMESTAMP;
 
+const nowIsoString = () => new Date().toISOString();
+
+const toIsoString = (value: number) => new Date(value).toISOString();
+
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireUserAuth);
 
@@ -231,10 +246,18 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    const inputWithInitialSegment =
+      parsedBody.data.status === 'in-progress' && parsedBody.data.timeSegments.length === 0
+        ? {
+            ...parsedBody.data,
+            timeSegments: [{ start: toIsoString(parsedBody.data.startedAt), end: null }],
+          }
+        : parsedBody.data;
+
     const session = await createWorkoutSession({
       id: randomUUID(),
       userId: request.userId,
-      input: parsedBody.data,
+      input: inputWithInitialSegment,
     });
 
     return reply.code(201).send({
@@ -454,6 +477,116 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  const resolveSessionTransition = ({
+    existingStatus,
+    requestedStatus,
+    currentTimeSegments,
+    requestedCompletedAt,
+    requestedDuration,
+  }: {
+    existingStatus: CreateWorkoutSessionInput['status'];
+    requestedStatus: CreateWorkoutSessionInput['status'];
+    currentTimeSegments: CreateWorkoutSessionInput['timeSegments'];
+    requestedCompletedAt: number | null;
+    requestedDuration: number | null;
+  }) => {
+    let nextTimeSegments = currentTimeSegments;
+    let nextDuration = requestedDuration;
+
+    if (requestedStatus === 'paused' && existingStatus !== 'in-progress') {
+      return {
+        ok: false as const,
+      };
+    }
+
+    if (
+      requestedStatus === 'in-progress' &&
+      existingStatus !== 'paused' &&
+      existingStatus !== 'in-progress' &&
+      existingStatus !== 'scheduled'
+    ) {
+      return {
+        ok: false as const,
+      };
+    }
+
+    if (requestedStatus === 'completed' && existingStatus === 'cancelled') {
+      return {
+        ok: false as const,
+      };
+    }
+
+    if (requestedStatus === 'cancelled' && existingStatus === 'completed') {
+      return {
+        ok: false as const,
+      };
+    }
+
+    if (requestedStatus === 'paused' && existingStatus === 'in-progress') {
+      nextTimeSegments = closeOpenTimeSegment(nextTimeSegments, nowIsoString());
+      nextDuration = calculateActiveDuration(nextTimeSegments);
+      return {
+        ok: true as const,
+        completedAt: null,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    if (requestedStatus === 'in-progress' && existingStatus === 'paused') {
+      nextTimeSegments = openTimeSegment(nextTimeSegments, nowIsoString());
+      return {
+        ok: true as const,
+        completedAt: null,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    if (requestedStatus === 'in-progress' && existingStatus === 'scheduled') {
+      if (!nextTimeSegments.some((segment) => segment.end === null)) {
+        nextTimeSegments = openTimeSegment(nextTimeSegments, nowIsoString());
+      }
+
+      return {
+        ok: true as const,
+        completedAt: null,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    if (requestedStatus === 'cancelled' && existingStatus !== 'cancelled') {
+      nextTimeSegments = closeOpenTimeSegment(nextTimeSegments, nowIsoString());
+      nextDuration = calculateActiveDuration(nextTimeSegments);
+      return {
+        ok: true as const,
+        completedAt: null,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    if (requestedStatus === 'completed' && existingStatus !== 'completed') {
+      const completedAt = requestedCompletedAt ?? Date.now();
+      nextTimeSegments = closeOpenTimeSegment(nextTimeSegments, toIsoString(completedAt));
+      nextDuration = calculateActiveDuration(nextTimeSegments);
+      return {
+        ok: true as const,
+        completedAt,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    return {
+      ok: true as const,
+      completedAt: requestedCompletedAt,
+      duration: nextDuration,
+      timeSegments: nextTimeSegments,
+    };
+  };
+
   const updateSessionById = async (
     request: { body: unknown; params: { id: string }; userId: string },
     reply: FastifyReply,
@@ -483,21 +616,33 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    if (
-      existingSession.status === 'completed' &&
-      parsedBody.data.status === 'in-progress'
-    ) {
+    const basePayload = {
+      ...toCreateWorkoutSessionInput(existingSession),
+      ...parsedBody.data,
+    };
+    const transitionStatus = parsedBody.data.status ?? existingSession.status;
+    const transitionResult = resolveSessionTransition({
+      existingStatus: existingSession.status,
+      requestedStatus: transitionStatus,
+      currentTimeSegments: basePayload.timeSegments,
+      requestedCompletedAt: basePayload.completedAt,
+      requestedDuration: basePayload.duration,
+    });
+    if (!transitionResult.ok) {
       return sendError(
         reply,
         409,
-        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
-        'Cannot revert a completed session',
+        WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
+        WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
       );
     }
 
     const mergedPayload = createWorkoutSessionInputSchema.safeParse({
-      ...toCreateWorkoutSessionInput(existingSession),
-      ...parsedBody.data,
+      ...basePayload,
+      completedAt: transitionResult.completedAt,
+      duration: transitionResult.duration,
+      status: transitionStatus,
+      timeSegments: transitionResult.timeSegments,
     });
     if (!mergedPayload.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
@@ -515,10 +660,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         : mergedPayload.data;
 
     if (input.templateId !== null) {
-      const templateAccessible = await templateBelongsToUser(
-        input.templateId,
-        request.userId,
-      );
+      const templateAccessible = await templateBelongsToUser(input.templateId, request.userId);
       if (!templateAccessible) {
         return sendError(
           reply,
@@ -560,6 +702,117 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       data: session,
     });
   };
+
+  app.patch<{ Params: { id: string } }>('/:id/time-segments', async (request, reply) => {
+    const parsedBody = updateWorkoutSessionTimeSegmentsInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+    if (!existingSession) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    const payload = createWorkoutSessionInputSchema.safeParse({
+      ...toCreateWorkoutSessionInput(existingSession),
+      duration: calculateActiveDuration(parsedBody.data.timeSegments),
+      timeSegments: parsedBody.data.timeSegments,
+    });
+    if (!payload.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const updated = await updateWorkoutSession({
+      id: request.params.id,
+      userId: request.userId,
+      input: payload.data,
+    });
+    if (!updated) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    return reply.send({
+      data: updated,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
+    const parsedBody = reorderWorkoutSessionExercisesInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+    if (!existingSession) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    if (existingSession.status !== 'in-progress' && existingSession.status !== 'paused') {
+      return sendError(
+        reply,
+        409,
+        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.message,
+      );
+    }
+
+    const currentExerciseIds = Array.from(
+      new Set(
+        existingSession.sets
+          .filter((set) => set.section === parsedBody.data.section)
+          .sort((left, right) => {
+            if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+              return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+            }
+
+            return left.exerciseId.localeCompare(right.exerciseId);
+          })
+          .map((set) => set.exerciseId),
+      ),
+    );
+    const requestedIds = parsedBody.data.exerciseIds;
+    const hasSameMembership =
+      currentExerciseIds.length === requestedIds.length &&
+      currentExerciseIds.every((exerciseId) => requestedIds.includes(exerciseId));
+    if (!hasSameMembership) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
+
+    const reordered = await reorderWorkoutSessionExercises({
+      sessionId: request.params.id,
+      userId: request.userId,
+      section: parsedBody.data.section,
+      exerciseIds: requestedIds,
+    });
+    if (!reordered) {
+      return sendError(
+        reply,
+        404,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+      );
+    }
+
+    return reply.send({
+      data: reordered,
+    });
+  });
 
   app.put<{ Params: { id: string } }>('/:id', updateSessionById);
   app.patch<{ Params: { id: string } }>('/:id', updateSessionById);

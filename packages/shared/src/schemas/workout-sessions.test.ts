@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createWorkoutSessionInputSchema,
+  reorderWorkoutSessionExercisesInputSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
   type SaveWorkoutSessionAsTemplateInput,
   type UpdateWorkoutSessionInput,
+  type UpdateWorkoutSessionTimeSegmentsInput,
   type WorkoutSession,
+  timeSegmentsSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionListItem,
+  updateWorkoutSessionTimeSegmentsInputSchema,
+  workoutSessionStatusSchema,
   workoutSessionFeedbackSchema,
   workoutSessionListItemSchema,
   workoutSessionQueryParamsSchema,
@@ -120,6 +125,7 @@ describe('sessionSetInputSchema', () => {
       }),
     ).toEqual({
       exerciseId: 'bench-press',
+      orderIndex: 0,
       setNumber: 1,
       weight: null,
       reps: null,
@@ -154,6 +160,12 @@ describe('workoutSessionSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: 1_700_000_003_600,
       duration: 60,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T11:00:00.000Z',
+        },
+      ],
       feedback: {
         energy: 4,
         recovery: 3,
@@ -189,6 +201,12 @@ describe('workoutSessionSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: 1_700_000_003_600,
       duration: 60,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T11:00:00.000Z',
+        },
+      ],
       feedback: {
         energy: 4,
         recovery: 3,
@@ -227,6 +245,7 @@ describe('workoutSessionSchema', () => {
         startedAt: 10,
         completedAt: null,
         duration: null,
+        timeSegments: [],
         feedback: null,
         notes: null,
         sets: [],
@@ -247,6 +266,12 @@ describe('createWorkoutSessionInputSchema', () => {
       startedAt: 2000,
       completedAt: 2600,
       duration: 45,
+      timeSegments: [
+        {
+          start: '2026-03-13T10:00:00.000Z',
+          end: '2026-03-13T10:45:00.000Z',
+        },
+      ],
       feedback: {
         energy: 5,
         recovery: 4,
@@ -257,6 +282,7 @@ describe('createWorkoutSessionInputSchema', () => {
       sets: [
         {
           exerciseId: 'high-bar-back-squat',
+          orderIndex: 0,
           setNumber: 1,
           reps: 5,
           weight: 275,
@@ -275,6 +301,12 @@ describe('createWorkoutSessionInputSchema', () => {
       startedAt: 2000,
       completedAt: 2600,
       duration: 45,
+      timeSegments: [
+        {
+          start: '2026-03-13T10:00:00.000Z',
+          end: '2026-03-13T10:45:00.000Z',
+        },
+      ],
       feedback: {
         energy: 5,
         recovery: 4,
@@ -285,6 +317,7 @@ describe('createWorkoutSessionInputSchema', () => {
       sets: [
         {
           exerciseId: 'high-bar-back-squat',
+          orderIndex: 0,
           setNumber: 1,
           reps: 5,
           weight: 275,
@@ -304,6 +337,119 @@ describe('createWorkoutSessionInputSchema', () => {
         date: '2026-03-12',
         status: 'completed',
         startedAt: 10,
+      }),
+    ).toThrow();
+  });
+
+  it('defaults empty time segments', () => {
+    expect(
+      createWorkoutSessionInputSchema.parse({
+        name: 'Upper Push',
+        date: '2026-03-12',
+        startedAt: 10,
+      }).timeSegments,
+    ).toEqual([]);
+  });
+});
+
+describe('reorderWorkoutSessionExercisesInputSchema', () => {
+  it('accepts section exercise reorder payloads', () => {
+    expect(
+      reorderWorkoutSessionExercisesInputSchema.parse({
+        section: 'warmup',
+        exerciseIds: ['exercise-1', 'exercise-2'],
+      }),
+    ).toEqual({
+      section: 'warmup',
+      exerciseIds: ['exercise-1', 'exercise-2'],
+    });
+  });
+
+  it('rejects blank exercise ids', () => {
+    expect(() =>
+      reorderWorkoutSessionExercisesInputSchema.parse({
+        section: 'warmup',
+        exerciseIds: ['exercise-1', ''],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('workoutSessionStatusSchema', () => {
+  it('accepts paused and cancelled statuses', () => {
+    expect(workoutSessionStatusSchema.parse('paused')).toBe('paused');
+    expect(workoutSessionStatusSchema.parse('cancelled')).toBe('cancelled');
+  });
+});
+
+describe('timeSegmentsSchema', () => {
+  it('validates segment arrays', () => {
+    expect(
+      timeSegmentsSchema.parse([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+        },
+      ]),
+    ).toEqual([
+      {
+        start: '2026-03-12T10:00:00.000Z',
+        end: null,
+      },
+    ]);
+  });
+
+  it('rejects invalid segment entries', () => {
+    expect(() => timeSegmentsSchema.parse([{ start: 123, end: null }])).toThrow();
+    expect(() => timeSegmentsSchema.parse([{ start: '2026-03-12T10:00:00.000Z' }])).toThrow();
+  });
+});
+
+describe('updateWorkoutSessionTimeSegmentsInputSchema', () => {
+  it('accepts chronologically ordered, non-overlapping segments', () => {
+    const payload: UpdateWorkoutSessionTimeSegmentsInput =
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:20:00.000Z',
+            end: null,
+          },
+        ],
+      });
+
+    expect(payload.timeSegments).toHaveLength(2);
+  });
+
+  it('rejects overlapping or out-of-order segments', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:10:00.000Z',
+            end: '2026-03-12T10:20:00.000Z',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects segments with end earlier than start', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:15:00.000Z',
+            end: '2026-03-12T10:00:00.000Z',
+          },
+        ],
       }),
     ).toThrow();
   });
@@ -395,12 +541,19 @@ describe('workoutSessionQueryParamsSchema', () => {
     ).toEqual({
       from: '2026-03-10',
       to: '2026-03-12',
-      status: 'completed',
+      status: ['completed'],
       limit: 5,
     });
     expect(workoutSessionQueryParamsSchema.parse({ status: 'in-progress', limit: 10 })).toEqual({
-      status: 'in-progress',
+      status: ['in-progress'],
       limit: 10,
+    });
+    expect(
+      workoutSessionQueryParamsSchema.parse({
+        status: ['in-progress', 'paused'],
+      }),
+    ).toEqual({
+      status: ['in-progress', 'paused'],
     });
   });
 

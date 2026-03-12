@@ -12,6 +12,7 @@ import {
   exercises,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
+  serializeWorkoutSessionTimeSegments,
   sessionSets,
   templateExercises,
   users,
@@ -86,7 +87,7 @@ const seedWorkoutSession = (values: {
   templateId?: string | null;
   name: string;
   date: string;
-  status?: 'scheduled' | 'in-progress' | 'completed';
+  status?: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
   startedAt: number;
   completedAt?: number | null;
   duration?: number | null;
@@ -97,6 +98,10 @@ const seedWorkoutSession = (values: {
     notes?: string;
   } | null;
   notes?: string | null;
+  timeSegments?: Array<{
+    start: string;
+    end: string | null;
+  }>;
 }) =>
   context.db
     .insert(workoutSessions)
@@ -110,6 +115,7 @@ const seedWorkoutSession = (values: {
       startedAt: values.startedAt,
       completedAt: values.completedAt ?? null,
       duration: values.duration ?? null,
+      timeSegments: serializeWorkoutSessionTimeSegments(values.timeSegments ?? []),
       feedback: serializeWorkoutSessionFeedback(values.feedback ?? null),
       notes: values.notes ?? null,
     })
@@ -304,6 +310,14 @@ describe('workout session routes', () => {
         method: 'POST',
         url: '/api/v1/workout-sessions/session-1/save-as-template',
       }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1/reorder',
+        payload: {
+          section: 'main',
+          exerciseIds: [],
+        },
+      }),
     ]);
 
     for (const response of responses) {
@@ -495,6 +509,108 @@ describe('workout session routes', () => {
         message: 'Workout session not found',
       },
     });
+  });
+
+  it('reorders active session exercises by updating set orderIndex while preserving set data', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-reorder',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-press-1',
+      sessionId: 'session-reorder',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      reps: 8,
+      weight: 185,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'set-press-2',
+      sessionId: 'session-reorder',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      reps: 7,
+      weight: 195,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'set-pulldown-1',
+      sessionId: 'session-reorder',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      reps: 12,
+      weight: 140,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-reorder/reorder',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        exerciseIds: ['user-1-lat-pulldown', 'global-bench-press'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-reorder',
+        sets: [
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            orderIndex: 0,
+            reps: 12,
+            weight: 140,
+          }),
+          expect.objectContaining({
+            exerciseId: 'global-bench-press',
+            orderIndex: 1,
+            setNumber: 1,
+            reps: 8,
+            weight: 185,
+          }),
+          expect.objectContaining({
+            exerciseId: 'global-bench-press',
+            orderIndex: 1,
+            setNumber: 2,
+            reps: 7,
+            weight: 195,
+          }),
+        ],
+      }),
+    });
+
+    const persistedOrder = context.db
+      .select({
+        exerciseId: sessionSets.exerciseId,
+        orderIndex: sessionSets.orderIndex,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-reorder'))
+      .all()
+      .sort((left, right) => {
+        if (left.orderIndex !== right.orderIndex) {
+          return left.orderIndex - right.orderIndex;
+        }
+
+        return left.exerciseId.localeCompare(right.exerciseId);
+      });
+
+    expect(persistedOrder).toEqual([
+      { exerciseId: 'user-1-lat-pulldown', orderIndex: 0 },
+      { exerciseId: 'global-bench-press', orderIndex: 1 },
+      { exerciseId: 'global-bench-press', orderIndex: 1 },
+    ]);
   });
 
   it('applies save-as-template metadata overrides when provided', async () => {
@@ -698,19 +814,6 @@ describe('workout session routes', () => {
     expect(batchResponse.json()).toEqual({
       data: [
         {
-          exerciseId: 'global-bench-press',
-          sets: [
-            expect.objectContaining({
-              id: createPayload.data.id,
-              setNumber: 1,
-              weight: 190,
-              reps: 9,
-              completed: true,
-              notes: 'Last hard rep',
-            }),
-          ],
-        },
-        {
           exerciseId: 'user-1-lat-pulldown',
           sets: [
             expect.objectContaining({
@@ -723,6 +826,19 @@ describe('workout session routes', () => {
               setNumber: 2,
               weight: 130,
               reps: 11,
+            }),
+          ],
+        },
+        {
+          exerciseId: 'global-bench-press',
+          sets: [
+            expect.objectContaining({
+              id: createPayload.data.id,
+              setNumber: 1,
+              weight: 190,
+              reps: 9,
+              completed: true,
+              notes: 'Last hard rep',
             }),
           ],
         },
@@ -1194,6 +1310,516 @@ describe('workout session routes', () => {
     });
   });
 
+  it('filters workout session listings by multiple statuses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-paused',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Paused Upper Push',
+      date: '2026-03-16',
+      status: 'paused',
+      startedAt: 1_700_110_000_000,
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress-2',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Active Lower Body',
+      date: '2026-03-15',
+      status: 'in-progress',
+      startedAt: 1_700_109_000_000,
+    });
+    seedWorkoutSession({
+      id: 'session-completed-4',
+      userId: 'user-1',
+      templateId: 'template-2',
+      name: 'Completed Session',
+      date: '2026-03-14',
+      status: 'completed',
+      startedAt: 1_700_108_000_000,
+      completedAt: 1_700_108_003_000,
+      duration: 47,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions?status=in-progress&status=paused',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'session-paused',
+          status: 'paused',
+        }),
+        expect.objectContaining({
+          id: 'session-in-progress-2',
+          status: 'in-progress',
+        }),
+      ],
+    });
+  });
+
+  it('backfills empty time segments for in-progress sessions at read time', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const startedAt = Date.UTC(2026, 2, 12, 14, 30, 0);
+
+    seedWorkoutSession({
+      id: 'session-legacy',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Legacy Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-legacy',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-legacy',
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: new Date(startedAt).toISOString(),
+            end: null,
+          },
+        ],
+      }),
+    });
+  });
+
+  it('creates an initial open time segment when starting a new in-progress session', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const startedAt = Date.UTC(2026, 2, 12, 10, 0, 0);
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        name: 'Upper Push',
+        date: '2026-03-12',
+        status: 'in-progress',
+        startedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: new Date(startedAt).toISOString(),
+            end: null,
+          },
+        ],
+      }),
+    });
+  });
+
+  it('pausing closes the current segment and resuming opens a new one', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const startedAt = '2026-03-12T10:00:00.000Z';
+
+    seedWorkoutSession({
+      id: 'session-pause-resume',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse(startedAt),
+      timeSegments: [{ start: startedAt, end: null }],
+    });
+
+    const pauseResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-pause-resume',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'paused',
+      },
+    });
+
+    expect(pauseResponse.statusCode).toBe(200);
+    expect(pauseResponse.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'paused',
+        timeSegments: [
+          {
+            start: startedAt,
+            end: expect.any(String),
+          },
+        ],
+      }),
+    });
+
+    const resumeResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-pause-resume',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+      },
+    });
+
+    expect(resumeResponse.statusCode).toBe(200);
+    expect(resumeResponse.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: startedAt,
+            end: expect.any(String),
+          },
+          {
+            start: expect.any(String),
+            end: null,
+          },
+        ],
+      }),
+    });
+  });
+
+  it('cancelling closes open segment and marks session cancelled', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-cancelled',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-cancelled',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'cancelled',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'cancelled',
+        completedAt: null,
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: expect.any(String),
+          },
+        ],
+      }),
+    });
+  });
+
+  it('completing closes the final segment and calculates duration from segments', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const completedAt = Date.parse('2026-03-12T10:25:00.000Z');
+
+    seedWorkoutSession({
+      id: 'session-complete',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+        },
+        {
+          start: '2026-03-12T10:20:00.000Z',
+          end: null,
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-complete',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'completed',
+        completedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'completed',
+        completedAt,
+        duration: 900,
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:10:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:20:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+        ],
+      }),
+    });
+  });
+
+  it('validates chronological ordering when editing time segments', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-time-edit',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'paused',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-edit/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:10:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:05:00.000Z',
+            end: '2026-03-12T10:20:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session payload',
+      },
+    });
+  });
+
+  it('validates out-of-order time segments when editing', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-time-out-of-order',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'paused',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-out-of-order/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        timeSegments: [
+          {
+            start: '2026-03-12T10:20:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:10:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid workout session payload',
+      },
+    });
+  });
+
+  it('supports directly editing a segment end timestamp', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-time-end-edit',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T10:20:00.000Z'),
+      duration: 1200,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:20:00.000Z',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-end-edit/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        duration: 900,
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+        ],
+      }),
+    });
+  });
+
+  it('supports segment deletion merge and additional split edits', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-time-merge',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T10:25:00.000Z'),
+      duration: 900,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+        },
+        {
+          start: '2026-03-12T10:20:00.000Z',
+          end: '2026-03-12T10:25:00.000Z',
+        },
+      ],
+    });
+
+    const mergeResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-merge/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(mergeResponse.statusCode).toBe(200);
+    expect(mergeResponse.json()).toEqual({
+      data: expect.objectContaining({
+        duration: 1500,
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+        ],
+      }),
+    });
+
+    const splitResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-merge/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:08:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:12:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+        ],
+      },
+    });
+
+    expect(splitResponse.statusCode).toBe(200);
+    expect(splitResponse.json()).toEqual({
+      data: expect.objectContaining({
+        duration: 1260,
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:08:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:12:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+          },
+        ],
+      }),
+    });
+  });
+
   it('updates owned workout sessions by replacing nested set rows', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
@@ -1271,7 +1897,7 @@ describe('workout session routes', () => {
         status: 'completed',
         startedAt: 1000,
         completedAt: 4000,
-        duration: 50,
+        duration: 3,
         feedback: {
           energy: 5,
           recovery: 4,
@@ -1525,8 +2151,8 @@ describe('workout session routes', () => {
     expect(response.statusCode).toBe(409);
     expect(response.json()).toEqual({
       error: {
-        code: 'WORKOUT_SESSION_NOT_ACTIVE',
-        message: 'Cannot revert a completed session',
+        code: 'WORKOUT_SESSION_INVALID_TRANSITION',
+        message: 'Invalid workout session status transition',
       },
     });
   });
@@ -1740,12 +2366,12 @@ describe('workout session routes', () => {
       },
     });
 
-    expect(invalidMergedUpdateResponse.statusCode).toBe(400);
+    expect(invalidMergedUpdateResponse.statusCode).toBe(200);
     expect(invalidMergedUpdateResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
+      data: expect.objectContaining({
+        id: 'session-1',
+        status: 'completed',
+      }),
     });
   });
 

@@ -96,6 +96,12 @@ const createdSessionPayload = {
     startedAt: 1,
     completedAt: null,
     duration: null,
+    timeSegments: [
+      {
+        start: '2026-03-07T00:00:00.000Z',
+        end: null,
+      },
+    ],
     feedback: null,
     notes: null,
     sets: [],
@@ -166,8 +172,12 @@ describe('WorkoutTemplateDetail', () => {
 
     expect(within(inclinePressCard as HTMLElement).getByText('Exercise cues')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText('Template cues')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked')).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked'),
+    ).toBeInTheDocument();
   });
 
   it('creates a workout session before navigating to the active workout page', async () => {
@@ -222,6 +232,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(requestBody.sets).toEqual([
       expect.objectContaining({
         exerciseId: 'row-erg',
+        orderIndex: 0,
         reps: null,
         section: 'warmup',
         setNumber: 1,
@@ -229,6 +240,7 @@ describe('WorkoutTemplateDetail', () => {
       }),
       expect.objectContaining({
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         reps: null,
         section: 'main',
         setNumber: 1,
@@ -236,6 +248,7 @@ describe('WorkoutTemplateDetail', () => {
       }),
       expect.objectContaining({
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         reps: null,
         section: 'main',
         setNumber: 2,
@@ -243,6 +256,7 @@ describe('WorkoutTemplateDetail', () => {
       }),
       expect.objectContaining({
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         reps: null,
         section: 'main',
         setNumber: 3,
@@ -296,7 +310,9 @@ describe('WorkoutTemplateDetail', () => {
       </MemoryRouter>,
     );
 
-    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest('[data-slot="card"]');
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
     expect(exerciseCard).not.toBeNull();
 
     fireEvent.click(
@@ -315,6 +331,82 @@ describe('WorkoutTemplateDetail', () => {
 
     expect(await screen.findByText('Incline DB Press')).toBeInTheDocument();
     expect(screen.queryByText('Incline Dumbbell Press')).not.toBeInTheDocument();
+  });
+
+  it('moves template exercises down from the exercise menu and calls reorder endpoint', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    const mainExercises = mutableTemplate.data.sections[1].exercises as Array<
+      (typeof mutableTemplate.data.sections)[number]['exercises'][number]
+    >;
+    mainExercises.push({
+      id: 'template-exercise-shoulder-press',
+      exerciseId: 'seated-dumbbell-shoulder-press',
+      exerciseName: 'Seated Dumbbell Shoulder Press',
+      sets: 3,
+      repsMin: 8,
+      repsMax: 10,
+      tempo: null,
+      restSeconds: 90,
+      supersetGroup: null,
+      notes: null,
+      formCues: [],
+      cues: [],
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (
+        url.pathname === '/api/v1/workout-templates/upper-push/reorder' &&
+        init?.method === 'PATCH'
+      ) {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const inclineCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
+    expect(inclineCard).not.toBeNull();
+
+    fireEvent.click(
+      within(inclineCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    );
+    fireEvent.click(within(inclineCard as HTMLElement).getByRole('button', { name: 'Move down' }));
+
+    await waitFor(() => {
+      expect(
+        fetchSpy.mock.calls.some(
+          ([input, init]) =>
+            String(input).includes('/api/v1/workout-templates/upper-push/reorder') &&
+            init?.method === 'PATCH',
+        ),
+      ).toBe(true);
+    });
+
+    const reorderCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        String(input).includes('/api/v1/workout-templates/upper-push/reorder') &&
+        init?.method === 'PATCH',
+    );
+    expect(JSON.parse(String(reorderCall?.[1]?.body))).toEqual({
+      section: 'main',
+      exerciseIds: ['template-exercise-shoulder-press', 'template-exercise-incline'],
+    });
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

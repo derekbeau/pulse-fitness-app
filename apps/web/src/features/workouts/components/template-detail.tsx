@@ -1,6 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { MoreVertical } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ArrowDown, ArrowUp, GripVertical, MoreVertical } from 'lucide-react';
 
 import type { WorkoutTemplate, WorkoutTemplateExercise } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -18,7 +34,11 @@ import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
 
-import { useRenameExercise, useWorkoutTemplate } from '../api/workouts';
+import {
+  useRenameExercise,
+  useReorderTemplateExercises,
+  useWorkoutTemplate,
+} from '../api/workouts';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 
@@ -38,10 +58,21 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const templateQuery = useWorkoutTemplate(templateId);
   const startWorkoutMutation = useStartSession();
   const renameExerciseMutation = useRenameExercise();
+  const reorderExercisesMutation = useReorderTemplateExercises();
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
   } | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
@@ -144,71 +175,75 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                   </CardContent>
                 </Card>
               ) : (
-                section.exercises.map((exercise) => (
-                  <Card className="gap-4 py-0" key={exercise.id}>
-                    <CardHeader className="gap-3 py-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-2">
-                          <CardTitle>{exercise.exerciseName}</CardTitle>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatPrescription(exercise)}
-                          </p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-label={`Exercise actions for ${exercise.exerciseName}`}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <MoreVertical aria-hidden="true" className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setRenameTarget({
-                                  exerciseId: exercise.exerciseId,
-                                  exerciseName: exercise.exerciseName,
-                                })
-                              }
-                            >
-                              Rename exercise
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragEnd={({ active, over }) => {
+                    if (!over || active.id === over.id) {
+                      return;
+                    }
 
-                    <CardContent className="space-y-4 pb-5">
-                      <div className="flex flex-wrap gap-2 text-sm">
-                        {exercise.restSeconds !== null ? (
-                          <MetadataPill label={`Rest: ${exercise.restSeconds}s`} />
-                        ) : null}
-                        {exercise.tempo ? (
-                          <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
-                        ) : null}
-                      </div>
+                    const currentIndex = section.exercises.findIndex(
+                      (item) => item.id === active.id,
+                    );
+                    const nextIndex = section.exercises.findIndex((item) => item.id === over.id);
+                    if (currentIndex === -1 || nextIndex === -1) {
+                      return;
+                    }
 
-                      {exercise.notes ? (
-                        <div className="space-y-1 rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-                          <p className="text-sm font-medium text-foreground">Notes</p>
-                          <p className="text-sm text-muted">{exercise.notes}</p>
-                        </div>
-                      ) : null}
+                    const reordered = arrayMove(section.exercises, currentIndex, nextIndex);
+                    reorderExercisesMutation.mutate({
+                      templateId: template.id,
+                      section: section.type,
+                      exerciseIds: reordered.map((item) => item.id),
+                    });
+                  }}
+                  sensors={sensors}
+                >
+                  <SortableContext
+                    items={section.exercises.map((exercise) => exercise.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {section.exercises.map((exercise, index) => (
+                      <TemplateExerciseCard
+                        exercise={exercise}
+                        index={index}
+                        isMoveDownDisabled={index === section.exercises.length - 1}
+                        isMoveUpDisabled={index === 0}
+                        key={exercise.id}
+                        onMoveDown={() => {
+                          if (index >= section.exercises.length - 1) {
+                            return;
+                          }
 
-                      {(exercise.formCues?.length ?? 0) > 0 || exercise.cues.length > 0 ? (
-                        <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-                          <FormCueChips
-                            exerciseCues={exercise.formCues ?? []}
-                            templateCues={exercise.cues}
-                          />
-                        </div>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                ))
+                          const reordered = arrayMove(section.exercises, index, index + 1);
+                          reorderExercisesMutation.mutate({
+                            templateId: template.id,
+                            section: section.type,
+                            exerciseIds: reordered.map((item) => item.id),
+                          });
+                        }}
+                        onMoveUp={() => {
+                          if (index <= 0) {
+                            return;
+                          }
+
+                          const reordered = arrayMove(section.exercises, index, index - 1);
+                          reorderExercisesMutation.mutate({
+                            templateId: template.id,
+                            section: section.type,
+                            exerciseIds: reordered.map((item) => item.id),
+                          });
+                        }}
+                        onRename={() =>
+                          setRenameTarget({
+                            exerciseId: exercise.exerciseId,
+                            exerciseName: exercise.exerciseName,
+                          })
+                        }
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </details>
@@ -320,6 +355,107 @@ function TemplateDetailSkeleton() {
   );
 }
 
+function TemplateExerciseCard({
+  exercise,
+  index,
+  isMoveDownDisabled,
+  isMoveUpDisabled,
+  onMoveDown,
+  onMoveUp,
+  onRename,
+}: {
+  exercise: WorkoutTemplateExercise;
+  index: number;
+  isMoveDownDisabled: boolean;
+  isMoveUpDisabled: boolean;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
+  onRename: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: exercise.id,
+  });
+
+  return (
+    <Card
+      className="gap-4 py-0"
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <CardHeader className="gap-3 py-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <Button
+              aria-label={`Drag handle for ${exercise.exerciseName}`}
+              className="mt-1 size-9 touch-none"
+              size="icon"
+              type="button"
+              variant="ghost"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical aria-hidden="true" className="size-4" />
+            </Button>
+            <div className="space-y-2">
+              <CardTitle>{exercise.exerciseName}</CardTitle>
+              <p className="text-sm font-medium text-foreground">{formatPrescription(exercise)}</p>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={`Exercise actions for ${exercise.exerciseName}`}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <MoreVertical aria-hidden="true" className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
+                <ArrowUp aria-hidden="true" className="size-4" />
+                Move up
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
+                <ArrowDown aria-hidden="true" className="size-4" />
+                Move down
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onRename}>Rename exercise</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 pb-5">
+        <p className="text-xs font-medium tracking-[0.16em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
+        <div className="flex flex-wrap gap-2 text-sm">
+          {exercise.restSeconds !== null ? (
+            <MetadataPill label={`Rest: ${exercise.restSeconds}s`} />
+          ) : null}
+          {exercise.tempo ? <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} /> : null}
+        </div>
+
+        {exercise.notes ? (
+          <div className="space-y-1 rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+            <p className="text-sm font-medium text-foreground">Notes</p>
+            <p className="text-sm text-muted">{exercise.notes}</p>
+          </div>
+        ) : null}
+
+        {(exercise.formCues?.length ?? 0) > 0 || exercise.cues.length > 0 ? (
+          <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+            <FormCueChips exerciseCues={exercise.formCues ?? []} templateCues={exercise.cues} />
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function formatLabel(value: string) {
   return value
     .split(/[- ]+/)
@@ -368,13 +504,14 @@ function formatTempo(tempo: string) {
 
 function buildInitialSessionSets(template: WorkoutTemplate) {
   return template.sections.flatMap((section) =>
-    section.exercises.flatMap((exercise) => {
+    section.exercises.flatMap((exercise, exerciseIndex) => {
       if (exercise.sets === null || exercise.sets < 1) {
         return [];
       }
 
       return Array.from({ length: exercise.sets }, (_, index) => ({
         exerciseId: exercise.exerciseId,
+        orderIndex: exerciseIndex,
         reps: null,
         section: section.type,
         setNumber: index + 1,

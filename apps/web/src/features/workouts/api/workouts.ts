@@ -3,7 +3,9 @@ import {
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
+  reorderWorkoutTemplateExercisesInputSchema,
   updateExerciseInputSchema,
+  updateWorkoutTemplateInputSchema,
   type Exercise,
   type ExerciseQueryParams,
   type WorkoutSession,
@@ -40,6 +42,23 @@ type WorkoutSessionResponse = { data: WorkoutSession };
 type RenameExerciseRequest = {
   id: string;
   name: string;
+};
+type RenameTemplateRequest = {
+  id: string;
+  name: string;
+};
+type DeleteTemplateRequest = {
+  id: string;
+};
+type DeleteTemplateResponse = {
+  data: {
+    success: boolean;
+  };
+};
+type ReorderTemplateExercisesRequest = {
+  templateId: string;
+  section: 'warmup' | 'main' | 'cooldown';
+  exerciseIds: string[];
 };
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -79,7 +98,8 @@ export const workoutQueryKeys = {
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   session: (id: string) => ['workouts', 'session', id] as const,
   sessions: () => ['workouts', 'sessions'] as const,
-  sessionsList: (params: WorkoutSessionQueryParams = {}) => ['workouts', 'sessions', params] as const,
+  sessionsList: (params: WorkoutSessionQueryParams = {}) =>
+    ['workouts', 'sessions', params] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
 };
@@ -96,10 +116,10 @@ const sessionListResponseSchema = z.object({
 }) as unknown as z.ZodType<{ data: WorkoutSessionListItem[] }>;
 
 async function getCompletedSessions(signal?: AbortSignal) {
-  const data = await apiRequest<unknown>(
-    '/api/v1/workout-sessions?status=completed',
-    { method: 'GET', signal },
-  );
+  const data = await apiRequest<unknown>('/api/v1/workout-sessions?status=completed', {
+    method: 'GET',
+    signal,
+  });
   const payload = sessionListResponseSchema.parse({ data });
 
   return payload.data;
@@ -118,7 +138,9 @@ async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal
   }
 
   if (parsedParams.status) {
-    searchParams.set('status', parsedParams.status);
+    for (const status of parsedParams.status) {
+      searchParams.append('status', status);
+    }
   }
 
   if (parsedParams.limit) {
@@ -209,6 +231,46 @@ async function renameExercise(input: RenameExerciseRequest) {
     method: 'PATCH',
   });
   const payload = z.object({ data: exerciseSchema }).parse({ data });
+
+  return payload.data;
+}
+
+async function renameTemplate(input: RenameTemplateRequest) {
+  const parsedInput = updateWorkoutTemplateInputSchema.parse({
+    name: input.name,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutTemplateResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function deleteTemplate(input: DeleteTemplateRequest) {
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    method: 'DELETE',
+  });
+  return z
+    .object({
+      data: z.object({
+        success: z.boolean(),
+      }),
+    })
+    .parse({ data }) as DeleteTemplateResponse;
+}
+
+async function reorderTemplateExercises(input: ReorderTemplateExercisesRequest) {
+  const parsedInput = reorderWorkoutTemplateExercisesInputSchema.parse({
+    section: input.section,
+    exerciseIds: input.exerciseIds,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.templateId}/reorder`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutTemplateResponseSchema.parse({ data });
 
   return payload.data;
 }
@@ -306,6 +368,62 @@ export function useRenameExercise() {
         }),
       ]);
       toast.success('Exercise renamed');
+    },
+  });
+}
+
+export function useRenameTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkoutTemplate, Error, RenameTemplateRequest>({
+    mutationFn: renameTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
+      toast.success('Template renamed');
+    },
+  });
+}
+
+export function useDeleteTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<DeleteTemplateResponse, Error, DeleteTemplateRequest>({
+    mutationFn: deleteTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
+      toast.success('Template deleted');
+    },
+  });
+}
+
+export function useReorderTemplateExercises() {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkoutTemplate, Error, ReorderTemplateExercisesRequest>({
+    mutationFn: reorderTemplateExercises,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.templateId),
+        }),
+      ]);
     },
   });
 }

@@ -36,7 +36,9 @@ type WorkoutListViewItem = {
 
 export function WorkoutList({
   buildSessionHref = (sessionId, status) =>
-    status === 'in-progress' ? `/workouts/active?sessionId=${sessionId}` : `/workouts/session/${sessionId}`,
+    status === 'in-progress' || status === 'paused'
+      ? `/workouts/active?sessionId=${sessionId}`
+      : `/workouts/session/${sessionId}`,
   buildTemplatesHref = () => '/workouts?view=templates',
   buildPlanWorkoutHref = () => '/workouts?view=templates',
   sessions,
@@ -52,7 +54,10 @@ export function WorkoutList({
     .filter((session) => session.status === 'completed')
     .sort((left, right) => right.date.getTime() - left.date.getTime());
   const hasPlannedWorkouts = listItems.some(
-    (session) => session.status === 'scheduled' || session.status === 'in-progress',
+    (session) =>
+      session.status === 'scheduled' ||
+      session.status === 'in-progress' ||
+      session.status === 'paused',
   );
 
   if (sessionsQuery.isLoading && !sessions) {
@@ -243,6 +248,15 @@ function getWorkoutPresentation(status: WorkoutSessionStatus) {
     };
   }
 
+  if (status === 'paused') {
+    return {
+      accentColor: 'rgb(245 158 11)',
+      cardClass: 'border-amber-500/40',
+      statusBadgeClass: 'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+      statusLabel: 'Paused',
+    };
+  }
+
   return {
     accentColor: 'rgb(148 163 184)',
     cardClass: 'border-slate-300/70 dark:border-slate-700/70',
@@ -268,6 +282,14 @@ function buildStatusStats(session: WorkoutListViewItem) {
     ];
   }
 
+  if (session.status === 'paused') {
+    return [
+      { icon: CalendarDays, label: sessionDateFormatter.format(session.date) },
+      { icon: Activity, label: 'Paused' },
+      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+    ];
+  }
+
   return [
     { icon: CalendarPlus2, label: `Scheduled ${sessionDateFormatter.format(session.date)}` },
     { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
@@ -281,6 +303,10 @@ function getStatusBadgeIcon(status: WorkoutSessionStatus) {
 
   if (status === 'in-progress') {
     return <span aria-hidden="true" className="size-2 rounded-full bg-current animate-pulse" />;
+  }
+
+  if (status === 'paused') {
+    return <Activity aria-hidden="true" className="size-3.5" />;
   }
 
   return <CalendarDays aria-hidden="true" className="size-3.5" />;

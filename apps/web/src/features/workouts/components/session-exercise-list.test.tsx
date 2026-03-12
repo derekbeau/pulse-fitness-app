@@ -227,6 +227,50 @@ describe('SessionExerciseList', () => {
     expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeDisabled();
   });
 
+  it('shows move up/down actions and calls onReorderExercises for active workout lists', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onReorderExercises = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onReorderExercises={onReorderExercises}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    expect(rowErgCard).not.toBeNull();
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Row Erg',
+      }),
+    );
+    expect(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Move up' }),
+    ).toBeDisabled();
+    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Move down' }));
+
+    expect(onReorderExercises).toHaveBeenCalledWith('warmup', [
+      'banded-shoulder-external-rotation',
+      'row-erg',
+    ]);
+  });
+
   it('allows adding a session-specific cue from the exercise card', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -253,7 +297,9 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }));
+    fireEvent.click(
+      within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }),
+    );
     fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
       target: { value: 'Keep elbows soft at lockout' },
     });
@@ -292,7 +338,9 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }));
+    fireEvent.click(
+      within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }),
+    );
     fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
       target: { value: 'Pause one second at full extension' },
     });

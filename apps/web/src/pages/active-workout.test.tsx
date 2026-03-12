@@ -5,10 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
-import {
-  buildSessionSetInputs,
-  extractExerciseNotes,
-} from '@/features/workouts/lib/session-notes';
+import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -46,6 +44,7 @@ describe('ActiveWorkoutPage', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
     const draftKeys: string[] = [];
     for (let index = 0; index < window.localStorage.length; index += 1) {
       const key = window.localStorage.key(index);
@@ -177,11 +176,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -244,17 +244,288 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('00:00')).toBeInTheDocument();
   });
 
-  it('renders an empty state when there is no active session and no selected template', () => {
+  it('pauses and resumes an active session timer using segmented duration', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-active-1';
+    let currentSession: MutableInProgressSessionResponse = buildInProgressSessionResponse(
+      sessionId,
+    ) as MutableInProgressSessionResponse;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: currentSession.status,
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PATCH') {
+        const payload = JSON.parse(String(init.body)) as { status?: 'paused' | 'in-progress' };
+
+        if (payload.status === 'paused') {
+          currentSession = {
+            ...currentSession,
+            status: 'paused',
+            timeSegments: [
+              {
+                start: currentSession.timeSegments[0]?.start ?? '2026-03-06T12:00:00.000Z',
+                end: new Date(Date.now()).toISOString(),
+              },
+            ],
+            duration: 65,
+          };
+        }
+
+        if (payload.status === 'in-progress') {
+          currentSession = {
+            ...currentSession,
+            status: 'in-progress',
+            timeSegments: [
+              ...(currentSession.timeSegments ?? []),
+              {
+                start: new Date(Date.now()).toISOString(),
+                end: null,
+              },
+            ],
+          };
+        }
+
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+
+    await screen.findByRole('button', { name: 'Pause' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await screen.findByRole('button', { name: 'Resume' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    await screen.findByRole('button', { name: 'Pause' });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).status === 'paused',
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).status === 'in-progress',
+      ),
+    ).toBe(true);
+  });
+
+  it('renders an empty state when there is no active session and no selected template', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
     renderActiveWorkoutPage('/workouts/active');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'No active workout' })).toBeInTheDocument();
     expect(
-      screen.getByText('Start a session from one of your existing templates to begin logging sets.'),
+      await screen.findByRole('heading', { level: 1, name: 'No active workout' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Start a session from one of your existing templates to begin logging sets.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Browse templates' })).toHaveAttribute(
       'href',
       '/workouts?view=templates',
     );
+  });
+
+  it('shows a session picker when multiple active sessions exist', async () => {
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: 'session-active',
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+              buildWorkoutSessionListItem({
+                id: 'session-paused',
+                status: 'paused',
+                templateName: null,
+                name: 'Ad-hoc Conditioning',
+              }),
+            ],
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage('/workouts/active?view=list');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Choose an active workout' }),
+    ).toBeVisible();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /upper push/i })).toHaveAttribute(
+      'href',
+      '/workouts/active?sessionId=session-active&view=list',
+    );
+    expect(screen.getByRole('link', { name: /ad-hoc conditioning/i })).toHaveAttribute(
+      'href',
+      '/workouts/active?sessionId=session-paused&view=list',
+    );
+  });
+
+  it('shows back-to-session-list navigation while editing one of multiple active sessions', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-single-active';
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+              buildWorkoutSessionListItem({
+                id: 'session-other',
+                status: 'paused',
+                templateName: 'Lower Body',
+                name: 'Lower Body',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&view=list`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Back to session list' })).toHaveAttribute(
+      'href',
+      '/workouts/active?view=list',
+    );
+  });
+
+  it('skips the session picker and opens the editor when exactly one active session exists', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-only-active';
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: buildInProgressSessionResponse(sessionId) }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage('/workouts/active');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Choose an active workout' }),
+    ).not.toBeInTheDocument();
   });
 
   it('supports manually finishing an active workout with confirmation and set summary ratio', async () => {
@@ -264,7 +535,9 @@ describe('ActiveWorkoutPage', () => {
     const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
     const finishFooter = finishButton.closest('div');
     expect(finishFooter).not.toBeNull();
-    expect(within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i)).toBeInTheDocument();
+    expect(
+      within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
+    ).toBeInTheDocument();
 
     fireEvent.click(finishButton);
     expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
@@ -285,11 +558,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '😐',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '😐',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -437,11 +711,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -564,6 +839,7 @@ describe('ActiveWorkoutPage', () => {
       {
         completed: true,
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         notes: 'Keep shoulders packed',
         reps: 10,
         section: 'main',
@@ -574,6 +850,7 @@ describe('ActiveWorkoutPage', () => {
       {
         completed: true,
         exerciseId: 'incline-dumbbell-press',
+        orderIndex: 0,
         notes: null,
         reps: 9,
         section: 'main',
@@ -629,9 +906,9 @@ function getExerciseCard(name: string) {
 
 function completeSet(exerciseName: string, setNumber: number) {
   const card = getExerciseCard(exerciseName);
-  const weightInput = within(card).queryByLabelText(`Weight for set ${setNumber}`) as
-    | HTMLInputElement
-    | null;
+  const weightInput = within(card).queryByLabelText(
+    `Weight for set ${setNumber}`,
+  ) as HTMLInputElement | null;
 
   if (weightInput && weightInput.value === '') {
     fireEvent.change(weightInput, {
@@ -675,6 +952,12 @@ function buildCompletedSessionResponse() {
     startedAt: 1_000,
     completedAt: 2_000,
     duration: 16,
+    timeSegments: [
+      {
+        start: '2026-03-06T12:00:00.000Z',
+        end: '2026-03-06T12:16:00.000Z',
+      },
+    ],
     feedback: null,
     notes: null,
     sets: [],
@@ -682,3 +965,64 @@ function buildCompletedSessionResponse() {
     updatedAt: 2_000,
   };
 }
+
+function buildInProgressSessionResponse(sessionId: string) {
+  return {
+    id: sessionId,
+    userId: 'user-1',
+    templateId: 'upper-push',
+    name: 'Upper Push',
+    date: '2026-03-06',
+    status: 'in-progress' as const,
+    startedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    completedAt: null,
+    duration: null,
+    timeSegments: [
+      {
+        start: '2026-03-06T12:00:00.000Z',
+        end: null,
+      },
+    ],
+    feedback: null,
+    notes: null,
+    sets: [],
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    updatedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+  };
+}
+
+function buildWorkoutSessionListItem(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    status: 'in-progress' | 'paused';
+    templateId: string | null;
+    templateName: string | null;
+    startedAt: number;
+    exerciseCount: number;
+  }> = {},
+) {
+  return {
+    id: 'session-list-item',
+    name: 'Workout Session',
+    date: '2026-03-06',
+    status: 'in-progress' as const,
+    templateId: 'upper-push',
+    templateName: 'Upper Push',
+    startedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    completedAt: null,
+    duration: null,
+    exerciseCount: 4,
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+type MutableInProgressSessionResponse = Omit<
+  ReturnType<typeof buildInProgressSessionResponse>,
+  'status' | 'duration' | 'timeSegments'
+> & {
+  status: 'in-progress' | 'paused';
+  duration: number | null;
+  timeSegments: Array<{ start: string; end: string | null }>;
+};
