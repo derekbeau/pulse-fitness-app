@@ -8,8 +8,10 @@ import {
   type SaveWorkoutSessionAsTemplateInput,
   type UpdateWorkoutSessionInput,
   type WorkoutSession,
+  timeSegmentsSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionListItem,
+  workoutSessionStatusSchema,
   workoutSessionFeedbackSchema,
   workoutSessionListItemSchema,
   workoutSessionQueryParamsSchema,
@@ -154,6 +156,12 @@ describe('workoutSessionSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: 1_700_000_003_600,
       duration: 60,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T11:00:00.000Z',
+        },
+      ],
       feedback: {
         energy: 4,
         recovery: 3,
@@ -189,6 +197,12 @@ describe('workoutSessionSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: 1_700_000_003_600,
       duration: 60,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T11:00:00.000Z',
+        },
+      ],
       feedback: {
         energy: 4,
         recovery: 3,
@@ -227,6 +241,7 @@ describe('workoutSessionSchema', () => {
         startedAt: 10,
         completedAt: null,
         duration: null,
+        timeSegments: [],
         feedback: null,
         notes: null,
         sets: [],
@@ -247,6 +262,12 @@ describe('createWorkoutSessionInputSchema', () => {
       startedAt: 2000,
       completedAt: 2600,
       duration: 45,
+      timeSegments: [
+        {
+          start: '2026-03-13T10:00:00.000Z',
+          end: '2026-03-13T10:45:00.000Z',
+        },
+      ],
       feedback: {
         energy: 5,
         recovery: 4,
@@ -275,6 +296,12 @@ describe('createWorkoutSessionInputSchema', () => {
       startedAt: 2000,
       completedAt: 2600,
       duration: 45,
+      timeSegments: [
+        {
+          start: '2026-03-13T10:00:00.000Z',
+          end: '2026-03-13T10:45:00.000Z',
+        },
+      ],
       feedback: {
         energy: 5,
         recovery: 4,
@@ -306,6 +333,46 @@ describe('createWorkoutSessionInputSchema', () => {
         startedAt: 10,
       }),
     ).toThrow();
+  });
+
+  it('defaults empty time segments', () => {
+    expect(
+      createWorkoutSessionInputSchema.parse({
+        name: 'Upper Push',
+        date: '2026-03-12',
+        startedAt: 10,
+      }).timeSegments,
+    ).toEqual([]);
+  });
+});
+
+describe('workoutSessionStatusSchema', () => {
+  it('accepts paused and cancelled statuses', () => {
+    expect(workoutSessionStatusSchema.parse('paused')).toBe('paused');
+    expect(workoutSessionStatusSchema.parse('cancelled')).toBe('cancelled');
+  });
+});
+
+describe('timeSegmentsSchema', () => {
+  it('validates segment arrays', () => {
+    expect(
+      timeSegmentsSchema.parse([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+        },
+      ]),
+    ).toEqual([
+      {
+        start: '2026-03-12T10:00:00.000Z',
+        end: null,
+      },
+    ]);
+  });
+
+  it('rejects invalid segment entries', () => {
+    expect(() => timeSegmentsSchema.parse([{ start: 123, end: null }])).toThrow();
+    expect(() => timeSegmentsSchema.parse([{ start: '2026-03-12T10:00:00.000Z' }])).toThrow();
   });
 });
 

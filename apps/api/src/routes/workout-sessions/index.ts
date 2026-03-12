@@ -78,6 +78,7 @@ const toCreateWorkoutSessionInput = (
     startedAt: session.startedAt,
     completedAt: session.completedAt,
     duration: session.duration,
+    timeSegments: session.timeSegments,
     feedback: session.feedback,
     notes: session.notes,
     sets: session.sets.map((set) => ({
@@ -483,10 +484,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    if (
-      existingSession.status === 'completed' &&
-      parsedBody.data.status === 'in-progress'
-    ) {
+    if (existingSession.status === 'completed' && parsedBody.data.status === 'in-progress') {
       return sendError(
         reply,
         409,
@@ -515,10 +513,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         : mergedPayload.data;
 
     if (input.templateId !== null) {
-      const templateAccessible = await templateBelongsToUser(
-        input.templateId,
-        request.userId,
-      );
+      const templateAccessible = await templateBelongsToUser(input.templateId, request.userId);
       if (!templateAccessible) {
         return sendError(
           reply,

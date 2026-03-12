@@ -44,7 +44,7 @@ const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStri
 
 const validateWorkoutSessionTiming = (
   value: {
-    status: 'scheduled' | 'in-progress' | 'completed';
+    status: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
     startedAt: number;
     completedAt: number | null;
   },
@@ -75,7 +75,19 @@ const validateWorkoutSessionTiming = (
   }
 };
 
-export const workoutSessionStatusSchema = z.enum(['scheduled', 'in-progress', 'completed']);
+export const workoutSessionStatusSchema = z.enum([
+  'scheduled',
+  'in-progress',
+  'paused',
+  'cancelled',
+  'completed',
+]);
+export const timeSegmentsSchema = z.array(
+  z.object({
+    start: z.string(),
+    end: z.string().nullable(),
+  }),
+);
 export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -171,6 +183,7 @@ export const workoutSessionSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
+    timeSegments: timeSegmentsSchema,
     feedback: workoutSessionFeedbackSchema.nullable(),
     notes: nullableLongStringSchema,
     sets: z.array(sessionSetSchema).max(500),
@@ -220,6 +233,7 @@ export const createWorkoutSessionInputSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable().optional().default(null),
     duration: nullableIntegerSchema.optional().default(null),
+    timeSegments: timeSegmentsSchema.optional().default([]),
     feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
     notes: nullableLongStringSchema.optional().default(null),
     sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
@@ -235,6 +249,7 @@ export const updateWorkoutSessionInputSchema = z
     startedAt: z.number().int().optional(),
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
+    timeSegments: timeSegmentsSchema.optional(),
     feedback: workoutSessionFeedbackSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
@@ -266,6 +281,7 @@ export const workoutSessionQueryParamsSchema = z
   });
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
+export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[number];
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
 export type SessionSet = z.infer<typeof sessionSetSchema>;

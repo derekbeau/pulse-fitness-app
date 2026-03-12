@@ -61,6 +61,12 @@ describe('ActiveSessionResumeGate', () => {
           startedAt: 100,
           completedAt: null,
           duration: null,
+          timeSegments: [
+            {
+              start: '2026-03-09T00:00:00.000Z',
+              end: null,
+            },
+          ],
           feedback: null,
           notes: null,
           sets: [],
@@ -73,7 +79,9 @@ describe('ActiveSessionResumeGate', () => {
     renderGate('/workouts');
 
     await waitFor(() => {
-      expect(screen.getByText('/workouts/active?sessionId=session-1&template=upper-push')).toBeVisible();
+      expect(
+        screen.getByText('/workouts/active?sessionId=session-1&template=upper-push'),
+      ).toBeVisible();
     });
   });
 
@@ -115,6 +123,12 @@ describe('ActiveSessionResumeGate', () => {
           startedAt: 100,
           completedAt: 200,
           duration: 10,
+          timeSegments: [
+            {
+              start: '2026-03-09T00:00:00.000Z',
+              end: '2026-03-09T00:10:00.000Z',
+            },
+          ],
           feedback: {
             energy: 4,
             recovery: 4,
@@ -155,6 +169,7 @@ describe('ActiveSessionResumeGate', () => {
           startedAt: 100,
           completedAt: null,
           duration: null,
+          timeSegments: [],
           feedback: null,
           notes: null,
           sets: [],

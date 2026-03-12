@@ -94,6 +94,12 @@ const workoutSessionPayload = {
     startedAt: Date.parse('2026-03-02T18:00:00Z'),
     completedAt: Date.parse('2026-03-02T19:00:00Z'),
     duration: 60,
+    timeSegments: [
+      {
+        start: '2026-03-02T18:00:00.000Z',
+        end: '2026-03-02T19:00:00.000Z',
+      },
+    ],
     feedback: {
       energy: 4,
       recovery: 4,
@@ -185,7 +191,10 @@ describe('App', () => {
         );
       }
 
-      if (url.pathname === '/api/v1/workout-sessions' && url.searchParams.get('status') === 'completed') {
+      if (
+        url.pathname === '/api/v1/workout-sessions' &&
+        url.searchParams.get('status') === 'completed'
+      ) {
         return Promise.resolve(jsonResponse(completedSessionsPayload));
       }
 

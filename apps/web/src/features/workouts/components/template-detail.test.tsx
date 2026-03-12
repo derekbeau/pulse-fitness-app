@@ -96,6 +96,12 @@ const createdSessionPayload = {
     startedAt: 1,
     completedAt: null,
     duration: null,
+    timeSegments: [
+      {
+        start: '2026-03-07T00:00:00.000Z',
+        end: null,
+      },
+    ],
     feedback: null,
     notes: null,
     sets: [],
@@ -166,8 +172,12 @@ describe('WorkoutTemplateDetail', () => {
 
     expect(within(inclinePressCard as HTMLElement).getByText('Exercise cues')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText('Template cues')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked')).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked'),
+    ).toBeInTheDocument();
   });
 
   it('creates a workout session before navigating to the active workout page', async () => {
@@ -296,7 +306,9 @@ describe('WorkoutTemplateDetail', () => {
       </MemoryRouter>,
     );
 
-    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest('[data-slot="card"]');
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
     expect(exerciseCard).not.toBeNull();
 
     fireEvent.click(

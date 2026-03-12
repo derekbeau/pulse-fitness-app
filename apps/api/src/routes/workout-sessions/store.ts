@@ -16,8 +16,10 @@ import type {
 import {
   exercises,
   parseWorkoutSessionFeedback,
+  parseWorkoutSessionTimeSegments,
   sessionSets,
   serializeWorkoutSessionFeedback,
+  serializeWorkoutSessionTimeSegments,
   templateExercises,
   workoutSessions,
   workoutTemplates,
@@ -36,6 +38,7 @@ type WorkoutSessionRecord = {
   startedAt: number;
   completedAt: number | null;
   duration: number | null;
+  timeSegments: string;
   feedback: string | null;
   notes: string | null;
   createdAt: number;
@@ -76,6 +79,7 @@ const workoutSessionSelection = {
   startedAt: workoutSessions.startedAt,
   completedAt: workoutSessions.completedAt,
   duration: workoutSessions.duration,
+  timeSegments: workoutSessions.timeSegments,
   feedback: workoutSessions.feedback,
   notes: workoutSessions.notes,
   createdAt: workoutSessions.createdAt,
@@ -179,22 +183,31 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
 const buildWorkoutSession = (
   session: WorkoutSessionRecord,
   sets: SessionSetRecord[],
-): WorkoutSession => ({
-  id: session.id,
-  userId: session.userId,
-  templateId: session.templateId,
-  name: session.name,
-  date: session.date,
-  status: session.status,
-  startedAt: session.startedAt,
-  completedAt: session.completedAt,
-  duration: session.duration,
-  feedback: parseWorkoutSessionFeedback(session.feedback),
-  notes: session.notes,
-  sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
-  createdAt: session.createdAt,
-  updatedAt: session.updatedAt,
-});
+): WorkoutSession => {
+  const parsedTimeSegments = parseWorkoutSessionTimeSegments(session.timeSegments);
+  const timeSegments =
+    parsedTimeSegments.length === 0 && session.status === 'in-progress'
+      ? [{ start: new Date(session.startedAt).toISOString(), end: null }]
+      : parsedTimeSegments;
+
+  return {
+    id: session.id,
+    userId: session.userId,
+    templateId: session.templateId,
+    name: session.name,
+    date: session.date,
+    status: session.status,
+    startedAt: session.startedAt,
+    completedAt: session.completedAt,
+    duration: session.duration,
+    timeSegments,
+    feedback: parseWorkoutSessionFeedback(session.feedback),
+    notes: session.notes,
+    sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+  };
+};
 
 const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => ({
@@ -442,6 +455,7 @@ export const createWorkoutSession = async ({
         startedAt: input.startedAt,
         completedAt: input.completedAt,
         duration: input.duration,
+        timeSegments: serializeWorkoutSessionTimeSegments(input.timeSegments),
         feedback: serializeWorkoutSessionFeedback(input.feedback),
         notes: input.notes,
       })
@@ -565,6 +579,7 @@ export const updateWorkoutSession = async ({
         startedAt: input.startedAt,
         completedAt: input.completedAt,
         duration: input.duration,
+        timeSegments: serializeWorkoutSessionTimeSegments(input.timeSegments),
         feedback: serializeWorkoutSessionFeedback(input.feedback),
         notes: input.notes,
       })

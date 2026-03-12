@@ -31,6 +31,12 @@ const sessionResponse = {
   startedAt: 100,
   completedAt: null,
   duration: null,
+  timeSegments: [
+    {
+      start: '2026-03-08T00:00:00.000Z',
+      end: null,
+    },
+  ],
   feedback: null,
   notes: null,
   sets: [],
@@ -56,7 +62,10 @@ describe('use-workout-session hooks', () => {
     });
 
     expect(result.current.data?.id).toBe('session-1');
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/workout-sessions/session-1', expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/workout-sessions/session-1',
+      expect.any(Object),
+    );
   });
 
   it('starts a session and invalidates list/detail queries', async () => {

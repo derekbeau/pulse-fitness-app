@@ -1194,6 +1194,41 @@ describe('workout session routes', () => {
     });
   });
 
+  it('backfills empty time segments for in-progress sessions at read time', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const startedAt = Date.UTC(2026, 2, 12, 14, 30, 0);
+
+    seedWorkoutSession({
+      id: 'session-legacy',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Legacy Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-legacy',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-legacy',
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: new Date(startedAt).toISOString(),
+            end: null,
+          },
+        ],
+      }),
+    });
+  });
+
   it('updates owned workout sessions by replacing nested set rows', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

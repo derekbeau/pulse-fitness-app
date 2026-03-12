@@ -15,6 +15,7 @@ function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
     startedAt: Date.parse('2026-03-01T18:00:00Z'),
     completedAt: Date.parse('2026-03-01T19:00:00Z'),
     duration: 60,
+    timeSegments: [],
     feedback: {
       energy: 4 as const,
       recovery: 4 as const,

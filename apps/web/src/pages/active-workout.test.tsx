@@ -5,10 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
-import {
-  buildSessionSetInputs,
-  extractExerciseNotes,
-} from '@/features/workouts/lib/session-notes';
+import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -177,11 +174,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -247,9 +245,13 @@ describe('ActiveWorkoutPage', () => {
   it('renders an empty state when there is no active session and no selected template', () => {
     renderActiveWorkoutPage('/workouts/active');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'No active workout' })).toBeInTheDocument();
     expect(
-      screen.getByText('Start a session from one of your existing templates to begin logging sets.'),
+      screen.getByRole('heading', { level: 1, name: 'No active workout' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Start a session from one of your existing templates to begin logging sets.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Browse templates' })).toHaveAttribute(
       'href',
@@ -264,7 +266,9 @@ describe('ActiveWorkoutPage', () => {
     const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
     const finishFooter = finishButton.closest('div');
     expect(finishFooter).not.toBeNull();
-    expect(within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i)).toBeInTheDocument();
+    expect(
+      within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
+    ).toBeInTheDocument();
 
     fireEvent.click(finishButton);
     expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
@@ -285,11 +289,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '😐',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '😐',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -437,11 +442,12 @@ describe('ActiveWorkoutPage', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -629,9 +635,9 @@ function getExerciseCard(name: string) {
 
 function completeSet(exerciseName: string, setNumber: number) {
   const card = getExerciseCard(exerciseName);
-  const weightInput = within(card).queryByLabelText(`Weight for set ${setNumber}`) as
-    | HTMLInputElement
-    | null;
+  const weightInput = within(card).queryByLabelText(
+    `Weight for set ${setNumber}`,
+  ) as HTMLInputElement | null;
 
   if (weightInput && weightInput.value === '') {
     fireEvent.change(weightInput, {
@@ -675,6 +681,12 @@ function buildCompletedSessionResponse() {
     startedAt: 1_000,
     completedAt: 2_000,
     duration: 16,
+    timeSegments: [
+      {
+        start: '2026-03-06T12:00:00.000Z',
+        end: '2026-03-06T12:16:00.000Z',
+      },
+    ],
     feedback: null,
     notes: null,
     sets: [],

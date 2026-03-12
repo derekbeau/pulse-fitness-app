@@ -240,6 +240,7 @@ const toCreateWorkoutSessionInput = (session: WorkoutSession): CreateWorkoutSess
   startedAt: session.startedAt,
   completedAt: session.completedAt,
   duration: session.duration,
+  timeSegments: session.timeSegments,
   feedback: session.feedback,
   notes: session.notes,
   sets: session.sets.map((set) => ({
