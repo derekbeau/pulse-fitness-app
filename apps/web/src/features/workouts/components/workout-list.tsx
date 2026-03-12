@@ -15,7 +15,7 @@ const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 type WorkoutListProps = {
-  buildSessionHref?: (sessionId: string) => string;
+  buildSessionHref?: (sessionId: string, status: WorkoutSessionStatus) => string;
   buildTemplatesHref?: () => string;
   buildPlanWorkoutHref?: () => string;
   sessions?: WorkoutSessionListItem[];
@@ -35,7 +35,8 @@ type WorkoutListViewItem = {
 };
 
 export function WorkoutList({
-  buildSessionHref = (sessionId) => `/workouts/session/${sessionId}`,
+  buildSessionHref = (sessionId, status) =>
+    status === 'in-progress' ? `/workouts/active?sessionId=${sessionId}` : `/workouts/session/${sessionId}`,
   buildTemplatesHref = () => '/workouts?view=templates',
   buildPlanWorkoutHref = () => '/workouts?view=templates',
   sessions,
@@ -148,13 +149,13 @@ function WorkoutListCard({
   buildSessionHref,
   session,
 }: {
-  buildSessionHref: (sessionId: string) => string;
+  buildSessionHref: (sessionId: string, status: WorkoutSessionStatus) => string;
   session: WorkoutListViewItem;
 }) {
   return (
     <Link
       className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-      to={buildSessionHref(session.id)}
+      to={buildSessionHref(session.id, session.status)}
     >
       <Card
         className={cn(

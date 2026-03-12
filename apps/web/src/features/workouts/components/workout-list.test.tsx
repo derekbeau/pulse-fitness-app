@@ -43,6 +43,10 @@ describe('WorkoutList', () => {
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
     expect(screen.getByText(/Scheduled /)).toBeInTheDocument();
     expect(screen.getByText('49 min')).toBeInTheDocument();
+    const inProgressLink = screen
+      .getAllByRole('link', { name: /upper push/i })
+      .find((link) => link.getAttribute('href') === '/workouts/active?sessionId=session-in-progress');
+    expect(inProgressLink).toBeDefined();
   });
 
   it('renders a workout card with summary stats and session detail link', async () => {

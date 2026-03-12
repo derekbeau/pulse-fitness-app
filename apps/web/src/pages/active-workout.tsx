@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -67,6 +67,7 @@ import {
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
+  getStoredActiveWorkoutSessionId,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
@@ -123,8 +124,10 @@ export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('sessionId');
+  const requestedSessionId = searchParams.get('sessionId');
+  const sessionId = requestedSessionId ?? getStoredActiveWorkoutSessionId();
   const requestedTemplateId = searchParams.get('template');
+  const shouldRenderEmptyState = !sessionId && !requestedTemplateId;
   const sessionQuery = useWorkoutSession(sessionId);
   const { weightUnit } = useWeightUnit();
   const logSetMutation = useLogSet(sessionId);
@@ -339,6 +342,20 @@ export function ActiveWorkoutPage() {
       <section className="space-y-3 pb-8">
         <h1 className="text-2xl font-semibold text-foreground">Unable to load template</h1>
         <p className="text-sm text-muted">Refresh and try again.</p>
+      </section>
+    );
+  }
+
+  if (shouldRenderEmptyState) {
+    return (
+      <section className="space-y-4 pb-8">
+        <h1 className="text-2xl font-semibold text-foreground">No active workout</h1>
+        <p className="text-sm text-muted">
+          Start a session from one of your existing templates to begin logging sets.
+        </p>
+        <Button asChild type="button">
+          <Link to="/workouts?view=templates">Browse templates</Link>
+        </Button>
       </section>
     );
   }
