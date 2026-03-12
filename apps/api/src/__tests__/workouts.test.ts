@@ -475,7 +475,7 @@ describe('workouts integration', () => {
         id: startedSession.id,
         status: 'completed',
         completedAt: 1_800_000_002_700,
-        duration: 45,
+        duration: 2,
         feedback: {
           energy: 4,
           recovery: 3,

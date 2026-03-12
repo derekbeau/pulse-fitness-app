@@ -6,6 +6,7 @@ import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
+import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -43,6 +44,7 @@ describe('ActiveWorkoutPage', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
     const draftKeys: string[] = [];
     for (let index = 0; index < window.localStorage.length; index += 1) {
       const key = window.localStorage.key(index);
@@ -240,6 +242,89 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage('/workouts/active?template=upper-push');
 
     expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('pauses and resumes an active session timer using segmented duration', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-active-1';
+    let currentSession: MutableInProgressSessionResponse = buildInProgressSessionResponse(
+      sessionId,
+    ) as MutableInProgressSessionResponse;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && (!init?.method || init.method === 'GET')) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PATCH') {
+        const payload = JSON.parse(String(init.body)) as { status?: 'paused' | 'in-progress' };
+
+        if (payload.status === 'paused') {
+          currentSession = {
+            ...currentSession,
+            status: 'paused',
+            timeSegments: [
+              {
+                start: currentSession.timeSegments[0]?.start ?? '2026-03-06T12:00:00.000Z',
+                end: new Date(Date.now()).toISOString(),
+              },
+            ],
+            duration: 65,
+          };
+        }
+
+        if (payload.status === 'in-progress') {
+          currentSession = {
+            ...currentSession,
+            status: 'in-progress',
+            timeSegments: [
+              ...(currentSession.timeSegments ?? []),
+              {
+                start: new Date(Date.now()).toISOString(),
+                end: null,
+              },
+            ],
+          };
+        }
+
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+
+    await screen.findByRole('button', { name: 'Pause' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await screen.findByRole('button', { name: 'Resume' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    await screen.findByRole('button', { name: 'Pause' });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).status === 'paused',
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).status === 'in-progress',
+      ),
+    ).toBe(true);
   });
 
   it('renders an empty state when there is no active session and no selected template', () => {
@@ -694,3 +779,37 @@ function buildCompletedSessionResponse() {
     updatedAt: 2_000,
   };
 }
+
+function buildInProgressSessionResponse(sessionId: string) {
+  return {
+    id: sessionId,
+    userId: 'user-1',
+    templateId: 'upper-push',
+    name: 'Upper Push',
+    date: '2026-03-06',
+    status: 'in-progress' as const,
+    startedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    completedAt: null,
+    duration: null,
+    timeSegments: [
+      {
+        start: '2026-03-06T12:00:00.000Z',
+        end: null,
+      },
+    ],
+    feedback: null,
+    notes: null,
+    sets: [],
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    updatedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+  };
+}
+
+type MutableInProgressSessionResponse = Omit<
+  ReturnType<typeof buildInProgressSessionResponse>,
+  'status' | 'duration' | 'timeSegments'
+> & {
+  status: 'in-progress' | 'paused';
+  duration: number | null;
+  timeSegments: Array<{ start: string; end: string | null }>;
+};

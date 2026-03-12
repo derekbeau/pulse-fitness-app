@@ -7,10 +7,12 @@ import {
   type CreateWorkoutSessionInput,
   type SaveWorkoutSessionAsTemplateInput,
   type UpdateWorkoutSessionInput,
+  type UpdateWorkoutSessionTimeSegmentsInput,
   type WorkoutSession,
   timeSegmentsSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionListItem,
+  updateWorkoutSessionTimeSegmentsInputSchema,
   workoutSessionStatusSchema,
   workoutSessionFeedbackSchema,
   workoutSessionListItemSchema,
@@ -373,6 +375,56 @@ describe('timeSegmentsSchema', () => {
   it('rejects invalid segment entries', () => {
     expect(() => timeSegmentsSchema.parse([{ start: 123, end: null }])).toThrow();
     expect(() => timeSegmentsSchema.parse([{ start: '2026-03-12T10:00:00.000Z' }])).toThrow();
+  });
+});
+
+describe('updateWorkoutSessionTimeSegmentsInputSchema', () => {
+  it('accepts chronologically ordered, non-overlapping segments', () => {
+    const payload: UpdateWorkoutSessionTimeSegmentsInput =
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:20:00.000Z',
+            end: null,
+          },
+        ],
+      });
+
+    expect(payload.timeSegments).toHaveLength(2);
+  });
+
+  it('rejects overlapping or out-of-order segments', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:15:00.000Z',
+          },
+          {
+            start: '2026-03-12T10:10:00.000Z',
+            end: '2026-03-12T10:20:00.000Z',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects segments with end earlier than start', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:15:00.000Z',
+            end: '2026-03-12T10:00:00.000Z',
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });
 

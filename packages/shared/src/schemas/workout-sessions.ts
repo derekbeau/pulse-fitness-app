@@ -88,6 +88,82 @@ export const timeSegmentsSchema = z.array(
     end: z.string().nullable(),
   }),
 );
+
+const parseIsoTimestamp = (value: string) => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const validateTimeSegments = (
+  timeSegments: z.infer<typeof timeSegmentsSchema>,
+  context: z.RefinementCtx,
+) => {
+  let previousEnd: number | null = null;
+
+  for (const [index, segment] of timeSegments.entries()) {
+    const start = parseIsoTimestamp(segment.start);
+
+    if (start === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Segment start must be a valid ISO timestamp',
+        path: [index, 'start'],
+      });
+      return;
+    }
+
+    if (segment.end !== null) {
+      const end = parseIsoTimestamp(segment.end);
+      if (end === null) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Segment end must be a valid ISO timestamp',
+          path: [index, 'end'],
+        });
+        return;
+      }
+
+      if (end < start) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Segment end must be greater than or equal to segment start',
+          path: [index, 'end'],
+        });
+        return;
+      }
+
+      if (previousEnd !== null && start < previousEnd) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Time segments must be chronologically ordered and non-overlapping',
+          path: [index, 'start'],
+        });
+        return;
+      }
+
+      previousEnd = end;
+      continue;
+    }
+
+    if (index !== timeSegments.length - 1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Only the final segment may be open',
+        path: [index, 'end'],
+      });
+      return;
+    }
+
+    if (previousEnd !== null && start < previousEnd) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Time segments must be chronologically ordered and non-overlapping',
+        path: [index, 'start'],
+      });
+      return;
+    }
+  }
+};
 export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -259,6 +335,10 @@ export const updateWorkoutSessionInputSchema = z
     message: 'At least one workout session field must be provided',
   });
 
+export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
+  timeSegments: timeSegmentsSchema.superRefine(validateTimeSegments),
+});
+
 export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
   (value) => (value === null || value === undefined ? {} : value),
   z.object({
@@ -290,6 +370,9 @@ export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema
 export type SessionSetInput = z.infer<typeof sessionSetInputSchema>;
 export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
+export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
+  typeof updateWorkoutSessionTimeSegmentsInputSchema
+>;
 export type SaveWorkoutSessionAsTemplateInput = z.infer<
   typeof saveWorkoutSessionAsTemplateInputSchema
 >;

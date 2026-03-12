@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkoutSessionInputSchema,
+  type WorkoutSessionTimeSegment,
   type WorkoutSession,
+  updateWorkoutSessionTimeSegmentsInputSchema,
   updateWorkoutSessionInputSchema,
   workoutSessionSchema,
 } from '@pulse/shared';
@@ -9,6 +11,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { apiRequest } from '@/lib/api-client';
 
 const workoutSessionResponseSchema = z.object({
@@ -18,6 +21,12 @@ const workoutSessionResponseSchema = z.object({
 type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchema>;
 type UpdateSessionStartTimeRequest = {
   startedAt: number;
+};
+type UpdateSessionStatusRequest = {
+  status: 'in-progress' | 'paused' | 'cancelled';
+};
+type UpdateSessionTimeSegmentsRequest = {
+  timeSegments: WorkoutSessionTimeSegment[];
 };
 
 export const workoutSessionQueryKeys = {
@@ -54,6 +63,55 @@ async function updateSessionStartTime(sessionId: string, input: UpdateSessionSta
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
+}
+
+async function updateSessionStatus(sessionId: string, input: UpdateSessionStatusRequest) {
+  const parsedInput = updateWorkoutSessionInputSchema.parse({
+    status: input.status,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function updateSessionTimeSegments(
+  sessionId: string,
+  input: UpdateSessionTimeSegmentsRequest,
+) {
+  const parsedInput = updateWorkoutSessionTimeSegmentsInputSchema.parse({
+    timeSegments: input.timeSegments,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}/time-segments`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function syncSessionMutationCache(queryClient: ReturnType<typeof useQueryClient>, session: WorkoutSession) {
+  queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+  queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
+
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: workoutSessionQueryKeys.all,
+    }),
+    queryClient.invalidateQueries({
+      queryKey: workoutSessionQueryKeys.detail(session.id),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: workoutQueryKeys.sessions(),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: workoutQueryKeys.session(session.id),
+    }),
+  ]);
 }
 
 export function useWorkoutSession(sessionId: string | null | undefined) {
@@ -101,11 +159,43 @@ export function useUpdateSessionStartTime(sessionId: string | null | undefined) 
       return updateSessionStartTime(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      await syncSessionMutationCache(queryClient, session);
+    },
+  });
+}
 
-      await queryClient.invalidateQueries({
-        queryKey: workoutSessionQueryKeys.detail(session.id),
-      });
+export function useUpdateSessionStatus(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<WorkoutSession, Error, UpdateSessionStatusRequest>({
+    mutationFn: async (input) => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to update workout status');
+      }
+
+      return updateSessionStatus(normalizedSessionId, input);
+    },
+    onSuccess: async (session) => {
+      await syncSessionMutationCache(queryClient, session);
+    },
+  });
+}
+
+export function useUpdateSessionTimeSegments(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<WorkoutSession, Error, UpdateSessionTimeSegmentsRequest>({
+    mutationFn: async (input) => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to update workout time segments');
+      }
+
+      return updateSessionTimeSegments(normalizedSessionId, input);
+    },
+    onSuccess: async (session) => {
+      await syncSessionMutationCache(queryClient, session);
     },
   });
 }
