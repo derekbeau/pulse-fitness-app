@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
 
 import { habits } from '../../db/schema/index.js';
@@ -86,7 +86,7 @@ export const getNextHabitSortOrder = async (userId: string): Promise<number> => 
       maxSortOrder: sql<number>`coalesce(max(${habits.sortOrder}), -1)`,
     })
     .from(habits)
-    .where(eq(habits.userId, userId))
+    .where(and(eq(habits.userId, userId), isNull(habits.deletedAt)))
     .get();
 
   return (result?.maxSortOrder ?? -1) + 1;
@@ -147,7 +147,7 @@ export const listActiveHabits = async (userId: string): Promise<HabitRecord[]> =
   const records = db
     .select(habitSelection)
     .from(habits)
-    .where(and(eq(habits.userId, userId), eq(habits.active, true)))
+    .where(and(eq(habits.userId, userId), eq(habits.active, true), isNull(habits.deletedAt)))
     .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
     .all();
 
@@ -163,7 +163,7 @@ export const findHabitById = async (
   const record = db
     .select(habitSelection)
     .from(habits)
-    .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+    .where(and(eq(habits.id, id), eq(habits.userId, userId), isNull(habits.deletedAt)))
     .limit(1)
     .get();
 
@@ -192,7 +192,7 @@ export const updateHabit = async (
       pausedUntil: updates.pausedUntil ?? null,
       ...(updates.active === undefined ? {} : { active: updates.active }),
     })
-    .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+    .where(and(eq(habits.id, id), eq(habits.userId, userId), isNull(habits.deletedAt)))
     .run();
 
   if (result.changes !== 1) {
@@ -207,8 +207,8 @@ export const softDeleteHabit = async (id: string, userId: string): Promise<boole
 
   const result = db
     .update(habits)
-    .set({ active: false })
-    .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+    .set({ active: false, deletedAt: new Date().toISOString() })
+    .where(and(eq(habits.id, id), eq(habits.userId, userId), isNull(habits.deletedAt)))
     .run();
 
   return result.changes === 1;
@@ -224,7 +224,14 @@ export const reorderHabits = async (
   const existingHabits = db
     .select({ id: habits.id })
     .from(habits)
-    .where(and(eq(habits.userId, userId), eq(habits.active, true), inArray(habits.id, ids)))
+    .where(
+      and(
+        eq(habits.userId, userId),
+        eq(habits.active, true),
+        isNull(habits.deletedAt),
+        inArray(habits.id, ids),
+      ),
+    )
     .all();
 
   if (existingHabits.length !== ids.length) {
@@ -240,7 +247,14 @@ export const reorderHabits = async (
     .set({
       sortOrder: sql<number>`case ${sortOrderCases} else ${habits.sortOrder} end`,
     })
-    .where(and(eq(habits.userId, userId), eq(habits.active, true), inArray(habits.id, ids)))
+    .where(
+      and(
+        eq(habits.userId, userId),
+        eq(habits.active, true),
+        isNull(habits.deletedAt),
+        inArray(habits.id, ids),
+      ),
+    )
     .run();
 
   return true;

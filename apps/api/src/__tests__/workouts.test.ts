@@ -338,12 +338,24 @@ describe('workouts integration', () => {
     });
 
     const remainingTemplateExercises = context.db
-      .select({ id: templateExercises.id })
+      .select({ id: templateExercises.id, templateId: templateExercises.templateId })
       .from(templateExercises)
       .where(eq(templateExercises.templateId, createdTemplate.id))
       .all();
 
-    expect(remainingTemplateExercises).toEqual([]);
+    expect(remainingTemplateExercises).toHaveLength(2);
+    expect(remainingTemplateExercises.every((row) => row.templateId === createdTemplate.id)).toBe(
+      true,
+    );
+
+    const deletedTemplate = context.db
+      .select({ deletedAt: workoutTemplates.deletedAt })
+      .from(workoutTemplates)
+      .where(eq(workoutTemplates.id, createdTemplate.id))
+      .get();
+    expect(deletedTemplate).toEqual({
+      deletedAt: expect.any(String),
+    });
   });
 
   it('handles session lifecycle with template-derived planned sets and live set logging', async () => {
@@ -376,19 +388,21 @@ describe('workouts integration', () => {
     });
 
     expect(startResponse.statusCode).toBe(201);
-    const startedSession = (startResponse.json() as {
-      data: {
-        id: string;
-        templateId: string | null;
-        status: 'scheduled' | 'in-progress' | 'completed';
-        sets: Array<{
-          exerciseId: string;
-          setNumber: number;
-          section: TemplateSectionType | null;
-          completed: boolean;
-        }>;
-      };
-    }).data;
+    const startedSession = (
+      startResponse.json() as {
+        data: {
+          id: string;
+          templateId: string | null;
+          status: 'scheduled' | 'in-progress' | 'completed';
+          sets: Array<{
+            exerciseId: string;
+            setNumber: number;
+            section: TemplateSectionType | null;
+            completed: boolean;
+          }>;
+        };
+      }
+    ).data;
 
     expect(startedSession.templateId).toBe(template.id);
     expect(startedSession.status).toBe('in-progress');
@@ -441,12 +455,14 @@ describe('workouts integration', () => {
 
     expect(groupedSetResponse.statusCode).toBe(200);
 
-    const groupedSets = (groupedSetResponse.json() as {
-      data: Array<{
-        exerciseId: string;
-        sets: Array<{ setNumber: number }>;
-      }>;
-    }).data;
+    const groupedSets = (
+      groupedSetResponse.json() as {
+        data: Array<{
+          exerciseId: string;
+          sets: Array<{ setNumber: number }>;
+        }>;
+      }
+    ).data;
 
     const benchGroup = groupedSets.find((group) => group.exerciseId === 'global-bench-press');
     expect(benchGroup?.sets.map((set) => set.setNumber)).toEqual([1, 2, 3, 4]);
@@ -536,13 +552,15 @@ describe('workouts integration', () => {
 
     expect(rangeResponse.statusCode).toBe(200);
 
-    const rangeItems = (rangeResponse.json() as {
-      data: Array<{
-        id: string;
-        templateName: string | null;
-        date: string;
-      }>;
-    }).data;
+    const rangeItems = (
+      rangeResponse.json() as {
+        data: Array<{
+          id: string;
+          templateName: string | null;
+          date: string;
+        }>;
+      }
+    ).data;
 
     expect(rangeItems.map((item) => item.id)).toEqual([firstScheduleId, secondScheduleId]);
     expect(rangeItems.map((item) => item.templateName)).toEqual(['Template A', 'Template B']);
@@ -626,13 +644,15 @@ describe('workouts integration', () => {
     });
 
     expect(createResponse.statusCode).toBe(201);
-    const createdExercise = (createResponse.json() as {
-      data: {
-        id: string;
-        userId: string | null;
-        name: string;
-      };
-    }).data;
+    const createdExercise = (
+      createResponse.json() as {
+        data: {
+          id: string;
+          userId: string | null;
+          name: string;
+        };
+      }
+    ).data;
 
     expect(createdExercise.userId).toBe('user-1');
     expect(createdExercise.name).toBe('Single Arm Cable Row');

@@ -129,6 +129,7 @@ describe('foods schema', () => {
       'source',
       'notes',
       'lastUsedAt',
+      'deletedAt',
       'createdAt',
       'updatedAt',
     ]);
@@ -773,6 +774,7 @@ describe('habits schema', () => {
       'frequencyTarget',
       'scheduledDays',
       'pausedUntil',
+      'deletedAt',
       'sortOrder',
       'active',
       'createdAt',
@@ -818,6 +820,7 @@ describe('exercises schema', () => {
       'tags',
       'formCues',
       'instructions',
+      'deletedAt',
       'createdAt',
       'updatedAt',
     ]);
@@ -855,6 +858,7 @@ describe('workoutTemplates schema', () => {
       'name',
       'description',
       'tags',
+      'deletedAt',
       'createdAt',
       'updatedAt',
     ]);
@@ -949,6 +953,7 @@ describe('workoutSessions schema', () => {
       'timeSegments',
       'feedback',
       'notes',
+      'deletedAt',
       'createdAt',
       'updatedAt',
     ]);

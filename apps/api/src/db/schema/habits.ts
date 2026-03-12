@@ -27,6 +27,7 @@ export const habits = sqliteTable(
     frequencyTarget: integer('frequency_target'),
     scheduledDays: text('scheduled_days'),
     pausedUntil: text('paused_until'),
+    deletedAt: text('deleted_at'),
     sortOrder: integer('sort_order').notNull().default(0),
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
     createdAt: integer('created_at', { mode: 'number' })

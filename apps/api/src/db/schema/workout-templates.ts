@@ -20,6 +20,7 @@ export const workoutTemplates = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull(),
+    deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

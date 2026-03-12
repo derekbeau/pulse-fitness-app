@@ -21,6 +21,8 @@ Use this flow when an agent creates exercises/templates and then logs workout se
 
 ## Notes
 
+- User-facing records in habits, workout templates, exercises, foods, and workout sessions are soft-deleted via `deletedAt`; deleted records are hidden from normal list/search/get endpoints.
+- Use `GET /api/v1/trash` to inspect deleted items, `POST /api/v1/trash/:type/:id/restore` to restore, and `DELETE /api/v1/trash/:type/:id` to permanently purge.
 - New exercises auto-created during template creation intentionally use placeholder metadata (`muscleGroups: []`, `equipment: ""`, `instructions: null`) until enriched.
 - Template creation is non-blocking: possible duplicate hints are returned in `newExercises[*].possibleDuplicates`.
 - Workout session status transitions:

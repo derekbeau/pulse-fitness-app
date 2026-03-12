@@ -87,6 +87,7 @@ export const workoutSessions = sqliteTable(
     // JSON-encoded WorkoutSessionFeedback; use the serializer helpers when reading or writing.
     feedback: text('feedback'),
     notes: text('notes'),
+    deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

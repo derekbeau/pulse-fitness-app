@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { workoutTemplates } from '../../db/schema/index.js';
 
@@ -12,7 +12,13 @@ export const templateBelongsToUser = async (
   const template = db
     .select({ id: workoutTemplates.id })
     .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
+    .where(
+      and(
+        eq(workoutTemplates.id, templateId),
+        eq(workoutTemplates.userId, userId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .limit(1)
     .get();
 

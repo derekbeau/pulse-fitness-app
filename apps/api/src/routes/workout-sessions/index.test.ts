@@ -2225,7 +2225,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('deletes owned workout sessions, cascades set rows, and unlinks scheduled workouts', async () => {
+  it('soft-deletes owned workout sessions', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     seedWorkoutSession({
@@ -2274,16 +2274,37 @@ describe('workout session routes', () => {
     });
 
     expect(context.db.select().from(workoutSessions).all()).toEqual([
-      expect.objectContaining({ id: 'session-2' }),
+      expect.objectContaining({ id: 'session-1', deletedAt: expect.any(String) }),
+      expect.objectContaining({ id: 'session-2', deletedAt: null }),
     ]);
-    expect(context.db.select().from(sessionSets).all()).toEqual([]);
+    expect(context.db.select().from(sessionSets).all()).toEqual([
+      expect.objectContaining({ id: 'set-1', sessionId: 'session-1' }),
+    ]);
     expect(
       context.db
         .select({ sessionId: scheduledWorkouts.sessionId })
         .from(scheduledWorkouts)
         .where(eq(scheduledWorkouts.id, 'schedule-1'))
         .get(),
-    ).toEqual({ sessionId: null });
+    ).toEqual({ sessionId: 'session-1' });
+
+    const getDeletedResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(getDeletedResponse.statusCode).toBe(404);
+
+    const listResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+    });
+    const listPayload = listResponse.json() as { data: Array<{ id: string }> };
+
+    expect(listResponse.statusCode).toBe(200);
+    expect(listPayload.data.map((session) => session.id)).toEqual([]);
 
     const otherUserResponse = await context.app.inject({
       method: 'DELETE',

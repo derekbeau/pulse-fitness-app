@@ -137,12 +137,13 @@ const findTemplateRows = async (userId: string): Promise<TemplateRecord[]> => {
   return db
     .select(templateSelection)
     .from(workoutTemplates)
-    .where(eq(workoutTemplates.userId, userId))
+    .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
     .orderBy(asc(workoutTemplates.name), asc(workoutTemplates.createdAt))
     .all();
 };
 
 const findTemplateExerciseRows = async (
+  userId: string,
   templateIds: string[],
 ): Promise<TemplateExerciseRecord[]> => {
   if (templateIds.length === 0) {
@@ -155,7 +156,15 @@ const findTemplateExerciseRows = async (
     .select(templateExerciseSelection)
     .from(templateExercises)
     .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
-    .where(inArray(templateExercises.templateId, templateIds))
+    .where(
+      and(
+        inArray(templateExercises.templateId, templateIds),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .all();
 };
 
@@ -165,7 +174,10 @@ export const listWorkoutTemplates = async (userId: string): Promise<WorkoutTempl
     return [];
   }
 
-  const exerciseRows = await findTemplateExerciseRows(templates.map((template) => template.id));
+  const exerciseRows = await findTemplateExerciseRows(
+    userId,
+    templates.map((template) => template.id),
+  );
 
   return templates.map((template) =>
     buildTemplate(
@@ -184,7 +196,13 @@ export const findWorkoutTemplateById = async (
   const template = db
     .select(templateSelection)
     .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.id, id), eq(workoutTemplates.userId, userId)))
+    .where(
+      and(
+        eq(workoutTemplates.id, id),
+        eq(workoutTemplates.userId, userId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .limit(1)
     .get();
 
@@ -196,7 +214,15 @@ export const findWorkoutTemplateById = async (
     .select(templateExerciseSelection)
     .from(templateExercises)
     .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
-    .where(eq(templateExercises.templateId, id))
+    .where(
+      and(
+        eq(templateExercises.templateId, id),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .all();
 
   return buildTemplate(template, rows);
@@ -222,7 +248,10 @@ export const allTemplateExercisesAccessible = async ({
     .where(
       and(
         inArray(exercises.id, uniqueIds),
-        or(isNull(exercises.userId), eq(exercises.userId, userId)),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
       ),
     )
     .all()
@@ -287,7 +316,13 @@ export const updateWorkoutTemplate = async ({
         description: input.description,
         tags: input.tags,
       })
-      .where(and(eq(workoutTemplates.id, id), eq(workoutTemplates.userId, userId)))
+      .where(
+        and(
+          eq(workoutTemplates.id, id),
+          eq(workoutTemplates.userId, userId),
+          isNull(workoutTemplates.deletedAt),
+        ),
+      )
       .run();
 
     if (updateResult.changes !== 1) {
@@ -327,7 +362,13 @@ export const reorderWorkoutTemplateExercises = async ({
     const templateExists = tx
       .select({ id: workoutTemplates.id })
       .from(workoutTemplates)
-      .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
+      .where(
+        and(
+          eq(workoutTemplates.id, templateId),
+          eq(workoutTemplates.userId, userId),
+          isNull(workoutTemplates.deletedAt),
+        ),
+      )
       .limit(1)
       .get();
 
@@ -376,7 +417,13 @@ export const reorderWorkoutTemplateExercises = async ({
       .set({
         updatedAt: Date.now(),
       })
-      .where(and(eq(workoutTemplates.id, templateId), eq(workoutTemplates.userId, userId)))
+      .where(
+        and(
+          eq(workoutTemplates.id, templateId),
+          eq(workoutTemplates.userId, userId),
+          isNull(workoutTemplates.deletedAt),
+        ),
+      )
       .run();
 
     return true;
@@ -387,8 +434,17 @@ export const deleteWorkoutTemplate = async (id: string, userId: string): Promise
   const { db } = await import('../../db/index.js');
 
   const result = db
-    .delete(workoutTemplates)
-    .where(and(eq(workoutTemplates.id, id), eq(workoutTemplates.userId, userId)))
+    .update(workoutTemplates)
+    .set({
+      deletedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(workoutTemplates.id, id),
+        eq(workoutTemplates.userId, userId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .run();
 
   return result.changes === 1;

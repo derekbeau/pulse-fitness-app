@@ -373,14 +373,17 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('deletes foods by scope and scopes lastUsedAt updates to the user', async () => {
+  it('soft-deletes foods by scope and scopes lastUsedAt updates to the user', async () => {
     const { deleteFood, updateFoodLastUsedAt } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
-    expect(dbState.deleteWhereCalls).toHaveLength(1);
+    expect(dbState.updateSets[0]).toEqual({
+      deletedAt: expect.any(String),
+    });
 
-    dbState.deleteRunResult = { changes: 0 };
+    dbState.updateRunResult = { changes: 0 };
     await expect(deleteFood('food-1', 'user-2')).resolves.toBe(false);
+    dbState.updateRunResult = { changes: 1 };
 
     await updateFoodLastUsedAt('food-1', 'user-1', 1_700_000_300_000);
 
