@@ -159,3 +159,14 @@ export const patchBodyWeightEntryById = async (
 
   return findBodyWeightEntryById(id, userId);
 };
+
+export const deleteBodyWeightEntryById = async (id: string, userId: string): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const result = db
+    .delete(bodyWeight)
+    .where(and(eq(bodyWeight.id, id), eq(bodyWeight.userId, userId)))
+    .run();
+
+  return result.changes === 1;
+};

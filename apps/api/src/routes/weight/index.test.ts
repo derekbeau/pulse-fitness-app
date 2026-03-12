@@ -6,6 +6,7 @@ import { buildServer } from '../../index.js';
 import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 
 import {
+  deleteBodyWeightEntryById,
   findBodyWeightEntryById,
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
@@ -15,6 +16,7 @@ import {
 } from './store.js';
 
 vi.mock('./store.js', () => ({
+  deleteBodyWeightEntryById: vi.fn(),
   findBodyWeightEntryById: vi.fn(),
   findBodyWeightEntryByDate: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
@@ -34,6 +36,7 @@ const createAuthorizationHeader = (token: string) => ({
 
 describe('weight routes', () => {
   beforeEach(() => {
+    vi.mocked(deleteBodyWeightEntryById).mockReset();
     vi.mocked(findBodyWeightEntryById).mockReset();
     vi.mocked(findBodyWeightEntryByDate).mockReset();
     vi.mocked(getLatestBodyWeightEntry).mockReset();
@@ -542,6 +545,10 @@ describe('weight routes', () => {
             weight: 181.5,
           },
         }),
+        app.inject({
+          method: 'DELETE',
+          url: '/api/v1/weight/entry-1',
+        }),
       ]);
 
       for (const response of responses) {
@@ -553,6 +560,66 @@ describe('weight routes', () => {
           },
         });
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('deletes a scoped weight entry and returns delete metadata', async () => {
+    vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(true);
+    vi.mocked(listBodyWeightEntries).mockResolvedValue([]);
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/weight/entry-1',
+        headers: createAuthorizationHeader(authToken),
+      });
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?from=2026-03-01&to=2026-03-10',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(deleteResponse.statusCode).toBe(200);
+      expect(deleteResponse.json()).toEqual({
+        data: {
+          deleted: true,
+          id: 'entry-1',
+        },
+      });
+      expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('entry-1', 'user-1');
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json()).toEqual({ data: [] });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 404 when deleting a missing or unauthorized scoped weight entry', async () => {
+    vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(false);
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/weight/entry-404',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'WEIGHT_NOT_FOUND',
+          message: 'Weight entry not found',
+        },
+      });
+      expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('entry-404', 'user-1');
     } finally {
       await app.close();
     }

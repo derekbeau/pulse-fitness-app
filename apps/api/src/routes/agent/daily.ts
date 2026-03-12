@@ -24,6 +24,7 @@ import {
 } from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import {
+  deleteBodyWeightEntryById,
   findBodyWeightEntryByDate,
   findBodyWeightEntryById,
   patchBodyWeightEntryById,
@@ -86,6 +87,20 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ data: entry });
   });
 
+  app.delete<{ Params: { id: string } }>('/weight/:id', async (request, reply) => {
+    const deleted = await deleteBodyWeightEntryById(request.params.id, request.userId);
+    if (!deleted) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    return reply.send({
+      data: {
+        deleted: true,
+        id: request.params.id,
+      },
+    });
+  });
+
   app.get('/habits', async (request, reply) => {
     const habits = await listActiveHabits(request.userId);
     if (habits.length === 0) {
@@ -95,50 +110,58 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
     const today = getTodayDate();
     const entries = await listHabitEntriesByDateRange(request.userId, today, today);
     const entriesByHabitId = new Map(entries.map((entry) => [entry.habitId, entry]));
-    const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
-      completed: boolean;
-      value?: number;
-    }>>();
+    const resolutionByKey = new Map<
+      ReturnType<typeof buildResolutionCacheKey>,
+      Promise<{
+        completed: boolean;
+        value?: number;
+      }>
+    >();
 
     return reply.send({
-      data: await Promise.all(habits.map(async (habit) => {
-        const entry = entriesByHabitId.get(habit.id);
+      data: await Promise.all(
+        habits.map(async (habit) => {
+          const entry = entriesByHabitId.get(habit.id);
 
-        if (habit.referenceSource != null && !entry?.isOverride) {
-          const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
-          const existingResolution = resolutionByKey.get(resolutionKey);
-          const resolutionPromise =
-            existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
-          if (!existingResolution) {
-            resolutionByKey.set(resolutionKey, resolutionPromise);
+          if (habit.referenceSource != null && !entry?.isOverride) {
+            const resolutionKey = buildResolutionCacheKey(
+              habit.referenceSource,
+              habit.referenceConfig,
+            );
+            const existingResolution = resolutionByKey.get(resolutionKey);
+            const resolutionPromise =
+              existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
+            if (!existingResolution) {
+              resolutionByKey.set(resolutionKey, resolutionPromise);
+            }
+
+            const resolved = await resolutionPromise;
+            return {
+              id: habit.id,
+              name: habit.name,
+              trackingType: habit.trackingType,
+              todayEntry: {
+                value: resolved.value ?? null,
+                completed: resolved.completed,
+                isOverride: false,
+              },
+            };
           }
 
-          const resolved = await resolutionPromise;
           return {
             id: habit.id,
             name: habit.name,
             trackingType: habit.trackingType,
-            todayEntry: {
-              value: resolved.value ?? null,
-              completed: resolved.completed,
-              isOverride: false,
-            },
+            todayEntry: entry
+              ? {
+                  value: entry.value,
+                  completed: entry.completed,
+                  isOverride: entry.isOverride,
+                }
+              : null,
           };
-        }
-
-        return {
-          id: habit.id,
-          name: habit.name,
-          trackingType: habit.trackingType,
-          todayEntry: entry
-            ? {
-                value: entry.value,
-                completed: entry.completed,
-                isOverride: entry.isOverride,
-              }
-            : null,
-        };
-      })),
+        }),
+      ),
     });
   });
 

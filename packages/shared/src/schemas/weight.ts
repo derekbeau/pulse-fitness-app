@@ -36,6 +36,11 @@ export const bodyWeightEntrySchema = z.object({
   updatedAt: z.number().int(),
 });
 
+export const deleteWeightResultSchema = z.object({
+  deleted: z.literal(true),
+  id: z.string(),
+});
+
 export const weightQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
@@ -53,5 +58,6 @@ export const weightQueryParamsSchema = z
 
 export type BodyWeightEntry = z.infer<typeof bodyWeightEntrySchema>;
 export type CreateWeightInput = z.infer<typeof createWeightInputSchema>;
+export type DeleteWeightResult = z.infer<typeof deleteWeightResultSchema>;
 export type PatchWeightInput = z.infer<typeof patchWeightInputSchema>;
 export type WeightQueryParams = z.infer<typeof weightQueryParamsSchema>;
