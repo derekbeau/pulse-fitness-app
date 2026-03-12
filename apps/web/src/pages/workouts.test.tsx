@@ -317,7 +317,7 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
 
     expect(screen.getByRole('heading', { name: 'Workouts help' })).toBeInTheDocument();
-    expect(screen.getByText(/templates -> sessions -> sets flow/i)).toBeInTheDocument();
+    expect(screen.getByText(/templates\s*>\s*sessions\s*>\s*sets flow/i)).toBeInTheDocument();
     expect(screen.getByText(/active sessions are saved in localstorage/i)).toBeInTheDocument();
   });
 

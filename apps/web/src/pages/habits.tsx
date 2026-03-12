@@ -74,19 +74,17 @@ export function HabitsPage() {
       <div className="flex items-center gap-2">
         <h1 className="text-3xl font-semibold text-primary">Habits</h1>
         <HelpIcon title="Habits help">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Habits support three tracking types so each routine can match how you measure progress.
-            </p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Boolean: mark done or not done for the day.</li>
-              <li>Numeric: log a value and compare it against your target.</li>
-              <li>Time-based: track duration-style habits over time.</li>
-              <li>Streaks power the dashboard&apos;s don&apos;t break the chain view for consistency.</li>
-              <li>Create, edit, reorder, or archive/delete habits from the habits controls and menus.</li>
-              <li>Your AI agent can also log or update habit entries for you.</li>
-            </ul>
-          </div>
+          <p>
+            Habits support three tracking types so each routine can match how you measure progress.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Boolean: mark done or not done for the day.</li>
+            <li>Numeric: log a value and compare it against your target.</li>
+            <li>Time-based: track duration-style habits over time.</li>
+            <li>Streaks power the dashboard&apos;s don&apos;t break the chain view for consistency.</li>
+            <li>Create, edit, reorder, or archive/delete habits from the habits controls and menus.</li>
+            <li>Your AI agent can also log or update habit entries for you.</li>
+          </ul>
         </HelpIcon>
       </div>
       <p className="max-w-2xl text-sm text-muted">

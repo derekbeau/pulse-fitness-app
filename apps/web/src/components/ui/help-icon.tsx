@@ -17,7 +17,7 @@ function HelpIcon({ title, children }: HelpIconProps) {
     <>
       <Button
         aria-label="Help"
-        className="h-11 w-11 min-h-[44px] min-w-[44px] p-0 text-muted-foreground hover:text-foreground"
+        className="h-11 w-11 p-0 text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(true)}
         type="button"
         variant="ghost"

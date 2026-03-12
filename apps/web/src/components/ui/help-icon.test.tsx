@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { HelpIcon } from '@/components/ui/help-icon';
 
 describe('HelpIcon', () => {
-  it('renders a help icon button with a 44px tap target', () => {
+  it('renders a help icon button with the intended icon button sizing', () => {
     render(
       <HelpIcon title="Page help">
         <p>Helpful details.</p>
@@ -14,7 +14,7 @@ describe('HelpIcon', () => {
     const button = screen.getByRole('button', { name: 'Help' });
 
     expect(button).toHaveAttribute('type', 'button');
-    expect(button).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'text-muted-foreground');
+    expect(button).toHaveClass('h-11', 'w-11', 'text-muted-foreground');
   });
 
   it('opens and closes the help modal when interacting with the button', () => {

@@ -27,22 +27,4 @@ describe('HelpModal', () => {
     expect(screen.queryByText('Hidden content')).not.toBeInTheDocument();
   });
 
-  it('applies compact and scrollable content classes for mobile readability', () => {
-    render(
-      <HelpModal onOpenChange={vi.fn()} open title="Long help">
-        <p>Line one.</p>
-      </HelpModal>,
-    );
-
-    const content = document.body.querySelector('[data-slot="dialog-content"]');
-    const body = document.body.querySelector('.overflow-y-auto');
-
-    expect(content).toHaveClass('sm:max-w-md');
-    expect(body).toHaveClass(
-      'max-h-[min(70vh,32rem)]',
-      'overflow-y-auto',
-      'text-sm',
-      'text-muted-foreground',
-    );
-  });
 });

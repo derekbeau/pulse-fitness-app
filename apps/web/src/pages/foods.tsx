@@ -23,17 +23,15 @@ export function FoodsPage() {
       <div className="flex items-center gap-2">
         <h1 className="text-3xl font-semibold text-primary">Foods</h1>
         <HelpIcon title="Foods help">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Foods is your personal food database that the AI agent uses to match and log meal items.
-            </p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Create or edit foods with name, serving size, and macro values.</li>
-              <li><code>lastUsedAt</code> tracks recency so the agent can quick-match foods you use often.</li>
-              <li>Deleting a food soft-deletes it, so you can restore it later from Trash.</li>
-              <li>Food changes are snapshot-safe: past meal logs keep their original macro values.</li>
-            </ul>
-          </div>
+          <p>
+            Foods is your personal food database that the AI agent uses to match and log meal items.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Create or edit foods with name, serving size, and macro values.</li>
+            <li>Recently used foods are ranked higher so the agent can quickly match your common items.</li>
+            <li>Deleting a food soft-deletes it, so you can restore it later from Trash.</li>
+            <li>Food changes are snapshot-safe: past meal logs keep their original macro values.</li>
+          </ul>
         </HelpIcon>
       </div>
       <p className="max-w-2xl text-sm text-muted">

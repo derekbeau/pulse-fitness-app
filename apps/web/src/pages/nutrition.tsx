@@ -113,18 +113,16 @@ export function NutritionPage() {
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
           <HelpIcon title="Nutrition help">
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Nutrition is read-only for meal data. Your AI agent logs meals and updates your daily
-                totals.
-              </p>
-              <ul className="list-disc space-y-1 pl-5">
-                <li>Ask the agent to log, correct, or delete meals when something is off.</li>
-                <li>Daily summary and macro rings show actual intake compared with your targets.</li>
-                <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
-                <li>Food definition edits later will not retroactively change past meal macros.</li>
-              </ul>
-            </div>
+            <p>
+              Nutrition is read-only for meal data. Your AI agent logs meals and updates your daily
+              totals.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Ask the agent to log, correct, or delete meals when something is off.</li>
+              <li>Daily summary and macro rings show actual intake compared with your targets.</li>
+              <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
+              <li>Food definition edits later will not retroactively change past meal macros.</li>
+            </ul>
           </HelpIcon>
         </div>
         <p className="max-w-2xl text-sm text-muted">
