@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   type BodyWeightEntry,
   type CreateWeightInput,
+  type PatchWeightInput,
   type WeightQueryParams,
   bodyWeightEntrySchema,
   createWeightInputSchema,
+  patchWeightInputSchema,
   weightQueryParamsSchema,
 } from './weight';
 
@@ -85,6 +87,42 @@ describe('bodyWeightEntrySchema', () => {
     };
 
     expect(entry.notes).toBeNull();
+  });
+});
+
+describe('patchWeightInputSchema', () => {
+  it('accepts a valid single-field patch', () => {
+    const payload: PatchWeightInput = patchWeightInputSchema.parse({
+      weight: 180.5,
+    });
+
+    expect(payload).toEqual({
+      weight: 180.5,
+    });
+  });
+
+  it('accepts a valid multi-field patch', () => {
+    const payload = patchWeightInputSchema.parse({
+      weight: 179.9,
+      notes: '  feeling good  ',
+    });
+
+    expect(payload).toEqual({
+      weight: 179.9,
+      notes: 'feeling good',
+    });
+  });
+
+  it('rejects an empty patch payload', () => {
+    expect(() => patchWeightInputSchema.parse({})).toThrow();
+  });
+
+  it('rejects invalid field values', () => {
+    expect(() =>
+      patchWeightInputSchema.parse({
+        weight: -1,
+      }),
+    ).toThrow();
   });
 });
 

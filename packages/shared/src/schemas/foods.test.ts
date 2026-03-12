@@ -6,7 +6,9 @@ import {
   foodSchema,
   type Food,
   type FoodQueryParams,
+  type PatchFoodInput,
   type UpdateFoodInput,
+  patchFoodInputSchema,
   updateFoodInputSchema,
 } from './foods';
 
@@ -116,6 +118,44 @@ describe('updateFoodInputSchema', () => {
 
   it('rejects empty update payloads', () => {
     expect(() => updateFoodInputSchema.parse({})).toThrow();
+  });
+});
+
+describe('patchFoodInputSchema', () => {
+  it('accepts a valid single-field patch', () => {
+    const payload: PatchFoodInput = patchFoodInputSchema.parse({
+      notes: '  updated source  ',
+    });
+
+    expect(payload).toEqual({
+      notes: 'updated source',
+    });
+  });
+
+  it('accepts a valid multi-field patch', () => {
+    const payload = patchFoodInputSchema.parse({
+      name: ' Greek Yogurt ',
+      brand: ' Fage ',
+      verified: true,
+    });
+
+    expect(payload).toEqual({
+      name: 'Greek Yogurt',
+      brand: 'Fage',
+      verified: true,
+    });
+  });
+
+  it('rejects an empty patch payload', () => {
+    expect(() => patchFoodInputSchema.parse({})).toThrow();
+  });
+
+  it('enforces field constraints', () => {
+    expect(() =>
+      patchFoodInputSchema.parse({
+        name: 'x'.repeat(256),
+      }),
+    ).toThrow();
   });
 });
 

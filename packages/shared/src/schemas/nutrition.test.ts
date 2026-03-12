@@ -5,11 +5,15 @@ import {
   type DailyNutrition,
   type DeleteMealResult,
   type MealItemInput,
+  type PatchMealInput,
+  type PatchMealItemInput,
   type NutritionSummary,
   createMealInputSchema,
   dailyNutritionSchema,
   deleteMealResultSchema,
   mealItemInputSchema,
+  patchMealInputSchema,
+  patchMealItemInputSchema,
   nutritionSummarySchema,
 } from './nutrition';
 
@@ -138,6 +142,80 @@ describe('createMealInputSchema', () => {
     };
 
     expect(meal.name).toBe('Breakfast');
+  });
+});
+
+describe('patchMealInputSchema', () => {
+  it('accepts a valid single-field patch', () => {
+    const payload: PatchMealInput = patchMealInputSchema.parse({
+      name: ' Dinner ',
+    });
+
+    expect(payload).toEqual({
+      name: 'Dinner',
+    });
+  });
+
+  it('accepts a valid multi-field patch', () => {
+    const payload = patchMealInputSchema.parse({
+      time: null,
+      notes: '  lighter meal  ',
+    });
+
+    expect(payload).toEqual({
+      time: null,
+      notes: 'lighter meal',
+    });
+  });
+
+  it('rejects an empty patch payload', () => {
+    expect(() => patchMealInputSchema.parse({})).toThrow();
+  });
+
+  it('enforces field constraints', () => {
+    expect(() =>
+      patchMealInputSchema.parse({
+        name: 'x'.repeat(121),
+      }),
+    ).toThrow();
+  });
+});
+
+describe('patchMealItemInputSchema', () => {
+  it('accepts a valid single-field patch', () => {
+    const payload: PatchMealItemInput = patchMealItemInputSchema.parse({
+      amount: 2.5,
+    });
+
+    expect(payload).toEqual({
+      amount: 2.5,
+    });
+  });
+
+  it('accepts a valid multi-field patch', () => {
+    const payload = patchMealItemInputSchema.parse({
+      name: ' Grilled Chicken ',
+      calories: 220,
+      fiber: null,
+    });
+
+    expect(payload).toEqual({
+      name: 'Grilled Chicken',
+      calories: 220,
+      fiber: null,
+    });
+  });
+
+  it('rejects an empty patch payload', () => {
+    expect(() => patchMealItemInputSchema.parse({})).toThrow();
+  });
+
+  it('enforces field constraints', () => {
+    expect(() =>
+      patchMealItemInputSchema.parse({
+        amount: 0,
+      }),
+    ).toThrow();
   });
 });
 
