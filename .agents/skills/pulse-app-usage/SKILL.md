@@ -37,7 +37,7 @@ Use referential habits when completion should be inferred from other tracked dat
    - `referenceConfig`:
      - `weight`: `{ "condition": "exists_today" }`
      - `nutrition_daily`: `{ "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
-     - `nutrition_meal`: `{ "mealType": string, "field": string, "op": string, "value": number }`
+     - `nutrition_meal`: `{ "mealType": string, "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
      - `workout`: `{ "condition": "session_completed_today" }`
 3. Read habits with `GET /api/v1/habits`; referential habits auto-resolve completion for today.
 4. Manually override a referential habit with `PATCH /api/agent/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.

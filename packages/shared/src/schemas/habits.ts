@@ -6,24 +6,24 @@ export const referenceSourceSchema = z
   .enum(['weight', 'nutrition_daily', 'nutrition_meal', 'workout'])
   .nullable();
 
-const weightReferenceConfigSchema = z.object({
+export const weightReferenceConfigSchema = z.object({
   condition: z.literal('exists_today'),
 });
 
-const nutritionDailyReferenceConfigSchema = z.object({
+export const nutritionDailyReferenceConfigSchema = z.object({
   field: z.enum(['protein', 'calories', 'carbs', 'fat']),
   op: z.enum(['gte', 'lte', 'eq']),
   value: z.number().finite(),
 });
 
-const nutritionMealReferenceConfigSchema = z.object({
+export const nutritionMealReferenceConfigSchema = z.object({
   mealType: z.string().trim().min(1).max(120),
   field: z.enum(['protein', 'calories', 'carbs', 'fat']),
   op: z.enum(['gte', 'lte', 'eq']),
   value: z.number().finite(),
 });
 
-const workoutReferenceConfigSchema = z.object({
+export const workoutReferenceConfigSchema = z.object({
   condition: z.literal('session_completed_today'),
 });
 

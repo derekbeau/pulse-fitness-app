@@ -1,5 +1,11 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { Habit } from '@pulse/shared';
+import {
+  nutritionDailyReferenceConfigSchema,
+  nutritionMealReferenceConfigSchema,
+  type Habit,
+  weightReferenceConfigSchema,
+  workoutReferenceConfigSchema,
+} from '@pulse/shared';
 
 import {
   bodyWeight,
@@ -23,9 +29,6 @@ const compareNumber = (actual: number, op: NumericOp, target: number): boolean =
 
   return actual === target;
 };
-
-const isNumericOp = (value: string): value is NumericOp =>
-  value === 'gte' || value === 'lte' || value === 'eq';
 
 const getDailyMacroFieldValue = (
   row: { calories: number; protein: number; carbs: number; fat: number },
@@ -159,58 +162,32 @@ export const resolveHabitCompletion = async (
     return { completed: false };
   }
 
-  if (
-    referenceSource === 'weight' &&
-    'condition' in referenceConfig &&
-    referenceConfig.condition === 'exists_today'
-  ) {
-    return resolveWeightCompletion(userId, date);
+  if (referenceSource === 'weight') {
+    const parsedConfig = weightReferenceConfigSchema.safeParse(referenceConfig);
+    if (parsedConfig.success) {
+      return resolveWeightCompletion(userId, date);
+    }
   }
 
-  if (
-    referenceSource === 'nutrition_daily' &&
-    'field' in referenceConfig &&
-    'op' in referenceConfig &&
-    'value' in referenceConfig &&
-    (referenceConfig.field === 'protein' ||
-      referenceConfig.field === 'calories' ||
-      referenceConfig.field === 'carbs' ||
-      referenceConfig.field === 'fat') &&
-    (referenceConfig.op === 'gte' || referenceConfig.op === 'lte' || referenceConfig.op === 'eq')
-  ) {
-    return resolveNutritionDailyCompletion(userId, date, {
-      field: referenceConfig.field,
-      op: referenceConfig.op,
-      value: referenceConfig.value,
-    });
+  if (referenceSource === 'nutrition_daily') {
+    const parsedConfig = nutritionDailyReferenceConfigSchema.safeParse(referenceConfig);
+    if (parsedConfig.success) {
+      return resolveNutritionDailyCompletion(userId, date, parsedConfig.data);
+    }
   }
 
-  if (
-    referenceSource === 'nutrition_meal' &&
-    'mealType' in referenceConfig &&
-    'field' in referenceConfig &&
-    'op' in referenceConfig &&
-    'value' in referenceConfig &&
-    (referenceConfig.field === 'protein' ||
-      referenceConfig.field === 'calories' ||
-      referenceConfig.field === 'carbs' ||
-      referenceConfig.field === 'fat') &&
-    isNumericOp(referenceConfig.op)
-  ) {
-    return resolveNutritionMealCompletion(userId, date, {
-      mealType: referenceConfig.mealType,
-      field: referenceConfig.field,
-      op: referenceConfig.op,
-      value: referenceConfig.value,
-    });
+  if (referenceSource === 'nutrition_meal') {
+    const parsedConfig = nutritionMealReferenceConfigSchema.safeParse(referenceConfig);
+    if (parsedConfig.success) {
+      return resolveNutritionMealCompletion(userId, date, parsedConfig.data);
+    }
   }
 
-  if (
-    referenceSource === 'workout' &&
-    'condition' in referenceConfig &&
-    referenceConfig.condition === 'session_completed_today'
-  ) {
-    return resolveWorkoutCompletion(userId, date);
+  if (referenceSource === 'workout') {
+    const parsedConfig = workoutReferenceConfigSchema.safeParse(referenceConfig);
+    if (parsedConfig.success) {
+      return resolveWorkoutCompletion(userId, date);
+    }
   }
 
   return { completed: false };
