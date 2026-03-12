@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import { createWorkoutTemplateInputSchema, updateWorkoutTemplateInputSchema } from '@pulse/shared';
+import {
+  createWorkoutTemplateInputSchema,
+  type UpdateWorkoutTemplateInput,
+  updateWorkoutTemplateInputSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
@@ -29,6 +33,41 @@ const getReferencedExerciseIds = (
   sections: Array<{ exercises: Array<{ exerciseId: string }> }>,
 ): string[] =>
   sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId));
+
+const resolveTemplateUpdateInput = ({
+  existingTemplate,
+  update,
+}: {
+  existingTemplate: Awaited<ReturnType<typeof findWorkoutTemplateById>>;
+  update: UpdateWorkoutTemplateInput;
+}) => {
+  if (!existingTemplate) {
+    throw new Error('existingTemplate is required to resolve updates');
+  }
+
+  return {
+    name: update.name ?? existingTemplate.name,
+    description:
+      update.description !== undefined ? update.description : existingTemplate.description,
+    tags: update.tags ?? existingTemplate.tags,
+    sections:
+      update.sections ??
+      existingTemplate.sections.map((section) => ({
+        type: section.type,
+        exercises: section.exercises.map((exercise) => ({
+          exerciseId: exercise.exerciseId,
+          sets: exercise.sets,
+          repsMin: exercise.repsMin,
+          repsMax: exercise.repsMax,
+          tempo: exercise.tempo,
+          restSeconds: exercise.restSeconds,
+          supersetGroup: exercise.supersetGroup,
+          notes: exercise.notes,
+          cues: exercise.cues,
+        })),
+      })),
+  };
+};
 
 export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
@@ -105,7 +144,12 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const exerciseIds = getReferencedExerciseIds(parsedBody.data.sections);
+    const resolvedInput = resolveTemplateUpdateInput({
+      existingTemplate,
+      update: parsedBody.data,
+    });
+
+    const exerciseIds = getReferencedExerciseIds(resolvedInput.sections);
     const exercisesAccessible = await allTemplateExercisesAccessible({
       userId: request.userId,
       exerciseIds,
@@ -122,7 +166,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     const template = await updateWorkoutTemplate({
       id: request.params.id,
       userId: request.userId,
-      input: parsedBody.data,
+      input: resolvedInput,
     });
     if (!template) {
       return sendError(

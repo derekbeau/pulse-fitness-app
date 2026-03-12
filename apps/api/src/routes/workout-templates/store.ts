@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
-  UpdateWorkoutTemplateInput,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WorkoutTemplateSection,
@@ -110,7 +109,7 @@ const buildTemplate = (
 
 const flattenSections = (
   templateId: string,
-  sections: CreateWorkoutTemplateInput['sections'] | UpdateWorkoutTemplateInput['sections'],
+  sections: CreateWorkoutTemplateInput['sections'],
 ) =>
   SECTION_ORDER.flatMap((sectionType) => {
     const section = sections.find((value) => value.type === sectionType);
@@ -278,7 +277,7 @@ export const updateWorkoutTemplate = async ({
 }: {
   id: string;
   userId: string;
-  input: UpdateWorkoutTemplateInput;
+  input: CreateWorkoutTemplateInput;
 }): Promise<WorkoutTemplate | undefined> => {
   const { db } = await import('../../db/index.js');
   const nestedRows = flattenSections(id, input.sections);

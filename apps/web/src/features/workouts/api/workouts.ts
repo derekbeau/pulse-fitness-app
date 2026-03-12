@@ -4,6 +4,7 @@ import {
   exerciseQueryParamsSchema,
   exerciseSchema,
   updateExerciseInputSchema,
+  updateWorkoutTemplateInputSchema,
   type Exercise,
   type ExerciseQueryParams,
   type WorkoutSession,
@@ -40,6 +41,18 @@ type WorkoutSessionResponse = { data: WorkoutSession };
 type RenameExerciseRequest = {
   id: string;
   name: string;
+};
+type RenameTemplateRequest = {
+  id: string;
+  name: string;
+};
+type DeleteTemplateRequest = {
+  id: string;
+};
+type DeleteTemplateResponse = {
+  data: {
+    success: boolean;
+  };
 };
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -215,6 +228,32 @@ async function renameExercise(input: RenameExerciseRequest) {
   return payload.data;
 }
 
+async function renameTemplate(input: RenameTemplateRequest) {
+  const parsedInput = updateWorkoutTemplateInputSchema.parse({
+    name: input.name,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PUT',
+  });
+  const payload = workoutTemplateResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function deleteTemplate(input: DeleteTemplateRequest) {
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    method: 'DELETE',
+  });
+  return z
+    .object({
+      data: z.object({
+        success: z.boolean(),
+      }),
+    })
+    .parse({ data }) as DeleteTemplateResponse;
+}
+
 export function useWorkoutTemplates() {
   return useQuery<WorkoutTemplate[]>({
     queryFn: getWorkoutTemplates,
@@ -308,6 +347,44 @@ export function useRenameExercise() {
         }),
       ]);
       toast.success('Exercise renamed');
+    },
+  });
+}
+
+export function useRenameTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkoutTemplate, Error, RenameTemplateRequest>({
+    mutationFn: renameTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
+      toast.success('Template renamed');
+    },
+  });
+}
+
+export function useDeleteTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<DeleteTemplateResponse, Error, DeleteTemplateRequest>({
+    mutationFn: deleteTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
+      toast.success('Template deleted');
     },
   });
 }

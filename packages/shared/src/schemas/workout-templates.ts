@@ -111,7 +111,7 @@ export const workoutTemplateSchema = z.object({
   updatedAt: z.number().int(),
 });
 
-const createOrUpdateWorkoutTemplateInputSchema = z
+const createWorkoutTemplateInputSchemaInternal = z
   .object({
     name: requiredStringSchema,
     description: nullableStringSchema.optional().default(null),
@@ -134,8 +134,46 @@ const createOrUpdateWorkoutTemplateInputSchema = z
     });
   });
 
-export const createWorkoutTemplateInputSchema = createOrUpdateWorkoutTemplateInputSchema;
-export const updateWorkoutTemplateInputSchema = createOrUpdateWorkoutTemplateInputSchema;
+export const createWorkoutTemplateInputSchema = createWorkoutTemplateInputSchemaInternal;
+export const updateWorkoutTemplateInputSchema = z
+  .object({
+    name: requiredStringSchema.optional(),
+    description: nullableStringSchema.optional(),
+    tags: z.array(requiredStringSchema).max(20).optional(),
+    sections: z.array(workoutTemplateSectionInputSchema).max(3).optional(),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.name === undefined &&
+      value.description === undefined &&
+      value.tags === undefined &&
+      value.sections === undefined
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one field must be provided',
+      });
+      return;
+    }
+
+    if (!value.sections) {
+      return;
+    }
+
+    const seen = new Set<string>();
+
+    value.sections.forEach((section, index) => {
+      if (seen.has(section.type)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Each section type may only appear once',
+          path: ['sections', index, 'type'],
+        });
+      }
+
+      seen.add(section.type);
+    });
+  });
 
 export type WorkoutTemplateSectionType = z.infer<typeof workoutTemplateSectionTypeSchema>;
 export type WorkoutTemplateExercise = z.infer<typeof workoutTemplateExerciseSchema>;

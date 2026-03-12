@@ -207,12 +207,26 @@ describe('createWorkoutTemplateInputSchema', () => {
 });
 
 describe('updateWorkoutTemplateInputSchema', () => {
-  it('uses the same full-replacement contract as create payloads', () => {
+  it('accepts partial updates like name-only payloads', () => {
     const payload: UpdateWorkoutTemplateInput = updateWorkoutTemplateInputSchema.parse({
       name: 'Full Body',
-      sections: [],
     });
 
-    expect(payload.sections).toEqual([]);
+    expect(payload).toEqual({
+      name: 'Full Body',
+    });
+  });
+
+  it('rejects empty update payloads and duplicate sections', () => {
+    expect(() => updateWorkoutTemplateInputSchema.parse({})).toThrow();
+
+    expect(() =>
+      updateWorkoutTemplateInputSchema.parse({
+        sections: [
+          { type: 'main', exercises: [] },
+          { type: 'main', exercises: [] },
+        ],
+      }),
+    ).toThrow();
   });
 });

@@ -514,6 +514,39 @@ describe('workout template routes', () => {
       },
     ]);
 
+    const renameOnlyResponse = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/workout-templates/template-1',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Upper Push v3',
+      },
+    });
+
+    expect(renameOnlyResponse.statusCode).toBe(200);
+    expect(renameOnlyResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'template-1',
+        name: 'Upper Push v3',
+        description: 'Updated notes',
+        tags: ['push', 'hypertrophy'],
+        sections: [
+          {
+            type: 'warmup',
+            exercises: [expect.objectContaining({ exerciseId: 'global-row-erg' })],
+          },
+          {
+            type: 'main',
+            exercises: [expect.objectContaining({ exerciseId: 'user-row' })],
+          },
+          {
+            type: 'cooldown',
+            exercises: [],
+          },
+        ],
+      }),
+    });
+
     const otherUserResponse = await context.app.inject({
       method: 'PUT',
       url: '/api/v1/workout-templates/template-2',
