@@ -375,6 +375,28 @@ describe('NutritionPage', () => {
     );
   });
 
+  it('opens contextual nutrition help from the page header', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('heading', { name: 'Nutrition help' })).toBeInTheDocument();
+    expect(screen.getByText(/nutrition is read-only for meal data/i)).toBeInTheDocument();
+    expect(screen.getByText(/food definition edits later will not retroactively change/i)).toBeInTheDocument();
+  });
+
   it('shows date-aware empty-state copy and go-to-today action on non-today dates', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {

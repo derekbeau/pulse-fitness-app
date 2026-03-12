@@ -201,4 +201,42 @@ describe('HabitsPage', () => {
     expect(await screen.findByRole('heading', { name: expectedHeading })).toBeInTheDocument();
     expect(habitEntriesRequests).toContain(`from=${selectedDayKey}&to=${selectedDayKey}`);
   });
+
+  it('shows contextual help for habit tracking', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/habits') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/habit-entries') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/habits']}>
+        <Routes>
+          <Route element={<HabitsPage />} path="/habits" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText('Habit date picker')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('heading', { name: 'Habits help' })).toBeInTheDocument();
+    expect(screen.getByText('Boolean: mark done or not done for the day.')).toBeInTheDocument();
+    expect(
+      screen.getByText("Streaks power the dashboard's don't break the chain view for consistency."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Your AI agent can also log or update habit entries for you.'),
+    ).toBeInTheDocument();
+  });
 });

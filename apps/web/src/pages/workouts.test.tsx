@@ -305,6 +305,22 @@ describe('WorkoutsPage', () => {
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=exercises');
   });
 
+  it('opens contextual workouts help from the page header', async () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('heading', { name: 'Workouts help' })).toBeInTheDocument();
+    expect(screen.getByText(/templates\s*>\s*sessions\s*>\s*sets flow/i)).toBeInTheDocument();
+    expect(screen.getByText(/active sessions are saved in localstorage/i)).toBeInTheDocument();
+  });
+
   it('includes the current view in session links and routes in-progress/paused sessions to active workout', async () => {
     renderWithQueryClient(
       <MemoryRouter initialEntries={['/workouts?view=list']}>
