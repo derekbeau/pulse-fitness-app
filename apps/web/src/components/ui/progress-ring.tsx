@@ -28,7 +28,7 @@ export function ProgressRing({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   const centerText = label ?? `${Math.round(progress)}%`;
-  const labelWidth = Math.max(size - strokeWidth * 3, 0);
+  const labelWidthPercent = Math.max(((size - strokeWidth * 3) / size) * 100, 0);
 
   return (
     <div
@@ -74,7 +74,7 @@ export function ProgressRing({
           'pointer-events-none absolute inline-flex items-center justify-center text-center text-sm font-semibold text-foreground',
           labelClassName,
         )}
-        style={{ maxWidth: `${labelWidth}px` }}
+        style={{ maxWidth: `${labelWidthPercent}%` }}
       >
         {centerText}
       </span>

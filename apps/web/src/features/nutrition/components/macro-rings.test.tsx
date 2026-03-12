@@ -14,7 +14,7 @@ describe('MacroRings', () => {
 
     expect(screen.getByRole('heading', { name: 'Macro rings' })).toBeInTheDocument();
 
-    const ringsGrid = container.querySelector('.grid.grid-cols-2.md\\:grid-cols-4');
+    const ringsGrid = container.querySelector('.grid.grid-cols-2.md\\:grid-cols-3');
     expect(ringsGrid).toBeInTheDocument();
   });
 });
