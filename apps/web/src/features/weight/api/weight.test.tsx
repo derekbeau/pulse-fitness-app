@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { useLatestWeight, useLogWeight, useWeightTrend, weightKeys } from './weight';
+import {
+  useDeleteWeight,
+  useLatestWeight,
+  useLogWeight,
+  useWeightTrend,
+  weightKeys,
+} from './weight';
 
 const mockFetch = vi.fn();
 
@@ -103,6 +109,31 @@ describe('weight api hooks', () => {
           weight: 180.8,
         }),
         method: 'POST',
+      }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
+  });
+
+  it('deletes a weight entry and invalidates weight queries', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        deleted: true,
+        id: 'weight-2',
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useDeleteWeight(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('weight-2');
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/weight/weight-2',
+      expect.objectContaining({
+        method: 'DELETE',
       }),
     );
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });

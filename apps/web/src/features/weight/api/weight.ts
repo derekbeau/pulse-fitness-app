@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BodyWeightEntry, CreateWeightInput } from '@pulse/shared';
+import type { BodyWeightEntry, CreateWeightInput, DeleteWeightResult } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
@@ -43,6 +43,11 @@ const postWeightEntry = (input: CreateWeightInput) =>
     method: 'POST',
   });
 
+const deleteWeightEntry = (id: string) =>
+  apiRequest<DeleteWeightResult>(`/api/v1/weight/${id}`, {
+    method: 'DELETE',
+  });
+
 export const useLatestWeight = () =>
   useQuery({
     queryKey: weightKeys.latest(),
@@ -63,6 +68,18 @@ export const useLogWeight = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: weightKeys.all });
       toast.success('Weight logged');
+    },
+  });
+};
+
+export const useDeleteWeight = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteWeightEntry,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: weightKeys.all });
+      toast.success('Weight entry deleted');
     },
   });
 };

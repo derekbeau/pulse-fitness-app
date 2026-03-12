@@ -29,6 +29,7 @@ const protectedRoutes = [
   { heading: 'Activity', path: '/activity' },
   { heading: 'Foods', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
+  { heading: 'Weight History', path: '/weight' },
   { heading: 'Profile', path: '/profile' },
   { heading: 'Equipment', path: '/profile/equipment' },
   { heading: 'Health Tracking', path: '/profile/injuries' },
@@ -199,6 +200,14 @@ describe('App', () => {
       }
 
       if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight') {
         return Promise.resolve(
           jsonResponse({
             data: [],
