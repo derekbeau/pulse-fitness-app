@@ -51,6 +51,20 @@ describe('WeightHistoryPage', () => {
       const url = new URL(rawUrl, 'https://pulse.test');
       const method = init?.method ?? 'GET';
 
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/weight' && method === 'GET') {
         return Promise.resolve(
           jsonResponse({
@@ -108,6 +122,20 @@ describe('WeightHistoryPage', () => {
       const url = new URL(rawUrl, 'https://pulse.test');
       const method = init?.method ?? 'GET';
 
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/weight' && method === 'GET') {
         return Promise.resolve(
           jsonResponse({
@@ -128,5 +156,57 @@ describe('WeightHistoryPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'No weight entries yet' })).toBeInTheDocument();
+  });
+
+  it('formats entries with the user preferred metric unit', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'kg',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'weight-1',
+                date: '2026-03-06',
+                weight: 81.2,
+                notes: null,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/weight']}>
+        <Routes>
+          <Route element={<WeightHistoryPage />} path="/weight" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('81.2 kg')).toBeInTheDocument();
   });
 });

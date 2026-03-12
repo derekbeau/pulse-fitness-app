@@ -1,5 +1,4 @@
 import { Scale, Trash2 } from 'lucide-react';
-import { formatWeight } from '@pulse/shared';
 import { useMemo, useState } from 'react';
 
 import { EmptyState } from '@/components/ui/empty-state';
@@ -13,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useDeleteWeight, useWeightTrend } from '@/features/weight/api/weight';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { parseDateInput } from '@/lib/date';
 
 const entryDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -34,6 +34,7 @@ export function WeightHistory() {
   const [pendingDeleteWeight, setPendingDeleteWeight] = useState<PendingDeleteWeight | null>(null);
   const weightEntriesQuery = useWeightTrend();
   const deleteWeightMutation = useDeleteWeight();
+  const { formatWeight } = useWeightUnit();
   const sortedWeightEntries = useMemo(
     () =>
       [...(weightEntriesQuery.data ?? [])].sort(
@@ -95,7 +96,7 @@ export function WeightHistory() {
               >
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-foreground">{formattedDate}</p>
-                  <p className="text-lg font-semibold text-primary">{formatWeight(entry.weight, 'lbs')}</p>
+                  <p className="text-lg font-semibold text-primary">{formatWeight(entry.weight)}</p>
                   {entry.notes ? <p className="text-sm text-muted">{entry.notes}</p> : null}
                 </div>
 

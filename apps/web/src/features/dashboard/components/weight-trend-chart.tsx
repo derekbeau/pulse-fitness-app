@@ -167,6 +167,9 @@ export function WeightTrendChart() {
             </h2>
           </CardTitle>
           <p className="text-sm text-muted-foreground">Scale weight with EWMA smoothing.</p>
+          <a className="text-sm font-medium text-primary hover:underline" href="/weight">
+            View history
+          </a>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
