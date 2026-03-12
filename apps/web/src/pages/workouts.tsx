@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router';
 import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HelpIcon } from '@/components/ui/help-icon';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -112,7 +113,20 @@ export function WorkoutsPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-primary">Workouts</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold text-primary">Workouts</h1>
+          <HelpIcon title="Workouts help">
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>Pulse workouts follow a Templates -&gt; Sessions -&gt; Sets flow.</p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Start a workout from Templates, then log each exercise set during the session.</li>
+                <li>Active sessions are saved in localStorage so you can recover if the app closes.</li>
+                <li>Pause to stop active timing, resume when ready, or cancel if you need to end early.</li>
+                <li>Scheduled workouts appear in Calendar and can be used to plan upcoming sessions.</li>
+              </ul>
+            </div>
+          </HelpIcon>
+        </div>
         <p className="max-w-2xl text-sm text-muted">
           Review the schedule, revisit completed sessions, launch saved templates, or browse the
           shared exercise library.

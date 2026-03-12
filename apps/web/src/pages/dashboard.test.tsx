@@ -512,6 +512,27 @@ describe('DashboardPage', () => {
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
   });
 
+  it('opens contextual dashboard help from the page header', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('heading', { name: 'Dashboard help' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/nutrition totals come from meals logged by your AI agent/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/habit streaks show how many consecutive days/i)).toBeInTheDocument();
+  });
+
   it('renders stat-card skeletons while the dashboard snapshot request is pending', async () => {
     const deferredSnapshot = createDeferredResponse();
 

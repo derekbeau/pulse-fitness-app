@@ -7,6 +7,7 @@ import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toggle } from '@/components/ui/toggle';
@@ -222,9 +223,25 @@ export function DashboardPage() {
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Dashboard
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                Dashboard
+              </h1>
+              <HelpIcon title="Dashboard help">
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p>
+                    Dashboard gives you a daily snapshot of nutrition, body weight trend, habits, and
+                    recent workout activity.
+                  </p>
+                  <ul className="list-disc space-y-1 pl-5">
+                    <li>Nutrition totals come from meals logged by your AI agent, not manual entry.</li>
+                    <li>Use Weight Trend range buttons to zoom and compare short vs long-term direction.</li>
+                    <li>The trend line smooths daily swings so it is easier to spot overall momentum.</li>
+                    <li>Habit streaks show how many consecutive days each habit has been completed.</li>
+                  </ul>
+                </div>
+              </HelpIcon>
+            </div>
             {!isViewingToday ? (
               <Button onClick={() => setSelectedDate(getToday())} size="sm" type="button" variant="outline">
                 Back to today
