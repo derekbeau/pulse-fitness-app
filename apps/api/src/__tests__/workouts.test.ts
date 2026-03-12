@@ -566,12 +566,11 @@ describe('workouts integration', () => {
     expect(rangeItems.map((item) => item.templateName)).toEqual(['Template A', 'Template B']);
 
     const updateResponse = await context.app.inject({
-      method: 'PUT',
+      method: 'PATCH',
       url: `/api/v1/scheduled-workouts/${firstScheduleId}`,
       headers: createAuthorizationHeader(authToken),
       payload: {
         date: '2026-04-20',
-        templateId: templateB.id,
       },
     });
 
@@ -580,7 +579,7 @@ describe('workouts integration', () => {
       data: expect.objectContaining({
         id: firstScheduleId,
         date: '2026-04-20',
-        templateId: templateB.id,
+        templateId: templateA.id,
       }),
     });
 
@@ -621,8 +620,8 @@ describe('workouts integration', () => {
       expect.objectContaining({
         id: firstScheduleId,
         date: '2026-04-20',
-        templateId: templateB.id,
-        templateName: 'Template B',
+        templateId: templateA.id,
+        templateName: 'Template A',
       }),
     ]);
   });

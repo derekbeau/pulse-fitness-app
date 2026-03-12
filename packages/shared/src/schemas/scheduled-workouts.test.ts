@@ -80,7 +80,7 @@ describe('createScheduledWorkoutInputSchema', () => {
 });
 
 describe('updateScheduledWorkoutInputSchema', () => {
-  it('accepts partial updates for date or template changes', () => {
+  it('accepts partial updates for date changes', () => {
     const payload: UpdateScheduledWorkoutInput = updateScheduledWorkoutInputSchema.parse({
       date: '2026-03-13',
     });

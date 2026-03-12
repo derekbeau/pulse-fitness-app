@@ -18,6 +18,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
+import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
 
 import {
   allSessionExercisesAccessible,
@@ -259,6 +260,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       userId: request.userId,
       input: inputWithInitialSegment,
     });
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (inputWithInitialSegment.templateId !== null && inputWithInitialSegment.date === today) {
+      await linkTodayScheduledWorkoutToSession({
+        userId: request.userId,
+        templateId: inputWithInitialSegment.templateId,
+        date: today,
+        sessionId: session.id,
+      });
+    }
 
     return reply.code(201).send({
       data: session,

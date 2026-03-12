@@ -78,7 +78,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const parsedBody = updateScheduledWorkoutInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
@@ -95,21 +95,6 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
         SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
       );
-    }
-
-    if (parsedBody.data.templateId !== undefined) {
-      const templateAccessible = await templateBelongsToUser(
-        parsedBody.data.templateId,
-        request.userId,
-      );
-      if (!templateAccessible) {
-        return sendError(
-          reply,
-          404,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
-        );
-      }
     }
 
     const scheduledWorkout = await updateScheduledWorkout({

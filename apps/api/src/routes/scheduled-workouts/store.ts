@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm';
 import type {
   CreateScheduledWorkoutInput,
   ScheduledWorkout,
@@ -74,7 +74,13 @@ export const listScheduledWorkouts = async ({
   return db
     .select(scheduledWorkoutListSelection)
     .from(scheduledWorkouts)
-    .leftJoin(workoutTemplates, eq(workoutTemplates.id, scheduledWorkouts.templateId))
+    .leftJoin(
+      workoutTemplates,
+      and(
+        eq(workoutTemplates.id, scheduledWorkouts.templateId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .where(
       and(
         eq(scheduledWorkouts.userId, userId),
@@ -126,6 +132,49 @@ export const deleteScheduledWorkout = async (id: string, userId: string): Promis
   const result = db
     .delete(scheduledWorkouts)
     .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
+    .run();
+
+  return result.changes === 1;
+};
+
+export const linkTodayScheduledWorkoutToSession = async ({
+  userId,
+  templateId,
+  date,
+  sessionId,
+}: {
+  userId: string;
+  templateId: string;
+  date: string;
+  sessionId: string;
+}): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const scheduledWorkout = db
+    .select({
+      id: scheduledWorkouts.id,
+    })
+    .from(scheduledWorkouts)
+    .where(
+      and(
+        eq(scheduledWorkouts.userId, userId),
+        eq(scheduledWorkouts.templateId, templateId),
+        eq(scheduledWorkouts.date, date),
+        isNull(scheduledWorkouts.sessionId),
+      ),
+    )
+    .orderBy(asc(scheduledWorkouts.createdAt))
+    .limit(1)
+    .get();
+
+  if (!scheduledWorkout) {
+    return false;
+  }
+
+  const result = db
+    .update(scheduledWorkouts)
+    .set({ sessionId })
+    .where(and(eq(scheduledWorkouts.id, scheduledWorkout.id), eq(scheduledWorkouts.userId, userId)))
     .run();
 
   return result.changes === 1;

@@ -7,6 +7,7 @@ import {
   findVisibleExerciseByName,
   updateOwnedExercise,
 } from '../exercises/store.js';
+import { createScheduledWorkout, listScheduledWorkouts } from '../scheduled-workouts/store.js';
 import {
   createWorkoutSession,
   findWorkoutSessionById,
@@ -17,6 +18,7 @@ import {
   findWorkoutTemplateById,
   updateWorkoutTemplate,
 } from '../workout-templates/store.js';
+import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 vi.mock('../exercises/store.js', () => ({
   createExercise: vi.fn(),
@@ -56,6 +58,15 @@ vi.mock('../workout-sessions/store.js', () => ({
   updateWorkoutSession: vi.fn(),
 }));
 
+vi.mock('../scheduled-workouts/store.js', () => ({
+  createScheduledWorkout: vi.fn(),
+  listScheduledWorkouts: vi.fn(),
+}));
+
+vi.mock('../workout-templates/template-access.js', () => ({
+  templateBelongsToUser: vi.fn(),
+}));
+
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
@@ -75,6 +86,9 @@ describe('agent workouts routes', () => {
     vi.mocked(createWorkoutSession).mockReset();
     vi.mocked(findWorkoutSessionById).mockReset();
     vi.mocked(updateWorkoutSession).mockReset();
+    vi.mocked(createScheduledWorkout).mockReset();
+    vi.mocked(listScheduledWorkouts).mockReset();
+    vi.mocked(templateBelongsToUser).mockReset();
     process.env.JWT_SECRET = 'test-agent-workouts-secret';
     dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(startedAt);
   });
@@ -82,6 +96,98 @@ describe('agent workouts routes', () => {
   afterEach(() => {
     delete process.env.JWT_SECRET;
     dateNowSpy.mockRestore();
+  });
+
+  describe('scheduled workout endpoints', () => {
+    it('creates a scheduled workout for an accessible template', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(templateBelongsToUser).mockResolvedValue(true);
+        vi.mocked(createScheduledWorkout).mockResolvedValue({
+          id: 'schedule-1',
+          userId: 'user-1',
+          templateId: 'template-1',
+          date: '2026-03-12',
+          sessionId: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/scheduled-workouts',
+          headers: createAuthorizationHeader(token),
+          body: {
+            templateId: 'template-1',
+            date: '2026-03-12',
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.json()).toEqual({
+          data: {
+            id: 'schedule-1',
+            userId: 'user-1',
+            templateId: 'template-1',
+            date: '2026-03-12',
+            sessionId: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        });
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('lists scheduled workouts within a date range', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(listScheduledWorkouts).mockResolvedValue([
+          {
+            id: 'schedule-1',
+            date: '2026-03-12',
+            templateId: 'template-1',
+            templateName: 'Upper Push',
+            sessionId: null,
+            createdAt: 1,
+          },
+        ]);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/agent/scheduled-workouts?from=2026-03-10&to=2026-03-16',
+          headers: createAuthorizationHeader(token),
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          data: [
+            {
+              id: 'schedule-1',
+              date: '2026-03-12',
+              templateId: 'template-1',
+              templateName: 'Upper Push',
+              sessionId: null,
+              createdAt: 1,
+            },
+          ],
+        });
+        expect(vi.mocked(listScheduledWorkouts)).toHaveBeenCalledWith({
+          userId: 'user-1',
+          from: '2026-03-10',
+          to: '2026-03-16',
+        });
+      } finally {
+        await app.close();
+      }
+    });
   });
 
   describe('POST /api/agent/workout-templates', () => {
