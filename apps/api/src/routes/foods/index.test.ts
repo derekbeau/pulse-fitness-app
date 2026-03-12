@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { createFood, deleteFood, listFoods, updateFood } from './store.js';
+import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
 vi.mock('./store.js', () => ({
   createFood: vi.fn(),
   deleteFood: vi.fn(),
+  findFoodById: vi.fn(),
   listFoods: vi.fn(),
   updateFood: vi.fn(),
 }));
@@ -61,6 +62,7 @@ describe('foods routes', () => {
   beforeEach(() => {
     vi.mocked(createFood).mockReset();
     vi.mocked(deleteFood).mockReset();
+    vi.mocked(findFoodById).mockReset();
     vi.mocked(listFoods).mockReset();
     vi.mocked(updateFood).mockReset();
     process.env.JWT_SECRET = 'test-foods-secret';
@@ -233,6 +235,13 @@ describe('foods routes', () => {
           method: 'DELETE',
           url: '/api/v1/foods/food-1',
         }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/foods/food-1',
+          payload: {
+            name: 'Updated',
+          },
+        }),
       ]);
 
       for (const response of requests) {
@@ -244,6 +253,132 @@ describe('foods routes', () => {
           },
         });
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('patches foods with partial payloads', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      vi.mocked(findFoodById).mockResolvedValue(buildFood());
+      vi.mocked(updateFood)
+        .mockResolvedValueOnce(buildFood({ name: 'Lowfat Greek Yogurt' }))
+        .mockResolvedValueOnce(buildFood({ protein: 20, carbs: 4, fat: 0, calories: 100 }))
+        .mockResolvedValueOnce(buildFood({ name: 'Skyr', calories: 110, protein: 19, notes: 'new' }));
+
+      const nameOnlyResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: ' Lowfat Greek Yogurt ',
+        },
+      });
+
+      const macrosOnlyResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          calories: 100,
+          protein: 20,
+          carbs: 4,
+          fat: 0,
+        },
+      });
+
+      const multiFieldResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: 'Skyr',
+          calories: 110,
+          protein: 19,
+          notes: ' new ',
+        },
+      });
+
+      expect(nameOnlyResponse.statusCode).toBe(200);
+      expect(macrosOnlyResponse.statusCode).toBe(200);
+      expect(multiFieldResponse.statusCode).toBe(200);
+      expect(vi.mocked(findFoodById)).toHaveBeenCalledTimes(3);
+      expect(vi.mocked(updateFood)).toHaveBeenNthCalledWith(1, 'food-1', 'user-1', {
+        name: 'Lowfat Greek Yogurt',
+      });
+      expect(vi.mocked(updateFood)).toHaveBeenNthCalledWith(2, 'food-1', 'user-1', {
+        calories: 100,
+        protein: 20,
+        carbs: 4,
+        fat: 0,
+      });
+      expect(vi.mocked(updateFood)).toHaveBeenNthCalledWith(3, 'food-1', 'user-1', {
+        name: 'Skyr',
+        calories: 110,
+        protein: 19,
+        notes: 'new',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 404 when patching missing or soft-deleted foods', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      vi.mocked(findFoodById).mockResolvedValue(undefined);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          notes: 'Updated',
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FOOD_NOT_FOUND',
+          message: 'Food not found',
+        },
+      });
+      expect(vi.mocked(updateFood)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects empty patch payloads', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid food payload',
+        },
+      });
+      expect(vi.mocked(findFoodById)).not.toHaveBeenCalled();
+      expect(vi.mocked(updateFood)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

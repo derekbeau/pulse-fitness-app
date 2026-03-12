@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
-import { agentCreateFoodInputSchema, agentFoodSearchParamsSchema } from '@pulse/shared';
+import {
+  agentCreateFoodInputSchema,
+  agentFoodSearchParamsSchema,
+  patchFoodInputSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { createFood } from '../foods/store.js';
+import { createFood, findFoodById, updateFood } from '../foods/store.js';
 
 import { searchFoodsByName } from './store.js';
 
@@ -59,5 +63,24 @@ export const agentFoodsRoutes: FastifyPluginAsync = async (app) => {
         fat: food.fat,
       },
     });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    const parsed = patchFoodInputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid food payload');
+    }
+
+    const existingFood = await findFoodById(request.params.id, request.userId);
+    if (!existingFood) {
+      return sendError(reply, 404, 'FOOD_NOT_FOUND', 'Food not found');
+    }
+
+    const food = await updateFood(request.params.id, request.userId, parsed.data);
+    if (!food) {
+      return sendError(reply, 404, 'FOOD_NOT_FOUND', 'Food not found');
+    }
+
+    return reply.send({ data: food });
   });
 };

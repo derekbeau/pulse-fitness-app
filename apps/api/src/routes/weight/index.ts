@@ -1,13 +1,19 @@
-import { createWeightInputSchema, weightQueryParamsSchema } from '@pulse/shared';
+import {
+  createWeightInputSchema,
+  patchWeightInputSchema,
+  weightQueryParamsSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 
 import {
+  findBodyWeightEntryById,
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
   listBodyWeightEntries,
+  patchBodyWeightEntryById,
   upsertBodyWeightEntry,
 } from './store.js';
 
@@ -46,6 +52,27 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       data: entries,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    const parsedBody = patchWeightInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid weight payload');
+    }
+
+    const existingEntry = await findBodyWeightEntryById(request.params.id, request.userId);
+    if (!existingEntry) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    const entry = await patchBodyWeightEntryById(request.params.id, request.userId, parsedBody.data);
+    if (!entry) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    return reply.send({
+      data: entry,
     });
   });
 };

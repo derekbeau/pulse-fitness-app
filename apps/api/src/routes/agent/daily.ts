@@ -5,6 +5,7 @@ import {
   agentCreateWeightInputSchema,
   agentNutritionSummaryParamsSchema,
   agentUpdateHabitEntryInputSchema,
+  patchWeightInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
@@ -22,7 +23,12 @@ import {
   listActiveHabits,
 } from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
-import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
+import {
+  findBodyWeightEntryByDate,
+  findBodyWeightEntryById,
+  patchBodyWeightEntryById,
+  upsertBodyWeightEntry,
+} from '../weight/store.js';
 
 import { getTodayDate, isValidDate } from './date-utils.js';
 
@@ -59,6 +65,25 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
     const entry = await upsertBodyWeightEntry(request.userId, parsed.data);
 
     return reply.code(existing ? 200 : 201).send({ data: entry });
+  });
+
+  app.patch<{ Params: { id: string } }>('/weight/:id', async (request, reply) => {
+    const parsed = patchWeightInputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid weight payload');
+    }
+
+    const existing = await findBodyWeightEntryById(request.params.id, request.userId);
+    if (!existing) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    const entry = await patchBodyWeightEntryById(request.params.id, request.userId, parsed.data);
+    if (!entry) {
+      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
+    }
+
+    return reply.send({ data: entry });
   });
 
   app.get('/habits', async (request, reply) => {

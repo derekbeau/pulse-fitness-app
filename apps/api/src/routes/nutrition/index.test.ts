@@ -6,15 +6,23 @@ import { updateFoodLastUsedAt } from '../foods/store.js';
 import {
   createMealForDate,
   deleteMealForDate,
+  findMealForDate,
+  findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  patchMealById,
+  patchMealItemById,
 } from './store.js';
 
 vi.mock('./store.js', () => ({
   createMealForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
+  findMealForDate: vi.fn(),
+  findMealItemForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
 }));
 
 vi.mock('../foods/store.js', () => ({
@@ -68,6 +76,25 @@ const mealItems = [
   },
 ];
 
+const patchedMeal = {
+  ...meal,
+  name: 'Updated Lunch',
+  time: '13:15',
+  notes: 'Updated note',
+  updatedAt: 1_700_000_000_100,
+};
+
+const patchedMealItem = {
+  ...mealItems[0],
+  amount: 9,
+  calories: 420,
+  protein: 78,
+  carbs: 1,
+  fat: 9,
+  fiber: 1,
+  sugar: 0,
+};
+
 const nutritionSummary = {
   date: '2026-03-09',
   meals: 1,
@@ -89,8 +116,12 @@ describe('nutrition routes', () => {
   beforeEach(() => {
     vi.mocked(createMealForDate).mockReset();
     vi.mocked(deleteMealForDate).mockReset();
+    vi.mocked(findMealForDate).mockReset();
+    vi.mocked(findMealItemForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
+    vi.mocked(patchMealById).mockReset();
+    vi.mocked(patchMealItemById).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
@@ -357,6 +388,258 @@ describe('nutrition routes', () => {
     }
   });
 
+  it('patches meals with partial payloads and returns 404 for out-of-scope meals', async () => {
+    vi.mocked(findMealForDate)
+      .mockResolvedValueOnce(meal)
+      .mockResolvedValueOnce(meal)
+      .mockResolvedValueOnce(meal)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    vi.mocked(patchMealById).mockResolvedValue(patchedMeal);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+
+      const patchNameResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: ' Updated Lunch ',
+        },
+      });
+      const patchTimeResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          time: '13:15',
+        },
+      });
+      const patchMultipleResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          notes: 'Updated note',
+          name: 'Updated Lunch',
+        },
+      });
+
+      const wrongDateResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-10/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          notes: 'wrong date scope',
+        },
+      });
+      const wrongUserResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(app.jwt.sign({ userId: 'user-2' })),
+        payload: {
+          notes: 'wrong user scope',
+        },
+      });
+      const missingResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-404',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          notes: 'missing meal id',
+        },
+      });
+
+      expect(patchNameResponse.statusCode).toBe(200);
+      expect(patchTimeResponse.statusCode).toBe(200);
+      expect(patchMultipleResponse.statusCode).toBe(200);
+      expect(patchNameResponse.json()).toEqual({
+        data: patchedMeal,
+      });
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(1, 'user-1', '2026-03-09', 'meal-1');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(2, 'user-1', '2026-03-09', 'meal-1');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(3, 'user-1', '2026-03-09', 'meal-1');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(4, 'user-1', '2026-03-10', 'meal-1');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(5, 'user-2', '2026-03-09', 'meal-1');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(6, 'user-1', '2026-03-09', 'meal-404');
+
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
+        name: 'Updated Lunch',
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', {
+        time: '13:15',
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', {
+        notes: 'Updated note',
+        name: 'Updated Lunch',
+      });
+
+      expect(wrongDateResponse.statusCode).toBe(404);
+      expect(wrongUserResponse.statusCode).toBe(404);
+      expect(missingResponse.statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('patches meal-item snapshots and returns 404 for out-of-scope items', async () => {
+    vi.mocked(findMealItemForDate)
+      .mockResolvedValueOnce(mealItems[0])
+      .mockResolvedValueOnce(mealItems[0])
+      .mockResolvedValueOnce(mealItems[0])
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    vi.mocked(patchMealItemById).mockResolvedValue(patchedMealItem);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+
+      const patchAmountResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          amount: 9,
+        },
+      });
+
+      const patchMacrosResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          calories: 400,
+          protein: 78,
+          carbs: 1,
+          fat: 9,
+        },
+      });
+
+      const patchMultipleResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          amount: 9,
+          calories: 420,
+          protein: 78,
+          carbs: 1,
+          fat: 9,
+          fiber: 1,
+          sugar: 0,
+        },
+      });
+
+      const wrongMealResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-2/items/item-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          amount: 8.5,
+        },
+      });
+      const wrongUserResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
+        headers: createAuthorizationHeader(app.jwt.sign({ userId: 'user-2' })),
+        payload: {
+          amount: 8.5,
+        },
+      });
+      const missingResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-404',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          amount: 8.5,
+        },
+      });
+
+      expect(patchAmountResponse.statusCode).toBe(200);
+      expect(patchMacrosResponse.statusCode).toBe(200);
+      expect(patchMultipleResponse.statusCode).toBe(200);
+      expect(patchMacrosResponse.json()).toEqual({
+        data: patchedMealItem,
+      });
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+        'item-1',
+      );
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+        'item-1',
+      );
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        3,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+        'item-1',
+      );
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        4,
+        'user-1',
+        '2026-03-09',
+        'meal-2',
+        'item-1',
+      );
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        5,
+        'user-2',
+        '2026-03-09',
+        'meal-1',
+        'item-1',
+      );
+      expect(vi.mocked(findMealItemForDate)).toHaveBeenNthCalledWith(
+        6,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+        'item-404',
+      );
+
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
+        amount: 9,
+      });
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
+        calories: 400,
+        protein: 78,
+        carbs: 1,
+        fat: 9,
+      });
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
+        amount: 9,
+        calories: 420,
+        protein: 78,
+        carbs: 1,
+        fat: 9,
+        fiber: 1,
+        sugar: 0,
+      });
+
+      expect(wrongMealResponse.statusCode).toBe(404);
+      expect(wrongUserResponse.statusCode).toBe(404);
+      expect(missingResponse.statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('gets a daily nutrition summary with actuals, target, and meal count', async () => {
     vi.mocked(getDailyNutritionSummaryForDate)
       .mockResolvedValueOnce(nutritionSummary)
@@ -436,39 +719,52 @@ describe('nutrition routes', () => {
         invalidSummaryDateResponse,
         invalidPayloadResponse,
         invalidDeleteParamsResponse,
-      ] =
-        await Promise.all([
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/nutrition/03-09-2026',
-            headers: createAuthorizationHeader(authToken),
-          }),
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/nutrition/2026-02-30',
-            headers: createAuthorizationHeader(authToken),
-          }),
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/nutrition/03-09-2026/summary',
-            headers: createAuthorizationHeader(authToken),
-          }),
-          app.inject({
-            method: 'POST',
-            url: '/api/v1/nutrition/2026-03-09/meals',
-            headers: createAuthorizationHeader(authToken),
-            payload: {
-              name: 'Lunch',
-              time: '7:30',
-              items: [],
-            },
-          }),
-          app.inject({
-            method: 'DELETE',
-            url: '/api/v1/nutrition/2026-03-09/meals/%20%20',
-            headers: createAuthorizationHeader(authToken),
-          }),
-        ]);
+        invalidPatchMealPayloadResponse,
+        invalidPatchMealItemParamsResponse,
+      ] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/03-09-2026',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-02-30',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/03-09-2026/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/nutrition/2026-03-09/meals',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            name: 'Lunch',
+            time: '7:30',
+            items: [],
+          },
+        }),
+        app.inject({
+          method: 'DELETE',
+          url: '/api/v1/nutrition/2026-03-09/meals/%20%20',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+          headers: createAuthorizationHeader(authToken),
+          payload: {},
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/%20%20',
+          headers: createAuthorizationHeader(authToken),
+          payload: { amount: 1 },
+        }),
+      ]);
 
       expect(invalidDateResponse.statusCode).toBe(400);
       expect(invalidDateResponse.json()).toEqual({
@@ -505,6 +801,22 @@ describe('nutrition routes', () => {
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid meal parameters',
+        },
+      });
+
+      expect(invalidPatchMealPayloadResponse.statusCode).toBe(400);
+      expect(invalidPatchMealPayloadResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid meal payload',
+        },
+      });
+
+      expect(invalidPatchMealItemParamsResponse.statusCode).toBe(400);
+      expect(invalidPatchMealItemParamsResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid meal item parameters',
         },
       });
     } finally {
@@ -547,6 +859,16 @@ describe('nutrition routes', () => {
         app.inject({
           method: 'DELETE',
           url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+          payload: { name: 'Lunch 2' },
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
+          payload: { amount: 2 },
         }),
       ]);
 

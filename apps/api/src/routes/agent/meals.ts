@@ -1,9 +1,15 @@
-import { agentCreateMealInputSchema } from '@pulse/shared';
+import { agentCreateMealInputSchema, patchMealInputSchema, patchMealItemInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
-import { createMealForDate } from '../nutrition/store.js';
+import {
+  createMealForDate,
+  findMealById,
+  findMealItemById,
+  patchMealById,
+  patchMealItemById,
+} from '../nutrition/store.js';
 
 import { isValidDate } from './date-utils.js';
 import { findFoodByName } from './store.js';
@@ -99,6 +105,53 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
           fat: item.fat,
         })),
       },
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    const parsed = patchMealInputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
+    }
+
+    const existingMeal = await findMealById(request.userId, request.params.id);
+    if (!existingMeal) {
+      return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
+    }
+
+    const updatedMeal = await patchMealById(request.userId, request.params.id, parsed.data);
+    if (!updatedMeal) {
+      return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
+    }
+
+    return reply.send({
+      data: updatedMeal,
+    });
+  });
+
+  app.patch<{ Params: { id: string; itemId: string } }>('/:id/items/:itemId', async (request, reply) => {
+    const parsed = patchMealItemInputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item payload');
+    }
+
+    const existingMealItem = await findMealItemById(request.userId, request.params.id, request.params.itemId);
+    if (!existingMealItem) {
+      return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+    }
+
+    const updatedMealItem = await patchMealItemById(
+      request.userId,
+      request.params.id,
+      request.params.itemId,
+      parsed.data,
+    );
+    if (!updatedMealItem) {
+      return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+    }
+
+    return reply.send({
+      data: updatedMealItem,
     });
   });
 };

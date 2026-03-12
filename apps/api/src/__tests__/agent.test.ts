@@ -267,6 +267,12 @@ vi.mock('../routes/nutrition/store.js', () => ({
   deleteMealForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(async () => null),
   getDailyNutritionSummaryForDate: vi.fn(async () => ({ calories: 0, protein: 0, carbs: 0, fat: 0 })),
+  findMealForDate: vi.fn(),
+  findMealItemForDate: vi.fn(),
+  findMealById: vi.fn(),
+  findMealItemById: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
 }));
 
 vi.mock('../routes/exercises/store.js', () => ({

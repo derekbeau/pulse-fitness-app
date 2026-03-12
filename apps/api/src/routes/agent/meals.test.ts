@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
-import { createMealForDate } from '../nutrition/store.js';
+import { createMealForDate, findMealById, findMealItemById, patchMealById, patchMealItemById } from '../nutrition/store.js';
 
 import { findFoodByName } from './store.js';
 
@@ -21,6 +21,10 @@ vi.mock('../foods/store.js', () => ({
 
 vi.mock('../nutrition/store.js', () => ({
   createMealForDate: vi.fn(),
+  findMealById: vi.fn(),
+  findMealItemById: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
   deleteMealForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
@@ -95,10 +99,33 @@ const createdItems = [
   },
 ];
 
+const patchedMeal = {
+  ...createdMeal,
+  name: 'Updated Lunch',
+  time: '13:00',
+  notes: 'changed by agent',
+  updatedAt: 1_700_000_000_100,
+};
+
+const patchedMealItem = {
+  ...createdItems[0],
+  amount: 2.5,
+  calories: 345,
+  protein: 63,
+  carbs: 2,
+  fat: 8,
+  fiber: 1,
+  sugar: 0,
+};
+
 describe('agent meals routes', () => {
   beforeEach(() => {
     vi.mocked(findFoodByName).mockReset();
     vi.mocked(createMealForDate).mockReset();
+    vi.mocked(findMealById).mockReset();
+    vi.mocked(findMealItemById).mockReset();
+    vi.mocked(patchMealById).mockReset();
+    vi.mocked(patchMealItemById).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-agent-meals-secret';
@@ -286,6 +313,237 @@ describe('agent meals routes', () => {
         expect(response.statusCode).toBe(400);
         expect(response.json()).toEqual({
           error: { code: 'VALIDATION_ERROR', message: 'Invalid meal payload' },
+        });
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  describe('PATCH /api/agent/meals/:id', () => {
+    it('patches meals with partial payloads', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(findMealById).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal);
+        vi.mocked(patchMealById).mockResolvedValue(patchedMeal);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const patchNameResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: ' Updated Lunch ',
+          },
+        });
+        const patchTimeResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            time: '13:00',
+          },
+        });
+        const patchMultipleResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Updated Lunch',
+            time: '13:00',
+            notes: 'changed by agent',
+          },
+        });
+
+        expect(patchNameResponse.statusCode).toBe(200);
+        expect(patchTimeResponse.statusCode).toBe(200);
+        expect(patchMultipleResponse.statusCode).toBe(200);
+        expect(patchNameResponse.json()).toEqual({
+          data: patchedMeal,
+        });
+        expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1');
+        expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1');
+        expect(vi.mocked(findMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1');
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
+          name: 'Updated Lunch',
+        });
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', {
+          time: '13:00',
+        });
+        expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', {
+          name: 'Updated Lunch',
+          time: '13:00',
+          notes: 'changed by agent',
+        });
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 404 when patching a meal not in user scope', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(findMealById).mockResolvedValue(undefined);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const wrongUserResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-404',
+          headers: createAuthorizationHeader(token),
+          body: {
+            notes: 'irrelevant',
+          },
+        });
+        const missingResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/missing-meal',
+          headers: createAuthorizationHeader(token),
+          body: {
+            notes: 'missing',
+          },
+        });
+
+        expect(wrongUserResponse.statusCode).toBe(404);
+        expect(wrongUserResponse.json()).toEqual({
+          error: {
+            code: 'MEAL_NOT_FOUND',
+            message: 'Meal not found',
+          },
+        });
+        expect(missingResponse.statusCode).toBe(404);
+        expect(missingResponse.json()).toEqual({
+          error: {
+            code: 'MEAL_NOT_FOUND',
+            message: 'Meal not found',
+          },
+        });
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  describe('PATCH /api/agent/meals/:id/items/:itemId', () => {
+    it('patches meal-item snapshots directly', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(findMealItemById)
+          .mockResolvedValueOnce(createdItems[0])
+          .mockResolvedValueOnce(createdItems[0])
+          .mockResolvedValueOnce(createdItems[0]);
+        vi.mocked(patchMealItemById).mockResolvedValue(patchedMealItem);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const patchAmountResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1/items/item-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            amount: 2.5,
+          },
+        });
+        const patchMacrosResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1/items/item-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+          },
+        });
+        const patchMultipleResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1/items/item-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            amount: 2.5,
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+            fiber: 1,
+            sugar: 0,
+          },
+        });
+
+        expect(patchAmountResponse.statusCode).toBe(200);
+        expect(patchMacrosResponse.statusCode).toBe(200);
+        expect(patchMultipleResponse.statusCode).toBe(200);
+        expect(patchMacrosResponse.json()).toEqual({
+          data: patchedMealItem,
+        });
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1');
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1');
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1');
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
+          amount: 2.5,
+        });
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
+          calories: 345,
+          protein: 63,
+          carbs: 2,
+          fat: 8,
+        });
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
+          amount: 2.5,
+          calories: 345,
+          protein: 63,
+          carbs: 2,
+          fat: 8,
+          fiber: 1,
+          sugar: 0,
+        });
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 404 when patching a meal item outside user scope', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+        vi.mocked(findMealItemById).mockResolvedValue(undefined);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const wrongUserResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-1/items/item-404',
+          headers: createAuthorizationHeader(token),
+          body: {
+            amount: 1.1,
+          },
+        });
+        const missingResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/meals/meal-404/items/item-missing',
+          headers: createAuthorizationHeader(token),
+          body: {
+            amount: 1.2,
+          },
+        });
+
+        expect(wrongUserResponse.statusCode).toBe(404);
+        expect(wrongUserResponse.json()).toEqual({
+          error: {
+            code: 'MEAL_ITEM_NOT_FOUND',
+            message: 'Meal item not found',
+          },
+        });
+        expect(missingResponse.statusCode).toBe(404);
+        expect(missingResponse.json()).toEqual({
+          error: {
+            code: 'MEAL_ITEM_NOT_FOUND',
+            message: 'Meal item not found',
+          },
         });
       } finally {
         await app.close();

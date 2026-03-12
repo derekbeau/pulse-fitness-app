@@ -62,6 +62,8 @@ export const updateFoodInputSchema = foodMutationFieldsSchema
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'At least one field must be provided');
 
+export const patchFoodInputSchema = updateFoodInputSchema;
+
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
   sort: foodSortSchema.default('name'),
@@ -73,4 +75,5 @@ export type Food = z.infer<typeof foodSchema>;
 export type FoodSort = z.infer<typeof foodSortSchema>;
 export type CreateFoodInput = z.infer<typeof createFoodInputSchema>;
 export type UpdateFoodInput = z.infer<typeof updateFoodInputSchema>;
+export type PatchFoodInput = z.infer<typeof patchFoodInputSchema>;
 export type FoodQueryParams = z.infer<typeof foodQueryParamsSchema>;

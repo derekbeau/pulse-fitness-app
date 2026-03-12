@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { createFoodInputSchema, foodQueryParamsSchema, updateFoodInputSchema } from '@pulse/shared';
+import {
+  createFoodInputSchema,
+  foodQueryParamsSchema,
+  patchFoodInputSchema,
+  updateFoodInputSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 
-import { createFood, deleteFood, listFoods, updateFood } from './store.js';
+import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
 export const foodsRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -52,6 +57,27 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
     const parsedBody = updateFoodInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid food payload');
+    }
+
+    const food = await updateFood(request.params.id, request.userId, parsedBody.data);
+    if (!food) {
+      return sendError(reply, 404, 'FOOD_NOT_FOUND', 'Food not found');
+    }
+
+    return reply.send({
+      data: food,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
+    const parsedBody = patchFoodInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid food payload');
+    }
+
+    const existingFood = await findFoodById(request.params.id, request.userId);
+    if (!existingFood) {
+      return sendError(reply, 404, 'FOOD_NOT_FOUND', 'Food not found');
     }
 
     const food = await updateFood(request.params.id, request.userId, parsedBody.data);

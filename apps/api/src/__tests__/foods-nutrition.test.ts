@@ -392,6 +392,12 @@ vi.mock('../routes/nutrition/store.js', () => ({
 
     return true;
   }),
+  findMealForDate: vi.fn(),
+  findMealItemForDate: vi.fn(),
+  findMealById: vi.fn(),
+  findMealItemById: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({

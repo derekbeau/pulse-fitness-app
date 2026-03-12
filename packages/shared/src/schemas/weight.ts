@@ -18,6 +18,15 @@ export const createWeightInputSchema = z.object({
   notes: weightNotesSchema.optional(),
 });
 
+export const patchWeightInputSchema = z
+  .object({
+    weight: bodyWeightValueSchema.optional(),
+    notes: weightNotesSchema.nullable().optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one field must be provided',
+  });
+
 export const bodyWeightEntrySchema = z.object({
   id: z.string(),
   date: dateSchema,
@@ -44,4 +53,5 @@ export const weightQueryParamsSchema = z
 
 export type BodyWeightEntry = z.infer<typeof bodyWeightEntrySchema>;
 export type CreateWeightInput = z.infer<typeof createWeightInputSchema>;
+export type PatchWeightInput = z.infer<typeof patchWeightInputSchema>;
 export type WeightQueryParams = z.infer<typeof weightQueryParamsSchema>;

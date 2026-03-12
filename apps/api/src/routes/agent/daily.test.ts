@@ -14,10 +14,17 @@ import {
   listActiveHabits,
 } from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
-import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
+import {
+  findBodyWeightEntryByDate,
+  findBodyWeightEntryById,
+  patchBodyWeightEntryById,
+  upsertBodyWeightEntry,
+} from '../weight/store.js';
 
 vi.mock('../weight/store.js', () => ({
+  findBodyWeightEntryById: vi.fn(),
   findBodyWeightEntryByDate: vi.fn(),
+  patchBodyWeightEntryById: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
   listBodyWeightEntries: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
@@ -47,6 +54,12 @@ vi.mock('../nutrition/store.js', () => ({
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
+  findMealForDate: vi.fn(),
+  findMealItemForDate: vi.fn(),
+  findMealById: vi.fn(),
+  findMealItemById: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
 }));
 vi.mock('../../lib/habit-resolvers.js', () => ({
   resolveHabitCompletion: vi.fn(),
@@ -59,6 +72,8 @@ const createAuthorizationHeader = (token: string) => ({
 describe('agent daily routes', () => {
   beforeEach(() => {
     vi.mocked(findBodyWeightEntryByDate).mockReset();
+    vi.mocked(findBodyWeightEntryById).mockReset();
+    vi.mocked(patchBodyWeightEntryById).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
     vi.mocked(getNextHabitSortOrder).mockReset();
     vi.mocked(createHabit).mockReset();
@@ -277,6 +292,170 @@ describe('agent daily routes', () => {
         });
         expect(vi.mocked(findBodyWeightEntryByDate)).not.toHaveBeenCalled();
         expect(vi.mocked(upsertBodyWeightEntry)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
+  describe('PATCH /api/agent/weight/:id', () => {
+    it('returns 401 without auth', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/weight-1',
+          body: { weight: 182.4 },
+        });
+
+        expect(response.statusCode).toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('patches weight entries with partial payloads', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findBodyWeightEntryById).mockResolvedValue({
+          id: 'weight-1',
+          date: '2026-03-09',
+          weight: 183,
+          notes: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        vi.mocked(patchBodyWeightEntryById)
+          .mockResolvedValueOnce({
+            id: 'weight-1',
+            date: '2026-03-09',
+            weight: 182.4,
+            notes: null,
+            createdAt: 1,
+            updatedAt: 2,
+          })
+          .mockResolvedValueOnce({
+            id: 'weight-1',
+            date: '2026-03-09',
+            weight: 182.4,
+            notes: 'Fasted',
+            createdAt: 1,
+            updatedAt: 3,
+          })
+          .mockResolvedValueOnce({
+            id: 'weight-1',
+            date: '2026-03-09',
+            weight: 182.2,
+            notes: 'Post-workout',
+            createdAt: 1,
+            updatedAt: 4,
+          });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const weightOnlyResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/weight-1',
+          headers: createAuthorizationHeader(token),
+          body: { weight: 182.4 },
+        });
+        const notesOnlyResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/weight-1',
+          headers: createAuthorizationHeader(token),
+          body: { notes: '  Fasted  ' },
+        });
+        const bothResponse = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/weight-1',
+          headers: createAuthorizationHeader(token),
+          body: { weight: 182.2, notes: 'Post-workout' },
+        });
+
+        expect(weightOnlyResponse.statusCode).toBe(200);
+        expect(notesOnlyResponse.statusCode).toBe(200);
+        expect(bothResponse.statusCode).toBe(200);
+        expect(vi.mocked(findBodyWeightEntryById)).toHaveBeenCalledTimes(3);
+        expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+          1,
+          'weight-1',
+          'user-1',
+          { weight: 182.4 },
+        );
+        expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+          2,
+          'weight-1',
+          'user-1',
+          { notes: 'Fasted' },
+        );
+        expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+          3,
+          'weight-1',
+          'user-1',
+          { weight: 182.2, notes: 'Post-workout' },
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 404 for a missing or unauthorized entry', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findBodyWeightEntryById).mockResolvedValue(null);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/missing',
+          headers: createAuthorizationHeader(token),
+          body: { weight: 182.4 },
+        });
+
+        expect(response.statusCode).toBe(404);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'WEIGHT_NOT_FOUND',
+            message: 'Weight entry not found',
+          },
+        });
+        expect(vi.mocked(patchBodyWeightEntryById)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('rejects empty patch payloads', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PATCH',
+          url: '/api/agent/weight/weight-1',
+          headers: createAuthorizationHeader(token),
+          body: {},
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid weight payload',
+          },
+        });
+        expect(vi.mocked(findBodyWeightEntryById)).not.toHaveBeenCalled();
+        expect(vi.mocked(patchBodyWeightEntryById)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }
