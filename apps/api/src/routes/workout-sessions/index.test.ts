@@ -2151,8 +2151,8 @@ describe('workout session routes', () => {
     expect(response.statusCode).toBe(409);
     expect(response.json()).toEqual({
       error: {
-        code: 'WORKOUT_SESSION_NOT_ACTIVE',
-        message: 'Cannot revert a completed session',
+        code: 'WORKOUT_SESSION_INVALID_TRANSITION',
+        message: 'Invalid workout session status transition',
       },
     });
   });

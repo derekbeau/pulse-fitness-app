@@ -164,6 +164,7 @@ const validateTimeSegments = (
     }
   }
 };
+export const validatedTimeSegmentsSchema = timeSegmentsSchema.superRefine(validateTimeSegments);
 export const workoutSessionFeedbackScoreSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -311,7 +312,7 @@ export const createWorkoutSessionInputSchema = z
     startedAt: z.number().int(),
     completedAt: z.number().int().nullable().optional().default(null),
     duration: nullableIntegerSchema.optional().default(null),
-    timeSegments: timeSegmentsSchema.optional().default([]),
+    timeSegments: validatedTimeSegmentsSchema.optional().default([]),
     feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
     notes: nullableLongStringSchema.optional().default(null),
     sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
@@ -327,7 +328,7 @@ export const updateWorkoutSessionInputSchema = z
     startedAt: z.number().int().optional(),
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
-    timeSegments: timeSegmentsSchema.optional(),
+    timeSegments: validatedTimeSegmentsSchema.optional(),
     feedback: workoutSessionFeedbackSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
@@ -338,7 +339,7 @@ export const updateWorkoutSessionInputSchema = z
   });
 
 export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
-  timeSegments: timeSegmentsSchema.superRefine(validateTimeSegments),
+  timeSegments: validatedTimeSegmentsSchema,
 });
 
 export const reorderWorkoutSessionExercisesInputSchema = z.object({

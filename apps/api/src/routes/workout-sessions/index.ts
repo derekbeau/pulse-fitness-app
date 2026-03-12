@@ -616,15 +616,6 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    if (existingSession.status === 'completed' && parsedBody.data.status === 'in-progress') {
-      return sendError(
-        reply,
-        409,
-        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
-        'Cannot revert a completed session',
-      );
-    }
-
     const basePayload = {
       ...toCreateWorkoutSessionInput(existingSession),
       ...parsedBody.data,
@@ -728,16 +719,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const payload = createWorkoutSessionInputSchema.parse({
+    const payload = createWorkoutSessionInputSchema.safeParse({
       ...toCreateWorkoutSessionInput(existingSession),
       duration: calculateActiveDuration(parsedBody.data.timeSegments),
       timeSegments: parsedBody.data.timeSegments,
     });
+    if (!payload.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+    }
 
     const updated = await updateWorkoutSession({
       id: request.params.id,
       userId: request.userId,
-      input: payload,
+      input: payload.data,
     });
     if (!updated) {
       return sendError(
@@ -815,18 +809,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const updated = await findWorkoutSessionById(request.params.id, request.userId);
-    if (!updated) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
     return reply.send({
-      data: updated,
+      data: reordered,
     });
   });
 

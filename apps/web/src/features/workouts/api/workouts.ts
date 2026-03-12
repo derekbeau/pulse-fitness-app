@@ -241,7 +241,7 @@ async function renameTemplate(input: RenameTemplateRequest) {
   });
   const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
     body: JSON.stringify(parsedInput),
-    method: 'PUT',
+    method: 'PATCH',
   });
   const payload = workoutTemplateResponseSchema.parse({ data });
 

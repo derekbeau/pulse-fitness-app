@@ -6,7 +6,7 @@ import {
   type UpdateWorkoutTemplateInput,
   updateWorkoutTemplateInputSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
@@ -130,7 +130,10 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
+  const updateTemplateById = async (
+    request: { body: unknown; params: { id: string }; userId: string },
+    reply: FastifyReply,
+  ) => {
     const parsedBody = updateWorkoutTemplateInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
@@ -182,7 +185,10 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({
       data: template,
     });
-  });
+  };
+
+  app.put<{ Params: { id: string } }>('/:id', updateTemplateById);
+  app.patch<{ Params: { id: string } }>('/:id', updateTemplateById);
 
   app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
     const parsedBody = reorderWorkoutTemplateExercisesInputSchema.safeParse(request.body);

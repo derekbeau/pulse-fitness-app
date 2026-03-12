@@ -335,6 +335,7 @@ export const reorderWorkoutTemplateExercises = async ({
       return false;
     }
 
+    // Two-pass updates avoid transient duplicates on (templateId, section, orderIndex).
     for (const [orderIndex, exerciseId] of exerciseIds.entries()) {
       const updateResult = tx
         .update(templateExercises)

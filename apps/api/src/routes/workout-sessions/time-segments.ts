@@ -6,6 +6,7 @@ export function closeOpenTimeSegment(
 ): WorkoutSessionTimeSegment[] {
   const next = timeSegments.map((segment) => ({ ...segment }));
 
+  // No-op if all segments are already closed.
   for (let index = next.length - 1; index >= 0; index -= 1) {
     if (next[index]?.end === null) {
       next[index] = {

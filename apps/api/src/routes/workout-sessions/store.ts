@@ -677,10 +677,10 @@ export const reorderWorkoutSessionExercises = async ({
   userId: string;
   section: WorkoutTemplateSectionType;
   exerciseIds: string[];
-}): Promise<boolean> => {
+}): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  return db.transaction((tx) => {
+  const reordered = db.transaction((tx) => {
     const session = tx
       .select(workoutSessionAccessSelection)
       .from(workoutSessions)
@@ -705,8 +705,19 @@ export const reorderWorkoutSessionExercises = async ({
         .run();
     }
 
+    tx.update(workoutSessions)
+      .set({ updatedAt: Date.now() })
+      .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+      .run();
+
     return true;
   });
+
+  if (!reordered) {
+    return undefined;
+  }
+
+  return findWorkoutSessionById(sessionId, userId);
 };
 
 const mapSessionSectionToTemplateSection = (
