@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { findUserAuthById } from '../../middleware/store.js';
+import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
 import {
   createHabit,
   findHabitById,
@@ -28,6 +30,17 @@ vi.mock('../../middleware/store.js', () => ({
 vi.mock('../auth/store.js', () => ({
   ensureStarterHabitsForUser: vi.fn(),
 }));
+vi.mock('../habit-entries/store.js', () => ({
+  findHabitEntryById: vi.fn(),
+  findHabitEntryByHabitAndDate: vi.fn(),
+  upsertHabitEntry: vi.fn(),
+  listHabitEntriesByDateRange: vi.fn(),
+  listHabitEntriesForHabitByDateRange: vi.fn(),
+  updateHabitEntry: vi.fn(),
+}));
+vi.mock('../../lib/habit-resolvers.js', () => ({
+  resolveHabitCompletion: vi.fn(),
+}));
 
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
@@ -43,6 +56,8 @@ describe('habit routes', () => {
     vi.mocked(softDeleteHabit).mockReset();
     vi.mocked(updateHabit).mockReset();
     vi.mocked(findUserAuthById).mockReset();
+    vi.mocked(listHabitEntriesByDateRange).mockReset();
+    vi.mocked(resolveHabitCompletion).mockReset();
     vi.mocked(findUserAuthById).mockResolvedValue({ id: 'user-1' });
     vi.mocked(ensureStarterHabitsForUser).mockReset();
     vi.mocked(ensureStarterHabitsForUser).mockResolvedValue(undefined);
@@ -132,6 +147,7 @@ describe('habit routes', () => {
   });
 
   it('lists the authenticated users active habits sorted by sort order', async () => {
+    vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([]);
     vi.mocked(listActiveHabits).mockResolvedValue([
       {
         id: 'habit-2',
@@ -202,6 +218,7 @@ describe('habit routes', () => {
             active: true,
             createdAt: 1_700_000_000_000,
             updatedAt: 1_700_000_000_000,
+            todayEntry: null,
           },
           {
             id: 'habit-1',
@@ -220,12 +237,216 @@ describe('habit routes', () => {
             active: true,
             createdAt: 1_700_000_100_000,
             updatedAt: 1_700_000_100_000,
+            todayEntry: null,
           },
         ],
       });
       expect(vi.mocked(listActiveHabits)).toHaveBeenCalledWith('user-1');
+      expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
     } finally {
       await app.close();
+    }
+  });
+
+  it('uses manual override entries before referential resolver results', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+    vi.mocked(listActiveHabits).mockResolvedValue([
+      {
+        id: 'habit-1',
+        userId: 'user-1',
+        name: 'Protein',
+        description: null,
+        emoji: null,
+        trackingType: 'boolean',
+        target: null,
+        unit: null,
+        frequency: 'daily',
+        frequencyTarget: null,
+        scheduledDays: null,
+        pausedUntil: null,
+        referenceSource: 'nutrition_daily',
+        referenceConfig: { field: 'protein', op: 'gte', value: 150 },
+        sortOrder: 0,
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([
+      {
+        id: 'entry-1',
+        habitId: 'habit-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        completed: false,
+        value: 120,
+        isOverride: true,
+        createdAt: 2,
+      },
+    ]);
+    vi.mocked(resolveHabitCompletion).mockResolvedValue({ completed: true, value: 160 });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/habits',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          expect.objectContaining({
+            id: 'habit-1',
+            todayEntry: {
+              completed: false,
+              value: 120,
+              isOverride: true,
+            },
+          }),
+        ],
+      });
+      expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it('resolves referential habits when no override entry exists', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+    vi.mocked(listActiveHabits).mockResolvedValue([
+      {
+        id: 'habit-1',
+        userId: 'user-1',
+        name: 'Weigh in',
+        description: null,
+        emoji: null,
+        trackingType: 'boolean',
+        target: null,
+        unit: null,
+        frequency: 'daily',
+        frequencyTarget: null,
+        scheduledDays: null,
+        pausedUntil: null,
+        referenceSource: 'weight',
+        referenceConfig: { condition: 'exists_today' },
+        sortOrder: 0,
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([]);
+    vi.mocked(resolveHabitCompletion).mockResolvedValue({ completed: true });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/habits',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          expect.objectContaining({
+            id: 'habit-1',
+            todayEntry: {
+              completed: true,
+              value: null,
+              isOverride: false,
+            },
+          }),
+        ],
+      });
+      expect(vi.mocked(resolveHabitCompletion)).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'habit-1' }),
+        'user-1',
+        '2026-03-09',
+      );
+    } finally {
+      await app.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps non-referential habits driven by manual entries', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+    vi.mocked(listActiveHabits).mockResolvedValue([
+      {
+        id: 'habit-1',
+        userId: 'user-1',
+        name: 'Supplements',
+        description: null,
+        emoji: null,
+        trackingType: 'boolean',
+        target: null,
+        unit: null,
+        frequency: 'daily',
+        frequencyTarget: null,
+        scheduledDays: null,
+        pausedUntil: null,
+        referenceSource: null,
+        referenceConfig: null,
+        sortOrder: 0,
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+    vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([
+      {
+        id: 'entry-1',
+        habitId: 'habit-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        completed: true,
+        value: null,
+        isOverride: false,
+        createdAt: 2,
+      },
+    ]);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/habits',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          expect.objectContaining({
+            id: 'habit-1',
+            todayEntry: {
+              completed: true,
+              value: null,
+              isOverride: false,
+            },
+          }),
+        ],
+      });
+      expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+      vi.useRealTimers();
     }
   });
 

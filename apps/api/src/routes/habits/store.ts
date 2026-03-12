@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { CreateHabitInput, Habit, UpdateHabitInput } from '@pulse/shared';
+import type { CreateHabitInput, Habit, ReferenceConfig, UpdateHabitInput } from '@pulse/shared';
 
 import { habits } from '../../db/schema/index.js';
 
@@ -7,6 +7,13 @@ type HabitRecord = Habit;
 
 const serializeScheduledDays = (scheduledDays: number[] | null | undefined): string | null =>
   scheduledDays === undefined || scheduledDays === null ? null : JSON.stringify(scheduledDays);
+
+const serializeReferenceConfig = (
+  referenceConfig: ReferenceConfig | null | undefined,
+): string | null =>
+  referenceConfig === undefined || referenceConfig === null
+    ? null
+    : JSON.stringify(referenceConfig);
 
 const parseScheduledDays = (scheduledDays: string | null): number[] | null => {
   if (scheduledDays === null) {
@@ -31,6 +38,18 @@ const parseScheduledDays = (scheduledDays: string | null): number[] | null => {
   return parsed as number[];
 };
 
+const parseReferenceConfig = (referenceConfig: string | null): ReferenceConfig => {
+  if (referenceConfig === null) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(referenceConfig) as ReferenceConfig;
+  } catch {
+    return null;
+  }
+};
+
 type CreateHabitRecordInput = CreateHabitInput & {
   id: string;
   userId: string;
@@ -49,6 +68,8 @@ const habitSelection = {
   frequency: habits.frequency,
   frequencyTarget: habits.frequencyTarget,
   scheduledDays: habits.scheduledDays,
+  referenceSource: habits.referenceSource,
+  referenceConfig: habits.referenceConfig,
   pausedUntil: habits.pausedUntil,
   sortOrder: habits.sortOrder,
   active: habits.active,
@@ -68,6 +89,8 @@ const mapHabitRecord = (record: {
   frequency: Habit['frequency'];
   frequencyTarget: number | null;
   scheduledDays: string | null;
+  referenceSource: Habit['referenceSource'];
+  referenceConfig: string | null;
   pausedUntil: string | null;
   sortOrder: number;
   active: boolean;
@@ -76,6 +99,7 @@ const mapHabitRecord = (record: {
 }): HabitRecord => ({
   ...record,
   scheduledDays: parseScheduledDays(record.scheduledDays),
+  referenceConfig: parseReferenceConfig(record.referenceConfig),
 });
 
 export const getNextHabitSortOrder = async (userId: string): Promise<number> => {
@@ -104,6 +128,8 @@ export const createHabit = async ({
   frequency,
   frequencyTarget,
   scheduledDays,
+  referenceSource,
+  referenceConfig,
   pausedUntil,
   sortOrder,
 }: CreateHabitRecordInput): Promise<HabitRecord> => {
@@ -123,6 +149,8 @@ export const createHabit = async ({
       frequency: frequency ?? 'daily',
       frequencyTarget: frequencyTarget ?? null,
       scheduledDays: serializeScheduledDays(scheduledDays),
+      referenceSource: referenceSource ?? null,
+      referenceConfig: serializeReferenceConfig(referenceConfig),
       pausedUntil: pausedUntil ?? null,
       sortOrder,
       active: true,
@@ -189,6 +217,8 @@ export const updateHabit = async (
       frequency: updates.frequency,
       frequencyTarget: updates.frequencyTarget ?? null,
       scheduledDays: serializeScheduledDays(updates.scheduledDays),
+      referenceSource: updates.referenceSource ?? null,
+      referenceConfig: serializeReferenceConfig(updates.referenceConfig),
       pausedUntil: updates.pausedUntil ?? null,
       ...(updates.active === undefined ? {} : { active: updates.active }),
     })

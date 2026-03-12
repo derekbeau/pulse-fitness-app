@@ -12,6 +12,7 @@ type UpsertHabitEntryInput = {
   date: string;
   completed: boolean;
   value?: number;
+  isOverride?: boolean;
 };
 
 const habitEntrySelection = {
@@ -21,6 +22,7 @@ const habitEntrySelection = {
   date: habitEntries.date,
   completed: habitEntries.completed,
   value: habitEntries.value,
+  isOverride: habitEntries.isOverride,
   createdAt: habitEntries.createdAt,
 };
 
@@ -66,6 +68,7 @@ export const upsertHabitEntry = async ({
   date,
   completed,
   value,
+  isOverride,
 }: UpsertHabitEntryInput): Promise<HabitEntryRecord> => {
   const { db } = await import('../../db/index.js');
 
@@ -77,12 +80,14 @@ export const upsertHabitEntry = async ({
       date,
       completed,
       value: value ?? null,
+      isOverride: isOverride ?? false,
     })
     .onConflictDoUpdate({
       target: [habitEntries.habitId, habitEntries.date],
       set: {
         completed,
         value: value ?? null,
+        isOverride: isOverride ?? false,
       },
     })
     .run();

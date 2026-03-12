@@ -2,6 +2,39 @@ import { z } from 'zod';
 
 export const habitTrackingTypeSchema = z.enum(['boolean', 'numeric', 'time']);
 export const habitFrequencySchema = z.enum(['daily', 'weekly', 'specific_days']);
+export const referenceSourceSchema = z
+  .enum(['weight', 'nutrition_daily', 'nutrition_meal', 'workout'])
+  .nullable();
+
+const weightReferenceConfigSchema = z.object({
+  condition: z.literal('exists_today'),
+});
+
+const nutritionDailyReferenceConfigSchema = z.object({
+  field: z.enum(['protein', 'calories', 'carbs', 'fat']),
+  op: z.enum(['gte', 'lte', 'eq']),
+  value: z.number().finite(),
+});
+
+const nutritionMealReferenceConfigSchema = z.object({
+  mealType: z.string().trim().min(1).max(120),
+  field: z.string().trim().min(1).max(120),
+  op: z.string().trim().min(1).max(16),
+  value: z.number().finite(),
+});
+
+const workoutReferenceConfigSchema = z.object({
+  condition: z.literal('session_completed_today'),
+});
+
+export const referenceConfigSchema = z
+  .union([
+    weightReferenceConfigSchema,
+    nutritionDailyReferenceConfigSchema,
+    nutritionMealReferenceConfigSchema,
+    workoutReferenceConfigSchema,
+  ])
+  .nullable();
 
 const nullableTrimmedString = (maxLength: number) =>
   z.string().trim().min(1).max(maxLength).nullable();
@@ -25,6 +58,8 @@ const habitDefinitionFieldsSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  referenceSource: referenceSourceSchema.optional(),
+  referenceConfig: referenceConfigSchema.optional(),
 });
 
 const validateHabitDefinition = (
@@ -37,6 +72,8 @@ const validateHabitDefinition = (
   const frequency = value.frequency ?? 'daily';
   const frequencyTarget = value.frequencyTarget ?? null;
   const scheduledDays = value.scheduledDays ?? null;
+  const referenceSource = value.referenceSource ?? null;
+  const referenceConfig = value.referenceConfig ?? null;
 
   if (requiresTarget) {
     if (target === null) {
@@ -89,6 +126,45 @@ const validateHabitDefinition = (
       });
     }
   }
+
+  if (referenceSource === null && referenceConfig !== null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'referenceConfig requires referenceSource',
+      path: ['referenceConfig'],
+    });
+    return;
+  }
+
+  if (referenceSource !== null && referenceConfig === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'referenceConfig is required when referenceSource is set',
+      path: ['referenceConfig'],
+    });
+    return;
+  }
+
+  if (referenceSource === null || referenceConfig === null) {
+    return;
+  }
+
+  const referenceConfigBySourceValidators = {
+    weight: weightReferenceConfigSchema,
+    nutrition_daily: nutritionDailyReferenceConfigSchema,
+    nutrition_meal: nutritionMealReferenceConfigSchema,
+    workout: workoutReferenceConfigSchema,
+  } as const;
+
+  const parsedReferenceConfig =
+    referenceConfigBySourceValidators[referenceSource].safeParse(referenceConfig);
+  if (!parsedReferenceConfig.success) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Invalid referenceConfig for source ${referenceSource}`,
+      path: ['referenceConfig'],
+    });
+  }
 };
 
 const habitDefinitionSchema = habitDefinitionFieldsSchema.superRefine(validateHabitDefinition);
@@ -123,6 +199,42 @@ export const updateHabitInputSchema = habitDefinitionFieldsSchema
         message: 'Specific-day habits require scheduledDays',
         path: ['scheduledDays'],
       });
+    }
+
+    if (value.referenceSource === null && value.referenceConfig !== undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'referenceConfig cannot be set when referenceSource is null',
+        path: ['referenceConfig'],
+      });
+    }
+
+    if (value.referenceSource !== undefined && value.referenceSource !== null) {
+      if (value.referenceConfig === undefined || value.referenceConfig === null) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'referenceConfig is required when referenceSource is set',
+          path: ['referenceConfig'],
+        });
+      } else {
+        const referenceConfigBySourceValidators = {
+          weight: weightReferenceConfigSchema,
+          nutrition_daily: nutritionDailyReferenceConfigSchema,
+          nutrition_meal: nutritionMealReferenceConfigSchema,
+          workout: workoutReferenceConfigSchema,
+        } as const;
+
+        const parsedReferenceConfig = referenceConfigBySourceValidators[
+          value.referenceSource
+        ].safeParse(value.referenceConfig);
+        if (!parsedReferenceConfig.success) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Invalid referenceConfig for source ${value.referenceSource}`,
+            path: ['referenceConfig'],
+          });
+        }
+      }
     }
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -159,6 +271,8 @@ export const habitSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable(),
+  referenceSource: referenceSourceSchema.optional(),
+  referenceConfig: referenceConfigSchema.optional(),
   sortOrder: z.number().int().nonnegative(),
   active: z.boolean(),
   createdAt: z.number().int(),
@@ -167,6 +281,8 @@ export const habitSchema = z.object({
 
 export type HabitTrackingType = z.infer<typeof habitTrackingTypeSchema>;
 export type HabitFrequency = z.infer<typeof habitFrequencySchema>;
+export type ReferenceSource = z.infer<typeof referenceSourceSchema>;
+export type ReferenceConfig = z.infer<typeof referenceConfigSchema>;
 export type CreateHabitInput = z.infer<typeof createHabitInputSchema>;
 export type UpdateHabitInput = z.infer<typeof updateHabitInputSchema>;
 export type ReorderHabitsInput = z.infer<typeof reorderHabitsInputSchema>;

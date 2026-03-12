@@ -65,6 +65,7 @@ describe('habit entry routes', () => {
       date,
       completed: true,
       value: 8,
+      isOverride: false,
       createdAt: 1_700_000_100_000,
     }));
 
@@ -94,6 +95,7 @@ describe('habit entry routes', () => {
           date: string;
           completed: boolean;
           value: number | null;
+          isOverride: boolean;
           createdAt: number;
         };
       };
@@ -104,6 +106,7 @@ describe('habit entry routes', () => {
         date: '2026-03-07',
         completed: true,
         value: 8,
+        isOverride: false,
         createdAt: 1_700_000_100_000,
       });
       expect(payload.data.id).toBeTruthy();
@@ -130,6 +133,7 @@ describe('habit entry routes', () => {
         date: '2026-03-06',
         completed: true,
         value: null,
+        isOverride: false,
         createdAt: 1_700_000_000_000,
       },
       {
@@ -139,6 +143,7 @@ describe('habit entry routes', () => {
         date: '2026-03-07',
         completed: true,
         value: 8,
+        isOverride: false,
         createdAt: 1_700_000_100_000,
       },
     ]);
@@ -164,6 +169,7 @@ describe('habit entry routes', () => {
             date: '2026-03-06',
             completed: true,
             value: null,
+            isOverride: false,
             createdAt: 1_700_000_000_000,
           },
           {
@@ -173,6 +179,7 @@ describe('habit entry routes', () => {
             date: '2026-03-07',
             completed: true,
             value: 8,
+            isOverride: false,
             createdAt: 1_700_000_100_000,
           },
         ],
@@ -214,6 +221,7 @@ describe('habit entry routes', () => {
         date: '2026-03-05',
         completed: true,
         value: null,
+        isOverride: false,
         createdAt: 1_700_000_000_000,
       },
     ]);
@@ -239,6 +247,7 @@ describe('habit entry routes', () => {
             date: '2026-03-05',
             completed: true,
             value: null,
+            isOverride: false,
             createdAt: 1_700_000_000_000,
           },
         ],
@@ -262,6 +271,7 @@ describe('habit entry routes', () => {
       date: '2026-03-07',
       completed: false,
       value: 6,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -289,6 +299,7 @@ describe('habit entry routes', () => {
           date: '2026-03-07',
           completed: false,
           value: 6,
+          isOverride: false,
           createdAt: 1_700_000_000_000,
         },
       });

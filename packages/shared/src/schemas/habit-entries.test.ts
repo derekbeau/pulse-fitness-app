@@ -118,6 +118,7 @@ describe('habitEntrySchema', () => {
       date: '2026-03-07',
       completed: true,
       value: null,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     });
 
@@ -132,6 +133,7 @@ describe('habitEntrySchema', () => {
       date: '2026-03-07',
       completed: false,
       value: 30,
+      isOverride: false,
       createdAt: 1_700_000_000_000,
     };
 

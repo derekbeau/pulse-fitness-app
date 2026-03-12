@@ -86,6 +86,12 @@ Inherited ownership comes from foreign-key chains:
 - `trackingType`: `text`, required, one of `boolean | numeric | time`
 - `target`: nullable `real`
 - `unit`: nullable `text`
+- `frequency`: `text`, required, one of `daily | weekly | specific_days`
+- `frequencyTarget`: nullable `integer`
+- `scheduledDays`: nullable JSON text array of weekday integers `0..6`
+- `referenceSource`: nullable `text`, one of `weight | nutrition_daily | nutrition_meal | workout`
+- `referenceConfig`: nullable JSON text object (source-specific resolver config)
+- `pausedUntil`: nullable `text` calendar date (`YYYY-MM-DD`)
 - `sortOrder`: `integer`, required, default `0`
 - `active`: boolean-backed `integer`, required, default `true`
 - `deletedAt`: nullable `text` ISO timestamp for soft delete
@@ -104,6 +110,7 @@ Constraints:
 - `date`: `text`, required, `YYYY-MM-DD`, indexed
 - `completed`: boolean-backed `integer`, required, default `false`
 - `value`: nullable `real`
+- `isOverride`: boolean-backed `integer`, required, default `false`
 - `createdAt`: `integer` Unix ms, required, default now
 
 Constraints:

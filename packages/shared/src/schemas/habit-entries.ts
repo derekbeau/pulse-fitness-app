@@ -54,6 +54,7 @@ export const habitEntrySchema = z.object({
   date: dateSchema,
   completed: z.boolean(),
   value: z.number().nullable(),
+  isOverride: z.boolean().optional(),
   createdAt: z.number().int(),
 });
 

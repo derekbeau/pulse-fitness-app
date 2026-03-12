@@ -7,6 +7,7 @@ import { users } from './users.js';
 
 export type HabitTrackingType = 'boolean' | 'numeric' | 'time';
 export type HabitFrequency = 'daily' | 'weekly' | 'specific_days';
+export type HabitReferenceSource = 'weight' | 'nutrition_daily' | 'nutrition_meal' | 'workout';
 
 export const habits = sqliteTable(
   'habits',
@@ -26,6 +27,8 @@ export const habits = sqliteTable(
     frequency: text('frequency').$type<HabitFrequency>().notNull().default('daily'),
     frequencyTarget: integer('frequency_target'),
     scheduledDays: text('scheduled_days'),
+    referenceSource: text('reference_source').$type<HabitReferenceSource | null>(),
+    referenceConfig: text('reference_config'),
     pausedUntil: text('paused_until'),
     deletedAt: text('deleted_at'),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -68,6 +71,7 @@ export const habitEntries = sqliteTable(
     date: text('date').notNull(),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     value: real('value'),
+    isOverride: integer('is_override', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)

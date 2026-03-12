@@ -103,6 +103,32 @@ describe('createHabitInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts a referential habit with matching source config', () => {
+    const payload = createHabitInputSchema.parse({
+      name: 'Weigh in',
+      trackingType: 'boolean',
+      referenceSource: 'weight',
+      referenceConfig: { condition: 'exists_today' },
+    });
+
+    expect(payload.referenceSource).toBe('weight');
+  });
+
+  it('rejects a referential habit with mismatched source config', () => {
+    expect(() =>
+      createHabitInputSchema.parse({
+        name: 'Protein',
+        trackingType: 'boolean',
+        referenceSource: 'weight',
+        referenceConfig: {
+          field: 'protein',
+          op: 'gte',
+          value: 150,
+        },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateHabitInputSchema', () => {
@@ -197,6 +223,8 @@ describe('habitSchema', () => {
       frequencyTarget: 3,
       scheduledDays: null,
       pausedUntil: null,
+      referenceSource: null,
+      referenceConfig: null,
       sortOrder: 0,
       active: true,
       createdAt: 1_700_000_000_000,
@@ -220,6 +248,8 @@ describe('habitSchema', () => {
       frequencyTarget: null,
       scheduledDays: null,
       pausedUntil: null,
+      referenceSource: null,
+      referenceConfig: null,
       sortOrder: 1,
       active: true,
       createdAt: 1_700_000_000_000,

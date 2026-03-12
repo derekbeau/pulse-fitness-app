@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  createHabitInputSchema,
   agentCreateWeightInputSchema,
   agentNutritionSummaryParamsSchema,
   agentUpdateHabitEntryInputSchema,
@@ -8,8 +9,17 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { findHabitEntryByHabitAndDate, listHabitEntriesByDateRange, upsertHabitEntry } from '../habit-entries/store.js';
-import { findHabitById, listActiveHabits } from '../habits/store.js';
+import {
+  findHabitEntryByHabitAndDate,
+  listHabitEntriesByDateRange,
+  upsertHabitEntry,
+} from '../habit-entries/store.js';
+import {
+  createHabit,
+  findHabitById,
+  getNextHabitSortOrder,
+  listActiveHabits,
+} from '../habits/store.js';
 import { getDailyNutritionForDate, getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import { findBodyWeightEntryByDate, upsertBodyWeightEntry } from '../weight/store.js';
 
@@ -19,6 +29,23 @@ const parseId = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
 export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
+  app.post('/habits', async (request, reply) => {
+    const parsed = createHabitInputSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
+    }
+
+    const sortOrder = await getNextHabitSortOrder(request.userId);
+    const habit = await createHabit({
+      id: randomUUID(),
+      userId: request.userId,
+      sortOrder,
+      ...parsed.data,
+    });
+
+    return reply.code(201).send({ data: habit });
+  });
+
   app.post('/weight', async (request, reply) => {
     const parsed = agentCreateWeightInputSchema.safeParse(request.body);
     if (!parsed.success || !isValidDate(parsed.data.date)) {
@@ -84,6 +111,7 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
       date: parsed.data.date,
       completed: parsed.data.completed ?? existing?.completed ?? false,
       value: parsed.data.value ?? existing?.value ?? undefined,
+      isOverride: habit.referenceSource != null,
     });
 
     return reply.code(existing ? 200 : 201).send({ data: entry });

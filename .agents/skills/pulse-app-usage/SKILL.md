@@ -21,6 +21,21 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - `tags`
 9. Start session via `POST /api/agent/workout-sessions` and log progress via `PATCH /api/agent/workout-sessions/:id`.
 
+## Habits
+
+Use referential habits when completion should be inferred from other tracked data.
+
+1. Create a habit with `POST /api/agent/habits`.
+2. For referential habits, include:
+   - `referenceSource`: `weight | nutrition_daily | nutrition_meal | workout`
+   - `referenceConfig`:
+     - `weight`: `{ "condition": "exists_today" }`
+     - `nutrition_daily`: `{ "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
+     - `nutrition_meal`: `{ "mealType": string, "field": string, "op": string, "value": number }`
+     - `workout`: `{ "condition": "session_completed_today" }`
+3. Read habits with `GET /api/v1/habits`; referential habits auto-resolve completion for today.
+4. Manually override a referential habit with `PATCH /api/agent/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.
+
 ## Notes
 
 - User-facing records in habits, workout templates, exercises, foods, and workout sessions are soft-deleted via `deletedAt`; deleted records are hidden from normal list/search/get endpoints.
