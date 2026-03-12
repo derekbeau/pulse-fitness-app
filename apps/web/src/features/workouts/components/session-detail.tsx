@@ -506,6 +506,9 @@ function buildSections(
 ): SessionDetailSection[] {
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
+  const sessionTrackingTypeById = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+  );
 
   template?.sections.forEach((section) => {
     section.exercises.forEach((exercise) => {
@@ -547,6 +550,7 @@ function buildSections(
           phaseBadge: inferPhaseBadge(sectionType),
           sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
           trackingType: resolveTrackingType({
+            trackingType: sessionTrackingTypeById.get(exerciseId) ?? undefined,
             exerciseId,
             exerciseName: name,
           }),

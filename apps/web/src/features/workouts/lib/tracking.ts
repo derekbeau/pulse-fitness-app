@@ -28,7 +28,8 @@ export function resolveTrackingType({
     return trackingType;
   }
 
-  const descriptor = `${exerciseId ?? ''} ${exerciseName ?? ''} ${prescribedReps ?? ''}`.toLowerCase();
+  const descriptor =
+    `${exerciseId ?? ''} ${exerciseName ?? ''} ${prescribedReps ?? ''}`.toLowerCase();
 
   if (category === 'cardio') {
     return 'cardio';
@@ -85,15 +86,15 @@ export function getSetDistance(set: SetMetrics) {
 
 export function isSetCompleteForTrackingType(trackingType: ExerciseTrackingType, set: SetMetrics) {
   const reps = set.reps ?? 0;
-  const weight = set.weight ?? 0;
+  const weight = set.weight;
   const seconds = getSetSeconds(set) ?? 0;
   const distance = getSetDistance(set) ?? 0;
 
   switch (trackingType) {
     case 'weight_reps':
-      return weight > 0 && reps > 0;
+      return weight != null && reps > 0;
     case 'weight_seconds':
-      return weight > 0 && seconds > 0;
+      return weight != null && seconds > 0;
     case 'bodyweight_reps':
     case 'reps_only':
       return reps > 0;

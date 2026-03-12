@@ -322,13 +322,16 @@ function isPersonalRecord(
 }
 
 function getSessionVolume(session: WorkoutSession) {
-  // TODO: WorkoutSession.sets currently lacks trackingType/exerciseName. For UUID-backed
-  // exercise IDs, resolveTrackingType({ exerciseId }) often falls back to weight_reps.
-  // Replace this inference once the API includes tracking metadata on session sets.
+  const sessionTrackingByExerciseId = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+  );
   const trackingByExerciseId = new Map(
     session.sets.map((set) => [
       set.exerciseId,
-      resolveTrackingType({ exerciseId: set.exerciseId }),
+      resolveTrackingType({
+        trackingType: sessionTrackingByExerciseId.get(set.exerciseId) ?? undefined,
+        exerciseId: set.exerciseId,
+      }),
     ]),
   );
 
@@ -376,10 +379,16 @@ function getSessionVolumeLabel(session: WorkoutSession) {
     return 'volume';
   }
 
-  // TODO: same metadata gap as getSessionVolume; volume labels can be inaccurate for UUID IDs
-  // until session sets include trackingType or exercise metadata in the API payload.
+  const sessionTrackingByExerciseId = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+  );
   const trackingTypes = new Set(
-    session.sets.map((set) => resolveTrackingType({ exerciseId: set.exerciseId })),
+    session.sets.map((set) =>
+      resolveTrackingType({
+        trackingType: sessionTrackingByExerciseId.get(set.exerciseId) ?? undefined,
+        exerciseId: set.exerciseId,
+      }),
+    ),
   );
 
   if (trackingTypes.size === 1) {

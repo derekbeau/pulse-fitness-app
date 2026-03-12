@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import { exerciseTrackingTypeSchema } from './exercises.js';
 import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const normalizeOptionalString = (value: unknown) => {
@@ -253,6 +254,7 @@ export const sessionSetSchema = z
 export const workoutSessionExerciseSchema = z.object({
   exerciseId: requiredStringSchema,
   exerciseName: requiredStringSchema,
+  trackingType: exerciseTrackingTypeSchema.nullable().optional(),
   orderIndex: z.number().int().min(0),
   section: workoutTemplateSectionTypeSchema.nullable(),
   sets: z.array(sessionSetSchema).max(500),

@@ -241,6 +241,16 @@ export function ActiveWorkoutPage() {
     });
   }, [activeWorkoutDraftId, navigate]);
 
+  const sessionTrackingTypeById = useMemo(
+    () =>
+      new Map(
+        (activeSession?.exercises ?? []).map((exercise) => [
+          exercise.exerciseId,
+          exercise.trackingType,
+        ]),
+      ),
+    [activeSession?.exercises],
+  );
   const templateExerciseById = useMemo(
     () =>
       new Map(
@@ -251,6 +261,7 @@ export function ActiveWorkoutPage() {
               exercise,
               section: section.type,
               trackingType: resolveTrackingType({
+                trackingType: sessionTrackingTypeById.get(exercise.exerciseId) ?? undefined,
                 category: mockExerciseById.get(exercise.exerciseId)?.category,
                 exerciseId: exercise.exerciseId,
                 exerciseName: exercise.exerciseName,
@@ -260,7 +271,7 @@ export function ActiveWorkoutPage() {
           ]),
         ),
       ),
-    [template],
+    [template, sessionTrackingTypeById],
   );
   const exerciseOrderIndexById = useMemo(
     () => buildExerciseOrderIndexById(template, exerciseOrderBySection),
@@ -1407,7 +1418,9 @@ function mergeServerSetDrafts(
     const currentExerciseDrafts = currentSetDrafts[exerciseId] ?? [];
 
     nextDrafts[exerciseId] = serverExerciseDrafts.map((serverSetDraft) => {
-      const currentDraft = currentExerciseDrafts.find((set) => set.number === serverSetDraft.number);
+      const currentDraft = currentExerciseDrafts.find(
+        (set) => set.number === serverSetDraft.number,
+      );
 
       if (!currentDraft) {
         return serverSetDraft;
@@ -1452,7 +1465,9 @@ function buildSessionStructureSignature(session: ApiWorkoutSession) {
   });
 
   return sortedSets
-    .map((set) => `${set.section ?? 'main'}:${set.exerciseId}:${set.orderIndex ?? 0}:${set.setNumber}`)
+    .map(
+      (set) => `${set.section ?? 'main'}:${set.exerciseId}:${set.orderIndex ?? 0}:${set.setNumber}`,
+    )
     .join('|');
 }
 
@@ -1937,7 +1952,10 @@ function buildTemplateFromSession(
   const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
   const fallbackExerciseById = new Map(
     fallbackTemplate.sections.flatMap((section) =>
-      section.exercises.map((exercise) => [exercise.exerciseId, { exercise, section: section.type }]),
+      section.exercises.map((exercise) => [
+        exercise.exerciseId,
+        { exercise, section: section.type },
+      ]),
     ),
   );
   const fallbackExerciseNameById = new Map(
@@ -1949,9 +1967,10 @@ function buildTemplateFromSession(
     activeSession.exercises && activeSession.exercises.length > 0
       ? activeSession.exercises
       : buildSessionExercisesFromSets(activeSession);
-  const sectionsByType = new Map<WorkoutTemplateSectionType, MockWorkoutTemplate['sections'][number]>(
-    sectionOrder.map((type) => [type, { type, title: sectionTitleByType[type], exercises: [] }]),
-  );
+  const sectionsByType = new Map<
+    WorkoutTemplateSectionType,
+    MockWorkoutTemplate['sections'][number]
+  >(sectionOrder.map((type) => [type, { type, title: sectionTitleByType[type], exercises: [] }]));
 
   for (const sessionExercise of sessionExercises) {
     const sectionType = sessionExercise.section ?? 'main';
@@ -1984,8 +2003,12 @@ function buildTemplateFromSession(
 
   for (const section of sectionsByType.values()) {
     section.exercises.sort((left, right) => {
-      const leftOrder = sessionExercises.find((exercise) => exercise.exerciseId === left.exerciseId)?.orderIndex;
-      const rightOrder = sessionExercises.find((exercise) => exercise.exerciseId === right.exerciseId)?.orderIndex;
+      const leftOrder = sessionExercises.find(
+        (exercise) => exercise.exerciseId === left.exerciseId,
+      )?.orderIndex;
+      const rightOrder = sessionExercises.find(
+        (exercise) => exercise.exerciseId === right.exerciseId,
+      )?.orderIndex;
       if ((leftOrder ?? 0) !== (rightOrder ?? 0)) {
         return (leftOrder ?? 0) - (rightOrder ?? 0);
       }
@@ -2007,7 +2030,10 @@ function buildTemplateFromSession(
 
 function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
   const namesById = new Map(
-    session.sets.map((set) => [set.exerciseId, mockExerciseById.get(set.exerciseId)?.name ?? 'Unknown Exercise']),
+    session.sets.map((set) => [
+      set.exerciseId,
+      mockExerciseById.get(set.exerciseId)?.name ?? 'Unknown Exercise',
+    ]),
   );
   const grouped = new Map<
     string,

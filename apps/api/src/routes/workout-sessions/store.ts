@@ -5,6 +5,7 @@ import type {
   BatchUpsertSetsInput,
   CreateSetInput,
   CreateWorkoutSessionInput,
+  ExerciseTrackingType,
   SaveWorkoutSessionAsTemplateInput,
   SessionSet,
   UpdateSetInput,
@@ -189,7 +190,7 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
 const buildWorkoutSession = (
   session: WorkoutSessionRecord,
   sets: SessionSetRecord[],
-  exerciseNamesById: Map<string, string>,
+  exerciseInfoById: Map<string, { name: string; trackingType: ExerciseTrackingType | null }>,
 ): WorkoutSession => {
   const parsedTimeSegments = parseWorkoutSessionTimeSegments(session.timeSegments);
   const timeSegments =
@@ -210,7 +211,7 @@ const buildWorkoutSession = (
     timeSegments,
     feedback: parseWorkoutSessionFeedback(session.feedback),
     notes: session.notes,
-    exercises: buildWorkoutSessionExercises(sets, exerciseNamesById),
+    exercises: buildWorkoutSessionExercises(sets, exerciseInfoById),
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
@@ -219,13 +220,14 @@ const buildWorkoutSession = (
 
 const buildWorkoutSessionExercises = (
   sets: SessionSetRecord[],
-  exerciseNamesById: Map<string, string>,
+  exerciseInfoById: Map<string, { name: string; trackingType: ExerciseTrackingType | null }>,
 ): WorkoutSessionExercise[] => {
   const groupedByExercise = new Map<
     string,
     {
       exerciseId: string;
       exerciseName: string;
+      trackingType: ExerciseTrackingType | null;
       orderIndex: number;
       section: WorkoutTemplateSectionType | null;
       sets: SessionSet[];
@@ -235,7 +237,8 @@ const buildWorkoutSessionExercises = (
   for (const set of sets.sort(sortSessionSets)) {
     const existing = groupedByExercise.get(set.exerciseId);
     const parsedSet = buildSessionSet(set);
-    const exerciseName = exerciseNamesById.get(set.exerciseId) ?? 'Unknown Exercise';
+    const exerciseInfo = exerciseInfoById.get(set.exerciseId);
+    const exerciseName = exerciseInfo?.name ?? 'Unknown Exercise';
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
@@ -246,6 +249,7 @@ const buildWorkoutSessionExercises = (
     groupedByExercise.set(set.exerciseId, {
       exerciseId: set.exerciseId,
       exerciseName,
+      trackingType: (exerciseInfo?.trackingType as ExerciseTrackingType) ?? null,
       orderIndex: set.orderIndex,
       section: set.section,
       sets: [parsedSet],
@@ -682,13 +686,15 @@ export const findWorkoutSessionById = async (
     uniqueExerciseIds.length === 0
       ? []
       : db
-          .select({ id: exercises.id, name: exercises.name })
+          .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
           .from(exercises)
           .where(inArray(exercises.id, uniqueExerciseIds))
           .all();
-  const exerciseNamesById = new Map(exerciseNameRows.map((row) => [row.id, row.name]));
+  const exerciseInfoById = new Map(
+    exerciseNameRows.map((row) => [row.id, { name: row.name, trackingType: row.trackingType }]),
+  );
 
-  return buildWorkoutSession(session, sets, exerciseNamesById);
+  return buildWorkoutSession(session, sets, exerciseInfoById);
 };
 
 export const updateWorkoutSession = async ({
