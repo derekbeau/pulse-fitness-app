@@ -2,6 +2,7 @@ import { and, count, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type {
   CreateFoodInput,
   Food,
+  PatchFoodInput,
   FoodQueryParams,
   FoodSort,
   UpdateFoodInput,
@@ -74,7 +75,7 @@ const buildFoodSort = (sort: FoodSort) => {
   }
 };
 
-const getFoodById = async (id: string, userId: string): Promise<FoodRecord | undefined> => {
+export const findFoodById = async (id: string, userId: string): Promise<FoodRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
   return db
@@ -129,7 +130,7 @@ export const createFood = async ({
     throw new Error('Failed to persist food');
   }
 
-  const food = await getFoodById(id, userId);
+  const food = await findFoodById(id, userId);
   if (!food) {
     throw new Error('Failed to load created food');
   }
@@ -172,7 +173,7 @@ export const listFoods = async (
 export const updateFood = async (
   id: string,
   userId: string,
-  updates: UpdateFoodInput,
+  updates: UpdateFoodInput | PatchFoodInput,
 ): Promise<FoodRecord | undefined> => {
   const { db } = await import('../../db/index.js');
   const nextValues: Partial<typeof foods.$inferInsert> & { updatedAt: number } = {
@@ -241,7 +242,7 @@ export const updateFood = async (
     return undefined;
   }
 
-  return getFoodById(id, userId);
+  return findFoodById(id, userId);
 };
 
 export const deleteFood = async (id: string, userId: string): Promise<boolean> => {

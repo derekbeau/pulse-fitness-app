@@ -1,6 +1,11 @@
 import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 
-import type { BodyWeightEntry, CreateWeightInput, WeightQueryParams } from '@pulse/shared';
+import type {
+  BodyWeightEntry,
+  CreateWeightInput,
+  PatchWeightInput,
+  WeightQueryParams,
+} from '@pulse/shared';
 
 import { bodyWeight } from '../../db/schema/index.js';
 import { addUtcDays, getTodayDate } from '../../lib/date.js';
@@ -25,6 +30,22 @@ export const findBodyWeightEntryByDate = async (
       .select(bodyWeightEntrySelection)
       .from(bodyWeight)
       .where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, date)))
+      .limit(1)
+      .get() ?? null
+  );
+};
+
+export const findBodyWeightEntryById = async (
+  id: string,
+  userId: string,
+): Promise<BodyWeightEntry | null> => {
+  const { db } = await import('../../db/index.js');
+
+  return (
+    db
+      .select(bodyWeightEntrySelection)
+      .from(bodyWeight)
+      .where(and(eq(bodyWeight.id, id), eq(bodyWeight.userId, userId)))
       .limit(1)
       .get() ?? null
   );
@@ -106,4 +127,35 @@ export const getLatestBodyWeightEntry = async (userId: string): Promise<BodyWeig
       .limit(1)
       .get() ?? null
   );
+};
+
+export const patchBodyWeightEntryById = async (
+  id: string,
+  userId: string,
+  input: PatchWeightInput,
+): Promise<BodyWeightEntry | null> => {
+  const { db } = await import('../../db/index.js');
+  const updates: Partial<typeof bodyWeight.$inferInsert> & { updatedAt: number } = {
+    updatedAt: Date.now(),
+  };
+
+  if (input.weight !== undefined) {
+    updates.weight = input.weight;
+  }
+
+  if ('notes' in input) {
+    updates.notes = input.notes ?? null;
+  }
+
+  const result = db
+    .update(bodyWeight)
+    .set(updates)
+    .where(and(eq(bodyWeight.id, id), eq(bodyWeight.userId, userId)))
+    .run();
+
+  if (result.changes !== 1) {
+    return null;
+  }
+
+  return findBodyWeightEntryById(id, userId);
 };
