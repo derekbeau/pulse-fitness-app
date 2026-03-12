@@ -130,28 +130,12 @@ describe('Sidebar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
   });
 
-  it('opens and closes the mobile overlay menu from the hamburger trigger', () => {
+  it('does not render mobile sidebar controls', () => {
     renderSidebar();
 
-    const menuButton = screen.getByRole('button', { name: 'Open navigation menu' });
-    expect(menuButton).toHaveClass('min-h-[44px]', 'min-w-[44px]');
-    menuButton.focus();
-    expect(menuButton).toHaveFocus();
-
-    fireEvent.click(menuButton);
-
     expect(screen.queryByRole('button', { name: 'Open navigation menu' })).not.toBeInTheDocument();
-
-    const mobileNav = screen.getByRole('dialog', { name: 'Mobile navigation' });
-    expect(mobileNav).toBeInTheDocument();
-    expect(mobileNav).toHaveAttribute('aria-modal', 'true');
-    const closeButton = screen.getByRole('button', { name: 'Close sidebar panel' });
-    expect(closeButton).toBeInTheDocument();
-    expect(closeButton).toHaveFocus();
-
-    fireEvent.click(closeButton);
     expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toHaveFocus();
+    expect(screen.getByRole('navigation', { name: 'Desktop navigation' })).toBeInTheDocument();
   });
 
   it('renders the collapsed avatar without adding it to the tab order', () => {
