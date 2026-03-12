@@ -54,6 +54,12 @@ vi.mock('../nutrition/store.js', () => ({
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
   deleteMealForDate: vi.fn(),
+  findMealForDate: vi.fn(),
+  findMealItemForDate: vi.fn(),
+  findMealById: vi.fn(),
+  findMealItemById: vi.fn(),
+  patchMealById: vi.fn(),
+  patchMealItemById: vi.fn(),
 }));
 vi.mock('../../lib/habit-resolvers.js', () => ({
   resolveHabitCompletion: vi.fn(),

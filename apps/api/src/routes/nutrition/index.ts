@@ -1,4 +1,4 @@
-import { createMealInputSchema } from '@pulse/shared';
+import { createMealInputSchema, patchMealInputSchema, patchMealItemInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
@@ -8,8 +8,12 @@ import { updateFoodLastUsedAt } from '../foods/store.js';
 import {
   createMealForDate,
   deleteMealForDate,
+  findMealForDate,
+  findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  patchMealById,
+  patchMealItemById,
 } from './store.js';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,6 +27,7 @@ const isValidDateParam = (date: string) => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
 };
 const isValidMealIdParam = (mealId: string) => mealId.trim().length > 0;
+const isValidItemIdParam = (itemId: string) => itemId.trim().length > 0;
 const isNonEmptyString = (value: string | null): value is string =>
   typeof value === 'string' && value.length > 0;
 
@@ -94,6 +99,79 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         data: {
           success: true,
         },
+      });
+    },
+  );
+
+  app.patch<{ Params: { date: string; mealId: string } }>(
+    '/:date/meals/:mealId',
+    async (request, reply) => {
+      if (!isValidDateParam(request.params.date) || !isValidMealIdParam(request.params.mealId)) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal parameters');
+      }
+
+      const parsedBody = patchMealInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
+      }
+
+      const existingMeal = await findMealForDate(
+        request.userId,
+        request.params.date,
+        request.params.mealId,
+      );
+      if (!existingMeal) {
+        return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
+      }
+
+      const updatedMeal = await patchMealById(request.params.mealId, parsedBody.data);
+      if (!updatedMeal) {
+        return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
+      }
+
+      return reply.send({
+        data: updatedMeal,
+      });
+    },
+  );
+
+  app.patch<{ Params: { date: string; mealId: string; itemId: string } }>(
+    '/:date/meals/:mealId/items/:itemId',
+    async (request, reply) => {
+      if (
+        !isValidDateParam(request.params.date) ||
+        !isValidMealIdParam(request.params.mealId) ||
+        !isValidItemIdParam(request.params.itemId)
+      ) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item parameters');
+      }
+
+      const parsedBody = patchMealItemInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item payload');
+      }
+
+      const existingMealItem = await findMealItemForDate(
+        request.userId,
+        request.params.date,
+        request.params.mealId,
+        request.params.itemId,
+      );
+      if (!existingMealItem) {
+        return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+      }
+
+      const updatedMealItem = await patchMealItemById(
+        request.params.mealId,
+        request.params.itemId,
+        parsedBody.data,
+      );
+      if (!updatedMealItem) {
+        return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+      }
+
+      return reply.send({
+        data: updatedMealItem,
       });
     },
   );

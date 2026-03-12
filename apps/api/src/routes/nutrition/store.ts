@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
-import type { CreateMealInput } from '@pulse/shared';
+import type { CreateMealInput, PatchMealInput, PatchMealItemInput } from '@pulse/shared';
 
 import { foods, mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
 
@@ -331,4 +331,144 @@ export const deleteMealForDate = async (
 
     return result.changes === 1;
   });
+};
+
+export const findMealForDate = async (
+  userId: string,
+  date: string,
+  mealId: string,
+): Promise<MealRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(mealSelection)
+    .from(meals)
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+    .limit(1)
+    .get();
+};
+
+export const findMealById = async (userId: string, mealId: string): Promise<MealRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(mealSelection)
+    .from(meals)
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId)))
+    .limit(1)
+    .get();
+};
+
+export const patchMealById = async (
+  mealId: string,
+  updates: PatchMealInput,
+): Promise<MealRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  const now = Date.now();
+  const mealUpdate: Partial<typeof meals.$inferInsert> = {
+    updatedAt: now,
+  };
+
+  if (updates.name !== undefined) {
+    mealUpdate.name = updates.name;
+  }
+  if (updates.time !== undefined) {
+    mealUpdate.time = updates.time;
+  }
+  if (updates.notes !== undefined) {
+    mealUpdate.notes = updates.notes;
+  }
+
+  return db.update(meals).set(mealUpdate).where(eq(meals.id, mealId)).returning(mealSelection).get();
+};
+
+export const findMealItemForDate = async (
+  userId: string,
+  date: string,
+  mealId: string,
+  itemId: string,
+): Promise<MealItemRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(mealItemSelection)
+    .from(mealItems)
+    .innerJoin(meals, eq(meals.id, mealItems.mealId))
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(
+      and(
+        eq(mealItems.id, itemId),
+        eq(mealItems.mealId, mealId),
+        eq(nutritionLogs.userId, userId),
+        eq(nutritionLogs.date, date),
+      ),
+    )
+    .limit(1)
+    .get();
+};
+
+export const findMealItemById = async (
+  userId: string,
+  mealId: string,
+  itemId: string,
+): Promise<MealItemRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(mealItemSelection)
+    .from(mealItems)
+    .innerJoin(meals, eq(meals.id, mealItems.mealId))
+    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+    .where(
+      and(eq(mealItems.id, itemId), eq(mealItems.mealId, mealId), eq(nutritionLogs.userId, userId)),
+    )
+    .limit(1)
+    .get();
+};
+
+export const patchMealItemById = async (
+  mealId: string,
+  itemId: string,
+  updates: PatchMealItemInput,
+): Promise<MealItemRecord | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  const itemUpdate: Partial<typeof mealItems.$inferInsert> = {};
+  if (updates.name !== undefined) {
+    itemUpdate.name = updates.name;
+  }
+  if (updates.amount !== undefined) {
+    itemUpdate.amount = updates.amount;
+  }
+  if (updates.unit !== undefined) {
+    itemUpdate.unit = updates.unit;
+  }
+  if (updates.calories !== undefined) {
+    itemUpdate.calories = updates.calories;
+  }
+  if (updates.protein !== undefined) {
+    itemUpdate.protein = updates.protein;
+  }
+  if (updates.carbs !== undefined) {
+    itemUpdate.carbs = updates.carbs;
+  }
+  if (updates.fat !== undefined) {
+    itemUpdate.fat = updates.fat;
+  }
+  if (updates.fiber !== undefined) {
+    itemUpdate.fiber = updates.fiber;
+  }
+  if (updates.sugar !== undefined) {
+    itemUpdate.sugar = updates.sugar;
+  }
+
+  return db
+    .update(mealItems)
+    .set(itemUpdate)
+    .where(and(eq(mealItems.id, itemId), eq(mealItems.mealId, mealId)))
+    .returning(mealItemSelection)
+    .get();
 };
