@@ -129,8 +129,11 @@ function CueGroup({
     <div className="space-y-1.5">
       <p className="text-xs text-muted">{label}</p>
       <div className="flex flex-wrap gap-1.5">
-        {cues.map((cue) => (
-          <Badge className={cn('max-w-full whitespace-normal text-xs', tone)} key={`${label}-${cue}`}>
+        {cues.map((cue, index) => (
+          <Badge
+            className={cn('max-w-full whitespace-normal text-xs', tone)}
+            key={`${label}-${index}-${cue}`}
+          >
             {cue}
           </Badge>
         ))}

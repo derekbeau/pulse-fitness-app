@@ -385,8 +385,7 @@ function ExerciseCardItem({
       ? true
       : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
   const formCues = exercise.formCues;
-  const templateCues = exercise.templateCues ?? [];
-  const hasFormCues = formCues.length > 0 || templateCues.length > 0 || sessionCues.length > 0;
+  const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
   const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
   const priorityAccentClass =
@@ -570,16 +569,14 @@ function ExerciseCardItem({
               </div>
             ) : null}
 
-            {hasFormCues ? (
-              <div className="rounded-2xl border border-border bg-background/80 p-4">
-                <FormCueChips
-                  exerciseCues={formCues}
-                  onAddSessionCue={onAddSessionCue}
-                  sessionCues={sessionCues}
-                  templateCues={templateCues}
-                />
-              </div>
-            ) : null}
+            <div className="rounded-2xl border border-border bg-background/80 p-4">
+              <FormCueChips
+                exerciseCues={formCues}
+                onAddSessionCue={onAddSessionCue}
+                sessionCues={sessionCues}
+                templateCues={templateCues}
+              />
+            </div>
 
             <div
               className="space-y-2"
