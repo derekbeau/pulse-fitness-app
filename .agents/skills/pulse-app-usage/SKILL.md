@@ -23,3 +23,7 @@ Use this flow when an agent creates exercises/templates and then logs workout se
 
 - New exercises auto-created during template creation intentionally use placeholder metadata (`muscleGroups: []`, `equipment: ""`, `instructions: null`) until enriched.
 - Template creation is non-blocking: possible duplicate hints are returned in `newExercises[*].possibleDuplicates`.
+- Form-cue routing for agent template create/update:
+  - `formCues` are durable and persist to `exercises.formCues`.
+  - `cues` are template-scoped and persist to `template_exercises.cues`.
+  - If only `cues` are provided, timeless technique cues are promoted to `exercises.formCues`, while clearly program/timeline cues (for example references to weeks/RPE blocks) stay on `template_exercises.cues`.

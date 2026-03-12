@@ -28,8 +28,13 @@ Each template exercise stores prescription data, not completed performance.
 - `reps`: prescription string such as `8-10`, `12`, `6/side`, or `45 sec`
 - `tempo`: 4-digit notation such as `3110`
 - `restSeconds`: planned rest period between working sets
-- `formCues`: short coaching prompts shown during logging
+- `cues`: situational prompts scoped to this template/session context
 - `badges`: quick-read metadata for chips and filtering
+
+Durable technique coaching is stored on the exercise definition itself:
+
+- `exercise.formCues`: timeless movement cues that should apply anywhere that exercise appears
+- `templateExercise.cues`: program-specific reminders for this plan only (for example, "week 1 keep RPE 7")
 
 Example shape:
 
@@ -40,7 +45,7 @@ Example shape:
   reps: '8-10',
   tempo: '3110',
   restSeconds: 90,
-  formCues: ['Drive feet into the floor', 'Keep wrists stacked'],
+  cues: ['Week 1 keep RPE 7'],
   badges: ['compound', 'push']
 }
 ```

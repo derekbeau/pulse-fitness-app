@@ -5,6 +5,7 @@ import {
   createExercise,
   findExerciseDedupCandidates,
   findVisibleExerciseByName,
+  updateOwnedExercise,
 } from '../exercises/store.js';
 import {
   createWorkoutSession,
@@ -67,6 +68,7 @@ describe('agent workouts routes', () => {
     vi.mocked(createExercise).mockReset();
     vi.mocked(findExerciseDedupCandidates).mockReset();
     vi.mocked(findVisibleExerciseByName).mockReset();
+    vi.mocked(updateOwnedExercise).mockReset();
     vi.mocked(createWorkoutTemplate).mockReset();
     vi.mocked(findWorkoutTemplateById).mockReset();
     vi.mocked(updateWorkoutTemplate).mockReset();
@@ -134,6 +136,7 @@ describe('agent workouts routes', () => {
                     reps: 8,
                     restSeconds: 120,
                     tags: ['rehab', 'core'],
+                    cues: ['this week stay at RPE 7', 'brace before each rep'],
                     formCues: ['chest up', 'drive through heels'],
                   },
                 ],
@@ -171,7 +174,7 @@ describe('agent workouts routes', () => {
             muscleGroups: [],
             equipment: '',
             tags: ['rehab', 'core'],
-            formCues: ['chest up', 'drive through heels'],
+            formCues: ['chest up', 'drive through heels', 'brace before each rep'],
           }),
         );
         expect(vi.mocked(createWorkoutTemplate)).toHaveBeenCalledWith(
@@ -189,6 +192,7 @@ describe('agent workouts routes', () => {
                       repsMin: 8,
                       repsMax: 8,
                       restSeconds: 120,
+                      cues: ['this week stay at RPE 7'],
                     }),
                   ],
                 },
@@ -282,6 +286,105 @@ describe('agent workouts routes', () => {
         await app.close();
       }
     });
+
+    it('merges durable cues into existing owned exercises and keeps situational cues on template rows', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findVisibleExerciseByName).mockResolvedValue({
+          id: 'exercise-1',
+          userId: 'user-1',
+          name: 'Bench Press',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: ['keep elbows stacked'],
+          muscleGroups: ['Chest'],
+          equipment: 'Barbell',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        vi.mocked(updateOwnedExercise).mockResolvedValue({
+          id: 'exercise-1',
+          userId: 'user-1',
+          name: 'Bench Press',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: ['keep elbows stacked', 'drive through heels'],
+          muscleGroups: ['Chest'],
+          equipment: 'Barbell',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 2,
+        });
+        vi.mocked(createWorkoutTemplate).mockResolvedValue({
+          id: 'template-1',
+          userId: 'user-1',
+          name: 'Push Day',
+          description: null,
+          tags: [],
+          sections: [],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/workout-templates',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Push Day',
+            sections: [
+              {
+                name: 'Main',
+                exercises: [
+                  {
+                    name: 'Bench Press',
+                    sets: 3,
+                    reps: 8,
+                    cues: ['this week keep RPE 7', 'drive through heels'],
+                  },
+                ],
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(createExercise)).not.toHaveBeenCalled();
+        expect(vi.mocked(updateOwnedExercise)).toHaveBeenCalledWith({
+          id: 'exercise-1',
+          userId: 'user-1',
+          changes: {
+            formCues: ['keep elbows stacked', 'drive through heels'],
+          },
+        });
+        expect(vi.mocked(createWorkoutTemplate)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            input: expect.objectContaining({
+              sections: [
+                {
+                  type: 'main',
+                  exercises: [
+                    expect.objectContaining({
+                      exerciseId: 'exercise-1',
+                      cues: ['this week keep RPE 7'],
+                    }),
+                  ],
+                },
+              ],
+            }),
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
   });
 
   describe('PUT /api/agent/workout-templates/:id', () => {
@@ -355,7 +458,13 @@ describe('agent workouts routes', () => {
               {
                 name: 'Main',
                 exercises: [
-                  { name: 'Incline Press', sets: 3, reps: 10 },
+                  {
+                    name: 'Incline Press',
+                    sets: 3,
+                    reps: 10,
+                    formCues: ['brace before press'],
+                    cues: ['this week keep RPE 6'],
+                  },
                   { name: 'Lateral Raise', sets: 3, reps: 15 },
                 ],
               },
@@ -370,9 +479,95 @@ describe('agent workouts routes', () => {
             userId: 'user-1',
             input: expect.objectContaining({
               name: 'Upper A',
+              sections: [
+                {
+                  type: 'main',
+                  exercises: [
+                    expect.objectContaining({
+                      exerciseId: 'exercise-1',
+                      cues: ['this week keep RPE 6'],
+                    }),
+                    expect.objectContaining({
+                      exerciseId: 'exercise-2',
+                      cues: [],
+                    }),
+                  ],
+                },
+              ],
             }),
           }),
         );
+        expect(vi.mocked(updateOwnedExercise)).toHaveBeenCalledWith({
+          id: 'exercise-1',
+          userId: 'user-1',
+          changes: { formCues: ['brace before press'] },
+        });
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('does not wipe existing exercise form cues when template update only sends situational cues', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findWorkoutTemplateById).mockResolvedValue({
+          id: 'template-1',
+          userId: 'user-1',
+          name: 'Old Template',
+          description: null,
+          tags: [],
+          sections: [],
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(findVisibleExerciseByName).mockResolvedValue({
+          id: 'exercise-1',
+          userId: 'user-1',
+          name: 'Squat',
+          category: 'compound',
+          trackingType: 'weight_reps',
+          tags: [],
+          formCues: ['brace hard', 'drive knees out'],
+          muscleGroups: ['Quads'],
+          equipment: 'Barbell',
+          instructions: null,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+
+        vi.mocked(updateWorkoutTemplate).mockResolvedValue({
+          id: 'template-1',
+          userId: 'user-1',
+          name: 'Leg A',
+          description: null,
+          tags: [],
+          sections: [],
+          createdAt: 1,
+          updatedAt: 2,
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'PUT',
+          url: '/api/agent/workout-templates/template-1',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Leg A',
+            sections: [
+              {
+                name: 'Main',
+                exercises: [{ name: 'Squat', sets: 3, reps: 5, cues: ['week 2 keep RPE 6'] }],
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(vi.mocked(updateOwnedExercise)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }

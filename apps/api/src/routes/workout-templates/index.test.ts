@@ -43,11 +43,13 @@ const seedExercise = (values: {
   muscleGroups: string[];
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  formCues?: string[];
 }) =>
   context.db
     .insert(exercises)
     .values({
       ...values,
+      formCues: values.formCues ?? [],
       instructions: null,
     })
     .run();
@@ -162,6 +164,7 @@ describe('workout template routes', () => {
       muscleGroups: ['chest', 'front delts', 'triceps'],
       equipment: 'dumbbells',
       category: 'compound',
+      formCues: ['Drive feet', 'Brace core'],
     });
     seedExercise({
       id: 'user-row',
@@ -290,6 +293,7 @@ describe('workout template routes', () => {
             id: string;
             exerciseId: string;
             exerciseName: string;
+            formCues: string[];
             repsMin: number | null;
             repsMax: number | null;
             notes: string | null;
@@ -311,6 +315,7 @@ describe('workout template routes', () => {
             {
               exerciseId: 'global-row-erg',
               exerciseName: 'Row Erg',
+              formCues: [],
               repsMin: 240,
               repsMax: 240,
               notes: 'Easy pace',
@@ -324,6 +329,7 @@ describe('workout template routes', () => {
             {
               exerciseId: 'user-press',
               exerciseName: 'Incline Dumbbell Press',
+              formCues: ['Drive feet', 'Brace core'],
               repsMin: 8,
               repsMax: 10,
               notes: 'Drive feet into floor.',
@@ -331,6 +337,7 @@ describe('workout template routes', () => {
             },
             {
               exerciseId: 'user-row',
+              formCues: [],
               repsMin: 10,
               repsMax: 12,
               notes: null,

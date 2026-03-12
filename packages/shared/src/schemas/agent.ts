@@ -57,6 +57,7 @@ export const agentWorkoutTemplateExerciseInputSchema = z.object({
   reps: z.number().int().min(1).max(1000),
   restSeconds: z.number().int().min(0).max(3600).optional(),
   tags: z.array(requiredText()).max(20).optional(),
+  cues: z.array(requiredText(500)).max(50).optional(),
   formCues: z.array(requiredText(500)).max(50).optional(),
 });
 
