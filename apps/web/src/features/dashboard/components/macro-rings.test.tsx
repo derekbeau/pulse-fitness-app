@@ -49,6 +49,22 @@ describe('getMacroRingState', () => {
     });
   });
 
+  it('formats calories with space and unit', () => {
+    expect(getMacroRingState({ actual: 368.2, target: 2200 }, 'eaten', '#F59E0B', 'kcal')).toEqual({
+      color: '#F59E0B',
+      progress: expect.closeTo(16.74, 1),
+      valueLabel: '368 kcal',
+    });
+  });
+
+  it('rounds floating-point grams in eaten mode', () => {
+    expect(getMacroRingState({ actual: 150.7, target: 200 }, 'eaten', '#22C55E', 'g')).toEqual({
+      color: '#22C55E',
+      progress: expect.closeTo(75.35, 1),
+      valueLabel: '151g',
+    });
+  });
+
   it('returns remaining mode over-target label and red color', () => {
     expect(getMacroRingState({ actual: 200, target: 180 }, 'remaining', '#22C55E', 'g')).toEqual({
       color: '#DC2626',
@@ -62,7 +78,9 @@ describe('MacroRings', () => {
   it('renders four macro rings with distinct colors and eaten values', () => {
     const { container } = render(<MacroRings snapshot={snapshotFixture} />);
 
-    const grid = container.querySelector('div.grid.grid-cols-1.gap-4.sm\\:grid-cols-2.lg\\:grid-cols-4');
+    const grid = container.querySelector(
+      'div.grid.grid-cols-1.gap-4.sm\\:grid-cols-2.lg\\:grid-cols-4',
+    );
     expect(grid).toBeInTheDocument();
     expect(screen.getAllByRole('progressbar')).toHaveLength(4);
 
@@ -71,7 +89,7 @@ describe('MacroRings', () => {
     expect(screen.getByText('Carbs')).toBeInTheDocument();
     expect(screen.getByText('Fat')).toBeInTheDocument();
 
-    expect(screen.getByText('1850kcal')).toBeInTheDocument();
+    expect(screen.getByText('1850 kcal')).toBeInTheDocument();
     expect(screen.getByText('145g')).toBeInTheDocument();
     expect(screen.getByText('200g')).toBeInTheDocument();
     expect(screen.getByText('65g')).toBeInTheDocument();
@@ -82,8 +100,12 @@ describe('MacroRings', () => {
     const proteinRingIndicator = getMacroItem('Protein').querySelector(
       '[data-slot="progress-ring-indicator"]',
     );
-    const carbsRingIndicator = getMacroItem('Carbs').querySelector('[data-slot="progress-ring-indicator"]');
-    const fatRingIndicator = getMacroItem('Fat').querySelector('[data-slot="progress-ring-indicator"]');
+    const carbsRingIndicator = getMacroItem('Carbs').querySelector(
+      '[data-slot="progress-ring-indicator"]',
+    );
+    const fatRingIndicator = getMacroItem('Fat').querySelector(
+      '[data-slot="progress-ring-indicator"]',
+    );
 
     expect(caloriesRingIndicator).toHaveAttribute('stroke', '#F59E0B');
     expect(proteinRingIndicator).toHaveAttribute('stroke', '#22C55E');
@@ -94,7 +116,7 @@ describe('MacroRings', () => {
   it('shows zeroed values when snapshot data is unavailable', () => {
     render(<MacroRings />);
 
-    expect(screen.getByText('0kcal')).toBeInTheDocument();
+    expect(screen.getByText('0 kcal')).toBeInTheDocument();
     expect(screen.getAllByText('0g')).toHaveLength(3);
   });
 
@@ -103,7 +125,7 @@ describe('MacroRings', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
-    expect(screen.getByText('350kcal')).toBeInTheDocument();
+    expect(screen.getByText('350 kcal')).toBeInTheDocument();
     expect(screen.getByText('35g')).toBeInTheDocument();
     expect(screen.getByText('50g')).toBeInTheDocument();
     expect(screen.getByText('8g')).toBeInTheDocument();
@@ -112,7 +134,10 @@ describe('MacroRings', () => {
     expect(caloriesProgress).toHaveAttribute('aria-valuenow', '16');
 
     expect(screen.getByRole('button', { name: 'Eaten' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('turns over-target macros red and shows overage text in remaining mode', () => {

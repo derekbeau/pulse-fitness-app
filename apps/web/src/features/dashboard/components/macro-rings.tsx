@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ui/progress-ring';
+import { formatCalories, formatGrams } from '@/lib/format-utils';
 
 type MacroRingsProps = {
   snapshot?: DashboardSnapshot;
@@ -62,14 +63,18 @@ export const getMacroRingState = (
     return {
       color: isOverTarget ? OVER_TARGET_COLOR : baseColor,
       progress: 100 - ratioPercent,
-      valueLabel: isOverTarget ? `+${Math.abs(remaining)}${unit} over` : `${remaining}${unit}`,
+      valueLabel: isOverTarget
+        ? `+${unit === 'kcal' ? formatCalories(Math.abs(remaining), 'kcal') : formatGrams(Math.abs(remaining))} over`
+        : unit === 'kcal'
+          ? formatCalories(remaining, 'kcal')
+          : formatGrams(remaining),
     };
   }
 
   return {
     color: isOverTarget ? OVER_TARGET_COLOR : baseColor,
     progress: ratioPercent,
-    valueLabel: `${stat.actual}${unit}`,
+    valueLabel: unit === 'kcal' ? formatCalories(stat.actual, 'kcal') : formatGrams(stat.actual),
   };
 };
 
@@ -120,7 +125,12 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
-          const state = getMacroRingState(getMacroStat(snapshot, macro.key), mode, macro.color, macro.unit);
+          const state = getMacroRingState(
+            getMacroStat(snapshot, macro.key),
+            mode,
+            macro.color,
+            macro.unit,
+          );
 
           return (
             <div
