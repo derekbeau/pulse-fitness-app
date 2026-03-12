@@ -65,6 +65,14 @@ describe('WorkoutCalendar', () => {
                 sessionId: null,
                 createdAt: 1,
               },
+              {
+                id: 'schedule-2',
+                date: sessionDateKey,
+                templateId: 'template-2',
+                templateName: 'Accessory',
+                sessionId: null,
+                createdAt: 2,
+              },
             ],
           }),
         );
@@ -82,10 +90,12 @@ describe('WorkoutCalendar', () => {
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Scheduled workout')).length).toBeGreaterThan(0);
+    expect(screen.getByText('+1')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
       '/workouts/session/session-1',
     );
+    expect(screen.getByRole('button', { name: /selected/i })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows empty calendar details when no workouts exist', async () => {

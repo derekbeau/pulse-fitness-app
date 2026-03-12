@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import {
   Activity,
   CalendarCheck2,
@@ -19,6 +19,15 @@ import type {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +37,11 @@ import {
   useUpdateScheduledWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
+import {
+  ActiveScheduledWorkoutListItem,
+  isActiveScheduledWorkout,
+  isActiveSessionListItem,
+} from '../lib/workout-filters';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -202,25 +216,17 @@ function ScheduledWorkoutCard({
   scheduledWorkout,
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
-  scheduledWorkout: ScheduledWorkoutListItem & { isMissed: boolean };
+  scheduledWorkout: ActiveScheduledWorkoutListItem & { isMissed: boolean };
 }) {
   const updateScheduledWorkoutMutation = useUpdateScheduledWorkout();
   const deleteScheduledWorkoutMutation = useDeleteScheduledWorkout();
 
   const isMutating =
     updateScheduledWorkoutMutation.isPending || deleteScheduledWorkoutMutation.isPending;
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
 
-  function handleReschedule() {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const requestedDate = window.prompt('Reschedule to date (YYYY-MM-DD)', scheduledWorkout.date);
-    if (!requestedDate || requestedDate === scheduledWorkout.date) {
-      return;
-    }
-
-    void updateScheduledWorkoutMutation.mutateAsync({
+  async function handleReschedule(requestedDate: string) {
+    await updateScheduledWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
@@ -283,9 +289,15 @@ function ScheduledWorkoutCard({
 
         <div className="flex flex-wrap gap-2">
           <Button asChild disabled={isMutating} size="sm">
-            <Link to={buildStartWorkoutHref(scheduledWorkout.templateId ?? '')}>Start</Link>
+            <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>Start</Link>
           </Button>
-          <Button disabled={isMutating} onClick={handleReschedule} size="sm" type="button" variant="outline">
+          <Button
+            disabled={isMutating}
+            onClick={() => setIsRescheduleDialogOpen(true)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             Reschedule
           </Button>
           <Button disabled={isMutating} onClick={handleRemove} size="sm" type="button" variant="ghost">
@@ -293,7 +305,96 @@ function ScheduledWorkoutCard({
           </Button>
         </div>
       </CardContent>
+      <RescheduleScheduledWorkoutDialog
+        currentDate={scheduledWorkout.date}
+        isPending={updateScheduledWorkoutMutation.isPending}
+        onOpenChange={setIsRescheduleDialogOpen}
+        onReschedule={handleReschedule}
+        open={isRescheduleDialogOpen}
+        templateName={scheduledWorkout.templateName}
+      />
     </Card>
+  );
+}
+
+function RescheduleScheduledWorkoutDialog({
+  currentDate,
+  isPending,
+  onOpenChange,
+  onReschedule,
+  open,
+  templateName,
+}: {
+  currentDate: string;
+  isPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onReschedule: (date: string) => Promise<unknown>;
+  open: boolean;
+  templateName: string | null;
+}) {
+  const [requestedDate, setRequestedDate] = useState(currentDate);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setRequestedDate(currentDate);
+      setErrorMessage(null);
+    }
+    onOpenChange(nextOpen);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalized = requestedDate.trim();
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+    if (!isIsoDate) {
+      setErrorMessage('Enter a valid date in YYYY-MM-DD format.');
+      return;
+    }
+
+    if (normalized === currentDate) {
+      setErrorMessage('Pick a different date to reschedule.');
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      await onReschedule(normalized);
+      handleOpenChange(false);
+    } catch {
+      setErrorMessage('Unable to reschedule right now. Try again.');
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reschedule workout</DialogTitle>
+          <DialogDescription>
+            Move {templateName ?? 'this workout'} to a new date.
+          </DialogDescription>
+        </DialogHeader>
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          <Input
+            aria-invalid={errorMessage != null}
+            min="1900-01-01"
+            onChange={(event) => setRequestedDate(event.target.value)}
+            type="date"
+            value={requestedDate}
+          />
+          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
+          <DialogFooter>
+            <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={isPending} type="submit">
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -472,14 +573,6 @@ function getStatusBadgeIcon(status: WorkoutSessionStatus) {
 
 function parseDateForDisplay(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);
-}
-
-function isActiveSessionListItem(session: WorkoutSessionListItem) {
-  return session.templateId == null || session.templateName != null;
-}
-
-function isActiveScheduledWorkout(scheduledWorkout: ScheduledWorkoutListItem) {
-  return scheduledWorkout.templateId != null && scheduledWorkout.templateName != null;
 }
 
 function getScheduledRange(today: string) {

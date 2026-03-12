@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -125,6 +125,32 @@ describe('WorkoutList', () => {
     renderWorkoutList([], []);
 
     expect(await screen.findByText('No workouts yet. Plan one to get started.')).toBeInTheDocument();
+  });
+
+  it('opens a date-input dialog for rescheduling', async () => {
+    const sessions = [
+      createSession({
+        id: 'session-completed',
+        status: 'completed',
+        date: '2026-03-10',
+      }),
+    ];
+    const scheduledWorkouts = [
+      createScheduledWorkout({
+        id: 'schedule-upcoming',
+        date: '2026-03-15',
+        templateId: 'template-push',
+        templateName: 'Upper Push',
+        sessionId: null,
+      }),
+    ];
+
+    renderWorkoutList(sessions, scheduledWorkouts);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+
+    expect(await screen.findByRole('heading', { name: 'Reschedule workout' })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2026-03-15')).toHaveAttribute('type', 'date');
   });
 });
 

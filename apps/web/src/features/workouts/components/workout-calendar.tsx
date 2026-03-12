@@ -1,16 +1,25 @@
-import { useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, EllipsisVertical } from 'lucide-react';
-import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
+import type { WorkoutSessionListItem } from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
   addDays,
   differenceInDays,
@@ -26,6 +35,11 @@ import {
   useUpdateScheduledWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
+import {
+  ActiveScheduledWorkoutListItem,
+  isActiveScheduledWorkout,
+  isActiveSessionListItem,
+} from '../lib/workout-filters';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const TODAY_KEY = toDateKey(new Date());
@@ -57,7 +71,7 @@ type DayDetails = {
   dateKey: string;
   completedSession: WorkoutSessionListItem | null;
   inProgressSession: WorkoutSessionListItem | null;
-  scheduledWorkouts: ScheduledWorkoutListItem[];
+  scheduledWorkouts: ActiveScheduledWorkoutListItem[];
   status: DayStatus;
   templateName: string | null;
   notes: string | null;
@@ -65,7 +79,7 @@ type DayDetails = {
 
 type DayLookupContext = {
   completedSessionByDate: Map<string, WorkoutSessionListItem>;
-  scheduledByDate: Map<string, ScheduledWorkoutListItem[]>;
+  scheduledByDate: Map<string, ActiveScheduledWorkoutListItem[]>;
   inProgressTodaySession: WorkoutSessionListItem | null;
 };
 
@@ -88,22 +102,25 @@ export function WorkoutCalendar({
     };
   }, [calendarDays, visibleMonth]);
 
-  const completedQuery = useWorkoutSessions({
-    from: dateRange.from,
-    status: ['completed'],
-    to: dateRange.to,
+  const sessionsQuery = useWorkoutSessions({
+    status: ['completed', 'in-progress', 'paused'],
   });
   const scheduledQuery = useScheduledWorkouts({
     from: dateRange.from,
     to: dateRange.to,
   });
-  const inProgressQuery = useWorkoutSessions({
-    status: ['in-progress', 'paused'],
-  });
 
+  const activeSessions = useMemo(
+    () => (sessionsQuery.data ?? []).filter(isActiveSessionListItem),
+    [sessionsQuery.data],
+  );
   const activeCompletedSessions = useMemo(
-    () => (completedQuery.data ?? []).filter(isActiveSessionListItem),
-    [completedQuery.data],
+    () =>
+      activeSessions.filter(
+        (session) =>
+          session.status === 'completed' && session.date >= dateRange.from && session.date <= dateRange.to,
+      ),
+    [activeSessions, dateRange.from, dateRange.to],
   );
   const completedSessionByDate = useMemo(
     () =>
@@ -116,7 +133,7 @@ export function WorkoutCalendar({
     [activeCompletedSessions],
   );
   const scheduledByDate = useMemo(() => {
-    const grouped = new Map<string, ScheduledWorkoutListItem[]>();
+    const grouped = new Map<string, ActiveScheduledWorkoutListItem[]>();
     for (const scheduledWorkout of (scheduledQuery.data ?? []).filter(isActiveScheduledWorkout)) {
       const scheduledOnDate = grouped.get(scheduledWorkout.date) ?? [];
       scheduledOnDate.push(scheduledWorkout);
@@ -127,10 +144,10 @@ export function WorkoutCalendar({
   }, [scheduledQuery.data]);
   const inProgressTodaySession = useMemo(
     () =>
-      (inProgressQuery.data ?? [])
-        .filter(isActiveSessionListItem)
+      activeSessions
+        .filter((session) => session.status === 'in-progress' || session.status === 'paused')
         .find((session) => spansToday(session, TODAY_KEY)) ?? null,
-    [inProgressQuery.data],
+    [activeSessions],
   );
 
   const lookupContext = useMemo(
@@ -226,7 +243,8 @@ export function WorkoutCalendar({
               return (
                 <div
                   aria-current={isToday ? 'date' : undefined}
-                  aria-label={fullDateFormatter.format(day)}
+                  aria-label={`${fullDateFormatter.format(day)}${isSelected ? ', selected' : ''}`}
+                  aria-pressed={isSelected}
                   className={cn(
                     'flex min-h-14 cursor-pointer flex-col rounded-xl border px-1.5 py-1.5 text-left transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3',
                     isInMonth
@@ -276,6 +294,11 @@ export function WorkoutCalendar({
                           compact
                           scheduledWorkout={details.scheduledWorkouts[0]}
                         />
+                      ) : null}
+                      {details.scheduledWorkouts.length > 1 ? (
+                        <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          +{details.scheduledWorkouts.length - 1}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -441,22 +464,14 @@ function ScheduledWorkoutActions({
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
   compact?: boolean;
-  scheduledWorkout: ScheduledWorkoutListItem;
+  scheduledWorkout: ActiveScheduledWorkoutListItem;
 }) {
   const updateScheduledWorkoutMutation = useUpdateScheduledWorkout();
   const deleteScheduledWorkoutMutation = useDeleteScheduledWorkout();
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
 
-  function handleReschedule() {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const requestedDate = window.prompt('Reschedule to date (YYYY-MM-DD)', scheduledWorkout.date);
-    if (!requestedDate || requestedDate === scheduledWorkout.date) {
-      return;
-    }
-
-    void updateScheduledWorkoutMutation.mutateAsync({
+  async function handleReschedule(requestedDate: string) {
+    await updateScheduledWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
@@ -475,30 +490,121 @@ function ScheduledWorkoutActions({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          aria-label={compact ? 'Scheduled workout actions' : `Actions for ${scheduledWorkout.templateName}`}
-          className={cn(
-            'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
-            compact && 'size-5 border-slate-500/70 px-0 py-0',
-          )}
-          onClick={(event) => event.stopPropagation()}
-          type="button"
-        >
-          {compact ? <EllipsisVertical aria-hidden="true" className="size-3" /> : 'Scheduled'}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuItem asChild>
-          <Link to={buildStartWorkoutHref(scheduledWorkout.templateId ?? '')}>Start workout</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleReschedule}>Reschedule</DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleRemove} variant="destructive">
-          Remove
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            aria-label={compact ? 'Scheduled workout actions' : `Actions for ${scheduledWorkout.templateName}`}
+            className={cn(
+              'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
+              compact && 'size-5 border-slate-500/70 px-0 py-0',
+            )}
+            onClick={(event) => event.stopPropagation()}
+            type="button"
+          >
+            {compact ? <EllipsisVertical aria-hidden="true" className="size-3" /> : 'Scheduled'}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenuItem asChild>
+            <Link to={buildStartWorkoutHref(scheduledWorkout.templateId)}>Start workout</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>Reschedule</DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleRemove} variant="destructive">
+            Remove
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RescheduleScheduledWorkoutDialog
+        currentDate={scheduledWorkout.date}
+        isPending={updateScheduledWorkoutMutation.isPending}
+        onOpenChange={setIsRescheduleDialogOpen}
+        onReschedule={handleReschedule}
+        open={isRescheduleDialogOpen}
+        templateName={scheduledWorkout.templateName}
+      />
+    </>
+  );
+}
+
+function RescheduleScheduledWorkoutDialog({
+  currentDate,
+  isPending,
+  onOpenChange,
+  onReschedule,
+  open,
+  templateName,
+}: {
+  currentDate: string;
+  isPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onReschedule: (date: string) => Promise<unknown>;
+  open: boolean;
+  templateName: string | null;
+}) {
+  const [requestedDate, setRequestedDate] = useState(currentDate);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setRequestedDate(currentDate);
+      setErrorMessage(null);
+    }
+    onOpenChange(nextOpen);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalized = requestedDate.trim();
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+    if (!isIsoDate) {
+      setErrorMessage('Enter a valid date in YYYY-MM-DD format.');
+      return;
+    }
+
+    if (normalized === currentDate) {
+      setErrorMessage('Pick a different date to reschedule.');
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      await onReschedule(normalized);
+      handleOpenChange(false);
+    } catch {
+      setErrorMessage('Unable to reschedule right now. Try again.');
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reschedule workout</DialogTitle>
+          <DialogDescription>
+            Move {templateName ?? 'this workout'} to a new date.
+          </DialogDescription>
+        </DialogHeader>
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          <Input
+            aria-invalid={errorMessage != null}
+            min="1900-01-01"
+            onChange={(event) => setRequestedDate(event.target.value)}
+            type="date"
+            value={requestedDate}
+          />
+          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
+          <DialogFooter>
+            <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={isPending} type="submit">
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -605,7 +711,7 @@ function getDetailStats(selectedDay: DayDetails) {
 function getDefaultSelectedDateKey(
   month: Date,
   completedByDate: Map<string, WorkoutSessionListItem>,
-  scheduledByDate: Map<string, ScheduledWorkoutListItem[]>,
+  scheduledByDate: Map<string, ActiveScheduledWorkoutListItem[]>,
 ): string {
   if (
     isSameMonth(parseDateKey(TODAY_KEY), month) &&
@@ -659,14 +765,6 @@ function addMonths(date: Date, months: number) {
 
 function isSameMonth(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
-}
-
-function isActiveSessionListItem(session: WorkoutSessionListItem) {
-  return session.templateId == null || session.templateName != null;
-}
-
-function isActiveScheduledWorkout(scheduledWorkout: ScheduledWorkoutListItem) {
-  return scheduledWorkout.templateId != null && scheduledWorkout.templateName != null;
 }
 
 function spansToday(session: WorkoutSessionListItem, todayKey: string) {
