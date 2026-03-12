@@ -66,6 +66,9 @@ describe('WeightTrendChart', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-03-08T12:00:00'));
+
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const rawUrl =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -97,6 +100,7 @@ describe('WeightTrendChart', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 

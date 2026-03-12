@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCheck, CircleDashed, Plus } from 'lucide-react';
+import { CheckCheck, Plus } from 'lucide-react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
 import { HabitRowSkeleton } from '@/components/skeletons';
@@ -416,7 +416,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {dailyHabits.map((habit) => {
               const frequencySummary = getFrequencySummary(habit.sourceHabit);
               const isPaused =
@@ -450,60 +450,61 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                 <Card
                   key={habit.id}
                   className={cn(
-                    'gap-4 border-transparent py-5 shadow-sm transition-transform duration-200',
+                    'gap-0 border-transparent py-0 shadow-sm transition-all duration-200',
                     trackingSurfaceClasses[habit.trackingType],
                     isComplete && 'ring-2 ring-emerald-500/40',
-                    isPaused && 'border-dashed opacity-80',
+                    isPaused && 'border-dashed opacity-70',
                   )}
                 >
-                  <CardHeader className="flex flex-row items-start justify-between gap-4 pb-0">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl leading-none" aria-hidden="true">
-                          {habit.emoji}
-                        </span>
-                        <CardTitle aria-level={3} className="text-xl font-semibold" role="heading">
+                  {/* Top row: emoji + name + badges + menu */}
+                  <div className="flex items-center gap-3 px-4 pt-4 pb-1 sm:px-5">
+                    <span
+                      className={cn(
+                        'flex size-10 shrink-0 items-center justify-center rounded-xl text-2xl',
+                        isComplete
+                          ? 'bg-emerald-500/15 dark:bg-emerald-500/20'
+                          : 'bg-black/5 dark:bg-white/5',
+                      )}
+                      aria-hidden="true"
+                    >
+                      {habit.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <CardTitle
+                          aria-level={3}
+                          className={cn(
+                            'truncate text-base font-semibold',
+                            isComplete && 'line-through opacity-60',
+                          )}
+                          role="heading"
+                        >
                           {habit.name}
                         </CardTitle>
+                        {frequencySummary ? (
+                          <span className="hidden shrink-0 text-[11px] font-medium uppercase tracking-wider opacity-50 sm:inline">
+                            {frequencySummary}
+                          </span>
+                        ) : null}
                       </div>
-                      {frequencySummary ? (
-                        <p className="pl-12 text-xs font-semibold uppercase tracking-[0.16em] opacity-70 dark:text-muted dark:opacity-100">
-                          {frequencySummary}
-                        </p>
-                      ) : null}
-                      {pausedLabel ? (
-                        <p className="pl-12 text-xs font-medium text-muted">{pausedLabel}</p>
-                      ) : null}
                       {habit.sourceHabit.description ? (
-                        <p className="pl-12 text-sm whitespace-pre-line opacity-70 dark:text-muted dark:opacity-100">
+                        <p className="mt-0.5 truncate text-xs italic opacity-55 dark:text-muted-foreground">
                           {habit.sourceHabit.description}
                         </p>
                       ) : null}
-                      <CardDescription className="pl-12 text-sm opacity-70 dark:text-muted dark:opacity-100">
-                        {progressText}
-                      </CardDescription>
                     </div>
-                    <div className="flex items-start gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {isPaused ? (
-                        <div className="inline-flex items-center rounded-full bg-black/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] dark:bg-secondary dark:text-foreground">
+                        <span className="rounded-full bg-black/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider dark:bg-secondary dark:text-foreground">
                           Paused
-                        </div>
+                        </span>
                       ) : null}
-                      <div
-                        className={cn(
-                          'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
-                          isComplete
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-black/10 opacity-70 dark:bg-secondary dark:text-foreground dark:opacity-100',
-                        )}
-                      >
-                        {isComplete ? (
-                          <CheckCheck className="size-3.5" />
-                        ) : (
-                          <CircleDashed className="size-3.5" />
-                        )}
-                        <span>{isComplete ? 'Done' : 'In progress'}</span>
-                      </div>
+                      {isComplete ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                          <CheckCheck className="size-3" />
+                          Done
+                        </span>
+                      ) : null}
                       <HabitCardMenu
                         habit={habit.sourceHabit}
                         habits={activeHabits}
@@ -513,19 +514,27 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                         }}
                       />
                     </div>
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="space-y-4">
+                  {/* Paused subtitle */}
+                  {pausedLabel ? (
+                    <p className="px-4 pl-[3.75rem] text-xs font-medium text-muted sm:pl-[4.25rem]">
+                      {pausedLabel}
+                    </p>
+                  ) : null}
+
+                  {/* Interaction area */}
+                  <div className="px-4 pt-1 pb-4 sm:px-5">
                     {habit.trackingType === 'boolean' ? (
                       <label
-                        className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/70 px-4 py-3 shadow-sm dark:bg-secondary/60 dark:shadow-none"
+                        className="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2"
                         htmlFor={`habit-${habit.id}`}
                       >
                         <Checkbox
                           id={`habit-${habit.id}`}
                           aria-label={habit.name}
                           checked={value === true}
-                          className="border-border bg-white dark:bg-background"
+                          className="size-5 border-border bg-white dark:bg-background"
                           disabled={isSavingToggle}
                           onCheckedChange={(checked) => {
                             toggleHabitMutation.mutate({
@@ -536,26 +545,23 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                             });
                           }}
                         />
-                        <span className="text-sm font-medium text-foreground">
-                          Mark this habit complete for {isSelectedDateToday ? 'today' : 'this day'}
+                        <span className="text-sm text-foreground/70 dark:text-muted-foreground">
+                          {value === true
+                            ? 'Completed'
+                            : `Tap to complete${isSelectedDateToday ? '' : ' for this day'}`}
                         </span>
                       </label>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-end">
-                        <div className="space-y-2">
-                          <label
-                            className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70 dark:text-muted dark:opacity-100"
-                            htmlFor={`habit-${habit.id}`}
-                          >
-                            {habit.trackingType === 'time' ? 'Hours today' : 'Logged today'}
-                          </label>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
                           <Input
                             id={`habit-${habit.id}`}
                             aria-label={habit.name}
-                            className="h-11 border-border bg-white/75 text-lg font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
+                            className="h-9 w-24 shrink-0 border-border bg-white/75 text-center text-base font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background"
                             disabled={isSavingValue || isSavingToggle}
                             inputMode="decimal"
                             min="0"
+                            placeholder="0"
                             step={habit.trackingType === 'time' ? '0.25' : '1'}
                             type="number"
                             value={
@@ -572,38 +578,37 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                               }));
                             }}
                           />
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-3 text-sm">
-                            <span className="font-semibold dark:text-foreground">
+                          <div className="flex min-w-0 flex-1 items-center justify-between gap-2 text-sm">
+                            <span className="font-medium opacity-70 dark:text-muted-foreground">
                               {progressText}
                             </span>
                             {percentageLabel ? (
-                              <span className={cn('font-semibold', progressTone)}>
-                                — {percentageLabel}
+                              <span className={cn('shrink-0 text-xs font-bold', progressTone)}>
+                                {percentageLabel}
                               </span>
                             ) : null}
                           </div>
+                        </div>
+
+                        {hasTargetProgress ? (
                           <div
                             aria-hidden="true"
-                            className="h-2 overflow-hidden rounded-full bg-black/10 dark:bg-secondary"
+                            className="h-1.5 overflow-hidden rounded-full bg-black/8 dark:bg-white/10"
                           >
                             <div
                               className={cn(
-                                'h-full rounded-full transition-[width] duration-200',
+                                'h-full rounded-full transition-[width] duration-300 ease-out',
                                 progressFillTone,
                               )}
-                              style={{ width: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
+                              style={{
+                                width: `${Math.min(Math.max(progressPercent, 0), 100)}%`,
+                              }}
                             />
                           </div>
-                          <p className="text-xs font-medium tracking-wide uppercase opacity-70 dark:text-muted dark:opacity-100">
-                            Target: {formatValueWithUnit(habit, habit.target ?? 0)}
-                          </p>
-                        </div>
+                        ) : null}
                       </div>
                     )}
-                  </CardContent>
+                  </div>
                 </Card>
               );
             })}

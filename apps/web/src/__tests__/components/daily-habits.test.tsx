@@ -280,8 +280,8 @@ describe('DailyHabits', () => {
     const input = screen.getByRole('spinbutton', { name: 'Hydrate' });
     fireEvent.change(input, { target: { value: '8' } });
 
-    expect(screen.getAllByText('8 glasses / 8 glasses')).toHaveLength(2);
-    expect(screen.getByText(/—\s*100%/)).toBeInTheDocument();
+    expect(screen.getByText('8 glasses / 8 glasses')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
   });
 
   it('creates a numeric or time entry through the upsert mutation when none exists yet', () => {
