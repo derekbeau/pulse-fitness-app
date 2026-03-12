@@ -32,6 +32,7 @@ function formatEntryDate(dateKey: string) {
 
 export function WeightHistory() {
   const [pendingDeleteWeight, setPendingDeleteWeight] = useState<PendingDeleteWeight | null>(null);
+  // Intentional for now: this view is a full history log. Add pagination/date bounds if dataset size becomes a UX issue.
   const weightEntriesQuery = useWeightTrend();
   const deleteWeightMutation = useDeleteWeight();
   const { formatWeight } = useWeightUnit();
@@ -50,9 +51,11 @@ export function WeightHistory() {
 
     try {
       await deleteWeightMutation.mutateAsync(pendingDeleteWeight.id);
-      setPendingDeleteWeight(null);
     } catch {
+      // Error feedback is handled by the mutation onError callback.
       return;
+    } finally {
+      setPendingDeleteWeight(null);
     }
   }
 

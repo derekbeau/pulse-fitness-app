@@ -566,14 +566,6 @@ describe('weight routes', () => {
   });
 
   it('deletes a scoped weight entry and returns delete metadata', async () => {
-    vi.mocked(findBodyWeightEntryById).mockResolvedValue({
-      id: 'entry-1',
-      date: '2026-03-07',
-      weight: 182,
-      notes: null,
-      createdAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_000_000,
-    });
     vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(true);
     vi.mocked(listBodyWeightEntries).mockResolvedValue([]);
     const app = buildServer();
@@ -599,7 +591,6 @@ describe('weight routes', () => {
           id: 'entry-1',
         },
       });
-      expect(vi.mocked(findBodyWeightEntryById)).toHaveBeenCalledWith('entry-1', 'user-1');
       expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('entry-1', 'user-1');
       expect(listResponse.statusCode).toBe(200);
       expect(listResponse.json()).toEqual({ data: [] });
@@ -609,7 +600,7 @@ describe('weight routes', () => {
   });
 
   it('returns 404 when deleting a missing or unauthorized scoped weight entry', async () => {
-    vi.mocked(findBodyWeightEntryById).mockResolvedValue(null);
+    vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(false);
     const app = buildServer();
 
     try {
@@ -628,7 +619,7 @@ describe('weight routes', () => {
           message: 'Weight entry not found',
         },
       });
-      expect(vi.mocked(deleteBodyWeightEntryById)).not.toHaveBeenCalled();
+      expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('entry-404', 'user-1');
     } finally {
       await app.close();
     }

@@ -94,6 +94,7 @@ describe('WeightHistoryPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Weight History' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     expect(await screen.findByText('181.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('181.2 lbs')).toBeInTheDocument();
     expect(screen.getByText('181.8 lbs')).toBeInTheDocument();
@@ -113,6 +114,83 @@ describe('WeightHistoryPage', () => {
       expect(screen.queryByText('181.2 lbs')).not.toBeInTheDocument();
     });
     expect(screen.queryByText('After cardio')).not.toBeInTheDocument();
+  });
+
+  it('closes the confirmation dialog when delete fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'weight-1',
+                date: '2026-03-06',
+                weight: 181.4,
+                notes: null,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight/weight-1' && method === 'DELETE') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: 'WEIGHT_NOT_FOUND',
+                message: 'Weight entry not found',
+              },
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+              status: 404,
+            },
+          ),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/weight']}>
+        <Routes>
+          <Route element={<WeightHistoryPage />} path="/weight" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('181.4 lbs')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Delete weight entry from Mar 6, 2026/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete entry' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   it('shows empty state when no entries are available', async () => {

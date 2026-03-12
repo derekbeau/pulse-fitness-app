@@ -88,11 +88,6 @@ export const agentDailyRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete<{ Params: { id: string } }>('/weight/:id', async (request, reply) => {
-    const existing = await findBodyWeightEntryById(request.params.id, request.userId);
-    if (!existing) {
-      return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
-    }
-
     const deleted = await deleteBodyWeightEntryById(request.params.id, request.userId);
     if (!deleted) {
       return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');

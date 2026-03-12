@@ -81,5 +81,8 @@ export const useDeleteWeight = () => {
       await queryClient.invalidateQueries({ queryKey: weightKeys.all });
       toast.success('Weight entry deleted');
     },
+    onError: () => {
+      toast.error('Failed to delete weight entry');
+    },
   });
 };

@@ -489,14 +489,6 @@ describe('agent daily routes', () => {
       try {
         await app.ready();
 
-        vi.mocked(findBodyWeightEntryById).mockResolvedValue({
-          id: 'weight-1',
-          date: '2026-03-09',
-          weight: 183,
-          notes: null,
-          createdAt: 1,
-          updatedAt: 1,
-        });
         vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(true);
 
         const token = app.jwt.sign({ userId: 'user-1' });
@@ -513,7 +505,6 @@ describe('agent daily routes', () => {
             id: 'weight-1',
           },
         });
-        expect(vi.mocked(findBodyWeightEntryById)).toHaveBeenCalledWith('weight-1', 'user-1');
         expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('weight-1', 'user-1');
       } finally {
         await app.close();
@@ -526,7 +517,7 @@ describe('agent daily routes', () => {
       try {
         await app.ready();
 
-        vi.mocked(findBodyWeightEntryById).mockResolvedValue(null);
+        vi.mocked(deleteBodyWeightEntryById).mockResolvedValue(false);
 
         const token = app.jwt.sign({ userId: 'user-1' });
         const response = await app.inject({
@@ -542,7 +533,7 @@ describe('agent daily routes', () => {
             message: 'Weight entry not found',
           },
         });
-        expect(vi.mocked(deleteBodyWeightEntryById)).not.toHaveBeenCalled();
+        expect(vi.mocked(deleteBodyWeightEntryById)).toHaveBeenCalledWith('missing', 'user-1');
       } finally {
         await app.close();
       }

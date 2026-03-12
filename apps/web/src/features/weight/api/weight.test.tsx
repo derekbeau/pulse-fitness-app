@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
@@ -10,6 +11,18 @@ import {
   useWeightTrend,
   weightKeys,
 } from './weight';
+
+const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastErrorMock,
+    success: toastSuccessMock,
+  },
+}));
 
 const mockFetch = vi.fn();
 
@@ -25,6 +38,8 @@ describe('weight api hooks', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     vi.stubGlobal('fetch', mockFetch);
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
   });
 
   it('loads the latest body weight entry', async () => {
@@ -137,5 +152,33 @@ describe('weight api hooks', () => {
       }),
     );
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
+  });
+
+  it('shows a specific error toast when deleting a weight entry fails', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'WEIGHT_NOT_FOUND',
+            message: 'Weight entry not found',
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          status: 404,
+        },
+      ),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useDeleteWeight(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync('missing-weight')).rejects.toThrow('Weight entry not found');
+    });
+
+    expect(toast.error).toHaveBeenCalledWith('Failed to delete weight entry');
   });
 });
