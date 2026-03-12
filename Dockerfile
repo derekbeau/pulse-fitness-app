@@ -19,8 +19,8 @@ COPY apps/api apps/api
 COPY apps/web apps/web
 COPY turbo.json tsconfig*.json ./
 
-# Build everything (shared → api + web)
-RUN pnpm build
+# Clean incremental cache and build everything (shared → api + web)
+RUN find . -name '*.tsbuildinfo' -delete && pnpm build
 
 # Point shared package exports to compiled output for Node.js runtime
 RUN cd packages/shared && \
