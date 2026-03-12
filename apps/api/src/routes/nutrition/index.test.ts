@@ -57,6 +57,8 @@ const mealItems = [
     fat: 8,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_001,
   },
   {
@@ -72,6 +74,8 @@ const mealItems = [
     fat: 14,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_002,
   },
 ];
@@ -461,12 +465,42 @@ describe('nutrition routes', () => {
       expect(patchNameResponse.json()).toEqual({
         data: patchedMeal,
       });
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(1, 'user-1', '2026-03-09', 'meal-1');
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(2, 'user-1', '2026-03-09', 'meal-1');
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(3, 'user-1', '2026-03-09', 'meal-1');
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(4, 'user-1', '2026-03-10', 'meal-1');
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(5, 'user-2', '2026-03-09', 'meal-1');
-      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(6, 'user-1', '2026-03-09', 'meal-404');
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        3,
+        'user-1',
+        '2026-03-09',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        4,
+        'user-1',
+        '2026-03-10',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        5,
+        'user-2',
+        '2026-03-09',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        6,
+        'user-1',
+        '2026-03-09',
+        'meal-404',
+      );
 
       expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
         name: 'Updated Lunch',
@@ -613,24 +647,42 @@ describe('nutrition routes', () => {
         'item-404',
       );
 
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
-        amount: 9,
-      });
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
-        calories: 400,
-        protein: 78,
-        carbs: 1,
-        fat: 9,
-      });
-      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
-        amount: 9,
-        calories: 420,
-        protein: 78,
-        carbs: 1,
-        fat: 9,
-        fiber: 1,
-        sugar: 0,
-      });
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        'meal-1',
+        'item-1',
+        {
+          amount: 9,
+        },
+      );
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        'meal-1',
+        'item-1',
+        {
+          calories: 400,
+          protein: 78,
+          carbs: 1,
+          fat: 9,
+        },
+      );
+      expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+        3,
+        'user-1',
+        'meal-1',
+        'item-1',
+        {
+          amount: 9,
+          calories: 420,
+          protein: 78,
+          carbs: 1,
+          fat: 9,
+          fiber: 1,
+          sugar: 0,
+        },
+      );
 
       expect(wrongMealResponse.statusCode).toBe(404);
       expect(wrongUserResponse.statusCode).toBe(404);

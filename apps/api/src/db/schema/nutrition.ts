@@ -1,15 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  unique,
-} from 'drizzle-orm/sqlite-core';
+import { check, index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 import { foods } from './foods.js';
 import { users } from './users.js';
@@ -17,7 +9,9 @@ import { users } from './users.js';
 export const nutritionLogs = sqliteTable(
   'nutrition_logs',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -45,7 +39,9 @@ export const nutritionLogs = sqliteTable(
 export const meals = sqliteTable(
   'meals',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     nutritionLogId: text('nutrition_log_id')
       .notNull()
       .references(() => nutritionLogs.id, { onDelete: 'cascade' }),
@@ -64,14 +60,19 @@ export const meals = sqliteTable(
   },
   (table) => [
     index('meals_nutrition_log_id_idx').on(table.nutritionLogId),
-    check('meals_time_format_check', sql`${table.time} is null or ${table.time} glob '[0-9][0-9]:[0-9][0-9]'`),
+    check(
+      'meals_time_format_check',
+      sql`${table.time} is null or ${table.time} glob '[0-9][0-9]:[0-9][0-9]'`,
+    ),
   ],
 );
 
 export const mealItems = sqliteTable(
   'meal_items',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     mealId: text('meal_id')
       .notNull()
       .references(() => meals.id, { onDelete: 'cascade' }),
@@ -79,6 +80,8 @@ export const mealItems = sqliteTable(
     name: text('name').notNull(),
     amount: real('amount').notNull(),
     unit: text('unit').notNull(),
+    displayQuantity: real('display_quantity'),
+    displayUnit: text('display_unit'),
     calories: real('calories').notNull(),
     protein: real('protein').notNull(),
     carbs: real('carbs').notNull(),
@@ -94,6 +97,10 @@ export const mealItems = sqliteTable(
     index('meal_items_meal_id_idx').on(table.mealId),
     index('meal_items_food_id_idx').on(table.foodId),
     check('meal_items_amount_check', sql`${table.amount} > 0`),
+    check(
+      'meal_items_display_quantity_check',
+      sql`${table.displayQuantity} is null or ${table.displayQuantity} > 0`,
+    ),
     check(
       'meal_items_macros_nonnegative_check',
       sql`${table.calories} >= 0 and ${table.protein} >= 0 and ${table.carbs} >= 0 and ${table.fat} >= 0`,

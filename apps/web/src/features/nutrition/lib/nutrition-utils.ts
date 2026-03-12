@@ -20,6 +20,8 @@ type MealSource = {
 type ServingSource = {
   amount: number;
   unit: string;
+  displayQuantity?: number | null;
+  displayUnit?: string | null;
 };
 
 const DEFAULT_TOTALS: MacroTotals = {
@@ -79,8 +81,24 @@ export function formatGrams(value: number): string {
   return formatGramsValue(value);
 }
 
-export function formatServing(item: ServingSource): string {
-  return `${formatServingValue(item.amount)} ${item.unit}`;
+export function formatDisplayServing({
+  amount,
+  unit,
+  displayQuantity,
+  displayUnit,
+}: ServingSource): string {
+  const normalizedDisplayUnit = displayUnit?.trim();
+  const hasDisplayServing =
+    typeof displayQuantity === 'number' &&
+    Number.isFinite(displayQuantity) &&
+    displayQuantity > 0 &&
+    Boolean(normalizedDisplayUnit);
+
+  if (hasDisplayServing) {
+    return `${formatServingValue(displayQuantity)} ${normalizedDisplayUnit}`;
+  }
+
+  return `${formatServingValue(amount)} ${unit}`;
 }
 
 export function formatDayLabel(date: string): string {

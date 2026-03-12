@@ -717,6 +717,8 @@ describe('mealItems schema', () => {
       'name',
       'amount',
       'unit',
+      'displayQuantity',
+      'displayUnit',
       'calories',
       'protein',
       'carbs',
@@ -746,6 +748,7 @@ describe('mealItems schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'meal_items_amount_check',
+      'meal_items_display_quantity_check',
       'meal_items_fiber_nonnegative_check',
       'meal_items_macros_nonnegative_check',
       'meal_items_sugar_nonnegative_check',

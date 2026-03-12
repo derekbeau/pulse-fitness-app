@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { updateFoodLastUsedAt } from '../foods/store.js';
-import { createMealForDate, findMealById, findMealItemById, patchMealById, patchMealItemById } from '../nutrition/store.js';
+import {
+  createMealForDate,
+  findMealById,
+  findMealItemById,
+  patchMealById,
+  patchMealItemById,
+} from '../nutrition/store.js';
 
 import { findFoodByName } from './store.js';
 
@@ -80,6 +86,8 @@ const createdItems = [
     fat: 7.2,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_001,
   },
   {
@@ -95,6 +103,8 @@ const createdItems = [
     fat: 0.4,
     fiber: null,
     sugar: null,
+    displayQuantity: null,
+    displayUnit: null,
     createdAt: 1_700_000_000_002,
   },
 ];
@@ -199,7 +209,12 @@ describe('agent meals routes', () => {
           carbs: 44.5,
           fat: 7.6000000000000005,
         });
-        expect(json.data.items).toHaveLength(2);
+        expect(json.data.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ displayQuantity: null, displayUnit: null }),
+            expect.objectContaining({ displayQuantity: null, displayUnit: null }),
+          ]),
+        );
 
         expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith(
           'user-1',
@@ -213,6 +228,8 @@ describe('agent meals routes', () => {
                 name: 'Chicken Breast',
                 amount: 2,
                 unit: 'serving',
+                displayQuantity: null,
+                displayUnit: null,
                 calories: 330,
                 protein: 62,
               }),
@@ -221,7 +238,132 @@ describe('agent meals routes', () => {
                 name: 'White Rice',
                 amount: 1,
                 unit: 'serving',
+                displayQuantity: null,
+                displayUnit: null,
                 calories: 206,
+              }),
+            ],
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('persists display fields when provided and returns them in response', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findFoodByName).mockResolvedValueOnce(chickenFood);
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: createdMeal,
+          items: [
+            {
+              ...createdItems[0],
+              displayQuantity: 2,
+              displayUnit: 'scoops',
+            },
+          ],
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            time: '12:00',
+            items: [
+              { foodName: 'Chicken Breast', quantity: 2, displayQuantity: 2, displayUnit: 'scoops' },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.json().data.items).toEqual([
+          expect.objectContaining({ displayQuantity: 2, displayUnit: 'scoops' }),
+        ]);
+        expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith(
+          'user-1',
+          '2026-03-09',
+          expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                displayQuantity: 2,
+                displayUnit: 'scoops',
+              }),
+            ],
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('supports mixed display field usage across items', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findFoodByName)
+          .mockResolvedValueOnce(chickenFood)
+          .mockResolvedValueOnce(riceFood);
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: createdMeal,
+          items: [
+            {
+              ...createdItems[0],
+              displayQuantity: 2,
+              displayUnit: 'scoops',
+            },
+            {
+              ...createdItems[1],
+              displayQuantity: null,
+              displayUnit: null,
+            },
+          ],
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            time: '12:00',
+            items: [
+              { foodName: 'Chicken Breast', quantity: 2, displayQuantity: 2, displayUnit: 'scoops' },
+              { foodName: 'White Rice', quantity: 1 },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.json().data.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ displayQuantity: 2, displayUnit: 'scoops' }),
+            expect.objectContaining({ displayQuantity: null, displayUnit: null }),
+          ]),
+        );
+        expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith(
+          'user-1',
+          '2026-03-09',
+          expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                displayQuantity: 2,
+                displayUnit: 'scoops',
+              }),
+              expect.objectContaining({
+                displayQuantity: null,
+                displayUnit: null,
               }),
             ],
           }),
@@ -326,7 +468,10 @@ describe('agent meals routes', () => {
 
       try {
         await app.ready();
-        vi.mocked(findMealById).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal).mockResolvedValueOnce(createdMeal);
+        vi.mocked(findMealById)
+          .mockResolvedValueOnce(createdMeal)
+          .mockResolvedValueOnce(createdMeal)
+          .mockResolvedValueOnce(createdMeal);
         vi.mocked(patchMealById).mockResolvedValue(patchedMeal);
 
         const token = app.jwt.sign({ userId: 'user-1' });
@@ -480,27 +625,60 @@ describe('agent meals routes', () => {
         expect(patchMacrosResponse.json()).toEqual({
           data: patchedMealItem,
         });
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1');
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', 'item-1', {
-          amount: 2.5,
-        });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', 'item-1', {
-          calories: 345,
-          protein: 63,
-          carbs: 2,
-          fat: 8,
-        });
-        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', 'item-1', {
-          amount: 2.5,
-          calories: 345,
-          protein: 63,
-          carbs: 2,
-          fat: 8,
-          fiber: 1,
-          sugar: 0,
-        });
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          1,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          2,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(findMealItemById)).toHaveBeenNthCalledWith(
+          3,
+          'user-1',
+          'meal-1',
+          'item-1',
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          1,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            amount: 2.5,
+          },
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          2,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+          },
+        );
+        expect(vi.mocked(patchMealItemById)).toHaveBeenNthCalledWith(
+          3,
+          'user-1',
+          'meal-1',
+          'item-1',
+          {
+            amount: 2.5,
+            calories: 345,
+            protein: 63,
+            carbs: 2,
+            fat: 8,
+            fiber: 1,
+            sugar: 0,
+          },
+        );
       } finally {
         await app.close();
       }

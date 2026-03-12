@@ -30,6 +30,8 @@ export type MealItemRecord = {
   name: string;
   amount: number;
   unit: string;
+  displayQuantity: number | null;
+  displayUnit: string | null;
   calories: number;
   protein: number;
   carbs: number;
@@ -90,6 +92,8 @@ const mealItemSelection = {
   name: mealItems.name,
   amount: mealItems.amount,
   unit: mealItems.unit,
+  displayQuantity: mealItems.displayQuantity,
+  displayUnit: mealItems.displayUnit,
   calories: mealItems.calories,
   protein: mealItems.protein,
   carbs: mealItems.carbs,
@@ -166,6 +170,8 @@ export const createMealForDate = async (
       name: item.name,
       amount: item.amount,
       unit: item.unit,
+      displayQuantity: toNullable(item.displayQuantity),
+      displayUnit: toNullable(item.displayUnit),
       calories: item.calories,
       protein: item.protein,
       carbs: item.carbs,
@@ -175,7 +181,9 @@ export const createMealForDate = async (
     }));
 
     const foodIds = [
-      ...new Set(itemValues.map((item) => item.foodId).filter((foodId): foodId is string => foodId !== null)),
+      ...new Set(
+        itemValues.map((item) => item.foodId).filter((foodId): foodId is string => foodId !== null),
+      ),
     ];
     if (foodIds.length > 0) {
       const ownedFoods = tx
@@ -260,20 +268,19 @@ export const getDailyNutritionSummaryForDate = async (
 ): Promise<NutritionSummaryRecord> => {
   const { db } = await import('../../db/index.js');
 
-  const actuals =
-    db
-      .select(nutritionSummarySelection)
-      .from(nutritionLogs)
-      .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
-      .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
-      .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
-      .get() ?? {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      meals: 0,
-    };
+  const actuals = db
+    .select(nutritionSummarySelection)
+    .from(nutritionLogs)
+    .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+    .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+    .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+    .get() ?? {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    meals: 0,
+  };
 
   const target =
     db
@@ -344,12 +351,17 @@ export const findMealForDate = async (
     .select(mealSelection)
     .from(meals)
     .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-    .where(and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)))
+    .where(
+      and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date)),
+    )
     .limit(1)
     .get();
 };
 
-export const findMealById = async (userId: string, mealId: string): Promise<MealRecord | undefined> => {
+export const findMealById = async (
+  userId: string,
+  mealId: string,
+): Promise<MealRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
   return db

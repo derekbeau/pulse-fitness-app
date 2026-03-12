@@ -58,6 +58,8 @@ describe('nutrition api hooks', () => {
                 fat: 15,
                 fiber: null,
                 sugar: null,
+                displayQuantity: null,
+                displayUnit: null,
                 createdAt: 1,
               },
             ],
