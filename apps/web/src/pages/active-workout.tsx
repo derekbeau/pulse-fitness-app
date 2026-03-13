@@ -909,6 +909,11 @@ export function ActiveWorkoutPage() {
                     number: createdSet.setNumber,
                     reps: createdSet.reps,
                     seconds: null,
+                    targetDistance: null,
+                    targetSeconds: null,
+                    targetWeight: null,
+                    targetWeightMax: null,
+                    targetWeightMin: null,
                     weight: createdSet.weight,
                   },
                 ].sort((left, right) => left.number - right.number),
@@ -1352,6 +1357,11 @@ function createSessionSetDrafts(
       number: sessionSet.setNumber,
       reps: nextReps,
       seconds: nextSeconds,
+      targetDistance: sessionSet.targetDistance ?? null,
+      targetSeconds: sessionSet.targetSeconds ?? null,
+      targetWeight: sessionSet.targetWeight ?? null,
+      targetWeightMax: sessionSet.targetWeightMax ?? null,
+      targetWeightMin: sessionSet.targetWeightMin ?? null,
       weight: sessionSet.weight,
     };
     const existingSets = drafts[sessionSet.exerciseId] ?? [];
@@ -1401,6 +1411,11 @@ function mergeServerSetDrafts(
         distance: currentDraft.distance,
         reps: currentDraft.reps,
         seconds: currentDraft.seconds,
+        targetDistance: currentDraft.targetDistance,
+        targetSeconds: currentDraft.targetSeconds,
+        targetWeight: currentDraft.targetWeight,
+        targetWeightMax: currentDraft.targetWeightMax,
+        targetWeightMin: currentDraft.targetWeightMin,
         weight: currentDraft.weight,
       };
     });

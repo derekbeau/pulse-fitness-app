@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import { exerciseTrackingTypeSchema } from './exercises.js';
 
 const requiredStringSchema = z.string().trim().min(1).max(255);
 
@@ -19,6 +20,7 @@ export const scheduledWorkoutListItemSchema = z.object({
   date: dateSchema,
   templateId: z.string().nullable(),
   templateName: requiredStringSchema.nullable(),
+  templateTrackingTypes: z.array(exerciseTrackingTypeSchema).optional(),
   sessionId: z.string().nullable(),
   createdAt: z.number().int(),
 });

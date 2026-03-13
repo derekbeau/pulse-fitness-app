@@ -67,6 +67,18 @@ const seedExercise = (values: {
   userId?: string | null;
   name: string;
   category?: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  trackingType?:
+    | 'weight_reps'
+    | 'weight_seconds'
+    | 'bodyweight_reps'
+    | 'reps_only'
+    | 'reps_seconds'
+    | 'seconds_only'
+    | 'distance'
+    | 'cardio';
+  formCues?: string[];
+  coachingNotes?: string | null;
+  instructions?: string | null;
 }) =>
   context.db
     .insert(exercises)
@@ -74,10 +86,13 @@ const seedExercise = (values: {
       id: values.id,
       userId: values.userId ?? null,
       name: values.name,
+      trackingType: values.trackingType ?? 'weight_reps',
       muscleGroups: ['chest'],
       equipment: 'barbell',
       category: values.category ?? 'compound',
-      instructions: null,
+      formCues: values.formCues ?? [],
+      coachingNotes: values.coachingNotes ?? null,
+      instructions: values.instructions ?? null,
     })
     .run();
 
@@ -508,6 +523,123 @@ describe('workout session routes', () => {
         code: 'WORKOUT_SESSION_NOT_FOUND',
         message: 'Workout session not found',
       },
+    });
+  });
+
+  it('includes trackingType on each exercise in session detail responses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-hang',
+      userId: 'user-1',
+      name: 'Dead Hang',
+      trackingType: 'seconds_only',
+      formCues: ['Pack shoulders', 'Keep ribs down'],
+      coachingNotes: 'Use a full grip and avoid shrugging.',
+      instructions: 'Hang from bar for target time.',
+    });
+    seedWorkoutSession({
+      id: 'session-tracking',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-tracking-1',
+      sessionId: 'session-tracking',
+      exerciseId: 'user-1-hang',
+      setNumber: 1,
+      reps: 45,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-tracking',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-tracking',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'user-1-hang',
+            trackingType: 'seconds_only',
+            exercise: {
+              formCues: ['Pack shoulders', 'Keep ribs down'],
+              coachingNotes: 'Use a full grip and avoid shrugging.',
+              instructions: 'Hang from bar for target time.',
+            },
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('omits metadata from soft-deleted exercises in session detail responses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-soft-deleted',
+      userId: 'user-1',
+      name: 'Deleted Exercise',
+      trackingType: 'seconds_only',
+      formCues: ['This should not be returned'],
+      coachingNotes: 'Should be hidden',
+      instructions: 'Should be hidden',
+    });
+    seedWorkoutSession({
+      id: 'session-soft-deleted-exercise',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-soft-deleted-1',
+      sessionId: 'session-soft-deleted-exercise',
+      exerciseId: 'user-1-soft-deleted',
+      setNumber: 1,
+      reps: 30,
+      section: 'main',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(exercises.id, 'user-1-soft-deleted'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-soft-deleted-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-soft-deleted-exercise',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'user-1-soft-deleted',
+            exerciseName: 'Unknown Exercise',
+            trackingType: null,
+            exercise: {
+              formCues: [],
+              coachingNotes: null,
+              instructions: null,
+            },
+          }),
+        ]),
+      }),
     });
   });
 
@@ -1116,6 +1248,8 @@ describe('workout session routes', () => {
             setNumber: 1,
             weight: 185,
             reps: 8,
+            targetWeightMin: 175,
+            targetWeightMax: 185,
             completed: true,
             section: 'main',
             notes: ' Fast bar path ',
@@ -1157,6 +1291,11 @@ describe('workout session routes', () => {
           setNumber: number;
           weight: number | null;
           reps: number | null;
+          targetWeight: number | null;
+          targetWeightMin: number | null;
+          targetWeightMax: number | null;
+          targetSeconds: number | null;
+          targetDistance: number | null;
           completed: boolean;
           skipped: boolean;
           section: string | null;
@@ -1190,6 +1329,8 @@ describe('workout session routes', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
+          targetWeightMin: 175,
+          targetWeightMax: 185,
           completed: true,
           skipped: false,
           section: 'main',

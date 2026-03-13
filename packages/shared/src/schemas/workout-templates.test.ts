@@ -36,6 +36,12 @@ describe('workoutTemplateSchema', () => {
               id: 'exercise-1',
               exerciseId: 'row-erg',
               exerciseName: ' Row Erg ',
+              trackingType: 'seconds_only',
+              exercise: {
+                formCues: [' Keep shoulders packed '],
+                coachingNotes: ' Keep shoulders packed and avoid shrugging. ',
+                instructions: ' Build pace progressively over the interval. ',
+              },
               formCues: [' Keep shoulders packed '],
               sets: 1,
               repsMin: 240,
@@ -45,6 +51,13 @@ describe('workoutTemplateSchema', () => {
               supersetGroup: null,
               notes: ' Keep this conversational. ',
               cues: [' Drive legs ', ' Relax shoulders '],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetSeconds: 240,
+                },
+              ],
+              programmingNotes: ' Keep this easy before loading pressing.',
             },
           ],
         },
@@ -77,6 +90,12 @@ describe('workoutTemplateSchema', () => {
               id: 'exercise-1',
               exerciseId: 'row-erg',
               exerciseName: 'Row Erg',
+              trackingType: 'seconds_only',
+              exercise: {
+                formCues: ['Keep shoulders packed'],
+                coachingNotes: 'Keep shoulders packed and avoid shrugging.',
+                instructions: 'Build pace progressively over the interval.',
+              },
               formCues: ['Keep shoulders packed'],
               sets: 1,
               repsMin: 240,
@@ -86,6 +105,13 @@ describe('workoutTemplateSchema', () => {
               supersetGroup: null,
               notes: 'Keep this conversational.',
               cues: ['Drive legs', 'Relax shoulders'],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetSeconds: 240,
+                },
+              ],
+              programmingNotes: 'Keep this easy before loading pressing.',
             },
           ],
         },
@@ -143,6 +169,18 @@ describe('createWorkoutTemplateInputSchema', () => {
               supersetGroup: ' A ',
               notes: ' Brace hard. ',
               cues: [' Spread floor ', ' Drive up '],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetWeightMin: 205,
+                  targetWeightMax: 225,
+                },
+                {
+                  setNumber: 2,
+                  targetWeight: 215,
+                },
+              ],
+              programmingNotes: ' Top-set focus before back-off work. ',
             },
           ],
         },
@@ -169,10 +207,46 @@ describe('createWorkoutTemplateInputSchema', () => {
               supersetGroup: 'A',
               notes: 'Brace hard.',
               cues: ['Spread floor', 'Drive up'],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetWeightMin: 205,
+                  targetWeightMax: 225,
+                },
+                {
+                  setNumber: 2,
+                  targetWeight: 215,
+                },
+              ],
+              programmingNotes: 'Top-set focus before back-off work.',
             },
           ],
         },
       ],
+    });
+  });
+
+  it('keeps set targets and programming notes optional when omitted', () => {
+    const payload = createWorkoutTemplateInputSchema.parse({
+      name: 'Conditioning',
+      sections: [
+        {
+          type: 'main',
+          exercises: [{ exerciseId: 'row-erg' }],
+        },
+      ],
+    });
+
+    expect(payload.sections[0]?.exercises[0]).toEqual({
+      exerciseId: 'row-erg',
+      sets: null,
+      repsMin: null,
+      repsMax: null,
+      tempo: null,
+      restSeconds: null,
+      supersetGroup: null,
+      notes: null,
+      cues: [],
     });
   });
 
@@ -198,6 +272,29 @@ describe('createWorkoutTemplateInputSchema', () => {
                 exerciseId: 'press',
                 repsMin: 12,
                 repsMax: 8,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createWorkoutTemplateInputSchema.parse({
+        name: 'Upper',
+        sections: [
+          {
+            type: 'main',
+            exercises: [
+              {
+                exerciseId: 'press',
+                setTargets: [
+                  {
+                    setNumber: 1,
+                    targetWeightMin: 200,
+                    targetWeightMax: 150,
+                  },
+                ],
               },
             ],
           },

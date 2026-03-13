@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
+  ExerciseTrackingType,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WorkoutTemplateSection,
@@ -28,7 +29,10 @@ type TemplateExerciseRecord = {
   templateId: string;
   exerciseId: string;
   exerciseName: string;
+  trackingType: ExerciseTrackingType;
   exerciseFormCues: string[];
+  exerciseCoachingNotes: string | null;
+  exerciseInstructions: string | null;
   orderIndex: number;
   sets: number | null;
   repsMin: number | null;
@@ -39,6 +43,15 @@ type TemplateExerciseRecord = {
   section: WorkoutTemplateSectionType;
   notes: string | null;
   cues: string[] | null;
+  setTargets: Array<{
+    setNumber: number;
+    targetWeight?: number | null;
+    targetWeightMin?: number | null;
+    targetWeightMax?: number | null;
+    targetSeconds?: number | null;
+    targetDistance?: number | null;
+  }> | null;
+  programmingNotes: string | null;
 };
 
 const templateSelection = {
@@ -56,7 +69,10 @@ const templateExerciseSelection = {
   templateId: templateExercises.templateId,
   exerciseId: templateExercises.exerciseId,
   exerciseName: exercises.name,
+  trackingType: exercises.trackingType,
   exerciseFormCues: exercises.formCues,
+  exerciseCoachingNotes: exercises.coachingNotes,
+  exerciseInstructions: exercises.instructions,
   orderIndex: templateExercises.orderIndex,
   sets: templateExercises.sets,
   repsMin: templateExercises.repsMin,
@@ -67,6 +83,8 @@ const templateExerciseSelection = {
   section: templateExercises.section,
   notes: templateExercises.notes,
   cues: templateExercises.cues,
+  setTargets: templateExercises.setTargets,
+  programmingNotes: templateExercises.programmingNotes,
 };
 
 const buildTemplateSections = (
@@ -81,6 +99,13 @@ const buildTemplateSections = (
         id: row.id,
         exerciseId: row.exerciseId,
         exerciseName: row.exerciseName,
+        trackingType: row.trackingType,
+        exercise: {
+          formCues: row.exerciseFormCues ?? [],
+          coachingNotes: row.exerciseCoachingNotes,
+          instructions: row.exerciseInstructions,
+        },
+        // Deprecated compatibility field; keep until clients fully migrate to exercise.formCues.
         formCues: row.exerciseFormCues ?? [],
         sets: row.sets,
         repsMin: row.repsMin,
@@ -90,6 +115,8 @@ const buildTemplateSections = (
         supersetGroup: row.supersetGroup,
         notes: row.notes,
         cues: row.cues ?? [],
+        ...(row.setTargets !== null ? { setTargets: row.setTargets } : {}),
+        ...(row.programmingNotes !== null ? { programmingNotes: row.programmingNotes } : {}),
       })),
   })) as [WorkoutTemplateSection, WorkoutTemplateSection, WorkoutTemplateSection];
 
@@ -128,6 +155,9 @@ const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInpu
       section: sectionType,
       notes: exercise.notes,
       cues: exercise.cues,
+      setTargets:
+        exercise.setTargets && exercise.setTargets.length > 0 ? exercise.setTargets : null,
+      programmingNotes: exercise.programmingNotes,
     }));
   });
 

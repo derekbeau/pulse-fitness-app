@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateExerciseInput,
   Exercise,
@@ -52,6 +52,8 @@ const exerciseSelection = {
   tags: exercises.tags,
   formCues: exercises.formCues,
   instructions: exercises.instructions,
+  coachingNotes: exercises.coachingNotes,
+  relatedExerciseIds: exercises.relatedExerciseIds,
   createdAt: exercises.createdAt,
   updatedAt: exercises.updatedAt,
 };
@@ -119,6 +121,8 @@ export const createExercise = async ({
   tags,
   formCues,
   instructions,
+  coachingNotes,
+  relatedExerciseIds,
 }: CreateExerciseInput & { id: string; userId: string }): Promise<Exercise> => {
   const { db } = await import('../../db/index.js');
 
@@ -135,6 +139,8 @@ export const createExercise = async ({
       tags,
       formCues,
       instructions,
+      coachingNotes,
+      relatedExerciseIds,
     })
     .run();
 
@@ -311,6 +317,37 @@ export const findVisibleExerciseById = async ({
     )
     .limit(1)
     .get();
+};
+
+export const allRelatedExercisesOwned = async ({
+  userId,
+  exerciseIds,
+}: {
+  userId: string;
+  exerciseIds: string[];
+}): Promise<boolean> => {
+  if (exerciseIds.length === 0) {
+    return true;
+  }
+
+  const uniqueIds = [...new Set(exerciseIds)];
+  const { db } = await import('../../db/index.js');
+
+  const ownedExerciseIds = db
+    .select({ id: exercises.id })
+    .from(exercises)
+    .where(
+      and(
+        inArray(exercises.id, uniqueIds),
+        // Intentional: relatedExerciseIds are restricted to user-owned exercises only.
+        eq(exercises.userId, userId),
+        isNull(exercises.deletedAt),
+      ),
+    )
+    .all()
+    .map((exercise) => exercise.id);
+
+  return ownedExerciseIds.length === uniqueIds.length;
 };
 
 export const findVisibleExerciseByName = async ({

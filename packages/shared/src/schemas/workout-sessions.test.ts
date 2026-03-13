@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
+  sessionSetSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
@@ -146,6 +147,39 @@ describe('sessionSetInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects target weight ranges where min exceeds max', () => {
+    expect(() =>
+      sessionSetInputSchema.parse({
+        exerciseId: 'bench-press',
+        setNumber: 1,
+        targetWeightMin: 150,
+        targetWeightMax: 100,
+      }),
+    ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
+  });
+});
+
+describe('sessionSetSchema', () => {
+  it('rejects persisted target weight ranges where min exceeds max', () => {
+    expect(() =>
+      sessionSetSchema.parse({
+        id: 'set-1',
+        exerciseId: 'bench-press',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: 185,
+        reps: 8,
+        targetWeightMin: 150,
+        targetWeightMax: 100,
+        completed: false,
+        skipped: false,
+        section: 'main',
+        notes: null,
+        createdAt: 1_700_000_000_500,
+      }),
+    ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
+  });
 });
 
 describe('workoutSessionSchema', () => {
@@ -173,6 +207,34 @@ describe('workoutSessionSchema', () => {
         notes: ' Strong lockout ',
       },
       notes: ' Great session overall. ',
+      exercises: [
+        {
+          exerciseId: 'bench-press',
+          exerciseName: ' Bench Press ',
+          trackingType: 'weight_reps',
+          exercise: {
+            formCues: [' Drive feet '],
+            coachingNotes: ' Keep upper back tight. ',
+            instructions: ' Lower under control and press explosively. ',
+          },
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'bench-press',
+              setNumber: 1,
+              weight: 185,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: ' Smooth bar path ',
+              createdAt: 1_700_000_000_500,
+            },
+          ],
+        },
+      ],
       sets: [
         {
           id: 'set-1',
@@ -214,6 +276,34 @@ describe('workoutSessionSchema', () => {
         notes: 'Strong lockout',
       },
       notes: 'Great session overall.',
+      exercises: [
+        {
+          exerciseId: 'bench-press',
+          exerciseName: 'Bench Press',
+          trackingType: 'weight_reps',
+          exercise: {
+            formCues: ['Drive feet'],
+            coachingNotes: 'Keep upper back tight.',
+            instructions: 'Lower under control and press explosively.',
+          },
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'bench-press',
+              setNumber: 1,
+              weight: 185,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: 'Smooth bar path',
+              createdAt: 1_700_000_000_500,
+            },
+          ],
+        },
+      ],
       sets: [
         {
           id: 'set-1',

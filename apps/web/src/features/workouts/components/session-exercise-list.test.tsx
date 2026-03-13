@@ -38,6 +38,60 @@ const activeTemplate = mockTemplates.find((template) => template.id === 'upper-p
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
 
 describe('SessionExerciseList', () => {
+  it('renders prescribed set targets from session set data', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const inclinePress = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'incline-dumbbell-press');
+    const rowErg = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'row-erg');
+    const ropePushdown = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'rope-triceps-pushdown');
+
+    if (!inclinePress || !rowErg || !ropePushdown) {
+      throw new Error('Expected template exercises in active workout session.');
+    }
+
+    const inclinePressSet = inclinePress.sets[0];
+    const rowErgSet = rowErg.sets[0];
+    const ropePushdownSet = ropePushdown.sets[0];
+
+    if (!inclinePressSet || !rowErgSet || !ropePushdownSet) {
+      throw new Error('Expected exercises with at least one set.');
+    }
+
+    inclinePressSet.targetWeightMin = 70;
+    inclinePressSet.targetWeightMax = 90;
+    rowErg.trackingType = 'seconds_only';
+    rowErgSet.targetSeconds = 30;
+    ropePushdown.trackingType = 'distance';
+    ropePushdownSet.targetDistance = 40;
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    expect(screen.getByText('Target: 70-90 lbs')).toBeInTheDocument();
+    expect(screen.getByText('Target: 30s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 40 mi')).toBeInTheDocument();
+  });
+
   it('shows editable set rows and renders an inline rest timer after the completed set', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -837,5 +891,73 @@ describe('SessionExerciseList', () => {
     expect(rowErgCard).not.toBeNull();
     expect(within(rowErgCard as HTMLElement).getByText(/1 × 30 sec/i)).toBeInTheDocument();
     expect(within(rowErgCard as HTMLElement).getByText(/Last: 30 sec/i)).toBeInTheDocument();
+  });
+
+  it('renders bodyweight reps exercises without a weight input', () => {
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 0,
+      currentExercise: 1,
+      currentExerciseId: 'pull-up',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['compound'],
+              category: 'compound',
+              completedSets: 0,
+              formCues: [],
+              id: 'pull-up',
+              injuryCues: [],
+              lastPerformance: null,
+              name: 'Pull-up',
+              notes: '',
+              phaseBadge: 'moderate',
+              prescribedReps: '6-8',
+              priority: 'required',
+              restSeconds: 90,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: false,
+                  distance: null,
+                  id: 'pull-up-set-1',
+                  number: 1,
+                  reps: null,
+                  seconds: null,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              templateCues: [],
+              tempo: null,
+              targetSets: 1,
+              trackingType: 'bodyweight_reps',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'Bodyweight Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen.getByRole('heading', { level: 3, name: 'Pull-up' }).closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(within(card as HTMLElement).getByLabelText('Reps for set 1')).toBeInTheDocument();
+    expect(within(card as HTMLElement).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
   });
 });

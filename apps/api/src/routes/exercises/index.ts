@@ -11,6 +11,7 @@ import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
 
 import {
+  allRelatedExercisesOwned,
   createExercise,
   deleteOwnedExercise,
   findExerciseLastPerformance,
@@ -29,6 +30,11 @@ const EXERCISE_NOT_FOUND_RESPONSE = {
 const GLOBAL_EXERCISE_READ_ONLY_RESPONSE = {
   code: 'GLOBAL_EXERCISE_READ_ONLY',
   message: 'Global exercises cannot be modified',
+} as const;
+
+const INVALID_RELATED_EXERCISES_RESPONSE = {
+  code: 'VALIDATION_ERROR',
+  message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
 
 const ensureOwnedMutableExercise = async ({
@@ -81,6 +87,21 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
     }
 
+    if (parsedBody.data.relatedExerciseIds !== undefined) {
+      const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+        userId: request.userId,
+        exerciseIds: parsedBody.data.relatedExerciseIds,
+      });
+      if (!hasValidRelatedExerciseIds) {
+        return sendError(
+          reply,
+          400,
+          INVALID_RELATED_EXERCISES_RESPONSE.code,
+          INVALID_RELATED_EXERCISES_RESPONSE.message,
+        );
+      }
+    }
+
     const canMutate = await ensureOwnedMutableExercise({
       exerciseId: request.params.id,
       reply,
@@ -114,6 +135,19 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
     const parsedBody = createExerciseInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
+    }
+
+    const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+      userId: request.userId,
+      exerciseIds: parsedBody.data.relatedExerciseIds,
+    });
+    if (!hasValidRelatedExerciseIds) {
+      return sendError(
+        reply,
+        400,
+        INVALID_RELATED_EXERCISES_RESPONSE.code,
+        INVALID_RELATED_EXERCISES_RESPONSE.message,
+      );
     }
 
     const exercise = await createExercise({

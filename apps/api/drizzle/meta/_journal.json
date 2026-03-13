@@ -183,6 +183,20 @@
       "when": 1773352800000,
       "tag": "0025_meal_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1773371291018,
+      "tag": "0026_sleepy_wild_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1773385000000,
+      "tag": "0027_template_set_targets",
+      "breakpoints": true
     }
   ]
 }

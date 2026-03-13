@@ -16,6 +16,16 @@ type ResolveTrackingTypeInput = {
 };
 
 const timePattern = /\b(?:sec|secs|second|seconds|min|mins|minute|minutes)\b/i;
+const TRACKING_TYPE_ORDER: ExerciseTrackingType[] = [
+  'weight_reps',
+  'bodyweight_reps',
+  'reps_only',
+  'weight_seconds',
+  'reps_seconds',
+  'seconds_only',
+  'distance',
+  'cardio',
+];
 
 export function resolveTrackingType({
   category,
@@ -170,4 +180,40 @@ export function parsePrescribedRepsValue(reps: string) {
   }
 
   return value;
+}
+
+export function getTrackingTypeLabel(trackingType: ExerciseTrackingType) {
+  switch (trackingType) {
+    case 'weight_reps':
+      return 'Weight + reps';
+    case 'weight_seconds':
+      return 'Weight + time';
+    case 'bodyweight_reps':
+      return 'Bodyweight reps';
+    case 'reps_only':
+      return 'Reps only';
+    case 'reps_seconds':
+      return 'Reps + time';
+    case 'seconds_only':
+      return 'Time only';
+    case 'distance':
+      return 'Distance';
+    case 'cardio':
+      return 'Cardio';
+    default:
+      return 'Tracking';
+  }
+}
+
+export function formatTrackingTypeSummary(trackingTypes: ExerciseTrackingType[]) {
+  const uniqueTrackingTypes = [...new Set(trackingTypes)];
+  if (uniqueTrackingTypes.length === 0) {
+    return null;
+  }
+
+  uniqueTrackingTypes.sort(
+    (left, right) => TRACKING_TYPE_ORDER.indexOf(left) - TRACKING_TYPE_ORDER.indexOf(right),
+  );
+
+  return uniqueTrackingTypes.map((trackingType) => getTrackingTypeLabel(trackingType)).join(' • ');
 }

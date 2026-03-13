@@ -9,6 +9,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import {
+  allRelatedExercisesOwned,
   createExercise,
   findExerciseDedupCandidates,
   findExerciseOwnership,
@@ -27,6 +28,11 @@ const EXERCISE_NOT_FOUND_RESPONSE = {
 const GLOBAL_EXERCISE_READ_ONLY_RESPONSE = {
   code: 'GLOBAL_EXERCISE_READ_ONLY',
   message: 'Global exercises cannot be modified',
+} as const;
+
+const INVALID_RELATED_EXERCISES_RESPONSE = {
+  code: 'VALIDATION_ERROR',
+  message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
 
 export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
@@ -50,6 +56,19 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
+    const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+      userId: request.userId,
+      exerciseIds: parsed.data.relatedExerciseIds,
+    });
+    if (!hasValidRelatedExerciseIds) {
+      return sendError(
+        reply,
+        400,
+        INVALID_RELATED_EXERCISES_RESPONSE.code,
+        INVALID_RELATED_EXERCISES_RESPONSE.message,
+      );
+    }
+
     const exercise = await createExercise({
       id: randomUUID(),
       userId: request.userId,
@@ -61,6 +80,8 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
       tags: [],
       formCues: [],
       instructions: null,
+      coachingNotes: parsed.data.coachingNotes ?? null,
+      relatedExerciseIds: parsed.data.relatedExerciseIds,
     });
 
     return reply.code(201).send({
@@ -74,6 +95,8 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
           muscleGroups: exercise.muscleGroups,
           equipment: exercise.equipment,
           instructions: exercise.instructions,
+          coachingNotes: exercise.coachingNotes,
+          relatedExerciseIds: exercise.relatedExerciseIds,
           tags: exercise.tags,
           formCues: exercise.formCues,
         },
@@ -85,6 +108,21 @@ export const agentExerciseRoutes: FastifyPluginAsync = async (app) => {
     const parsed = agentPatchExerciseInputSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
+    }
+
+    if (parsed.data.relatedExerciseIds !== undefined) {
+      const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+        userId: request.userId,
+        exerciseIds: parsed.data.relatedExerciseIds,
+      });
+      if (!hasValidRelatedExerciseIds) {
+        return sendError(
+          reply,
+          400,
+          INVALID_RELATED_EXERCISES_RESPONSE.code,
+          INVALID_RELATED_EXERCISES_RESPONSE.message,
+        );
+      }
     }
 
     const updated = await updateOwnedExercise({

@@ -65,6 +65,7 @@ describe('WorkoutCalendar', () => {
                 date: sessionDateKey,
                 templateId: 'template-1',
                 templateName: 'Upper Push',
+                templateTrackingTypes: ['weight_reps', 'reps_seconds'],
                 sessionId: null,
                 createdAt: 1,
               },

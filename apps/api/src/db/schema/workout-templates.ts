@@ -7,6 +7,14 @@ import { exercises } from './exercises.js';
 import { users } from './users.js';
 
 export type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown';
+export type TemplateExerciseSetTarget = {
+  setNumber: number;
+  targetWeight?: number | null;
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+  targetSeconds?: number | null;
+  targetDistance?: number | null;
+};
 
 export const workoutTemplates = sqliteTable(
   'workout_templates',
@@ -56,6 +64,8 @@ export const templateExercises = sqliteTable(
     section: text('section').$type<WorkoutTemplateSectionType>().notNull(),
     notes: text('notes'),
     cues: text('cues', { mode: 'json' }).$type<string[]>(),
+    setTargets: text('set_targets', { mode: 'json' }).$type<TemplateExerciseSetTarget[]>(),
+    programmingNotes: text('programming_notes'),
   },
   (table) => [
     index('template_exercises_template_id_idx').on(table.templateId),

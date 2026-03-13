@@ -1,12 +1,18 @@
-import { and, asc, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import type {
   CreateScheduledWorkoutInput,
+  ExerciseTrackingType,
   ScheduledWorkout,
   ScheduledWorkoutListItem,
   UpdateScheduledWorkoutInput,
 } from '@pulse/shared';
 
-import { scheduledWorkouts, workoutTemplates } from '../../db/schema/index.js';
+import {
+  exercises,
+  scheduledWorkouts,
+  templateExercises,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 
 const scheduledWorkoutSelection = {
   id: scheduledWorkouts.id,
@@ -71,7 +77,7 @@ export const listScheduledWorkouts = async ({
 }): Promise<ScheduledWorkoutListItem[]> => {
   const { db } = await import('../../db/index.js');
 
-  return db
+  const scheduledWorkoutRows = db
     .select(scheduledWorkoutListSelection)
     .from(scheduledWorkouts)
     .leftJoin(
@@ -90,6 +96,59 @@ export const listScheduledWorkouts = async ({
     )
     .orderBy(asc(scheduledWorkouts.date), asc(scheduledWorkouts.createdAt))
     .all();
+
+  const templateIds = [
+    ...new Set(
+      scheduledWorkoutRows
+        .map((scheduledWorkout) => scheduledWorkout.templateId)
+        .filter((templateId): templateId is string => templateId !== null),
+    ),
+  ];
+
+  if (templateIds.length === 0) {
+    return scheduledWorkoutRows;
+  }
+
+  const templateTrackingTypeRows = db
+    .select({
+      templateId: templateExercises.templateId,
+      trackingType: exercises.trackingType,
+    })
+    .from(templateExercises)
+    .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
+    .where(
+      and(
+        inArray(templateExercises.templateId, templateIds),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
+    .all();
+
+  const trackingTypesByTemplateId = new Map<string, Set<ExerciseTrackingType>>();
+  for (const row of templateTrackingTypeRows) {
+    const existingTrackingTypes = trackingTypesByTemplateId.get(row.templateId) ?? new Set();
+    existingTrackingTypes.add(row.trackingType);
+    trackingTypesByTemplateId.set(row.templateId, existingTrackingTypes);
+  }
+
+  return scheduledWorkoutRows.map((scheduledWorkout) => {
+    const trackingTypes =
+      scheduledWorkout.templateId !== null
+        ? [...(trackingTypesByTemplateId.get(scheduledWorkout.templateId) ?? new Set())]
+        : [];
+
+    if (trackingTypes.length === 0) {
+      return scheduledWorkout;
+    }
+
+    return {
+      ...scheduledWorkout,
+      templateTrackingTypes: trackingTypes,
+    };
+  });
 };
 
 export const findScheduledWorkoutById = async (

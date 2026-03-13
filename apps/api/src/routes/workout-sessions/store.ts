@@ -60,6 +60,11 @@ type SessionSetRecord = {
   setNumber: number;
   weight: number | null;
   reps: number | null;
+  targetWeight: number | null;
+  targetWeightMin: number | null;
+  targetWeightMax: number | null;
+  targetSeconds: number | null;
+  targetDistance: number | null;
   completed: boolean;
   skipped: boolean;
   section: WorkoutTemplateSectionType | null;
@@ -120,6 +125,11 @@ const sessionSetSelection = {
   setNumber: sessionSets.setNumber,
   weight: sessionSets.weight,
   reps: sessionSets.reps,
+  targetWeight: sessionSets.targetWeight,
+  targetWeightMin: sessionSets.targetWeightMin,
+  targetWeightMax: sessionSets.targetWeightMax,
+  targetSeconds: sessionSets.targetSeconds,
+  targetDistance: sessionSets.targetDistance,
   completed: sessionSets.completed,
   skipped: sessionSets.skipped,
   section: sessionSets.section,
@@ -159,6 +169,11 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   setNumber: set.setNumber,
   weight: set.weight,
   reps: set.reps,
+  ...(set.targetWeight !== null ? { targetWeight: set.targetWeight } : {}),
+  ...(set.targetWeightMin !== null ? { targetWeightMin: set.targetWeightMin } : {}),
+  ...(set.targetWeightMax !== null ? { targetWeightMax: set.targetWeightMax } : {}),
+  ...(set.targetSeconds !== null ? { targetSeconds: set.targetSeconds } : {}),
+  ...(set.targetDistance !== null ? { targetDistance: set.targetDistance } : {}),
   completed: set.completed,
   skipped: set.skipped,
   section: set.section,
@@ -190,7 +205,16 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
 const buildWorkoutSession = (
   session: WorkoutSessionRecord,
   sets: SessionSetRecord[],
-  exerciseInfoById: Map<string, { name: string; trackingType: ExerciseTrackingType | null }>,
+  exerciseInfoById: Map<
+    string,
+    {
+      name: string;
+      trackingType: ExerciseTrackingType | null;
+      formCues: string[];
+      coachingNotes: string | null;
+      instructions: string | null;
+    }
+  >,
 ): WorkoutSession => {
   const parsedTimeSegments = parseWorkoutSessionTimeSegments(session.timeSegments);
   const timeSegments =
@@ -220,7 +244,16 @@ const buildWorkoutSession = (
 
 const buildWorkoutSessionExercises = (
   sets: SessionSetRecord[],
-  exerciseInfoById: Map<string, { name: string; trackingType: ExerciseTrackingType | null }>,
+  exerciseInfoById: Map<
+    string,
+    {
+      name: string;
+      trackingType: ExerciseTrackingType | null;
+      formCues: string[];
+      coachingNotes: string | null;
+      instructions: string | null;
+    }
+  >,
 ): WorkoutSessionExercise[] => {
   const groupedByExercise = new Map<
     string,
@@ -231,6 +264,9 @@ const buildWorkoutSessionExercises = (
       orderIndex: number;
       section: WorkoutTemplateSectionType | null;
       sets: SessionSet[];
+      formCues: string[];
+      coachingNotes: string | null;
+      instructions: string | null;
     }
   >();
 
@@ -253,25 +289,42 @@ const buildWorkoutSessionExercises = (
       orderIndex: set.orderIndex,
       section: set.section,
       sets: [parsedSet],
+      formCues: exerciseInfo?.formCues ?? [],
+      coachingNotes: exerciseInfo?.coachingNotes ?? null,
+      instructions: exerciseInfo?.instructions ?? null,
     });
   }
 
-  return Array.from(groupedByExercise.values()).sort((left, right) => {
-    const leftSectionIndex =
-      left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
-    const rightSectionIndex =
-      right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
+  return Array.from(groupedByExercise.values())
+    .sort((left, right) => {
+      const leftSectionIndex =
+        left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
+      const rightSectionIndex =
+        right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
 
-    if (leftSectionIndex !== rightSectionIndex) {
-      return leftSectionIndex - rightSectionIndex;
-    }
+      if (leftSectionIndex !== rightSectionIndex) {
+        return leftSectionIndex - rightSectionIndex;
+      }
 
-    if (left.orderIndex !== right.orderIndex) {
-      return left.orderIndex - right.orderIndex;
-    }
+      if (left.orderIndex !== right.orderIndex) {
+        return left.orderIndex - right.orderIndex;
+      }
 
-    return left.exerciseName.localeCompare(right.exerciseName);
-  });
+      return left.exerciseName.localeCompare(right.exerciseName);
+    })
+    .map((exercise) => ({
+      exerciseId: exercise.exerciseId,
+      exerciseName: exercise.exerciseName,
+      trackingType: exercise.trackingType,
+      exercise: {
+        formCues: exercise.formCues,
+        coachingNotes: exercise.coachingNotes,
+        instructions: exercise.instructions,
+      },
+      orderIndex: exercise.orderIndex,
+      section: exercise.section,
+      sets: exercise.sets,
+    }));
 };
 
 const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput['sets']) =>
@@ -283,6 +336,11 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     setNumber: set.setNumber,
     weight: set.weight,
     reps: set.reps,
+    targetWeight: set.targetWeight,
+    targetWeightMin: set.targetWeightMin,
+    targetWeightMax: set.targetWeightMax,
+    targetSeconds: set.targetSeconds,
+    targetDistance: set.targetDistance,
     completed: set.completed,
     skipped: set.skipped,
     section: set.section,
@@ -688,12 +746,28 @@ export const findWorkoutSessionById = async (
     uniqueExerciseIds.length === 0
       ? []
       : db
-          .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+          .select({
+            id: exercises.id,
+            name: exercises.name,
+            trackingType: exercises.trackingType,
+            formCues: exercises.formCues,
+            coachingNotes: exercises.coachingNotes,
+            instructions: exercises.instructions,
+          })
           .from(exercises)
-          .where(inArray(exercises.id, uniqueExerciseIds))
+          .where(and(inArray(exercises.id, uniqueExerciseIds), isNull(exercises.deletedAt)))
           .all();
   const exerciseInfoById = new Map(
-    exerciseNameRows.map((row) => [row.id, { name: row.name, trackingType: row.trackingType }]),
+    exerciseNameRows.map((row) => [
+      row.id,
+      {
+        name: row.name,
+        trackingType: row.trackingType,
+        formCues: row.formCues ?? [],
+        coachingNotes: row.coachingNotes,
+        instructions: row.instructions,
+      },
+    ]),
   );
 
   return buildWorkoutSession(session, sets, exerciseInfoById);

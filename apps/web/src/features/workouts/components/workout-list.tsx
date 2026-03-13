@@ -41,6 +41,7 @@ import {
   useStartSession,
   useUpdateSessionStatus,
 } from '@/hooks/use-workout-session';
+import { formatTrackingTypeSummary } from '../lib/tracking';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -365,6 +366,9 @@ function ScheduledWorkoutCard({
     rescheduleWorkoutMutation.isPending ||
     unscheduleWorkoutMutation.isPending ||
     startSessionMutation.isPending;
+  const trackingTypeSummary = formatTrackingTypeSummary(
+    scheduledWorkout.templateTrackingTypes ?? [],
+  );
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
   const isStartDisabled = isMutating || !isTemplateAvailable || templateQuery.isPending;
@@ -448,6 +452,7 @@ function ScheduledWorkoutCard({
             icon={CalendarPlus2}
             label={`Scheduled ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}`}
           />
+          {trackingTypeSummary ? <WorkoutStat icon={Dumbbell} label={trackingTypeSummary} /> : null}
           {scheduledWorkout.isUnavailable ? (
             <WorkoutStat icon={TriangleAlert} label="Template was deleted from trash/soft delete" />
           ) : null}

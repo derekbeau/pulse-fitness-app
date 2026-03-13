@@ -51,6 +51,11 @@ const templatePayload = {
             restSeconds: 0,
             supersetGroup: null,
             notes: null,
+            exercise: {
+              formCues: ['Keep cadence steady'],
+              coachingNotes: null,
+              instructions: null,
+            },
             formCues: ['Keep cadence steady'],
             cues: ['Build heat before pressing'],
           },
@@ -70,8 +75,14 @@ const templatePayload = {
             restSeconds: 90,
             supersetGroup: null,
             notes: 'Drive feet into the floor.',
+            exercise: {
+              formCues: ['Tuck shoulder blades'],
+              coachingNotes: 'Keep your upper back pinned to the bench.',
+              instructions: 'Lower dumbbells with control, then drive straight up.',
+            },
             formCues: ['Tuck shoulder blades'],
             cues: ['Drive feet into the floor', 'Keep wrists stacked'],
+            programmingNotes: 'Top set first, then reduce load for back-off sets.',
           },
         ],
       },
@@ -178,6 +189,24 @@ describe('WorkoutTemplateDetail', () => {
     expect(
       within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked'),
     ).toBeInTheDocument();
+
+    fireEvent.click(within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }));
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Exercise coaching notes'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText(
+        'Keep your upper back pinned to the bench.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Template programming notes'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText(
+        'Top set first, then reduce load for back-off sets.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('creates a workout session before navigating to the active workout page', async () => {
@@ -272,6 +301,171 @@ describe('WorkoutTemplateDetail', () => {
       }),
     ]);
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
+  });
+
+  it('renders tracking-type-specific prescriptions and set targets in template detail', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...templatePayload.data,
+              sections: [
+                { type: 'warmup', exercises: [] },
+                {
+                  type: 'main',
+                  exercises: [
+                    {
+                      id: 'exercise-reps-only',
+                      exerciseId: 'mobility-drill',
+                      exerciseName: 'Mobility Drill',
+                      trackingType: 'reps_only',
+                      formCues: [],
+                      sets: 2,
+                      repsMin: 15,
+                      repsMax: 15,
+                      tempo: null,
+                      restSeconds: 30,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                    {
+                      id: 'exercise-seconds-only',
+                      exerciseId: 'dead-hang',
+                      exerciseName: 'Dead Hang',
+                      trackingType: 'seconds_only',
+                      formCues: [],
+                      sets: 2,
+                      repsMin: null,
+                      repsMax: null,
+                      tempo: null,
+                      restSeconds: 45,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [
+                        { setNumber: 1, targetSeconds: 45 },
+                        { setNumber: 2, targetSeconds: 60 },
+                      ],
+                    },
+                    {
+                      id: 'exercise-bodyweight-reps',
+                      exerciseId: 'pull-up',
+                      exerciseName: 'Pull-up',
+                      trackingType: 'bodyweight_reps',
+                      formCues: [],
+                      sets: 3,
+                      repsMin: 6,
+                      repsMax: 8,
+                      tempo: null,
+                      restSeconds: 90,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                    {
+                      id: 'exercise-weight-seconds',
+                      exerciseId: 'farmers-carry-hold',
+                      exerciseName: "Farmer's Hold",
+                      trackingType: 'weight_seconds',
+                      formCues: [],
+                      sets: 2,
+                      repsMin: null,
+                      repsMax: null,
+                      tempo: null,
+                      restSeconds: 90,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [
+                        { setNumber: 1, targetWeight: 40, targetSeconds: 30 },
+                        { setNumber: 2, targetWeight: 40, targetSeconds: 30 },
+                      ],
+                    },
+                    {
+                      id: 'exercise-reps-seconds',
+                      exerciseId: 'burpee-interval',
+                      exerciseName: 'Burpee Interval',
+                      trackingType: 'reps_seconds',
+                      formCues: [],
+                      sets: 2,
+                      repsMin: 10,
+                      repsMax: 12,
+                      tempo: null,
+                      restSeconds: 90,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [
+                        { setNumber: 1, targetSeconds: 30 },
+                        { setNumber: 2, targetSeconds: 30 },
+                      ],
+                    },
+                    {
+                      id: 'exercise-distance',
+                      exerciseId: 'sled-push',
+                      exerciseName: 'Sled Push',
+                      trackingType: 'distance',
+                      formCues: [],
+                      sets: 3,
+                      repsMin: null,
+                      repsMax: null,
+                      tempo: null,
+                      restSeconds: 120,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [
+                        { setNumber: 1, targetDistance: 0.25 },
+                        { setNumber: 2, targetDistance: 0.25 },
+                        { setNumber: 3, targetDistance: 0.25 },
+                      ],
+                    },
+                    {
+                      id: 'exercise-cardio',
+                      exerciseId: 'air-bike',
+                      exerciseName: 'Air Bike',
+                      trackingType: 'cardio',
+                      formCues: [],
+                      sets: 1,
+                      repsMin: null,
+                      repsMax: null,
+                      tempo: null,
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [{ setNumber: 1, targetSeconds: 300, targetDistance: 1 }],
+                    },
+                  ],
+                },
+                { type: 'cooldown', exercises: [] },
+              ],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('2 x 15')).toBeInTheDocument();
+    expect(screen.getByText('2 x 45s')).toBeInTheDocument();
+    expect(screen.getByText('Set 1: 45s • Set 2: 60s')).toBeInTheDocument();
+    expect(screen.getByText('3 x 6-8 (bodyweight)')).toBeInTheDocument();
+    expect(screen.getByText('2 x 40 lbs x 30s')).toBeInTheDocument();
+    expect(screen.getByText('2 x 10-12 x 30s')).toBeInTheDocument();
+    expect(screen.getByText('3 x 0.25 mi')).toBeInTheDocument();
+    expect(screen.getByText('1 x 300s + 1 mi')).toBeInTheDocument();
   });
 
   it('schedules a workout from the template detail view', async () => {
@@ -467,6 +661,11 @@ describe('WorkoutTemplateDetail', () => {
       restSeconds: 90,
       supersetGroup: null,
       notes: null,
+      exercise: {
+        formCues: [],
+        coachingNotes: null,
+        instructions: null,
+      },
       formCues: [],
       cues: [],
     });

@@ -669,3 +669,279 @@ describe('migration 0025_meal_summary', () => {
     }
   });
 });
+
+describe('migration 0026_sleepy_wild_pack', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds coaching_notes and related_exercise_ids with expected defaults for existing exercises', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0025-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT,
+          name TEXT NOT NULL,
+          muscle_groups TEXT NOT NULL,
+          equipment TEXT NOT NULL,
+          category TEXT NOT NULL,
+          tracking_type TEXT DEFAULT 'weight_reps' NOT NULL,
+          tags TEXT DEFAULT '[]' NOT NULL,
+          form_cues TEXT DEFAULT '[]' NOT NULL,
+          instructions TEXT,
+          deleted_at TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO exercises (
+            id,
+            user_id,
+            name,
+            muscle_groups,
+            equipment,
+            category,
+            tracking_type,
+            tags,
+            form_cues,
+            instructions,
+            deleted_at,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'exercise-pre-migration',
+        'user-1',
+        'Back Squat',
+        JSON.stringify(['quads', 'glutes']),
+        'barbell',
+        'compound',
+        'weight_reps',
+        JSON.stringify([]),
+        JSON.stringify([]),
+        null,
+        null,
+        Date.now(),
+        Date.now(),
+      );
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0026_sleepy_wild_pack.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const migratedRow = db
+        .prepare(
+          `SELECT coaching_notes AS coachingNotes, related_exercise_ids AS relatedExerciseIds FROM exercises WHERE id = ?`,
+        )
+        .get('exercise-pre-migration') as {
+        coachingNotes: string | null;
+        relatedExerciseIds: string;
+      };
+
+      expect(migratedRow.coachingNotes).toBeNull();
+      expect(JSON.parse(migratedRow.relatedExerciseIds)).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('migration 0027_template_set_targets', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds template set target columns and session set target reference columns', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0026-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE template_exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          template_id TEXT NOT NULL,
+          exercise_id TEXT NOT NULL,
+          order_index INTEGER NOT NULL,
+          sets INTEGER,
+          reps_min INTEGER,
+          reps_max INTEGER,
+          tempo TEXT,
+          rest_seconds INTEGER,
+          superset_group TEXT,
+          section TEXT NOT NULL,
+          notes TEXT,
+          cues TEXT
+        );
+      `);
+
+      db.exec(`
+        CREATE TABLE session_sets (
+          id TEXT PRIMARY KEY NOT NULL,
+          session_id TEXT NOT NULL,
+          exercise_id TEXT NOT NULL,
+          order_index INTEGER NOT NULL,
+          set_number INTEGER NOT NULL,
+          weight REAL,
+          reps INTEGER,
+          completed INTEGER NOT NULL DEFAULT 0,
+          skipped INTEGER NOT NULL DEFAULT 0,
+          section TEXT,
+          notes TEXT,
+          created_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO template_exercises (
+            id,
+            template_id,
+            exercise_id,
+            order_index,
+            sets,
+            reps_min,
+            reps_max,
+            tempo,
+            rest_seconds,
+            superset_group,
+            section,
+            notes,
+            cues
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'template-exercise-1',
+        'template-1',
+        'exercise-1',
+        0,
+        3,
+        5,
+        8,
+        null,
+        120,
+        null,
+        'main',
+        null,
+        '[]',
+      );
+
+      db.prepare(
+        `
+          INSERT INTO session_sets (
+            id,
+            session_id,
+            exercise_id,
+            order_index,
+            set_number,
+            weight,
+            reps,
+            completed,
+            skipped,
+            section,
+            notes,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'session-set-1',
+        'session-1',
+        'exercise-1',
+        0,
+        1,
+        185,
+        8,
+        1,
+        0,
+        'main',
+        null,
+        Date.now(),
+      );
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0027_template_set_targets.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      db.prepare(
+        `
+          UPDATE template_exercises
+          SET set_targets = ?, programming_notes = ?
+          WHERE id = ?
+        `,
+      ).run(
+        JSON.stringify([{ setNumber: 1, targetWeight: 185 }]),
+        'Top-set before back-off volume.',
+        'template-exercise-1',
+      );
+
+      db.prepare(
+        `
+          UPDATE session_sets
+          SET target_weight = ?, target_weight_min = ?, target_weight_max = ?, target_seconds = ?, target_distance = ?
+          WHERE id = ?
+        `,
+      ).run(185, 180, 190, 45, 0.8, 'session-set-1');
+
+      const templateRow = db
+        .prepare(
+          `SELECT set_targets AS setTargets, programming_notes AS programmingNotes FROM template_exercises WHERE id = ?`,
+        )
+        .get('template-exercise-1') as {
+        setTargets: string | null;
+        programmingNotes: string | null;
+      };
+      const sessionSetRow = db
+        .prepare(
+          `SELECT target_weight AS targetWeight, target_weight_min AS targetWeightMin, target_weight_max AS targetWeightMax, target_seconds AS targetSeconds, target_distance AS targetDistance FROM session_sets WHERE id = ?`,
+        )
+        .get('session-set-1') as {
+        targetWeight: number | null;
+        targetWeightMin: number | null;
+        targetWeightMax: number | null;
+        targetSeconds: number | null;
+        targetDistance: number | null;
+      };
+
+      expect(templateRow.programmingNotes).toBe('Top-set before back-off volume.');
+      expect(templateRow.setTargets ? JSON.parse(templateRow.setTargets) : null).toEqual([
+        { setNumber: 1, targetWeight: 185 },
+      ]);
+      expect(sessionSetRow).toEqual({
+        targetWeight: 185,
+        targetWeightMin: 180,
+        targetWeightMax: 190,
+        targetSeconds: 45,
+        targetDistance: 0.8,
+      });
+    } finally {
+      db.close();
+    }
+  });
+});

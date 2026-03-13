@@ -71,6 +71,11 @@ export function buildSessionSetInputs(
         section: templateExercise?.section ?? null,
         setNumber: draftSet.number,
         skipped: false,
+        targetWeight: draftSet.targetWeight,
+        targetWeightMin: draftSet.targetWeightMin,
+        targetWeightMax: draftSet.targetWeightMax,
+        targetSeconds: draftSet.targetSeconds,
+        targetDistance: draftSet.targetDistance,
         weight: draftSet.weight,
       });
     }

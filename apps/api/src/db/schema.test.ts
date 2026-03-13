@@ -826,6 +826,8 @@ describe('exercises schema', () => {
       'tags',
       'formCues',
       'instructions',
+      'coachingNotes',
+      'relatedExerciseIds',
       'deletedAt',
       'createdAt',
       'updatedAt',
@@ -836,6 +838,7 @@ describe('exercises schema', () => {
     expect(columns.trackingType.default).toBe('weight_reps');
     expect(columns.tags.default).toEqual([]);
     expect(columns.formCues.default).toEqual([]);
+    expect(columns.relatedExerciseIds.default).toEqual([]);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
@@ -905,6 +908,8 @@ describe('templateExercises schema', () => {
       'section',
       'notes',
       'cues',
+      'setTargets',
+      'programmingNotes',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
@@ -1059,6 +1064,11 @@ describe('sessionSets schema', () => {
       'setNumber',
       'weight',
       'reps',
+      'targetWeight',
+      'targetWeightMin',
+      'targetWeightMax',
+      'targetSeconds',
+      'targetDistance',
       'completed',
       'skipped',
       'section',

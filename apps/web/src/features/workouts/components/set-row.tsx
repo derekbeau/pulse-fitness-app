@@ -22,6 +22,11 @@ type SetRowProps = {
   reps: number | null;
   seconds?: number | null;
   setNumber: number;
+  targetDistance?: number | null;
+  targetSeconds?: number | null;
+  targetWeight?: number | null;
+  targetWeightMax?: number | null;
+  targetWeightMin?: number | null;
   trackingType?: ExerciseTrackingType;
   weight?: number | null;
   weightUnit?: WeightUnit;
@@ -48,6 +53,11 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     reps,
     seconds = null,
     setNumber,
+    targetDistance = null,
+    targetSeconds = null,
+    targetWeight = null,
+    targetWeightMax = null,
+    targetWeightMin = null,
     trackingType = 'weight_reps',
     weight = null,
     weightUnit = 'lbs',
@@ -69,6 +79,15 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     onUpdate(update);
   });
   const localCompleted = completed || isSetCompleteForTrackingType(trackingType, resolvedValues);
+  const targetHint = formatTargetHint({
+    targetDistance,
+    targetSeconds,
+    targetWeight,
+    targetWeightMax,
+    targetWeightMin,
+    trackingType,
+    weightUnit,
+  });
 
   return (
     <div
@@ -78,7 +97,10 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
       )}
       data-slot="set-row"
     >
-      <span className="shrink-0 text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
+      <div className="shrink-0">
+        <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
+        {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
+      </div>
 
       <div
         className={cn(
@@ -248,6 +270,62 @@ function getMetricInputs(trackingType: ExerciseTrackingType, weightUnit: WeightU
       return { inputs: [secondsInput, distanceInput], separator: '+' };
     default:
       return { inputs: [weightInput, repsInput], separator: '×' };
+  }
+}
+
+function formatTargetHint({
+  targetDistance,
+  targetSeconds,
+  targetWeight,
+  targetWeightMax,
+  targetWeightMin,
+  trackingType,
+  weightUnit,
+}: {
+  targetDistance: number | null;
+  targetSeconds: number | null;
+  targetWeight: number | null;
+  targetWeightMax: number | null;
+  targetWeightMin: number | null;
+  trackingType: ExerciseTrackingType;
+  weightUnit: WeightUnit;
+}) {
+  const weightRange =
+    targetWeightMin !== null && targetWeightMax !== null
+      ? `${targetWeightMin}-${targetWeightMax} ${weightUnit}`
+      : null;
+  const weightValue =
+    targetWeight !== null ? `${targetWeight} ${weightUnit}` : weightRange ?? null;
+  const secondsValue = targetSeconds !== null ? `${targetSeconds}s` : null;
+  const distanceValue = targetDistance !== null ? `${targetDistance} ${getDistanceUnit(weightUnit)}` : null;
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return weightValue ? `Target: ${weightValue}` : null;
+    case 'seconds_only':
+      return secondsValue ? `Target: ${secondsValue}` : null;
+    case 'weight_seconds':
+      if (weightValue && secondsValue) {
+        return `Target: ${weightValue} × ${secondsValue}`;
+      }
+      if (weightValue) {
+        return `Target: ${weightValue}`;
+      }
+      return secondsValue ? `Target: ${secondsValue}` : null;
+    case 'distance':
+      return distanceValue ? `Target: ${distanceValue}` : null;
+    case 'reps_seconds':
+      return secondsValue ? `Target: ${secondsValue}` : null;
+    case 'cardio':
+      if (secondsValue && distanceValue) {
+        return `Target: ${secondsValue} + ${distanceValue}`;
+      }
+      if (secondsValue) {
+        return `Target: ${secondsValue}`;
+      }
+      return distanceValue ? `Target: ${distanceValue}` : null;
+    default:
+      return null;
   }
 }
 

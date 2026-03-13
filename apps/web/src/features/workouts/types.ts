@@ -15,6 +15,11 @@ export type ActiveWorkoutSet = {
   number: number;
   reps: number | null;
   seconds: number | null;
+  targetDistance?: number | null;
+  targetSeconds?: number | null;
+  targetWeight?: number | null;
+  targetWeightMax?: number | null;
+  targetWeightMin?: number | null;
   weight: number | null;
 };
 
@@ -36,8 +41,11 @@ export type ActiveWorkoutLastPerformance = {
 export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
+  coachingNotes?: string | null;
   formCues: string[];
+  instructions?: string | null;
   templateCues: string[];
+  programmingNotes?: string | null;
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;

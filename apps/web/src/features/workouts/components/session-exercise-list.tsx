@@ -801,10 +801,12 @@ function ExerciseCardItem({
 
             <div className="rounded-2xl border border-border bg-background/80 p-4">
               <FormCueChips
+                exerciseCoachingNotes={exercise.coachingNotes}
                 exerciseCues={formCues}
                 onAddSessionCue={onAddSessionCue}
                 sessionCues={sessionCues}
                 templateCues={templateCues}
+                templateProgrammingNotes={exercise.programmingNotes}
               />
             </div>
 
@@ -853,6 +855,11 @@ function ExerciseCardItem({
                   setNumber={set.number}
                   trackingType={exercise.trackingType}
                   distance={set.distance}
+                  targetDistance={set.targetDistance}
+                  targetSeconds={set.targetSeconds}
+                  targetWeight={set.targetWeight}
+                  targetWeightMax={set.targetWeightMax}
+                  targetWeightMin={set.targetWeightMin}
                   weight={set.weight}
                   weightUnit={weightUnit}
                   seconds={set.seconds}

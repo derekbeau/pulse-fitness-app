@@ -53,6 +53,8 @@ const seedExercise = (values: {
   tags?: string[];
   formCues?: string[];
   instructions?: string | null;
+  coachingNotes?: string | null;
+  relatedExerciseIds?: string[];
 }) =>
   context.db
     .insert(exercises)
@@ -61,6 +63,8 @@ const seedExercise = (values: {
       tags: values.tags ?? [],
       formCues: values.formCues ?? [],
       instructions: values.instructions ?? null,
+      coachingNotes: values.coachingNotes ?? null,
+      relatedExerciseIds: values.relatedExerciseIds ?? [],
     })
     .run();
 
@@ -445,6 +449,7 @@ describe('exercise routes', () => {
         tags: ['rehab', 'core'],
         formCues: ['chest up', 'drive through heels'],
         instructions: ' Pull elbow toward hip. ',
+        coachingNotes: ' Keep torso stable and avoid shrugging. ',
       },
     });
 
@@ -461,6 +466,8 @@ describe('exercise routes', () => {
         tags: string[];
         formCues: string[];
         instructions: string | null;
+        coachingNotes: string | null;
+        relatedExerciseIds: string[];
         createdAt: number;
         updatedAt: number;
       };
@@ -475,6 +482,8 @@ describe('exercise routes', () => {
       tags: ['rehab', 'core'],
       formCues: ['chest up', 'drive through heels'],
       instructions: 'Pull elbow toward hip.',
+      coachingNotes: 'Keep torso stable and avoid shrugging.',
+      relatedExerciseIds: [],
     });
     expect(payload.data.id).toBeTruthy();
     expect(payload.data.createdAt).toBeTypeOf('number');
@@ -484,6 +493,8 @@ describe('exercise routes', () => {
       .select({
         tags: exercises.tags,
         formCues: exercises.formCues,
+        coachingNotes: exercises.coachingNotes,
+        relatedExerciseIds: exercises.relatedExerciseIds,
       })
       .from(exercises)
       .where(eq(exercises.id, payload.data.id))
@@ -491,6 +502,8 @@ describe('exercise routes', () => {
     expect(storedExercise).toEqual({
       tags: ['rehab', 'core'],
       formCues: ['chest up', 'drive through heels'],
+      coachingNotes: 'Keep torso stable and avoid shrugging.',
+      relatedExerciseIds: [],
     });
   });
 
@@ -515,7 +528,72 @@ describe('exercise routes', () => {
         name: 'Goblet Squat',
         tags: [],
         formCues: [],
+        coachingNotes: null,
+        relatedExerciseIds: [],
       }),
+    });
+  });
+
+  it('creates an exercise with relatedExerciseIds and rejects non-owned references', async () => {
+    seedExercise({
+      id: 'owned-reference',
+      userId: 'user-1',
+      name: 'Flat Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'other-user-reference',
+      userId: 'user-2',
+      name: 'Private Press',
+      muscleGroups: ['chest'],
+      equipment: 'machine',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const validResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Incline Bench Press',
+        muscleGroups: ['chest'],
+        equipment: 'barbell',
+        category: 'compound',
+        relatedExerciseIds: ['owned-reference'],
+      },
+    });
+
+    expect(validResponse.statusCode).toBe(201);
+    expect(validResponse.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Incline Bench Press',
+        relatedExerciseIds: ['owned-reference'],
+      }),
+    });
+
+    const invalidResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Decline Bench Press',
+        muscleGroups: ['chest'],
+        equipment: 'barbell',
+        category: 'compound',
+        relatedExerciseIds: ['other-user-reference'],
+      },
+    });
+
+    expect(invalidResponse.statusCode).toBe(400);
+    expect(invalidResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'relatedExerciseIds must reference existing user-owned exercises',
+      },
     });
   });
 
@@ -911,6 +989,71 @@ describe('exercise routes', () => {
     });
   });
 
+  it('updates coachingNotes and validates relatedExerciseIds on patch', async () => {
+    seedExercise({
+      id: 'user-exercise',
+      userId: 'user-1',
+      name: 'Split Squat',
+      muscleGroups: ['quads', 'glutes'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'owned-reference',
+      userId: 'user-1',
+      name: 'Goblet Squat',
+      muscleGroups: ['quads'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'other-user-reference',
+      userId: 'user-2',
+      name: 'Private Squat',
+      muscleGroups: ['quads'],
+      equipment: 'machine',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const updateResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/user-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        coachingNotes: 'Keep front heel planted and torso upright.',
+        relatedExerciseIds: ['owned-reference'],
+      },
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'user-exercise',
+        coachingNotes: 'Keep front heel planted and torso upright.',
+        relatedExerciseIds: ['owned-reference'],
+      }),
+    });
+
+    const invalidResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/user-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        relatedExerciseIds: ['other-user-reference'],
+      },
+    });
+
+    expect(invalidResponse.statusCode).toBe(400);
+    expect(invalidResponse.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'relatedExerciseIds must reference existing user-owned exercises',
+      },
+    });
+  });
+
   it('deletes only user-specific exercises and rejects global rows', async () => {
     seedExercise({
       id: 'user-exercise',
@@ -1009,6 +1152,15 @@ describe('exercise routes', () => {
   });
 
   it('agent create exercise: creates when no close dedup candidates are found', async () => {
+    seedExercise({
+      id: 'agent-related-owned',
+      userId: 'user-1',
+      name: 'Goblet Squat',
+      muscleGroups: ['quads'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     const response = await context.app.inject({
@@ -1017,6 +1169,8 @@ describe('exercise routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         name: 'Landmine Press',
+        coachingNotes: 'Keep ribs down and punch through at lockout.',
+        relatedExerciseIds: ['agent-related-owned'],
       },
     });
 
@@ -1026,6 +1180,8 @@ describe('exercise routes', () => {
         created: true,
         exercise: expect.objectContaining({
           name: 'Landmine Press',
+          coachingNotes: 'Keep ribs down and punch through at lockout.',
+          relatedExerciseIds: ['agent-related-owned'],
           muscleGroups: [],
           equipment: '',
         }),
@@ -1205,6 +1361,14 @@ describe('exercise routes', () => {
       category: 'compound',
       instructions: null,
     });
+    seedExercise({
+      id: 'related-owned',
+      userId: 'user-1',
+      name: 'Dumbbell Fly',
+      muscleGroups: ['chest'],
+      equipment: 'dumbbell',
+      category: 'isolation',
+    });
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     const response = await context.app.inject({
@@ -1217,6 +1381,8 @@ describe('exercise routes', () => {
         muscleGroups: ['Chest'],
         equipment: 'Cable',
         instructions: 'Control the eccentric.',
+        coachingNotes: 'Keep your shoulders pinned down.',
+        relatedExerciseIds: ['related-owned'],
         formCues: ['slight elbow bend'],
         tags: ['hypertrophy'],
       },
@@ -1231,6 +1397,8 @@ describe('exercise routes', () => {
         muscleGroups: ['Chest'],
         equipment: 'Cable',
         instructions: 'Control the eccentric.',
+        coachingNotes: 'Keep your shoulders pinned down.',
+        relatedExerciseIds: ['related-owned'],
         formCues: ['slight elbow bend'],
         tags: ['hypertrophy'],
       }),
