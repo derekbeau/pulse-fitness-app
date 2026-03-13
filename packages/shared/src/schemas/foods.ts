@@ -15,7 +15,9 @@ const optionalQueryText = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : undefined;
 }, z.string().max(255).optional());
 
-export const foodSortSchema = z.enum(['name', 'recent', 'protein']);
+const foodTagSchema = z.string().trim().min(1).max(40);
+
+export const foodSortSchema = z.enum(['name', 'recent', 'popular']);
 
 export const foodSchema = z.object({
   id: z.string(),
@@ -33,6 +35,8 @@ export const foodSchema = z.object({
   verified: z.boolean(),
   source: z.string().nullable(),
   notes: z.string().nullable(),
+  usageCount: z.number().int().default(0),
+  tags: z.array(foodTagSchema).default([]),
   lastUsedAt: z.number().int().nullable(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -52,6 +56,7 @@ const foodMutationFieldsSchema = z.object({
   verified: z.boolean(),
   source: optionalNullableText(),
   notes: optionalNullableText(2000),
+  tags: z.array(foodTagSchema).max(20).optional().default([]),
 });
 
 export const createFoodInputSchema = foodMutationFieldsSchema.extend({
@@ -66,7 +71,7 @@ export const patchFoodInputSchema = updateFoodInputSchema;
 
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
-  sort: foodSortSchema.default('name'),
+  sort: foodSortSchema.default('recent'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

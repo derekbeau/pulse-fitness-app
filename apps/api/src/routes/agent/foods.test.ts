@@ -38,6 +38,8 @@ const agentFood = {
   verified: false,
   source: null,
   notes: null,
+  usageCount: 0,
+  tags: [],
   lastUsedAt: null,
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_000,

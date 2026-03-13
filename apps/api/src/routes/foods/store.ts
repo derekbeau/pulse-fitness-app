@@ -38,6 +38,8 @@ const foodSelection = {
   verified: foods.verified,
   source: foods.source,
   notes: foods.notes,
+  usageCount: foods.usageCount,
+  tags: foods.tags,
   lastUsedAt: foods.lastUsedAt,
   createdAt: foods.createdAt,
   updatedAt: foods.updatedAt,
@@ -67,8 +69,8 @@ const buildFoodSort = (sort: FoodSort) => {
   switch (sort) {
     case 'recent':
       return sql`case when ${foods.lastUsedAt} is null then 1 else 0 end asc, ${foods.lastUsedAt} desc, lower(${foods.name}) asc`;
-    case 'protein':
-      return sql`${foods.protein} desc, lower(${foods.name}) asc`;
+    case 'popular':
+      return sql`${foods.usageCount} desc, lower(${foods.name}) asc`;
     case 'name':
     default:
       return sql`lower(${foods.name}) asc, lower(coalesce(${foods.brand}, '')) asc`;
@@ -102,6 +104,7 @@ export const createFood = async ({
   verified,
   source,
   notes,
+  tags,
 }: CreateFoodRecordInput): Promise<FoodRecord> => {
   const { db } = await import('../../db/index.js');
 
@@ -123,6 +126,7 @@ export const createFood = async ({
       verified,
       source: toNullable(source),
       notes: toNullable(notes),
+      tags,
     })
     .run();
 
@@ -232,6 +236,10 @@ export const updateFood = async (
     nextValues.notes = toNullable(updates.notes);
   }
 
+  if ('tags' in updates) {
+    nextValues.tags = updates.tags;
+  }
+
   const result = db
     .update(foods)
     .set(nextValues)
@@ -270,6 +278,7 @@ export const updateFoodLastUsedAt = async (
     .update(foods)
     .set({
       lastUsedAt,
+      usageCount: sql`usage_count + 1`,
     })
     .where(and(eq(foods.id, foodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .run();

@@ -25,6 +25,8 @@ function createFood(id: string, name: string): Food {
     verified: true,
     source: 'USDA',
     notes: null,
+    usageCount: 0,
+    tags: [],
     lastUsedAt: Date.parse('2026-03-06T12:00:00.000Z'),
     createdAt: 1,
     updatedAt: 1,

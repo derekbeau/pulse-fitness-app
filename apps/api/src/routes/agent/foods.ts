@@ -49,6 +49,7 @@ export const agentFoodsRoutes: FastifyPluginAsync = async (app) => {
       verified: false,
       source: source ?? null,
       notes: notes ?? null,
+      tags: [],
     });
 
     return reply.code(201).send({

@@ -248,6 +248,17 @@ describe('agent meals routes', () => {
             ],
           }),
         );
+        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenNthCalledWith(
+          1,
+          'food-chicken',
+          'user-1',
+        );
+        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenNthCalledWith(
+          2,
+          'food-rice',
+          'user-1',
+        );
       } finally {
         await app.close();
       }

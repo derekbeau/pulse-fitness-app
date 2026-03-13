@@ -154,6 +154,8 @@ describe('foods store', () => {
         verified: true,
         source: null,
         notes: null,
+        usageCount: 0,
+        tags: [],
         lastUsedAt: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_001,
@@ -171,6 +173,7 @@ describe('foods store', () => {
       carbs: 5,
       fat: 0,
       verified: true,
+      tags: [],
     });
 
     expect(created).toMatchObject({
@@ -200,6 +203,7 @@ describe('foods store', () => {
         verified: true,
         source: null,
         notes: null,
+        tags: [],
       },
     ]);
   });
@@ -224,6 +228,8 @@ describe('foods store', () => {
             verified: false,
             source: null,
             notes: null,
+            usageCount: 3,
+            tags: ['breakfast'],
             lastUsedAt: null,
             createdAt: 1,
             updatedAt: 2,
@@ -241,7 +247,7 @@ describe('foods store', () => {
 
     const result = await listFoods('user-1', {
       q: '50%_off',
-      sort: 'protein',
+      sort: 'popular',
       page: 2,
       limit: 1,
     });
@@ -287,6 +293,8 @@ describe('foods store', () => {
             verified: false,
             source: null,
             notes: null,
+            usageCount: 2,
+            tags: [],
             lastUsedAt: 200,
             createdAt: 1,
             updatedAt: 2,
@@ -336,6 +344,8 @@ describe('foods store', () => {
         verified: true,
         source: 'USDA',
         notes: 'Updated note',
+        usageCount: 5,
+        tags: ['lean'],
         lastUsedAt: null,
         createdAt: 1,
         updatedAt: 2,
@@ -373,7 +383,7 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('soft-deletes foods by scope and scopes lastUsedAt updates to the user', async () => {
+  it('soft-deletes foods by scope and increments usage on lastUsedAt updates', async () => {
     const { deleteFood, updateFoodLastUsedAt } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
@@ -387,9 +397,10 @@ describe('foods store', () => {
 
     await updateFoodLastUsedAt('food-1', 'user-1', 1_700_000_300_000);
 
-    expect(dbState.updateSets.at(-1)).toEqual({
+    expect(dbState.updateSets.at(-1)).toMatchObject({
       lastUsedAt: 1_700_000_300_000,
     });
+    expect(dbState.updateSets.at(-1)).toHaveProperty('usageCount');
     const updateWhereText = flattenSql(dbState.updateWhereCalls.at(-1));
     expect(updateWhereText).toContain('id = food-1');
     expect(updateWhereText).toContain('user_id = user-1');

@@ -945,3 +945,86 @@ describe('migration 0027_template_set_targets', () => {
     }
   });
 });
+
+describe('migration 0028_food_usage_and_tags', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds usage_count and tags defaults for foods', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0028-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE foods (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          brand TEXT,
+          serving_size TEXT,
+          serving_grams REAL,
+          calories REAL NOT NULL,
+          protein REAL NOT NULL,
+          carbs REAL NOT NULL,
+          fat REAL NOT NULL,
+          fiber REAL,
+          sugar REAL,
+          verified INTEGER NOT NULL DEFAULT 0,
+          source TEXT,
+          notes TEXT,
+          last_used_at INTEGER,
+          deleted_at TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO foods (
+            id,
+            user_id,
+            name,
+            calories,
+            protein,
+            carbs,
+            fat,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run('food-pre-migration', 'user-1', 'Greek Yogurt', 90, 18, 5, 0, Date.now(), Date.now());
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0028_food_usage_and_tags.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const migratedRow = db
+        .prepare(`SELECT usage_count AS usageCount, tags FROM foods WHERE id = ?`)
+        .get('food-pre-migration') as { usageCount: number; tags: string };
+
+      expect(migratedRow.usageCount).toBe(0);
+      expect(JSON.parse(migratedRow.tags)).toEqual([]);
+
+      const indexRows = db
+        .prepare(`PRAGMA index_list('foods')`)
+        .all() as Array<{ name: string }>;
+      expect(indexRows.some((indexRow) => indexRow.name === 'foods_user_usage_count_idx')).toBe(
+        true,
+      );
+    } finally {
+      db.close();
+    }
+  });
+});

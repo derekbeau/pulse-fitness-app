@@ -35,7 +35,8 @@ export function FoodsPage() {
         </HelpIcon>
       </div>
       <p className="max-w-2xl text-sm text-muted">
-        Search your saved foods, compare macros at a glance, and sort by recency or protein density.
+        Search your saved foods, compare macros at a glance, and sort by recency, popularity, or
+        name.
       </p>
       {shouldShowEmptyState ? (
         <EmptyState

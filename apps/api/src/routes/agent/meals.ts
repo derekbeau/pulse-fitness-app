@@ -102,7 +102,7 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       items: mealItems,
     });
 
-    // Update lastUsedAt for resolved foods (best-effort)
+    // Update recency/popularity for resolved foods (best-effort)
     await Promise.allSettled(
       resolvedItems.map(({ food }) => updateFoodLastUsedAt(food.id, userId)),
     );
