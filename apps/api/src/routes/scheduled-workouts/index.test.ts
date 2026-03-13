@@ -8,7 +8,14 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { scheduledWorkouts, users, workoutSessions, workoutTemplates } from '../../db/schema/index.js';
+import {
+  exercises,
+  scheduledWorkouts,
+  templateExercises,
+  users,
+  workoutSessions,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -98,6 +105,52 @@ const seedWorkoutSession = (values: {
     })
     .run();
 
+const seedExercise = (values: {
+  id: string;
+  userId?: string | null;
+  name: string;
+  trackingType?:
+    | 'weight_reps'
+    | 'weight_seconds'
+    | 'bodyweight_reps'
+    | 'reps_only'
+    | 'reps_seconds'
+    | 'seconds_only'
+    | 'distance'
+    | 'cardio';
+}) =>
+  context.db
+    .insert(exercises)
+    .values({
+      id: values.id,
+      userId: values.userId ?? null,
+      name: values.name,
+      trackingType: values.trackingType ?? 'weight_reps',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+      instructions: null,
+    })
+    .run();
+
+const seedTemplateExercise = (values: {
+  id: string;
+  templateId: string;
+  exerciseId: string;
+  section: 'warmup' | 'main' | 'cooldown';
+  orderIndex: number;
+}) =>
+  context.db
+    .insert(templateExercises)
+    .values({
+      id: values.id,
+      templateId: values.templateId,
+      exerciseId: values.exerciseId,
+      section: values.section,
+      orderIndex: values.orderIndex,
+    })
+    .run();
+
 describe('scheduled workout routes', () => {
   beforeAll(async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'pulse-scheduled-workout-routes-'));
@@ -140,6 +193,8 @@ describe('scheduled workout routes', () => {
 
   beforeEach(() => {
     context.db.delete(scheduledWorkouts).run();
+    context.db.delete(templateExercises).run();
+    context.db.delete(exercises).run();
     context.db.delete(workoutTemplates).run();
     context.db.delete(users).run();
 
@@ -281,6 +336,59 @@ describe('scheduled workout routes', () => {
           sessionId: null,
           createdAt: expect.any(Number),
         },
+      ],
+    });
+  });
+
+  it('includes template tracking types in scheduled list items when template exercises exist', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'exercise-pullup',
+      userId: 'user-1',
+      name: 'Pull-up',
+      trackingType: 'bodyweight_reps',
+    });
+    seedExercise({
+      id: 'exercise-hang',
+      userId: 'user-1',
+      name: 'Dead Hang',
+      trackingType: 'seconds_only',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-pullup',
+      templateId: 'template-1',
+      exerciseId: 'exercise-pullup',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-hang',
+      templateId: 'template-1',
+      exerciseId: 'exercise-hang',
+      section: 'main',
+      orderIndex: 1,
+    });
+    seedScheduledWorkout({
+      id: 'scheduled-tracking-types',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-13',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/scheduled-workouts?from=2026-03-10&to=2026-03-16',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'scheduled-tracking-types',
+          templateTrackingTypes: expect.arrayContaining(['bodyweight_reps', 'seconds_only']),
+        }),
       ],
     });
   });

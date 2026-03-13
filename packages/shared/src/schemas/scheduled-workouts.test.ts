@@ -46,6 +46,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       date: '2026-03-12',
       templateId: 'template-1',
       templateName: ' Upper Push ',
+      templateTrackingTypes: ['weight_reps', 'seconds_only'],
       sessionId: 'session-1',
       createdAt: 1,
     });
@@ -57,6 +58,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       date: '2026-03-12',
       templateId: 'template-1',
       templateName: 'Upper Push',
+      templateTrackingTypes: ['weight_reps', 'seconds_only'],
       sessionId: 'session-1',
       createdAt: 1,
     });

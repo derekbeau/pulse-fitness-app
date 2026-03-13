@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { exerciseTrackingTypeSchema } from './exercises.js';
 
 const normalizeNullableString = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -63,6 +64,7 @@ export const workoutTemplateExerciseSchema = z
     id: z.string(),
     exerciseId: requiredStringSchema,
     exerciseName: requiredStringSchema,
+    trackingType: exerciseTrackingTypeSchema.default('weight_reps'),
     formCues: z.array(requiredStringSchema).max(50).optional(),
     sets: nullablePositiveIntSchema,
     repsMin: nullablePositiveIntSchema,

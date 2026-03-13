@@ -67,6 +67,15 @@ const seedExercise = (values: {
   userId?: string | null;
   name: string;
   category?: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  trackingType?:
+    | 'weight_reps'
+    | 'weight_seconds'
+    | 'bodyweight_reps'
+    | 'reps_only'
+    | 'reps_seconds'
+    | 'seconds_only'
+    | 'distance'
+    | 'cardio';
 }) =>
   context.db
     .insert(exercises)
@@ -74,6 +83,7 @@ const seedExercise = (values: {
       id: values.id,
       userId: values.userId ?? null,
       name: values.name,
+      trackingType: values.trackingType ?? 'weight_reps',
       muscleGroups: ['chest'],
       equipment: 'barbell',
       category: values.category ?? 'compound',
@@ -508,6 +518,53 @@ describe('workout session routes', () => {
         code: 'WORKOUT_SESSION_NOT_FOUND',
         message: 'Workout session not found',
       },
+    });
+  });
+
+  it('includes trackingType on each exercise in session detail responses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-hang',
+      userId: 'user-1',
+      name: 'Dead Hang',
+      trackingType: 'seconds_only',
+    });
+    seedWorkoutSession({
+      id: 'session-tracking',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-tracking-1',
+      sessionId: 'session-tracking',
+      exerciseId: 'user-1-hang',
+      setNumber: 1,
+      reps: 45,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-tracking',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-tracking',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'user-1-hang',
+            trackingType: 'seconds_only',
+          }),
+        ]),
+      }),
     });
   });
 

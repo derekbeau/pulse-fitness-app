@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
+  ExerciseTrackingType,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WorkoutTemplateSection,
@@ -28,6 +29,7 @@ type TemplateExerciseRecord = {
   templateId: string;
   exerciseId: string;
   exerciseName: string;
+  trackingType: ExerciseTrackingType;
   exerciseFormCues: string[];
   orderIndex: number;
   sets: number | null;
@@ -65,6 +67,7 @@ const templateExerciseSelection = {
   templateId: templateExercises.templateId,
   exerciseId: templateExercises.exerciseId,
   exerciseName: exercises.name,
+  trackingType: exercises.trackingType,
   exerciseFormCues: exercises.formCues,
   orderIndex: templateExercises.orderIndex,
   sets: templateExercises.sets,
@@ -92,6 +95,7 @@ const buildTemplateSections = (
         id: row.id,
         exerciseId: row.exerciseId,
         exerciseName: row.exerciseName,
+        trackingType: row.trackingType,
         formCues: row.exerciseFormCues ?? [],
         sets: row.sets,
         repsMin: row.repsMin,

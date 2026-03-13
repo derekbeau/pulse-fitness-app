@@ -18,7 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, MoreVertical } from 'lucide-react';
 
-import type { WorkoutTemplateExercise } from '@pulse/shared';
+import type { ExerciseTrackingType, WeightUnit, WorkoutTemplateExercise } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
@@ -41,6 +42,7 @@ import {
   useReorderTemplateExercises,
   useWorkoutTemplate,
 } from '../api/workouts';
+import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
   formatWorkoutConflictDescription,
@@ -62,6 +64,7 @@ const sectionLabels = {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
+  const { weightUnit } = useWeightUnit();
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirmation();
   const templateQuery = useWorkoutTemplate(templateId);
@@ -241,6 +244,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                         isMoveDownDisabled={index === section.exercises.length - 1}
                         isMoveUpDisabled={index === 0}
                         key={exercise.id}
+                        weightUnit={weightUnit}
                         onMoveDown={() => {
                           if (index >= section.exercises.length - 1) {
                             return;
@@ -431,6 +435,7 @@ function TemplateExerciseCard({
   index,
   isMoveDownDisabled,
   isMoveUpDisabled,
+  weightUnit,
   onMoveDown,
   onMoveUp,
   onRename,
@@ -439,10 +444,13 @@ function TemplateExerciseCard({
   index: number;
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
+  weightUnit: WeightUnit;
   onMoveDown: () => void;
   onMoveUp: () => void;
   onRename: () => void;
 }) {
+  const prescription = formatPrescription(exercise, weightUnit);
+  const targetBreakdown = formatSetTargetBreakdown(exercise, weightUnit);
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: exercise.id,
   });
@@ -472,7 +480,8 @@ function TemplateExerciseCard({
             </Button>
             <div className="space-y-2">
               <CardTitle>{exercise.exerciseName}</CardTitle>
-              <p className="text-sm font-medium text-foreground">{formatPrescription(exercise)}</p>
+              <p className="text-sm font-medium text-foreground">{prescription}</p>
+              {targetBreakdown ? <p className="text-xs text-muted">{targetBreakdown}</p> : null}
             </div>
           </div>
           <DropdownMenu>
@@ -541,8 +550,45 @@ function formatLabel(value: string) {
     .join(' ');
 }
 
-function formatPrescription(exercise: WorkoutTemplateExercise) {
+function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
   const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
+  const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
+
+  if (setTargetSummary) {
+    if (exercise.sets !== null) {
+      return `${exercise.sets} x ${setTargetSummary}`;
+    }
+
+    return setTargetSummary;
+  }
+
+  if (exercise.trackingType === 'seconds_only') {
+    if (repsTarget) {
+      if (exercise.sets !== null) {
+        return `${exercise.sets} x ${repsTarget}s`;
+      }
+
+      return `${repsTarget}s`;
+    }
+
+    if (exercise.sets !== null) {
+      return `${exercise.sets} timed set${exercise.sets === 1 ? '' : 's'}`;
+    }
+  }
+
+  if (exercise.trackingType === 'distance') {
+    if (repsTarget) {
+      if (exercise.sets !== null) {
+        return `${exercise.sets} x ${repsTarget} ${getDistanceUnit(weightUnit)}`;
+      }
+
+      return `${repsTarget} ${getDistanceUnit(weightUnit)}`;
+    }
+
+    if (exercise.sets !== null) {
+      return `${exercise.sets} distance set${exercise.sets === 1 ? '' : 's'}`;
+    }
+  }
 
   if (exercise.sets !== null && repsTarget) {
     return `${exercise.sets} x ${repsTarget}`;
@@ -557,6 +603,95 @@ function formatPrescription(exercise: WorkoutTemplateExercise) {
   }
 
   return 'Prescription not set';
+}
+
+function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  const targets = (exercise.setTargets ?? [])
+    .map((setTarget) => {
+      const label = formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit);
+
+      if (!label) {
+        return null;
+      }
+
+      return `Set ${setTarget.setNumber}: ${label}`;
+    })
+    .filter((value): value is string => value !== null);
+
+  if (targets.length <= 1) {
+    return null;
+  }
+
+  return targets.join(' • ');
+}
+
+function summarizeSetTargets(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  if (!exercise.setTargets || exercise.setTargets.length === 0) {
+    return null;
+  }
+
+  const labels = exercise.setTargets
+    .map((setTarget) => formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit))
+    .filter((value): value is string => value !== null);
+  if (labels.length === 0) {
+    return null;
+  }
+
+  const uniqueLabels = [...new Set(labels)];
+  if (uniqueLabels.length === 1) {
+    return uniqueLabels[0] ?? null;
+  }
+
+  return labels[0] ?? null;
+}
+
+function formatTargetByTrackingType(
+  trackingType: ExerciseTrackingType,
+  target: NonNullable<WorkoutTemplateExercise['setTargets']>[number],
+  weightUnit: WeightUnit,
+) {
+  const weightLabel = formatTargetWeight(target, weightUnit);
+  const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds}s` : null;
+  const distanceLabel =
+    target?.targetDistance != null ? `${target.targetDistance} ${getDistanceUnit(weightUnit)}` : null;
+
+  switch (trackingType) {
+    case 'seconds_only':
+      return secondsLabel;
+    case 'weight_seconds':
+      if (weightLabel && secondsLabel) {
+        return `${weightLabel} x ${secondsLabel}`;
+      }
+
+      return weightLabel ?? secondsLabel;
+    case 'distance':
+      return distanceLabel;
+    case 'cardio':
+      if (secondsLabel && distanceLabel) {
+        return `${secondsLabel} + ${distanceLabel}`;
+      }
+
+      return secondsLabel ?? distanceLabel;
+    case 'weight_reps':
+      return weightLabel;
+    default:
+      return null;
+  }
+}
+
+function formatTargetWeight(
+  target: NonNullable<WorkoutTemplateExercise['setTargets']>[number],
+  weightUnit: WeightUnit,
+) {
+  if (target?.targetWeight != null) {
+    return `${target.targetWeight} ${weightUnit}`;
+  }
+
+  if (target?.targetWeightMin != null && target?.targetWeightMax != null) {
+    return `${target.targetWeightMin}-${target.targetWeightMax} ${weightUnit}`;
+  }
+
+  return null;
 }
 
 function formatRepTarget(repsMin: number | null, repsMax: number | null) {

@@ -754,6 +754,7 @@ describe('agent workouts routes', () => {
                   id: 'template-exercise-1',
                   exerciseId: 'exercise-squat',
                   exerciseName: 'Squat',
+                  trackingType: 'weight_reps',
                   sets: 2,
                   repsMin: 5,
                   repsMax: 5,
