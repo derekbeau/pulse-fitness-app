@@ -39,6 +39,11 @@ const WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE = {
   message: 'Template exercise not found',
 } as const;
 
+const WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE = {
+  code: 'WORKOUT_TEMPLATE_DUPLICATE_EXERCISE',
+  message: 'Template already contains the replacement exercise',
+} as const;
+
 const getReferencedExerciseIds = (
   sections: Array<{ exercises: Array<{ exerciseId: string }> }>,
 ): string[] =>
@@ -286,6 +291,20 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      if (
+        request.params.exerciseId !== parsedBody.data.newExerciseId &&
+        existingTemplate.sections
+          .flatMap((section) => section.exercises)
+          .some((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId)
+      ) {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE.code,
+          WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE.message,
+        );
+      }
+
       const hasValidSwapTarget = await allRelatedExercisesOwned({
         userId: request.userId,
         exerciseIds: [parsedBody.data.newExerciseId],
@@ -314,17 +333,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const updatedTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
-      if (!updatedTemplate) {
-        return sendError(
-          reply,
-          404,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
-        );
-      }
-
-      const swappedExercise = updatedTemplate.sections
+      const swappedExercise = swapped.sections
         .flatMap((section) => section.exercises)
         .find((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId);
       const hasTrackingTypeWarning =
@@ -332,7 +341,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
         sourceExercise.trackingType !== swappedExercise.trackingType;
 
       return reply.send({
-        data: updatedTemplate,
+        data: swapped,
         ...(hasTrackingTypeWarning
           ? {
               meta: {

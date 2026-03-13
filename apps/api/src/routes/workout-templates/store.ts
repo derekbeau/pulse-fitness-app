@@ -470,10 +470,10 @@ export const swapWorkoutTemplateExercise = async ({
   userId: string;
   exerciseId: string;
   newExerciseId: string;
-}): Promise<boolean> => {
+}): Promise<WorkoutTemplate | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  return db.transaction((tx) => {
+  const swapped = db.transaction((tx) => {
     const templateExists = tx
       .select({ id: workoutTemplates.id })
       .from(workoutTemplates)
@@ -525,6 +525,12 @@ export const swapWorkoutTemplateExercise = async ({
 
     return true;
   });
+
+  if (!swapped) {
+    return undefined;
+  }
+
+  return findWorkoutTemplateById(templateId, userId);
 };
 
 export const deleteWorkoutTemplate = async (id: string, userId: string): Promise<boolean> => {

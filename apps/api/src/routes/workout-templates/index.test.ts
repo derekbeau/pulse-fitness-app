@@ -852,6 +852,46 @@ describe('workout template routes', () => {
     });
   });
 
+  it('returns 409 when swapping to an exercise already in the template', async () => {
+    seedTemplate({
+      id: 'template-duplicate-target',
+      userId: 'user-1',
+      name: 'Upper Push',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-press',
+      templateId: 'template-duplicate-target',
+      exerciseId: 'user-press',
+      orderIndex: 0,
+      section: 'main',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-row',
+      templateId: 'template-duplicate-target',
+      exerciseId: 'user-row',
+      orderIndex: 1,
+      section: 'main',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-templates/template-duplicate-target/exercises/user-press/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-row',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_TEMPLATE_DUPLICATE_EXERCISE',
+        message: 'Template already contains the replacement exercise',
+      },
+    });
+  });
+
   it('rejects swap targets that are not user-owned exercises', async () => {
     seedTemplate({
       id: 'template-invalid-target',
