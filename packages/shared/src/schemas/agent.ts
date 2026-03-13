@@ -145,6 +145,8 @@ export const agentCreateExerciseInputSchema = z.object({
   category: exerciseCategorySchema.optional(),
   muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
   equipment: requiredText().optional(),
+  coachingNotes: optionalText(8000),
+  relatedExerciseIds: z.array(requiredText()).max(200).optional().default([]),
   force: z.boolean().optional().default(false),
 });
 
@@ -156,6 +158,8 @@ export const agentPatchExerciseInputSchema = z
     category: exerciseCategorySchema.optional(),
     trackingType: exerciseTrackingTypeSchema.optional(),
     instructions: optionalText(4000),
+    coachingNotes: optionalText(8000),
+    relatedExerciseIds: z.array(requiredText()).max(200).optional(),
     formCues: z.array(requiredText(500)).max(50).optional(),
     tags: z.array(requiredText()).max(20).optional(),
   })
@@ -184,6 +188,8 @@ export const agentExerciseCreateResponseSchema = z.discriminatedUnion('created',
       muscleGroups: z.array(z.string()),
       equipment: z.string(),
       instructions: z.string().nullable(),
+      coachingNotes: z.string().nullable(),
+      relatedExerciseIds: z.array(z.string()),
       tags: z.array(z.string()),
       formCues: z.array(z.string()),
     }),

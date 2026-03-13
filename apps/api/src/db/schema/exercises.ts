@@ -35,6 +35,11 @@ export const exercises = sqliteTable(
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
     formCues: text('form_cues', { mode: 'json' }).$type<string[]>().notNull().default([]),
     instructions: text('instructions'),
+    coachingNotes: text('coaching_notes'),
+    relatedExerciseIds: text('related_exercise_ids', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()

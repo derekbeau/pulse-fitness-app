@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import {
+  allRelatedExercisesOwned,
   createExercise,
   findExerciseDedupCandidates,
   findExerciseOwnership,
@@ -10,6 +11,7 @@ import {
 } from '../exercises/store.js';
 
 vi.mock('../exercises/store.js', () => ({
+  allRelatedExercisesOwned: vi.fn(),
   createExercise: vi.fn(),
   deleteOwnedExercise: vi.fn(),
   findExerciseDedupCandidates: vi.fn(),
@@ -29,10 +31,12 @@ const createAuthorizationHeader = (token: string) => ({
 describe('agent exercises routes', () => {
   beforeEach(() => {
     vi.mocked(createExercise).mockReset();
+    vi.mocked(allRelatedExercisesOwned).mockReset();
     vi.mocked(findExerciseDedupCandidates).mockReset();
     vi.mocked(findExerciseOwnership).mockReset();
     vi.mocked(listExercises).mockReset();
     vi.mocked(updateOwnedExercise).mockReset();
+    vi.mocked(allRelatedExercisesOwned).mockResolvedValue(true);
     process.env.JWT_SECRET = 'test-agent-exercises-secret';
   });
 
@@ -59,6 +63,8 @@ describe('agent exercises routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -85,6 +91,8 @@ describe('agent exercises routes', () => {
               muscleGroups: [],
               equipment: '',
               instructions: null,
+              coachingNotes: null,
+              relatedExerciseIds: [],
               tags: [],
               formCues: [],
             },
@@ -100,6 +108,8 @@ describe('agent exercises routes', () => {
             muscleGroups: [],
             equipment: '',
             instructions: null,
+            coachingNotes: null,
+            relatedExerciseIds: [],
           }),
         );
       } finally {
@@ -174,6 +184,8 @@ describe('agent exercises routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -201,12 +213,47 @@ describe('agent exercises routes', () => {
               muscleGroups: [],
               equipment: '',
               instructions: null,
+              coachingNotes: null,
+              relatedExerciseIds: [],
               tags: [],
               formCues: [],
             },
           },
         });
         expect(vi.mocked(createExercise)).toHaveBeenCalledTimes(1);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('rejects relatedExerciseIds when ownership validation fails', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findExerciseDedupCandidates).mockResolvedValue([]);
+        vi.mocked(allRelatedExercisesOwned).mockResolvedValue(false);
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/exercises',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Dumbbell Row',
+            relatedExerciseIds: ['exercise-missing'],
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'relatedExerciseIds must reference existing user-owned exercises',
+          },
+        });
+        expect(vi.mocked(createExercise)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }
@@ -235,6 +282,8 @@ describe('agent exercises routes', () => {
           muscleGroups: ['Back'],
           equipment: 'Dumbbell',
           instructions: 'Pull toward hip.',
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 2,
         });
@@ -269,6 +318,8 @@ describe('agent exercises routes', () => {
             muscleGroups: ['Back'],
             equipment: 'Dumbbell',
             instructions: 'Pull toward hip.',
+            coachingNotes: null,
+            relatedExerciseIds: [],
             createdAt: 1,
             updatedAt: 2,
           },
@@ -313,6 +364,8 @@ describe('agent exercises routes', () => {
               muscleGroups: ['Chest', 'Triceps'],
               equipment: 'Barbell',
               instructions: null,
+              coachingNotes: null,
+              relatedExerciseIds: [],
               createdAt: 1,
               updatedAt: 1,
             },

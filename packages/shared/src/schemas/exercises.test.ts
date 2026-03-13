@@ -29,6 +29,8 @@ describe('exerciseSchema', () => {
       tags: ['push', 'upper-body'],
       formCues: ['chest up', 'drive through heels'],
       instructions: ' Drive feet into the floor. ',
+      coachingNotes: ' Keep a slight arch and avoid shoulder shrugging. ',
+      relatedExerciseIds: ['exercise-2'],
       createdAt: 1,
       updatedAt: 2,
     });
@@ -44,6 +46,8 @@ describe('exerciseSchema', () => {
       tags: ['push', 'upper-body'],
       formCues: ['chest up', 'drive through heels'],
       instructions: 'Drive feet into the floor.',
+      coachingNotes: ' Keep a slight arch and avoid shoulder shrugging. ',
+      relatedExerciseIds: ['exercise-2'],
       createdAt: 1,
       updatedAt: 2,
     });
@@ -65,6 +69,8 @@ describe('exerciseSchema', () => {
     expect(payload.trackingType).toBe('weight_reps');
     expect(payload.tags).toEqual([]);
     expect(payload.formCues).toEqual([]);
+    expect(payload.coachingNotes).toBeNull();
+    expect(payload.relatedExerciseIds).toEqual([]);
   });
 
   it('rejects invalid categories', () => {
@@ -80,6 +86,8 @@ describe('exerciseSchema', () => {
         tags: [],
         formCues: [],
         instructions: null,
+        coachingNotes: null,
+        relatedExerciseIds: [],
         createdAt: 1,
         updatedAt: 2,
       }),
@@ -118,6 +126,8 @@ describe('exerciseSchema', () => {
       tags: ['mobility'],
       formCues: ['slow and controlled'],
       instructions: null,
+      coachingNotes: null,
+      relatedExerciseIds: [],
       createdAt: 10,
       updatedAt: 10,
     };
@@ -148,6 +158,8 @@ describe('createExerciseInputSchema', () => {
       tags: ['hinge'],
       formCues: ['hips back'],
       instructions: null,
+      coachingNotes: null,
+      relatedExerciseIds: [],
     });
   });
 
@@ -161,6 +173,8 @@ describe('createExerciseInputSchema', () => {
       tags: ['conditioning'],
       formCues: ['steady pace'],
       instructions: null,
+      coachingNotes: null,
+      relatedExerciseIds: [],
     };
 
     expect(payload.category).toBe('cardio');
@@ -186,6 +200,8 @@ describe('updateExerciseInputSchema', () => {
       trackingType: 'weight_seconds',
       tags: ['back'],
       formCues: ['lead with elbows'],
+      coachingNotes: 'Do not swing the torso.',
+      relatedExerciseIds: ['exercise-3'],
     };
 
     expect(payload.equipment).toBe('cable');

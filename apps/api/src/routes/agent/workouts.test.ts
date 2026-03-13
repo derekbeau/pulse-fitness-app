@@ -215,6 +215,8 @@ describe('agent workouts routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -341,6 +343,8 @@ describe('agent workouts routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -415,6 +419,8 @@ describe('agent workouts routes', () => {
           muscleGroups: ['Chest'],
           equipment: 'Barbell',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -429,6 +435,8 @@ describe('agent workouts routes', () => {
           muscleGroups: ['Chest'],
           equipment: 'Barbell',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 2,
         });
@@ -528,6 +536,8 @@ describe('agent workouts routes', () => {
             muscleGroups: ['Chest'],
             equipment: 'Dumbbell',
             instructions: null,
+            coachingNotes: null,
+            relatedExerciseIds: [],
             createdAt: 1,
             updatedAt: 1,
           })
@@ -542,6 +552,8 @@ describe('agent workouts routes', () => {
             muscleGroups: ['Shoulders'],
             equipment: 'Dumbbell',
             instructions: null,
+            coachingNotes: null,
+            relatedExerciseIds: [],
             createdAt: 1,
             updatedAt: 1,
           });
@@ -661,6 +673,8 @@ describe('agent workouts routes', () => {
           muscleGroups: ['Quads'],
           equipment: 'Barbell',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -877,6 +891,8 @@ describe('agent workouts routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -1238,6 +1254,8 @@ describe('agent workouts routes', () => {
             muscleGroups: ['Chest'],
             equipment: 'Barbell',
             instructions: null,
+            coachingNotes: null,
+            relatedExerciseIds: [],
             createdAt: 1,
             updatedAt: 1,
           })
@@ -1255,6 +1273,8 @@ describe('agent workouts routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });
@@ -1399,6 +1419,8 @@ describe('agent workouts routes', () => {
             muscleGroups: ['Chest'],
             equipment: 'Barbell',
             instructions: null,
+            coachingNotes: null,
+            relatedExerciseIds: [],
             createdAt: 1,
             updatedAt: 1,
           })
@@ -1416,6 +1438,8 @@ describe('agent workouts routes', () => {
           muscleGroups: [],
           equipment: '',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: 1,
           updatedAt: 1,
         });

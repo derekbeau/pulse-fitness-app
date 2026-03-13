@@ -48,13 +48,17 @@ describe('agentCreateWorkoutTemplateInputSchema', () => {
 });
 
 describe('agentPatchExerciseInputSchema', () => {
-  it('accepts name updates for exercise rename operations', () => {
+  it('accepts enrichment updates for exercise metadata operations', () => {
     const payload = agentPatchExerciseInputSchema.parse({
       name: ' Incline Dumbbell Press ',
+      coachingNotes: ' Keep elbows stacked under wrists. ',
+      relatedExerciseIds: ['exercise-1', 'exercise-2'],
     });
 
     expect(payload).toEqual({
       name: 'Incline Dumbbell Press',
+      coachingNotes: 'Keep elbows stacked under wrists.',
+      relatedExerciseIds: ['exercise-1', 'exercise-2'],
     });
   });
 });

@@ -669,3 +669,96 @@ describe('migration 0025_meal_summary', () => {
     }
   });
 });
+
+describe('migration 0025_sleepy_wild_pack', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds coaching_notes and related_exercise_ids with expected defaults for existing exercises', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0025-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT,
+          name TEXT NOT NULL,
+          muscle_groups TEXT NOT NULL,
+          equipment TEXT NOT NULL,
+          category TEXT NOT NULL,
+          tracking_type TEXT DEFAULT 'weight_reps' NOT NULL,
+          tags TEXT DEFAULT '[]' NOT NULL,
+          form_cues TEXT DEFAULT '[]' NOT NULL,
+          instructions TEXT,
+          deleted_at TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO exercises (
+            id,
+            user_id,
+            name,
+            muscle_groups,
+            equipment,
+            category,
+            tracking_type,
+            tags,
+            form_cues,
+            instructions,
+            deleted_at,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'exercise-pre-migration',
+        'user-1',
+        'Back Squat',
+        JSON.stringify(['quads', 'glutes']),
+        'barbell',
+        'compound',
+        'weight_reps',
+        JSON.stringify([]),
+        JSON.stringify([]),
+        null,
+        null,
+        Date.now(),
+        Date.now(),
+      );
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0025_sleepy_wild_pack.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const migratedRow = db
+        .prepare(
+          `SELECT coaching_notes AS coachingNotes, related_exercise_ids AS relatedExerciseIds FROM exercises WHERE id = ?`,
+        )
+        .get('exercise-pre-migration') as {
+        coachingNotes: string | null;
+        relatedExerciseIds: string;
+      };
+
+      expect(migratedRow.coachingNotes).toBeNull();
+      expect(JSON.parse(migratedRow.relatedExerciseIds)).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+});

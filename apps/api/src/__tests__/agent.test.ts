@@ -45,6 +45,8 @@ type StoredExercise = {
   muscleGroups: string[];
   equipment: string;
   instructions: string | null;
+  coachingNotes: string | null;
+  relatedExerciseIds: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -285,6 +287,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
 }));
 
 vi.mock('../routes/exercises/store.js', () => ({
+  allRelatedExercisesOwned: vi.fn(async () => true),
   createExercise: vi.fn(
     async (input: {
       id: string;
@@ -297,6 +300,8 @@ vi.mock('../routes/exercises/store.js', () => ({
       muscleGroups?: string[];
       equipment?: string;
       instructions?: string | null;
+      coachingNotes?: string | null;
+      relatedExerciseIds?: string[];
     }) => {
       const exercise: StoredExercise = {
         id: input.id,
@@ -309,6 +314,8 @@ vi.mock('../routes/exercises/store.js', () => ({
         muscleGroups: input.muscleGroups ?? [],
         equipment: input.equipment ?? '',
         instructions: input.instructions ?? null,
+        coachingNotes: input.coachingNotes ?? null,
+        relatedExerciseIds: input.relatedExerciseIds ?? [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -1130,6 +1137,8 @@ describe('agent integration', () => {
           muscleGroups: ['Chest'],
           equipment: 'Barbell',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
@@ -1209,6 +1218,8 @@ describe('agent integration', () => {
           muscleGroups: ['Biceps'],
           equipment: 'Dumbbell',
           instructions: null,
+          coachingNotes: null,
+          relatedExerciseIds: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });

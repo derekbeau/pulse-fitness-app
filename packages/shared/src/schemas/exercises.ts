@@ -33,6 +33,10 @@ const nullableInstructionsSchema = z.preprocess(
   normalizeNullableString,
   z.string().trim().min(1).max(4000).nullable(),
 );
+const nullableCoachingNotesSchema = z.preprocess(
+  normalizeNullableString,
+  z.string().trim().min(1).max(8000).nullable(),
+);
 
 export const exerciseCategorySchema = z.enum(['compound', 'isolation', 'cardio', 'mobility']);
 export const exerciseTrackingTypeSchema = z.enum([
@@ -57,6 +61,8 @@ export const exerciseSchema = z.object({
   tags: z.array(z.string()).default([]),
   formCues: z.array(z.string()).default([]),
   instructions: nullableInstructionsSchema,
+  coachingNotes: z.string().max(8000).nullable().default(null),
+  relatedExerciseIds: z.array(z.string()).default([]),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
 });
@@ -70,6 +76,8 @@ export const createExerciseInputSchema = z.object({
   tags: z.array(z.string()).optional(),
   formCues: z.array(z.string()).optional(),
   instructions: nullableInstructionsSchema.optional().default(null),
+  coachingNotes: nullableCoachingNotesSchema.optional().default(null),
+  relatedExerciseIds: z.array(z.string()).optional().default([]),
 });
 
 export const updateExerciseInputSchema = z
@@ -82,6 +90,8 @@ export const updateExerciseInputSchema = z
     tags: z.array(z.string()).optional(),
     formCues: z.array(z.string()).optional(),
     instructions: nullableInstructionsSchema.optional(),
+    coachingNotes: nullableCoachingNotesSchema.optional(),
+    relatedExerciseIds: z.array(z.string()).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one exercise field must be provided',

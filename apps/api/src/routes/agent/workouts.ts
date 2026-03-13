@@ -161,6 +161,8 @@ const resolveExerciseIdByName = async ({
     tags,
     formCues: classifiedCues.durable,
     instructions: null,
+    coachingNotes: null,
+    relatedExerciseIds: [],
   });
 
   return {
@@ -303,7 +305,10 @@ const buildInitialSessionSets = (
 const buildExerciseSectionOrder = (
   sets: CreateWorkoutSessionInput['sets'],
 ): Map<string, { section: WorkoutTemplateSectionType | null; orderIndex: number }> => {
-  const byExerciseId = new Map<string, { section: WorkoutTemplateSectionType | null; orderIndex: number }>();
+  const byExerciseId = new Map<
+    string,
+    { section: WorkoutTemplateSectionType | null; orderIndex: number }
+  >();
 
   for (const set of sets) {
     const existing = byExerciseId.get(set.exerciseId);
@@ -360,7 +365,10 @@ const reorderSessionSetsByExercise = (
 
   for (const [section, currentIds] of existingBySection.entries()) {
     const preferred = reorderedBySection.get(section) ?? [];
-    const merged = [...preferred, ...currentIds.filter((exerciseId) => !preferred.includes(exerciseId))];
+    const merged = [
+      ...preferred,
+      ...currentIds.filter((exerciseId) => !preferred.includes(exerciseId)),
+    ];
     reorderedBySection.set(section, merged);
   }
 
