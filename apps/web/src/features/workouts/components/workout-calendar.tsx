@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, EllipsisVertical, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
 import { Link } from 'react-router';
 
@@ -54,6 +54,12 @@ type WorkoutCalendarProps = {
 };
 
 type DayStatus = 'completed' | 'scheduled' | 'in-progress' | 'mixed' | 'none';
+type WorkoutIndicatorStatus = 'completed' | 'scheduled' | 'in-progress' | 'unavailable';
+
+type WorkoutIndicator = {
+  id: string;
+  status: WorkoutIndicatorStatus;
+};
 
 type DayDetails = {
   date: Date;
@@ -61,15 +67,17 @@ type DayDetails = {
   completedSession: WorkoutSessionListItem | null;
   inProgressSession: WorkoutSessionListItem | null;
   scheduledWorkouts: ScheduledWorkoutListItem[];
+  workoutIndicators: WorkoutIndicator[];
   status: DayStatus;
   templateName: string | null;
   notes: string | null;
 };
 
 type DayLookupContext = {
-  completedSessionByDate: Map<string, WorkoutSessionListItem>;
+  completedSessionsByDate: Map<string, WorkoutSessionListItem[]>;
+  inProgressSessions: WorkoutSessionListItem[];
+  sessionById: Map<string, WorkoutSessionListItem>;
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>;
-  inProgressTodaySession: WorkoutSessionListItem | null;
 };
 
 export function WorkoutCalendar({
@@ -115,13 +123,18 @@ export function WorkoutCalendar({
     [activeSessions, dateRange.from, dateRange.to],
   );
   const completedSessionByDate = useMemo(
-    () =>
-      new Map(
-        activeCompletedSessions
-          .slice()
-          .sort((left, right) => right.startedAt - left.startedAt)
-          .map((session) => [session.date, session]),
-      ),
+    () => {
+      const grouped = new Map<string, WorkoutSessionListItem[]>();
+      for (const session of activeCompletedSessions
+        .slice()
+        .sort((left, right) => right.startedAt - left.startedAt)) {
+        const sessionsForDate = grouped.get(session.date) ?? [];
+        sessionsForDate.push(session);
+        grouped.set(session.date, sessionsForDate);
+      }
+
+      return grouped;
+    },
     [activeCompletedSessions],
   );
   const scheduledByDate = useMemo(() => {
@@ -134,21 +147,28 @@ export function WorkoutCalendar({
 
     return grouped;
   }, [scheduledQuery.data]);
-  const inProgressTodaySession = useMemo(
+  const inProgressSessions = useMemo(
     () =>
-      activeSessions
-        .filter((session) => session.status === 'in-progress' || session.status === 'paused')
-        .find((session) => spansToday(session, todayKey)) ?? null,
+      activeSessions.filter(
+        (session) =>
+          (session.status === 'in-progress' || session.status === 'paused') &&
+          spansToday(session, todayKey),
+      ),
     [activeSessions, todayKey],
+  );
+  const sessionById = useMemo(
+    () => new Map(activeSessions.map((session) => [session.id, session])),
+    [activeSessions],
   );
 
   const lookupContext = useMemo(
     () => ({
-      completedSessionByDate,
-      inProgressTodaySession,
+      completedSessionsByDate: completedSessionByDate,
+      inProgressSessions,
+      sessionById,
       scheduledByDate,
     }),
-    [completedSessionByDate, inProgressTodaySession, scheduledByDate],
+    [completedSessionByDate, inProgressSessions, scheduledByDate, sessionById],
   );
 
   const [selectedDateKey, setSelectedDateKey] = useState(
@@ -284,26 +304,15 @@ export function WorkoutCalendar({
                           Done
                         </Link>
                       ) : null}
-                      {details.scheduledWorkouts[0] ? (
-                        details.scheduledWorkouts[0].templateId != null &&
-                        details.scheduledWorkouts[0].templateName != null ? (
-                          <ScheduledWorkoutActions
-                            buildStartWorkoutHref={buildStartWorkoutHref}
-                            compact
-                            scheduledWorkout={details.scheduledWorkouts[0]}
-                          />
-                        ) : (
-                          <span
-                            aria-label="Unavailable scheduled workout"
-                            className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive"
-                          >
-                            <TriangleAlert aria-hidden="true" className="size-3" />
-                          </span>
-                        )
-                      ) : null}
-                      {details.scheduledWorkouts.length > 1 ? (
-                        <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          +{details.scheduledWorkouts.length - 1}
+                      {details.scheduledWorkouts.some(
+                        (scheduledWorkout) =>
+                          scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
+                      ) ? (
+                        <span
+                          aria-label="Unavailable scheduled workout"
+                          className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive"
+                        >
+                          <TriangleAlert aria-hidden="true" className="size-3" />
                         </span>
                       ) : null}
                     </div>
@@ -324,32 +333,20 @@ export function WorkoutCalendar({
                   </div>
 
                   <div className="mt-auto flex items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
-                    {details.completedSession ? (
+                    {getTileIndicators(details.workoutIndicators).map((indicator) => (
                       <span
-                        aria-label="Completed workout"
-                        className="size-2 rounded-full bg-emerald-500 sm:size-2.5"
+                        aria-label={`${statusToLabel(indicator.status)} workout`}
+                        className={cn(
+                          'size-2 rounded-full sm:size-2.5',
+                          indicatorDotClassName(indicator.status),
+                        )}
+                        key={indicator.id}
                       />
-                    ) : null}
-                    {details.scheduledWorkouts.length > 0 ? (
-                      <span
-                        aria-label="Scheduled workout"
-                        className="size-2 rounded-full border border-slate-500 bg-transparent sm:size-2.5"
-                      />
-                    ) : null}
-                    {details.scheduledWorkouts.some(
-                      (scheduledWorkout) =>
-                        scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
-                    ) ? (
-                      <span
-                        aria-label="Unavailable scheduled workout"
-                        className="size-2 rounded-full bg-destructive/80 sm:size-2.5"
-                      />
-                    ) : null}
-                    {details.inProgressSession ? (
-                      <span
-                        aria-label="In-progress workout"
-                        className="size-2 rounded-full bg-orange-500 animate-pulse sm:size-2.5"
-                      />
+                    ))}
+                    {details.workoutIndicators.length >= 3 ? (
+                      <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        +{details.workoutIndicators.length - 2}
+                      </span>
                     ) : null}
                     {isToday ? (
                       <span className="hidden text-[11px] font-medium text-primary sm:inline">
@@ -488,11 +485,9 @@ export function WorkoutCalendar({
 
 function ScheduledWorkoutActions({
   buildStartWorkoutHref,
-  compact = false,
   scheduledWorkout,
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
-  compact?: boolean;
   scheduledWorkout: ScheduledWorkoutListItem;
 }) {
   const rescheduleWorkoutMutation = useRescheduleWorkout();
@@ -523,27 +518,16 @@ function ScheduledWorkoutActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            aria-label={
-              compact
-                ? 'Scheduled workout actions'
-                : `Actions for ${scheduledWorkout.templateName ?? 'scheduled workout'}`
-            }
+            aria-label={`Actions for ${scheduledWorkout.templateName ?? 'scheduled workout'}`}
             className={cn(
               'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
               isUnavailable &&
                 'border-destructive/55 bg-destructive/10 text-destructive hover:bg-destructive/20',
-              compact && 'size-5 border-slate-500/70 px-0 py-0',
             )}
             onClick={(event) => event.stopPropagation()}
             type="button"
           >
-            {compact ? (
-              isUnavailable ? (
-                <TriangleAlert aria-hidden="true" className="size-3" />
-              ) : (
-                <EllipsisVertical aria-hidden="true" className="size-3" />
-              )
-            ) : isUnavailable ? (
+            {isUnavailable ? (
               'Unavailable'
             ) : (
               'Scheduled'
@@ -611,13 +595,23 @@ function LegendDot({ className, label }: { className: string; label: string }) {
 
 function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: string): DayDetails {
   const date = parseDateKey(dateKey);
-  const completedSession = context.completedSessionByDate.get(dateKey) ?? null;
+  const completedSessions = context.completedSessionsByDate.get(dateKey) ?? [];
+  const completedSession = completedSessions[0] ?? null;
   const scheduledWorkouts = context.scheduledByDate.get(dateKey) ?? [];
-  const inProgressSession = dateKey === todayKey ? context.inProgressTodaySession : null;
+  const inProgressSession =
+    dateKey === todayKey ? (context.inProgressSessions[0] ?? null) : null;
+  const workoutIndicators = buildWorkoutIndicators({
+    scheduledWorkouts,
+    completedSessions,
+    inProgressSessions: dateKey === todayKey ? context.inProgressSessions : [],
+    sessionById: context.sessionById,
+  });
 
-  const hasCompleted = completedSession != null;
-  const hasScheduled = scheduledWorkouts.length > 0;
-  const hasInProgress = inProgressSession != null;
+  const hasCompleted = workoutIndicators.some((indicator) => indicator.status === 'completed');
+  const hasScheduled = workoutIndicators.some(
+    (indicator) => indicator.status === 'scheduled' || indicator.status === 'unavailable',
+  );
+  const hasInProgress = workoutIndicators.some((indicator) => indicator.status === 'in-progress');
 
   let status: DayStatus = 'none';
   if (hasCompleted && (hasScheduled || hasInProgress)) {
@@ -638,7 +632,9 @@ function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: str
     inProgressSession?.templateName ??
     null;
   const notes = hasCompleted
-    ? `${completedSession.exerciseCount} exercise${completedSession.exerciseCount === 1 ? '' : 's'} logged`
+    ? completedSession
+      ? `${completedSession.exerciseCount} exercise${completedSession.exerciseCount === 1 ? '' : 's'} logged`
+      : `${workoutIndicators.length} workout${workoutIndicators.length === 1 ? '' : 's'} logged`
     : hasScheduled
       ? `${scheduledWorkouts.length} scheduled workout${scheduledWorkouts.length === 1 ? '' : 's'}`
       : hasInProgress
@@ -652,6 +648,7 @@ function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: str
     inProgressSession,
     notes,
     scheduledWorkouts,
+    workoutIndicators,
     status,
     templateName,
   };
@@ -713,7 +710,7 @@ function getDetailStats(selectedDay: DayDetails) {
 
 function getDefaultSelectedDateKey(
   month: Date,
-  completedByDate: Map<string, WorkoutSessionListItem>,
+  completedByDate: Map<string, WorkoutSessionListItem[]>,
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>,
   todayKey: string,
 ): string {
@@ -777,4 +774,112 @@ function spansToday(session: WorkoutSessionListItem, todayKey: string) {
   const sessionEnd = session.completedAt ?? Number.POSITIVE_INFINITY;
 
   return session.startedAt <= dayEnd && sessionEnd >= dayStart;
+}
+
+function buildWorkoutIndicators({
+  scheduledWorkouts,
+  completedSessions,
+  inProgressSessions,
+  sessionById,
+}: {
+  scheduledWorkouts: ScheduledWorkoutListItem[];
+  completedSessions: WorkoutSessionListItem[];
+  inProgressSessions: WorkoutSessionListItem[];
+  sessionById: Map<string, WorkoutSessionListItem>;
+}): WorkoutIndicator[] {
+  const indicators: WorkoutIndicator[] = [];
+  const consumedSessionIds = new Set<string>();
+
+  for (const scheduledWorkout of scheduledWorkouts) {
+    const linkedSession = scheduledWorkout.sessionId
+      ? (sessionById.get(scheduledWorkout.sessionId) ?? null)
+      : null;
+
+    if (linkedSession && linkedSession.status === 'completed') {
+      indicators.push({ id: `scheduled-${scheduledWorkout.id}`, status: 'completed' });
+      consumedSessionIds.add(linkedSession.id);
+      continue;
+    }
+
+    if (linkedSession && (linkedSession.status === 'in-progress' || linkedSession.status === 'paused')) {
+      indicators.push({ id: `scheduled-${scheduledWorkout.id}`, status: 'in-progress' });
+      consumedSessionIds.add(linkedSession.id);
+      continue;
+    }
+
+    indicators.push({
+      id: `scheduled-${scheduledWorkout.id}`,
+      status:
+        scheduledWorkout.templateId == null || scheduledWorkout.templateName == null
+          ? 'unavailable'
+          : 'scheduled',
+    });
+  }
+
+  for (const session of completedSessions) {
+    if (!consumedSessionIds.has(session.id)) {
+      indicators.push({ id: `completed-${session.id}`, status: 'completed' });
+    }
+  }
+
+  for (const session of inProgressSessions) {
+    if (!consumedSessionIds.has(session.id)) {
+      indicators.push({ id: `in-progress-${session.id}`, status: 'in-progress' });
+    }
+  }
+
+  return indicators.sort((left, right) => indicatorPriority(left.status) - indicatorPriority(right.status));
+}
+
+function indicatorPriority(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'in-progress':
+      return 0;
+    case 'completed':
+      return 1;
+    case 'scheduled':
+      return 2;
+    case 'unavailable':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+function getTileIndicators(indicators: WorkoutIndicator[]) {
+  if (indicators.length <= 2) {
+    return indicators;
+  }
+
+  return indicators.slice(0, 2);
+}
+
+function indicatorDotClassName(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'completed':
+      return 'bg-emerald-500';
+    case 'scheduled':
+      return 'border border-slate-500 bg-transparent';
+    case 'in-progress':
+      return 'animate-pulse bg-orange-500 ring-2 ring-orange-500/30 ring-offset-1 ring-offset-background';
+    case 'unavailable':
+      return 'bg-destructive/80';
+    default:
+      return 'bg-muted';
+  }
+}
+
+function statusToLabel(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'completed':
+      return 'Completed';
+    case 'scheduled':
+      return 'Scheduled';
+    case 'in-progress':
+      return 'In-progress';
+    case 'unavailable':
+      return 'Unavailable scheduled';
+    default:
+      return 'Workout';
+  }
 }

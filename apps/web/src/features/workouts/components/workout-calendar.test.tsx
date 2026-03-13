@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,10 +19,22 @@ afterEach(() => {
 });
 
 describe('WorkoutCalendar', () => {
-  it('renders completed and scheduled workouts with session links', async () => {
+  it('renders per-workout indicators and a count badge for days with 3+ workouts', async () => {
     const sessionDate = new Date();
-    sessionDate.setDate(Math.min(sessionDate.getDate(), 10));
     const sessionDateKey = toDateKey(sessionDate);
+    const inProgressSession = {
+      id: 'session-in-progress',
+      name: 'Morning Conditioning',
+      date: sessionDateKey,
+      status: 'in-progress' as const,
+      templateId: 'template-3',
+      templateName: 'Morning Conditioning',
+      startedAt: Date.parse(`${sessionDateKey}T06:30:00Z`),
+      completedAt: null,
+      duration: null,
+      exerciseCount: 4,
+      createdAt: 3,
+    };
     const completedSession = {
       id: 'session-1',
       name: 'Upper Push',
@@ -41,16 +53,7 @@ describe('WorkoutCalendar', () => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-sessions') {
-        const statuses = url.searchParams.getAll('status');
-        if (statuses.includes('completed')) {
-          return Promise.resolve(jsonResponse({ data: [completedSession] }));
-        }
-
-        if (statuses.includes('in-progress') || statuses.includes('paused')) {
-          return Promise.resolve(jsonResponse({ data: [] }));
-        }
-
-        return Promise.resolve(jsonResponse({ data: [] }));
+        return Promise.resolve(jsonResponse({ data: [completedSession, inProgressSession] }));
       }
 
       if (url.pathname === '/api/v1/scheduled-workouts') {
@@ -73,6 +76,14 @@ describe('WorkoutCalendar', () => {
                 sessionId: null,
                 createdAt: 2,
               },
+              {
+                id: 'schedule-3',
+                date: sessionDateKey,
+                templateId: 'template-3',
+                templateName: 'Morning Conditioning',
+                sessionId: 'session-in-progress',
+                createdAt: 3,
+              },
             ],
           }),
         );
@@ -88,14 +99,112 @@ describe('WorkoutCalendar', () => {
     );
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
+    expect((await screen.findAllByLabelText('In-progress workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByLabelText('Scheduled workout')).length).toBeGreaterThan(0);
-    expect(screen.getByText('+1')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
       '/workouts/session/session-1',
     );
+    expect(screen.queryByRole('button', { name: 'Scheduled workout actions' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /selected/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows one dot per workout for days with two workouts', async () => {
+    const firstDay = new Date();
+    firstDay.setDate(Math.min(firstDay.getDate(), 9));
+    const dateKey = toDateKey(firstDay);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-1',
+                date: dateKey,
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                sessionId: null,
+                createdAt: 1,
+              },
+              {
+                id: 'schedule-2',
+                date: dateKey,
+                templateId: 'template-2',
+                templateName: 'Upper Pull',
+                sessionId: null,
+                createdAt: 2,
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Workout Calendar');
+    const tile = getCalendarDayTile(firstDay);
+
+    expect(await within(tile).findAllByLabelText('Scheduled workout')).toHaveLength(2);
+    expect(within(tile).queryByText(/\+\d+/)).not.toBeInTheDocument();
+  });
+
+  it('updates day details when a calendar day is tapped', async () => {
+    const targetDate = new Date();
+    targetDate.setDate(Math.min(targetDate.getDate(), 11));
+    const targetDateKey = toDateKey(targetDate);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-target',
+                date: targetDateKey,
+                templateId: 'template-target',
+                templateName: 'Leg Day',
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Workout Calendar');
+    fireEvent.click(getCalendarDayTile(targetDate));
+
+    expect(screen.getByRole('heading', { name: 'Leg Day' })).toBeInTheDocument();
   });
 
   it('shows empty calendar details when no workouts exist', async () => {
@@ -160,4 +269,21 @@ function formatMonth(date: Date) {
     month: 'long',
     year: 'numeric',
   }).format(date);
+}
+
+function getCalendarDayTile(date: Date) {
+  const fullLabel = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+
+  return screen.getByRole('button', {
+    name: new RegExp(`^${escapeRegExp(fullLabel)}(?:, selected)?$`),
+  });
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
