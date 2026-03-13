@@ -6,6 +6,7 @@ function normalizeListParams(params?: Partial<FoodQueryParams>) {
     page: params?.page ?? null,
     q: params?.q ?? null,
     sort: params?.sort ?? null,
+    tags: params?.tags?.join('|') ?? null,
   };
 }
 

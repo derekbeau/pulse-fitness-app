@@ -128,12 +128,14 @@ export function FoodList({
   const shouldUsePageFoodsQuery =
     pageFoodsQuery !== undefined &&
     debouncedSearchQuery.length === 0 &&
+    selectedTags.length === 0 &&
     sortBy === DEFAULT_SORT_BY &&
     page === DEFAULT_PAGE &&
     pageSize === DEFAULT_PAGE_SIZE;
   const fallbackFoodsQuery = useFoods(
     {
       q: debouncedSearchQuery || undefined,
+      tags: selectedTags.length > 0 ? normalizeFoodTags(selectedTags) : undefined,
       sort: sortBy,
       page,
       limit: pageSize,
@@ -144,7 +146,7 @@ export function FoodList({
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 
-  const foods = foodsQuery.data?.data ?? [];
+  const foods = useMemo(() => foodsQuery.data?.data ?? [], [foodsQuery.data?.data]);
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
     foods.forEach((food) => {
@@ -153,20 +155,12 @@ export function FoodList({
 
     return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
   }, [foods]);
-  const activeSelectedTags = useMemo(
-    () => selectedTags.filter((tag) => availableTags.includes(tag)),
-    [availableTags, selectedTags],
-  );
-  const visibleFoods = useMemo(() => {
-    if (activeSelectedTags.length === 0) {
-      return foods;
-    }
+  const activeSelectedTags = useMemo(() => normalizeFoodTags(selectedTags), [selectedTags]);
+  const filterTags = useMemo(() => {
+    const tagSet = new Set([...availableTags, ...activeSelectedTags]);
 
-    return foods.filter((food) => {
-      const foodTags = normalizeFoodTags(food.tags);
-      return activeSelectedTags.every((tag) => foodTags.includes(tag));
-    });
-  }, [activeSelectedTags, foods]);
+    return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
+  }, [activeSelectedTags, availableTags]);
   const totalFoods = foodsQuery.data?.meta.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalFoods / pageSize));
   const updateErrorMessage =
@@ -182,12 +176,6 @@ export function FoodList({
       setPage(totalPages);
     }
   }, [page, totalPages]);
-
-  useEffect(() => {
-    if (activeSelectedTags.length !== selectedTags.length) {
-      setSelectedTags(activeSelectedTags);
-    }
-  }, [activeSelectedTags, selectedTags]);
 
   function beginEditing(food: Food) {
     editCancelledRef.current = false;
@@ -354,11 +342,11 @@ export function FoodList({
         <CardContent className="px-5 pt-0 sm:px-6">
           <div className="space-y-2">
             <p className="text-sm font-medium text-on-cream dark:text-foreground">Filter by tags</p>
-            {availableTags.length === 0 ? (
+            {filterTags.length === 0 ? (
               <p className="text-sm text-muted-foreground">No tags yet</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => {
+                {filterTags.map((tag) => {
                   const isSelected = activeSelectedTags.includes(tag);
                   return (
                     <Button
@@ -366,9 +354,9 @@ export function FoodList({
                       className="h-7 rounded-full px-3 text-xs"
                       onClick={() => {
                         setSelectedTags((current) =>
-                          current.includes(tag)
-                            ? current.filter((currentTag) => currentTag !== tag)
-                            : [...current, tag],
+                          normalizeFoodTags(current).includes(tag)
+                            ? normalizeFoodTags(current).filter((currentTag) => currentTag !== tag)
+                            : [...normalizeFoodTags(current), tag],
                         );
                         setPage(1);
                       }}
@@ -397,7 +385,7 @@ export function FoodList({
         <CardContent className="px-5 pt-0 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
             <p>
-              Showing {visibleFoods.length} of {totalFoods} foods
+              Showing {foods.length} of {totalFoods} foods
             </p>
             {isRefreshing ? <p>Refreshing foods…</p> : null}
           </div>
@@ -427,7 +415,7 @@ export function FoodList({
             <FoodCardSkeleton key={index} />
           ))}
         </div>
-      ) : visibleFoods.length === 0 ? (
+      ) : foods.length === 0 ? (
         <Card className="gap-3 border-dashed py-8 text-center shadow-none">
           <CardHeader className="gap-1 px-5 sm:px-6">
             <CardTitle className="text-lg">No foods found</CardTitle>
@@ -443,7 +431,7 @@ export function FoodList({
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-2">
-            {visibleFoods.map((food) => {
+            {foods.map((food) => {
               const isUpdatingFood = updateFood.isPending && updateFood.variables?.id === food.id;
               const isDeletingFood = deleteFood.isPending && deleteFood.variables === food.id;
 
@@ -539,8 +527,12 @@ export function FoodList({
                       <span>Serving: {formatServing(food)}</span>
                       <span aria-hidden="true">•</span>
                       <span>{formatLastUsed(food.lastUsedAt, now)}</span>
-                      <span aria-hidden="true">•</span>
-                      <span>Used {food.usageCount} times</span>
+                      {food.usageCount > 0 ? (
+                        <>
+                          <span aria-hidden="true">•</span>
+                          <span>Used {food.usageCount} times</span>
+                        </>
+                      ) : null}
                     </div>
 
                     <div className="space-y-2">

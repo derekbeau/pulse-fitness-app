@@ -124,7 +124,7 @@ describe('foods routes', () => {
     }
   });
 
-  it('lists foods with parsed search, sort, and pagination params', async () => {
+  it('lists foods with parsed search, tag filters, sort, and pagination params', async () => {
     vi.mocked(listFoods).mockResolvedValue({
       foods: [buildFood()],
       total: 3,
@@ -137,7 +137,7 @@ describe('foods routes', () => {
       const authToken = app.jwt.sign({ userId: 'user-1' });
       const response = await app.inject({
         method: 'GET',
-        url: '/api/v1/foods?q=%20yogurt%20&sort=popular&page=2&limit=1',
+        url: '/api/v1/foods?q=%20yogurt%20&tags=protein,dairy&sort=popular&page=2&limit=1',
         headers: createAuthorizationHeader(authToken),
       });
 
@@ -153,6 +153,7 @@ describe('foods routes', () => {
       });
       expect(vi.mocked(listFoods)).toHaveBeenCalledWith('user-1', {
         q: 'yogurt',
+        tags: ['protein', 'dairy'],
         sort: 'popular',
         page: 2,
         limit: 1,

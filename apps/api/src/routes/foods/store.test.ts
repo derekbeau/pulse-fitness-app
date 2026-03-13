@@ -208,7 +208,7 @@ describe('foods store', () => {
     ]);
   });
 
-  it('returns paginated foods and performs separate row and total queries', async () => {
+  it('returns paginated foods with search and tag filters and performs separate row and total queries', async () => {
     dbState.selectResults.push(
       {
         all: [
@@ -247,6 +247,7 @@ describe('foods store', () => {
 
     const result = await listFoods('user-1', {
       q: '50%_off',
+      tags: ['protein', 'dairy'],
       sort: 'popular',
       page: 2,
       limit: 1,
@@ -271,6 +272,9 @@ describe('foods store', () => {
     const whereClauseText = flattenSql(dbState.selectBuilders[0].where.mock.calls[0]?.[0]);
     expect(whereClauseText).toContain('%50\\%\\_off%');
     expect(whereClauseText.toLowerCase()).toContain("escape '\\'");
+    expect(whereClauseText.toLowerCase()).toContain('json_each');
+    expect(whereClauseText.toLowerCase()).toContain('protein');
+    expect(whereClauseText.toLowerCase()).toContain('dairy');
   });
 
   it('supports recent sorting without pagination errors when the query is absent', async () => {
@@ -372,6 +376,7 @@ describe('foods store', () => {
       notes: 'Updated note',
       verified: true,
     });
+    expect(dbState.updateSets[0]).not.toHaveProperty('tags');
     expect(dbState.updateSets[0]).toHaveProperty('updatedAt');
 
     dbState.updateRunResult = { changes: 0 };

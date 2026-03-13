@@ -48,7 +48,7 @@ const foodSelection = {
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
 const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
 
-const buildFoodFilters = (userId: string, query?: string) => {
+const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {
   const filters: SQL<unknown>[] = [eq(foods.userId, userId), isNull(foods.deletedAt)];
 
   if (query) {
@@ -60,6 +60,18 @@ const buildFoodFilters = (userId: string, query?: string) => {
         or lower(coalesce(${foods.brand}, '')) like ${pattern} escape '\\'
       )`,
     );
+  }
+
+  if (tags && tags.length > 0) {
+    for (const tag of tags) {
+      filters.push(
+        sql`exists (
+          select 1
+          from json_each(${foods.tags})
+          where lower(json_each.value) = ${tag}
+        )`,
+      );
+    }
   }
 
   return filters.length === 1 ? filters[0] : and(...filters);
@@ -144,11 +156,11 @@ export const createFood = async ({
 
 export const listFoods = async (
   userId: string,
-  { q, sort, page, limit }: FoodQueryParams,
+  { q, tags, sort, page, limit }: FoodQueryParams,
 ): Promise<FoodListResult> => {
   const { db } = await import('../../db/index.js');
 
-  const filters = buildFoodFilters(userId, q);
+  const filters = buildFoodFilters(userId, q, tags);
   const offset = (page - 1) * limit;
 
   const foodRows = db
@@ -236,7 +248,7 @@ export const updateFood = async (
     nextValues.notes = toNullable(updates.notes);
   }
 
-  if ('tags' in updates) {
+  if (updates.tags !== undefined) {
     nextValues.tags = updates.tags;
   }
 

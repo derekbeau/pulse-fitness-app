@@ -72,6 +72,10 @@ function sortFoods(foods: Food[], sort: string) {
   return copy.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function normalizeTags(tags: string[]) {
+  return tags.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0);
+}
+
 function createFoodsApiMock(
   initialFoods: Food[],
   options?: {
@@ -88,12 +92,25 @@ function createFoodsApiMock(
 
     if (url.pathname === '/api/v1/foods' && method === 'GET') {
       const q = url.searchParams.get('q')?.toLowerCase() ?? '';
+      const selectedTags = normalizeTags((url.searchParams.get('tags') ?? '').split(','));
       const sort = url.searchParams.get('sort') ?? 'name';
       const page = Number(url.searchParams.get('page') ?? '1');
       const limit = Number(url.searchParams.get('limit') ?? '12');
-      const filteredFoods = foods.filter((food) =>
-        [food.name, food.brand ?? ''].some((value) => value.toLowerCase().includes(q)),
-      );
+      const filteredFoods = foods.filter((food) => {
+        const matchesQuery = [food.name, food.brand ?? ''].some((value) =>
+          value.toLowerCase().includes(q),
+        );
+        if (!matchesQuery) {
+          return false;
+        }
+
+        if (selectedTags.length === 0) {
+          return true;
+        }
+
+        const foodTags = normalizeTags(food.tags);
+        return selectedTags.every((tag) => foodTags.includes(tag));
+      });
       const sortedFoods = sortFoods(filteredFoods, sort);
       const startIndex = (page - 1) * limit;
       const data = sortedFoods.slice(startIndex, startIndex + limit);
@@ -506,9 +523,13 @@ describe('FoodList', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'dairy' }));
     expect(await screen.findByRole('heading', { level: 3, name: 'Greek Yogurt' })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { level: 3, name: 'Atlantic Salmon' }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { level: 3, name: 'Atlantic Salmon' }),
+      ).not.toBeInTheDocument();
+    });
+    const filterRequest = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(filterRequest.searchParams.get('tags')).toBe('dairy');
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove dairy tag from Greek Yogurt' }));
     await waitFor(() => {

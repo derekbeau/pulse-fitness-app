@@ -79,7 +79,7 @@ describe('createFoodInputSchema', () => {
       carbs: 5,
       fat: 0,
       notes: ' High protein snack ',
-      tags: [' dairy ', ' snack '],
+      tags: [' dairy ', ' Snack '],
     });
 
     expect(payload).toEqual({
@@ -140,6 +140,14 @@ describe('patchFoodInputSchema', () => {
     });
   });
 
+  it('does not inject tags when patch payload omits tags', () => {
+    const payload = patchFoodInputSchema.parse({
+      notes: 'updated source',
+    });
+
+    expect(payload).not.toHaveProperty('tags');
+  });
+
   it('accepts a valid multi-field patch', () => {
     const payload = patchFoodInputSchema.parse({
       name: ' Greek Yogurt ',
@@ -173,6 +181,7 @@ describe('foodQueryParamsSchema', () => {
   it('coerces pagination params and trims the search query', () => {
     const payload = foodQueryParamsSchema.parse({
       q: '  yogurt ',
+      tags: ' dairy , breakfast ',
       sort: 'popular',
       page: '2',
       limit: '25',
@@ -180,6 +189,7 @@ describe('foodQueryParamsSchema', () => {
 
     expect(payload).toEqual({
       q: 'yogurt',
+      tags: ['dairy', 'breakfast'],
       sort: 'popular',
       page: 2,
       limit: 25,
@@ -193,10 +203,19 @@ describe('foodQueryParamsSchema', () => {
 
     expect(payload).toEqual({
       q: undefined,
+      tags: undefined,
       sort: 'recent',
       page: 1,
       limit: 50,
     });
+  });
+
+  it('parses repeated and comma-delimited tag query params', () => {
+    const payload = foodQueryParamsSchema.parse({
+      tags: ['Protein, Dinner', 'Lean', ''],
+    });
+
+    expect(payload.tags).toEqual(['protein', 'dinner', 'lean']);
   });
 
   it('rejects invalid sort and page values', () => {
