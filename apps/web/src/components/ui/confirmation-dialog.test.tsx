@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ConfirmationDialog, useConfirmation } from '@/components/ui/confirmation-dialog';
@@ -32,19 +32,17 @@ describe('ConfirmationDialog', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onCancel and closes when cancel button is clicked', () => {
-    const onCancel = vi.fn();
+  it('closes when cancel button is clicked', () => {
     const onOpenChange = vi.fn();
 
     render(
       <ConfirmationDialog
         description="This action cannot be undone."
-        onCancel={onCancel}
         onConfirm={vi.fn()}
         onOpenChange={onOpenChange}
         open
@@ -54,7 +52,6 @@ describe('ConfirmationDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -70,7 +67,7 @@ describe('ConfirmationDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Delete' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Confirm' })).toHaveAttribute(
       'data-variant',
       'destructive',
     );
@@ -88,11 +85,17 @@ describe('ConfirmationDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled();
   });
 });
 
-function HookHarness({ onConfirm }: { onConfirm: () => void }) {
+function HookHarness({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void | Promise<void>;
+  onCancel?: () => void;
+}) {
   const { confirm, dialog } = useConfirmation();
 
   return (
@@ -102,6 +105,7 @@ function HookHarness({ onConfirm }: { onConfirm: () => void }) {
           confirm({
             confirmLabel: 'Delete meal',
             description: 'This action cannot be undone.',
+            onCancel,
             onConfirm,
             title: 'Delete meal?',
           });
@@ -127,6 +131,47 @@ describe('useConfirmation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete meal' }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByText('Delete meal?')).not.toBeInTheDocument();
+    });
+  });
+
+  it('calls onCancel when dialog is dismissed', async () => {
+    const onCancel = vi.fn();
+
+    render(<HookHarness onCancel={onCancel} onConfirm={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByText('Delete meal?')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows loading state and stays open during async confirm', async () => {
+    let resolveConfirm: (() => void) | undefined;
+    const onConfirm = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+
+    render(<HookHarness onConfirm={onConfirm} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete meal' }));
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Delete meal' })).toBeDisabled();
+    expect(screen.getByText('Delete meal?')).toBeInTheDocument();
+
+    act(() => {
+      resolveConfirm?.();
+    });
+
     await waitFor(() => {
       expect(screen.queryByText('Delete meal?')).not.toBeInTheDocument();
     });

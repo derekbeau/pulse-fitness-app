@@ -22,14 +22,13 @@ export interface ConfirmationDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
-  onCancel?: () => void;
+  onConfirm: () => void | Promise<void>;
   variant?: ConfirmationVariant;
   loading?: boolean;
 }
 
 export type ConfirmationRequest = Omit<
-  ConfirmationDialogProps,
+  ConfirmationDialogProps & { onCancel?: () => void },
   'loading' | 'onOpenChange' | 'open'
 >;
 
@@ -47,10 +46,9 @@ export function ConfirmationDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Delete',
+  confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   onConfirm,
-  onCancel,
   variant = 'destructive',
   loading = false,
 }: ConfirmationDialogProps) {
@@ -63,14 +61,7 @@ export function ConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
-            <Button
-              autoFocus
-              onClick={() => {
-                onCancel?.();
-              }}
-              type="button"
-              variant="outline"
-            >
+            <Button autoFocus type="button" variant="outline">
               {cancelLabel}
             </Button>
           </AlertDialogCancel>
@@ -98,6 +89,7 @@ export function useConfirmation() {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [confirmation, setConfirmation] = React.useState<ConfirmationRequest | null>(null);
+  const confirmedRef = React.useRef(false);
 
   const close = React.useCallback(() => {
     setLoading(false);
@@ -106,6 +98,7 @@ export function useConfirmation() {
   }, []);
 
   const confirm = React.useCallback((request: ConfirmationRequest) => {
+    confirmedRef.current = false;
     setLoading(false);
     setConfirmation(request);
     setOpen(true);
@@ -117,11 +110,15 @@ export function useConfirmation() {
     }
 
     try {
+      setLoading(true);
       const result = confirmation.onConfirm();
-      if (isPromiseLike(result)) {
-        setLoading(true);
-        await result;
+      if (!isPromiseLike(result)) {
+        confirmedRef.current = true;
+        close();
+        return;
       }
+      await result;
+      confirmedRef.current = true;
       close();
     } catch {
       setLoading(false);
@@ -134,15 +131,14 @@ export function useConfirmation() {
       confirmLabel={confirmation.confirmLabel}
       description={confirmation.description}
       loading={loading}
-      onCancel={() => {
-        confirmation.onCancel?.();
-        close();
-      }}
       onConfirm={() => {
         void handleConfirm();
       }}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
+          if (!confirmedRef.current) {
+            confirmation.onCancel?.();
+          }
           close();
           return;
         }

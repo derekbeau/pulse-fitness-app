@@ -12,7 +12,8 @@ function serializeArgs(args: unknown[]) {
   try {
     return JSON.stringify(args);
   } catch {
-    return '__non_serializable__';
+    // Non-serializable args cannot be safely deduplicated.
+    return null;
   }
 }
 
@@ -63,8 +64,9 @@ export function useDebouncedCallback<TArgs extends unknown[]>(
       const serializedArgs = serializeArgs(args);
 
       if (
-        serializedArgs === pendingKeyRef.current ||
-        (timeoutRef.current === null && serializedArgs === lastInvokedKeyRef.current)
+        serializedArgs !== null &&
+        (serializedArgs === pendingKeyRef.current ||
+          (timeoutRef.current === null && serializedArgs === lastInvokedKeyRef.current))
       ) {
         return;
       }

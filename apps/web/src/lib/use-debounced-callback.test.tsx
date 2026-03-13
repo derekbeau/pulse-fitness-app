@@ -94,4 +94,33 @@ describe('useDebouncedCallback', () => {
 
     expect(callback).toHaveBeenCalledTimes(1);
   });
+
+  it('does not deduplicate non-serializable argument payloads', async () => {
+    const callback = vi.fn();
+    const { result } = renderHook(() => useDebouncedCallback(callback, 500));
+    const first: { value: string; self?: unknown } = { value: 'first' };
+    const second: { value: string; self?: unknown } = { value: 'second' };
+    first.self = first;
+    second.self = second;
+
+    act(() => {
+      result.current.run(first);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    act(() => {
+      result.current.run(second);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(callback).toHaveBeenNthCalledWith(1, first);
+    expect(callback).toHaveBeenNthCalledWith(2, second);
+  });
 });

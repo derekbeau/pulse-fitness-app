@@ -285,10 +285,8 @@ function resolveInputValues(
   localOverrides: Partial<InputValues>,
 ): InputValues {
   return {
-    distance: localOverrides.distance === undefined ? serverValues.distance : localOverrides.distance,
-    reps: localOverrides.reps === undefined ? serverValues.reps : localOverrides.reps,
-    seconds: localOverrides.seconds === undefined ? serverValues.seconds : localOverrides.seconds,
-    weight: localOverrides.weight === undefined ? serverValues.weight : localOverrides.weight,
+    ...serverValues,
+    ...localOverrides,
   };
 }
 

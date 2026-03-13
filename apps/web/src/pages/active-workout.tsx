@@ -39,16 +39,6 @@ import {
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { estimateRemainingTime, estimateTotalTime } from '@/features/workouts/lib/time-estimates';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
@@ -214,7 +204,6 @@ export function ActiveWorkoutPage() {
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const { confirm, dialog } = useConfirmation();
-  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [isEditTimeDialogOpen, setIsEditTimeDialogOpen] = useState(false);
   const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
   const [timeSegmentError, setTimeSegmentError] = useState<string | null>(null);
@@ -804,22 +793,6 @@ export function ActiveWorkoutPage() {
         />
       ) : null}
 
-      <AlertDialog onOpenChange={setIsFinishDialogOpen} open={isFinishDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finish workout early?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`End workout with ${remainingSetCount} sets remaining?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmFinishWorkout} type="button">
-              Finish
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       {dialog}
 
       <Dialog
@@ -1165,15 +1138,16 @@ export function ActiveWorkoutPage() {
 
   function handleFinishWorkout() {
     if (remainingSetCount > 0) {
-      setIsFinishDialogOpen(true);
+      confirm({
+        title: 'Finish workout early?',
+        description: `End workout with ${remainingSetCount} sets remaining?`,
+        confirmLabel: 'Finish',
+        onConfirm: transitionToFeedbackStage,
+        variant: 'default',
+      });
       return;
     }
 
-    transitionToFeedbackStage();
-  }
-
-  function confirmFinishWorkout() {
-    setIsFinishDialogOpen(false);
     transitionToFeedbackStage();
   }
 
