@@ -218,6 +218,10 @@ export const reorderWorkoutTemplateExercisesInputSchema = z.object({
   exerciseIds: z.array(z.string().trim().min(1)).max(100),
 });
 
+export const swapWorkoutTemplateExerciseInputSchema = z.object({
+  newExerciseId: requiredStringSchema,
+});
+
 export type WorkoutTemplateSectionType = z.infer<typeof workoutTemplateSectionTypeSchema>;
 export type WorkoutTemplateExerciseSet = z.infer<typeof workoutTemplateExerciseSetSchema>;
 export type WorkoutTemplateExercise = z.infer<typeof workoutTemplateExerciseSchema>;
@@ -227,4 +231,7 @@ export type CreateWorkoutTemplateInput = z.infer<typeof createWorkoutTemplateInp
 export type UpdateWorkoutTemplateInput = z.infer<typeof updateWorkoutTemplateInputSchema>;
 export type ReorderWorkoutTemplateExercisesInput = z.infer<
   typeof reorderWorkoutTemplateExercisesInputSchema
+>;
+export type SwapWorkoutTemplateExerciseInput = z.infer<
+  typeof swapWorkoutTemplateExerciseInputSchema
 >;

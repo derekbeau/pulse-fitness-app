@@ -368,10 +368,7 @@ export const findInvalidSessionExerciseIds = async ({
       and(
         inArray(exercises.id, uniqueIds),
         isNull(exercises.deletedAt),
-        or(
-          isNull(exercises.userId),
-          eq(exercises.userId, userId),
-        ),
+        or(isNull(exercises.userId), eq(exercises.userId, userId)),
       ),
     )
     .all()
@@ -908,6 +905,71 @@ export const reorderWorkoutSessionExercises = async ({
   });
 
   if (!reordered) {
+    return undefined;
+  }
+
+  return findWorkoutSessionById(sessionId, userId);
+};
+
+export const swapWorkoutSessionExercise = async ({
+  sessionId,
+  userId,
+  exerciseId,
+  newExerciseId,
+}: {
+  sessionId: string;
+  userId: string;
+  exerciseId: string;
+  newExerciseId: string;
+}): Promise<WorkoutSession | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  const swapped = db.transaction((tx) => {
+    const session = tx
+      .select(workoutSessionAccessSelection)
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
+      .limit(1)
+      .get();
+
+    if (!session) {
+      return false;
+    }
+
+    const updateResult = tx
+      .update(sessionSets)
+      .set({
+        exerciseId: newExerciseId,
+      })
+      // Session swaps intentionally replace every set tied to the source exercise across sections.
+      .where(and(eq(sessionSets.sessionId, sessionId), eq(sessionSets.exerciseId, exerciseId)))
+      .run();
+
+    if (updateResult.changes === 0) {
+      return false;
+    }
+
+    tx.update(workoutSessions)
+      .set({ updatedAt: Date.now() })
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
+      .run();
+
+    return true;
+  });
+
+  if (!swapped) {
     return undefined;
   }
 

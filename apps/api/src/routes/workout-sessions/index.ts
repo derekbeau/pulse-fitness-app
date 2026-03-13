@@ -5,6 +5,7 @@ import {
   createSetSchema,
   reorderWorkoutSessionExercisesInputSchema,
   saveWorkoutSessionAsTemplateInputSchema,
+  swapWorkoutSessionExerciseInputSchema,
   createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
   type SessionSetInput,
@@ -17,6 +18,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
+import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
 
@@ -33,6 +35,7 @@ import {
   SessionSetNotFoundError,
   listWorkoutSessions,
   saveCompletedSessionAsTemplate,
+  swapWorkoutSessionExercise,
   updateSessionSet,
   updateWorkoutSession,
 } from './store.js';
@@ -66,6 +69,21 @@ const WORKOUT_SESSION_NOT_COMPLETED_RESPONSE = {
 const WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE = {
   code: 'WORKOUT_SESSION_INVALID_TRANSITION',
   message: 'Invalid workout session status transition',
+} as const;
+
+const WORKOUT_SESSION_NOT_SWAPPABLE_RESPONSE = {
+  code: 'WORKOUT_SESSION_NOT_SWAPPABLE',
+  message: 'Workout session must be planned, in progress, or paused to swap exercises',
+} as const;
+
+const WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE = {
+  code: 'WORKOUT_SESSION_EXERCISE_NOT_FOUND',
+  message: 'Session exercise not found',
+} as const;
+
+const WORKOUT_SESSION_DUPLICATE_EXERCISE_RESPONSE = {
+  code: 'WORKOUT_SESSION_DUPLICATE_EXERCISE',
+  message: 'Session already contains the replacement exercise',
 } as const;
 
 const SESSION_SET_NOT_FOUND_RESPONSE = {
@@ -844,6 +862,113 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       data: reordered,
     });
   });
+
+  app.patch<{ Params: { id: string; exerciseId: string } }>(
+    '/:id/exercises/:exerciseId/swap',
+    async (request, reply) => {
+      const parsedBody = swapWorkoutSessionExerciseInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (
+        existingSession.status !== 'scheduled' &&
+        existingSession.status !== 'in-progress' &&
+        existingSession.status !== 'paused'
+      ) {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_NOT_SWAPPABLE_RESPONSE.code,
+          WORKOUT_SESSION_NOT_SWAPPABLE_RESPONSE.message,
+        );
+      }
+
+      const sessionExercises = existingSession.exercises ?? [];
+
+      const existingExercise = sessionExercises.find(
+        (exercise) => exercise.exerciseId === request.params.exerciseId,
+      );
+      if (!existingExercise) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (
+        request.params.exerciseId !== parsedBody.data.newExerciseId &&
+        sessionExercises.some((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId)
+      ) {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_DUPLICATE_EXERCISE_RESPONSE.code,
+          WORKOUT_SESSION_DUPLICATE_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      const hasValidSwapTarget = await allRelatedExercisesOwned({
+        userId: request.userId,
+        exerciseIds: [parsedBody.data.newExerciseId],
+      });
+      if (!hasValidSwapTarget) {
+        return sendError(
+          reply,
+          400,
+          INVALID_SESSION_EXERCISE_RESPONSE.code,
+          INVALID_SESSION_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      const swapped = await swapWorkoutSessionExercise({
+        sessionId: request.params.id,
+        userId: request.userId,
+        exerciseId: request.params.exerciseId,
+        newExerciseId: parsedBody.data.newExerciseId,
+      });
+      if (!swapped) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const swappedExercises = swapped.exercises ?? [];
+      const swappedExercise = swappedExercises.find(
+        (exercise) => exercise.exerciseId === parsedBody.data.newExerciseId,
+      );
+      const hasTrackingTypeWarning =
+        swappedExercise?.trackingType !== undefined &&
+        existingExercise.trackingType !== swappedExercise.trackingType;
+
+      return reply.send({
+        data: swapped,
+        ...(hasTrackingTypeWarning
+          ? {
+              meta: {
+                warning:
+                  'Swapped to an exercise with a different tracking type. Review entered sets and targets.',
+              },
+            }
+          : {}),
+      });
+    },
+  );
 
   app.put<{ Params: { id: string } }>('/:id', updateSessionById);
   app.patch<{ Params: { id: string } }>('/:id', updateSessionById);

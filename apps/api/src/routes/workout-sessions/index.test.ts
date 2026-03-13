@@ -140,9 +140,15 @@ const seedSessionSet = (values: {
   id: string;
   sessionId: string;
   exerciseId: string;
+  orderIndex?: number;
   setNumber: number;
   weight?: number | null;
   reps?: number | null;
+  targetWeight?: number | null;
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+  targetSeconds?: number | null;
+  targetDistance?: number | null;
   completed?: boolean;
   skipped?: boolean;
   section?: 'warmup' | 'main' | 'cooldown' | null;
@@ -154,9 +160,15 @@ const seedSessionSet = (values: {
       id: values.id,
       sessionId: values.sessionId,
       exerciseId: values.exerciseId,
+      orderIndex: values.orderIndex ?? 0,
       setNumber: values.setNumber,
       weight: values.weight ?? null,
       reps: values.reps ?? null,
+      targetWeight: values.targetWeight ?? null,
+      targetWeightMin: values.targetWeightMin ?? null,
+      targetWeightMax: values.targetWeightMax ?? null,
+      targetSeconds: values.targetSeconds ?? null,
+      targetDistance: values.targetDistance ?? null,
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
       section: values.section ?? null,
@@ -259,6 +271,13 @@ describe('workout session routes', () => {
       name: 'Lat Pulldown',
     });
     seedExercise({
+      id: 'user-1-plank',
+      userId: 'user-1',
+      name: 'RKC Plank',
+      trackingType: 'seconds_only',
+      category: 'mobility',
+    });
+    seedExercise({
       id: 'user-2-private-row',
       userId: 'user-2',
       name: 'Private Row',
@@ -331,6 +350,13 @@ describe('workout session routes', () => {
         payload: {
           section: 'main',
           exerciseIds: [],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-1/exercises/global-bench-press/swap',
+        payload: {
+          newExerciseId: 'user-1-lat-pulldown',
         },
       }),
     ]);
@@ -743,6 +769,279 @@ describe('workout session routes', () => {
       { exerciseId: 'global-bench-press', orderIndex: 1 },
       { exerciseId: 'global-bench-press', orderIndex: 1 },
     ]);
+  });
+
+  it('swaps a session exercise while preserving entered set data', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-swap',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-swap-1',
+      sessionId: 'session-swap',
+      exerciseId: 'global-bench-press',
+      orderIndex: 1,
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      targetWeight: 190,
+      completed: true,
+      section: 'main',
+      notes: 'Smooth reps',
+    });
+    seedSessionSet({
+      id: 'set-swap-2',
+      sessionId: 'session-swap',
+      exerciseId: 'global-bench-press',
+      orderIndex: 1,
+      setNumber: 2,
+      weight: 195,
+      reps: 6,
+      targetWeightMin: 190,
+      targetWeightMax: 200,
+      skipped: true,
+      section: 'main',
+      notes: 'Tweaked shoulder',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-swap/exercises/global-bench-press/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-1-plank',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-swap',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'user-1-plank',
+          }),
+        ]),
+        sets: [
+          expect.objectContaining({
+            id: 'set-swap-1',
+            exerciseId: 'user-1-plank',
+            orderIndex: 1,
+            setNumber: 1,
+            weight: 185,
+            reps: 8,
+            targetWeight: 190,
+            completed: true,
+            skipped: false,
+            section: 'main',
+            notes: 'Smooth reps',
+          }),
+          expect.objectContaining({
+            id: 'set-swap-2',
+            exerciseId: 'user-1-plank',
+            orderIndex: 1,
+            setNumber: 2,
+            weight: 195,
+            reps: 6,
+            targetWeightMin: 190,
+            targetWeightMax: 200,
+            completed: false,
+            skipped: true,
+            section: 'main',
+            notes: 'Tweaked shoulder',
+          }),
+        ],
+      }),
+      meta: {
+        warning:
+          'Swapped to an exercise with a different tracking type. Review entered sets and targets.',
+      },
+    });
+
+    const persistedSets = context.db
+      .select({
+        id: sessionSets.id,
+        exerciseId: sessionSets.exerciseId,
+        orderIndex: sessionSets.orderIndex,
+        setNumber: sessionSets.setNumber,
+        weight: sessionSets.weight,
+        reps: sessionSets.reps,
+        targetWeight: sessionSets.targetWeight,
+        targetWeightMin: sessionSets.targetWeightMin,
+        targetWeightMax: sessionSets.targetWeightMax,
+        completed: sessionSets.completed,
+        skipped: sessionSets.skipped,
+        section: sessionSets.section,
+        notes: sessionSets.notes,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-swap'))
+      .all()
+      .sort((left, right) => left.setNumber - right.setNumber);
+
+    expect(persistedSets).toEqual([
+      {
+        id: 'set-swap-1',
+        exerciseId: 'user-1-plank',
+        orderIndex: 1,
+        setNumber: 1,
+        weight: 185,
+        reps: 8,
+        targetWeight: 190,
+        targetWeightMin: null,
+        targetWeightMax: null,
+        completed: true,
+        skipped: false,
+        section: 'main',
+        notes: 'Smooth reps',
+      },
+      {
+        id: 'set-swap-2',
+        exerciseId: 'user-1-plank',
+        orderIndex: 1,
+        setNumber: 2,
+        weight: 195,
+        reps: 6,
+        targetWeight: null,
+        targetWeightMin: 190,
+        targetWeightMax: 200,
+        completed: false,
+        skipped: true,
+        section: 'main',
+        notes: 'Tweaked shoulder',
+      },
+    ]);
+  });
+
+  it('rejects swaps for completed sessions', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-completed-swap',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+    });
+    seedSessionSet({
+      id: 'set-completed-1',
+      sessionId: 'session-completed-swap',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-completed-swap/exercises/global-bench-press/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-1-plank',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_SWAPPABLE',
+        message: 'Workout session must be planned, in progress, or paused to swap exercises',
+      },
+    });
+  });
+
+  it('returns 404 when swapping an exercise not present in the session', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-missing-source',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-present-1',
+      sessionId: 'session-missing-source',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-missing-source/exercises/user-1-lat-pulldown/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-1-plank',
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_EXERCISE_NOT_FOUND',
+        message: 'Session exercise not found',
+      },
+    });
+  });
+
+  it('rejects swap targets that are not user-owned exercises', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-invalid-target',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-invalid-target-1',
+      sessionId: 'session-invalid-target',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const [globalResponse, otherUserResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-invalid-target/exercises/global-bench-press/swap',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          newExerciseId: 'global-bench-press',
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-invalid-target/exercises/global-bench-press/swap',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          newExerciseId: 'user-2-private-row',
+        },
+      }),
+    ]);
+
+    for (const response of [globalResponse, otherUserResponse]) {
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INVALID_SESSION_EXERCISE',
+          message: 'Session references one or more unavailable exercises',
+        },
+      });
+    }
   });
 
   it('applies save-as-template metadata overrides when provided', async () => {

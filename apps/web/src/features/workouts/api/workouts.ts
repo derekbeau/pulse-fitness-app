@@ -8,6 +8,8 @@ import {
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
   reorderWorkoutTemplateExercisesInputSchema,
+  swapWorkoutSessionExerciseInputSchema,
+  swapWorkoutTemplateExerciseInputSchema,
   updateScheduledWorkoutInputSchema,
   updateExerciseInputSchema,
   updateWorkoutTemplateInputSchema,
@@ -69,6 +71,16 @@ type ReorderTemplateExercisesRequest = {
   section: 'warmup' | 'main' | 'cooldown';
   exerciseIds: string[];
 };
+type SwapTemplateExerciseRequest = {
+  templateId: string;
+  exerciseId: string;
+  newExerciseId: string;
+};
+type SwapSessionExerciseRequest = {
+  sessionId: string;
+  exerciseId: string;
+  newExerciseId: string;
+};
 type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
   id: string;
@@ -81,6 +93,17 @@ type DeleteScheduledWorkoutResponse = {
   data: {
     success: boolean;
   };
+};
+type SwapResponseMeta = {
+  warning?: string;
+};
+type SwapTemplateExerciseResponse = {
+  data: WorkoutTemplate;
+  meta?: SwapResponseMeta;
+};
+type SwapSessionExerciseResponse = {
+  data: WorkoutSession;
+  meta?: SwapResponseMeta;
 };
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -319,6 +342,56 @@ async function reorderTemplateExercises(input: ReorderTemplateExercisesRequest) 
   return payload.data;
 }
 
+async function swapTemplateExercise(input: SwapTemplateExerciseRequest) {
+  const parsedInput = swapWorkoutTemplateExerciseInputSchema.parse({
+    newExerciseId: input.newExerciseId,
+  });
+  const payload = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/workout-templates/${input.templateId}/exercises/${input.exerciseId}/swap`,
+    {
+      body: JSON.stringify(parsedInput),
+      method: 'PATCH',
+    },
+  );
+  const parsedPayload = z
+    .object({
+      data: workoutTemplateSchema,
+      meta: z
+        .object({
+          warning: z.string().optional(),
+        })
+        .optional(),
+    })
+    .parse(payload) as SwapTemplateExerciseResponse;
+
+  return parsedPayload;
+}
+
+async function swapSessionExercise(input: SwapSessionExerciseRequest) {
+  const parsedInput = swapWorkoutSessionExerciseInputSchema.parse({
+    newExerciseId: input.newExerciseId,
+  });
+  const payload = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/workout-sessions/${input.sessionId}/exercises/${input.exerciseId}/swap`,
+    {
+      body: JSON.stringify(parsedInput),
+      method: 'PATCH',
+    },
+  );
+  const parsedPayload = z
+    .object({
+      data: workoutSessionSchema,
+      meta: z
+        .object({
+          warning: z.string().optional(),
+        })
+        .optional(),
+    })
+    .parse(payload) as SwapSessionExerciseResponse;
+
+  return parsedPayload;
+}
+
 async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
   const parsedInput = createScheduledWorkoutInputSchema.parse(input);
   const data = await apiRequest<unknown>('/api/v1/scheduled-workouts', {
@@ -414,8 +487,9 @@ export const prefetchWorkoutTemplate = (queryClient: QueryClient, id: string) =>
     queryFn: ({ signal }) => getWorkoutTemplate(id, signal),
   });
 
-export function useExercises(params: ExerciseQueryParams) {
+export function useExercises(params: ExerciseQueryParams, options?: { enabled?: boolean }) {
   return useQuery<ExercisesResponse>({
+    enabled: options?.enabled,
     placeholderData: (previousData) => previousData,
     // getExercises already validates/normalizes with the shared schema.
     queryFn: () => getExercises(params),
@@ -576,6 +650,42 @@ export function useReorderTemplateExercises() {
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.templateId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useSwapTemplateExercise() {
+  const queryClient = useQueryClient();
+
+  return useMutation<SwapTemplateExerciseResponse, Error, SwapTemplateExerciseRequest>({
+    mutationFn: swapTemplateExercise,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.templateId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useSwapSessionExercise() {
+  const queryClient = useQueryClient();
+
+  return useMutation<SwapSessionExerciseResponse, Error, SwapSessionExerciseRequest>({
+    mutationFn: swapSessionExercise,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(variables.sessionId),
         }),
       ]);
     },

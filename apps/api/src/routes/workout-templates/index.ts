@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
+  swapWorkoutTemplateExerciseInputSchema,
   type UpdateWorkoutTemplateInput,
   updateWorkoutTemplateInputSchema,
 } from '@pulse/shared';
@@ -10,6 +11,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireUserAuth } from '../../middleware/auth.js';
+import { allRelatedExercisesOwned } from '../exercises/store.js';
 
 import {
   allTemplateExercisesAccessible,
@@ -18,6 +20,7 @@ import {
   findWorkoutTemplateById,
   listWorkoutTemplates,
   reorderWorkoutTemplateExercises,
+  swapWorkoutTemplateExercise,
   updateWorkoutTemplate,
 } from './store.js';
 
@@ -29,6 +32,16 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
 const INVALID_TEMPLATE_EXERCISE_RESPONSE = {
   code: 'INVALID_TEMPLATE_EXERCISE',
   message: 'Template references one or more unavailable exercises',
+} as const;
+
+const WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE = {
+  code: 'WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND',
+  message: 'Template exercise not found',
+} as const;
+
+const WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE = {
+  code: 'WORKOUT_TEMPLATE_DUPLICATE_EXERCISE',
+  message: 'Template already contains the replacement exercise',
 } as const;
 
 const getReferencedExerciseIds = (
@@ -247,6 +260,99 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({ data: template });
   });
+
+  app.patch<{ Params: { id: string; exerciseId: string } }>(
+    '/:id/exercises/:exerciseId/swap',
+    async (request, reply) => {
+      const parsedBody = swapWorkoutTemplateExerciseInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
+      }
+
+      const existingTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
+      if (!existingTemplate) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const sourceExercise = existingTemplate.sections
+        .flatMap((section) => section.exercises)
+        .find((exercise) => exercise.exerciseId === request.params.exerciseId);
+      if (!sourceExercise) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (
+        request.params.exerciseId !== parsedBody.data.newExerciseId &&
+        existingTemplate.sections
+          .flatMap((section) => section.exercises)
+          .some((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId)
+      ) {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE.code,
+          WORKOUT_TEMPLATE_DUPLICATE_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      const hasValidSwapTarget = await allRelatedExercisesOwned({
+        userId: request.userId,
+        exerciseIds: [parsedBody.data.newExerciseId],
+      });
+      if (!hasValidSwapTarget) {
+        return sendError(
+          reply,
+          400,
+          INVALID_TEMPLATE_EXERCISE_RESPONSE.code,
+          INVALID_TEMPLATE_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      const swapped = await swapWorkoutTemplateExercise({
+        templateId: request.params.id,
+        userId: request.userId,
+        exerciseId: request.params.exerciseId,
+        newExerciseId: parsedBody.data.newExerciseId,
+      });
+      if (!swapped) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const swappedExercise = swapped.sections
+        .flatMap((section) => section.exercises)
+        .find((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId);
+      const hasTrackingTypeWarning =
+        swappedExercise?.trackingType !== undefined &&
+        sourceExercise.trackingType !== swappedExercise.trackingType;
+
+      return reply.send({
+        data: swapped,
+        ...(hasTrackingTypeWarning
+          ? {
+              meta: {
+                warning:
+                  'Swapped to an exercise with a different tracking type. Review set targets and expectations.',
+              },
+            }
+          : {}),
+      });
+    },
+  );
 
   app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const deleted = await deleteWorkoutTemplate(request.params.id, request.userId);

@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
+  swapWorkoutSessionExerciseInputSchema,
   sessionSetSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
   type SaveWorkoutSessionAsTemplateInput,
+  type SwapWorkoutSessionExerciseInput,
   type UpdateWorkoutSessionInput,
   type UpdateWorkoutSessionTimeSegmentsInput,
   type WorkoutSession,
@@ -460,6 +462,26 @@ describe('reorderWorkoutSessionExercisesInputSchema', () => {
       reorderWorkoutSessionExercisesInputSchema.parse({
         section: 'warmup',
         exerciseIds: ['exercise-1', ''],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('swapWorkoutSessionExerciseInputSchema', () => {
+  it('accepts a replacement exercise id', () => {
+    const payload: SwapWorkoutSessionExerciseInput = swapWorkoutSessionExerciseInputSchema.parse({
+      newExerciseId: 'exercise-2',
+    });
+
+    expect(payload).toEqual({
+      newExerciseId: 'exercise-2',
+    });
+  });
+
+  it('rejects blank replacement ids', () => {
+    expect(() =>
+      swapWorkoutSessionExerciseInputSchema.parse({
+        newExerciseId: '',
       }),
     ).toThrow();
   });

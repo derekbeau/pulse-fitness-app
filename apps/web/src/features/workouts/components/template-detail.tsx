@@ -51,6 +51,7 @@ import {
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
+import { SwapExerciseDialog } from './swap-exercise-dialog';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -73,6 +74,10 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
   const [renameTarget, setRenameTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+  } | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
   } | null>(null);
@@ -275,6 +280,12 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                             exerciseName: exercise.exerciseName,
                           })
                         }
+                        onSwap={() =>
+                          setSwapTarget({
+                            exerciseId: exercise.exerciseId,
+                            exerciseName: exercise.exerciseName,
+                          })
+                        }
                       />
                     ))}
                   </SortableContext>
@@ -320,6 +331,19 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         open={renameTarget != null}
         sourceLabel="this template"
         value={renameTarget?.exerciseName ?? ''}
+      />
+      <SwapExerciseDialog
+        contextId={template.id}
+        mode="template"
+        onOpenChange={(open) => {
+          if (!open) {
+            setSwapTarget(null);
+          }
+        }}
+        open={swapTarget != null}
+        sourceExerciseId={swapTarget?.exerciseId ?? ''}
+        sourceExerciseName={swapTarget?.exerciseName ?? ''}
+        sourceLabel="this template"
       />
 
       <div className="space-y-2">
@@ -439,6 +463,7 @@ function TemplateExerciseCard({
   onMoveDown,
   onMoveUp,
   onRename,
+  onSwap,
 }: {
   exercise: WorkoutTemplateExercise;
   index: number;
@@ -448,6 +473,7 @@ function TemplateExerciseCard({
   onMoveDown: () => void;
   onMoveUp: () => void;
   onRename: () => void;
+  onSwap: () => void;
 }) {
   const prescription = formatPrescription(exercise, weightUnit);
   const targetBreakdown = formatSetTargetBreakdown(exercise, weightUnit);
@@ -496,6 +522,7 @@ function TemplateExerciseCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
               <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
                 <ArrowUp aria-hidden="true" className="size-4" />
                 Move up

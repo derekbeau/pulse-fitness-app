@@ -393,6 +393,10 @@ export const reorderWorkoutSessionExercisesInputSchema = z.object({
   exerciseIds: z.array(requiredStringSchema).max(100),
 });
 
+export const swapWorkoutSessionExerciseInputSchema = z.object({
+  newExerciseId: requiredStringSchema,
+});
+
 export const saveWorkoutSessionAsTemplateInputSchema = z.preprocess(
   (value) => (value === null || value === undefined ? {} : value),
   z.object({
@@ -439,6 +443,7 @@ export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
 export type ReorderWorkoutSessionExercisesInput = z.infer<
   typeof reorderWorkoutSessionExercisesInputSchema
 >;
+export type SwapWorkoutSessionExerciseInput = z.infer<typeof swapWorkoutSessionExerciseInputSchema>;
 export type SaveWorkoutSessionAsTemplateInput = z.infer<
   typeof saveWorkoutSessionAsTemplateInputSchema
 >;

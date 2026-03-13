@@ -1,11 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { MouseEvent, ReactNode } from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 
 import { createAppQueryClient } from '@/lib/query-client';
 import { mockTemplates } from '@/lib/mock-data/workouts';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { jsonResponse } from '@/test/test-utils';
 
 import {
   buildActiveWorkoutSession,
@@ -378,6 +380,175 @@ describe('SessionExerciseList', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByLabelText('Exercise name')).toHaveValue('Row Erg');
     expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeDisabled();
+  });
+
+  it('opens swap dialog from the exercise actions menu and calls session swap endpoint', async () => {
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'row-erg',
+                userId: 'user-1',
+                name: 'Row Erg',
+                muscleGroups: ['back'],
+                equipment: 'Erg',
+                category: 'cardio',
+                trackingType: 'seconds_only',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: ['assault-bike'],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+              {
+                id: 'assault-bike',
+                userId: 'user-1',
+                name: 'Assault Bike',
+                muscleGroups: ['legs', 'cardio'],
+                equipment: 'Bike',
+                category: 'cardio',
+                trackingType: 'seconds_only',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+            meta: {
+              page: 1,
+              limit: 100,
+              total: 2,
+            },
+          }),
+        );
+      }
+
+      if (
+        url.pathname === '/api/v1/workout-sessions/session-1/exercises/row-erg/swap' &&
+        init?.method === 'PATCH'
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'session-1',
+              userId: 'user-1',
+              templateId: 'template-1',
+              name: 'Upper Push',
+              date: '2026-03-06',
+              status: 'in-progress',
+              startedAt: 1,
+              completedAt: null,
+              duration: null,
+              timeSegments: [
+                {
+                  start: '2026-03-06T00:00:00.000Z',
+                  end: null,
+                },
+              ],
+              feedback: null,
+              notes: null,
+              exercises: [
+                {
+                  exerciseId: 'assault-bike',
+                  exerciseName: 'Assault Bike',
+                  trackingType: 'seconds_only',
+                  orderIndex: 0,
+                  section: 'warmup',
+                  sets: [
+                    {
+                      id: 'set-1',
+                      exerciseId: 'assault-bike',
+                      setNumber: 1,
+                      weight: null,
+                      reps: 30,
+                      completed: false,
+                      skipped: false,
+                      section: 'warmup',
+                      notes: null,
+                      createdAt: 1,
+                    },
+                  ],
+                },
+              ],
+              sets: [
+                {
+                  id: 'set-1',
+                  exerciseId: 'assault-bike',
+                  setNumber: 1,
+                  weight: null,
+                  reps: 30,
+                  completed: false,
+                  skipped: false,
+                  section: 'warmup',
+                  notes: null,
+                  createdAt: 1,
+                },
+              ],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${String(input)}`));
+    });
+
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-1"
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Swap exercise' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Related exercises')).toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByRole('button', { name: /Assault Bike/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchSpy.mock.calls.some(
+          ([input, init]) =>
+            String(input).includes('/api/v1/workout-sessions/session-1/exercises/row-erg/swap') &&
+            init?.method === 'PATCH',
+        ),
+      ).toBe(true);
+    });
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
   });
 
   it('shows move up/down actions and calls onReorderExercises for active workout lists', () => {
