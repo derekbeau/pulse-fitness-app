@@ -14,6 +14,7 @@ import {
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
   listBodyWeightEntries,
+  listBodyWeightEntriesPaginated,
   patchBodyWeightEntryById,
   upsertBodyWeightEntry,
 } from './store.js';
@@ -49,25 +50,33 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid weight query params');
     }
 
-    const entries = await listBodyWeightEntries(request.userId, parsedQuery.data);
-    const { page, limit } = parsedQuery.data;
+    const { days, from, limit, page, to } = parsedQuery.data;
+    const queryFilters = {
+      days,
+      from,
+      to,
+    };
 
     if (page !== undefined || limit !== undefined) {
       const resolvedPage = page ?? 1;
       const resolvedLimit = limit ?? 50;
       const offset = (resolvedPage - 1) * resolvedLimit;
-      const paginatedEntries = entries.slice(offset, offset + resolvedLimit);
+      const { entries, total } = await listBodyWeightEntriesPaginated(request.userId, queryFilters, {
+        limit: resolvedLimit,
+        offset,
+      });
 
       return reply.send({
-        data: paginatedEntries,
+        data: entries,
         meta: {
           page: resolvedPage,
           limit: resolvedLimit,
-          total: entries.length,
+          total,
         },
       });
     }
 
+    const entries = await listBodyWeightEntries(request.userId, queryFilters);
     return reply.send({ data: entries });
   });
 

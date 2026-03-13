@@ -27,6 +27,7 @@ export function WeightHistory() {
   const updateWeightMutation = useUpdateWeight();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState('');
+  const [editingWeightError, setEditingWeightError] = useState('');
   const { formatWeight } = useWeightUnit();
   const sortedWeightEntries = useMemo(
     () =>
@@ -56,6 +57,7 @@ export function WeightHistory() {
   async function handleSaveEdit(entryId: string) {
     const parsedWeight = Number(editingWeight);
     if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+      setEditingWeightError('Enter a valid weight above 0.');
       return;
     }
 
@@ -66,6 +68,7 @@ export function WeightHistory() {
       });
       setEditingEntryId(null);
       setEditingWeight('');
+      setEditingWeightError('');
     } catch {
       return;
     }
@@ -117,7 +120,10 @@ export function WeightHistory() {
                         className="h-9 w-32"
                         inputMode="decimal"
                         min="0.1"
-                        onChange={(event) => setEditingWeight(event.currentTarget.value)}
+                        onChange={(event) => {
+                          setEditingWeight(event.currentTarget.value);
+                          setEditingWeightError('');
+                        }}
                         step="0.1"
                         type="number"
                         value={editingWeight}
@@ -137,12 +143,18 @@ export function WeightHistory() {
                         onClick={() => {
                           setEditingEntryId(null);
                           setEditingWeight('');
+                          setEditingWeightError('');
                         }}
                         type="button"
                         variant="ghost"
                       >
                         Cancel
                       </Button>
+                      {editingWeightError ? (
+                        <p className="text-sm text-destructive" role="status">
+                          {editingWeightError}
+                        </p>
+                      ) : null}
                     </div>
                   ) : (
                     <button
@@ -150,6 +162,7 @@ export function WeightHistory() {
                       onClick={() => {
                         setEditingEntryId(entry.id);
                         setEditingWeight(entry.weight.toFixed(1));
+                        setEditingWeightError('');
                       }}
                       type="button"
                     >

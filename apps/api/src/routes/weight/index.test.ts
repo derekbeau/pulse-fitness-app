@@ -11,6 +11,7 @@ import {
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
   listBodyWeightEntries,
+  listBodyWeightEntriesPaginated,
   patchBodyWeightEntryById,
   upsertBodyWeightEntry,
 } from './store.js';
@@ -21,6 +22,7 @@ vi.mock('./store.js', () => ({
   findBodyWeightEntryByDate: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
   listBodyWeightEntries: vi.fn(),
+  listBodyWeightEntriesPaginated: vi.fn(),
   patchBodyWeightEntryById: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
 }));
@@ -41,6 +43,7 @@ describe('weight routes', () => {
     vi.mocked(findBodyWeightEntryByDate).mockReset();
     vi.mocked(getLatestBodyWeightEntry).mockReset();
     vi.mocked(listBodyWeightEntries).mockReset();
+    vi.mocked(listBodyWeightEntriesPaginated).mockReset();
     vi.mocked(patchBodyWeightEntryById).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
@@ -273,32 +276,19 @@ describe('weight routes', () => {
   });
 
   it('supports paginated listing with meta when page or limit is provided', async () => {
-    vi.mocked(listBodyWeightEntries).mockResolvedValue([
-      {
-        id: 'entry-1',
-        date: '2026-03-01',
-        weight: 183.2,
-        notes: null,
-        createdAt: 1_700_000_000_000,
-        updatedAt: 1_700_000_000_000,
-      },
-      {
-        id: 'entry-2',
-        date: '2026-03-02',
-        weight: 182.9,
-        notes: null,
-        createdAt: 1_700_000_000_100,
-        updatedAt: 1_700_000_000_100,
-      },
-      {
-        id: 'entry-3',
-        date: '2026-03-03',
-        weight: 182.7,
-        notes: 'After cardio',
-        createdAt: 1_700_000_000_200,
-        updatedAt: 1_700_000_000_200,
-      },
-    ]);
+    vi.mocked(listBodyWeightEntriesPaginated).mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-2',
+          date: '2026-03-02',
+          weight: 182.9,
+          notes: null,
+          createdAt: 1_700_000_000_100,
+          updatedAt: 1_700_000_000_100,
+        },
+      ],
+      total: 3,
+    });
 
     const app = buildServer();
 
@@ -312,10 +302,19 @@ describe('weight routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(vi.mocked(listBodyWeightEntries)).toHaveBeenCalledWith('user-1', {
-        page: 2,
-        limit: 1,
-      });
+      expect(vi.mocked(listBodyWeightEntriesPaginated)).toHaveBeenCalledWith(
+        'user-1',
+        {
+          days: undefined,
+          from: undefined,
+          to: undefined,
+        },
+        {
+          limit: 1,
+          offset: 1,
+        },
+      );
+      expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
       expect(response.json()).toEqual({
         data: [
           {

@@ -359,6 +359,80 @@ describe('WeightHistoryPage', () => {
     });
   });
 
+  it('shows validation feedback when saving an invalid inline weight edit', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'weight-1',
+                date: '2026-03-06',
+                weight: 181.4,
+                notes: null,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight/weight-1' && method === 'PATCH') {
+        throw new Error('PATCH should not be called for invalid edits');
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/weight/history']}>
+        <Routes>
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('181.4 lbs')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '181.4 lbs' }));
+    fireEvent.change(screen.getByLabelText('Weight value for Mar 6, 2026'), {
+      target: { value: '0' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(screen.getByText('Enter a valid weight above 0.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    const hasPatchToWeightEntry = fetchSpy.mock.calls.some((call) => {
+      const input = call[0];
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = call[1]?.method ?? 'GET';
+
+      return url.pathname === '/api/v1/weight/weight-1' && method === 'PATCH';
+    });
+    expect(hasPatchToWeightEntry).toBe(false);
+  });
+
   it('shows contextual help for weight history', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const rawUrl =

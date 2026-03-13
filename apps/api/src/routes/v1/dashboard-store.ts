@@ -289,6 +289,15 @@ const selectTodayWorkoutCandidate = (
                 scheduledWorkout.scheduledCreatedAt,
             ) || 0,
         });
+      } else {
+        candidates.push({
+          name: scheduledWorkout.scheduledTemplateName ?? 'Workout unavailable',
+          status: 'scheduled',
+          templateId: scheduledWorkout.scheduledTemplateId,
+          sessionId: null,
+          duration: null,
+          sortTime: Number(scheduledWorkout.scheduledCreatedAt) || 0,
+        });
       }
       consumedSessionIds.add(scheduledWorkout.linkedSessionId);
       continue;

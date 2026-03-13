@@ -271,6 +271,42 @@ describe('dashboard store', () => {
     });
   });
 
+  it('falls back to scheduled workout when linked session is cancelled', async () => {
+    testState.selectGetResults.push(undefined, undefined, undefined, {
+      total: 0,
+      completed: 0,
+    });
+    testState.selectAllResults.push(
+      [
+        {
+          scheduledWorkoutId: 'scheduled-1',
+          scheduledTemplateId: 'template-scheduled',
+          linkedSessionId: 'session-cancelled',
+          scheduledTemplateName: 'Scheduled Session',
+          scheduledCreatedAt: 20,
+          linkedSessionName: 'Cancelled Session',
+          linkedSessionStatus: 'cancelled',
+          linkedSessionDuration: null,
+          linkedSessionTemplateId: 'template-scheduled',
+          linkedSessionStartedAt: null,
+          linkedSessionCompletedAt: null,
+        },
+      ],
+      [],
+    );
+
+    const { getDashboardSnapshot } = await import('./dashboard-store.js');
+    const snapshot = await getDashboardSnapshot('user-1', '2026-03-11');
+
+    expect(snapshot.workout).toEqual({
+      name: 'Scheduled Session',
+      status: 'scheduled',
+      templateId: 'template-scheduled',
+      sessionId: null,
+      duration: null,
+    });
+  });
+
   it('returns weight trend points in ascending date order', async () => {
     testState.selectAllResults.push([
       { date: '2026-03-07', value: 181.6 },

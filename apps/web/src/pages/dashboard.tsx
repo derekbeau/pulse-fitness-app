@@ -78,6 +78,11 @@ function isDashboardWidgetId(value: string): value is DashboardWidgetId {
   return value in DASHBOARD_WIDGET_IDS;
 }
 
+type DashboardWeightStatus = {
+  message: string;
+  type: 'error' | 'success';
+};
+
 function DashboardWidgetFrame({
   children,
   className,
@@ -105,7 +110,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
-  const [weightMessage, setWeightMessage] = useState('');
+  const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
   const [isWeightEditorOpen, setIsWeightEditorOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
@@ -147,7 +152,7 @@ export function DashboardPage() {
   function handleSelectedDateChange(nextDate: Date) {
     setIsWeightEditorOpen(false);
     setWeightInput('');
-    setWeightMessage('');
+    setWeightStatus(null);
     setSelectedDate(nextDate);
   }
 
@@ -199,7 +204,10 @@ export function DashboardPage() {
 
     const parsedWeight = Number(weightInput);
     if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
-      setWeightMessage('Enter a valid weight above 0.');
+      setWeightStatus({
+        message: 'Enter a valid weight above 0.',
+        type: 'error',
+      });
       return;
     }
 
@@ -210,10 +218,16 @@ export function DashboardPage() {
       });
       await queryClient.invalidateQueries({ queryKey: dashboardSnapshotKeys.all });
       setWeightInput('');
-      setWeightMessage('Weight entry saved.');
+      setWeightStatus({
+        message: 'Weight entry saved.',
+        type: 'success',
+      });
       setIsWeightEditorOpen(false);
     } catch {
-      setWeightMessage('Unable to save weight. Please try again.');
+      setWeightStatus({
+        message: 'Unable to save weight. Please try again.',
+        type: 'error',
+      });
     }
   }
 
@@ -399,7 +413,7 @@ export function DashboardPage() {
                                 <Button
                                   onClick={() => {
                                     setWeightInput(selectedWeight.value.toFixed(1));
-                                    setWeightMessage('');
+                                    setWeightStatus(null);
                                     setIsWeightEditorOpen(true);
                                   }}
                                   type="button"
@@ -414,7 +428,7 @@ export function DashboardPage() {
                                 data-testid="dashboard-log-weight-cta"
                                 onClick={() => {
                                   setWeightInput('');
-                                  setWeightMessage('');
+                                  setWeightStatus(null);
                                   setIsWeightEditorOpen(true);
                                 }}
                                 type="button"
@@ -447,7 +461,7 @@ export function DashboardPage() {
                                     name="weight"
                                     onChange={(event) => {
                                       setWeightInput(event.currentTarget.value);
-                                      setWeightMessage('');
+                                      setWeightStatus(null);
                                     }}
                                     placeholder="e.g. 175.5"
                                     step="0.1"
@@ -468,7 +482,7 @@ export function DashboardPage() {
                                   <Button
                                     onClick={() => {
                                       setIsWeightEditorOpen(false);
-                                      setWeightMessage('');
+                                      setWeightStatus(null);
                                     }}
                                     type="button"
                                     variant="ghost"
@@ -476,13 +490,18 @@ export function DashboardPage() {
                                     Cancel
                                   </Button>
                                 </div>
-                                {weightMessage ? (
+                                {weightStatus ? (
                                   <p
-                                    className="text-sm text-muted-foreground"
+                                    className={cn(
+                                      'text-sm',
+                                      weightStatus.type === 'error'
+                                        ? 'text-destructive'
+                                        : 'text-muted-foreground',
+                                    )}
                                     id="dashboard-weight-status"
                                     role="status"
                                   >
-                                    {weightMessage}
+                                    {weightStatus.message}
                                   </p>
                                 ) : null}
                               </form>

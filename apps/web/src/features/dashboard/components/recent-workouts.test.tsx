@@ -97,7 +97,7 @@ describe('RecentWorkouts', () => {
     recentWorkoutsFixture.forEach((workout) => {
       const link = screen.getByRole('link', { name: `Open ${workout.name}` });
 
-      expect(link).toHaveAttribute('href', `/workouts/session/${workout.id}`);
+      expect(link).toHaveAttribute('href', `/workouts/sessions/${workout.id}`);
       expect(within(link).getByText(workout.name)).toBeInTheDocument();
       expect(within(link).getByText(`${workout.exerciseCount} exercises`)).toBeInTheDocument();
       expect(

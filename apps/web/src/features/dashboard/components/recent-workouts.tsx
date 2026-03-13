@@ -73,7 +73,7 @@ export function RecentWorkouts() {
                 <Link
                   aria-label={`Open ${workout.name}`}
                   className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  to={`/workouts/session/${workout.id}`}
+                  to={`/workouts/sessions/${workout.id}`}
                 >
                   <Card
                     className="h-full gap-3 overflow-hidden px-4 py-2 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
