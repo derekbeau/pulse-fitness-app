@@ -73,6 +73,7 @@ import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
+import { SwapExerciseDialog } from './swap-exercise-dialog';
 
 type RestTimerState = {
   duration: number;
@@ -99,6 +100,7 @@ type SessionExerciseListProps = {
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
   session: ActiveWorkoutSessionData;
+  sessionId?: string | null;
   sessionCuesByExercise?: Record<string, string[]>;
   weightUnit?: WeightUnit;
 };
@@ -146,6 +148,7 @@ export function SessionExerciseList({
   onSetUpdate,
   restTimer = null,
   session,
+  sessionId = null,
   sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
@@ -156,6 +159,10 @@ export function SessionExerciseList({
   >({});
   const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+  } | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
   } | null>(null);
@@ -334,6 +341,12 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            onSwapExercise={() =>
+                              setSwapTarget({
+                                exerciseId: item.exercise.id,
+                                exerciseName: item.exercise.name,
+                              })
+                            }
                             onRemoveSet={onRemoveSet}
                             onRestTimerComplete={onRestTimerComplete}
                             onSetUpdate={onSetUpdate}
@@ -419,6 +432,12 @@ export function SessionExerciseList({
                                         exerciseName: exercise.name,
                                       })
                                     }
+                                    onSwapExercise={() =>
+                                      setSwapTarget({
+                                        exerciseId: exercise.id,
+                                        exerciseName: exercise.name,
+                                      })
+                                    }
                                     onRemoveSet={onRemoveSet}
                                     onRestTimerComplete={onRestTimerComplete}
                                     onSetUpdate={onSetUpdate}
@@ -498,6 +517,21 @@ export function SessionExerciseList({
         sourceLabel="the active workout"
         value={renameTarget?.exerciseName ?? ''}
       />
+      {sessionId ? (
+        <SwapExerciseDialog
+          contextId={sessionId}
+          mode="session"
+          onOpenChange={(open) => {
+            if (!open) {
+              setSwapTarget(null);
+            }
+          }}
+          open={swapTarget != null}
+          sourceExerciseId={swapTarget?.exerciseId ?? ''}
+          sourceExerciseName={swapTarget?.exerciseName ?? ''}
+          sourceLabel="this workout"
+        />
+      ) : null}
     </div>
   );
 
@@ -528,6 +562,7 @@ type ExerciseCardItemProps = {
   onMoveDown: () => void;
   onMoveUp: () => void;
   onRenameExercise: () => void;
+  onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
   onAddSessionCue: (cue: string) => void;
@@ -555,6 +590,7 @@ function ExerciseCardItem({
   onMoveDown,
   onMoveUp,
   onRenameExercise,
+  onSwapExercise,
   onRemoveSet,
   onRestTimerComplete,
   onAddSessionCue,
@@ -727,6 +763,7 @@ function ExerciseCardItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onSwapExercise}>Swap exercise</DropdownMenuItem>
             <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
               <ArrowUp aria-hidden="true" className="size-4" />
               Move up

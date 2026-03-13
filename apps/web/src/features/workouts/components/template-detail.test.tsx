@@ -645,6 +645,132 @@ describe('WorkoutTemplateDetail', () => {
     expect(screen.queryByText('Incline Dumbbell Press')).not.toBeInTheDocument();
   });
 
+  it('opens swap dialog from template exercise menu and swaps to a related exercise', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'incline-dumbbell-press',
+                userId: 'user-1',
+                name: 'Incline Dumbbell Press',
+                muscleGroups: ['upper chest', 'triceps'],
+                equipment: 'Dumbbells',
+                category: 'compound',
+                trackingType: 'weight_reps',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+              {
+                id: 'seated-dumbbell-shoulder-press',
+                userId: 'user-1',
+                name: 'Seated Dumbbell Shoulder Press',
+                muscleGroups: ['shoulders', 'triceps'],
+                equipment: 'Dumbbells',
+                category: 'compound',
+                trackingType: 'weight_reps',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+              {
+                id: 'cable-fly',
+                userId: 'user-1',
+                name: 'Cable Fly',
+                muscleGroups: ['chest'],
+                equipment: 'Cable',
+                category: 'isolation',
+                trackingType: 'reps_only',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+            meta: {
+              page: 1,
+              limit: 100,
+              total: 3,
+            },
+          }),
+        );
+      }
+
+      if (
+        url.pathname === '/api/v1/workout-templates/upper-push/exercises/incline-dumbbell-press/swap' &&
+        init?.method === 'PATCH'
+      ) {
+        mutableTemplate.data.sections[1].exercises[0].exerciseId = 'seated-dumbbell-shoulder-press';
+        mutableTemplate.data.sections[1].exercises[0].exerciseName = 'Seated Dumbbell Shoulder Press';
+
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
+    expect(exerciseCard).not.toBeNull();
+
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    );
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', { name: 'Swap exercise' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Related exercises')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole('button', { name: /Seated Dumbbell Shoulder Press/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: /Seated Dumbbell Shoulder Press/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        fetchSpy.mock.calls.some(
+          ([input, init]) =>
+            String(input).includes(
+              '/api/v1/workout-templates/upper-push/exercises/incline-dumbbell-press/swap',
+            ) && init?.method === 'PATCH',
+        ),
+      ).toBe(true);
+    });
+  });
+
   it('moves template exercises down from the exercise menu and calls reorder endpoint', async () => {
     const mutableTemplate = structuredClone(templatePayload);
     const mainExercises = mutableTemplate.data.sections[1].exercises as Array<

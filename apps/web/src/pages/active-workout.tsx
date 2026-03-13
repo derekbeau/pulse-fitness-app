@@ -630,6 +630,7 @@ export function ActiveWorkoutPage() {
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
             session={session}
+            sessionId={activeSessionId}
             sessionCuesByExercise={sessionCuesByExercise}
             weightUnit={weightUnit}
           />
