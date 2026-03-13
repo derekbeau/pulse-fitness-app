@@ -33,6 +33,8 @@ function createFood(id: string, name: string, overrides: Partial<Food> = {}): Fo
     verified: true,
     source: 'USDA',
     notes: null,
+    usageCount: 0,
+    tags: [],
     lastUsedAt: Date.parse('2026-03-05T12:00:00.000Z'),
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_000,
@@ -61,13 +63,17 @@ function sortFoods(foods: Food[], sort: string) {
     });
   }
 
-  if (sort === 'protein') {
+  if (sort === 'popular') {
     return copy.sort(
-      (left, right) => right.protein - left.protein || left.name.localeCompare(right.name),
+      (left, right) => right.usageCount - left.usageCount || left.name.localeCompare(right.name),
     );
   }
 
   return copy.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function normalizeTags(tags: string[]) {
+  return tags.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0);
 }
 
 function createFoodsApiMock(
@@ -86,12 +92,25 @@ function createFoodsApiMock(
 
     if (url.pathname === '/api/v1/foods' && method === 'GET') {
       const q = url.searchParams.get('q')?.toLowerCase() ?? '';
+      const selectedTags = normalizeTags((url.searchParams.get('tags') ?? '').split(','));
       const sort = url.searchParams.get('sort') ?? 'name';
       const page = Number(url.searchParams.get('page') ?? '1');
       const limit = Number(url.searchParams.get('limit') ?? '12');
-      const filteredFoods = foods.filter((food) =>
-        [food.name, food.brand ?? ''].some((value) => value.toLowerCase().includes(q)),
-      );
+      const filteredFoods = foods.filter((food) => {
+        const matchesQuery = [food.name, food.brand ?? ''].some((value) =>
+          value.toLowerCase().includes(q),
+        );
+        if (!matchesQuery) {
+          return false;
+        }
+
+        if (selectedTags.length === 0) {
+          return true;
+        }
+
+        const foodTags = normalizeTags(food.tags);
+        return selectedTags.every((tag) => foodTags.includes(tag));
+      });
       const sortedFoods = sortFoods(filteredFoods, sort);
       const startIndex = (page - 1) * limit;
       const data = sortedFoods.slice(startIndex, startIndex + limit);
@@ -204,22 +223,30 @@ const paginatedFoods = [
   createFood('food-1', '2% Milk', {
     brand: 'Fairlife',
     protein: 13,
+    usageCount: 12,
+    tags: ['dairy', 'breakfast'],
     servingSize: '1 cup',
     servingGrams: 240,
     lastUsedAt: Date.parse('2026-03-04T07:10:00.000Z'),
   }),
   createFood('food-2', 'Almonds', {
     protein: 6,
+    usageCount: 8,
+    tags: ['snack'],
     lastUsedAt: Date.parse('2026-03-03T20:20:00.000Z'),
   }),
   createFood('food-3', 'Apple', {
     verified: false,
     source: null,
     protein: 0,
+    usageCount: 3,
+    tags: ['fruit', 'snack'],
     lastUsedAt: Date.parse('2026-03-02T12:15:00.000Z'),
   }),
   createFood('food-4', 'Atlantic Salmon', {
     protein: 31,
+    usageCount: 4,
+    tags: ['dinner', 'protein'],
     calories: 290,
     fat: 17,
     carbs: 0,
@@ -227,20 +254,28 @@ const paginatedFoods = [
   }),
   createFood('food-5', 'Avocado', {
     protein: 2,
+    usageCount: 2,
+    tags: ['produce'],
     fat: 11,
     lastUsedAt: Date.parse('2026-03-01T12:15:00.000Z'),
   }),
   createFood('food-6', 'Banana', {
     protein: 1,
+    usageCount: 6,
+    tags: ['fruit'],
     carbs: 27,
     lastUsedAt: Date.parse('2026-03-05T07:15:00.000Z'),
   }),
   createFood('food-7', 'Broccoli', {
     protein: 3,
+    usageCount: 7,
+    tags: ['produce'],
     lastUsedAt: Date.parse('2026-03-05T12:30:00.000Z'),
   }),
   createFood('food-8', 'Chicken Breast', {
     protein: 35,
+    usageCount: 11,
+    tags: ['protein', 'dinner'],
     carbs: 0,
     fat: 4,
     lastUsedAt: Date.parse('2026-03-05T12:30:00.000Z'),
@@ -248,26 +283,36 @@ const paginatedFoods = [
   createFood('food-9', 'Greek Yogurt', {
     brand: 'Fage 0%',
     protein: 18,
+    usageCount: 16,
+    tags: ['dairy', 'protein'],
     lastUsedAt: Date.parse('2026-03-05T15:30:00.000Z'),
   }),
   createFood('food-10', 'Ground Beef 90/10', {
     protein: 23,
+    usageCount: 9,
+    tags: ['protein', 'dinner'],
     fat: 11,
     lastUsedAt: Date.parse('2026-03-03T18:30:00.000Z'),
   }),
   createFood('food-11', 'Olive Oil', {
     protein: 0,
     carbs: 0,
+    usageCount: 5,
+    tags: ['fats'],
     fat: 14,
     lastUsedAt: Date.parse('2026-03-04T18:45:00.000Z'),
   }),
   createFood('food-12', 'Spinach', {
     protein: 3,
+    usageCount: 10,
+    tags: ['produce'],
     lastUsedAt: Date.parse('2026-03-05T16:45:00.000Z'),
   }),
   createFood('food-13', 'Whey Protein', {
     brand: 'Optimum Nutrition Gold Standard',
     protein: 24,
+    usageCount: 25,
+    tags: ['supplement', 'protein'],
     carbs: 3,
     fat: 1,
     calories: 120,
@@ -380,12 +425,12 @@ describe('FoodList', () => {
     const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
     expect(initialUrl.searchParams.get('sort')).toBe('recent');
 
-    selectSortOption('Highest Protein');
+    selectSortOption('Popular');
 
     expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
 
     let lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
-    expect(lastUrl.searchParams.get('sort')).toBe('protein');
+    expect(lastUrl.searchParams.get('sort')).toBe('popular');
 
     fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
     const editInput = await screen.findByRole('textbox', { name: 'Edit Whey Protein name' });
@@ -398,7 +443,7 @@ describe('FoodList', () => {
     ).toBeInTheDocument();
     expect(api.getFoods().find((food) => food.id === 'food-13')?.name).toBe('Casein Protein');
 
-    selectSortOption('Alphabetical');
+    selectSortOption('A-Z');
     await waitFor(() => {
       const requestUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
 
@@ -433,7 +478,7 @@ describe('FoodList', () => {
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
 
-    selectSortOption('Highest Protein');
+    selectSortOption('Popular');
     expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
@@ -466,6 +511,41 @@ describe('FoodList', () => {
     expect(screen.getByRole('textbox', { name: 'Edit Whey Protein name' })).toHaveValue(
       'Casein Protein',
     );
+  });
+
+  it('filters foods by tag chips and supports tag add/remove edits', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'dairy' }));
+    expect(await screen.findByRole('heading', { level: 3, name: 'Greek Yogurt' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { level: 3, name: 'Atlantic Salmon' }),
+      ).not.toBeInTheDocument();
+    });
+    const filterRequest = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(filterRequest.searchParams.get('tags')).toBe('dairy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove dairy tag from Greek Yogurt' }));
+    await waitFor(() => {
+      expect(api.getFoods().find((food) => food.id === 'food-9')?.tags).toEqual(['protein']);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(await screen.findByRole('heading', { level: 3, name: 'Apple' })).toBeInTheDocument();
+
+    const appleTagInput = screen.getByRole('textbox', { name: 'Add tag for Apple' });
+    fireEvent.change(appleTagInput, { target: { value: 'portable' } });
+    fireEvent.keyDown(appleTagInput, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(api.getFoods().find((food) => food.id === 'food-3')?.tags).toContain('portable');
+    });
   });
 
   it('removes foods optimistically and keeps the total count in sync', async () => {

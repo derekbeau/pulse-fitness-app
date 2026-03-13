@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { updateFoodLastUsedAt } from '../foods/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 
 import {
   createMealForDate,
@@ -28,7 +28,7 @@ vi.mock('./store.js', () => ({
 }));
 
 vi.mock('../foods/store.js', () => ({
-  updateFoodLastUsedAt: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -196,8 +196,8 @@ describe('nutrition routes', () => {
     vi.mocked(getNutritionWeekSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
+    vi.mocked(trackFoodUsage).mockReset();
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
 
@@ -283,8 +283,8 @@ describe('nutrition routes', () => {
           },
         ],
       });
-      expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledWith('food-1', 'user-1');
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
@@ -295,7 +295,7 @@ describe('nutrition routes', () => {
       meal,
       items: mealItems,
     });
-    vi.mocked(updateFoodLastUsedAt).mockRejectedValueOnce(new Error('transient update failure'));
+    vi.mocked(trackFoodUsage).mockRejectedValueOnce(new Error('transient update failure'));
 
     const app = buildServer();
 
@@ -330,7 +330,7 @@ describe('nutrition routes', () => {
           items: mealItems,
         },
       });
-      expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledWith('food-1', 'user-1');
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }

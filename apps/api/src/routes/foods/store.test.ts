@@ -154,6 +154,8 @@ describe('foods store', () => {
         verified: true,
         source: null,
         notes: null,
+        usageCount: 0,
+        tags: [],
         lastUsedAt: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_001,
@@ -171,6 +173,7 @@ describe('foods store', () => {
       carbs: 5,
       fat: 0,
       verified: true,
+      tags: [],
     });
 
     expect(created).toMatchObject({
@@ -200,11 +203,12 @@ describe('foods store', () => {
         verified: true,
         source: null,
         notes: null,
+        tags: [],
       },
     ]);
   });
 
-  it('returns paginated foods and performs separate row and total queries', async () => {
+  it('returns paginated foods with search and tag filters and performs separate row and total queries', async () => {
     dbState.selectResults.push(
       {
         all: [
@@ -224,6 +228,8 @@ describe('foods store', () => {
             verified: false,
             source: null,
             notes: null,
+            usageCount: 3,
+            tags: ['breakfast'],
             lastUsedAt: null,
             createdAt: 1,
             updatedAt: 2,
@@ -241,7 +247,8 @@ describe('foods store', () => {
 
     const result = await listFoods('user-1', {
       q: '50%_off',
-      sort: 'protein',
+      tags: ['protein', 'dairy'],
+      sort: 'popular',
       page: 2,
       limit: 1,
     });
@@ -265,6 +272,9 @@ describe('foods store', () => {
     const whereClauseText = flattenSql(dbState.selectBuilders[0].where.mock.calls[0]?.[0]);
     expect(whereClauseText).toContain('%50\\%\\_off%');
     expect(whereClauseText.toLowerCase()).toContain("escape '\\'");
+    expect(whereClauseText.toLowerCase()).toContain('json_each');
+    expect(whereClauseText.toLowerCase()).toContain('protein');
+    expect(whereClauseText.toLowerCase()).toContain('dairy');
   });
 
   it('supports recent sorting without pagination errors when the query is absent', async () => {
@@ -287,6 +297,8 @@ describe('foods store', () => {
             verified: false,
             source: null,
             notes: null,
+            usageCount: 2,
+            tags: [],
             lastUsedAt: 200,
             createdAt: 1,
             updatedAt: 2,
@@ -336,6 +348,8 @@ describe('foods store', () => {
         verified: true,
         source: 'USDA',
         notes: 'Updated note',
+        usageCount: 5,
+        tags: ['lean'],
         lastUsedAt: null,
         createdAt: 1,
         updatedAt: 2,
@@ -362,6 +376,7 @@ describe('foods store', () => {
       notes: 'Updated note',
       verified: true,
     });
+    expect(dbState.updateSets[0]).not.toHaveProperty('tags');
     expect(dbState.updateSets[0]).toHaveProperty('updatedAt');
 
     dbState.updateRunResult = { changes: 0 };
@@ -373,8 +388,8 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('soft-deletes foods by scope and scopes lastUsedAt updates to the user', async () => {
-    const { deleteFood, updateFoodLastUsedAt } = await import('./store.js');
+  it('soft-deletes foods by scope and increments usage on lastUsedAt updates', async () => {
+    const { deleteFood, trackFoodUsage } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
     expect(dbState.updateSets[0]).toEqual({
@@ -385,11 +400,12 @@ describe('foods store', () => {
     await expect(deleteFood('food-1', 'user-2')).resolves.toBe(false);
     dbState.updateRunResult = { changes: 1 };
 
-    await updateFoodLastUsedAt('food-1', 'user-1', 1_700_000_300_000);
+    await trackFoodUsage('food-1', 'user-1', 1_700_000_300_000);
 
-    expect(dbState.updateSets.at(-1)).toEqual({
+    expect(dbState.updateSets.at(-1)).toMatchObject({
       lastUsedAt: 1_700_000_300_000,
     });
+    expect(dbState.updateSets.at(-1)).toHaveProperty('usageCount');
     const updateWhereText = flattenSql(dbState.updateWhereCalls.at(-1));
     expect(updateWhereText).toContain('id = food-1');
     expect(updateWhereText).toContain('user_id = user-1');

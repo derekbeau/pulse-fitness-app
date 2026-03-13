@@ -24,6 +24,9 @@ function buildFoodsQueryString(params: FoodQueryParams) {
   if (params.q) {
     searchParams.set('q', params.q);
   }
+  if (params.tags && params.tags.length > 0) {
+    searchParams.set('tags', params.tags.join(','));
+  }
 
   searchParams.set('sort', params.sort);
   searchParams.set('page', String(params.page));

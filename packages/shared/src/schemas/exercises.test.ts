@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createExerciseInputSchema,
+  exerciseHistoryWithRelatedSchema,
+  exerciseLastPerformanceQuerySchema,
   exerciseTrackingTypeSchema,
   exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
   type CreateExerciseInput,
   type Exercise,
+  type ExerciseHistoryWithRelated,
   type ExerciseCategory,
   type ExerciseLastPerformance,
+  type ExerciseLastPerformanceQuery,
   type ExerciseQueryParams,
   type ExerciseTrackingType,
   type UpdateExerciseInput,
@@ -179,6 +183,20 @@ describe('createExerciseInputSchema', () => {
 
     expect(payload.category).toBe('cardio');
   });
+
+  it('rejects relatedExerciseIds beyond the limit', () => {
+    const relatedExerciseIds = Array.from({ length: 21 }, (_, index) => `exercise-${index}`);
+
+    expect(() =>
+      createExerciseInputSchema.parse({
+        name: 'Air Bike',
+        muscleGroups: ['conditioning'],
+        equipment: 'air bike',
+        category: 'cardio',
+        relatedExerciseIds,
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateExerciseInputSchema', () => {
@@ -299,5 +317,56 @@ describe('exerciseLastPerformanceSchema', () => {
         ],
       }),
     ).toThrow();
+  });
+});
+
+describe('exerciseLastPerformanceQuerySchema', () => {
+  it('defaults includeRelated to false', () => {
+    const payload: ExerciseLastPerformanceQuery = exerciseLastPerformanceQuerySchema.parse({});
+
+    expect(payload).toEqual({
+      includeRelated: false,
+    });
+  });
+
+  it('coerces includeRelated query string values', () => {
+    const payload = exerciseLastPerformanceQuerySchema.parse({
+      includeRelated: 'true',
+    });
+
+    expect(payload.includeRelated).toBe(true);
+  });
+});
+
+describe('exerciseHistoryWithRelatedSchema', () => {
+  it('parses exact and related history payload', () => {
+    const payload: ExerciseHistoryWithRelated = exerciseHistoryWithRelatedSchema.parse({
+      history: {
+        sessionId: 'session-22',
+        date: '2026-03-08',
+        sets: [
+          {
+            setNumber: 1,
+            reps: 10,
+            weight: 60,
+          },
+        ],
+      },
+      related: [
+        {
+          exerciseId: 'incline-bench',
+          exerciseName: 'Incline Bench Press',
+          trackingType: 'weight_reps',
+          history: null,
+        },
+      ],
+    });
+
+    expect(payload.related[0]).toEqual({
+      exerciseId: 'incline-bench',
+      exerciseName: 'Incline Bench Press',
+      trackingType: 'weight_reps',
+      history: null,
+    });
   });
 });

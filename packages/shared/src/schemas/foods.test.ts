@@ -30,6 +30,8 @@ describe('foodSchema', () => {
       verified: true,
       source: 'Manufacturer label',
       notes: null,
+      usageCount: 12,
+      tags: ['dairy', 'protein'],
       lastUsedAt: 1_700_000_000_000,
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_000_001,
@@ -55,6 +57,8 @@ describe('foodSchema', () => {
       verified: true,
       source: 'USDA',
       notes: null,
+      usageCount: 0,
+      tags: [],
       lastUsedAt: null,
       createdAt: 1,
       updatedAt: 2,
@@ -75,6 +79,7 @@ describe('createFoodInputSchema', () => {
       carbs: 5,
       fat: 0,
       notes: ' High protein snack ',
+      tags: [' dairy ', ' Snack '],
     });
 
     expect(payload).toEqual({
@@ -86,6 +91,7 @@ describe('createFoodInputSchema', () => {
       carbs: 5,
       fat: 0,
       notes: 'High protein snack',
+      tags: ['dairy', 'snack'],
       verified: false,
     });
   });
@@ -108,11 +114,13 @@ describe('updateFoodInputSchema', () => {
     const payload: UpdateFoodInput = updateFoodInputSchema.parse({
       brand: ' Chobani ',
       verified: true,
+      tags: ['dairy'],
     });
 
     expect(payload).toEqual({
       brand: 'Chobani',
       verified: true,
+      tags: ['dairy'],
     });
   });
 
@@ -132,17 +140,27 @@ describe('patchFoodInputSchema', () => {
     });
   });
 
+  it('does not inject tags when patch payload omits tags', () => {
+    const payload = patchFoodInputSchema.parse({
+      notes: 'updated source',
+    });
+
+    expect(payload).not.toHaveProperty('tags');
+  });
+
   it('accepts a valid multi-field patch', () => {
     const payload = patchFoodInputSchema.parse({
       name: ' Greek Yogurt ',
       brand: ' Fage ',
       verified: true,
+      tags: ['dairy'],
     });
 
     expect(payload).toEqual({
       name: 'Greek Yogurt',
       brand: 'Fage',
       verified: true,
+      tags: ['dairy'],
     });
   });
 
@@ -163,14 +181,16 @@ describe('foodQueryParamsSchema', () => {
   it('coerces pagination params and trims the search query', () => {
     const payload = foodQueryParamsSchema.parse({
       q: '  yogurt ',
-      sort: 'protein',
+      tags: ' dairy , breakfast ',
+      sort: 'popular',
       page: '2',
       limit: '25',
     });
 
     expect(payload).toEqual({
       q: 'yogurt',
-      sort: 'protein',
+      tags: ['dairy', 'breakfast'],
+      sort: 'popular',
       page: 2,
       limit: 25,
     });
@@ -183,10 +203,19 @@ describe('foodQueryParamsSchema', () => {
 
     expect(payload).toEqual({
       q: undefined,
-      sort: 'name',
+      tags: undefined,
+      sort: 'recent',
       page: 1,
       limit: 50,
     });
+  });
+
+  it('parses repeated and comma-delimited tag query params', () => {
+    const payload = foodQueryParamsSchema.parse({
+      tags: ['Protein, Dinner', 'Lean', ''],
+    });
+
+    expect(payload.tags).toEqual(['protein', 'dinner', 'lean']);
   });
 
   it('rejects invalid sort and page values', () => {

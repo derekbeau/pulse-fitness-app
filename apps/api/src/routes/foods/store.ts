@@ -38,6 +38,8 @@ const foodSelection = {
   verified: foods.verified,
   source: foods.source,
   notes: foods.notes,
+  usageCount: foods.usageCount,
+  tags: foods.tags,
   lastUsedAt: foods.lastUsedAt,
   createdAt: foods.createdAt,
   updatedAt: foods.updatedAt,
@@ -46,7 +48,7 @@ const foodSelection = {
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
 const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
 
-const buildFoodFilters = (userId: string, query?: string) => {
+const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {
   const filters: SQL<unknown>[] = [eq(foods.userId, userId), isNull(foods.deletedAt)];
 
   if (query) {
@@ -60,15 +62,27 @@ const buildFoodFilters = (userId: string, query?: string) => {
     );
   }
 
-  return filters.length === 1 ? filters[0] : and(...filters);
+  if (tags && tags.length > 0) {
+    for (const tag of tags) {
+      filters.push(
+        sql`exists (
+          select 1
+          from json_each(${foods.tags})
+          where lower(json_each.value) = ${tag}
+        )`,
+      );
+    }
+  }
+
+  return and(...filters);
 };
 
 const buildFoodSort = (sort: FoodSort) => {
   switch (sort) {
     case 'recent':
       return sql`case when ${foods.lastUsedAt} is null then 1 else 0 end asc, ${foods.lastUsedAt} desc, lower(${foods.name}) asc`;
-    case 'protein':
-      return sql`${foods.protein} desc, lower(${foods.name}) asc`;
+    case 'popular':
+      return sql`${foods.usageCount} desc, lower(${foods.name}) asc`;
     case 'name':
     default:
       return sql`lower(${foods.name}) asc, lower(coalesce(${foods.brand}, '')) asc`;
@@ -102,6 +116,7 @@ export const createFood = async ({
   verified,
   source,
   notes,
+  tags,
 }: CreateFoodRecordInput): Promise<FoodRecord> => {
   const { db } = await import('../../db/index.js');
 
@@ -123,6 +138,7 @@ export const createFood = async ({
       verified,
       source: toNullable(source),
       notes: toNullable(notes),
+      tags,
     })
     .run();
 
@@ -140,11 +156,11 @@ export const createFood = async ({
 
 export const listFoods = async (
   userId: string,
-  { q, sort, page, limit }: FoodQueryParams,
+  { q, tags, sort, page, limit }: FoodQueryParams,
 ): Promise<FoodListResult> => {
   const { db } = await import('../../db/index.js');
 
-  const filters = buildFoodFilters(userId, q);
+  const filters = buildFoodFilters(userId, q, tags);
   const offset = (page - 1) * limit;
 
   const foodRows = db
@@ -232,6 +248,10 @@ export const updateFood = async (
     nextValues.notes = toNullable(updates.notes);
   }
 
+  if (updates.tags !== undefined) {
+    nextValues.tags = updates.tags;
+  }
+
   const result = db
     .update(foods)
     .set(nextValues)
@@ -259,7 +279,7 @@ export const deleteFood = async (id: string, userId: string): Promise<boolean> =
   return result.changes === 1;
 };
 
-export const updateFoodLastUsedAt = async (
+export const trackFoodUsage = async (
   foodId: string,
   userId: string,
   lastUsedAt = Date.now(),
@@ -270,11 +290,12 @@ export const updateFoodLastUsedAt = async (
     .update(foods)
     .set({
       lastUsedAt,
+      usageCount: sql`usage_count + 1`,
     })
     .where(and(eq(foods.id, foodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
     .run();
 
   if (result.changes !== 1) {
-    throw new Error('Failed to update food last used timestamp');
+    throw new Error('Failed to track food usage metrics');
   }
 };

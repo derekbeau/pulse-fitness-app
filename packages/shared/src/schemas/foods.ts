@@ -15,7 +15,28 @@ const optionalQueryText = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : undefined;
 }, z.string().max(255).optional());
 
-export const foodSortSchema = z.enum(['name', 'recent', 'protein']);
+const foodTagSchema = z.string().trim().toLowerCase().min(1).max(40);
+const foodTagsSchema = z.array(foodTagSchema).max(20);
+const optionalQueryTags = z.preprocess((value) => {
+  if (value == null) {
+    return undefined;
+  }
+
+  const rawTags = Array.isArray(value) ? value : [value];
+  const parsedTags = rawTags.flatMap((tag) => {
+    if (typeof tag !== 'string') {
+      return [];
+    }
+
+    return tag.split(',');
+  });
+
+  const normalizedTags = parsedTags.map((tag) => tag.trim()).filter((tag) => tag.length > 0);
+
+  return normalizedTags.length > 0 ? normalizedTags : undefined;
+}, foodTagsSchema.optional());
+
+export const foodSortSchema = z.enum(['name', 'recent', 'popular']);
 
 export const foodSchema = z.object({
   id: z.string(),
@@ -33,6 +54,8 @@ export const foodSchema = z.object({
   verified: z.boolean(),
   source: z.string().nullable(),
   notes: z.string().nullable(),
+  usageCount: z.number().int().default(0),
+  tags: foodTagsSchema.default([]),
   lastUsedAt: z.number().int().nullable(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -52,10 +75,12 @@ const foodMutationFieldsSchema = z.object({
   verified: z.boolean(),
   source: optionalNullableText(),
   notes: optionalNullableText(2000),
+  tags: foodTagsSchema.optional(),
 });
 
 export const createFoodInputSchema = foodMutationFieldsSchema.extend({
   verified: z.boolean().optional().default(false),
+  tags: foodTagsSchema.optional().default([]),
 });
 
 export const updateFoodInputSchema = foodMutationFieldsSchema
@@ -66,7 +91,8 @@ export const patchFoodInputSchema = updateFoodInputSchema;
 
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
-  sort: foodSortSchema.default('name'),
+  tags: optionalQueryTags,
+  sort: foodSortSchema.default('recent'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

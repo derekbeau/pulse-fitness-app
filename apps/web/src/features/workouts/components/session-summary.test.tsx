@@ -91,8 +91,14 @@ describe('SessionSummary', () => {
     expect(
       screen.getByText('What happened today? Anything notable about this session?'),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('id', 'session-summary-notes');
-    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('name', 'session-summary-notes');
+    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute(
+      'id',
+      'session-summary-notes',
+    );
+    expect(screen.getByTestId('session-summary-notes')).toHaveAttribute(
+      'name',
+      'session-summary-notes',
+    );
     expect(screen.getByLabelText('Session notes')).toHaveValue('');
     expect(screen.getByRole('textbox', { name: 'Session notes' })).toHaveValue('');
 
@@ -113,14 +119,28 @@ describe('SessionSummary', () => {
     expect(screen.getByLabelText('Description')).toHaveValue(
       'Chest, shoulders, and triceps emphasis with controlled tempo work.',
     );
-    expect(screen.getByLabelText('Tags')).toHaveValue('strength, push, upper-body');
+    expect(screen.getByText('strength')).toBeInTheDocument();
+    expect(screen.getByText('push')).toBeInTheDocument();
+    expect(screen.getByText('upper-body')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag upper-body' }));
+    expect(screen.queryByText('upper-body')).not.toBeInTheDocument();
+
+    const tagsInput = screen.getByLabelText('Tags');
+    fireEvent.focus(tagsInput);
+    fireEvent.click(screen.getByRole('button', { name: 'hypertrophy' }));
+    expect(screen.getByText('hypertrophy')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Heavy upper emphasis with a slower incline press tempo.' },
     });
-    fireEvent.change(screen.getByLabelText('Tags'), {
-      target: { value: 'strength, push, hypertrophy' },
+    fireEvent.change(tagsInput, {
+      target: { value: 'DELOAD' },
     });
+    fireEvent.keyDown(tagsInput, { key: 'Enter' });
+
+    expect(screen.getByText('deload')).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();

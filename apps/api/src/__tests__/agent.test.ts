@@ -211,7 +211,7 @@ vi.mock('../routes/foods/store.js', () => ({
   deleteFood: vi.fn(),
   listFoods: vi.fn(async () => []),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(async (id: string) => {
+  trackFoodUsage: vi.fn(async (id: string) => {
     const food = testState.foods.get(id);
     if (food) {
       food.lastUsedAt = Date.now();
@@ -228,7 +228,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
         name: string;
         time: string | null | undefined;
         items: Array<{
-          foodId: string;
+          foodId: string | null;
           name: string;
           amount: number;
           unit: string | null | undefined;
@@ -245,6 +245,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
         id: mealId,
         nutritionLogId: logId,
         name: input.name,
+        summary: null,
         time: input.time ?? null,
         notes: null,
         createdAt: Date.now(),
@@ -908,11 +909,70 @@ describe('agent integration', () => {
         expect(body.data.items[0].amount).toBe(2);
 
         const foodsStore = await import('../routes/foods/store.js');
-        expect(vi.mocked(foodsStore.updateFoodLastUsedAt)).toHaveBeenCalledWith(
+        expect(vi.mocked(foodsStore.trackFoodUsage)).toHaveBeenCalledWith(
           'food-chicken',
           'user-1',
         );
         expect(testState.foods.get('food-chicken')?.lastUsedAt).toBeTypeOf('number');
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('logs ad-hoc meal items without creating or resolving a food', async () => {
+      const app = await createTestApp();
+
+      try {
+        seedAgentToken('user-1');
+        const foodsStore = await import('../routes/foods/store.js');
+        vi.mocked(foodsStore.trackFoodUsage).mockClear();
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: { authorization: `AgentToken ${PLAIN_TOKEN}` },
+          payload: {
+            name: 'Dinner',
+            date: '2026-03-09',
+            time: '19:30',
+            items: [
+              {
+                foodName: 'Restaurant Pad Thai',
+                quantity: 1,
+                unit: 'plate',
+                saveToFoods: false,
+                calories: 780,
+                protein: 28,
+                carbs: 96,
+                fat: 30,
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+
+        const body = response.json() as {
+          data: {
+            macros: { calories: number; protein: number; carbs: number; fat: number };
+            items: Array<{ foodId: string | null; name: string; calories: number }>;
+          };
+        };
+        expect(body.data.macros).toEqual({
+          calories: 780,
+          protein: 28,
+          carbs: 96,
+          fat: 30,
+        });
+        expect(body.data.items).toHaveLength(1);
+        expect(body.data.items[0]).toEqual(
+          expect.objectContaining({
+            foodId: null,
+            name: 'Restaurant Pad Thai',
+            calories: 780,
+          }),
+        );
+        expect(vi.mocked(foodsStore.trackFoodUsage)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }

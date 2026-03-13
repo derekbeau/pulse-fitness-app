@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { updateFoodLastUsedAt } from '../foods/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -22,7 +22,7 @@ vi.mock('../foods/store.js', () => ({
   deleteFood: vi.fn(),
   listFoods: vi.fn(),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 vi.mock('../nutrition/store.js', () => ({
@@ -137,8 +137,8 @@ describe('agent meals routes', () => {
     vi.mocked(findMealItemById).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
+    vi.mocked(trackFoodUsage).mockReset();
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-agent-meals-secret';
   });
 
@@ -247,6 +247,17 @@ describe('agent meals routes', () => {
               }),
             ],
           }),
+        );
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenNthCalledWith(
+          1,
+          'food-chicken',
+          'user-1',
+        );
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenNthCalledWith(
+          2,
+          'food-rice',
+          'user-1',
         );
       } finally {
         await app.close();
@@ -425,6 +436,196 @@ describe('agent meals routes', () => {
       }
     });
 
+    it('creates ad-hoc items without food resolution and persists null foodId', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: {
+            ...createdMeal,
+            summary: 'Restaurant Burrito',
+          },
+          items: [
+            {
+              ...createdItems[0],
+              foodId: null,
+              name: 'Restaurant Burrito',
+              amount: 1,
+              unit: 'item',
+              calories: 850,
+              protein: 35,
+              carbs: 90,
+              fat: 38,
+            },
+          ],
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Dinner',
+            date: '2026-03-09',
+            items: [
+              {
+                foodName: 'Restaurant Burrito',
+                quantity: 1,
+                unit: 'item',
+                adhoc: true,
+                calories: 850,
+                protein: 35,
+                carbs: 90,
+                fat: 38,
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(findFoodByName)).not.toHaveBeenCalled();
+        expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith(
+          'user-1',
+          '2026-03-09',
+          expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                foodId: null,
+                name: 'Restaurant Burrito',
+                amount: 1,
+                unit: 'item',
+                calories: 850,
+                protein: 35,
+                carbs: 90,
+                fat: 38,
+              }),
+            ],
+          }),
+        );
+        expect(response.json().data.items).toEqual([
+          expect.objectContaining({
+            foodId: null,
+            name: 'Restaurant Burrito',
+            calories: 850,
+          }),
+        ]);
+        expect(vi.mocked(trackFoodUsage)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('supports mixing resolved foods and ad-hoc items in one meal', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findFoodByName).mockResolvedValueOnce(chickenFood);
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: {
+            ...createdMeal,
+            summary: 'Chicken Breast, Chef Special Soup',
+          },
+          items: [
+            createdItems[0],
+            {
+              ...createdItems[1],
+              id: 'item-adhoc-1',
+              foodId: null,
+              name: 'Chef Special Soup',
+              amount: 1,
+              unit: 'bowl',
+              calories: 280,
+              protein: 12,
+              carbs: 26,
+              fat: 14,
+            },
+          ],
+        });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            items: [
+              { foodName: 'Chicken Breast', quantity: 2 },
+              {
+                foodName: 'Chef Special Soup',
+                quantity: 1,
+                unit: 'bowl',
+                saveToFoods: false,
+                calories: 280,
+                protein: 12,
+                carbs: 26,
+                fat: 14,
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(findFoodByName)).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(findFoodByName)).toHaveBeenCalledWith('user-1', 'Chicken Breast');
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-chicken', 'user-1');
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('logs usage tracking failures without failing meal creation', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findFoodByName).mockResolvedValueOnce(chickenFood);
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: {
+            ...createdMeal,
+            summary: 'Chicken Breast',
+          },
+          items: [createdItems[0]],
+        });
+        const usageError = new Error('transient usage tracking failure');
+        vi.mocked(trackFoodUsage).mockRejectedValueOnce(usageError);
+        const warnSpy = vi.spyOn(app.log, 'warn');
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            items: [{ foodName: 'Chicken Breast', quantity: 1 }],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-chicken', 'user-1');
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            err: usageError,
+            foodId: 'food-chicken',
+            userId: 'user-1',
+          }),
+          'Failed to track food usage after agent meal creation',
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
     it('returns 422 when a food name cannot be resolved', async () => {
       const app = buildServer();
 
@@ -456,6 +657,43 @@ describe('agent meals routes', () => {
             code: 'UNRESOLVED_FOODS',
             message: 'Could not find foods: Unknown Food XYZ',
           },
+        });
+        expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('returns 400 when ad-hoc items omit required macro snapshots', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Dinner',
+            date: '2026-03-09',
+            items: [
+              {
+                foodName: 'Restaurant Pasta',
+                quantity: 1,
+                saveToFoods: false,
+                calories: 650,
+                protein: 20,
+                carbs: 80,
+              },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.json()).toEqual({
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid meal payload' },
         });
         expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
       } finally {

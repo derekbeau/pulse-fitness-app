@@ -27,6 +27,8 @@ export const foods = sqliteTable(
     verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
     source: text('source'),
     notes: text('notes'),
+    usageCount: integer('usage_count').notNull().default(0),
+    tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
     lastUsedAt: integer('last_used_at', { mode: 'number' }),
     deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
@@ -41,6 +43,7 @@ export const foods = sqliteTable(
   },
   (table) => [
     index('foods_user_last_used_at_idx').on(table.userId, table.lastUsedAt),
+    index('foods_user_usage_count_idx').on(table.userId, table.usageCount),
     check(
       'foods_serving_grams_check',
       sql`${table.servingGrams} is null or ${table.servingGrams} > 0`,

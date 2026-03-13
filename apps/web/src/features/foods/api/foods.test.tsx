@@ -35,6 +35,8 @@ function createFood(id: string, name: string): Food {
     verified: false,
     source: null,
     notes: null,
+    usageCount: 0,
+    tags: [],
     lastUsedAt: null,
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_000,
@@ -91,7 +93,8 @@ describe('foods api hooks', () => {
       () =>
         useFoods({
           q: 'chicken',
-          sort: 'protein',
+          tags: ['protein', 'dinner'],
+          sort: 'popular',
           page: 2,
           limit: 5,
         }),
@@ -108,7 +111,8 @@ describe('foods api hooks', () => {
       queryClient.getQueryState(
         foodKeys.list({
           q: 'chicken',
-          sort: 'protein',
+          tags: ['protein', 'dinner'],
+          sort: 'popular',
           page: 2,
           limit: 5,
         }),
@@ -124,7 +128,8 @@ describe('foods api hooks', () => {
     const request = new URL(String(firstRequest), 'http://localhost');
     expect(request.pathname).toBe('/api/v1/foods');
     expect(request.searchParams.get('q')).toBe('chicken');
-    expect(request.searchParams.get('sort')).toBe('protein');
+    expect(request.searchParams.get('tags')).toBe('protein,dinner');
+    expect(request.searchParams.get('sort')).toBe('popular');
     expect(request.searchParams.get('page')).toBe('2');
     expect(request.searchParams.get('limit')).toBe('5');
   });

@@ -1,6 +1,6 @@
-import { CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { CheckCircle2Icon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FoodCardSkeleton } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,34 @@ const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_PAGE_SIZE = 12;
 const DEFAULT_PAGE = 1;
 const DEFAULT_SORT_BY: FoodSort = 'recent';
+const FOOD_TAG_LIMIT = 20;
 
 const SORT_OPTIONS: Array<{ label: string; value: FoodSort }> = [
-  { label: 'Alphabetical', value: 'name' },
-  { label: 'Most Recent', value: 'recent' },
-  { label: 'Highest Protein', value: 'protein' },
+  { label: 'Recent', value: 'recent' },
+  { label: 'Popular', value: 'popular' },
+  { label: 'A-Z', value: 'name' },
 ];
+
+function normalizeFoodTag(tag: string) {
+  return tag.trim().toLowerCase();
+}
+
+function normalizeFoodTags(tags: string[]) {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const tag of tags) {
+    const nextTag = normalizeFoodTag(tag);
+    if (!nextTag || seen.has(nextTag)) {
+      continue;
+    }
+
+    seen.add(nextTag);
+    normalized.push(nextTag);
+  }
+
+  return normalized;
+}
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -85,9 +107,11 @@ export function FoodList({
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editCancelledRef = useRef(false);
 
@@ -104,12 +128,14 @@ export function FoodList({
   const shouldUsePageFoodsQuery =
     pageFoodsQuery !== undefined &&
     debouncedSearchQuery.length === 0 &&
+    selectedTags.length === 0 &&
     sortBy === DEFAULT_SORT_BY &&
     page === DEFAULT_PAGE &&
     pageSize === DEFAULT_PAGE_SIZE;
   const fallbackFoodsQuery = useFoods(
     {
       q: debouncedSearchQuery || undefined,
+      tags: selectedTags.length > 0 ? normalizeFoodTags(selectedTags) : undefined,
       sort: sortBy,
       page,
       limit: pageSize,
@@ -120,7 +146,21 @@ export function FoodList({
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 
-  const foods = foodsQuery.data?.data ?? [];
+  const foods = useMemo(() => foodsQuery.data?.data ?? [], [foodsQuery.data?.data]);
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    foods.forEach((food) => {
+      normalizeFoodTags(food.tags).forEach((tag) => tagSet.add(tag));
+    });
+
+    return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
+  }, [foods]);
+  const activeSelectedTags = useMemo(() => normalizeFoodTags(selectedTags), [selectedTags]);
+  const filterTags = useMemo(() => {
+    const tagSet = new Set([...availableTags, ...activeSelectedTags]);
+
+    return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
+  }, [activeSelectedTags, availableTags]);
   const totalFoods = foodsQuery.data?.meta.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalFoods / pageSize));
   const updateErrorMessage =
@@ -183,6 +223,43 @@ export function FoodList({
     }
   }
 
+  function setTagDraft(foodId: string, value: string) {
+    setTagDrafts((current) => ({
+      ...current,
+      [foodId]: value,
+    }));
+  }
+
+  async function saveFoodTags(food: Food, tags: string[]) {
+    const normalized = normalizeFoodTags(tags).slice(0, FOOD_TAG_LIMIT);
+    if (
+      [...normalized].sort().join('|') === [...normalizeFoodTags(food.tags)].sort().join('|')
+    ) {
+      return;
+    }
+
+    await updateFood.mutateAsync({
+      id: food.id,
+      updates: { tags: normalized },
+    });
+  }
+
+  async function commitDraftTag(food: Food) {
+    const draftTag = tagDrafts[food.id];
+    if (!draftTag) {
+      return;
+    }
+
+    const nextTag = normalizeFoodTag(draftTag);
+    if (!nextTag) {
+      setTagDraft(food.id, '');
+      return;
+    }
+
+    await saveFoodTags(food, [...food.tags, nextTag]);
+    setTagDraft(food.id, '');
+  }
+
   function handleDeleteFood(foodId: string, foodName: string) {
     confirm({
       title: 'Delete food?',
@@ -212,8 +289,8 @@ export function FoodList({
         <CardHeader className="gap-1 px-5 sm:px-6">
           <CardTitle className="text-xl">Search your foods database</CardTitle>
           <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
-            Search by food name or brand, then switch between alphabetical, recency, and
-            protein-focused views.
+            Search by food name or brand, then switch between recency, popularity, or alphabetical
+            views.
           </CardDescription>
         </CardHeader>
 
@@ -265,6 +342,49 @@ export function FoodList({
         </CardContent>
 
         <CardContent className="px-5 pt-0 sm:px-6">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-on-cream dark:text-foreground">Filter by tags</p>
+            {filterTags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tags yet</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {filterTags.map((tag) => {
+                  const isSelected = activeSelectedTags.includes(tag);
+                  return (
+                    <Button
+                      key={tag}
+                      className="h-7 rounded-full px-3 text-xs"
+                      onClick={() => {
+                        setSelectedTags((current) =>
+                          normalizeFoodTags(current).includes(tag)
+                            ? normalizeFoodTags(current).filter((currentTag) => currentTag !== tag)
+                            : [...normalizeFoodTags(current), tag],
+                        );
+                        setPage(1);
+                      }}
+                      type="button"
+                      variant={isSelected ? 'default' : 'outline'}
+                    >
+                      {tag}
+                    </Button>
+                  );
+                })}
+                {activeSelectedTags.length > 0 ? (
+                  <Button
+                    className="h-7 rounded-full px-3 text-xs"
+                    onClick={() => setSelectedTags([])}
+                    type="button"
+                    variant="ghost"
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        <CardContent className="px-5 pt-0 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
             <p>
               Showing {foods.length} of {totalFoods} foods
@@ -304,7 +424,9 @@ export function FoodList({
             <CardDescription>
               {debouncedSearchQuery
                 ? `No saved foods matched “${debouncedSearchQuery}”. Try another search term.`
-                : 'No foods have been saved yet.'}
+                : activeSelectedTags.length > 0
+                  ? 'No foods match the selected tags.'
+                  : 'No foods have been saved yet.'}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -407,6 +529,80 @@ export function FoodList({
                       <span>Serving: {formatServing(food)}</span>
                       <span aria-hidden="true">•</span>
                       <span>{formatLastUsed(food.lastUsedAt, now)}</span>
+                      {food.usageCount > 0 ? (
+                        <>
+                          <span aria-hidden="true">•</span>
+                          <span>Used {food.usageCount} times</span>
+                        </>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {food.tags.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">No tags</span>
+                        ) : (
+                          normalizeFoodTags(food.tags).map((tag) => (
+                            <Badge
+                              key={tag}
+                              className="h-6 rounded-full gap-1 px-2 text-xs"
+                              variant="secondary"
+                            >
+                              {tag}
+                              <button
+                                aria-label={`Remove ${tag} tag from ${food.name}`}
+                                className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                                disabled={isUpdatingFood}
+                                onClick={() => {
+                                  void saveFoodTags(
+                                    food,
+                                    food.tags.filter(
+                                      (foodTag) => normalizeFoodTag(foodTag) !== tag,
+                                    ),
+                                  ).catch(() => {
+                                    return;
+                                  });
+                                }}
+                                type="button"
+                              >
+                                <XIcon className="size-3" />
+                              </button>
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Input
+                          aria-label={`Add tag for ${food.name}`}
+                          className="h-8 text-xs"
+                          onChange={(event) => setTagDraft(food.id, event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ',') {
+                              event.preventDefault();
+                              void commitDraftTag(food).catch(() => {
+                                return;
+                              });
+                            }
+                          }}
+                          placeholder="Add tag"
+                          readOnly={isUpdatingFood}
+                          value={tagDrafts[food.id] ?? ''}
+                        />
+                        <Button
+                          className="h-8 px-2 text-xs"
+                          disabled={isUpdatingFood}
+                          onClick={() => {
+                            void commitDraftTag(food).catch(() => {
+                              return;
+                            });
+                          }}
+                          type="button"
+                          variant="outline"
+                        >
+                          Add
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
 

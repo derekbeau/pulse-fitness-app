@@ -128,6 +128,8 @@ describe('foods schema', () => {
       'verified',
       'source',
       'notes',
+      'usageCount',
+      'tags',
       'lastUsedAt',
       'deletedAt',
       'createdAt',
@@ -136,6 +138,8 @@ describe('foods schema', () => {
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.verified.default).toBe(false);
+    expect(columns.usageCount.default).toBe(0);
+    expect(columns.tags.default).toEqual([]);
     expect(columns.lastUsedAt.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
@@ -146,7 +150,10 @@ describe('foods schema', () => {
     const config = getTableConfig(foods);
     expect(config.foreignKeys).toHaveLength(1);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
-    expect(config.indexes.map((idx) => idx.config.name)).toEqual(['foods_user_last_used_at_idx']);
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'foods_user_last_used_at_idx',
+      'foods_user_usage_count_idx',
+    ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'foods_fiber_nonnegative_check',
       'foods_macros_nonnegative_check',

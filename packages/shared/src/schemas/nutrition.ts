@@ -88,7 +88,7 @@ export const deleteMealResultSchema = z.object({
 });
 
 export const mealItemInputSchema = z.object({
-  foodId: z.string().trim().min(1).optional(),
+  foodId: z.string().trim().min(1).nullable().optional(),
   name: requiredText(),
   amount: z.number().positive().finite(),
   unit: requiredText(50),

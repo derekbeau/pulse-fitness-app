@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   createExerciseInputSchema,
+  exerciseLastPerformanceQuerySchema,
   exerciseQueryParamsSchema,
   updateExerciseInputSchema,
 } from '@pulse/shared';
@@ -14,6 +15,7 @@ import {
   allRelatedExercisesOwned,
   createExercise,
   deleteOwnedExercise,
+  findExerciseHistoryWithRelated,
   findExerciseLastPerformance,
   findExerciseOwnership,
   findVisibleExerciseById,
@@ -188,6 +190,11 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Params: { id: string } }>('/:id/last-performance', async (request, reply) => {
+    const parsedQuery = exerciseLastPerformanceQuerySchema.safeParse(request.query);
+    if (!parsedQuery.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise history query');
+    }
+
     const exercise = await findVisibleExerciseById({
       id: request.params.id,
       userId: request.userId,
@@ -201,13 +208,26 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const lastPerformance = await findExerciseLastPerformance({
-      exerciseId: request.params.id,
-      userId: request.userId,
-    });
+    if (parsedQuery.data.includeRelated) {
+      const historyWithRelated = await findExerciseHistoryWithRelated({
+        exerciseId: request.params.id,
+        relatedExerciseIds: exercise.relatedExerciseIds,
+        userId: request.userId,
+      });
+
+      return reply.send({
+        data: historyWithRelated,
+      });
+    }
+
+    const lastPerformance =
+      (await findExerciseLastPerformance({
+        exerciseId: request.params.id,
+        userId: request.userId,
+      })) ?? null;
 
     return reply.send({
-      data: lastPerformance ?? null,
+      data: lastPerformance,
     });
   });
 

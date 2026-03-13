@@ -58,6 +58,7 @@ import { cn } from '@/lib/utils';
 import { useRenameExercise } from '../api/workouts';
 import type {
   ActiveWorkoutExercise,
+  ActiveWorkoutExerciseHistorySummary,
   ActiveWorkoutPhaseBadge,
   ActiveWorkoutSessionData,
 } from '../types';
@@ -127,6 +128,11 @@ const phaseBadgeStyles: Record<ActiveWorkoutPhaseBadge, string> = {
   moderate:
     'border-transparent bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
 };
+
+const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+});
 
 const supersetAccentStyles = [
   'border-l-sky-500 before:bg-sky-500',
@@ -613,9 +619,10 @@ function ExerciseCardItem({
   const lastPerformanceQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
   });
-  const lastPerformance = enableApiLastPerformance
-    ? (lastPerformanceQuery.data ?? null)
-    : exercise.lastPerformance;
+  const historySummary: ActiveWorkoutExerciseHistorySummary = enableApiLastPerformance
+    ? (lastPerformanceQuery.data ?? { history: null, related: [] })
+    : { history: exercise.lastPerformance, related: [] };
+  const lastPerformance = historySummary.history;
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
   const isExpanded =
@@ -809,6 +816,59 @@ function ExerciseCardItem({
             <p className="text-sm text-muted">
               {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
             </p>
+
+            <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4">
+              <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                History
+              </p>
+              <p className="text-sm text-foreground">
+                {formatHistoryPreview({
+                  history: lastPerformance,
+                  prescribedReps: exercise.prescribedReps,
+                  trackingType: exercise.trackingType,
+                  weightUnit,
+                })}
+              </p>
+            </div>
+
+            {historySummary.related.length > 0 ? (
+              <details className="group rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200">
+                      Related
+                    </Badge>
+                    <p className="text-sm font-semibold text-foreground">Related history</p>
+                  </div>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="size-4 text-muted transition-transform duration-200 group-open:rotate-180"
+                  />
+                </summary>
+
+                <div className="mt-3 space-y-2">
+                  {historySummary.related.map((relatedExercise) => (
+                    <div
+                      className="rounded-xl border border-emerald-500/20 bg-background/70 px-3 py-2"
+                      key={relatedExercise.exerciseId}
+                    >
+                      <p className="text-xs font-semibold tracking-[0.14em] text-muted uppercase">
+                        {relatedExercise.exerciseName}
+                      </p>
+                      <p className="mt-1 text-sm text-foreground">
+                        {formatHistoryPreview({
+                          history: relatedExercise.history,
+                          prescribedReps: '',
+                          trackingType: relatedExercise.trackingType,
+                          weightUnit,
+                          emptyLabel: 'No completed sets yet.',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
 
             {hasInjuryCues ? (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/12 p-4 text-amber-950 dark:text-amber-100">
@@ -1111,6 +1171,38 @@ function formatExerciseSubtitle({
     .join(', ');
 
   return `${targetText} • Last: ${lastText}`;
+}
+
+function formatHistoryPreview({
+  history,
+  prescribedReps,
+  trackingType,
+  weightUnit,
+  emptyLabel = 'No completed history yet.',
+}: {
+  history: ActiveWorkoutExercise['lastPerformance'];
+  prescribedReps: string;
+  trackingType: ExerciseTrackingType;
+  weightUnit: WeightUnit;
+  emptyLabel?: string;
+}) {
+  if (!history || history.sets.length === 0) {
+    return emptyLabel;
+  }
+
+  const setSummary = history.sets
+    .map((set) =>
+      formatCompactPerformanceSetByTrackingType(
+        trackingType,
+        set.weight,
+        set.reps,
+        prescribedReps,
+        weightUnit,
+      ),
+    )
+    .join(', ');
+
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
 }
 
 function parsePrescribedRepTarget(prescribedReps: string) {

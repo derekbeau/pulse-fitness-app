@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
@@ -18,6 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
+import {
+  appendTemplateTags,
+  normalizeTemplateTags,
+  TEMPLATE_TAG_LIMIT,
+  TEMPLATE_TAG_SUGGESTIONS,
+} from '../lib/template-tags';
 import type { ActiveWorkoutFeedbackDraft } from '../types';
 
 type SessionSummaryProps = {
@@ -59,8 +66,51 @@ export function SessionSummary({
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState(workoutName);
   const [templateDescription, setTemplateDescription] = useState(defaultDescription);
-  const [templateTags, setTemplateTags] = useState(defaultTags.join(', '));
+  const [templateTags, setTemplateTags] = useState(() => normalizeTemplateTags(defaultTags));
+  const [templateTagInput, setTemplateTagInput] = useState('');
+  const [isTagInputFocused, setIsTagInputFocused] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const hasMaxTemplateTags = templateTags.length >= TEMPLATE_TAG_LIMIT;
+  const normalizedTagQuery = templateTagInput.trim().toLowerCase();
+  const suggestedTemplateTags = useMemo(
+    () =>
+      TEMPLATE_TAG_SUGGESTIONS.filter((tag) => {
+        if (templateTags.includes(tag)) {
+          return false;
+        }
+
+        if (!normalizedTagQuery) {
+          return true;
+        }
+
+        return tag.includes(normalizedTagQuery);
+      }),
+    [normalizedTagQuery, templateTags],
+  );
+
+  function commitTemplateTagInput() {
+    if (!templateTagInput.trim() || hasMaxTemplateTags) {
+      setTemplateTagInput('');
+      return;
+    }
+
+    setTemplateTags((current) => appendTemplateTags(current, templateTagInput));
+    setTemplateTagInput('');
+  }
+
+  function removeTemplateTag(tag: string) {
+    setTemplateTags((current) => current.filter((currentTag) => currentTag !== tag));
+  }
+
+  function addSuggestedTemplateTag(tag: string) {
+    if (hasMaxTemplateTags) {
+      return;
+    }
+
+    setTemplateTags((current) => appendTemplateTags(current, tag));
+    setTemplateTagInput('');
+  }
 
   return (
     <>
@@ -88,9 +138,7 @@ export function SessionSummary({
             <SummaryStat
               icon={ListChecks}
               label="Sets completed"
-              value={
-                completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`
-              }
+              value={completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`}
             />
             <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
             <SummaryStat icon={Clock3} label="Duration" value={duration} />
@@ -154,7 +202,9 @@ export function SessionSummary({
               onClick={() => {
                 setTemplateName(workoutName);
                 setTemplateDescription(defaultDescription);
-                setTemplateTags(defaultTags.join(', '));
+                setTemplateTags(normalizeTemplateTags(defaultTags));
+                setTemplateTagInput('');
+                setIsTagInputFocused(false);
                 setSaveMessage(null);
                 setIsSaveDialogOpen(true);
               }}
@@ -224,13 +274,71 @@ export function SessionSummary({
               <label className="text-sm font-medium text-foreground" htmlFor="template-tags">
                 Tags
               </label>
+              <div className="flex flex-wrap gap-2">
+                {templateTags.map((tag) => (
+                  <Badge className="gap-1.5" key={tag} variant="secondary">
+                    <span>{tag}</span>
+                    <button
+                      aria-label={`Remove tag ${tag}`}
+                      className="rounded-full p-0.5 transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => removeTemplateTag(tag)}
+                      type="button"
+                    >
+                      <X aria-hidden="true" className="size-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
               <Input
                 id="template-tags"
-                onChange={(event) => setTemplateTags(event.target.value)}
-                placeholder="strength, upper-body, gym"
-                value={templateTags}
+                onBlur={() => {
+                  setIsTagInputFocused(false);
+                  commitTemplateTagInput();
+                }}
+                onChange={(event) => setTemplateTagInput(event.target.value)}
+                onFocus={() => setIsTagInputFocused(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ',') {
+                    event.preventDefault();
+                    commitTemplateTagInput();
+                  }
+
+                  if (
+                    event.key === 'Backspace' &&
+                    templateTagInput.length === 0 &&
+                    templateTags.length > 0
+                  ) {
+                    event.preventDefault();
+                    setTemplateTags((current) => current.slice(0, current.length - 1));
+                  }
+                }}
+                placeholder="Add a tag"
+                value={templateTagInput}
               />
-              <p className="text-xs text-muted">Separate tags with commas.</p>
+              {isTagInputFocused && suggestedTemplateTags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {suggestedTemplateTags.map((tag) => (
+                    <Button
+                      className="h-7 rounded-full px-3 text-xs"
+                      key={tag}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => addSuggestedTemplateTag(tag)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {tag}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              {hasMaxTemplateTags ? (
+                <p className="text-xs text-muted">Tag limit reached ({TEMPLATE_TAG_LIMIT}).</p>
+              ) : (
+                <p className="text-xs text-muted">
+                  Press Enter or comma to add tags. Tags are stored in lowercase.
+                </p>
+              )}
             </div>
           </div>
 
@@ -246,10 +354,7 @@ export function SessionSummary({
                 const payload = {
                   name: templateName.trim(),
                   description: templateDescription.trim(),
-                  tags: templateTags
-                    .split(',')
-                    .map((tag) => tag.trim())
-                    .filter(Boolean),
+                  tags: templateTags,
                 };
 
                 if (sessionId) {

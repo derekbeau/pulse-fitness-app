@@ -16,7 +16,7 @@ vi.mock('../foods/store.js', () => ({
   findFoodById: vi.fn(),
   listFoods: vi.fn(),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -38,6 +38,8 @@ const agentFood = {
   verified: false,
   source: null,
   notes: null,
+  usageCount: 0,
+  tags: [],
   lastUsedAt: null,
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_000,

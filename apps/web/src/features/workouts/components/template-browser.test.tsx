@@ -118,6 +118,57 @@ describe('TemplateBrowser', () => {
     expect(screen.queryByRole('link', { name: 'Upper Push' })).not.toBeInTheDocument();
   });
 
+  it('filters templates by selected tags using AND logic', () => {
+    render(
+      <MemoryRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            {
+              id: 'template-1',
+              name: 'Upper Push Strength',
+              description: null,
+              tags: ['push', 'strength'],
+              sections: [{ exercises: [] }],
+            },
+            {
+              id: 'template-2',
+              name: 'Upper Push Volume',
+              description: null,
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            },
+            {
+              id: 'template-3',
+              name: 'Lower Strength',
+              description: null,
+              tags: ['strength'],
+              sections: [{ exercises: [] }],
+            },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag Push' }));
+
+    expect(screen.getByRole('link', { name: 'Upper Push Strength' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upper Push Volume' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Lower Strength' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag Strength' }));
+
+    expect(screen.getByRole('link', { name: 'Upper Push Strength' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Upper Push Volume' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Lower Strength' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(screen.getByRole('link', { name: 'Upper Push Strength' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upper Push Volume' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lower Strength' })).toBeInTheDocument();
+  });
+
   it('opens rename dialog and submits new template name', async () => {
     render(
       <MemoryRouter>

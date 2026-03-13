@@ -17,6 +17,8 @@ type StoredFood = {
   verified: boolean;
   source: string | null;
   notes: string | null;
+  usageCount: number;
+  tags: string[];
   lastUsedAt: number | null;
   createdAt: number;
   updatedAt: number;
@@ -95,7 +97,7 @@ const testState = vi.hoisted(() => {
 
 const getLogKey = (userId: string, date: string) => `${userId}:${date}`;
 
-const sortFoods = (foods: StoredFood[], sort: 'name' | 'protein' | 'recent') => {
+const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => {
   const byName = (left: StoredFood, right: StoredFood) => {
     const nameCompare = left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
     if (nameCompare !== 0) {
@@ -107,10 +109,10 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'protein' | 'recent') => 
     });
   };
 
-  if (sort === 'protein') {
+  if (sort === 'popular') {
     return [...foods].sort((left, right) => {
-      if (left.protein !== right.protein) {
-        return right.protein - left.protein;
+      if (left.usageCount !== right.usageCount) {
+        return right.usageCount - left.usageCount;
       }
 
       return byName(left, right);
@@ -140,10 +142,12 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'protein' | 'recent') => 
 vi.mock('../routes/foods/store.js', () => ({
   createFood: vi.fn(
     async (
-      input: Omit<StoredFood, 'createdAt' | 'updatedAt' | 'lastUsedAt'> & {
+      input: Omit<StoredFood, 'createdAt' | 'updatedAt' | 'lastUsedAt' | 'usageCount' | 'tags'> & {
         createdAt?: number;
         updatedAt?: number;
         lastUsedAt?: number | null;
+        usageCount?: number;
+        tags?: string[];
       },
     ) => {
       const now = testState.nextTimestamp();
@@ -156,6 +160,8 @@ vi.mock('../routes/foods/store.js', () => ({
         sugar: input.sugar ?? null,
         source: input.source ?? null,
         notes: input.notes ?? null,
+        usageCount: input.usageCount ?? 0,
+        tags: input.tags ?? [],
         lastUsedAt: input.lastUsedAt ?? null,
         createdAt: input.createdAt ?? now,
         updatedAt: input.updatedAt ?? now,
@@ -170,7 +176,7 @@ vi.mock('../routes/foods/store.js', () => ({
       userId: string,
       query: {
         q?: string;
-        sort: 'name' | 'protein' | 'recent';
+        sort: 'name' | 'popular' | 'recent';
         page: number;
         limit: number;
       },
@@ -232,7 +238,7 @@ vi.mock('../routes/foods/store.js', () => ({
     testState.foods.delete(id);
     return true;
   }),
-  updateFoodLastUsedAt: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
+  trackFoodUsage: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
     const existing = testState.foods.get(foodId);
     if (!existing || existing.userId !== userId) {
       throw new Error('Failed to update food last used timestamp');
@@ -241,6 +247,7 @@ vi.mock('../routes/foods/store.js', () => ({
     const updated: StoredFood = {
       ...existing,
       lastUsedAt,
+      usageCount: existing.usageCount + 1,
     };
 
     testState.foods.set(foodId, updated);
@@ -603,6 +610,15 @@ describe('foods and nutrition integration', () => {
         0,
       );
 
+      const popularResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/foods?sort=popular',
+        headers: createAuthorizationHeader(userToken),
+      });
+      expect(popularResponse.statusCode).toBe(200);
+      const popularFoods = parseData<StoredFood[]>(popularResponse);
+      expect(popularFoods[0]?.usageCount).toBeGreaterThanOrEqual(popularFoods[1]?.usageCount ?? 0);
+
       const deleteResponse = await app.inject({
         method: 'DELETE',
         url: `/api/v1/foods/${yogurt.id}`,
@@ -898,6 +914,7 @@ describe('foods and nutrition integration', () => {
       expect(afterSecondUseResponse.statusCode).toBe(200);
       const secondUseFood = parseData<StoredFood[]>(afterSecondUseResponse)[0];
       expect((secondUseFood?.lastUsedAt ?? 0) - (firstUseFood?.lastUsedAt ?? 0)).toBeGreaterThan(0);
+      expect(secondUseFood?.usageCount).toBe(2);
     } finally {
       await app.close();
     }

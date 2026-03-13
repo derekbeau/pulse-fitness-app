@@ -36,13 +36,48 @@ export const agentCreateFoodInputSchema = z.object({
   notes: z.string().trim().nullable().optional(),
 });
 
-export const agentMealItemInputSchema = z.object({
-  foodName: requiredText(),
-  quantity: z.number().positive().finite(),
-  unit: z.string().trim().min(1).max(50).default('serving'),
-  displayQuantity: z.number().positive().finite().optional(),
-  displayUnit: z.string().trim().min(1).max(50).optional(),
-});
+export const agentMealItemInputSchema = z
+  .object({
+    foodName: requiredText(),
+    quantity: z.number().positive().finite(),
+    unit: z.string().trim().min(1).max(50).default('serving'),
+    displayQuantity: z.number().positive().finite().optional(),
+    displayUnit: z.string().trim().min(1).max(50).optional(),
+    adhoc: z.boolean().optional(),
+    saveToFoods: z.boolean().optional(),
+    calories: z.number().nonnegative().finite().optional(),
+    protein: z.number().nonnegative().finite().optional(),
+    carbs: z.number().nonnegative().finite().optional(),
+    fat: z.number().nonnegative().finite().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.adhoc !== undefined &&
+      value.saveToFoods !== undefined &&
+      value.adhoc === value.saveToFoods
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '`adhoc` and `saveToFoods` are aliases; provide at most one',
+      });
+    }
+
+    const isAdhoc = value.adhoc === true || value.saveToFoods === false;
+
+    if (!isAdhoc) {
+      return;
+    }
+
+    for (const field of ['calories', 'protein', 'carbs', 'fat'] as const) {
+      if (value[field] === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} is required when logging an ad-hoc meal item`,
+        });
+      }
+    }
+  });
 
 export const agentCreateMealInputSchema = z.object({
   name: requiredText(120),
@@ -146,7 +181,7 @@ export const agentCreateExerciseInputSchema = z.object({
   muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
   equipment: requiredText().optional(),
   coachingNotes: optionalText(8000),
-  relatedExerciseIds: z.array(requiredText()).max(200).optional().default([]),
+  relatedExerciseIds: z.array(requiredText()).max(20).optional().default([]),
   force: z.boolean().optional().default(false),
 });
 
@@ -159,7 +194,7 @@ export const agentPatchExerciseInputSchema = z
     trackingType: exerciseTrackingTypeSchema.optional(),
     instructions: optionalText(4000),
     coachingNotes: optionalText(8000),
-    relatedExerciseIds: z.array(requiredText()).max(200).optional(),
+    relatedExerciseIds: z.array(requiredText()).max(20).optional(),
     formCues: z.array(requiredText(500)).max(50).optional(),
     tags: z.array(requiredText()).max(20).optional(),
   })
