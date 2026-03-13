@@ -289,17 +289,6 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     notes: set.notes,
   }));
 
-export const allSessionExercisesAccessible = async ({
-  userId,
-  exerciseIds,
-}: {
-  userId: string;
-  exerciseIds: string[];
-}): Promise<boolean> => {
-  const invalidExerciseIds = await findInvalidSessionExerciseIds({ userId, exerciseIds });
-  return invalidExerciseIds.length === 0;
-};
-
 export const findInvalidSessionExerciseIds = async ({
   userId,
   exerciseIds,

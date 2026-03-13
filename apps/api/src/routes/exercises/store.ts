@@ -194,6 +194,7 @@ export const listExercises = async ({
 
 export const listExerciseFilters = async (userId: string): Promise<ExerciseFilters> => {
   const { db } = await import('../../db/index.js');
+  const whereClause = buildListWhereClause({ userId });
 
   const visibleExercises = await db
     .select({
@@ -201,9 +202,7 @@ export const listExerciseFilters = async (userId: string): Promise<ExerciseFilte
       equipment: exercises.equipment,
     })
     .from(exercises)
-    .where(
-      or(isNull(exercises.userId), and(eq(exercises.userId, userId), isNull(exercises.deletedAt))),
-    )
+    .where(whereClause)
     .all();
 
   return {

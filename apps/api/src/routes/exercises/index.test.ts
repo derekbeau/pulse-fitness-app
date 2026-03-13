@@ -698,6 +698,11 @@ describe('exercise routes', () => {
       url: '/api/v1/exercises?page=1&limit=20',
       headers: createAuthorizationHeader(authToken),
     });
+    const filtersResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/filters',
+      headers: createAuthorizationHeader(authToken),
+    });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
@@ -709,6 +714,14 @@ describe('exercise routes', () => {
         page: 1,
         limit: 20,
         total: 2,
+      },
+    });
+
+    expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.json()).toEqual({
+      data: {
+        muscleGroups: ['hamstrings', 'quads'],
+        equipment: ['barbell', 'machine'],
       },
     });
   });

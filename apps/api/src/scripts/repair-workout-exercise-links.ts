@@ -144,6 +144,8 @@ const listOrphanRows = (userId: string | null): OrphanLinkRow[] => {
         )
       `,
     )
+    // Positional bindings:
+    // 1-2 => session_sets user filter, 3-4 => template_exercises user filter.
     .all(userId, userId, userId, userId) as Array<{
     source: LinkSource;
     row_id: string;
@@ -267,6 +269,7 @@ const createPlaceholderExercise = ({
       ) values (?, ?, ?, json('[]'), 'unknown', 'compound', 'weight_reps', json('[]'), json('[]'), null)
       `,
     )
+    // Use 'compound' as a neutral fallback for unknown legacy exercises.
     .run(id, ownerUserId, exerciseName);
 
   return id;
@@ -276,15 +279,18 @@ export const repairWorkoutExerciseLinks = async (
   options: RepairWorkoutExerciseLinksOptions,
   logger: Logger = console,
 ): Promise<RepairWorkoutExerciseLinksResult> => {
-  const orphanRows = listOrphanRows(options.userId);
-  const results: RepairResultRow[] = [];
-
   if (options.dryRun) {
     sqlite.exec('BEGIN');
   }
 
+  const results: RepairResultRow[] = [];
+
   try {
+    const orphanRows = listOrphanRows(options.userId);
+
     for (const row of orphanRows) {
+      const crossUserReference =
+        row.exerciseUserId !== null && row.exerciseUserId !== row.ownerUserId;
       const canRestoreOriginal =
         row.exerciseDeletedAt !== null &&
         (row.exerciseUserId === null || row.exerciseUserId === row.ownerUserId);
@@ -330,7 +336,9 @@ export const repairWorkoutExerciseLinks = async (
             previousExerciseId: row.exerciseId,
             nextExerciseId: candidate.id,
             action: 'relinked-by-name',
-            note: 'Relinked by exercise name match.',
+            note: crossUserReference
+              ? 'Cross-user reference detected; relinked by exercise name match for owner scope.'
+              : 'Relinked by exercise name match.',
           });
         } catch (error) {
           results.push({
@@ -364,7 +372,9 @@ export const repairWorkoutExerciseLinks = async (
           previousExerciseId: row.exerciseId,
           nextExerciseId: placeholderId,
           action: 'created-placeholder',
-          note: 'Created placeholder exercise and relinked orphan row.',
+          note: crossUserReference
+            ? 'Cross-user reference detected; created owner-scoped placeholder and relinked orphan row.'
+            : 'Created placeholder exercise and relinked orphan row.',
         });
       } catch (error) {
         results.push({

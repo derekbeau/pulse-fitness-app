@@ -2480,7 +2480,7 @@ describe('workout session routes', () => {
     expect(unavailableExerciseResponse.json()).toEqual({
       error: {
         code: 'INVALID_SESSION_EXERCISE',
-        message: 'Session references one or more unavailable exercises',
+        message: 'Session references one or more unavailable exercises: user-2-private-row',
       },
     });
 

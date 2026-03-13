@@ -77,6 +77,15 @@ describe('repair-workout-exercise-links script', () => {
         passwordHash: 'test',
       })
       .run();
+    context.db
+      .insert(users)
+      .values({
+        id: 'user-2',
+        username: 'alex',
+        name: 'Alex',
+        passwordHash: 'test',
+      })
+      .run();
 
     context.db
       .insert(workoutSessions)
@@ -242,5 +251,78 @@ describe('repair-workout-exercise-links script', () => {
       .where(eq(sessionSets.id, 'set-dry'))
       .get();
     expect(persisted).toEqual({ exerciseId: 'dry-run-link' });
+  });
+
+  it('annotates cross-user references when relinking by name', async () => {
+    context.db
+      .insert(exercises)
+      .values({
+        id: 'cross-user-source',
+        userId: 'user-2',
+        name: 'Shared Name Curl',
+        muscleGroups: ['biceps'],
+        equipment: 'dumbbell',
+        category: 'isolation',
+        trackingType: 'weight_reps',
+        tags: [],
+        formCues: [],
+        instructions: null,
+      })
+      .run();
+    context.db
+      .insert(exercises)
+      .values({
+        id: 'owner-candidate',
+        userId: 'user-1',
+        name: 'Shared Name Curl',
+        muscleGroups: ['biceps'],
+        equipment: 'dumbbell',
+        category: 'isolation',
+        trackingType: 'weight_reps',
+        tags: [],
+        formCues: [],
+        instructions: null,
+      })
+      .run();
+
+    context.db
+      .insert(sessionSets)
+      .values({
+        id: 'set-cross-user',
+        sessionId: 'session-1',
+        exerciseId: 'cross-user-source',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: 30,
+        reps: 10,
+        completed: false,
+        skipped: false,
+        section: 'main',
+        notes: null,
+      })
+      .run();
+
+    const result = await repairWorkoutExerciseLinks({
+      userId: 'user-1',
+      dryRun: false,
+    });
+
+    expect(result.orphanCount).toBe(1);
+    expect(result.repairedCount).toBe(1);
+    expect(result.results[0]).toMatchObject({
+      source: 'session_sets',
+      rowId: 'set-cross-user',
+      action: 'relinked-by-name',
+      previousExerciseId: 'cross-user-source',
+      nextExerciseId: 'owner-candidate',
+    });
+    expect(result.results[0]?.note).toContain('Cross-user reference detected');
+
+    const repaired = context.db
+      .select({ exerciseId: sessionSets.exerciseId })
+      .from(sessionSets)
+      .where(eq(sessionSets.id, 'set-cross-user'))
+      .get();
+    expect(repaired).toEqual({ exerciseId: 'owner-candidate' });
   });
 });

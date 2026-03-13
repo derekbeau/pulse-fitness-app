@@ -21,7 +21,6 @@ import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
 
 import {
-  allSessionExercisesAccessible,
   batchUpsertSessionSets,
   createSessionSet,
   createWorkoutSession,
@@ -110,9 +109,8 @@ const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
 
 const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
-  const dedupedIds = [...new Set(invalidExerciseIds)];
-  const preview = dedupedIds.slice(0, 3).join(', ');
-  const suffix = dedupedIds.length > 3 ? ', ...' : '';
+  const preview = invalidExerciseIds.slice(0, 3).join(', ');
+  const suffix = invalidExerciseIds.length > 3 ? ', ...' : '';
   return `${INVALID_SESSION_EXERCISE_RESPONSE.message}: ${preview}${suffix}`;
 };
 
@@ -242,16 +240,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    const exercisesAccessible = await allSessionExercisesAccessible({
+    const invalidExerciseIds = await findInvalidSessionExerciseIds({
       userId: request.userId,
       exerciseIds: getReferencedExerciseIds(parsedBody.data.sets),
     });
-    if (!exercisesAccessible) {
+    if (invalidExerciseIds.length > 0) {
       return sendError(
         reply,
         400,
         INVALID_SESSION_EXERCISE_RESPONSE.code,
-        INVALID_SESSION_EXERCISE_RESPONSE.message,
+        buildInvalidExerciseMessage(invalidExerciseIds),
       );
     }
 
