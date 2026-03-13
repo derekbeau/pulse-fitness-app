@@ -687,12 +687,6 @@ export function useSwapSessionExercise() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(variables.sessionId),
         }),
-        queryClient.invalidateQueries({
-          queryKey: ['workout-sessions'],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['workout-sessions', variables.sessionId],
-        }),
       ]);
     },
   });

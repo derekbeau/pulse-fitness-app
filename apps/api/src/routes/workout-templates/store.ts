@@ -501,6 +501,8 @@ export const swapWorkoutTemplateExercise = async ({
       .where(
         and(
           eq(templateExercises.templateId, templateId),
+          // Route-level duplicate guards assume one row per (templateId, exerciseId).
+          // Legacy duplicates would all update together until a row-id-based swap is introduced.
           eq(templateExercises.exerciseId, exerciseId),
         ),
       )

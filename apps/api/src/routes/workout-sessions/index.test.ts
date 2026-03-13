@@ -953,7 +953,7 @@ describe('workout session routes', () => {
     expect(response.json()).toEqual({
       error: {
         code: 'WORKOUT_SESSION_NOT_SWAPPABLE',
-        message: 'Workout session must be planned or in progress to swap exercises',
+        message: 'Workout session must be planned, in progress, or paused to swap exercises',
       },
     });
   });

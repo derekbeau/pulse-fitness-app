@@ -947,6 +947,7 @@ export const swapWorkoutSessionExercise = async ({
       .set({
         exerciseId: newExerciseId,
       })
+      // Session swaps intentionally replace every set tied to the source exercise across sections.
       .where(and(eq(sessionSets.sessionId, sessionId), eq(sessionSets.exerciseId, exerciseId)))
       .run();
 

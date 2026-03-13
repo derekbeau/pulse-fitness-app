@@ -73,7 +73,7 @@ const WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE = {
 
 const WORKOUT_SESSION_NOT_SWAPPABLE_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_SWAPPABLE',
-  message: 'Workout session must be planned or in progress to swap exercises',
+  message: 'Workout session must be planned, in progress, or paused to swap exercises',
 } as const;
 
 const WORKOUT_SESSION_EXERCISE_NOT_FOUND_RESPONSE = {
@@ -881,7 +881,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      if (existingSession.status !== 'scheduled' && existingSession.status !== 'in-progress') {
+      if (
+        existingSession.status !== 'scheduled' &&
+        existingSession.status !== 'in-progress' &&
+        existingSession.status !== 'paused'
+      ) {
         return sendError(
           reply,
           409,

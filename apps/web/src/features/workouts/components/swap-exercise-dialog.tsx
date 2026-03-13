@@ -41,6 +41,7 @@ export function SwapExerciseDialog({
     {
       limit: 100,
       page: 1,
+      q: search.trim() ? search.trim() : undefined,
     },
     {
       enabled: open,
@@ -52,11 +53,11 @@ export function SwapExerciseDialog({
     swapTemplateExerciseMutation.isPending || swapSessionExerciseMutation.isPending;
   const selectedExerciseId = useMemo(() => {
     if (swapTemplateExerciseMutation.isPending) {
-      return swapTemplateExerciseMutation.variables?.newExerciseId;
+      return swapTemplateExerciseMutation.variables?.newExerciseId ?? null;
     }
 
     if (swapSessionExerciseMutation.isPending) {
-      return swapSessionExerciseMutation.variables?.newExerciseId;
+      return swapSessionExerciseMutation.variables?.newExerciseId ?? null;
     }
 
     return null;
@@ -127,7 +128,7 @@ export function SwapExerciseDialog({
 
       toast.success(`Swapped ${sourceExerciseName} → ${targetExercise.name}`);
       if (payload.meta?.warning) {
-        toast(payload.meta.warning);
+        toast.warning(payload.meta.warning);
       }
       onOpenChange(false);
     } catch (error) {
