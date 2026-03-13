@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, ListChecks, MoreVertical, Search, Tag } from 'lucide-react';
+import { ArrowRight, ListChecks, MoreVertical, Search, Tag, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
@@ -35,6 +35,7 @@ import {
   formatWorkoutConflictDescription,
   getDayWorkoutConflicts,
 } from '@/features/workouts/lib/day-workout-conflicts';
+import { normalizeTemplateTag } from '@/features/workouts/lib/template-tags';
 
 // Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
 interface TemplateSummary {
@@ -59,6 +60,7 @@ export function TemplateBrowser({
   const [searchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -72,9 +74,35 @@ export function TemplateBrowser({
       : toDateKey(new Date());
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+
+    templates.forEach((template) => {
+      template.tags.forEach((tag) => {
+        const normalizedTag = normalizeTemplateTag(tag);
+        if (normalizedTag) {
+          tagSet.add(normalizedTag);
+        }
+      });
+    });
+
+    return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
+  }, [templates]);
+
+  const activeSelectedTags = useMemo(
+    () => selectedTags.filter((tag) => availableTags.includes(tag)),
+    [availableTags, selectedTags],
+  );
+
   const filteredTemplates = useMemo(
     () =>
       templates.filter((template) => {
+        const templateTags = template.tags.map((tag) => normalizeTemplateTag(tag));
+        const matchesTags = activeSelectedTags.every((tag) => templateTags.includes(tag));
+        if (!matchesTags) {
+          return false;
+        }
+
         if (!normalizedQuery) {
           return true;
         }
@@ -86,7 +114,7 @@ export function TemplateBrowser({
 
         return searchableText.includes(normalizedQuery);
       }),
-    [normalizedQuery, templates],
+    [activeSelectedTags, normalizedQuery, templates],
   );
 
   const trimmedRenameValue = renameValue.trim();
@@ -128,6 +156,12 @@ export function TemplateBrowser({
     });
   }
 
+  function toggleTagFilter(tag: string) {
+    setSelectedTags((current) =>
+      current.includes(tag) ? current.filter((value) => value !== tag) : [...current, tag],
+    );
+  }
+
   return (
     <section className={cn('space-y-4', className)}>
       <div className="space-y-2">
@@ -154,6 +188,47 @@ export function TemplateBrowser({
         />
       </label>
 
+      {availableTags.length > 0 ? (
+        <div className="space-y-2" role="group" aria-label="Filter templates by tag">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-muted">Filter by tags</p>
+            {activeSelectedTags.length > 0 ? (
+              <Button
+                className="h-7 px-2 text-xs"
+                onClick={() => setSelectedTags([])}
+                type="button"
+                variant="ghost"
+              >
+                <X aria-hidden="true" className="size-3.5" />
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availableTags.map((tag) => {
+              const isSelected = selectedTags.includes(tag);
+              return (
+                <Button
+                  aria-label={`Filter by tag ${formatLabel(tag)}`}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    'h-7 rounded-full px-3 text-xs',
+                    isSelected && 'border-primary bg-primary/10 text-primary',
+                  )}
+                  key={tag}
+                  onClick={() => toggleTagFilter(tag)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {formatLabel(tag)}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {templates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
@@ -163,7 +238,7 @@ export function TemplateBrowser({
       ) : filteredTemplates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
-            <p className="text-sm text-muted">No templates match that search.</p>
+            <p className="text-sm text-muted">No templates match the selected filters.</p>
           </CardContent>
         </Card>
       ) : (
@@ -273,66 +348,67 @@ export function TemplateBrowser({
         </div>
       )}
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setRenameTarget(null);
-          }
-        }}
-        open={renameTarget != null}
-      >
+      <Dialog onOpenChange={(open) => !open && setRenameTarget(null)} open={renameTarget !== null}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename template</DialogTitle>
             <DialogDescription>Update the template name.</DialogDescription>
           </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!renameTarget || !canSubmitRename) {
-                return;
-              }
-
-              renameTemplateMutation.mutate(
-                {
-                  id: renameTarget.id,
-                  name: trimmedRenameValue,
-                },
-                {
-                  onError: (error) => {
-                    const message =
-                      error instanceof ApiError ? error.message : 'Unable to rename template.';
-                    toast.error(message);
-                  },
-                  onSuccess: () => {
-                    setRenameTarget(null);
-                  },
-                },
-              );
-            }}
-          >
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="template-rename-input">
+              Template name
+            </label>
             <Input
-              aria-label="Template name"
               autoFocus
+              id="template-rename-input"
               onChange={(event) => setRenameValue(event.target.value)}
               value={renameValue}
             />
-            <DialogFooter>
-              <Button onClick={() => setRenameTarget(null)} type="button" variant="ghost">
-                Cancel
-              </Button>
-              <Button disabled={!canSubmitRename} type="submit">
-                {renameTemplateMutation.isPending ? 'Saving...' : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setRenameTarget(null);
+              }}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!canSubmitRename}
+              onClick={() => {
+                if (!renameTarget) {
+                  return;
+                }
+
+                renameTemplateMutation.mutate(
+                  {
+                    id: renameTarget.id,
+                    name: trimmedRenameValue,
+                  },
+                  {
+                    onError: (error) => {
+                      const message =
+                        error instanceof ApiError ? error.message : 'Unable to rename template.';
+                      toast.error(message);
+                    },
+                    onSuccess: () => {
+                      setRenameTarget(null);
+                    },
+                  },
+                );
+              }}
+              type="button"
+            >
+              {renameTemplateMutation.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {dialog}
       <ScheduleWorkoutDialog
-        description={`Pick a date for ${scheduleTarget?.name ?? 'this workout'}.`}
+        description={`Pick a date for ${scheduleTarget?.name ?? 'this template'}.`}
         initialDate={scheduleInitialDate}
         isPending={scheduleWorkoutMutation.isPending}
         onOpenChange={(open) => {
@@ -340,25 +416,29 @@ export function TemplateBrowser({
             setScheduleTarget(null);
           }
         }}
-        onSubmitDate={async (date) => {
+        onSubmitDate={async (dateKey: string) => {
           if (!scheduleTarget) {
             return;
           }
 
-          const shouldCreateAnother = await confirmDuplicateDayWorkouts(date);
-          if (!shouldCreateAnother) {
+          const shouldProceed = await confirmDuplicateDayWorkouts(dateKey);
+          if (!shouldProceed) {
             return;
           }
 
           await scheduleWorkoutMutation.mutateAsync({
-            date,
+            date: dateKey,
             templateId: scheduleTarget.id,
           });
+
+          setScheduleTarget(null);
         }}
-        open={scheduleTarget != null}
+        open={scheduleTarget !== null}
         submitLabel="Schedule"
         title="Schedule workout"
       />
+
+      {dialog}
     </section>
   );
 }
@@ -369,8 +449,8 @@ function countTemplateExercises(template: TemplateSummary) {
 
 function formatLabel(value: string) {
   return value
-    .split(/[- ]+/)
+    .split(/[-\s]+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
     .join(' ');
 }
