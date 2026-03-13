@@ -297,18 +297,18 @@ const buildWorkoutSessionExercises = (
 
   return Array.from(groupedByExercise.values())
     .sort((left, right) => {
-    const leftSectionIndex =
-      left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
-    const rightSectionIndex =
-      right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
+      const leftSectionIndex =
+        left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
+      const rightSectionIndex =
+        right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
 
-    if (leftSectionIndex !== rightSectionIndex) {
-      return leftSectionIndex - rightSectionIndex;
-    }
+      if (leftSectionIndex !== rightSectionIndex) {
+        return leftSectionIndex - rightSectionIndex;
+      }
 
-    if (left.orderIndex !== right.orderIndex) {
-      return left.orderIndex - right.orderIndex;
-    }
+      if (left.orderIndex !== right.orderIndex) {
+        return left.orderIndex - right.orderIndex;
+      }
 
       return left.exerciseName.localeCompare(right.exerciseName);
     })
@@ -755,7 +755,7 @@ export const findWorkoutSessionById = async (
             instructions: exercises.instructions,
           })
           .from(exercises)
-          .where(inArray(exercises.id, uniqueExerciseIds))
+          .where(and(inArray(exercises.id, uniqueExerciseIds), isNull(exercises.deletedAt)))
           .all();
   const exerciseInfoById = new Map(
     exerciseNameRows.map((row) => [

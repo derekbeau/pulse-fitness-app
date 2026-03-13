@@ -581,6 +581,68 @@ describe('workout session routes', () => {
     });
   });
 
+  it('omits metadata from soft-deleted exercises in session detail responses', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-soft-deleted',
+      userId: 'user-1',
+      name: 'Deleted Exercise',
+      trackingType: 'seconds_only',
+      formCues: ['This should not be returned'],
+      coachingNotes: 'Should be hidden',
+      instructions: 'Should be hidden',
+    });
+    seedWorkoutSession({
+      id: 'session-soft-deleted-exercise',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_000_000,
+    });
+    seedSessionSet({
+      id: 'set-soft-deleted-1',
+      sessionId: 'session-soft-deleted-exercise',
+      exerciseId: 'user-1-soft-deleted',
+      setNumber: 1,
+      reps: 30,
+      section: 'main',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(exercises.id, 'user-1-soft-deleted'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-soft-deleted-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-soft-deleted-exercise',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'user-1-soft-deleted',
+            exerciseName: 'Unknown Exercise',
+            trackingType: null,
+            exercise: {
+              formCues: [],
+              coachingNotes: null,
+              instructions: null,
+            },
+          }),
+        ]),
+      }),
+    });
+  });
+
   it('reorders active session exercises by updating set orderIndex while preserving set data', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

@@ -47,6 +47,17 @@ type BuildActiveWorkoutSessionOptions = {
   sessions?: WorkoutSession[];
 };
 
+type TemplateExerciseMetadata = {
+  formCues?: string[] | null;
+  coachingNotes?: string | null;
+  instructions?: string | null;
+};
+
+type WorkoutTemplateExerciseWithMetadata = WorkoutTemplateExercise & {
+  exercise?: TemplateExerciseMetadata | null;
+  programmingNotes?: string | null;
+};
+
 export function buildActiveWorkoutSession(
   template: WorkoutTemplate,
   setDrafts: ActiveWorkoutSetDrafts,
@@ -64,6 +75,8 @@ export function buildActiveWorkoutSession(
       exerciseOrderBySection?.[section.type],
     );
     const exercises = orderedTemplateExercises.map((templateExercise): ActiveWorkoutExercise => {
+      const templateExerciseWithMetadata =
+        templateExercise as WorkoutTemplateExerciseWithMetadata;
       const exercise = exerciseById.get(templateExercise.exerciseId);
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
       const trackingType = resolveTrackingType({
@@ -78,20 +91,23 @@ export function buildActiveWorkoutSession(
       return {
         badges: templateExercise.badges,
         category: exercise?.category ?? 'compound',
-        coachingNotes: null,
+        coachingNotes: templateExerciseWithMetadata.exercise?.coachingNotes ?? null,
         completedSets,
-        formCues: templateExercise.formCues,
+        formCues:
+          templateExerciseWithMetadata.exercise?.formCues ??
+          templateExercise.formCues ??
+          [],
         templateCues: templateExercise.templateCues ?? [],
         id: templateExercise.exerciseId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
-        instructions: null,
+        instructions: templateExerciseWithMetadata.exercise?.instructions ?? null,
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
         name: exercise?.name ?? templateExercise.exerciseName ?? 'Unknown Exercise',
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
-        programmingNotes: null,
+        programmingNotes: templateExerciseWithMetadata.programmingNotes ?? null,
         prescribedReps: templateExercise.reps,
         priority: enhancedExercise?.priority ?? 'required',
         restSeconds: templateExercise.restSeconds,
