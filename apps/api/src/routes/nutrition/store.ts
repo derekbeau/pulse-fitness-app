@@ -1,6 +1,12 @@
-import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
-import type { CreateMealInput, PatchMealInput, PatchMealItemInput } from '@pulse/shared';
+import type {
+  CreateMealInput,
+  NutritionWeekDaySummary,
+  NutritionWeekSummary,
+  PatchMealInput,
+  PatchMealItemInput,
+} from '@pulse/shared';
 
 import { foods, mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
 
@@ -67,6 +73,8 @@ export type NutritionSummaryRecord = {
   } | null;
 };
 
+const WEEK_DAYS = 7;
+
 const nutritionLogSelection = {
   id: nutritionLogs.id,
   userId: nutritionLogs.userId,
@@ -121,6 +129,50 @@ const nutritionTargetMacroSelection = {
 };
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
+
+const clampToUnitRange = (value: number) => Math.max(0, Math.min(1, value));
+
+const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+
+const addUtcDays = (date: Date, days: number) => {
+  const nextDate = new Date(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate;
+};
+
+const getWeekStartMonday = (date: Date) => {
+  const day = date.getUTCDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  return addUtcDays(date, offset);
+};
+
+export const calculateNutritionCompleteness = (input: {
+  calories: number;
+  caloriesTarget: number;
+  protein: number;
+  proteinTarget: number;
+  mealCount: number;
+}): number => {
+  if (input.mealCount <= 0) {
+    return 0;
+  }
+
+  const ratios: number[] = [];
+
+  if (input.caloriesTarget > 0) {
+    ratios.push(input.calories / input.caloriesTarget);
+  }
+  if (input.proteinTarget > 0) {
+    ratios.push(input.protein / input.proteinTarget);
+  }
+
+  if (ratios.length === 0) {
+    return 0;
+  }
+
+  const averageRatio = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  return clampToUnitRange(averageRatio);
+};
 
 export const createMealForDate = async (
   userId: string,
@@ -312,6 +364,101 @@ export const getDailyNutritionSummaryForDate = async (
         }
       : null,
   };
+};
+
+export const getNutritionWeekSummaryForDate = async (
+  userId: string,
+  centerDate: Date,
+): Promise<NutritionWeekSummary> => {
+  const { db } = await import('../../db/index.js');
+
+  const normalizedCenterDate = new Date(
+    Date.UTC(centerDate.getUTCFullYear(), centerDate.getUTCMonth(), centerDate.getUTCDate()),
+  );
+  const weekStart = getWeekStartMonday(normalizedCenterDate);
+  const weekDates = Array.from({ length: WEEK_DAYS }, (_unused, index) =>
+    toDateKey(addUtcDays(weekStart, index)),
+  );
+  const weekFrom = toDateKey(weekStart);
+  const weekTo = toDateKey(addUtcDays(weekStart, WEEK_DAYS - 1));
+
+  const actualRows = db
+    .select({
+      date: nutritionLogs.date,
+      calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
+      protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
+      mealCount: sql<number>`count(distinct ${meals.id})`,
+    })
+    .from(nutritionLogs)
+    .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+    .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
+    .where(and(eq(nutritionLogs.userId, userId), between(nutritionLogs.date, weekFrom, weekTo)))
+    .groupBy(nutritionLogs.date)
+    .all();
+
+  const targetRows = db
+    .select({
+      effectiveDate: nutritionTargets.effectiveDate,
+      calories: nutritionTargets.calories,
+      protein: nutritionTargets.protein,
+    })
+    .from(nutritionTargets)
+    .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, weekTo)))
+    .orderBy(desc(nutritionTargets.effectiveDate))
+    .limit(WEEK_DAYS + 1)
+    .all();
+  const targetRowsAsc = targetRows.reverse();
+
+  const actualByDate = new Map(
+    actualRows.map((row) => [
+      row.date,
+      {
+        calories: Number(row.calories ?? 0),
+        protein: Number(row.protein ?? 0),
+        mealCount: Number(row.mealCount ?? 0),
+      },
+    ]),
+  );
+
+  const targetsByDate = new Map<string, { calories: number; protein: number }>();
+  let targetIndex = 0;
+  let currentTarget: { calories: number; protein: number } = { calories: 0, protein: 0 };
+
+  for (const date of weekDates) {
+    while (
+      targetIndex < targetRowsAsc.length &&
+      targetRowsAsc[targetIndex]?.effectiveDate <= date
+    ) {
+      const target = targetRowsAsc[targetIndex];
+      currentTarget = {
+        calories: Number(target.calories),
+        protein: Number(target.protein),
+      };
+      targetIndex += 1;
+    }
+    targetsByDate.set(date, currentTarget);
+  }
+
+  return weekDates.map<NutritionWeekDaySummary>((date) => {
+    const actual = actualByDate.get(date) ?? { calories: 0, protein: 0, mealCount: 0 };
+    const target = targetsByDate.get(date) ?? { calories: 0, protein: 0 };
+
+    return {
+      date,
+      calories: actual.calories,
+      caloriesTarget: target.calories,
+      protein: actual.protein,
+      proteinTarget: target.protein,
+      mealCount: actual.mealCount,
+      completeness: calculateNutritionCompleteness({
+        calories: actual.calories,
+        caloriesTarget: target.calories,
+        protein: actual.protein,
+        proteinTarget: target.protein,
+        mealCount: actual.mealCount,
+      }),
+    };
+  });
 };
 
 export const deleteMealForDate = async (

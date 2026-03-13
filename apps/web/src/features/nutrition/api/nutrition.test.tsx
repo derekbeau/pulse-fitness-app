@@ -4,7 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import { nutritionKeys } from './keys';
-import { useDailyNutrition, useDeleteMeal, useNutritionSummary } from './nutrition';
+import {
+  useDailyNutrition,
+  useDeleteMeal,
+  useNutritionSummary,
+  useNutritionWeekSummary,
+} from './nutrition';
 
 const mockFetch = vi.fn();
 
@@ -116,7 +121,54 @@ describe('nutrition api hooks', () => {
     );
   });
 
-  it('deletes a meal and invalidates daily + summary cache for that date', async () => {
+  it('loads nutrition week summary for the selected date', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse(
+        Array.from({ length: 7 }, (_, index) => ({
+          date: `2026-03-${String(index + 2).padStart(2, '0')}`,
+          calories: 2000 + index * 10,
+          caloriesTarget: 2200,
+          protein: 160 + index,
+          proteinTarget: 180,
+          mealCount: index % 2 === 0 ? 3 : 2,
+          completeness: 0.9,
+        })),
+      ),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useNutritionWeekSummary('2026-03-06'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toHaveLength(7);
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/week-summary?date=2026-03-06T12%3A00%3A00.000Z',
+      expect.any(Object),
+    );
+  });
+
+  it('normalizes week summary request when called with an ISO timestamp', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse([]));
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useNutritionWeekSummary('2026-03-06T03:00:00.000Z'), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/week-summary?date=2026-03-06T12%3A00%3A00.000Z',
+      expect.any(Object),
+    );
+  });
+
+  it('deletes a meal and invalidates daily + summary + week-summary cache for that date', async () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse({ success: true }));
 
     const { queryClient, wrapper } = createQueryClientWrapper();
@@ -141,6 +193,9 @@ describe('nutrition api hooks', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: nutritionKeys.summary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionKeys.weekSummary('2026-03-09'),
     });
   });
 });

@@ -123,6 +123,47 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       throw new Error(`Unhandled request: ${method} ${url.pathname}`);
     }
 
+    if (method === 'GET' && pathParts.length === 4 && pathParts[3] === 'week-summary') {
+      const requestedDate = url.searchParams.get('date');
+      const parsedDate = requestedDate ? new Date(requestedDate) : null;
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+        throw new Error(`Unhandled request: ${method} ${url.pathname}${url.search}`);
+      }
+
+      const selectedDate = `${parsedDate.getUTCFullYear()}-${String(parsedDate.getUTCMonth() + 1).padStart(2, '0')}-${String(parsedDate.getUTCDate()).padStart(2, '0')}`;
+      const selectedDateValue = new Date(`${selectedDate}T00:00:00.000Z`).getTime();
+      const dayOfWeek = new Date(`${selectedDate}T00:00:00.000Z`).getUTCDay();
+      const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const mondayValue = selectedDateValue + offsetToMonday * 24 * 60 * 60 * 1000;
+
+      return createJsonResponse(
+        Array.from({ length: 7 }, (_unused, index) => {
+          const dayValue = mondayValue + index * 24 * 60 * 60 * 1000;
+          const dayDate = new Date(dayValue);
+          const date = `${dayDate.getUTCFullYear()}-${String(dayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(dayDate.getUTCDate()).padStart(2, '0')}`;
+          const dayState = state.get(date) ?? { daily: null, target: null };
+          const actual = calculateActuals(dayState.daily);
+          const mealCount = dayState.daily?.meals.length ?? 0;
+          const caloriesTarget = dayState.target?.calories ?? 0;
+          const proteinTarget = dayState.target?.protein ?? 0;
+          const completeness =
+            mealCount > 0 && caloriesTarget > 0 && proteinTarget > 0
+              ? Math.min(1, (actual.calories / caloriesTarget + actual.protein / proteinTarget) / 2)
+              : 0;
+
+          return {
+            date,
+            calories: actual.calories,
+            caloriesTarget,
+            protein: actual.protein,
+            proteinTarget,
+            mealCount,
+            completeness,
+          };
+        }),
+      );
+    }
+
     const date = pathParts[3];
     const dateState = state.get(date) ?? {
       daily: null,
@@ -387,6 +428,87 @@ describe('NutritionPage', () => {
     );
   });
 
+  it('renders week strip above date navigation and updates selected date when a strip day is tapped', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const strip = screen.getByRole('list', { name: 'Nutrition week summary' });
+    const dateNavPreviousButton = screen.getByRole('button', { name: 'Go to previous day' });
+    expect(strip.compareDocumentPosition(dateNavPreviousButton) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    expect(getMealToggleButton('Breakfast')).toBeInTheDocument();
+  });
+
+  it('shows a non-blocking fallback message when week summary fails', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      if (url.pathname === '/api/v1/nutrition/week-summary') {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'Week summary failed',
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 500,
+          },
+        );
+      }
+
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Unable to load week summary.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Daily macro totals')).toBeInTheDocument();
+    expect(screen.queryByText('Unable to load nutrition')).not.toBeInTheDocument();
+  });
+
   it('opens contextual nutrition help from the page header', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
@@ -406,7 +528,9 @@ describe('NutritionPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Nutrition help' })).toBeInTheDocument();
     expect(screen.getByText(/nutrition is read-only for meal data/i)).toBeInTheDocument();
-    expect(screen.getByText(/food definition edits later will not retroactively change/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/food definition edits later will not retroactively change/i),
+    ).toBeInTheDocument();
   });
 
   it('shows date-aware empty-state copy and go-to-today action on non-today dates', async () => {
@@ -615,7 +739,10 @@ describe('NutritionPage', () => {
 
     const didDeleteMeal = fetchMock.mock.calls.some(([input, init]) => {
       const url = new URL(String(input), 'http://localhost');
-      return url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' && init?.method === 'DELETE';
+      return (
+        url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' &&
+        init?.method === 'DELETE'
+      );
     });
     expect(didDeleteMeal).toBe(true);
   });
@@ -635,6 +762,20 @@ describe('NutritionPage', () => {
         return deferredSummary.promise;
       }
 
+      if (url.pathname === '/api/v1/nutrition/week-summary') {
+        return createJsonResponse(
+          Array.from({ length: 7 }, (_, index) => ({
+            date: `2026-03-${String(index + 2).padStart(2, '0')}`,
+            calories: 0,
+            caloriesTarget: TARGETS.calories,
+            protein: 0,
+            proteinTarget: TARGETS.protein,
+            mealCount: 0,
+            completeness: 0,
+          })),
+        );
+      }
+
       throw new Error(`Unhandled request: ${url.pathname}`);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -645,6 +786,7 @@ describe('NutritionPage', () => {
     expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition meals')).toBeInTheDocument();
+    expect(screen.getByLabelText('Loading nutrition week strip')).toBeInTheDocument();
     expect(screen.getAllByTestId('meal-card-skeleton')).toHaveLength(4);
   });
 

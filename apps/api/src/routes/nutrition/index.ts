@@ -1,4 +1,8 @@
-import { createMealInputSchema, patchMealInputSchema, patchMealItemInputSchema } from '@pulse/shared';
+import {
+  createMealInputSchema,
+  patchMealInputSchema,
+  patchMealItemInputSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
@@ -12,6 +16,7 @@ import {
   findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  getNutritionWeekSummaryForDate,
   patchMealById,
   patchMealItemById,
 } from './store.js';
@@ -31,8 +36,34 @@ const isValidItemIdParam = (itemId: string) => itemId.trim().length > 0;
 const isNonEmptyString = (value: string | null): value is string =>
   typeof value === 'string' && value.length > 0;
 
+const parseIsoDate = (value: unknown): Date | null => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+};
+
 export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+
+  app.get<{ Querystring: { date?: string } }>('/week-summary', async (request, reply) => {
+    const parsedDate = parseIsoDate(request.query.date);
+    if (!parsedDate) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition week date');
+    }
+
+    const summary = await getNutritionWeekSummaryForDate(request.userId, parsedDate);
+
+    return reply.send({
+      data: summary,
+    });
+  });
 
   app.post<{ Params: { date: string } }>('/:date/meals', async (request, reply) => {
     if (!isValidDateParam(request.params.date)) {
@@ -124,7 +155,11 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      const updatedMeal = await patchMealById(request.userId, request.params.mealId, parsedBody.data);
+      const updatedMeal = await patchMealById(
+        request.userId,
+        request.params.mealId,
+        parsedBody.data,
+      );
       if (!updatedMeal) {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }

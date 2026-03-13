@@ -10,6 +10,7 @@ import {
   findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  getNutritionWeekSummaryForDate,
   patchMealById,
   patchMealItemById,
 } from './store.js';
@@ -21,6 +22,7 @@ vi.mock('./store.js', () => ({
   findMealItemForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
+  getNutritionWeekSummaryForDate: vi.fn(),
   patchMealById: vi.fn(),
   patchMealItemById: vi.fn(),
 }));
@@ -117,6 +119,72 @@ const nutritionSummary = {
   },
 };
 
+const nutritionWeekSummary = [
+  {
+    date: '2026-03-02',
+    calories: 1900,
+    caloriesTarget: 2200,
+    protein: 160,
+    proteinTarget: 180,
+    mealCount: 3,
+    completeness: 0.88,
+  },
+  {
+    date: '2026-03-03',
+    calories: 0,
+    caloriesTarget: 2200,
+    protein: 0,
+    proteinTarget: 180,
+    mealCount: 0,
+    completeness: 0,
+  },
+  {
+    date: '2026-03-04',
+    calories: 2200,
+    caloriesTarget: 2200,
+    protein: 180,
+    proteinTarget: 180,
+    mealCount: 4,
+    completeness: 1,
+  },
+  {
+    date: '2026-03-05',
+    calories: 2100,
+    caloriesTarget: 2200,
+    protein: 172,
+    proteinTarget: 180,
+    mealCount: 3,
+    completeness: 0.95,
+  },
+  {
+    date: '2026-03-06',
+    calories: 2050,
+    caloriesTarget: 2200,
+    protein: 170,
+    proteinTarget: 180,
+    mealCount: 3,
+    completeness: 0.93,
+  },
+  {
+    date: '2026-03-07',
+    calories: 1800,
+    caloriesTarget: 2200,
+    protein: 150,
+    proteinTarget: 180,
+    mealCount: 2,
+    completeness: 0.83,
+  },
+  {
+    date: '2026-03-08',
+    calories: 1750,
+    caloriesTarget: 2200,
+    protein: 145,
+    proteinTarget: 180,
+    mealCount: 2,
+    completeness: 0.8,
+  },
+];
+
 describe('nutrition routes', () => {
   beforeEach(() => {
     vi.mocked(createMealForDate).mockReset();
@@ -125,6 +193,7 @@ describe('nutrition routes', () => {
     vi.mocked(findMealItemForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
+    vi.mocked(getNutritionWeekSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
     vi.mocked(updateFoodLastUsedAt).mockReset();
@@ -337,6 +406,32 @@ describe('nutrition routes', () => {
         2,
         'user-1',
         '2026-03-10',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns week summary data for the requested center date', async () => {
+    vi.mocked(getNutritionWeekSummaryForDate).mockResolvedValueOnce(nutritionWeekSummary);
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/nutrition/week-summary?date=2026-03-06T12:00:00.000Z',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: nutritionWeekSummary,
+      });
+      expect(vi.mocked(getNutritionWeekSummaryForDate)).toHaveBeenCalledWith(
+        'user-1',
+        new Date('2026-03-06T12:00:00.000Z'),
       );
     } finally {
       await app.close();
@@ -770,6 +865,7 @@ describe('nutrition routes', () => {
         invalidDateResponse,
         invalidCalendarDateResponse,
         invalidSummaryDateResponse,
+        invalidWeekDateResponse,
         invalidPayloadResponse,
         invalidDeleteParamsResponse,
         invalidPatchMealPayloadResponse,
@@ -788,6 +884,11 @@ describe('nutrition routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/nutrition/03-09-2026/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/week-summary?date=invalid',
           headers: createAuthorizationHeader(authToken),
         }),
         app.inject({
@@ -838,6 +939,13 @@ describe('nutrition routes', () => {
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid nutrition date',
+        },
+      });
+      expect(invalidWeekDateResponse.statusCode).toBe(400);
+      expect(invalidWeekDateResponse.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid nutrition week date',
         },
       });
 
@@ -908,6 +1016,10 @@ describe('nutrition routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/nutrition/2026-03-09/summary',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/week-summary?date=2026-03-09T00:00:00.000Z',
         }),
         app.inject({
           method: 'DELETE',
