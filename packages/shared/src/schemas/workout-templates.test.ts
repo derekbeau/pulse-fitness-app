@@ -266,6 +266,29 @@ describe('createWorkoutTemplateInputSchema', () => {
         ],
       }),
     ).toThrow();
+
+    expect(() =>
+      createWorkoutTemplateInputSchema.parse({
+        name: 'Upper',
+        sections: [
+          {
+            type: 'main',
+            exercises: [
+              {
+                exerciseId: 'press',
+                setTargets: [
+                  {
+                    setNumber: 1,
+                    targetWeightMin: 200,
+                    targetWeightMax: 150,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });
 

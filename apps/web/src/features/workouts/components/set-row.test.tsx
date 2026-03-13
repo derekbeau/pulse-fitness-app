@@ -144,4 +144,20 @@ describe('SetRow', () => {
 
     expect(screen.getByText('Target 135 lbs x 45s')).toBeInTheDocument();
   });
+
+  it('prefixes cardio target hints when only one dimension exists', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={null}
+        seconds={null}
+        setNumber={1}
+        targetSeconds={45}
+        trackingType="cardio"
+      />,
+    );
+
+    expect(screen.getByText('Target 45s')).toBeInTheDocument();
+  });
 });

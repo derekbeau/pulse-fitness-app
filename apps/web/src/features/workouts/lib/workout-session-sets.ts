@@ -7,15 +7,31 @@ export function buildInitialSessionSets(template: WorkoutTemplate) {
         return [];
       }
 
-      return Array.from({ length: exercise.sets }, (_, index) => ({
-        ...(exercise.setTargets?.find((target) => target.setNumber === index + 1) ?? {}),
-        exerciseId: exercise.exerciseId,
-        orderIndex: exerciseIndex,
-        reps: null,
-        section: section.type,
-        setNumber: index + 1,
-        weight: null,
-      }));
+      return Array.from({ length: exercise.sets }, (_, index) => {
+        const target = exercise.setTargets?.find((entry) => entry.setNumber === index + 1);
+        const targetValues =
+          target !== undefined
+            ? Object.fromEntries(
+                Object.entries({
+                  targetDistance: target.targetDistance,
+                  targetSeconds: target.targetSeconds,
+                  targetWeight: target.targetWeight,
+                  targetWeightMax: target.targetWeightMax,
+                  targetWeightMin: target.targetWeightMin,
+                }).filter(([, value]) => value !== undefined),
+              )
+            : {};
+
+        return {
+          ...targetValues,
+          exerciseId: exercise.exerciseId,
+          orderIndex: exerciseIndex,
+          reps: null,
+          section: section.type,
+          setNumber: index + 1,
+          weight: null,
+        };
+      });
     }),
   );
 }

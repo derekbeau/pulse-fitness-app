@@ -36,14 +36,27 @@ const nullableRestSecondsSchema = z.number().int().min(0).max(3600).nullable();
 const nullableNonNegativeNumberSchema = z.number().min(0).nullable();
 
 export const workoutTemplateSectionTypeSchema = z.enum(['warmup', 'main', 'cooldown']);
-export const workoutTemplateExerciseSetSchema = z.object({
-  setNumber: z.number().int().min(1),
-  targetWeight: nullableNonNegativeNumberSchema.optional(),
-  targetWeightMin: nullableNonNegativeNumberSchema.optional(),
-  targetWeightMax: nullableNonNegativeNumberSchema.optional(),
-  targetSeconds: z.number().int().min(0).nullable().optional(),
-  targetDistance: nullableNonNegativeNumberSchema.optional(),
-});
+export const workoutTemplateExerciseSetSchema = z
+  .object({
+    setNumber: z.number().int().min(1),
+    targetWeight: nullableNonNegativeNumberSchema.optional(),
+    targetWeightMin: nullableNonNegativeNumberSchema.optional(),
+    targetWeightMax: nullableNonNegativeNumberSchema.optional(),
+    targetSeconds: z.number().int().min(0).nullable().optional(),
+    targetDistance: nullableNonNegativeNumberSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.targetWeightMin === undefined ||
+      value.targetWeightMin === null ||
+      value.targetWeightMax === undefined ||
+      value.targetWeightMax === null ||
+      value.targetWeightMin <= value.targetWeightMax,
+    {
+      message: 'targetWeightMin must be less than or equal to targetWeightMax',
+      path: ['targetWeightMax'],
+    },
+  );
 
 export const workoutTemplateExerciseSchema = z
   .object({

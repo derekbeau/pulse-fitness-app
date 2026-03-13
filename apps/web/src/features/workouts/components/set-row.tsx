@@ -308,14 +308,20 @@ function formatTargetHint({
       if (weightValue && secondsValue) {
         return `Target ${weightValue} x ${secondsValue}`;
       }
-      return weightValue ? `Target ${weightValue}` : (secondsValue ?? null);
+      if (weightValue) {
+        return `Target ${weightValue}`;
+      }
+      return secondsValue ? `Target ${secondsValue}` : null;
     case 'distance':
       return distanceValue ? `Target ${distanceValue}` : null;
     case 'cardio':
       if (secondsValue && distanceValue) {
         return `Target ${secondsValue} + ${distanceValue}`;
       }
-      return secondsValue ?? distanceValue;
+      if (secondsValue) {
+        return `Target ${secondsValue}`;
+      }
+      return distanceValue ? `Target ${distanceValue}` : null;
     default:
       return null;
   }
