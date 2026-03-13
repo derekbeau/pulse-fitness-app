@@ -470,6 +470,45 @@ describe('NutritionPage', () => {
     expect(getMealToggleButton('Breakfast')).toBeInTheDocument();
   });
 
+  it('shows a non-blocking fallback message when week summary fails', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      if (url.pathname === '/api/v1/nutrition/week-summary') {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'Week summary failed',
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 500,
+          },
+        );
+      }
+
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Unable to load week summary.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Daily macro totals')).toBeInTheDocument();
+    expect(screen.queryByText('Unable to load nutrition')).not.toBeInTheDocument();
+  });
+
   it('opens contextual nutrition help from the page header', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {

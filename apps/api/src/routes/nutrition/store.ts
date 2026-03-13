@@ -404,8 +404,10 @@ export const getNutritionWeekSummaryForDate = async (
     })
     .from(nutritionTargets)
     .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, weekTo)))
-    .orderBy(asc(nutritionTargets.effectiveDate))
+    .orderBy(desc(nutritionTargets.effectiveDate))
+    .limit(WEEK_DAYS + 1)
     .all();
+  const targetRowsAsc = targetRows.reverse();
 
   const actualByDate = new Map(
     actualRows.map((row) => [
@@ -418,24 +420,28 @@ export const getNutritionWeekSummaryForDate = async (
     ]),
   );
 
-  const resolveTargetForDate = (date: string) => {
-    let calories = 0;
-    let protein = 0;
-    for (const target of targetRows) {
-      if (target.effectiveDate <= date) {
-        calories = Number(target.calories);
-        protein = Number(target.protein);
-      } else {
-        break;
-      }
-    }
+  const targetsByDate = new Map<string, { calories: number; protein: number }>();
+  let targetIndex = 0;
+  let currentTarget: { calories: number; protein: number } = { calories: 0, protein: 0 };
 
-    return { calories, protein };
-  };
+  for (const date of weekDates) {
+    while (
+      targetIndex < targetRowsAsc.length &&
+      targetRowsAsc[targetIndex]?.effectiveDate <= date
+    ) {
+      const target = targetRowsAsc[targetIndex];
+      currentTarget = {
+        calories: Number(target.calories),
+        protein: Number(target.protein),
+      };
+      targetIndex += 1;
+    }
+    targetsByDate.set(date, currentTarget);
+  }
 
   return weekDates.map<NutritionWeekDaySummary>((date) => {
     const actual = actualByDate.get(date) ?? { calories: 0, protein: 0, mealCount: 0 };
-    const target = resolveTargetForDate(date);
+    const target = targetsByDate.get(date) ?? { calories: 0, protein: 0 };
 
     return {
       date,

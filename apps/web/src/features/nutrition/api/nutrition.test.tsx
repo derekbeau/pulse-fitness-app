@@ -150,6 +150,24 @@ describe('nutrition api hooks', () => {
     );
   });
 
+  it('normalizes week summary request when called with an ISO timestamp', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse([]));
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useNutritionWeekSummary('2026-03-06T03:00:00.000Z'), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/week-summary?date=2026-03-06T12%3A00%3A00.000Z',
+      expect.any(Object),
+    );
+  });
+
   it('deletes a meal and invalidates daily + summary + week-summary cache for that date', async () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse({ success: true }));
 

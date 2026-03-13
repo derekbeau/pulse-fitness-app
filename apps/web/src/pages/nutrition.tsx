@@ -169,6 +169,8 @@ export function NutritionPage() {
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
         />
+      ) : weekSummaryQuery.isError ? (
+        <p className="text-sm text-muted">Unable to load week summary.</p>
       ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

@@ -42,7 +42,7 @@ export function NutritionWeekStrip({
     >
       <div className="grid grid-cols-7 gap-1" role="list" aria-label="Nutrition week summary">
         {days.map((day, index) => {
-          const dateNumber = new Date(`${day.date}T12:00:00`).getDate();
+          const dateNumber = new Date(`${day.date}T12:00:00Z`).getUTCDate();
           const dayLabel = DAY_ABBREVIATIONS[index] ?? '·';
           const isSelected = day.date === selectedDateKey;
           const indicatorState = getIndicatorState(day.mealCount, day.completeness);
@@ -60,6 +60,7 @@ export function NutritionWeekStrip({
                 )}
                 data-selected={isSelected ? 'true' : 'false'}
                 type="button"
+                // Intentionally local time; nutrition page date state and keys are local-day based.
                 onClick={() => onSelectDate(startOfDay(new Date(`${day.date}T00:00:00`)))}
               >
                 <span className="text-[0.65rem] font-semibold uppercase tracking-[0.14em]">

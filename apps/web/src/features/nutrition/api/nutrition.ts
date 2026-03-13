@@ -28,14 +28,17 @@ const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
     signal,
   });
 
-const fetchNutritionWeekSummary = (date: string, signal?: AbortSignal) =>
-  apiRequest<NutritionWeekSummary>(
-    `/api/v1/nutrition/week-summary?date=${encodeURIComponent(`${date}T12:00:00.000Z`)}`,
+const fetchNutritionWeekSummary = (date: string, signal?: AbortSignal) => {
+  const dateOnly = date.length > 10 ? date.slice(0, 10) : date;
+
+  return apiRequest<NutritionWeekSummary>(
+    `/api/v1/nutrition/week-summary?date=${encodeURIComponent(`${dateOnly}T12:00:00.000Z`)}`,
     {
       method: 'GET',
       signal,
     },
   );
+};
 
 const deleteMeal = ({ date, mealId }: DeleteMealInput) =>
   apiRequest<DeleteMealResult>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
