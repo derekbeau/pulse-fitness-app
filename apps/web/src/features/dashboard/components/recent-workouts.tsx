@@ -24,8 +24,8 @@ function RecentWorkoutRowsSkeleton() {
     <ul className="grid gap-3" data-slot="recent-workout-skeleton-list">
       {Array.from({ length: WORKOUT_SKELETON_ROWS }).map((_, index) => (
         <li key={`workout-skeleton-${index}`}>
-          <Card className="h-full gap-4 px-4 py-4" data-slot="recent-workout-card-skeleton">
-            <div className="space-y-3">
+          <Card className="h-full gap-3 overflow-hidden px-4 py-2" data-slot="recent-workout-card-skeleton">
+            <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 space-y-2">
                   <div className="h-5 w-40 animate-pulse rounded bg-muted/50" />
@@ -33,9 +33,9 @@ function RecentWorkoutRowsSkeleton() {
                 </div>
                 <div className="h-6 w-20 animate-pulse rounded-full bg-muted/50" />
               </div>
-              <div className="flex flex-wrap gap-2">
-                <div className="h-8 w-24 animate-pulse rounded-full bg-muted/50" />
-                <div className="h-8 w-20 animate-pulse rounded-full bg-muted/50" />
+              <div className="flex flex-wrap gap-1.5">
+                <div className="h-6 w-24 animate-pulse rounded-full bg-muted/50" />
+                <div className="h-6 w-20 animate-pulse rounded-full bg-muted/50" />
               </div>
             </div>
           </Card>
@@ -61,7 +61,7 @@ export function RecentWorkouts() {
         </Button>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="overflow-hidden">
         {recentWorkoutsQuery.isLoading ? (
           <RecentWorkoutRowsSkeleton />
         ) : recentWorkoutsQuery.isError ? (
@@ -69,20 +69,20 @@ export function RecentWorkouts() {
         ) : recentWorkoutsQuery.data && recentWorkoutsQuery.data.length > 0 ? (
           <ul className="grid gap-3">
             {recentWorkoutsQuery.data.map((workout) => (
-              <li key={workout.id}>
+              <li className="min-w-0" key={workout.id}>
                 <Link
                   aria-label={`Open ${workout.name}`}
                   className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   to={`/workouts/session/${workout.id}`}
                 >
                   <Card
-                    className="h-full gap-4 px-4 py-4 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                    className="h-full gap-3 overflow-hidden px-4 py-2 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                     data-slot="recent-workout-card"
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 space-y-1">
-                          <p className="truncate text-base font-semibold text-foreground">{workout.name}</p>
+                          <p className="text-base font-semibold leading-tight text-foreground">{workout.name}</p>
                           <time className="text-sm text-muted" dateTime={workout.date}>
                             {formatWorkoutDate(workout.date)}
                           </time>
@@ -93,11 +93,11 @@ export function RecentWorkouts() {
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap gap-2 text-sm text-foreground">
-                        <span className="rounded-full bg-secondary px-3 py-1">
+                      <div className="flex min-w-0 flex-wrap gap-1.5 text-xs text-foreground sm:text-sm">
+                        <span className="rounded-full bg-secondary px-2.5 py-0.5">
                           {`${workout.exerciseCount} exercises`}
                         </span>
-                        <span className="rounded-full bg-secondary px-3 py-1">
+                        <span className="rounded-full bg-secondary px-2.5 py-0.5">
                           {workout.duration === null ? 'Duration n/a' : `${workout.duration} min`}
                         </span>
                       </div>

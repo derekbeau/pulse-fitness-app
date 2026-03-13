@@ -106,6 +106,58 @@ describe('RecentWorkouts', () => {
     });
   });
 
+  it('uses compact card spacing and inline metadata pills', () => {
+    vi.mocked(useRecentWorkouts).mockReturnValue({
+      data: recentWorkoutsFixture,
+      isLoading: false,
+    } as ReturnType<typeof useRecentWorkouts>);
+
+    const { container } = render(
+      <MemoryRouter>
+        <RecentWorkouts />
+      </MemoryRouter>,
+    );
+
+    const cards = container.querySelectorAll('[data-slot="recent-workout-card"]');
+    expect(cards.length).toBe(5);
+    cards.forEach((card) => {
+      expect(card).toHaveClass('py-2');
+      expect(card).toHaveClass('overflow-hidden');
+    });
+
+    const metadataPills = screen.getAllByText('6 exercises');
+    metadataPills.forEach((pill) => {
+      expect(pill).toHaveClass('rounded-full');
+      expect(pill.parentElement).toHaveClass('text-xs');
+    });
+  });
+
+  it('keeps workout names untruncated while preventing container overflow', () => {
+    vi.mocked(useRecentWorkouts).mockReturnValue({
+      data: [
+        {
+          ...recentWorkoutsFixture[0],
+          name: 'Very Long Workout Name That Should Stay Readable Across Narrow Mobile Dashboard Layout Widths',
+        },
+      ],
+      isLoading: false,
+    } as ReturnType<typeof useRecentWorkouts>);
+
+    const { container } = render(
+      <MemoryRouter>
+        <RecentWorkouts />
+      </MemoryRouter>,
+    );
+
+    const title = screen.getByText(
+      'Very Long Workout Name That Should Stay Readable Across Narrow Mobile Dashboard Layout Widths',
+    );
+    expect(title).not.toHaveClass('truncate');
+
+    const cardContent = container.querySelector('[data-slot="card-content"]');
+    expect(cardContent).toHaveClass('overflow-hidden');
+  });
+
   it('shows relative date labels for recent sessions', () => {
     vi.mocked(useRecentWorkouts).mockReturnValue({
       data: recentWorkoutsFixture,
