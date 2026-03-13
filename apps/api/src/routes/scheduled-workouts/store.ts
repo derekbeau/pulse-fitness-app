@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import type {
   CreateScheduledWorkoutInput,
   ExerciseTrackingType,
@@ -116,7 +116,15 @@ export const listScheduledWorkouts = async ({
     })
     .from(templateExercises)
     .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
-    .where(inArray(templateExercises.templateId, templateIds))
+    .where(
+      and(
+        inArray(templateExercises.templateId, templateIds),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
     .all();
 
   const trackingTypesByTemplateId = new Map<string, Set<ExerciseTrackingType>>();

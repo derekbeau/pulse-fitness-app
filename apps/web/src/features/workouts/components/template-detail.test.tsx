@@ -357,6 +357,25 @@ describe('WorkoutTemplateDetail', () => {
                       ],
                     },
                     {
+                      id: 'exercise-reps-seconds',
+                      exerciseId: 'burpee-interval',
+                      exerciseName: 'Burpee Interval',
+                      trackingType: 'reps_seconds',
+                      formCues: [],
+                      sets: 2,
+                      repsMin: 10,
+                      repsMax: 12,
+                      tempo: null,
+                      restSeconds: 90,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                      setTargets: [
+                        { setNumber: 1, targetSeconds: 30 },
+                        { setNumber: 2, targetSeconds: 30 },
+                      ],
+                    },
+                    {
                       id: 'exercise-distance',
                       exerciseId: 'sled-push',
                       exerciseName: 'Sled Push',
@@ -413,8 +432,9 @@ describe('WorkoutTemplateDetail', () => {
     expect(await screen.findByText('2 x 15')).toBeInTheDocument();
     expect(screen.getByText('2 x 45s')).toBeInTheDocument();
     expect(screen.getByText('Set 1: 45s • Set 2: 60s')).toBeInTheDocument();
-    expect(screen.getByText('3 x 6-8')).toBeInTheDocument();
+    expect(screen.getByText('3 x 6-8 (bodyweight)')).toBeInTheDocument();
     expect(screen.getByText('2 x 40 lbs x 30s')).toBeInTheDocument();
+    expect(screen.getByText('2 x 10-12 x 30s')).toBeInTheDocument();
     expect(screen.getByText('3 x 0.25 mi')).toBeInTheDocument();
     expect(screen.getByText('1 x 300s + 1 mi')).toBeInTheDocument();
   });

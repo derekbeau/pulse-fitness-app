@@ -63,6 +63,28 @@ describe('scheduledWorkoutListItemSchema', () => {
       createdAt: 1,
     });
   });
+
+  it('allows list items that omit templateTrackingTypes', () => {
+    const payload = scheduledWorkoutListItemSchema.parse({
+      id: 'schedule-2',
+      date: '2026-03-13',
+      templateId: 'template-2',
+      templateName: 'Lower Body',
+      sessionId: null,
+      createdAt: 2,
+    });
+
+    const scheduledWorkout: ScheduledWorkoutListItem = payload;
+
+    expect(scheduledWorkout).toEqual({
+      id: 'schedule-2',
+      date: '2026-03-13',
+      templateId: 'template-2',
+      templateName: 'Lower Body',
+      sessionId: null,
+      createdAt: 2,
+    });
+  });
 });
 
 describe('createScheduledWorkoutInputSchema', () => {

@@ -553,13 +553,14 @@ function formatLabel(value: string) {
 function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
   const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
   const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
+  const trackingTypeLabel = exercise.trackingType === 'bodyweight_reps' ? ' (bodyweight)' : '';
 
   if (setTargetSummary) {
     if (exercise.sets !== null) {
-      return `${exercise.sets} x ${setTargetSummary}`;
+      return `${exercise.sets} x ${setTargetSummary}${trackingTypeLabel}`;
     }
 
-    return setTargetSummary;
+    return `${setTargetSummary}${trackingTypeLabel}`;
   }
 
   if (exercise.trackingType === 'seconds_only') {
@@ -591,7 +592,7 @@ function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: Weigh
   }
 
   if (exercise.sets !== null && repsTarget) {
-    return `${exercise.sets} x ${repsTarget}`;
+    return `${exercise.sets} x ${repsTarget}${trackingTypeLabel}`;
   }
 
   if (exercise.sets !== null) {
@@ -599,16 +600,22 @@ function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: Weigh
   }
 
   if (repsTarget) {
-    return repsTarget;
+    return `${repsTarget}${trackingTypeLabel}`;
   }
 
   return 'Prescription not set';
 }
 
 function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
   const targets = (exercise.setTargets ?? [])
     .map((setTarget) => {
-      const label = formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit);
+      const label = formatTargetByTrackingType(
+        exercise.trackingType,
+        setTarget,
+        weightUnit,
+        repsTarget,
+      );
 
       if (!label) {
         return null;
@@ -618,6 +625,7 @@ function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit:
     })
     .filter((value): value is string => value !== null);
 
+  // Keep the secondary breakdown line for multi-set prescriptions only.
   if (targets.length <= 1) {
     return null;
   }
@@ -630,8 +638,11 @@ function summarizeSetTargets(exercise: WorkoutTemplateExercise, weightUnit: Weig
     return null;
   }
 
+  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
   const labels = exercise.setTargets
-    .map((setTarget) => formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit))
+    .map((setTarget) =>
+      formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit, repsTarget),
+    )
     .filter((value): value is string => value !== null);
   if (labels.length === 0) {
     return null;
@@ -642,6 +653,7 @@ function summarizeSetTargets(exercise: WorkoutTemplateExercise, weightUnit: Weig
     return uniqueLabels[0] ?? null;
   }
 
+  // Representative summary; detailed per-set differences are shown in formatSetTargetBreakdown.
   return labels[0] ?? null;
 }
 
@@ -649,6 +661,7 @@ function formatTargetByTrackingType(
   trackingType: ExerciseTrackingType,
   target: NonNullable<WorkoutTemplateExercise['setTargets']>[number],
   weightUnit: WeightUnit,
+  repsTarget: string | null,
 ) {
   const weightLabel = formatTargetWeight(target, weightUnit);
   const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds}s` : null;
@@ -664,6 +677,12 @@ function formatTargetByTrackingType(
       }
 
       return weightLabel ?? secondsLabel;
+    case 'reps_seconds':
+      if (repsTarget && secondsLabel) {
+        return `${repsTarget} x ${secondsLabel}`;
+      }
+
+      return secondsLabel;
     case 'distance':
       return distanceLabel;
     case 'cardio':

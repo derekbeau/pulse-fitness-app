@@ -109,6 +109,7 @@ const seedExercise = (values: {
   id: string;
   userId?: string | null;
   name: string;
+  deletedAt?: string | null;
   trackingType?:
     | 'weight_reps'
     | 'weight_seconds'
@@ -125,6 +126,7 @@ const seedExercise = (values: {
       id: values.id,
       userId: values.userId ?? null,
       name: values.name,
+      deletedAt: values.deletedAt ?? null,
       trackingType: values.trackingType ?? 'weight_reps',
       muscleGroups: ['chest'],
       equipment: 'barbell',
@@ -388,6 +390,91 @@ describe('scheduled workout routes', () => {
         expect.objectContaining({
           id: 'scheduled-tracking-types',
           templateTrackingTypes: expect.arrayContaining(['bodyweight_reps', 'seconds_only']),
+        }),
+      ],
+    });
+  });
+
+  it('omits templateTrackingTypes when a scheduled template has no exercises', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedScheduledWorkout({
+      id: 'scheduled-no-template-exercises',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-13',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/scheduled-workouts?from=2026-03-10&to=2026-03-16',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        {
+          id: 'scheduled-no-template-exercises',
+          date: '2026-03-13',
+          templateId: 'template-1',
+          templateName: 'Upper Push',
+          sessionId: null,
+          createdAt: expect.any(Number),
+        },
+      ],
+    });
+  });
+
+  it('excludes soft-deleted user exercises from templateTrackingTypes', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'exercise-active-user',
+      userId: 'user-1',
+      name: 'Split Squat',
+      trackingType: 'reps_only',
+    });
+    seedExercise({
+      id: 'exercise-soft-deleted-user',
+      userId: 'user-1',
+      name: 'Wall Sit',
+      trackingType: 'seconds_only',
+      deletedAt: '2026-03-01T00:00:00.000Z',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-active-user',
+      templateId: 'template-1',
+      exerciseId: 'exercise-active-user',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-soft-deleted-user',
+      templateId: 'template-1',
+      exerciseId: 'exercise-soft-deleted-user',
+      section: 'main',
+      orderIndex: 1,
+    });
+    seedScheduledWorkout({
+      id: 'scheduled-with-soft-deleted-exercise',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-13',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/scheduled-workouts?from=2026-03-10&to=2026-03-16',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'scheduled-with-soft-deleted-exercise',
+          templateTrackingTypes: ['reps_only'],
         }),
       ],
     });

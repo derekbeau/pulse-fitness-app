@@ -26,7 +26,99 @@ describe('WorkoutList', () => {
       }),
     ];
 
-    renderWorkoutList(sessions, []);
+    const scheduledWorkouts = [
+      createScheduledWorkout({
+        id: 'schedule-upcoming',
+        date: '2026-03-15',
+        templateId: 'template-push',
+        templateName: 'Upper Push',
+        templateTrackingTypes: ['bodyweight_reps', 'seconds_only'],
+        sessionId: null,
+      }),
+      createScheduledWorkout({
+        id: 'schedule-missed',
+        date: '2026-03-01',
+        templateId: 'template-pull',
+        templateName: 'Upper Pull',
+        sessionId: 'session-soft-deleted',
+      }),
+    ];
+
+    renderWorkoutList(sessions, scheduledWorkouts);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Scheduled' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
+    expect(screen.getByText('Missed')).toBeInTheDocument();
+    expect(screen.getByText('Bodyweight reps • Time only')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Start now' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+  });
+
+  it('shows unavailable state for soft-deleted scheduled templates and hides stale start actions', async () => {
+    const sessions = [
+      createSession({
+        id: 'session-hidden',
+        templateId: 'template-deleted',
+        templateName: null,
+      }),
+      createSession({
+        id: 'session-visible',
+        templateId: 'template-kept',
+        templateName: 'Visible Workout',
+      }),
+    ];
+    const scheduledWorkouts = [
+      createScheduledWorkout({
+        id: 'schedule-hidden',
+        templateId: 'template-deleted',
+        templateName: null,
+      }),
+      createScheduledWorkout({
+        id: 'schedule-visible',
+        templateId: 'template-kept',
+        templateName: 'Visible Workout',
+      }),
+    ];
+
+    renderWorkoutList(sessions, scheduledWorkouts);
+
+    expect(await screen.findByRole('link', { name: /visible workout/i })).toBeInTheDocument();
+    expect(screen.getByText('Workout unavailable')).toBeInTheDocument();
+    const unavailableCard = screen.getByText('Workout unavailable').closest('[data-slot="card"]');
+    expect(unavailableCard).not.toBeNull();
+    expect(
+      within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start now' }),
+    ).toBeDisabled();
+  });
+
+  it('shows planned-workout onboarding when no scheduled or active workouts exist', async () => {
+    renderWorkoutList(
+      [
+        createSession({
+          id: 'session-11',
+          status: 'completed',
+          date: '2026-03-01',
+        }),
+      ],
+      [],
+    );
+
+    expect(await screen.findByText('No workouts planned')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Plan a workout' })).toHaveAttribute(
+      'href',
+      '/workouts?view=templates',
+    );
+    expect(screen.getByRole('link', { name: 'Browse templates' })).toHaveAttribute(
+      'href',
+      '/workouts?view=templates',
+    );
+  });
+
+  it('shows an empty state when no workout sessions or schedules are returned', async () => {
+    renderWorkoutList([], []);
 
     expect(
       await screen.findByRole('heading', { level: 2, name: 'In Progress' }),
