@@ -221,7 +221,7 @@ export function WorkoutsPage() {
 
       {activeView === 'calendar' ? (
         <WorkoutCalendar
-          buildDayHref={(date) => `/workouts?date=${date}`}
+          buildDayHref={(date) => `/workouts?view=templates&date=${date}`}
           buildSessionHref={buildSessionHref}
         />
       ) : activeView === 'list' ? (

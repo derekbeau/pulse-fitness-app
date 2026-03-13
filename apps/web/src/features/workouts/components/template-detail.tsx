@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +42,10 @@ import {
   useWorkoutTemplate,
 } from '../api/workouts';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import {
+  formatWorkoutConflictDescription,
+  getDayWorkoutConflicts,
+} from '../lib/day-workout-conflicts';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -58,6 +63,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const navigate = useNavigate();
+  const { confirm, dialog } = useConfirmation();
   const templateQuery = useWorkoutTemplate(templateId);
   const startWorkoutMutation = useStartSession();
   const scheduleWorkoutMutation = useScheduleWorkout();
@@ -78,6 +84,26 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  async function confirmDuplicateDayWorkouts(dateKey: string) {
+    const conflicts = await getDayWorkoutConflicts(dateKey);
+
+    if (conflicts.length === 0) {
+      return true;
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      confirm({
+        title: 'This day already has a workout',
+        description: formatWorkoutConflictDescription(conflicts),
+        cancelLabel: 'Cancel',
+        confirmLabel: 'Create another anyway',
+        variant: 'default',
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  }
 
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
@@ -298,22 +324,30 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
             className="w-full sm:w-auto"
             disabled={startWorkoutMutation.isPending}
             onClick={() => {
-              const startedAt = Date.now();
+              const todayDateKey = toDateKey(new Date());
+              void (async () => {
+                const shouldCreateAnother = await confirmDuplicateDayWorkouts(todayDateKey);
+                if (!shouldCreateAnother) {
+                  return;
+                }
 
-              startWorkoutMutation.mutate(
-                {
-                  date: toDateKey(new Date(startedAt)),
-                  name: template.name,
-                  sets: buildInitialSessionSets(template),
-                  startedAt,
-                  templateId: template.id,
-                },
-                {
-                  onSuccess: (session) => {
-                    navigate(`/workouts/active?template=${template.id}&sessionId=${session.id}`);
+                const startedAt = Date.now();
+
+                startWorkoutMutation.mutate(
+                  {
+                    date: toDateKey(new Date(startedAt)),
+                    name: template.name,
+                    sets: buildInitialSessionSets(template),
+                    startedAt,
+                    templateId: template.id,
                   },
-                },
-              );
+                  {
+                    onSuccess: (session) => {
+                      navigate(`/workouts/active?template=${template.id}&sessionId=${session.id}`);
+                    },
+                  },
+                );
+              })();
             }}
             size="lg"
             type="button"
@@ -340,16 +374,22 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         initialDate={toDateKey(new Date())}
         isPending={scheduleWorkoutMutation.isPending}
         onOpenChange={setIsScheduleDialogOpen}
-        onSubmitDate={(date) =>
-          scheduleWorkoutMutation.mutateAsync({
+        onSubmitDate={async (date) => {
+          const shouldCreateAnother = await confirmDuplicateDayWorkouts(date);
+          if (!shouldCreateAnother) {
+            return;
+          }
+
+          await scheduleWorkoutMutation.mutateAsync({
             date,
             templateId: template.id,
-          })
-        }
+          });
+        }}
         open={isScheduleDialogOpen}
         submitLabel="Schedule"
         title="Schedule workout"
       />
+      {dialog}
     </section>
   );
 }

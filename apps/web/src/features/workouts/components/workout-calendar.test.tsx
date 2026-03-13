@@ -89,6 +89,22 @@ describe('WorkoutCalendar', () => {
         );
       }
 
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
       throw new Error(`Unhandled request: ${url.pathname}`);
     });
 
@@ -106,20 +122,47 @@ describe('WorkoutCalendar', () => {
       'href',
       '/workouts/session/session-1',
     );
-    expect(screen.queryByRole('button', { name: 'Scheduled workout actions' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /selected/i })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows one dot per workout for days with two workouts', async () => {
-    const firstDay = new Date();
-    firstDay.setDate(Math.min(firstDay.getDate(), 9));
-    const dateKey = toDateKey(firstDay);
+  it('shows selected-day workouts with status-aware actions', async () => {
+    const dateKey = toDateKey(new Date());
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-sessions') {
-        return Promise.resolve(jsonResponse({ data: [] }));
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'session-in-progress',
+                name: 'Conditioning',
+                date: dateKey,
+                status: 'in-progress',
+                templateId: 'template-conditioning',
+                templateName: 'Conditioning',
+                startedAt: Date.parse(`${dateKey}T08:00:00Z`),
+                completedAt: null,
+                duration: null,
+                exerciseCount: 4,
+                createdAt: 2,
+              },
+              {
+                id: 'session-completed',
+                name: 'Recovery Flow',
+                date: dateKey,
+                status: 'completed',
+                templateId: 'template-recovery',
+                templateName: 'Recovery Flow',
+                startedAt: Date.parse(`${dateKey}T06:00:00Z`),
+                completedAt: Date.parse(`${dateKey}T06:45:00Z`),
+                duration: 45,
+                exerciseCount: 3,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
       }
 
       if (url.pathname === '/api/v1/scheduled-workouts') {
@@ -129,22 +172,64 @@ describe('WorkoutCalendar', () => {
               {
                 id: 'schedule-1',
                 date: dateKey,
-                templateId: 'template-1',
+                templateId: 'template-upper',
                 templateName: 'Upper Push',
                 sessionId: null,
-                createdAt: 1,
-              },
-              {
-                id: 'schedule-2',
-                date: dateKey,
-                templateId: 'template-2',
-                templateName: 'Upper Pull',
-                sessionId: null,
-                createdAt: 2,
+                createdAt: 3,
               },
             ],
           }),
         );
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Upper Push');
+    const detailsPanel = document.getElementById('workout-day-details');
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel as HTMLElement).getByText('Conditioning')).toBeInTheDocument();
+    expect(within(detailsPanel as HTMLElement).getByText('Recovery Flow')).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Resume' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View details' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(3);
+  });
+
+  it('shows empty selected-day state with a schedule CTA', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(jsonResponse({ data: [] }));
       }
 
       throw new Error(`Unhandled request: ${url.pathname}`);
@@ -156,14 +241,12 @@ describe('WorkoutCalendar', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText('Workout Calendar');
-    const tile = getCalendarDayTile(firstDay);
-
-    expect(await within(tile).findAllByLabelText('Scheduled workout')).toHaveLength(2);
-    expect(within(tile).queryByText(/\+\d+/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No workouts on this day' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Schedule a workout' })).toBeInTheDocument();
   });
 
-  it('updates day details when a calendar day is tapped', async () => {
+  it('updates selected-day details when a calendar day is tapped', async () => {
     const targetDate = new Date();
     targetDate.setDate(Math.min(targetDate.getDate(), 11));
     const targetDateKey = toDateKey(targetDate);
@@ -192,6 +275,22 @@ describe('WorkoutCalendar', () => {
         );
       }
 
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
       throw new Error(`Unhandled request: ${url.pathname}`);
     });
 
@@ -204,33 +303,9 @@ describe('WorkoutCalendar', () => {
     await screen.findByText('Workout Calendar');
     fireEvent.click(getCalendarDayTile(targetDate));
 
-    expect(screen.getByRole('heading', { name: 'Leg Day' })).toBeInTheDocument();
-  });
-
-  it('shows empty calendar details when no workouts exist', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = new URL(String(input), 'https://pulse.test');
-
-      if (url.pathname === '/api/v1/workout-sessions') {
-        return Promise.resolve(jsonResponse({ data: [] }));
-      }
-
-      if (url.pathname === '/api/v1/scheduled-workouts') {
-        return Promise.resolve(jsonResponse({ data: [] }));
-      }
-
-      throw new Error(`Unhandled request: ${url.pathname}`);
-    });
-
-    renderWithQueryClient(
-      <MemoryRouter>
-        <WorkoutCalendar />
-      </MemoryRouter>,
-    );
-
-    expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Completed workout')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'No workout planned' })).toBeInTheDocument();
+    const detailsPanel = document.getElementById('workout-day-details');
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel as HTMLElement).getByText('Leg Day')).toBeInTheDocument();
   });
 
   it('navigates between months', async () => {
