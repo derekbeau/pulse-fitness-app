@@ -44,29 +44,32 @@ export function calculateMacroTotals(sources: Array<MacroSource | MealSource>): 
   }, DEFAULT_TOTALS);
 }
 
-function getMealSortIndex(name: string) {
-  const normalizedName = name.trim().toLowerCase();
+export type MealSortDirection = 'asc' | 'desc';
 
-  switch (normalizedName) {
-    case 'breakfast':
-      return 0;
-    case 'lunch':
-      return 1;
-    case 'dinner':
-      return 2;
-    case 'snacks':
-      return 3;
-    default:
-      return Number.MAX_SAFE_INTEGER;
+function toTimestamp(value: number | string | Date): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
   }
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
+  const parsedTimestamp = new Date(value).getTime();
+  return Number.isNaN(parsedTimestamp) ? 0 : parsedTimestamp;
 }
 
-export function sortMeals<T extends { name: string }>(meals: T[]): T[] {
+export function sortMeals<T extends { name: string; loggedAt: number | string | Date }>(
+  meals: T[],
+  direction: MealSortDirection = 'asc',
+): T[] {
   return [...meals].sort((left, right) => {
-    const orderDifference = getMealSortIndex(left.name) - getMealSortIndex(right.name);
+    const leftTimestamp = toTimestamp(left.loggedAt);
+    const rightTimestamp = toTimestamp(right.loggedAt);
+    const orderDifference = leftTimestamp - rightTimestamp;
 
     if (orderDifference !== 0) {
-      return orderDifference;
+      return direction === 'asc' ? orderDifference : -orderDifference;
     }
 
     return left.name.localeCompare(right.name);

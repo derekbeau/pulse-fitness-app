@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDisplayServing } from '@/features/nutrition/lib/nutrition-utils';
+import { formatDisplayServing, sortMeals } from '@/features/nutrition/lib/nutrition-utils';
 
 describe('formatDisplayServing', () => {
   it('prefers display quantity and unit when both are present', () => {
@@ -45,5 +45,25 @@ describe('formatDisplayServing', () => {
         displayUnit: 'scoops',
       }),
     ).toBe('2 scoops');
+  });
+});
+
+describe('sortMeals', () => {
+  const meals = [
+    { id: 'meal-2', name: 'Lunch', loggedAt: '2026-03-05T12:30:00.000Z' },
+    { id: 'meal-1', name: 'Breakfast', loggedAt: '2026-03-05T07:20:00.000Z' },
+    { id: 'meal-3', name: 'Dinner', loggedAt: '2026-03-05T18:40:00.000Z' },
+  ];
+
+  it('sorts by loggedAt ascending by default', () => {
+    expect(sortMeals(meals).map((meal) => meal.name)).toEqual(['Breakfast', 'Lunch', 'Dinner']);
+  });
+
+  it('sorts by loggedAt descending when direction is desc', () => {
+    expect(sortMeals(meals, 'desc').map((meal) => meal.name)).toEqual([
+      'Dinner',
+      'Lunch',
+      'Breakfast',
+    ]);
   });
 });
