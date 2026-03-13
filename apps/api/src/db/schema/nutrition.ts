@@ -46,6 +46,7 @@ export const meals = sqliteTable(
       .notNull()
       .references(() => nutritionLogs.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    summary: text('summary'),
     time: text('time'),
     notes: text('notes'),
     createdAt: integer('created_at', { mode: 'number' })

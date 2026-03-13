@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { UtensilsCrossed } from 'lucide-react';
+import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 
 import { MealCardSkeleton } from '@/components/skeletons';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
@@ -22,7 +23,9 @@ import {
   isSameDay,
   addDays,
   sortMeals,
+  toMealLoggedAtTimestamp,
   startOfDay,
+  type MealSortDirection,
   type MacroTotals,
   type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
@@ -50,6 +53,7 @@ const EMPTY_TOTALS: MacroTotals = {
 export function NutritionPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('asc');
   const { confirm, dialog } = useConfirmation();
   const dateKey = formatDateKey(selectedDate);
 
@@ -61,7 +65,9 @@ export function NutritionPage() {
     (dailyNutritionQuery.data?.meals ?? []).map(({ meal, items }) => ({
       id: meal.id,
       name: meal.name,
+      summary: meal.summary,
       time: meal.time,
+      loggedAt: toMealLoggedAtTimestamp(dateKey, meal.time, meal.createdAt),
       items: items.map((item) => ({
         id: item.id,
         name: item.name,
@@ -75,6 +81,8 @@ export function NutritionPage() {
         fat: item.fat,
       })),
     })),
+    mealSortDirection,
+    (meal) => meal.name,
   );
 
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
@@ -146,7 +154,27 @@ export function NutritionPage() {
         </p>
       </header>
 
-      <DateNavBar selectedDate={selectedDate} onDateChange={setSelectedDate} />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <DateNavBar className="flex-1" selectedDate={selectedDate} onDateChange={setSelectedDate} />
+        <Button
+          aria-label="Toggle meal sort direction"
+          aria-pressed={mealSortDirection === 'desc'}
+          className="w-full justify-center sm:w-auto sm:justify-start"
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() =>
+            setMealSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'))
+          }
+        >
+          {mealSortDirection === 'asc' ? (
+            <ArrowUp aria-hidden="true" className="size-4" />
+          ) : (
+            <ArrowDown aria-hidden="true" className="size-4" />
+          )}
+          <span>{mealSortDirection === 'asc' ? 'Oldest first' : 'Newest first'}</span>
+        </Button>
+      </div>
 
       {nutritionError ? (
         <section className="rounded-2xl border border-destructive/30 px-5 py-6">

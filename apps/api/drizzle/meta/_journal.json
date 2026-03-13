@@ -176,6 +176,13 @@
       "when": 1773345600000,
       "tag": "0024_meal_items_display_quantity_check",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1773352800000,
+      "tag": "0025_meal_summary",
+      "breakpoints": true
     }
   ]
 }

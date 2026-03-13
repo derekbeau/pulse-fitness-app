@@ -66,6 +66,7 @@ const createdMeal = {
   id: 'meal-1',
   nutritionLogId: 'log-1',
   name: 'Lunch',
+  summary: 'Chicken Breast, White Rice',
   time: '12:00',
   notes: null,
   createdAt: 1_700_000_000_000,
@@ -200,6 +201,7 @@ describe('agent meals routes', () => {
         expect(json.data.meal).toEqual({
           id: 'meal-1',
           name: 'Lunch',
+          summary: 'Chicken Breast, White Rice',
           date: '2026-03-09',
           time: '12:00',
         });
@@ -221,6 +223,7 @@ describe('agent meals routes', () => {
           '2026-03-09',
           expect.objectContaining({
             name: 'Lunch',
+            summary: 'Chicken Breast, White Rice',
             time: '12:00',
             items: [
               expect.objectContaining({
@@ -243,6 +246,55 @@ describe('agent meals routes', () => {
                 calories: 206,
               }),
             ],
+          }),
+        );
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('truncates auto-generated meal summary at item boundaries', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        const veryLongFoodNameA = 'A'.repeat(255);
+        const veryLongFoodNameB = 'B'.repeat(255);
+        vi.mocked(findFoodByName)
+          .mockResolvedValueOnce({
+            ...chickenFood,
+            id: 'food-long-a',
+            name: veryLongFoodNameA,
+          })
+          .mockResolvedValueOnce({
+            ...riceFood,
+            id: 'food-long-b',
+            name: veryLongFoodNameB,
+          });
+        vi.mocked(createMealForDate).mockResolvedValue({ meal: createdMeal, items: createdItems });
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            items: [
+              { foodName: veryLongFoodNameA, quantity: 1 },
+              { foodName: veryLongFoodNameB, quantity: 1 },
+            ],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith(
+          'user-1',
+          '2026-03-09',
+          expect.objectContaining({
+            summary: `${veryLongFoodNameA}…`,
           }),
         );
       } finally {

@@ -39,6 +39,7 @@ describe('nutrition api hooks', () => {
               id: 'meal-1',
               nutritionLogId: 'log-1',
               name: 'Breakfast',
+              summary: 'Large Eggs',
               time: '07:20',
               notes: null,
               createdAt: 1,

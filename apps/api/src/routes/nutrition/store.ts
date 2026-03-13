@@ -17,6 +17,7 @@ export type MealRecord = {
   id: string;
   nutritionLogId: string;
   name: string;
+  summary: string | null;
   time: string | null;
   notes: string | null;
   createdAt: number;
@@ -79,6 +80,7 @@ const mealSelection = {
   id: meals.id,
   nutritionLogId: meals.nutritionLogId,
   name: meals.name,
+  summary: meals.summary,
   time: meals.time,
   notes: meals.notes,
   createdAt: meals.createdAt,
@@ -154,6 +156,7 @@ export const createMealForDate = async (
       .values({
         nutritionLogId: nutritionLog.id,
         name: input.name,
+        summary: toNullable(input.summary),
         time: toNullable(input.time),
         notes: toNullable(input.notes),
       })

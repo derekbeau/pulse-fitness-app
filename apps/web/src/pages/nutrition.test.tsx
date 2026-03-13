@@ -59,6 +59,7 @@ function calculateActuals(daily: DailyNutrition): NutritionMacroTotals {
 function createMeal(args: {
   id: string;
   name: string;
+  summary?: string | null;
   time: string;
   items: Array<{
     id: string;
@@ -76,6 +77,7 @@ function createMeal(args: {
       id: args.id,
       nutritionLogId: 'log-2026-03-05',
       name: args.name,
+      summary: args.summary ?? null,
       time: args.time,
       notes: null,
       createdAt: 1,
@@ -197,6 +199,16 @@ function getMealToggleButton(mealName: string) {
   }
 
   return button;
+}
+
+function expectMealsInDisplayOrder(mealNames: string[]) {
+  const buttons = mealNames.map((mealName) => getMealToggleButton(mealName));
+
+  for (let index = 0; index < buttons.length - 1; index += 1) {
+    expect(
+      buttons[index].compareDocumentPosition(buttons[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }
 }
 
 const previousDayMeals = [
@@ -434,7 +446,7 @@ describe('NutritionPage', () => {
     expect(screen.queryByRole('button', { name: 'Go to today' })).not.toBeInTheDocument();
   });
 
-  it('renders previous day meals from API in breakfast, lunch, dinner, snacks order', async () => {
+  it('renders previous day meals from API sorted by time ascending by default', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -464,18 +476,95 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const breakfast = getMealToggleButton('Breakfast');
-    const lunch = getMealToggleButton('Lunch');
-    const dinner = getMealToggleButton('Dinner');
-    const snacks = getMealToggleButton('Snacks');
-
     expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
-    expect(
-      breakfast.compareDocumentPosition(lunch) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(lunch.compareDocumentPosition(dinner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(dinner.compareDocumentPosition(snacks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
+  });
+
+  it('shows an accessible meal sort toggle and reverses order when toggled', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const sortToggle = screen.getByRole('button', { name: /toggle meal sort direction/i });
+    expect(sortToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(within(sortToggle).getByText('Oldest first')).toBeInTheDocument();
+    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
+
+    fireEvent.click(sortToggle);
+
+    expect(sortToggle).toHaveAttribute('aria-pressed', 'true');
+    expect(within(sortToggle).getByText('Newest first')).toBeInTheDocument();
+    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
+  });
+
+  it('persists meal sort preference while navigating dates in the same session', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle meal sort direction/i }));
+    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
   });
 
   it('expands a meal and deletes it via the API mutation', async () => {

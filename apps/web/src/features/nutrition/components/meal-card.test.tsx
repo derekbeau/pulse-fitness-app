@@ -6,6 +6,7 @@ import { MealCard } from '@/features/nutrition/components/meal-card';
 const breakfastMeal = {
   id: 'meal-breakfast',
   name: 'Breakfast',
+  summary: 'Large Eggs, Whole Wheat Bread, Whey Protein',
   time: '07:20',
   items: [
     {
@@ -55,9 +56,19 @@ describe('MealCard', () => {
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('7:20 AM')).toBeInTheDocument();
+    expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toHaveClass('truncate');
     expect(screen.getByText('535 cal')).toBeInTheDocument();
     expect(screen.getByText('29g protein')).toBeInTheDocument();
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+
+    const summaryContainer = screen.getByRole('heading', { name: 'Breakfast' }).parentElement;
+    expect(summaryContainer).toHaveClass('min-w-0');
+  });
+
+  it('does not render a summary line when summary is null', () => {
+    render(<MealCard meal={{ ...breakfastMeal, summary: null }} />);
+
+    expect(screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein')).not.toBeInTheDocument();
   });
 
   it('expands to show individual food items and per-item macros', () => {
@@ -87,6 +98,22 @@ describe('MealCard', () => {
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+  });
+
+  it('keeps horizontal padding consistent between collapsed and expanded states', () => {
+    render(<MealCard meal={breakfastMeal} />);
+
+    const trigger = screen.getByRole('button', { name: /breakfast/i });
+    const summarySection = trigger.parentElement;
+
+    expect(summarySection).toHaveClass('px-4', 'sm:px-5');
+
+    fireEvent.click(trigger);
+
+    const detailsId = trigger.getAttribute('aria-controls');
+    const expandedSection = detailsId ? document.getElementById(detailsId) : null;
+
+    expect(expandedSection).toHaveClass('px-4', 'sm:px-5');
   });
 
   it('calls onDelete with the meal id when delete is clicked', () => {

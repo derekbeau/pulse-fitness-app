@@ -37,6 +37,7 @@ const meal = {
   id: 'meal-1',
   nutritionLogId: 'log-1',
   name: 'Lunch',
+  summary: 'Chicken Breast, Olive Oil',
   time: '12:30',
   notes: null,
   createdAt: 1_700_000_000_000,

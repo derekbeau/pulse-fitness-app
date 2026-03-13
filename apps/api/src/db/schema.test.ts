@@ -648,6 +648,7 @@ describe('meals schema', () => {
       'id',
       'nutritionLogId',
       'name',
+      'summary',
       'time',
       'notes',
       'createdAt',
