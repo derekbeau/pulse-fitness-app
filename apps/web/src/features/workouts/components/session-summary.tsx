@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
+import { formatWeight, type WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ type SessionSummaryProps = {
   defaultDescription?: string;
   defaultTags?: string[];
   duration: string;
+  exerciseResults?: SessionSummaryExerciseResult[];
   exercisesCompleted: number;
   feedback?: ActiveWorkoutFeedbackDraft;
   onDone: () => void;
@@ -40,9 +42,21 @@ type SessionSummaryProps = {
   sessionId?: string | null;
   completedSets?: number;
   summarySaving?: boolean;
+  totalVolume?: number;
   totalReps: number;
   totalSets: number;
+  weightUnit?: WeightUnit;
   workoutName: string;
+};
+
+export type SessionSummaryExerciseResult = {
+  id: string;
+  name: string;
+  notes?: string | null;
+  reps: number;
+  setsCompleted: number;
+  totalSets: number;
+  volume: number;
 };
 
 export function SessionSummary({
@@ -50,6 +64,7 @@ export function SessionSummary({
   defaultDescription = '',
   defaultTags = [],
   duration,
+  exerciseResults = [],
   exercisesCompleted,
   feedback = [],
   onDone,
@@ -58,8 +73,10 @@ export function SessionSummary({
   sessionId = null,
   completedSets,
   summarySaving = false,
+  totalVolume = 0,
   totalReps,
   totalSets,
+  weightUnit = 'lbs',
   workoutName,
 }: SessionSummaryProps) {
   const saveAsTemplateMutation = useSaveAsTemplate(sessionId);
@@ -115,33 +132,73 @@ export function SessionSummary({
   return (
     <>
       <Card className={cn(`overflow-hidden py-0 shadow-lg ${accentCardStyles.mint}`, className)}>
-        <CardContent className="space-y-5 px-5 py-6 sm:px-6">
+        <CardContent className="space-y-4 px-4 py-5 sm:px-5 sm:py-5">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/40 px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase dark:border-border dark:bg-secondary/60">
               <CheckCircle2 aria-hidden="true" className="size-3.5" />
               Session complete
             </div>
             <div className="space-y-1">
-              <h1 className="text-3xl font-semibold tracking-tight">Workout summary</h1>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Workout summary</h1>
               <p className="max-w-2xl text-sm opacity-75 dark:text-muted dark:opacity-100">
                 Logged, reflected, and ready to head back to the workouts overview.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryStat
+          <div className="flex flex-wrap gap-2">
+            <SummaryPill
               icon={Dumbbell}
-              label="Exercises completed"
-              value={`${exercisesCompleted}`}
+              label="Total volume"
+              tone="volume"
+              value={formatWeight(totalVolume, weightUnit)}
             />
-            <SummaryStat
+            <SummaryPill icon={Clock3} label="Duration" tone="time" value={duration} />
+            <SummaryPill
               icon={ListChecks}
-              label="Sets completed"
+              label="Sets"
+              tone="count"
               value={completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`}
             />
-            <SummaryStat icon={CheckCircle2} label="Total reps" value={`${totalReps}`} />
-            <SummaryStat icon={Clock3} label="Duration" value={duration} />
+            <SummaryPill icon={CheckCircle2} label="Reps" tone="count" value={`${totalReps}`} />
+          </div>
+
+          {exerciseResults.length > 0 ? (
+            <section className="space-y-2 rounded-3xl border border-black/10 bg-white/35 p-3 dark:border-border dark:bg-secondary/50">
+              <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
+                Exercise results
+              </h2>
+              <div className="space-y-2">
+                {exerciseResults.map((exercise) => (
+                  <article
+                    className="rounded-2xl border border-black/10 bg-white/45 p-3 dark:border-border dark:bg-card"
+                    key={exercise.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">{exercise.name}</p>
+                      <span className="shrink-0 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[11px] font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+                        {`${exercise.setsCompleted}/${exercise.totalSets} sets`}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      <MetricChip
+                        label="Volume"
+                        tone="volume"
+                        value={formatWeight(exercise.volume, weightUnit)}
+                      />
+                      <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
+                    </div>
+                    {exercise.notes?.trim() ? (
+                      <p className="mt-2 text-xs text-muted">{exercise.notes.trim()}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-muted">
+            <span>{`${exercisesCompleted} exercise${exercisesCompleted === 1 ? '' : 's'} logged`}</span>
           </div>
 
           <section className="space-y-2 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
@@ -167,28 +224,28 @@ export function SessionSummary({
           </section>
 
           {feedback.length > 0 ? (
-            <section className="space-y-3 rounded-3xl border border-black/10 bg-white/35 p-4 dark:border-border dark:bg-secondary/50">
-              <div className="space-y-1">
+            <section className="space-y-2 rounded-3xl border border-black/10 bg-white/35 p-3.5 dark:border-border dark:bg-secondary/50">
+              <div className="space-y-0.5">
                 <h2 className="text-lg font-semibold text-foreground">Session feedback</h2>
                 <p className="text-sm opacity-75 dark:text-muted dark:opacity-100">
                   Saved check-ins from the end of this workout.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {feedback.map((field) => (
                   <div
-                    className="rounded-2xl border border-black/10 bg-white/45 p-4 dark:border-border dark:bg-card"
+                    className="rounded-2xl border border-black/10 bg-white/45 p-3 dark:border-border dark:bg-card"
                     key={field.id}
                   >
                     <p className="text-xs font-semibold tracking-[0.18em] uppercase opacity-65 dark:text-muted dark:opacity-100">
                       {field.label}
                     </p>
-                    <p className="mt-2 text-base font-semibold text-foreground">
+                    <p className="mt-1.5 text-lg leading-none font-semibold text-foreground">
                       {formatFeedbackFieldValue(field)}
                     </p>
                     {field.notes?.trim() ? (
-                      <p className="mt-2 text-sm text-muted">{field.notes.trim()}</p>
+                      <p className="mt-1.5 text-xs text-muted">{field.notes.trim()}</p>
                     ) : null}
                   </div>
                 ))}
@@ -409,22 +466,61 @@ function formatFeedbackFieldValue(field: ActiveWorkoutFeedbackDraft[number]) {
   }
 }
 
-function SummaryStat({
+function SummaryPill({
   icon: Icon,
   label,
+  tone,
   value,
 }: {
   icon: typeof CheckCircle2;
   label: string;
+  tone: 'count' | 'time' | 'volume';
   value: string;
 }) {
+  const toneClass =
+    tone === 'volume'
+      ? 'border-blue-500/25 bg-blue-500/12 text-blue-900 dark:text-blue-100'
+      : tone === 'time'
+        ? 'border-emerald-500/25 bg-emerald-500/12 text-emerald-900 dark:text-emerald-100'
+        : 'border-fuchsia-500/25 bg-fuchsia-500/12 text-fuchsia-900 dark:text-fuchsia-100';
+  const testIdLabel = label.toLowerCase().replace(/\s+/g, '-');
+
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 dark:border-border dark:bg-secondary/60">
-      <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase opacity-65 dark:text-muted dark:opacity-100">
-        <Icon aria-hidden="true" className="size-3.5" />
+    <div
+      data-testid={`summary-pill-${tone}-${testIdLabel}`}
+      className={cn(
+        'inline-flex min-w-[120px] items-center gap-2 rounded-full border px-3 py-1.5',
+        toneClass,
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] uppercase opacity-85">
+        <Icon aria-hidden="true" className="size-3" />
         <span>{label}</span>
       </div>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+      <p className="text-sm font-semibold">{value}</p>
     </div>
+  );
+}
+
+function MetricChip({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: 'count' | 'time' | 'volume';
+  value: string;
+}) {
+  const toneClass =
+    tone === 'volume'
+      ? 'bg-blue-500/12 text-blue-800 dark:text-blue-200'
+      : tone === 'time'
+        ? 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-200'
+        : 'bg-fuchsia-500/12 text-fuchsia-800 dark:text-fuchsia-200';
+
+  return (
+    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', toneClass)}>
+      {`${label}: ${value}`}
+    </span>
   );
 }

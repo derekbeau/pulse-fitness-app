@@ -62,6 +62,7 @@ import {
   useWorkoutTemplate,
 } from '@/features/workouts/api/workouts';
 import {
+  getSetVolume,
   isSetCompleteForTrackingType,
   resolveTrackingType,
 } from '@/features/workouts/lib/tracking';
@@ -408,6 +409,31 @@ export function ActiveWorkoutPage() {
     [session.completedSets, session.totalSets],
   );
   const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
+  const summaryExerciseResults = useMemo(
+    () =>
+      session.sections.flatMap((section) =>
+        section.exercises.map((exercise) => {
+          const completedSets = exercise.sets.filter((set) => set.completed);
+          return {
+            id: exercise.id,
+            name: exercise.name,
+            notes: exercise.notes,
+            reps: completedSets.reduce((total, set) => total + (set.reps ?? 0), 0),
+            setsCompleted: exercise.completedSets,
+            totalSets: exercise.targetSets,
+            volume: completedSets.reduce(
+              (total, set) => total + getSetVolume(exercise.trackingType, set),
+              0,
+            ),
+          };
+        }),
+      ),
+    [session.sections],
+  );
+  const totalSessionVolume = useMemo(
+    () => summaryExerciseResults.reduce((total, exercise) => total + exercise.volume, 0),
+    [summaryExerciseResults],
+  );
   const estimatedTotalSeconds = useMemo(() => estimateTotalTime(session), [session]);
   const remainingEstimatedSeconds = useMemo(() => estimateRemainingTime(session), [session]);
   const summaryDuration = sessionCompletedAt
@@ -745,6 +771,7 @@ export function ActiveWorkoutPage() {
           defaultDescription={template.description}
           defaultTags={template.tags}
           duration={summaryDuration}
+          exerciseResults={summaryExerciseResults}
           exercisesCompleted={session.totalExercises}
           feedback={sessionFeedback}
           onDone={async () => {
@@ -787,9 +814,11 @@ export function ActiveWorkoutPage() {
           sessionNotes={sessionNotes}
           sessionId={activeSessionId}
           summarySaving={summarySaving}
+          totalVolume={totalSessionVolume}
           totalReps={totalCompletedReps}
           completedSets={session.completedSets}
           totalSets={session.totalSets}
+          weightUnit={weightUnit}
           workoutName={session.workoutName}
         />
       ) : null}

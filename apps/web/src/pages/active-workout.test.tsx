@@ -229,10 +229,11 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
-    expect(screen.getByText('Exercises completed')).toBeInTheDocument();
-    expect(screen.getByText('Sets completed')).toBeInTheDocument();
-    expect(screen.getByText('Total reps')).toBeInTheDocument();
+    expect(screen.getByText('Total volume')).toBeInTheDocument();
+    expect(screen.getByText('Sets')).toBeInTheDocument();
+    expect(screen.getByText('Reps')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Exercise results' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
     expect(screen.getByText('3 / 5')).toBeInTheDocument();
     expect(screen.getByText('Shoulders stayed stable, keep the same setup.')).toBeInTheDocument();
@@ -771,10 +772,7 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
-    const setsCompletedLabel = screen.getByText('Sets completed');
-    const setsCompletedStat = setsCompletedLabel.closest('div')?.parentElement ?? null;
-    expect(setsCompletedStat).not.toBeNull();
-    expect(within(setsCompletedStat as HTMLElement).getByText(/\d+\/\d+/)).toBeInTheDocument();
+    expect(screen.getByTestId('summary-pill-count-sets')).toHaveTextContent(/\d+\/\d+/);
   });
 
   it('shows standard feedback controls and requires pain details when pain is yes', () => {

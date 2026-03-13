@@ -13,6 +13,8 @@ import {
   updateScheduledWorkoutInputSchema,
   updateExerciseInputSchema,
   updateWorkoutTemplateInputSchema,
+  type UpdateWorkoutTemplateInput,
+  type UpdateExerciseInput,
   type Exercise,
   type ExerciseQueryParams,
   type CreateScheduledWorkoutInput,
@@ -54,9 +56,17 @@ type RenameExerciseRequest = {
   id: string;
   name: string;
 };
+type UpdateExerciseRequest = {
+  id: string;
+  input: UpdateExerciseInput;
+};
 type RenameTemplateRequest = {
   id: string;
   name: string;
+};
+type UpdateTemplateRequest = {
+  id: string;
+  input: UpdateWorkoutTemplateInput;
 };
 type DeleteTemplateRequest = {
   id: string;
@@ -139,6 +149,8 @@ type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchem
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
   completedSessions: () => ['workouts', 'completed-sessions'] as const,
+  exercise: (id: string) => ['workouts', 'exercise', id] as const,
+  exercisesRoot: () => ['workouts', 'exercises'] as const,
   exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
@@ -148,6 +160,7 @@ export const workoutQueryKeys = {
   sessions: () => ['workouts', 'sessions'] as const,
   sessionsList: (params: WorkoutSessionQueryParams = {}) =>
     ['workouts', 'sessions', params] as const,
+  templateRoot: () => ['workouts', 'template'] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
 };
@@ -273,6 +286,16 @@ async function getExercises(params: ExerciseQueryParams) {
   return exercisesResponseSchema.parse(payload);
 }
 
+async function getExercise(id: string, signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(`/api/v1/exercises/${id}`, {
+    method: 'GET',
+    signal,
+  });
+  const payload = z.object({ data: exerciseSchema }).parse({ data });
+
+  return payload.data;
+}
+
 async function getExerciseFilters() {
   const data = await apiRequest<unknown>('/api/v1/exercises/filters');
   return exerciseFiltersResponseSchema.parse({ data });
@@ -289,10 +312,8 @@ async function createWorkoutSession(input: CreateWorkoutSessionRequest) {
   return payload.data;
 }
 
-async function renameExercise(input: RenameExerciseRequest) {
-  const parsedInput = updateExerciseInputSchema.parse({
-    name: input.name,
-  });
+async function updateExercise(input: UpdateExerciseRequest) {
+  const parsedInput = updateExerciseInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/exercises/${input.id}`, {
     body: JSON.stringify(parsedInput),
     method: 'PATCH',
@@ -306,6 +327,17 @@ async function renameTemplate(input: RenameTemplateRequest) {
   const parsedInput = updateWorkoutTemplateInputSchema.parse({
     name: input.name,
   });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutTemplateResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function updateTemplate(input: UpdateTemplateRequest) {
+  const parsedInput = updateWorkoutTemplateInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
     body: JSON.stringify(parsedInput),
     method: 'PATCH',
@@ -497,6 +529,14 @@ export function useExercises(params: ExerciseQueryParams, options?: { enabled?: 
   });
 }
 
+export function useExercise(id: string, options?: { enabled?: boolean }) {
+  return useQuery<Exercise>({
+    enabled: (options?.enabled ?? true) && id.trim().length > 0,
+    queryFn: ({ signal }) => getExercise(id, signal),
+    queryKey: workoutQueryKeys.exercise(id),
+  });
+}
+
 export function useExerciseFilters() {
   return useQuery<ExerciseFiltersResponse>({
     queryFn: getExerciseFilters,
@@ -585,7 +625,7 @@ export function useRenameExercise() {
   const queryClient = useQueryClient();
 
   return useMutation<Exercise, Error, RenameExerciseRequest>({
-    mutationFn: renameExercise,
+    mutationFn: ({ id, name }) => updateExercise({ id, input: { name } }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -596,6 +636,30 @@ export function useRenameExercise() {
         }),
       ]);
       toast.success('Exercise renamed');
+    },
+  });
+}
+
+export function useUpdateExercise() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Exercise, Error, UpdateExerciseRequest>({
+    mutationFn: updateExercise,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.exercise(variables.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.exercisesRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templateRoot(),
+        }),
+      ]);
     },
   });
 }
@@ -615,6 +679,24 @@ export function useRenameTemplate() {
         }),
       ]);
       toast.success('Template renamed');
+    },
+  });
+}
+
+export function useUpdateTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkoutTemplate, Error, UpdateTemplateRequest>({
+    mutationFn: updateTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
     },
   });
 }

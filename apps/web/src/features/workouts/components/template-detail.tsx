@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   DndContext,
@@ -16,38 +16,71 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDown, ArrowUp, GripVertical, MoreVertical } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Braces,
+  GripVertical,
+  Link2Off,
+  MoreVertical,
+  Plus,
+} from 'lucide-react';
 
-import type { ExerciseTrackingType, WeightUnit, WorkoutTemplateExercise } from '@pulse/shared';
+import type {
+  Exercise,
+  ExerciseTrackingType,
+  UpdateWorkoutTemplateInput,
+  WorkoutTemplate,
+  WorkoutTemplateExercise,
+  WorkoutTemplateSectionType,
+  WeightUnit,
+} from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useLastPerformance } from '@/hooks/use-last-performance';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
+import { useDebouncedCallback } from '@/lib/use-debounced-callback';
+import { cn } from '@/lib/utils';
 
 import {
-  useScheduleWorkout,
+  useExercise,
+  useExercises,
   useRenameExercise,
   useReorderTemplateExercises,
+  useScheduleWorkout,
+  useUpdateExercise,
+  useUpdateTemplate,
   useWorkoutTemplate,
 } from '../api/workouts';
-import { getDistanceUnit } from '../lib/tracking';
-import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
   formatWorkoutConflictDescription,
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
+import { getDistanceUnit } from '../lib/tracking';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -57,12 +90,38 @@ type WorkoutTemplateDetailProps = {
   templateId: string;
 };
 
+type EditableExerciseFields = {
+  notes: string;
+  reps: string;
+  restSeconds: string;
+  sets: string;
+};
+
 const sectionLabels = {
   warmup: 'Warmup',
   main: 'Main',
   cooldown: 'Cooldown',
 } as const;
+
+const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
+  warmup: 'border-l-[var(--color-accent-mint)]',
+  main: 'border-l-[var(--color-accent-pink)]',
+  cooldown: 'border-l-[var(--color-accent-cream)]',
+};
+
+const supersetAccentStyles = [
+  'border-l-[var(--color-accent-mint)] bg-[var(--color-accent-mint)]/5',
+  'border-l-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/5',
+  'border-l-[var(--color-accent-pink)] bg-[var(--color-accent-pink)]/5',
+  'border-l-[var(--color-accent-cream)] bg-[var(--color-accent-cream)]/12',
+];
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
 
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const { weightUnit } = useWeightUnit();
@@ -73,6 +132,10 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const scheduleWorkoutMutation = useScheduleWorkout();
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
+  const updateExerciseMutation = useUpdateExercise();
+  const updateTemplateMutation = useUpdateTemplate();
+  const template = templateQuery.data ?? null;
+
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
@@ -81,7 +144,16 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     exerciseId: string;
     exerciseName: string;
   } | null>(null);
+  const [addSectionTarget, setAddSectionTarget] = useState<WorkoutTemplateSectionType | null>(null);
+  const [supersetSectionTarget, setSupersetSectionTarget] = useState<WorkoutTemplateSectionType | null>(
+    null,
+  );
+  const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
+    exerciseId: string;
+    templateExerciseId: string;
+  } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -92,6 +164,9 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const updateQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSectionsRef = useRef<NonNullable<UpdateWorkoutTemplateInput['sections']>>([]);
 
   async function confirmDuplicateDayWorkouts(dateKey: string) {
     const conflicts = await getDayWorkoutConflicts(dateKey);
@@ -113,11 +188,63 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     });
   }
 
+  useEffect(() => {
+    if (!template) {
+      latestSectionsRef.current = [];
+      return;
+    }
+
+    if (updateTemplateMutation.isPending) {
+      return;
+    }
+
+    latestSectionsRef.current = template.sections.map(toUpdateSection);
+  }, [template, updateTemplateMutation.isPending]);
+
+  const queueTemplateSectionsUpdate = useCallback(
+    (
+      buildNextSections: (
+        currentSections: NonNullable<UpdateWorkoutTemplateInput['sections']>,
+      ) => NonNullable<UpdateWorkoutTemplateInput['sections']>,
+      options?: {
+        onError?: () => void;
+        onSuccess?: () => void;
+      },
+    ) => {
+      if (!template) {
+        return;
+      }
+
+      updateQueueRef.current = updateQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const nextSections = buildNextSections(latestSectionsRef.current);
+            latestSectionsRef.current = nextSections;
+
+            const updatedTemplate = await updateTemplateMutation.mutateAsync({
+              id: template.id,
+              input: {
+                sections: nextSections,
+              },
+            });
+
+            latestSectionsRef.current = updatedTemplate.sections.map(toUpdateSection);
+            options?.onSuccess?.();
+          } catch {
+            latestSectionsRef.current = template.sections.map(toUpdateSection);
+            options?.onError?.();
+          }
+        });
+    },
+    [template, updateTemplateMutation],
+  );
+
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
   }
 
-  if (templateQuery.isError) {
+  if (templateQuery.isError || !template) {
     const isLegacyMockTemplate = !UUID_PATTERN.test(templateId);
     const isNotFound =
       isLegacyMockTemplate ||
@@ -144,7 +271,156 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     );
   }
 
-  const template = templateQuery.data;
+  const saveExerciseEdits = (
+    sectionType: WorkoutTemplateSectionType,
+    exerciseId: string,
+    fields: EditableExerciseFields,
+  ) => {
+    const parsedReps = parseRepsInput(fields.reps);
+    if (!parsedReps.valid) {
+      toast.error('Reps must be like 8, 8-10, or 8+');
+      return;
+    }
+
+    const sets = parseNullablePositiveInt(fields.sets);
+    const restSeconds = parseNullableNonNegativeInt(fields.restSeconds);
+    if (sets === undefined || restSeconds === undefined) {
+      toast.error('Sets and rest must be numbers');
+      return;
+    }
+
+    const targetIndex = template.sections
+      .find((section) => section.type === sectionType)
+      ?.exercises.findIndex((exercise) => exercise.id === exerciseId);
+
+    if (targetIndex == null || targetIndex < 0) {
+      return;
+    }
+
+    queueTemplateSectionsUpdate((currentSections) =>
+      currentSections.map((section) => {
+        if (section.type !== sectionType) {
+          return section;
+        }
+
+        return {
+          ...section,
+          exercises: section.exercises.map((exercise, index) =>
+            index === targetIndex
+              ? {
+                  ...exercise,
+                  notes: toNullableString(fields.notes),
+                  repsMax: parsedReps.repsMax,
+                  repsMin: parsedReps.repsMin,
+                  restSeconds,
+                  sets,
+                }
+              : exercise,
+          ),
+        };
+      }),
+    );
+  };
+
+  const addExerciseToSection = (sectionType: WorkoutTemplateSectionType, exerciseId: string) => {
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => ({
+          ...section,
+          exercises:
+            section.type === sectionType
+              ? [
+                  ...section.exercises,
+                  {
+                    cues: [],
+                    exerciseId,
+                    notes: null,
+                    repsMax: 10,
+                    repsMin: 8,
+                    restSeconds: 90,
+                    sets: 3,
+                    supersetGroup: null,
+                    tempo: null,
+                  },
+                ]
+              : section.exercises,
+        })),
+      {
+        onError: () => {
+          toast.error('Unable to add exercise. Try again.');
+        },
+        onSuccess: () => {
+          setAddSectionTarget(null);
+          toast.success('Exercise added');
+        },
+      },
+    );
+  };
+
+  const updateSectionSupersetGroup = (
+    sectionType: WorkoutTemplateSectionType,
+    templateExerciseIds: string[],
+    supersetGroup: string | null,
+  ) => {
+    if (!template || templateExerciseIds.length === 0) {
+      return;
+    }
+
+    const section = template.sections.find((item) => item.type === sectionType);
+    if (!section) {
+      return;
+    }
+
+    const selectedIndexes = new Set<number>();
+    section.exercises.forEach((exercise, index) => {
+      if (templateExerciseIds.includes(exercise.id)) {
+        selectedIndexes.add(index);
+      }
+    });
+
+    if (selectedIndexes.size === 0) {
+      return;
+    }
+
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => {
+          if (section.type !== sectionType) {
+            return section;
+          }
+
+          return {
+            ...section,
+            exercises: section.exercises.map((exercise, index) =>
+              selectedIndexes.has(index) ? { ...exercise, supersetGroup } : exercise,
+            ),
+          };
+        }),
+      {
+        onError: () => toast.error('Unable to update superset. Try again.'),
+      },
+    );
+  };
+
+  const activeExerciseDetail = (() => {
+    if (!template || !exerciseDetailTarget) {
+      return null;
+    }
+
+    for (const section of template.sections) {
+      const exercise = section.exercises.find(
+        (item) => item.id === exerciseDetailTarget.templateExerciseId,
+      );
+      if (exercise) {
+        return {
+          sectionType: section.type,
+          exercise,
+        };
+      }
+    }
+
+    return null;
+  })();
 
   return (
     <section className="space-y-6">
@@ -181,19 +457,19 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       <div className="space-y-4">
         {template.sections.map((section) => (
           <details
-            className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
+            className={cn(
+              'overflow-hidden rounded-3xl border border-border border-l-4 bg-card shadow-sm',
+              sectionAccentStyles[section.type],
+            )}
             key={section.type}
             open={section.type === 'main'}
           >
-            <summary className="cursor-pointer list-outside px-6 py-5">
+            <summary className="cursor-pointer list-outside px-5 py-4">
               <div className="flex flex-col gap-2 pr-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
-                  <h2 className="text-xl font-semibold text-foreground">
+                  <h2 className="text-lg font-bold tracking-wide text-foreground">
                     {sectionLabels[section.type]}
                   </h2>
-                  <p className="text-sm text-muted">
-                    {`${section.exercises.length} exercise${section.exercises.length === 1 ? '' : 's'}`}
-                  </p>
                 </div>
                 <Badge
                   className="border-transparent bg-secondary text-secondary-foreground"
@@ -204,7 +480,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               </div>
             </summary>
 
-            <div className="space-y-3 border-t border-border px-4 py-4 sm:px-6 sm:py-5">
+            <div className="space-y-2 border-t border-border/80 px-4 py-4 sm:px-5 sm:py-4">
               {section.exercises.length === 0 ? (
                 <Card>
                   <CardContent className="py-5">
@@ -242,59 +518,197 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                     items={section.exercises.map((exercise) => exercise.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {section.exercises.map((exercise, index) => (
-                      <TemplateExerciseCard
-                        exercise={exercise}
-                        index={index}
-                        isMoveDownDisabled={index === section.exercises.length - 1}
-                        isMoveUpDisabled={index === 0}
-                        key={exercise.id}
-                        weightUnit={weightUnit}
-                        onMoveDown={() => {
-                          if (index >= section.exercises.length - 1) {
-                            return;
-                          }
+                    {buildTemplateExerciseGroups(section.exercises).map((group) => {
+                      if (group.type === 'single') {
+                        const index = group.index;
+                        const exercise = group.exercise;
+                        return (
+                          <TemplateExerciseCard
+                            exercise={exercise}
+                            index={index}
+                            isMoveDownDisabled={index === section.exercises.length - 1}
+                            isMoveUpDisabled={index === 0}
+                            key={exercise.id}
+                            onMoveDown={() => {
+                              if (index >= section.exercises.length - 1) {
+                                return;
+                              }
 
-                          const reordered = arrayMove(section.exercises, index, index + 1);
-                          reorderExercisesMutation.mutate({
-                            templateId: template.id,
-                            section: section.type,
-                            exerciseIds: reordered.map((item) => item.id),
-                          });
-                        }}
-                        onMoveUp={() => {
-                          if (index <= 0) {
-                            return;
-                          }
+                              const reordered = arrayMove(section.exercises, index, index + 1);
+                              reorderExercisesMutation.mutate({
+                                templateId: template.id,
+                                section: section.type,
+                                exerciseIds: reordered.map((item) => item.id),
+                              });
+                            }}
+                            onMoveUp={() => {
+                              if (index <= 0) {
+                                return;
+                              }
 
-                          const reordered = arrayMove(section.exercises, index, index - 1);
-                          reorderExercisesMutation.mutate({
-                            templateId: template.id,
-                            section: section.type,
-                            exerciseIds: reordered.map((item) => item.id),
-                          });
-                        }}
-                        onRename={() =>
-                          setRenameTarget({
-                            exerciseId: exercise.exerciseId,
-                            exerciseName: exercise.exerciseName,
-                          })
-                        }
-                        onSwap={() =>
-                          setSwapTarget({
-                            exerciseId: exercise.exerciseId,
-                            exerciseName: exercise.exerciseName,
-                          })
-                        }
-                      />
-                    ))}
+                              const reordered = arrayMove(section.exercises, index, index - 1);
+                              reorderExercisesMutation.mutate({
+                                templateId: template.id,
+                                section: section.type,
+                                exerciseIds: reordered.map((item) => item.id),
+                              });
+                            }}
+                            onOpenDetails={() =>
+                              setExerciseDetailTarget({
+                                exerciseId: exercise.exerciseId,
+                                templateExerciseId: exercise.id,
+                              })
+                            }
+                            onRename={() =>
+                              setRenameTarget({
+                                exerciseId: exercise.exerciseId,
+                                exerciseName: exercise.exerciseName,
+                              })
+                            }
+                            onSaveInline={(fields) =>
+                              saveExerciseEdits(section.type, exercise.id, fields)
+                            }
+                            onSwap={() =>
+                              setSwapTarget({
+                                exerciseId: exercise.exerciseId,
+                                exerciseName: exercise.exerciseName,
+                              })
+                            }
+                            weightUnit={weightUnit}
+                          />
+                        );
+                      }
+
+                      const supersetAccentClass = getSupersetAccentClass(group.groupId);
+
+                      return (
+                        <div
+                          className={cn(
+                            'relative space-y-2 rounded-2xl border border-border/90 border-l-4 px-3 py-3',
+                            supersetAccentClass,
+                          )}
+                          data-testid={`superset-group-${group.groupId}`}
+                          key={`${group.groupId}-${group.exercises[0]?.id ?? 'group'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Braces aria-hidden="true" className="size-4 text-muted" />
+                            <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                              {formatSupersetLabel(group.groupId)}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {group.exercises.map((exercise, exerciseIndex) => {
+                              const index = group.startIndex + exerciseIndex;
+                              return (
+                                <TemplateExerciseCard
+                                  exercise={exercise}
+                                  index={index}
+                                  isMoveDownDisabled={index === section.exercises.length - 1}
+                                  isMoveUpDisabled={index === 0}
+                                  key={exercise.id}
+                                  onMoveDown={() => {
+                                    if (index >= section.exercises.length - 1) {
+                                      return;
+                                    }
+
+                                    const reordered = arrayMove(section.exercises, index, index + 1);
+                                    reorderExercisesMutation.mutate({
+                                      templateId: template.id,
+                                      section: section.type,
+                                      exerciseIds: reordered.map((item) => item.id),
+                                    });
+                                  }}
+                                  onMoveUp={() => {
+                                    if (index <= 0) {
+                                      return;
+                                    }
+
+                                    const reordered = arrayMove(section.exercises, index, index - 1);
+                                    reorderExercisesMutation.mutate({
+                                      templateId: template.id,
+                                      section: section.type,
+                                      exerciseIds: reordered.map((item) => item.id),
+                                    });
+                                  }}
+                                  onOpenDetails={() =>
+                                    setExerciseDetailTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      templateExerciseId: exercise.id,
+                                    })
+                                  }
+                                  onRename={() =>
+                                    setRenameTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      exerciseName: exercise.exerciseName,
+                                    })
+                                  }
+                                  onSaveInline={(fields) =>
+                                    saveExerciseEdits(section.type, exercise.id, fields)
+                                  }
+                                  onSwap={() =>
+                                    setSwapTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      exerciseName: exercise.exerciseName,
+                                    })
+                                  }
+                                  weightUnit={weightUnit}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </SortableContext>
                 </DndContext>
               )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  aria-label={`Add exercise to ${sectionLabels[section.type]} section`}
+                  className="w-full justify-center text-sm sm:w-auto"
+                  onClick={() => setAddSectionTarget(section.type)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                  Add exercise
+                </Button>
+                {section.exercises.length >= 2 ? (
+                  <Button
+                    className="w-full justify-center text-sm sm:w-auto"
+                    onClick={() => setSupersetSectionTarget(section.type)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Braces aria-hidden="true" className="size-4" />
+                    Manage supersets
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </details>
         ))}
       </div>
+
+      <AddExerciseDialog
+        isPending={updateTemplateMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddSectionTarget(null);
+          }
+        }}
+        onSelect={(exerciseId) => {
+          if (!addSectionTarget) {
+            return;
+          }
+
+          addExerciseToSection(addSectionTarget, exerciseId);
+        }}
+        open={addSectionTarget != null}
+      />
 
       <RenameExerciseDialog
         key={renameTarget ? `${renameTarget.exerciseId}-open` : 'rename-template-closed'}
@@ -345,6 +759,39 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         sourceExerciseName={swapTarget?.exerciseName ?? ''}
         sourceLabel="this template"
       />
+      {supersetSectionTarget ? (
+        <SupersetManagerDialog
+          onApply={(exerciseIds, supersetGroup) => {
+            updateSectionSupersetGroup(supersetSectionTarget, exerciseIds, supersetGroup);
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSupersetSectionTarget(null);
+            }
+          }}
+          section={template.sections.find((section) => section.type === supersetSectionTarget) ?? null}
+        />
+      ) : null}
+      {exerciseDetailTarget && activeExerciseDetail ? (
+        <ExerciseDetailModal
+          key={exerciseDetailTarget.templateExerciseId}
+          exercise={activeExerciseDetail.exercise}
+          isPending={updateExerciseMutation.isPending}
+          onOpenChange={(open) => {
+            if (!open) {
+              setExerciseDetailTarget(null);
+            }
+          }}
+          onSaveCoachingNotes={(exerciseId, coachingNotes) =>
+            updateExerciseMutation.mutateAsync({
+              id: exerciseId,
+              input: {
+                coachingNotes,
+              },
+            })
+          }
+        />
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -422,80 +869,74 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   );
 }
 
-function MetadataPill({ label }: { label: string }) {
-  return (
-    <span className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-foreground">
-      {label}
-    </span>
-  );
-}
-
-function TemplateDetailSkeleton() {
-  return (
-    <section aria-label="Loading workout template" className="space-y-6">
-      <Card className="py-0">
-        <CardContent className="space-y-4 py-6">
-          <div className="h-3 w-28 animate-pulse rounded-full bg-secondary" />
-          <div className="h-10 w-64 animate-pulse rounded-2xl bg-secondary" />
-          <div className="h-4 w-full animate-pulse rounded-full bg-secondary" />
-          <div className="h-4 w-3/4 animate-pulse rounded-full bg-secondary" />
-        </CardContent>
-      </Card>
-
-      {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index}>
-          <CardContent className="space-y-4 py-6">
-            <div className="h-8 w-40 animate-pulse rounded-2xl bg-secondary" />
-            <div className="h-24 w-full animate-pulse rounded-3xl bg-secondary/70" />
-          </CardContent>
-        </Card>
-      ))}
-    </section>
-  );
-}
-
 function TemplateExerciseCard({
   exercise,
   index,
   isMoveDownDisabled,
   isMoveUpDisabled,
-  weightUnit,
   onMoveDown,
   onMoveUp,
+  onOpenDetails,
   onRename,
+  onSaveInline,
   onSwap,
+  weightUnit,
 }: {
   exercise: WorkoutTemplateExercise;
   index: number;
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
-  weightUnit: WeightUnit;
   onMoveDown: () => void;
   onMoveUp: () => void;
+  onOpenDetails: () => void;
   onRename: () => void;
+  onSaveInline: (fields: EditableExerciseFields) => void;
   onSwap: () => void;
+  weightUnit: WeightUnit;
 }) {
-  const prescription = formatPrescription(exercise, weightUnit);
+  const compactSummary = formatCompactSetSummary(exercise, weightUnit);
   const targetBreakdown = formatSetTargetBreakdown(exercise, weightUnit);
+  const [fields, setFields] = useState<EditableExerciseFields>(() => toEditableFields(exercise));
+  const focusedFieldCountRef = useRef(0);
+
+  useEffect(() => {
+    if (focusedFieldCountRef.current > 0) {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- local editable state must resync to server snapshot when not actively editing
+    setFields(toEditableFields(exercise));
+  }, [exercise]);
+
+  const debouncedInlineSave = useDebouncedCallback((nextFields: EditableExerciseFields) => {
+    onSaveInline(nextFields);
+  });
+
+  useEffect(
+    () => () => {
+      debouncedInlineSave.flush();
+    },
+    [debouncedInlineSave],
+  );
+
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: exercise.id,
   });
 
   return (
     <Card
-      className="gap-4 py-0"
+      className="gap-2 py-0"
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
     >
-      <CardHeader className="gap-3 py-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
+      <CardHeader className="gap-2 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-1.5">
             <Button
               aria-label={`Drag handle for ${exercise.exerciseName}`}
-              className="mt-1 size-9 touch-none"
+              className="mt-0.5 size-8 touch-none"
               size="icon"
               type="button"
               variant="ghost"
@@ -504,10 +945,27 @@ function TemplateExerciseCard({
             >
               <GripVertical aria-hidden="true" className="size-4" />
             </Button>
-            <div className="space-y-2">
-              <CardTitle>{exercise.exerciseName}</CardTitle>
-              <p className="text-sm font-medium text-foreground">{prescription}</p>
-              {targetBreakdown ? <p className="text-xs text-muted">{targetBreakdown}</p> : null}
+            <div className="min-w-0 space-y-0.5">
+              <CardTitle className="truncate text-base font-semibold sm:text-lg">
+                <button
+                  className="cursor-pointer truncate text-left hover:text-primary hover:underline"
+                  onClick={onOpenDetails}
+                  type="button"
+                >
+                  {exercise.exerciseName}
+                </button>
+              </CardTitle>
+              <p className="text-xs font-medium text-muted sm:text-sm">{compactSummary}</p>
+              {exercise.notes ? (
+                <p className="line-clamp-2 text-[11px] italic text-muted/85">{exercise.notes}</p>
+              ) : null}
+              {exercise.tempo || exercise.restSeconds !== null ? (
+                <p className="text-[11px] text-muted">
+                  {exercise.tempo ? `Tempo: ${formatTempo(exercise.tempo)}` : null}
+                  {exercise.tempo && exercise.restSeconds !== null ? ' • ' : null}
+                  {exercise.restSeconds !== null ? `Rest: ${exercise.restSeconds}s` : null}
+                </p>
+              ) : null}
             </div>
           </div>
           <DropdownMenu>
@@ -537,37 +995,762 @@ function TemplateExerciseCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pb-5">
-        <p className="text-xs font-medium tracking-[0.16em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
-        <div className="flex flex-wrap gap-2 text-sm">
-          {exercise.restSeconds !== null ? (
-            <MetadataPill label={`Rest: ${exercise.restSeconds}s`} />
-          ) : null}
-          {exercise.tempo ? <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} /> : null}
+      <CardContent className="space-y-2 pb-3">
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
+
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <InlineEditField
+            ariaLabel={`Sets for ${exercise.exerciseName}`}
+            label="Sets"
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
+            onChange={(nextValue) => setFields((current) => ({ ...current, sets: nextValue }))}
+            placeholder="3"
+            value={fields.sets}
+          />
+          <InlineEditField
+            ariaLabel={`Reps for ${exercise.exerciseName}`}
+            label="Reps"
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
+            onChange={(nextValue) => setFields((current) => ({ ...current, reps: nextValue }))}
+            placeholder="8-10"
+            value={fields.reps}
+          />
+          <InlineEditField
+            ariaLabel={`Rest for ${exercise.exerciseName}`}
+            label="Rest (s)"
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
+            onChange={(nextValue) =>
+              setFields((current) => ({ ...current, restSeconds: nextValue }))
+            }
+            placeholder="90"
+            value={fields.restSeconds}
+          />
+          <InlineEditField
+            ariaLabel={`Notes for ${exercise.exerciseName}`}
+            className="sm:col-span-3 lg:col-span-1"
+            label="Notes"
+            multiline
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
+            onChange={(nextValue) => setFields((current) => ({ ...current, notes: nextValue }))}
+            placeholder="Optional note"
+            value={fields.notes}
+          />
         </div>
 
-        {exercise.notes ? (
-          <div className="space-y-1 rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-            <p className="text-sm font-medium text-foreground">Notes</p>
-            <p className="text-sm text-muted">{exercise.notes}</p>
+        <details className="rounded-xl border border-border/80 bg-secondary/20 px-3 py-2">
+          <summary className="cursor-pointer text-xs font-semibold text-muted">
+            Show full set detail
+          </summary>
+          <div className="mt-2 space-y-2">
+            <p className="text-xs font-medium text-foreground">
+              {formatPrescription(exercise, weightUnit)}
+            </p>
+            {targetBreakdown ? <p className="text-xs text-muted">{targetBreakdown}</p> : null}
+            {exercise.tempo ? (
+              <p className="text-xs text-muted">Tempo: {formatTempo(exercise.tempo)}</p>
+            ) : null}
+
+            {(exercise.exercise?.formCues?.length ?? exercise.formCues?.length ?? 0) > 0 ||
+            exercise.cues.length > 0 ||
+            Boolean(exercise.exercise?.coachingNotes) ||
+            Boolean(exercise.programmingNotes) ? (
+              <div className="rounded-lg border border-border bg-card px-3 py-2">
+                <FormCueChips
+                  exerciseCoachingNotes={exercise.exercise?.coachingNotes ?? null}
+                  exerciseCues={exercise.exercise?.formCues ?? exercise.formCues ?? []}
+                  templateCues={exercise.cues}
+                  templateProgrammingNotes={exercise.programmingNotes ?? null}
+                />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {(exercise.exercise?.formCues?.length ?? exercise.formCues?.length ?? 0) > 0 ||
-        exercise.cues.length > 0 ||
-        Boolean(exercise.exercise?.coachingNotes) ||
-        Boolean(exercise.programmingNotes) ? (
-          <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-            <FormCueChips
-              exerciseCoachingNotes={exercise.exercise?.coachingNotes ?? null}
-              exerciseCues={exercise.exercise?.formCues ?? exercise.formCues ?? []}
-              templateCues={exercise.cues}
-              templateProgrammingNotes={exercise.programmingNotes ?? null}
-            />
-          </div>
-        ) : null}
+        </details>
       </CardContent>
     </Card>
   );
+}
+
+function SupersetManagerDialog({
+  onApply,
+  onOpenChange,
+  section,
+}: {
+  onApply: (templateExerciseIds: string[], supersetGroup: string | null) => void;
+  onOpenChange: (open: boolean) => void;
+  section: WorkoutTemplate['sections'][number] | null;
+}) {
+  const supersetGroups = useMemo(() => {
+    if (!section) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        section.exercises
+          .map((exercise) => exercise.supersetGroup)
+          .filter((group): group is string => typeof group === 'string' && group.length > 0),
+      ),
+    ];
+  }, [section]);
+  const [newSupersetName, setNewSupersetName] = useState(() => getNextSupersetName(supersetGroups));
+  const [selectedGroup, setSelectedGroup] = useState(() => supersetGroups[0] ?? '');
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Manage supersets</DialogTitle>
+          <DialogDescription>
+            Select exercises to create a new superset, edit an existing group, or remove grouping.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!section ? null : (
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-3">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Exercises
+              </p>
+              <div className="space-y-2">
+                {section.exercises.map((exercise, index) => (
+                  <label
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                    key={exercise.id}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedExerciseIds.includes(exercise.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedExerciseIds((current) => {
+                            if (checked !== true) {
+                              return current.filter((value) => value !== exercise.id);
+                            }
+
+                            if (current.includes(exercise.id)) {
+                              return current;
+                            }
+
+                            return [...current, exercise.id];
+                          });
+                        }}
+                      />
+                      <span className="text-sm text-foreground">
+                        {index + 1}. {exercise.exerciseName}
+                      </span>
+                    </span>
+                    {exercise.supersetGroup ? (
+                      <Badge variant="secondary">{formatSupersetLabel(exercise.supersetGroup)}</Badge>
+                    ) : (
+                      <Badge variant="outline">Ungrouped</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Create superset
+                </p>
+                <Input
+                  aria-label="Superset name"
+                  onChange={(event) => setNewSupersetName(event.currentTarget.value)}
+                  placeholder="Superset A"
+                  value={newSupersetName}
+                />
+                <Button
+                  className="w-full"
+                  disabled={selectedExerciseIds.length < 2}
+                  onClick={() => {
+                    const supersetGroup = toSupersetGroupId(newSupersetName);
+                    if (!supersetGroup) {
+                      toast.error('Superset name is required');
+                      return;
+                    }
+
+                    onApply(selectedExerciseIds, supersetGroup);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                >
+                  Create superset
+                </Button>
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Edit superset
+                </p>
+                <select
+                  aria-label="Existing superset"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  onChange={(event) => setSelectedGroup(event.currentTarget.value)}
+                  value={selectedGroup}
+                >
+                  <option value="">Select superset</option>
+                  {supersetGroups.map((group) => (
+                    <option key={group} value={group}>
+                      {formatSupersetLabel(group)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  className="w-full"
+                  disabled={!selectedGroup || selectedExerciseIds.length === 0}
+                  onClick={() => {
+                    onApply(selectedExerciseIds, selectedGroup);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Add selected to superset
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={selectedExerciseIds.length === 0}
+              onClick={() => {
+                onApply(selectedExerciseIds, null);
+                onOpenChange(false);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <Link2Off aria-hidden="true" className="size-4" />
+              Remove superset
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ExerciseDetailModal({
+  exercise,
+  isPending,
+  onOpenChange,
+  onSaveCoachingNotes,
+}: {
+  exercise: WorkoutTemplateExercise;
+  isPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
+  const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const exerciseQuery = useExercise(exercise.exerciseId, { enabled: true });
+  const historyQuery = useLastPerformance(exercise.exerciseId, {
+    enabled: true,
+    includeRelated: true,
+  });
+
+  const matchedExercise = exerciseQuery.data ?? null;
+
+  const formCues = matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
+  const instructionText = matchedExercise?.instructions ?? exercise.exercise?.instructions ?? null;
+  const muscleGroups = matchedExercise?.muscleGroups ?? [];
+  const trackingType = matchedExercise?.trackingType ?? exercise.trackingType;
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{exercise.exerciseName}</DialogTitle>
+          <DialogDescription>
+            {formatTrackingTypeLabel(trackingType)} •{' '}
+            {muscleGroups.length > 0 ? muscleGroups.join(', ') : 'Muscle groups not specified'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2 border-b border-border pb-2">
+          <Button
+            onClick={() => setActiveTab('overview')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'overview' ? 'default' : 'outline'}
+          >
+            Overview
+          </Button>
+          <Button
+            onClick={() => setActiveTab('history')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'history' ? 'default' : 'outline'}
+          >
+            History
+          </Button>
+          <Button
+            onClick={() => setActiveTab('related')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'related' ? 'default' : 'outline'}
+          >
+            Related
+          </Button>
+        </div>
+
+        {activeTab === 'overview' ? (
+          <div className="space-y-4">
+            {formCues.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Form cues
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {formCues.map((cue) => (
+                    <Badge key={cue} variant="secondary">
+                      {cue}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {instructionText ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Instructions
+                </p>
+                <p className="text-sm text-foreground">{instructionText}</p>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Coaching notes
+              </p>
+              <Textarea
+                aria-label="Coaching notes"
+                onChange={(event) => setCoachingNotes(event.currentTarget.value)}
+                rows={4}
+                value={coachingNotes}
+              />
+              <Button
+                disabled={isPending || isSaving}
+                onClick={() => {
+                  setIsSaving(true);
+                  onSaveCoachingNotes(exercise.exerciseId, toNullableString(coachingNotes))
+                    .then(() => {
+                      toast.success('Coaching notes saved');
+                    })
+                    .catch((error) => {
+                      const message =
+                        error instanceof Error ? error.message : 'Unable to save coaching notes';
+                      toast.error(message);
+                    })
+                    .finally(() => {
+                      setIsSaving(false);
+                    });
+                }}
+                type="button"
+              >
+                Save coaching notes
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === 'history' ? (
+          <div className="space-y-2">
+            {historyQuery.isPending ? (
+              <p className="text-sm text-muted">Loading recent performance...</p>
+            ) : (
+              <p className="text-sm text-foreground">
+                {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType)}
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {activeTab === 'related' ? (
+          <div className="space-y-2">
+            {historyQuery.isPending ? (
+              <p className="text-sm text-muted">Loading related exercises...</p>
+            ) : historyQuery.data?.related.length ? (
+              historyQuery.data.related.map((relatedExercise) => (
+                <div
+                  className="space-y-1 rounded-lg border border-border bg-card px-3 py-2"
+                  key={relatedExercise.exerciseId}
+                >
+                  <p className="text-sm font-semibold text-foreground">
+                    {relatedExercise.exerciseName}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {formatTrackingTypeLabel(relatedExercise.trackingType)}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {formatLastPerformanceSummary(
+                      relatedExercise.history,
+                      relatedExercise.trackingType,
+                    )}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted">No related exercises configured.</p>
+            )}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddExerciseDialog({
+  isPending,
+  onOpenChange,
+  onSelect,
+  open,
+}: {
+  isPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (exerciseId: string) => void;
+  open: boolean;
+}) {
+  const [query, setQuery] = useState('');
+
+  const exercisesQuery = useExercises(
+    {
+      limit: 8,
+      page: 1,
+      q: query.trim() || undefined,
+    },
+    { enabled: open },
+  );
+
+  const exerciseOptions = exercisesQuery.data?.data ?? [];
+
+  return (
+    <Dialog
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setQuery('');
+        }
+        onOpenChange(nextOpen);
+      }}
+      open={open}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add exercise</DialogTitle>
+          <DialogDescription>Select an exercise to add to this section.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <Input
+            aria-label="Search exercise to add"
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            placeholder="Search exercises"
+            value={query}
+          />
+
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {exercisesQuery.isPending ? (
+              <p className="text-sm text-muted">Loading exercises...</p>
+            ) : null}
+
+            {!exercisesQuery.isPending && exerciseOptions.length === 0 ? (
+              <p className="text-sm text-muted">No exercises found.</p>
+            ) : null}
+
+            {exerciseOptions.map((exercise) => (
+              <AddExerciseOption
+                exercise={exercise}
+                isPending={isPending}
+                key={exercise.id}
+                onSelect={onSelect}
+              />
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddExerciseOption({
+  exercise,
+  isPending,
+  onSelect,
+}: {
+  exercise: Exercise;
+  isPending: boolean;
+  onSelect: (exerciseId: string) => void;
+}) {
+  return (
+    <Button
+      className="h-auto w-full items-start justify-start px-3 py-2 text-left"
+      disabled={isPending}
+      onClick={() => onSelect(exercise.id)}
+      type="button"
+      variant="outline"
+    >
+      <span className="w-full">
+        <span className="block text-sm font-semibold text-foreground">{exercise.name}</span>
+        <span className="block text-xs text-muted">
+          {exercise.trackingType.replaceAll('_', ' ')}
+        </span>
+      </span>
+    </Button>
+  );
+}
+
+function InlineEditField({
+  ariaLabel,
+  className,
+  label,
+  multiline = false,
+  onBlur,
+  onFocus,
+  onChange,
+  placeholder,
+  value,
+}: {
+  ariaLabel: string;
+  className?: string;
+  label: string;
+  multiline?: boolean;
+  onBlur: () => void;
+  onFocus: () => void;
+  onChange: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <label className={cn('space-y-1', className)}>
+      <span className="text-[10px] font-semibold tracking-[0.08em] text-muted uppercase">
+        {label}
+      </span>
+      {multiline ? (
+        <Textarea
+          aria-label={ariaLabel}
+          className="min-h-9 px-2 py-1 text-xs focus-visible:border-primary focus-visible:bg-card"
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          placeholder={placeholder}
+          rows={2}
+          value={value}
+        />
+      ) : (
+        <Input
+          aria-label={ariaLabel}
+          className="h-8 text-xs focus-visible:border-primary focus-visible:bg-card"
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+      )}
+    </label>
+  );
+}
+
+function TemplateDetailSkeleton() {
+  return (
+    <section aria-label="Loading workout template" className="space-y-6">
+      <Card className="py-0">
+        <CardContent className="space-y-4 py-6">
+          <div className="h-3 w-28 animate-pulse rounded-full bg-secondary" />
+          <div className="h-10 w-64 animate-pulse rounded-2xl bg-secondary" />
+          <div className="h-4 w-full animate-pulse rounded-full bg-secondary" />
+          <div className="h-4 w-3/4 animate-pulse rounded-full bg-secondary" />
+        </CardContent>
+      </Card>
+
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Card key={index}>
+          <CardContent className="space-y-4 py-6">
+            <div className="h-8 w-40 animate-pulse rounded-2xl bg-secondary" />
+            <div className="h-24 w-full animate-pulse rounded-3xl bg-secondary/70" />
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function buildTemplateExerciseGroups(exercises: WorkoutTemplateExercise[]) {
+  const groups: Array<
+    | { type: 'single'; exercise: WorkoutTemplateExercise; index: number }
+    | {
+        type: 'superset';
+        groupId: string;
+        exercises: WorkoutTemplateExercise[];
+        startIndex: number;
+      }
+  > = [];
+
+  let index = 0;
+  while (index < exercises.length) {
+    const currentExercise = exercises[index];
+    if (!currentExercise) {
+      break;
+    }
+
+    if (!currentExercise.supersetGroup) {
+      groups.push({
+        type: 'single',
+        exercise: currentExercise,
+        index,
+      });
+      index += 1;
+      continue;
+    }
+
+    const groupedExercises = [currentExercise];
+    let nextIndex = index + 1;
+    while (nextIndex < exercises.length && exercises[nextIndex]?.supersetGroup === currentExercise.supersetGroup) {
+      const nextExercise = exercises[nextIndex];
+      if (nextExercise) {
+        groupedExercises.push(nextExercise);
+      }
+      nextIndex += 1;
+    }
+
+    if (groupedExercises.length >= 2) {
+      groups.push({
+        type: 'superset',
+        groupId: currentExercise.supersetGroup,
+        exercises: groupedExercises,
+        startIndex: index,
+      });
+      index = nextIndex;
+      continue;
+    }
+
+    groups.push({
+      type: 'single',
+      exercise: currentExercise,
+      index,
+    });
+    index += 1;
+  }
+
+  return groups;
+}
+
+function getSupersetAccentClass(groupId: string) {
+  let hash = 5381;
+
+  for (const character of groupId) {
+    hash = ((hash << 5) + hash + character.charCodeAt(0)) >>> 0;
+  }
+
+  return supersetAccentStyles[hash % supersetAccentStyles.length] ?? supersetAccentStyles[0];
+}
+
+function formatSupersetLabel(groupId: string) {
+  return groupId
+    .replace(/^superset-?/i, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim()
+    .replace(/^/, 'Superset ');
+}
+
+function getNextSupersetName(existingGroups: string[]) {
+  const used = new Set(
+    existingGroups
+      .map((group) => group.replace(/^superset-?/i, '').trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (const letter of letters) {
+    if (!used.has(letter)) {
+      return `Superset ${letter}`;
+    }
+  }
+
+  return `Superset ${existingGroups.length + 1}`;
+}
+
+function toSupersetGroupId(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^superset\s+/, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (!normalized) {
+    return null;
+  }
+
+  return `superset-${normalized}`.slice(0, 255);
+}
+
+function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
+  return trackingType.replaceAll('_', ' ');
+}
+
+function formatLastPerformanceSummary(
+  history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
+  trackingType: ExerciseTrackingType,
+) {
+  if (!history || history.sets.length === 0) {
+    return 'No history yet.';
+  }
+
+  const setSummary = history.sets
+    .map((set) => {
+      switch (trackingType) {
+        case 'weight_reps':
+        case 'weight_seconds':
+          return set.weight != null ? `${set.weight} x ${set.reps}` : `${set.reps}`;
+        case 'seconds_only':
+          return `${set.reps}s`;
+        case 'distance':
+          return `${set.reps} distance`;
+        default:
+          return `${set.reps} reps`;
+      }
+    })
+    .join(', ');
+
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
 }
 
 function formatLabel(value: string) {
@@ -634,6 +1817,25 @@ function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: Weigh
   return 'Prescription not set';
 }
 
+function formatCompactSetSummary(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
+  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
+
+  if (exercise.sets !== null && setTargetSummary) {
+    return `${exercise.sets}×${setTargetSummary}`;
+  }
+
+  if (exercise.sets !== null && repsTarget) {
+    return `${exercise.sets}×${repsTarget}`;
+  }
+
+  if (exercise.sets !== null) {
+    return `${exercise.sets} set${exercise.sets === 1 ? '' : 's'}`;
+  }
+
+  return formatPrescription(exercise, weightUnit);
+}
+
 function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
   const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
   const targets = (exercise.setTargets ?? [])
@@ -653,7 +1855,6 @@ function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit:
     })
     .filter((value): value is string => value !== null);
 
-  // Keep the secondary breakdown line for multi-set prescriptions only.
   if (targets.length <= 1) {
     return null;
   }
@@ -681,7 +1882,6 @@ function summarizeSetTargets(exercise: WorkoutTemplateExercise, weightUnit: Weig
     return uniqueLabels[0] ?? null;
   }
 
-  // Representative summary; detailed per-set differences are shown in formatSetTargetBreakdown.
   return labels[0] ?? null;
 }
 
@@ -694,7 +1894,9 @@ function formatTargetByTrackingType(
   const weightLabel = formatTargetWeight(target, weightUnit);
   const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds}s` : null;
   const distanceLabel =
-    target?.targetDistance != null ? `${target.targetDistance} ${getDistanceUnit(weightUnit)}` : null;
+    target?.targetDistance != null
+      ? `${target.targetDistance} ${getDistanceUnit(weightUnit)}`
+      : null;
 
   switch (trackingType) {
     case 'seconds_only':
@@ -759,4 +1961,139 @@ function formatRepTarget(repsMin: number | null, repsMax: number | null) {
 
 function formatTempo(tempo: string) {
   return tempo.split('').join('-');
+}
+
+function toUpdateSection(
+  section: WorkoutTemplate['sections'][number],
+): NonNullable<UpdateWorkoutTemplateInput['sections']>[number] {
+  return {
+    type: section.type,
+    exercises: section.exercises.map(toUpdateExercise),
+  };
+}
+
+function toUpdateExercise(
+  exercise: WorkoutTemplate['sections'][number]['exercises'][number],
+): NonNullable<NonNullable<UpdateWorkoutTemplateInput['sections']>[number]['exercises']>[number] {
+  return {
+    exerciseId: exercise.exerciseId,
+    cues: exercise.cues,
+    notes: exercise.notes,
+    programmingNotes: exercise.programmingNotes ?? null,
+    repsMax: exercise.repsMax,
+    repsMin: exercise.repsMin,
+    restSeconds: exercise.restSeconds,
+    setTargets: exercise.setTargets,
+    sets: exercise.sets,
+    supersetGroup: exercise.supersetGroup,
+    tempo: exercise.tempo,
+  };
+}
+
+function toNullableString(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseNullablePositiveInt(value: string) {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function parseNullableNonNegativeInt(value: string) {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function parseRepsInput(
+  value: string,
+): { valid: true; repsMax: number | null; repsMin: number | null } | { valid: false } {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return {
+      valid: true,
+      repsMax: null,
+      repsMin: null,
+    };
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    return {
+      valid: true,
+      repsMax: parsed,
+      repsMin: parsed,
+    };
+  }
+
+  const rangeMatch = normalized.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (rangeMatch) {
+    const min = Number.parseInt(rangeMatch[1] ?? '', 10);
+    const max = Number.parseInt(rangeMatch[2] ?? '', 10);
+
+    if (min <= max) {
+      return {
+        valid: true,
+        repsMax: max,
+        repsMin: min,
+      };
+    }
+
+    return { valid: false };
+  }
+
+  const plusMatch = normalized.match(/^(\d+)\+$/);
+  if (plusMatch) {
+    const min = Number.parseInt(plusMatch[1] ?? '', 10);
+    return {
+      valid: true,
+      repsMax: null,
+      repsMin: min,
+    };
+  }
+
+  return { valid: false };
+}
+
+function toEditableFields(exercise: WorkoutTemplateExercise): EditableExerciseFields {
+  return {
+    notes: exercise.notes ?? '',
+    reps: formatEditableReps(exercise.repsMin, exercise.repsMax),
+    restSeconds: exercise.restSeconds?.toString() ?? '',
+    sets: exercise.sets?.toString() ?? '',
+  };
+}
+
+function formatEditableReps(repsMin: number | null, repsMax: number | null) {
+  if (repsMin !== null && repsMax !== null) {
+    return repsMin === repsMax ? `${repsMin}` : `${repsMin}-${repsMax}`;
+  }
+
+  if (repsMin !== null) {
+    return `${repsMin}+`;
+  }
+
+  if (repsMax !== null) {
+    return `${repsMax}`;
+  }
+
+  return '';
 }

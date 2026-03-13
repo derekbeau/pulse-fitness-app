@@ -14,6 +14,26 @@ describe('SessionSummary', () => {
         defaultDescription="Chest, shoulders, and triceps emphasis with controlled tempo work."
         defaultTags={['strength', 'push', 'upper-body']}
         duration="47:12"
+        exerciseResults={[
+          {
+            id: 'incline-press',
+            name: 'Incline Dumbbell Press',
+            notes: 'Kept shoulder blades pinned and reduced ROM for shoulder comfort.',
+            reps: 32,
+            setsCompleted: 4,
+            totalSets: 4,
+            volume: 1760,
+          },
+          {
+            id: 'lateral-raise',
+            name: 'Cable Lateral Raise',
+            notes: '',
+            reps: 28,
+            setsCompleted: 4,
+            totalSets: 4,
+            volume: 420,
+          },
+        ]}
         exercisesCompleted={7}
         feedback={[
           {
@@ -72,10 +92,26 @@ describe('SessionSummary', () => {
         sessionNotes=""
         totalReps={124}
         totalSets={14}
+        totalVolume={7460}
         workoutName="Upper Push"
       />,
     );
 
+    expect(screen.getByTestId('summary-pill-volume-total-volume')).toHaveClass('bg-blue-500/12');
+    expect(screen.getByTestId('summary-pill-time-duration')).toHaveClass('bg-emerald-500/12');
+    expect(screen.getByTestId('summary-pill-count-sets')).toHaveClass('bg-fuchsia-500/12');
+    expect(screen.getByTestId('summary-pill-count-reps')).toHaveClass('bg-fuchsia-500/12');
+    expect(screen.getByText('Total volume')).toBeInTheDocument();
+    expect(screen.getByText('7,460 lbs')).toBeInTheDocument();
+    expect(screen.getByText('47:12')).toBeInTheDocument();
+    expect(screen.getByText('14/14')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Exercise results' })).toBeInTheDocument();
+    expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
+    expect(
+      screen.getByText('Kept shoulder blades pinned and reduced ROM for shoulder comfort.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Volume: 1,760 lbs')).toBeInTheDocument();
+    expect(screen.getByText('Reps: 32')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Session feedback' })).toBeInTheDocument();
     expect(screen.getByText('2 / 5')).toBeInTheDocument();
     expect(screen.getByText('🙂')).toBeInTheDocument();

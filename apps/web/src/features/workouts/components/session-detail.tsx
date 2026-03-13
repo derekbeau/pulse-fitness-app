@@ -235,21 +235,29 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
+          accentTextClassName="text-blue-900 dark:text-blue-200"
+          className="border-blue-200/70 bg-blue-500/10 dark:border-blue-400/30 dark:bg-blue-500/15"
           icon={<Dumbbell aria-hidden="true" className="size-4" />}
           label="Exercises"
           value={`${summary.totalExercises}`}
         />
         <StatCard
+          accentTextClassName="text-fuchsia-900 dark:text-fuchsia-200"
+          className="border-fuchsia-200/70 bg-fuchsia-500/10 dark:border-fuchsia-400/30 dark:bg-fuchsia-500/15"
           icon={<ListChecks aria-hidden="true" className="size-4" />}
           label="Sets"
           value={`${summary.totalSets}`}
         />
         <StatCard
+          accentTextClassName="text-fuchsia-900 dark:text-fuchsia-200"
+          className="border-fuchsia-200/70 bg-fuchsia-500/10 dark:border-fuchsia-400/30 dark:bg-fuchsia-500/15"
           icon={<Repeat2 aria-hidden="true" className="size-4" />}
           label="Reps"
           value={integerFormatter.format(summary.totalReps)}
         />
         <StatCard
+          accentTextClassName="text-emerald-900 dark:text-emerald-200"
+          className="border-emerald-200/70 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-500/15"
           icon={<Scale aria-hidden="true" className="size-4" />}
           label={formatLabel(summary.metricLabel)}
           value={formatSummaryMetric(summary.totalVolume, summary.metricLabel, weightUnit)}
