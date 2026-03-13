@@ -1,5 +1,10 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DailyNutrition, DeleteMealResult, NutritionSummary } from '@pulse/shared';
+import type {
+  DailyNutrition,
+  DeleteMealResult,
+  NutritionSummary,
+  NutritionWeekSummary,
+} from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
@@ -23,6 +28,15 @@ const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
     signal,
   });
 
+const fetchNutritionWeekSummary = (date: string, signal?: AbortSignal) =>
+  apiRequest<NutritionWeekSummary>(
+    `/api/v1/nutrition/week-summary?date=${encodeURIComponent(`${date}T12:00:00.000Z`)}`,
+    {
+      method: 'GET',
+      signal,
+    },
+  );
+
 const deleteMeal = ({ date, mealId }: DeleteMealInput) =>
   apiRequest<DeleteMealResult>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
     method: 'DELETE',
@@ -38,6 +52,12 @@ export const useNutritionSummary = (date: string) =>
   useQuery({
     queryKey: nutritionKeys.summary(date),
     queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
+  });
+
+export const useNutritionWeekSummary = (date: string) =>
+  useQuery({
+    queryKey: nutritionKeys.weekSummary(date),
+    queryFn: ({ signal }) => fetchNutritionWeekSummary(date, signal),
   });
 
 export const prefetchNutritionDay = async (queryClient: QueryClient, date: string) => {

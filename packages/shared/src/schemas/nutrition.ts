@@ -71,6 +71,18 @@ export const nutritionSummarySchema = z.object({
   target: nutritionMacroTotalsSchema.nullable(),
 });
 
+export const nutritionWeekDaySummarySchema = z.object({
+  date: dateSchema,
+  calories: nonnegativeNumber,
+  caloriesTarget: nonnegativeNumber,
+  protein: nonnegativeNumber,
+  proteinTarget: nonnegativeNumber,
+  mealCount: z.number().int().nonnegative(),
+  completeness: z.number().min(0).max(1),
+});
+
+export const nutritionWeekSummarySchema = z.array(nutritionWeekDaySummarySchema).length(7);
+
 export const deleteMealResultSchema = z.object({
   success: z.literal(true),
 });
@@ -135,4 +147,6 @@ export type NutritionMealItem = z.infer<typeof nutritionMealItemSchema>;
 export type DailyNutritionMeal = z.infer<typeof dailyNutritionMealSchema>;
 export type DailyNutrition = z.infer<typeof dailyNutritionSchema>;
 export type NutritionSummary = z.infer<typeof nutritionSummarySchema>;
+export type NutritionWeekDaySummary = z.infer<typeof nutritionWeekDaySummarySchema>;
+export type NutritionWeekSummary = z.infer<typeof nutritionWeekSummarySchema>;
 export type DeleteMealResult = z.infer<typeof deleteMealResultSchema>;

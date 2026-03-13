@@ -8,12 +8,18 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
+import {
+  DateNavBar,
+  MealCard,
+  NutritionMacroRings,
+  NutritionWeekStrip,
+} from '@/features/nutrition';
 import {
   prefetchNutritionDay,
   useDailyNutrition,
   useDeleteMeal,
   useNutritionSummary,
+  useNutritionWeekSummary,
 } from '@/features/nutrition/api/nutrition';
 import {
   formatDateKey,
@@ -59,6 +65,7 @@ export function NutritionPage() {
 
   const dailyNutritionQuery = useDailyNutrition(dateKey);
   const dailySummaryQuery = useNutritionSummary(dateKey);
+  const weekSummaryQuery = useNutritionWeekSummary(dateKey);
   const deleteMealMutation = useDeleteMeal();
 
   const selectedMeals = sortMeals(
@@ -92,6 +99,7 @@ export function NutritionPage() {
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
+    (weekSummaryQuery.isError && weekSummaryQuery.error) ||
     null;
   const deleteErrorMessage =
     deleteMealMutation.isError && deleteMealMutation.error instanceof Error
@@ -164,7 +172,9 @@ export function NutritionPage() {
           type="button"
           variant="outline"
           onClick={() =>
-            setMealSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'))
+            setMealSortDirection((currentDirection) =>
+              currentDirection === 'asc' ? 'desc' : 'asc',
+            )
           }
         >
           {mealSortDirection === 'asc' ? (
@@ -175,6 +185,16 @@ export function NutritionPage() {
           <span>{mealSortDirection === 'asc' ? 'Oldest first' : 'Newest first'}</span>
         </Button>
       </div>
+
+      {weekSummaryQuery.isLoading ? (
+        <NutritionWeekStripSkeleton />
+      ) : weekSummaryQuery.data ? (
+        <NutritionWeekStrip
+          days={weekSummaryQuery.data}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      ) : null}
 
       {nutritionError ? (
         <section className="rounded-2xl border border-destructive/30 px-5 py-6">
@@ -226,8 +246,8 @@ export function NutritionPage() {
                             target === null
                               ? 'text-foreground'
                               : isOverTarget
-                              ? 'text-red-900 dark:text-red-400'
-                              : 'text-emerald-950 dark:text-emerald-400',
+                                ? 'text-red-900 dark:text-red-400'
+                                : 'text-emerald-950 dark:text-emerald-400',
                             'text-lg tracking-tight',
                           )}
                         >
@@ -296,7 +316,9 @@ export function NutritionPage() {
                 }
                 description="Ask your agent to log a meal."
                 icon={UtensilsCrossed}
-                title={isSelectedDateToday ? 'No meals logged today' : 'No meals logged for this day'}
+                title={
+                  isSelectedDateToday ? 'No meals logged today' : 'No meals logged for this day'
+                }
               />
             )}
           </div>
@@ -341,6 +363,21 @@ function NutritionRingsSkeleton() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-44 rounded-2xl border border-border/70 bg-card/90" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NutritionWeekStripSkeleton() {
+  return (
+    <section
+      aria-label="Loading nutrition week strip"
+      className="rounded-2xl border border-border/70 p-2"
+    >
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <Skeleton key={index} className="h-14 rounded-xl bg-muted/60" />
         ))}
       </div>
     </section>

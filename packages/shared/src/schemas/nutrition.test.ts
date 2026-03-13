@@ -8,10 +8,12 @@ import {
   type PatchMealInput,
   type PatchMealItemInput,
   type NutritionSummary,
+  type NutritionWeekSummary,
   createMealInputSchema,
   dailyNutritionSchema,
   deleteMealResultSchema,
   mealItemInputSchema,
+  nutritionWeekSummarySchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
   nutritionSummarySchema,
@@ -419,5 +421,92 @@ describe('deleteMealResultSchema', () => {
   it('infers DeleteMealResult from the schema', () => {
     const result: DeleteMealResult = { success: true };
     expect(result.success).toBe(true);
+  });
+});
+
+describe('nutritionWeekSummarySchema', () => {
+  it('parses a valid seven-day week summary payload', () => {
+    const summary = nutritionWeekSummarySchema.parse([
+      {
+        date: '2026-03-02',
+        calories: 2100,
+        caloriesTarget: 2200,
+        protein: 175,
+        proteinTarget: 180,
+        mealCount: 3,
+        completeness: 0.96,
+      },
+      {
+        date: '2026-03-03',
+        calories: 0,
+        caloriesTarget: 2200,
+        protein: 0,
+        proteinTarget: 180,
+        mealCount: 0,
+        completeness: 0,
+      },
+      {
+        date: '2026-03-04',
+        calories: 1800,
+        caloriesTarget: 2200,
+        protein: 150,
+        proteinTarget: 180,
+        mealCount: 2,
+        completeness: 0.83,
+      },
+      {
+        date: '2026-03-05',
+        calories: 2200,
+        caloriesTarget: 2200,
+        protein: 180,
+        proteinTarget: 180,
+        mealCount: 4,
+        completeness: 1,
+      },
+      {
+        date: '2026-03-06',
+        calories: 2000,
+        caloriesTarget: 2200,
+        protein: 160,
+        proteinTarget: 180,
+        mealCount: 3,
+        completeness: 0.9,
+      },
+      {
+        date: '2026-03-07',
+        calories: 2300,
+        caloriesTarget: 2200,
+        protein: 190,
+        proteinTarget: 180,
+        mealCount: 4,
+        completeness: 1,
+      },
+      {
+        date: '2026-03-08',
+        calories: 1700,
+        caloriesTarget: 2200,
+        protein: 120,
+        proteinTarget: 180,
+        mealCount: 2,
+        completeness: 0.72,
+      },
+    ]);
+
+    expect(summary).toHaveLength(7);
+    expect(summary[0]?.date).toBe('2026-03-02');
+  });
+
+  it('infers NutritionWeekSummary from the schema', () => {
+    const summary: NutritionWeekSummary = Array.from({ length: 7 }, (_, index) => ({
+      date: `2026-03-${String(index + 2).padStart(2, '0')}`,
+      calories: 0,
+      caloriesTarget: 2200,
+      protein: 0,
+      proteinTarget: 180,
+      mealCount: 0,
+      completeness: 0,
+    }));
+
+    expect(summary[6]?.mealCount).toBe(0);
   });
 });

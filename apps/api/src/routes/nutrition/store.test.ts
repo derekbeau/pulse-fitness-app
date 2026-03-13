@@ -124,14 +124,8 @@ describe('nutrition store', () => {
 
     expect(testState.select).toHaveBeenCalledTimes(2);
     expect(testState.aggregateFrom).toHaveBeenCalledWith(nutritionLogs);
-    expect(testState.aggregateLeftJoinMeals).toHaveBeenCalledWith(
-      meals,
-      expect.anything(),
-    );
-    expect(testState.aggregateLeftJoinMealItems).toHaveBeenCalledWith(
-      mealItems,
-      expect.anything(),
-    );
+    expect(testState.aggregateLeftJoinMeals).toHaveBeenCalledWith(meals, expect.anything());
+    expect(testState.aggregateLeftJoinMealItems).toHaveBeenCalledWith(mealItems, expect.anything());
     expect(testState.targetFrom).toHaveBeenCalledWith(nutritionTargets);
     expect(testState.targetLimit).toHaveBeenCalledWith(1);
   });
@@ -155,5 +149,33 @@ describe('nutrition store', () => {
       target: null,
     });
     expect(testState.targetOrderBy).toHaveBeenCalledOnce();
+  });
+
+  it('calculates completeness as zero when no meals are logged', async () => {
+    const { calculateNutritionCompleteness } = await import('./store.js');
+
+    expect(
+      calculateNutritionCompleteness({
+        calories: 1500,
+        caloriesTarget: 2200,
+        protein: 120,
+        proteinTarget: 180,
+        mealCount: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it('calculates completeness as one when calories and protein are at target', async () => {
+    const { calculateNutritionCompleteness } = await import('./store.js');
+
+    expect(
+      calculateNutritionCompleteness({
+        calories: 2200,
+        caloriesTarget: 2200,
+        protein: 180,
+        proteinTarget: 180,
+        mealCount: 3,
+      }),
+    ).toBe(1);
   });
 });

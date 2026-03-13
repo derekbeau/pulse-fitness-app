@@ -123,6 +123,47 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       throw new Error(`Unhandled request: ${method} ${url.pathname}`);
     }
 
+    if (method === 'GET' && pathParts.length === 4 && pathParts[3] === 'week-summary') {
+      const requestedDate = url.searchParams.get('date');
+      const parsedDate = requestedDate ? new Date(requestedDate) : null;
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+        throw new Error(`Unhandled request: ${method} ${url.pathname}${url.search}`);
+      }
+
+      const selectedDate = `${parsedDate.getUTCFullYear()}-${String(parsedDate.getUTCMonth() + 1).padStart(2, '0')}-${String(parsedDate.getUTCDate()).padStart(2, '0')}`;
+      const selectedDateValue = new Date(`${selectedDate}T00:00:00.000Z`).getTime();
+      const dayOfWeek = new Date(`${selectedDate}T00:00:00.000Z`).getUTCDay();
+      const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const mondayValue = selectedDateValue + offsetToMonday * 24 * 60 * 60 * 1000;
+
+      return createJsonResponse(
+        Array.from({ length: 7 }, (_unused, index) => {
+          const dayValue = mondayValue + index * 24 * 60 * 60 * 1000;
+          const dayDate = new Date(dayValue);
+          const date = `${dayDate.getUTCFullYear()}-${String(dayDate.getUTCMonth() + 1).padStart(2, '0')}-${String(dayDate.getUTCDate()).padStart(2, '0')}`;
+          const dayState = state.get(date) ?? { daily: null, target: null };
+          const actual = calculateActuals(dayState.daily);
+          const mealCount = dayState.daily?.meals.length ?? 0;
+          const caloriesTarget = dayState.target?.calories ?? 0;
+          const proteinTarget = dayState.target?.protein ?? 0;
+          const completeness =
+            mealCount > 0 && caloriesTarget > 0 && proteinTarget > 0
+              ? Math.min(1, (actual.calories / caloriesTarget + actual.protein / proteinTarget) / 2)
+              : 0;
+
+          return {
+            date,
+            calories: actual.calories,
+            caloriesTarget,
+            protein: actual.protein,
+            proteinTarget,
+            mealCount,
+            completeness,
+          };
+        }),
+      );
+    }
+
     const date = pathParts[3];
     const dateState = state.get(date) ?? {
       daily: null,
@@ -406,7 +447,9 @@ describe('NutritionPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Nutrition help' })).toBeInTheDocument();
     expect(screen.getByText(/nutrition is read-only for meal data/i)).toBeInTheDocument();
-    expect(screen.getByText(/food definition edits later will not retroactively change/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/food definition edits later will not retroactively change/i),
+    ).toBeInTheDocument();
   });
 
   it('shows date-aware empty-state copy and go-to-today action on non-today dates', async () => {
@@ -615,7 +658,10 @@ describe('NutritionPage', () => {
 
     const didDeleteMeal = fetchMock.mock.calls.some(([input, init]) => {
       const url = new URL(String(input), 'http://localhost');
-      return url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' && init?.method === 'DELETE';
+      return (
+        url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' &&
+        init?.method === 'DELETE'
+      );
     });
     expect(didDeleteMeal).toBe(true);
   });
@@ -635,6 +681,20 @@ describe('NutritionPage', () => {
         return deferredSummary.promise;
       }
 
+      if (url.pathname === '/api/v1/nutrition/week-summary') {
+        return createJsonResponse(
+          Array.from({ length: 7 }, (_, index) => ({
+            date: `2026-03-${String(index + 2).padStart(2, '0')}`,
+            calories: 0,
+            caloriesTarget: TARGETS.calories,
+            protein: 0,
+            proteinTarget: TARGETS.protein,
+            mealCount: 0,
+            completeness: 0,
+          })),
+        );
+      }
+
       throw new Error(`Unhandled request: ${url.pathname}`);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -645,6 +705,7 @@ describe('NutritionPage', () => {
     expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition meals')).toBeInTheDocument();
+    expect(screen.getByLabelText('Loading nutrition week strip')).toBeInTheDocument();
     expect(screen.getAllByTestId('meal-card-skeleton')).toHaveLength(4);
   });
 
