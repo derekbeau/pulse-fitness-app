@@ -62,7 +62,7 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
           onClick={() => setIsExpanded((current) => !current)}
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <h2 className="text-lg font-semibold text-foreground">{meal.name}</h2>
               <p className="text-sm text-muted">{formattedTime}</p>
               {!isExpanded && meal.summary ? (

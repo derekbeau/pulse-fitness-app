@@ -60,6 +60,9 @@ describe('MealCard', () => {
     expect(screen.getByText('535 cal')).toBeInTheDocument();
     expect(screen.getByText('29g protein')).toBeInTheDocument();
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+
+    const summaryContainer = screen.getByRole('heading', { name: 'Breakfast' }).parentElement;
+    expect(summaryContainer).toHaveClass('min-w-0');
   });
 
   it('does not render a summary line when summary is null', () => {

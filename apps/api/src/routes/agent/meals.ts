@@ -14,6 +14,8 @@ import {
 import { isValidDate } from './date-utils.js';
 import { findFoodByName } from './store.js';
 
+const MAX_MEAL_SUMMARY_LENGTH = 500;
+
 export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
     const parsed = agentCreateMealInputSchema.safeParse(request.body);
@@ -64,7 +66,10 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       carbs: food.carbs * item.quantity,
       fat: food.fat * item.quantity,
     }));
-    const summary = mealItems.map((item) => item.name).join(', ');
+    const summary = mealItems
+      .map((item) => item.name)
+      .join(', ')
+      .slice(0, MAX_MEAL_SUMMARY_LENGTH);
 
     const { meal, items: createdItems } = await createMealForDate(userId, date, {
       name,
