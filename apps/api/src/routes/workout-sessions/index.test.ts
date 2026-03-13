@@ -1310,6 +1310,50 @@ describe('workout session routes', () => {
     });
   });
 
+  it('includes sessions completed on the same-day range boundary', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-yesterday',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Yesterday Session',
+      date: '2026-03-11',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-11T23:55:00.000Z'),
+      completedAt: Date.parse('2026-03-11T23:58:00.000Z'),
+      duration: 3,
+    });
+    seedWorkoutSession({
+      id: 'session-today',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Today Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T00:05:00.000Z'),
+      completedAt: Date.parse('2026-03-12T00:25:00.000Z'),
+      duration: 20,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions?status=completed&from=2026-03-12&to=2026-03-12',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'session-today',
+          date: '2026-03-12',
+          status: 'completed',
+        }),
+      ],
+    });
+  });
+
   it('filters workout session listings by multiple statuses', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

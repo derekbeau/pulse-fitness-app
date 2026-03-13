@@ -360,6 +360,76 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns the newest same-day completed performance for history lookups', async () => {
+    seedExercise({
+      id: 'global-squat',
+      userId: null,
+      name: 'Back Squat',
+      muscleGroups: ['quads'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    seedWorkoutSession({
+      id: 'session-early',
+      userId: 'user-1',
+      name: 'Lower Body',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T09:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T09:35:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-late',
+      userId: 'user-1',
+      name: 'Lower Body PM',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T17:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T17:42:00.000Z'),
+    });
+
+    seedSessionSet({
+      id: 'set-early',
+      sessionId: 'session-early',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 225,
+      reps: 5,
+    });
+    seedSessionSet({
+      id: 'set-late',
+      sessionId: 'session-late',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 235,
+      reps: 4,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-squat/last-performance',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        sessionId: 'session-late',
+        date: '2026-03-12',
+        sets: [
+          {
+            setNumber: 1,
+            weight: 235,
+            reps: 4,
+          },
+        ],
+      },
+    });
+  });
+
   it('creates a user-specific exercise for the authenticated user', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
