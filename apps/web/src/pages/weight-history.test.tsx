@@ -86,9 +86,9 @@ describe('WeightHistoryPage', () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={['/weight']}>
+      <MemoryRouter initialEntries={['/weight/history']}>
         <Routes>
-          <Route element={<WeightHistoryPage />} path="/weight" />
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
         </Routes>
       </MemoryRouter>,
     );
@@ -101,7 +101,7 @@ describe('WeightHistoryPage', () => {
     expect(screen.getByText('After cardio')).toBeInTheDocument();
 
     const list = screen.getByRole('list', { name: 'Weight history entries' });
-    const weightsInOrder = Array.from(list.querySelectorAll('li p.text-lg')).map(
+    const weightsInOrder = Array.from(list.querySelectorAll('li button.text-lg')).map(
       (element) => element.textContent,
     );
     expect(weightsInOrder).toEqual(['181.4 lbs', '181.2 lbs', '181.8 lbs']);
@@ -175,9 +175,9 @@ describe('WeightHistoryPage', () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={['/weight']}>
+      <MemoryRouter initialEntries={['/weight/history']}>
         <Routes>
-          <Route element={<WeightHistoryPage />} path="/weight" />
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
         </Routes>
       </MemoryRouter>,
     );
@@ -226,9 +226,9 @@ describe('WeightHistoryPage', () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={['/weight']}>
+      <MemoryRouter initialEntries={['/weight/history']}>
         <Routes>
-          <Route element={<WeightHistoryPage />} path="/weight" />
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
         </Routes>
       </MemoryRouter>,
     );
@@ -278,14 +278,85 @@ describe('WeightHistoryPage', () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={['/weight']}>
+      <MemoryRouter initialEntries={['/weight/history']}>
         <Routes>
-          <Route element={<WeightHistoryPage />} path="/weight" />
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
         </Routes>
       </MemoryRouter>,
     );
 
     expect(await screen.findByText('81.2 kg')).toBeInTheDocument();
+  });
+
+  it('supports inline editing of a weight value', async () => {
+    let weights = [
+      {
+        id: 'weight-1',
+        date: '2026-03-06',
+        weight: 181.4,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: weights }));
+      }
+
+      if (url.pathname === '/api/v1/weight/weight-1' && method === 'PATCH') {
+        const payload =
+          typeof init?.body === 'string' ? (JSON.parse(init.body) as { weight: number }) : null;
+        const nextWeight = payload?.weight ?? weights[0]?.weight ?? 0;
+
+        weights = weights.map((entry) =>
+          entry.id === 'weight-1' ? { ...entry, weight: nextWeight, updatedAt: entry.updatedAt + 1 } : entry,
+        );
+
+        return Promise.resolve(jsonResponse({ data: weights[0] }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/weight/history']}>
+        <Routes>
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('181.4 lbs')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '181.4 lbs' }));
+    fireEvent.change(screen.getByLabelText('Weight value for Mar 6, 2026'), {
+      target: { value: '180.2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('180.2 lbs')).toBeInTheDocument();
+    });
   });
 
   it('shows contextual help for weight history', async () => {
@@ -321,9 +392,9 @@ describe('WeightHistoryPage', () => {
     });
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={['/weight']}>
+      <MemoryRouter initialEntries={['/weight/history']}>
         <Routes>
-          <Route element={<WeightHistoryPage />} path="/weight" />
+          <Route element={<WeightHistoryPage />} path="/weight/history" />
         </Routes>
       </MemoryRouter>,
     );
@@ -341,7 +412,7 @@ describe('WeightHistoryPage', () => {
       screen.getByText('The dashboard trend line uses an exponentially weighted moving average (EWMA).'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Use this history page to delete incorrect entries and keep your trend clean.'),
+      screen.getByText('Tap any logged value to edit it inline when an entry needs correction.'),
     ).toBeInTheDocument();
   });
 });

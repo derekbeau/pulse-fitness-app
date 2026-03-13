@@ -195,6 +195,18 @@ describe('weightQueryParamsSchema', () => {
     ).toThrow();
   });
 
+  it('parses pagination params from string input', () => {
+    const params = weightQueryParamsSchema.parse({
+      page: '2',
+      limit: '25',
+    });
+
+    expect(params).toEqual({
+      page: 2,
+      limit: 25,
+    });
+  });
+
   it('infers the WeightQueryParams type from the schema', () => {
     const params: WeightQueryParams = {
       to: '2026-03-07',

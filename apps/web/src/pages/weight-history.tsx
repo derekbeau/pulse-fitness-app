@@ -16,12 +16,12 @@ export function WeightHistoryPage() {
           <ul className="list-disc space-y-1 pl-5">
             <li>The dashboard trend line uses an exponentially weighted moving average (EWMA).</li>
             <li>You can log weight manually in the app or ask your AI agent to log it.</li>
-            <li>Use this history page to delete incorrect entries and keep your trend clean.</li>
+            <li>Tap any logged value to edit it inline when an entry needs correction.</li>
           </ul>
         </HelpIcon>
       </div>
       <p className="max-w-2xl text-sm text-muted">
-        Review your full body weight log and remove entries you no longer want to keep.
+        Review your full body weight log, update values inline, or remove entries you no longer want.
       </p>
       <WeightHistory />
     </main>

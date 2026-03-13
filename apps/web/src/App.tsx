@@ -179,6 +179,7 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<JournalPage />)} path="journal" />
         <Route element={renderWithPageFallback(<JournalEntryPage />)} path="journal/:entryId" />
         <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight" />
+        <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight/history" />
         <Route element={renderWithPageFallback(<ProfilePage />)} path="profile" />
         <Route element={renderWithPageFallback(<EquipmentRoutePage />)} path="profile/equipment" />
         <Route element={renderWithPageFallback(<InjuriesPage />)} path="profile/injuries" />

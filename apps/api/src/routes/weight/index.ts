@@ -50,10 +50,25 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const entries = await listBodyWeightEntries(request.userId, parsedQuery.data);
+    const { page, limit } = parsedQuery.data;
 
-    return reply.send({
-      data: entries,
-    });
+    if (page !== undefined || limit !== undefined) {
+      const resolvedPage = page ?? 1;
+      const resolvedLimit = limit ?? 50;
+      const offset = (resolvedPage - 1) * resolvedLimit;
+      const paginatedEntries = entries.slice(offset, offset + resolvedLimit);
+
+      return reply.send({
+        data: paginatedEntries,
+        meta: {
+          page: resolvedPage,
+          limit: resolvedLimit,
+          total: entries.length,
+        },
+      });
+    }
+
+    return reply.send({ data: entries });
   });
 
   app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
