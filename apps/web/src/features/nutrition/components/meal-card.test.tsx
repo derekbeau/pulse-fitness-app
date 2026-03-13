@@ -89,6 +89,22 @@ describe('MealCard', () => {
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
   });
 
+  it('keeps horizontal padding consistent between collapsed and expanded states', () => {
+    render(<MealCard meal={breakfastMeal} />);
+
+    const trigger = screen.getByRole('button', { name: /breakfast/i });
+    const summarySection = trigger.parentElement;
+
+    expect(summarySection).toHaveClass('px-4', 'sm:px-5');
+
+    fireEvent.click(trigger);
+
+    const detailsId = trigger.getAttribute('aria-controls');
+    const expandedSection = detailsId ? document.getElementById(detailsId) : null;
+
+    expect(expandedSection).toHaveClass('px-4', 'sm:px-5');
+  });
+
   it('calls onDelete with the meal id when delete is clicked', () => {
     const onDelete = vi.fn();
 

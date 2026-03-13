@@ -41,6 +41,7 @@ const ITEM_HEADER_LABELS = [
   { key: 'carbs', label: 'Carbs' },
   { key: 'fat', label: 'Fat' },
 ] as const;
+const CARD_HORIZONTAL_PADDING = 'px-4 sm:px-5';
 
 export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -51,11 +52,11 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
 
   return (
     <Card className="gap-0 overflow-hidden border-border bg-[var(--color-card)] py-0 shadow-none">
-      <div className="flex items-start gap-3 px-5 py-4">
+      <div className={cn('flex items-start gap-3 py-4', CARD_HORIZONTAL_PADDING)}>
         <button
           aria-controls={contentId}
           aria-expanded={isExpanded}
-          className="flex flex-1 cursor-pointer flex-col gap-4 text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-4 text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           type="button"
           onClick={() => setIsExpanded((current) => !current)}
         >
@@ -99,7 +100,10 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
       </div>
 
       {isExpanded ? (
-        <div className="border-t border-border/80 px-5 py-4" id={contentId}>
+        <div
+          className={cn('border-t border-border/80 py-4', CARD_HORIZONTAL_PADDING)}
+          id={contentId}
+        >
           <div className="hidden grid-cols-[minmax(0,1.8fr)_repeat(4,minmax(0,0.7fr))] gap-3 px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted sm:grid">
             <span>Food</span>
             {ITEM_HEADER_LABELS.map((column) => (
