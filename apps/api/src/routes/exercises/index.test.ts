@@ -726,6 +726,115 @@ describe('exercise routes', () => {
     });
   });
 
+  it('excludes soft-deleted exercises referenced only by deleted sessions or templates', async () => {
+    seedExercise({
+      id: 'deleted-session-only',
+      userId: 'user-1',
+      name: 'Deleted Session Only',
+      muscleGroups: ['hamstrings'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'deleted-template-only',
+      userId: 'user-1',
+      name: 'Deleted Template Only',
+      muscleGroups: ['glutes'],
+      equipment: 'cable',
+      category: 'isolation',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-session-only'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-template-only'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'deleted-history-session',
+      userId: 'user-1',
+      name: 'Deleted Session',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_100_000,
+      completedAt: 1_700_000_120_000,
+    });
+    seedSessionSet({
+      id: 'deleted-history-set',
+      sessionId: 'deleted-history-session',
+      exerciseId: 'deleted-session-only',
+      setNumber: 1,
+      weight: 100,
+      reps: 10,
+    });
+    context.db
+      .update(workoutSessions)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(workoutSessions.id, 'deleted-history-session'))
+      .run();
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'deleted-template',
+        userId: 'user-1',
+        name: 'Deleted Template',
+        description: null,
+        tags: [],
+      })
+      .run();
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'deleted-template-exercise',
+        templateId: 'deleted-template',
+        exerciseId: 'deleted-template-only',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(workoutTemplates.id, 'deleted-template'))
+      .run();
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+    const filtersResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/filters',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 0,
+      },
+    });
+
+    expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.json()).toEqual({
+      data: {
+        muscleGroups: [],
+        equipment: [],
+      },
+    });
+  });
+
   it('updates only user-specific exercises and rejects global rows', async () => {
     seedExercise({
       id: 'user-exercise',

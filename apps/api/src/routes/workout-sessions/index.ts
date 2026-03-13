@@ -700,17 +700,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    const invalidExerciseIds = await findInvalidSessionExerciseIds({
-      userId: request.userId,
-      exerciseIds: getReferencedExerciseIds(input.sets),
-    });
-    if (invalidExerciseIds.length > 0) {
-      return sendError(
-        reply,
-        400,
-        INVALID_SESSION_EXERCISE_RESPONSE.code,
-        buildInvalidExerciseMessage(invalidExerciseIds),
-      );
+    if (parsedBody.data.sets !== undefined) {
+      const invalidExerciseIds = await findInvalidSessionExerciseIds({
+        userId: request.userId,
+        exerciseIds: getReferencedExerciseIds(input.sets),
+      });
+      if (invalidExerciseIds.length > 0) {
+        return sendError(
+          reply,
+          400,
+          INVALID_SESSION_EXERCISE_RESPONSE.code,
+          buildInvalidExerciseMessage(invalidExerciseIds),
+        );
+      }
     }
 
     const session = await updateWorkoutSession({

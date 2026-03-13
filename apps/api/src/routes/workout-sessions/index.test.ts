@@ -2502,6 +2502,54 @@ describe('workout session routes', () => {
     });
   });
 
+  it('allows patch updates without sets when existing session sets reference now-deleted exercises', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-soft-delete-lift',
+      userId: 'user-1',
+      name: 'Temporary Lift',
+    });
+    seedWorkoutSession({
+      id: 'session-with-deleted-exercise',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'set-soft-delete-lift',
+      sessionId: 'session-with-deleted-exercise',
+      exerciseId: 'user-1-soft-delete-lift',
+      setNumber: 1,
+      reps: 8,
+      section: 'main',
+    });
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-13T00:00:00.000Z' })
+      .where(eq(exercises.id, 'user-1-soft-delete-lift'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-with-deleted-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'completed',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-with-deleted-exercise',
+        status: 'completed',
+      }),
+    });
+  });
+
   it('rejects invalid list queries and malformed payloads', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

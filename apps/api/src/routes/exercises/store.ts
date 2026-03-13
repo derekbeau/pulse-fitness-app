@@ -80,6 +80,7 @@ const buildListWhereClause = ({
                   on ${workoutSessions.id} = ${sessionSets.sessionId}
                 where ${sessionSets.exerciseId} = ${exercises.id}
                   and ${workoutSessions.userId} = ${userId}
+                  and ${workoutSessions.deletedAt} is null
               )
               or exists (
                 select 1
@@ -88,6 +89,7 @@ const buildListWhereClause = ({
                   on ${workoutTemplates.id} = ${templateExercises.templateId}
                 where ${templateExercises.exerciseId} = ${exercises.id}
                   and ${workoutTemplates.userId} = ${userId}
+                  and ${workoutTemplates.deletedAt} is null
               )
             )`,
           ),

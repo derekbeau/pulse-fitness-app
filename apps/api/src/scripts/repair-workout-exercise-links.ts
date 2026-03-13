@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-import { sqlite } from '../db/index.js';
+import { and, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
+
+import { db, sqlite } from '../db/index.js';
+import {
+  exercises,
+  sessionSets,
+  templateExercises,
+  workoutSessions,
+  workoutTemplates,
+} from '../db/schema/index.js';
 
 type Logger = Pick<Console, 'info' | 'warn' | 'error'>;
 
@@ -102,60 +111,57 @@ const parseCliArgs = (args: string[]): RepairWorkoutExerciseLinksOptions => {
 };
 
 const listOrphanRows = (userId: string | null): OrphanLinkRow[] => {
-  const rows = sqlite
-    .prepare(
-      `
-      select
-        'session_sets' as source,
-        ss.id as row_id,
-        ss.session_id as owner_id,
-        ws.user_id as owner_user_id,
-        ss.exercise_id as exercise_id,
-        e.user_id as exercise_user_id,
-        e.deleted_at as exercise_deleted_at,
-        e.name as exercise_name
-      from session_sets ss
-      inner join workout_sessions ws on ws.id = ss.session_id
-      left join exercises e on e.id = ss.exercise_id
-      where (? is null or ws.user_id = ?)
-        and (
-          e.id is null
-          or e.deleted_at is not null
-          or (e.user_id is not null and e.user_id != ws.user_id)
-        )
-      union all
-      select
-        'template_exercises' as source,
-        te.id as row_id,
-        te.template_id as owner_id,
-        wt.user_id as owner_user_id,
-        te.exercise_id as exercise_id,
-        e.user_id as exercise_user_id,
-        e.deleted_at as exercise_deleted_at,
-        e.name as exercise_name
-      from template_exercises te
-      inner join workout_templates wt on wt.id = te.template_id
-      left join exercises e on e.id = te.exercise_id
-      where (? is null or wt.user_id = ?)
-        and (
-          e.id is null
-          or e.deleted_at is not null
-          or (e.user_id is not null and e.user_id != wt.user_id)
-        )
-      `,
-    )
-    // Positional bindings:
-    // 1-2 => session_sets user filter, 3-4 => template_exercises user filter.
-    .all(userId, userId, userId, userId) as Array<{
-    source: LinkSource;
-    row_id: string;
-    owner_id: string;
-    owner_user_id: string;
-    exercise_id: string;
-    exercise_user_id: string | null;
-    exercise_deleted_at: string | null;
-    exercise_name: string | null;
-  }>;
+  const sessionSetOrphans = db
+    .select({
+      source: sql<LinkSource>`'session_sets'`.as('source'),
+      row_id: sessionSets.id,
+      owner_id: sessionSets.sessionId,
+      owner_user_id: workoutSessions.userId,
+      exercise_id: sessionSets.exerciseId,
+      exercise_user_id: exercises.userId,
+      exercise_deleted_at: exercises.deletedAt,
+      exercise_name: exercises.name,
+    })
+    .from(sessionSets)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+    .leftJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
+    .where(
+      and(
+        userId ? eq(workoutSessions.userId, userId) : undefined,
+        or(
+          isNull(exercises.id),
+          isNotNull(exercises.deletedAt),
+          and(isNotNull(exercises.userId), ne(exercises.userId, workoutSessions.userId)),
+        ),
+      ),
+    );
+
+  const templateExerciseOrphans = db
+    .select({
+      source: sql<LinkSource>`'template_exercises'`.as('source'),
+      row_id: templateExercises.id,
+      owner_id: templateExercises.templateId,
+      owner_user_id: workoutTemplates.userId,
+      exercise_id: templateExercises.exerciseId,
+      exercise_user_id: exercises.userId,
+      exercise_deleted_at: exercises.deletedAt,
+      exercise_name: exercises.name,
+    })
+    .from(templateExercises)
+    .innerJoin(workoutTemplates, eq(workoutTemplates.id, templateExercises.templateId))
+    .leftJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
+    .where(
+      and(
+        userId ? eq(workoutTemplates.userId, userId) : undefined,
+        or(
+          isNull(exercises.id),
+          isNotNull(exercises.deletedAt),
+          and(isNotNull(exercises.userId), ne(exercises.userId, workoutTemplates.userId)),
+        ),
+      ),
+    );
+
+  const rows = sessionSetOrphans.unionAll(templateExerciseOrphans).all();
 
   return rows.map((row) => ({
     source: row.source,
@@ -377,6 +383,16 @@ export const repairWorkoutExerciseLinks = async (
             : 'Created placeholder exercise and relinked orphan row.',
         });
       } catch (error) {
+        // Best effort cleanup: don't leave a newly created placeholder orphaned
+        // when the follow-up relink fails.
+        sqlite
+          .prepare(
+            `
+            delete from exercises
+            where id = ?
+            `,
+          )
+          .run(placeholderId);
         results.push({
           source: row.source,
           rowId: row.rowId,

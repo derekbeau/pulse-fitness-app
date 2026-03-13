@@ -253,6 +253,55 @@ describe('repair-workout-exercise-links script', () => {
     expect(persisted).toEqual({ exerciseId: 'dry-run-link' });
   });
 
+  it('cleans up placeholder exercises when relink fails after placeholder creation', async () => {
+    context.sqlite.pragma('foreign_keys = OFF');
+    context.sqlite
+      .prepare(
+        `
+        insert into session_sets (
+          id, session_id, exercise_id, order_index, set_number, weight, reps, completed, skipped, section, notes
+        ) values ('set-fail', 'session-1', 'broken-link', 0, 1, null, 5, 0, 0, 'main', null)
+        `,
+      )
+      .run();
+    context.sqlite.pragma('foreign_keys = ON');
+
+    context.sqlite
+      .prepare(
+        `
+        create trigger if not exists fail_relink_on_set_fail
+        before update of exercise_id on session_sets
+        when old.id = 'set-fail'
+        begin
+          select raise(fail, 'forced relink failure');
+        end
+        `,
+      )
+      .run();
+
+    try {
+      const result = await repairWorkoutExerciseLinks({
+        userId: 'user-1',
+        dryRun: false,
+      });
+
+      expect(result.orphanCount).toBe(1);
+      expect(result.repairedCount).toBe(0);
+      expect(result.manualReviewCount).toBe(1);
+      expect(result.results[0]?.action).toBe('manual-review');
+      expect(result.results[0]?.note).toContain('Placeholder relink failed');
+
+      const placeholderExercises = context.db
+        .select({ id: exercises.id })
+        .from(exercises)
+        .where(eq(exercises.name, 'Broken Link'))
+        .all();
+      expect(placeholderExercises).toHaveLength(0);
+    } finally {
+      context.sqlite.prepare('drop trigger if exists fail_relink_on_set_fail').run();
+    }
+  });
+
   it('annotates cross-user references when relinking by name', async () => {
     context.db
       .insert(exercises)
