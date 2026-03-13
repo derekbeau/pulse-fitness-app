@@ -211,7 +211,7 @@ vi.mock('../routes/foods/store.js', () => ({
   deleteFood: vi.fn(),
   listFoods: vi.fn(async () => []),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(async (id: string) => {
+  trackFoodUsage: vi.fn(async (id: string) => {
     const food = testState.foods.get(id);
     if (food) {
       food.lastUsedAt = Date.now();
@@ -909,7 +909,7 @@ describe('agent integration', () => {
         expect(body.data.items[0].amount).toBe(2);
 
         const foodsStore = await import('../routes/foods/store.js');
-        expect(vi.mocked(foodsStore.updateFoodLastUsedAt)).toHaveBeenCalledWith(
+        expect(vi.mocked(foodsStore.trackFoodUsage)).toHaveBeenCalledWith(
           'food-chicken',
           'user-1',
         );
@@ -925,7 +925,7 @@ describe('agent integration', () => {
       try {
         seedAgentToken('user-1');
         const foodsStore = await import('../routes/foods/store.js');
-        vi.mocked(foodsStore.updateFoodLastUsedAt).mockClear();
+        vi.mocked(foodsStore.trackFoodUsage).mockClear();
 
         const response = await app.inject({
           method: 'POST',
@@ -972,7 +972,7 @@ describe('agent integration', () => {
             calories: 780,
           }),
         );
-        expect(vi.mocked(foodsStore.updateFoodLastUsedAt)).not.toHaveBeenCalled();
+        expect(vi.mocked(foodsStore.trackFoodUsage)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }

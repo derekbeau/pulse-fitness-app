@@ -238,7 +238,7 @@ vi.mock('../routes/foods/store.js', () => ({
     testState.foods.delete(id);
     return true;
   }),
-  updateFoodLastUsedAt: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
+  trackFoodUsage: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
     const existing = testState.foods.get(foodId);
     if (!existing || existing.userId !== userId) {
       throw new Error('Failed to update food last used timestamp');

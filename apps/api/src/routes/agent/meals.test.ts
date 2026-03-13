@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { updateFoodLastUsedAt } from '../foods/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -22,7 +22,7 @@ vi.mock('../foods/store.js', () => ({
   deleteFood: vi.fn(),
   listFoods: vi.fn(),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 vi.mock('../nutrition/store.js', () => ({
@@ -137,8 +137,8 @@ describe('agent meals routes', () => {
     vi.mocked(findMealItemById).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockReset();
-    vi.mocked(updateFoodLastUsedAt).mockResolvedValue(undefined);
+    vi.mocked(trackFoodUsage).mockReset();
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-agent-meals-secret';
   });
 
@@ -248,13 +248,13 @@ describe('agent meals routes', () => {
             ],
           }),
         );
-        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledTimes(2);
-        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenNthCalledWith(
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenNthCalledWith(
           1,
           'food-chicken',
           'user-1',
         );
-        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenNthCalledWith(
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenNthCalledWith(
           2,
           'food-rice',
           'user-1',
@@ -512,7 +512,7 @@ describe('agent meals routes', () => {
             calories: 850,
           }),
         ]);
-        expect(vi.mocked(updateFoodLastUsedAt)).not.toHaveBeenCalled();
+        expect(vi.mocked(trackFoodUsage)).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }
@@ -574,8 +574,53 @@ describe('agent meals routes', () => {
         expect(response.statusCode).toBe(201);
         expect(vi.mocked(findFoodByName)).toHaveBeenCalledTimes(1);
         expect(vi.mocked(findFoodByName)).toHaveBeenCalledWith('user-1', 'Chicken Breast');
-        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(updateFoodLastUsedAt)).toHaveBeenCalledWith('food-chicken', 'user-1');
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-chicken', 'user-1');
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('logs usage tracking failures without failing meal creation', async () => {
+      const app = buildServer();
+
+      try {
+        await app.ready();
+
+        vi.mocked(findFoodByName).mockResolvedValueOnce(chickenFood);
+        vi.mocked(createMealForDate).mockResolvedValue({
+          meal: {
+            ...createdMeal,
+            summary: 'Chicken Breast',
+          },
+          items: [createdItems[0]],
+        });
+        const usageError = new Error('transient usage tracking failure');
+        vi.mocked(trackFoodUsage).mockRejectedValueOnce(usageError);
+        const warnSpy = vi.spyOn(app.log, 'warn');
+
+        const token = app.jwt.sign({ userId: 'user-1' });
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/agent/meals',
+          headers: createAuthorizationHeader(token),
+          body: {
+            name: 'Lunch',
+            date: '2026-03-09',
+            items: [{ foodName: 'Chicken Breast', quantity: 1 }],
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-chicken', 'user-1');
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            err: usageError,
+            foodId: 'food-chicken',
+            userId: 'user-1',
+          }),
+          'Failed to track food usage after agent meal creation',
+        );
       } finally {
         await app.close();
       }

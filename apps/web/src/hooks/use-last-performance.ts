@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { exerciseHistoryWithRelatedSchema, type ExerciseLastPerformance } from '@pulse/shared';
+import {
+  exerciseHistoryWithRelatedSchema,
+  exerciseLastPerformanceSchema,
+  type ExerciseLastPerformance,
+} from '@pulse/shared';
 
 import type {
   ActiveWorkoutExerciseHistorySummary,
@@ -9,7 +13,8 @@ import { ApiError, apiRequest } from '@/lib/api-client';
 
 const lastPerformanceQueryKeys = {
   all: ['exercise-last-performance'] as const,
-  detail: (exerciseId: string) => ['exercise-last-performance', exerciseId] as const,
+  detail: (exerciseId: string, includeRelated: boolean) =>
+    ['exercise-last-performance', exerciseId, { includeRelated }] as const,
 };
 
 function mapLastPerformance(
@@ -41,14 +46,23 @@ function mapLastPerformance(
 
 async function getLastPerformance(
   exerciseId: string,
+  includeRelated: boolean,
 ): Promise<ActiveWorkoutExerciseHistorySummary | null> {
   try {
     const data = await apiRequest<unknown>(
-      `/api/v1/exercises/${exerciseId}/last-performance?includeRelated=true`,
+      `/api/v1/exercises/${exerciseId}/last-performance${includeRelated ? '?includeRelated=true' : ''}`,
     );
 
     if (data == null) {
       return null;
+    }
+
+    if (!includeRelated) {
+      const payload = exerciseLastPerformanceSchema.parse(data);
+      return {
+        history: mapLastPerformance(payload),
+        related: [],
+      };
     }
 
     const payload = exerciseHistoryWithRelatedSchema.parse(data);
@@ -75,15 +89,17 @@ export function useLastPerformance(
   exerciseId: string,
   options?: {
     enabled?: boolean;
+    includeRelated?: boolean;
   },
 ) {
   const normalizedExerciseId = exerciseId.trim();
   const enabled = options?.enabled ?? true;
+  const includeRelated = options?.includeRelated ?? true;
 
   return useQuery<ActiveWorkoutExerciseHistorySummary | null>({
     enabled: enabled && normalizedExerciseId.length > 0,
-    queryFn: () => getLastPerformance(normalizedExerciseId),
-    queryKey: lastPerformanceQueryKeys.detail(normalizedExerciseId),
+    queryFn: () => getLastPerformance(normalizedExerciseId, includeRelated),
+    queryKey: lastPerformanceQueryKeys.detail(normalizedExerciseId, includeRelated),
   });
 }
 

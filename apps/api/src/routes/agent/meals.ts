@@ -7,7 +7,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { updateFoodLastUsedAt } from '../foods/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -144,9 +144,17 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       .filter((value, index, list) => list.indexOf(value) === index);
 
     // Update recency/popularity for resolved foods (best-effort)
-    await Promise.allSettled(
-      resolvedFoodIds.map((foodId) => updateFoodLastUsedAt(foodId, userId)),
+    const usageTrackingResults = await Promise.allSettled(
+      resolvedFoodIds.map((foodId) => trackFoodUsage(foodId, userId)),
     );
+    usageTrackingResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        request.log.warn(
+          { err: result.reason, foodId: resolvedFoodIds[index], userId },
+          'Failed to track food usage after agent meal creation',
+        );
+      }
+    });
 
     const macros = createdItems.reduce(
       (acc, item) => ({

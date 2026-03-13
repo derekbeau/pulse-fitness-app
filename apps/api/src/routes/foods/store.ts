@@ -74,7 +74,7 @@ const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {
     }
   }
 
-  return filters.length === 1 ? filters[0] : and(...filters);
+  return and(...filters);
 };
 
 const buildFoodSort = (sort: FoodSort) => {
@@ -279,7 +279,7 @@ export const deleteFood = async (id: string, userId: string): Promise<boolean> =
   return result.changes === 1;
 };
 
-export const updateFoodLastUsedAt = async (
+export const trackFoodUsage = async (
   foodId: string,
   userId: string,
   lastUsedAt = Date.now(),
@@ -296,6 +296,6 @@ export const updateFoodLastUsedAt = async (
     .run();
 
   if (result.changes !== 1) {
-    throw new Error('Failed to update food last used timestamp');
+    throw new Error('Failed to track food usage metrics');
   }
 };

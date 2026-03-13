@@ -175,4 +175,57 @@ describe('use-last-performance hook', () => {
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it('allows callers to disable related history payloads', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        sessionId: 'session-2',
+        date: '2026-03-08',
+        sets: [
+          {
+            setNumber: 1,
+            weight: 105,
+            reps: 9,
+          },
+        ],
+      }),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(
+      () =>
+        useLastPerformance('global-bench-press', {
+          includeRelated: false,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toEqual({
+      history: {
+        sessionId: 'session-2',
+        date: '2026-03-08',
+        sets: [
+          {
+            completed: true,
+            reps: 9,
+            setNumber: 1,
+            weight: 105,
+          },
+        ],
+      },
+      related: [],
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance'),
+      expect.any(Object),
+    );
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance?includeRelated=true'),
+      expect.any(Object),
+    );
+  });
 });

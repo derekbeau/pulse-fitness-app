@@ -58,7 +58,7 @@ export const agentMealItemInputSchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '`adhoc` and `saveToFoods` are contradictory',
+        message: '`adhoc` and `saveToFoods` are aliases; provide at most one',
       });
     }
 

@@ -232,7 +232,9 @@ export function FoodList({
 
   async function saveFoodTags(food: Food, tags: string[]) {
     const normalized = normalizeFoodTags(tags).slice(0, FOOD_TAG_LIMIT);
-    if (normalized.join('|') === normalizeFoodTags(food.tags).join('|')) {
+    if (
+      [...normalized].sort().join('|') === [...normalizeFoodTags(food.tags)].sort().join('|')
+    ) {
       return;
     }
 

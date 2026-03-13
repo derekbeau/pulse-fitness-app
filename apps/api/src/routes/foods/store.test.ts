@@ -389,7 +389,7 @@ describe('foods store', () => {
   });
 
   it('soft-deletes foods by scope and increments usage on lastUsedAt updates', async () => {
-    const { deleteFood, updateFoodLastUsedAt } = await import('./store.js');
+    const { deleteFood, trackFoodUsage } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
     expect(dbState.updateSets[0]).toEqual({
@@ -400,7 +400,7 @@ describe('foods store', () => {
     await expect(deleteFood('food-1', 'user-2')).resolves.toBe(false);
     dbState.updateRunResult = { changes: 1 };
 
-    await updateFoodLastUsedAt('food-1', 'user-1', 1_700_000_300_000);
+    await trackFoodUsage('food-1', 'user-1', 1_700_000_300_000);
 
     expect(dbState.updateSets.at(-1)).toMatchObject({
       lastUsedAt: 1_700_000_300_000,

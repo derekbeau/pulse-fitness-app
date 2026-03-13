@@ -16,7 +16,7 @@ vi.mock('../foods/store.js', () => ({
   findFoodById: vi.fn(),
   listFoods: vi.fn(),
   updateFood: vi.fn(),
-  updateFoodLastUsedAt: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({

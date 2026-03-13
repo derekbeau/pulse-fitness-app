@@ -7,7 +7,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { updateFoodLastUsedAt } from '../foods/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 
 import {
   createMealForDate,
@@ -78,7 +78,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     const created = await createMealForDate(request.userId, request.params.date, parsedBody.data);
 
     const foodIds = [...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString))];
-    await Promise.allSettled(foodIds.map((foodId) => updateFoodLastUsedAt(foodId, request.userId)));
+    await Promise.allSettled(foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)));
 
     return reply.code(201).send({
       data: created,
