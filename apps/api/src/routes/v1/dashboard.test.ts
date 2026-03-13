@@ -67,6 +67,8 @@ describe('dashboard routes', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        templateId: 'template-upper-push-a',
+        sessionId: 'session-upper-push-a',
         duration: 64,
       },
       habits: {
@@ -113,6 +115,8 @@ describe('dashboard routes', () => {
           workout: {
             name: 'Upper Push A',
             status: 'completed',
+            templateId: 'template-upper-push-a',
+            sessionId: 'session-upper-push-a',
             duration: 64,
           },
           habits: {
@@ -555,42 +559,41 @@ describe('dashboard routes', () => {
         missingConfigPutAuthResponse,
         missingConfigPostAuthResponse,
         invalidSnapshotAuthResponse,
-      ] =
-        await Promise.all([
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/dashboard/snapshot',
-          }),
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/dashboard/trends/weight',
-          }),
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/dashboard/config',
-          }),
-          app.inject({
-            method: 'PUT',
-            url: '/api/v1/dashboard/config',
-            payload: {
-              habitChainIds: ['habit-1'],
-              trendMetrics: ['weight'],
-            },
-          }),
-          app.inject({
-            method: 'POST',
-            url: '/api/v1/dashboard/config',
-            payload: {
-              habitChainIds: ['habit-1'],
-              trendMetrics: ['weight'],
-            },
-          }),
-          app.inject({
-            method: 'GET',
-            url: '/api/v1/dashboard/snapshot',
-            headers: createAuthorizationHeader('not-a-valid-token'),
-          }),
-        ]);
+      ] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/snapshot',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/trends/weight',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/config',
+        }),
+        app.inject({
+          method: 'PUT',
+          url: '/api/v1/dashboard/config',
+          payload: {
+            habitChainIds: ['habit-1'],
+            trendMetrics: ['weight'],
+          },
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/dashboard/config',
+          payload: {
+            habitChainIds: ['habit-1'],
+            trendMetrics: ['weight'],
+          },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/dashboard/snapshot',
+          headers: createAuthorizationHeader('not-a-valid-token'),
+        }),
+      ]);
 
       for (const response of [
         missingSnapshotAuthResponse,

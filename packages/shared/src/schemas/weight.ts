@@ -46,6 +46,8 @@ export const weightQueryParamsSchema = z
     from: dateSchema.optional(),
     to: dateSchema.optional(),
     days: z.coerce.number().int().positive().max(3650).optional(),
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().max(200).optional(),
   })
   .refine(({ from, to }) => !from || !to || from <= to, {
     message: '`from` must be on or before `to`',

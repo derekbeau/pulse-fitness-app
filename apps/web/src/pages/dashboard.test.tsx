@@ -5,7 +5,7 @@ import {
   type Habit,
   type HabitEntry,
 } from '@pulse/shared';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,6 +124,8 @@ const snapshotForToday: DashboardSnapshot = {
   workout: {
     name: 'Upper Push A',
     status: 'completed',
+    templateId: 'template-upper-push-a',
+    sessionId: 'session-upper-push-a',
     duration: 62,
   },
   habits: {
@@ -435,7 +437,7 @@ describe('DashboardPage', () => {
       expect.objectContaining({ method: 'GET' }),
     );
 
-    const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
+    const bodyWeightCard = screen.getAllByText('Body Weight')[0]?.closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     expect(
       within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
@@ -456,38 +458,14 @@ describe('DashboardPage', () => {
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('1/1')).toBeInTheDocument();
-    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('id', 'dashboard-weight-input');
-    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute('name', 'weight');
-    expect(screen.getByLabelText('Weight (lbs)')).toHaveAttribute(
-      'data-qa',
-      'dashboard-weight-input',
-    );
-    expect(screen.getByText('Log Weight').closest('[data-qa]')).toHaveAttribute(
-      'data-qa',
-      'dashboard-log-weight-card',
-    );
     expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
-      'data-qa',
-      'dashboard-save-weight',
-    );
-    expect(screen.getByRole('button', { name: 'Save Weight' })).toHaveAttribute(
-      'id',
-      'dashboard-save-weight',
-    );
-    expect(screen.getByTestId('dashboard-weight-input')).toHaveAttribute(
-      'data-testid',
-      'dashboard-weight-input',
-    );
-    expect(screen.getByTestId('dashboard-save-weight')).toHaveAttribute(
-      'data-testid',
-      'dashboard-save-weight',
-    );
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/weight/history');
+    expect(screen.queryByTestId('dashboard-log-weight-form')).not.toBeInTheDocument();
 
     const layout = container.querySelector('[data-slot="dashboard-layout"]');
     const mainColumn = container.querySelector('[data-slot="dashboard-main-column"]');
     const sidebarColumn = container.querySelector('[data-slot="dashboard-sidebar-column"]');
-    const logWeightForm = container.querySelector('[data-qa="dashboard-log-weight-form"]');
     const recentColumn = container.querySelector('[data-slot="dashboard-recent-workouts-column"]');
     const weightTrendRow = container.querySelector('[data-slot="dashboard-weight-trend-row"]');
     const calendarPanel = container.querySelector('[data-slot="dashboard-calendar-panel"]');
@@ -504,7 +482,7 @@ describe('DashboardPage', () => {
     );
     expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
     expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');
-    expect(logWeightForm).toBeInTheDocument();
+    expect(container.querySelector('[data-qa="dashboard-log-weight-form"]')).not.toBeInTheDocument();
     expect(recentColumn).toHaveClass('order-3', 'md:col-span-2', 'xl:col-span-1', 'xl:col-start-3');
     expect(weightTrendRow).toHaveClass('order-4', 'md:col-span-2', 'xl:col-span-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
@@ -641,7 +619,7 @@ describe('DashboardPage', () => {
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
-    expect(screen.getByText('Body Weight')).toBeInTheDocument();
+    expect(screen.getAllByText('Body Weight')[0]).toBeInTheDocument();
   });
 
   it('updates snapshot and habit chain windows when a new calendar day is selected', async () => {
@@ -656,7 +634,7 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const bodyWeightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
+    const bodyWeightCard = screen.getAllByText('Body Weight')[0]?.closest('[data-slot="stat-card"]');
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
 
     expect(bodyWeightCard).toBeInTheDocument();
@@ -675,8 +653,8 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     const refreshedBodyWeightCard = screen
-      .getByText('Body Weight')
-      .closest('[data-slot="stat-card"]') as HTMLElement;
+      .getAllByText('Body Weight')[0]
+      ?.closest('[data-slot="stat-card"]') as HTMLElement;
     const refreshedHabitsCard = screen
       .getByText('Habits')
       .closest('[data-slot="stat-card"]') as HTMLElement;
@@ -713,9 +691,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
   });
 
-  it('logs a new weight entry and refreshes the body weight card', async () => {
-    vi.useRealTimers();
-
+  it('edits a logged weight entry and refreshes the body weight card', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -724,30 +700,55 @@ describe('DashboardPage', () => {
       { wrapper },
     );
 
-    await waitFor(() => {
-      expect(screen.getByText('Body Weight')).toBeInTheDocument();
-    });
-    await waitFor(() => {
-      const initialBodyWeightCard = screen
-        .getByText('Body Weight')
-        .closest('[data-slot="stat-card"]') as HTMLElement;
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
 
-      expect(within(initialBodyWeightCard).getByText(formatWeight(181.4))).toBeInTheDocument();
-    });
+    const initialBodyWeightCard = screen
+      .getAllByText('Body Weight')[0]
+      .closest('[data-slot="stat-card"]') as HTMLElement;
 
+    expect(within(initialBodyWeightCard).getByText(formatWeight(181.4))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Weight (lbs)'), { target: { value: '175.5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Weight' }));
 
-    await waitFor(() => {
-      expect(screen.getByText('Weight entry saved.')).toBeInTheDocument();
-    });
-    await waitFor(() => {
-      const refreshedBodyWeightCard = screen
-        .getByText('Body Weight')
-        .closest('[data-slot="stat-card"]') as HTMLElement;
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
 
-      expect(within(refreshedBodyWeightCard).getByText('175.5 lbs')).toBeInTheDocument();
-    });
+    expect(screen.queryByLabelText('Weight (lbs)')).not.toBeInTheDocument();
+    const refreshedBodyWeightCard = screen
+      .getAllByText('Body Weight')[0]
+      .closest('[data-slot="stat-card"]') as HTMLElement;
+
+    expect(within(refreshedBodyWeightCard).getByText('175.5 lbs')).toBeInTheDocument();
+  });
+
+  it('shows a log weight CTA for days without an entry and opens the inline form', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: /select wednesday, march 4, 2026/i }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('dashboard-log-weight-cta')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Weight (lbs)')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('dashboard-log-weight-cta'));
+
+    expect(screen.getByLabelText('Weight (lbs)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Weight' })).toBeInTheDocument();
   });
 
   it('renders only configured habit chains and trend metrics', async () => {

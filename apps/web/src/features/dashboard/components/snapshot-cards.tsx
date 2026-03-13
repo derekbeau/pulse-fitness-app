@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { StatCard, type StatTrend } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { formatCalories, formatGrams, formatTrendChange, formatWeight } from '@/lib/format-utils';
+import { cn } from '@/lib/utils';
 
 type SnapshotCardsProps = {
   snapshot?: DashboardSnapshot;
@@ -77,6 +78,52 @@ const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {
     .join(' ');
 };
 
+const getWorkoutHref = (workout: DashboardWorkoutSnapshot | null | undefined): string | null => {
+  if (!workout) {
+    return null;
+  }
+
+  if (workout.status === 'scheduled') {
+    return workout.templateId ? `/workouts/templates/${workout.templateId}` : null;
+  }
+
+  if (!workout.sessionId) {
+    return null;
+  }
+
+  if (workout.status === 'in_progress') {
+    return `/workouts/sessions/${workout.sessionId}`;
+  }
+
+  return `/workouts/sessions/${workout.sessionId}/summary`;
+};
+
+const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
+  switch (status) {
+    case 'completed':
+      return {
+        label: 'Completed',
+        badgeClassName:
+          'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        dotClassName: 'bg-emerald-500',
+      };
+    case 'in_progress':
+      return {
+        label: 'In Progress',
+        badgeClassName:
+          'border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300',
+        dotClassName: 'animate-pulse bg-orange-500',
+      };
+    case 'scheduled':
+    default:
+      return {
+        label: 'Scheduled',
+        badgeClassName: 'border-border bg-background/70 text-muted-foreground',
+        dotClassName: 'border border-slate-500 bg-transparent',
+      };
+  }
+};
+
 export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   const hasWeight = !!snapshot?.weight;
   const hasCaloriesTarget = (snapshot?.macros.target.calories ?? 0) > 0;
@@ -139,6 +186,41 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
     : snapshot
       ? 'Rest Day'
       : '--';
+  const workoutHref = getWorkoutHref(snapshot?.workout);
+  const workoutStatusBadge = snapshot?.workout
+    ? getWorkoutStatusBadge(snapshot.workout.status)
+    : null;
+  const workoutCard = (
+    <StatCard
+      className={cn(
+        'border-primary/20 bg-secondary',
+        workoutHref
+          ? 'cursor-pointer transition-colors hover:border-primary/40 hover:bg-secondary/80'
+          : undefined,
+      )}
+      data-stagger="4"
+      icon={
+        workoutStatusBadge ? (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+              workoutStatusBadge.badgeClassName,
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn('inline-flex size-2 rounded-full', workoutStatusBadge.dotClassName)}
+            />
+            {workoutStatusBadge.label}
+          </span>
+        ) : null
+      }
+      label="Today's Workout"
+      value={workoutValue}
+      valueClassName={getSnapshotValueClassName(workoutValue)}
+      valueTitle={workoutValue}
+    />
+  );
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
@@ -202,14 +284,17 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         valueTitle={habitsValueText}
       />
 
-      <StatCard
-        className="border-primary/20 bg-secondary"
-        data-stagger="4"
-        label="Today's Workout"
-        value={workoutValue}
-        valueClassName={getSnapshotValueClassName(workoutValue)}
-        valueTitle={workoutValue}
-      />
+      {workoutHref ? (
+        <Link
+          aria-label={`Open today's workout: ${snapshot?.workout?.name ?? 'workout'}`}
+          className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          to={workoutHref}
+        >
+          {workoutCard}
+        </Link>
+      ) : (
+        workoutCard
+      )}
     </div>
   );
 }

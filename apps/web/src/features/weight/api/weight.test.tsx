@@ -8,6 +8,7 @@ import {
   useDeleteWeight,
   useLatestWeight,
   useLogWeight,
+  useUpdateWeight,
   useWeightTrend,
   weightKeys,
 } from './weight';
@@ -180,5 +181,40 @@ describe('weight api hooks', () => {
     });
 
     expect(toast.error).toHaveBeenCalledWith('Failed to delete weight entry');
+  });
+
+  it('patches a weight entry and invalidates weight queries', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'weight-2',
+        date: '2026-03-07',
+        weight: 180.1,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 3,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateWeight(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: 'weight-2',
+        input: { weight: 180.1 },
+      });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/weight/weight-2',
+      expect.objectContaining({
+        body: JSON.stringify({
+          weight: 180.1,
+        }),
+        method: 'PATCH',
+      }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
   });
 });

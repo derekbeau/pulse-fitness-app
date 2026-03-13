@@ -11,6 +11,7 @@ import {
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
   listBodyWeightEntries,
+  listBodyWeightEntriesPaginated,
   patchBodyWeightEntryById,
   upsertBodyWeightEntry,
 } from './store.js';
@@ -21,6 +22,7 @@ vi.mock('./store.js', () => ({
   findBodyWeightEntryByDate: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
   listBodyWeightEntries: vi.fn(),
+  listBodyWeightEntriesPaginated: vi.fn(),
   patchBodyWeightEntryById: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
 }));
@@ -41,6 +43,7 @@ describe('weight routes', () => {
     vi.mocked(findBodyWeightEntryByDate).mockReset();
     vi.mocked(getLatestBodyWeightEntry).mockReset();
     vi.mocked(listBodyWeightEntries).mockReset();
+    vi.mocked(listBodyWeightEntriesPaginated).mockReset();
     vi.mocked(patchBodyWeightEntryById).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
@@ -267,6 +270,68 @@ describe('weight routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(vi.mocked(listBodyWeightEntries)).toHaveBeenCalledWith('user-1', { days: 7 });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('supports paginated listing with meta when page or limit is provided', async () => {
+    vi.mocked(listBodyWeightEntriesPaginated).mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-2',
+          date: '2026-03-02',
+          weight: 182.9,
+          notes: null,
+          createdAt: 1_700_000_000_100,
+          updatedAt: 1_700_000_000_100,
+        },
+      ],
+      total: 3,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/weight?page=2&limit=1',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(vi.mocked(listBodyWeightEntriesPaginated)).toHaveBeenCalledWith(
+        'user-1',
+        {
+          days: undefined,
+          from: undefined,
+          to: undefined,
+        },
+        {
+          limit: 1,
+          offset: 1,
+        },
+      );
+      expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
+      expect(response.json()).toEqual({
+        data: [
+          {
+            id: 'entry-2',
+            date: '2026-03-02',
+            weight: 182.9,
+            notes: null,
+            createdAt: 1_700_000_000_100,
+            updatedAt: 1_700_000_000_100,
+          },
+        ],
+        meta: {
+          page: 2,
+          limit: 1,
+          total: 3,
+        },
+      });
     } finally {
       await app.close();
     }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import type {
   BodyWeightEntry,
@@ -17,6 +17,28 @@ const bodyWeightEntrySelection = {
   notes: bodyWeight.notes,
   createdAt: bodyWeight.createdAt,
   updatedAt: bodyWeight.updatedAt,
+};
+
+type WeightListFilters = Omit<WeightQueryParams, 'page' | 'limit'>;
+
+const toBodyWeightConditions = (userId: string, query: WeightListFilters) => {
+  const conditions = [eq(bodyWeight.userId, userId)];
+
+  if (query.days !== undefined) {
+    const rangeEnd = query.to ?? getTodayDate();
+    const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
+    conditions.push(gte(bodyWeight.date, rangeStart));
+  }
+
+  if (query.from) {
+    conditions.push(gte(bodyWeight.date, query.from));
+  }
+
+  if (query.to) {
+    conditions.push(lte(bodyWeight.date, query.to));
+  }
+
+  return conditions;
 };
 
 export const findBodyWeightEntryByDate = async (
@@ -87,25 +109,10 @@ export const upsertBodyWeightEntry = async (
 
 export const listBodyWeightEntries = async (
   userId: string,
-  query: WeightQueryParams,
+  query: WeightListFilters,
 ): Promise<BodyWeightEntry[]> => {
   const { db } = await import('../../db/index.js');
-
-  const conditions = [eq(bodyWeight.userId, userId)];
-
-  if (query.days !== undefined) {
-    const rangeEnd = query.to ?? getTodayDate();
-    const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
-    conditions.push(gte(bodyWeight.date, rangeStart));
-  }
-
-  if (query.from) {
-    conditions.push(gte(bodyWeight.date, query.from));
-  }
-
-  if (query.to) {
-    conditions.push(lte(bodyWeight.date, query.to));
-  }
+  const conditions = toBodyWeightConditions(userId, query);
 
   return db
     .select(bodyWeightEntrySelection)
@@ -113,6 +120,36 @@ export const listBodyWeightEntries = async (
     .where(and(...conditions))
     .orderBy(asc(bodyWeight.date))
     .all();
+};
+
+export const listBodyWeightEntriesPaginated = async (
+  userId: string,
+  query: WeightListFilters,
+  pagination: { limit: number; offset: number },
+): Promise<{ entries: BodyWeightEntry[]; total: number }> => {
+  const { db } = await import('../../db/index.js');
+  const conditions = toBodyWeightConditions(userId, query);
+  const whereClause = and(...conditions);
+
+  const entries = db
+    .select(bodyWeightEntrySelection)
+    .from(bodyWeight)
+    .where(whereClause)
+    .orderBy(asc(bodyWeight.date))
+    .limit(pagination.limit)
+    .offset(pagination.offset)
+    .all();
+
+  const countResult = db
+    .select({ total: sql<number>`count(*)` })
+    .from(bodyWeight)
+    .where(whereClause)
+    .get();
+
+  return {
+    entries,
+    total: countResult?.total ?? 0,
+  };
 };
 
 export const getLatestBodyWeightEntry = async (userId: string): Promise<BodyWeightEntry | null> => {

@@ -2,6 +2,7 @@ import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,11 @@ function isDashboardWidgetId(value: string): value is DashboardWidgetId {
   return value in DASHBOARD_WIDGET_IDS;
 }
 
+type DashboardWeightStatus = {
+  message: string;
+  type: 'error' | 'success';
+};
+
 function DashboardWidgetFrame({
   children,
   className,
@@ -104,7 +110,8 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
-  const [weightMessage, setWeightMessage] = useState('');
+  const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
+  const [isWeightEditorOpen, setIsWeightEditorOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
   const [widgetVisibilityMessage, setWidgetVisibilityMessage] = useState('');
@@ -128,6 +135,8 @@ export function DashboardPage() {
   const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter((widgetId) => !visibleWidgets.includes(widgetId));
   const showWeightTrendChart = visibleWidgets.includes('weight-trend');
   const isSavingDashboardConfig = saveDashboardConfigMutation.isPending;
+  const selectedWeight = snapshotQuery.data?.weight;
+  const hasWeightForSelectedDay = selectedWeight?.date === selectedDateKey;
 
   function showWidget(widgetId: DashboardWidgetId) {
     setVisibleWidgetsDraft((currentDraft) => {
@@ -138,6 +147,13 @@ export function DashboardPage() {
 
       return [...current, widgetId];
     });
+  }
+
+  function handleSelectedDateChange(nextDate: Date) {
+    setIsWeightEditorOpen(false);
+    setWeightInput('');
+    setWeightStatus(null);
+    setSelectedDate(nextDate);
   }
 
   function hideWidget(widgetId: DashboardWidgetId) {
@@ -188,7 +204,10 @@ export function DashboardPage() {
 
     const parsedWeight = Number(weightInput);
     if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
-      setWeightMessage('Enter a valid weight above 0.');
+      setWeightStatus({
+        message: 'Enter a valid weight above 0.',
+        type: 'error',
+      });
       return;
     }
 
@@ -199,9 +218,16 @@ export function DashboardPage() {
       });
       await queryClient.invalidateQueries({ queryKey: dashboardSnapshotKeys.all });
       setWeightInput('');
-      setWeightMessage('Weight entry saved.');
+      setWeightStatus({
+        message: 'Weight entry saved.',
+        type: 'success',
+      });
+      setIsWeightEditorOpen(false);
     } catch {
-      setWeightMessage('Unable to save weight. Please try again.');
+      setWeightStatus({
+        message: 'Unable to save weight. Please try again.',
+        type: 'error',
+      });
     }
   }
 
@@ -241,7 +267,12 @@ export function DashboardPage() {
               </HelpIcon>
             </div>
             {!isViewingToday ? (
-              <Button onClick={() => setSelectedDate(getToday())} size="sm" type="button" variant="outline">
+              <Button
+                onClick={() => handleSelectedDateChange(getToday())}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
                 Back to today
               </Button>
             ) : null}
@@ -319,7 +350,7 @@ export function DashboardPage() {
                 onHide={() => hideWidget('calendar')}
                 widgetLabel={DASHBOARD_WIDGET_IDS.calendar}
               >
-                <CalendarPicker onDateSelect={setSelectedDate} selectedDate={selectedDate} />
+                <CalendarPicker onDateSelect={handleSelectedDateChange} selectedDate={selectedDate} />
               </DashboardWidgetFrame>
             ) : null}
 
@@ -354,55 +385,128 @@ export function DashboardPage() {
                     >
                       <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
                         <CardHeader className="space-y-1">
-                          <CardTitle>Log Weight</CardTitle>
-                          <CardDescription>Track your body weight for the selected day.</CardDescription>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <CardTitle>Body Weight</CardTitle>
+                              <CardDescription>Track your body weight for the selected day.</CardDescription>
+                            </div>
+                            <Link
+                              className="text-sm font-medium text-primary hover:underline"
+                              to="/weight/history"
+                            >
+                              History
+                            </Link>
+                          </div>
                         </CardHeader>
                         <CardContent>
-                          <form
-                            className="space-y-3"
-                            data-qa="dashboard-log-weight-form"
-                            data-testid="dashboard-log-weight-form"
-                            onSubmit={handleWeightSubmit}
-                          >
-                            <div className="space-y-2">
-                              <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
-                              <Input
-                                aria-describedby="dashboard-weight-status"
-                                data-qa="dashboard-weight-input"
-                                data-testid="dashboard-weight-input"
-                                id="dashboard-weight-input"
-                                inputMode="decimal"
-                                min="0.1"
-                                name="weight"
-                                onChange={(event) => {
-                                  setWeightInput(event.currentTarget.value);
-                                  setWeightMessage('');
+                          <div className="space-y-4">
+                            {hasWeightForSelectedDay ? (
+                              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-secondary/30 px-4 py-3">
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                    Logged
+                                  </p>
+                                  <p className="text-2xl font-semibold text-foreground">
+                                    {selectedWeight.value.toFixed(1)} lbs
+                                  </p>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    setWeightInput(selectedWeight.value.toFixed(1));
+                                    setWeightStatus(null);
+                                    setIsWeightEditorOpen(true);
+                                  }}
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                className="w-full justify-between border-accent bg-accent/20 text-foreground shadow-[0_0_0_1px_var(--color-accent)] hover:bg-accent/25"
+                                data-testid="dashboard-log-weight-cta"
+                                onClick={() => {
+                                  setWeightInput('');
+                                  setWeightStatus(null);
+                                  setIsWeightEditorOpen(true);
                                 }}
-                                placeholder="e.g. 175.5"
-                                step="0.1"
-                                type="number"
-                                value={weightInput}
-                              />
-                            </div>
-                            <Button
-                              data-qa="dashboard-save-weight"
-                              data-testid="dashboard-save-weight"
-                              id="dashboard-save-weight"
-                              disabled={logWeightMutation.isPending}
-                              type="submit"
-                            >
-                              {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
-                            </Button>
-                            {weightMessage ? (
-                              <p
-                                className="text-sm text-muted-foreground"
-                                id="dashboard-weight-status"
-                                role="status"
+                                type="button"
+                                variant="outline"
                               >
-                                {weightMessage}
-                              </p>
+                                <span>Log weight</span>
+                                <span
+                                  aria-hidden="true"
+                                  className="size-2 rounded-full bg-accent animate-pulse"
+                                />
+                              </Button>
+                            )}
+
+                            {isWeightEditorOpen ? (
+                              <form
+                                className="space-y-3"
+                                data-qa="dashboard-log-weight-form"
+                                data-testid="dashboard-log-weight-form"
+                                onSubmit={handleWeightSubmit}
+                              >
+                                <div className="space-y-2">
+                                  <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                                  <Input
+                                    aria-describedby="dashboard-weight-status"
+                                    data-qa="dashboard-weight-input"
+                                    data-testid="dashboard-weight-input"
+                                    id="dashboard-weight-input"
+                                    inputMode="decimal"
+                                    min="0.1"
+                                    name="weight"
+                                    onChange={(event) => {
+                                      setWeightInput(event.currentTarget.value);
+                                      setWeightStatus(null);
+                                    }}
+                                    placeholder="e.g. 175.5"
+                                    step="0.1"
+                                    type="number"
+                                    value={weightInput}
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    data-qa="dashboard-save-weight"
+                                    data-testid="dashboard-save-weight"
+                                    id="dashboard-save-weight"
+                                    disabled={logWeightMutation.isPending}
+                                    type="submit"
+                                  >
+                                    {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => {
+                                      setIsWeightEditorOpen(false);
+                                      setWeightStatus(null);
+                                    }}
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                                {weightStatus ? (
+                                  <p
+                                    className={cn(
+                                      'text-sm',
+                                      weightStatus.type === 'error'
+                                        ? 'text-destructive'
+                                        : 'text-muted-foreground',
+                                    )}
+                                    id="dashboard-weight-status"
+                                    role="status"
+                                  >
+                                    {weightStatus.message}
+                                  </p>
+                                ) : null}
+                              </form>
                             ) : null}
-                          </form>
+                          </div>
                         </CardContent>
                       </Card>
                     </DashboardWidgetFrame>
