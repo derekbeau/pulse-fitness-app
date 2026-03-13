@@ -54,4 +54,19 @@ describe('Button', () => {
       'min-w-0',
     );
   });
+
+  it('keeps outline buttons readable on dark surfaces during hover and active states', () => {
+    render(
+      <Button type="button" variant="outline">
+        Reschedule
+      </Button>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Reschedule' })).toHaveClass(
+      'text-foreground',
+      'dark:hover:text-foreground',
+      'active:text-accent-foreground',
+      'dark:active:text-foreground',
+    );
+  });
 });
