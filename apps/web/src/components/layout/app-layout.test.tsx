@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -45,5 +45,19 @@ describe('AppLayout', () => {
     await onRefresh();
 
     expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses responsive top padding for main content', () => {
+    render(
+      <AppLayout>
+        <div>content</div>
+      </AppLayout>,
+    );
+
+    const main = screen.getByRole('main');
+
+    expect(main).toHaveClass('pt-4');
+    expect(main).toHaveClass('md:pt-8');
+    expect(main).not.toHaveClass('pt-20');
   });
 });

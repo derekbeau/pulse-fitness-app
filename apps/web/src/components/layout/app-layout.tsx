@@ -19,7 +19,7 @@ export function AppLayout({ children }: PropsWithChildren) {
       <ActiveSessionResumeGate />
       <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl">
         <Sidebar />
-        <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-8">
+        <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-24 pt-4 md:px-8 md:pb-8 md:pt-8">
           {content}
         </main>
       </div>
