@@ -460,6 +460,73 @@ export const reorderWorkoutTemplateExercises = async ({
   });
 };
 
+export const swapWorkoutTemplateExercise = async ({
+  templateId,
+  userId,
+  exerciseId,
+  newExerciseId,
+}: {
+  templateId: string;
+  userId: string;
+  exerciseId: string;
+  newExerciseId: string;
+}): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const templateExists = tx
+      .select({ id: workoutTemplates.id })
+      .from(workoutTemplates)
+      .where(
+        and(
+          eq(workoutTemplates.id, templateId),
+          eq(workoutTemplates.userId, userId),
+          isNull(workoutTemplates.deletedAt),
+        ),
+      )
+      .limit(1)
+      .get();
+
+    if (!templateExists) {
+      return false;
+    }
+
+    const updateResult = tx
+      .update(templateExercises)
+      .set({
+        exerciseId: newExerciseId,
+        // Existing template cues are often exercise-specific; clear on swap.
+        cues: null,
+      })
+      .where(
+        and(
+          eq(templateExercises.templateId, templateId),
+          eq(templateExercises.exerciseId, exerciseId),
+        ),
+      )
+      .run();
+
+    if (updateResult.changes === 0) {
+      return false;
+    }
+
+    tx.update(workoutTemplates)
+      .set({
+        updatedAt: Date.now(),
+      })
+      .where(
+        and(
+          eq(workoutTemplates.id, templateId),
+          eq(workoutTemplates.userId, userId),
+          isNull(workoutTemplates.deletedAt),
+        ),
+      )
+      .run();
+
+    return true;
+  });
+};
+
 export const deleteWorkoutTemplate = async (id: string, userId: string): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 

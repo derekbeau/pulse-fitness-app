@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
+  swapWorkoutTemplateExerciseInputSchema,
   type CreateWorkoutTemplateInput,
+  type SwapWorkoutTemplateExerciseInput,
   type UpdateWorkoutTemplateInput,
   type WorkoutTemplate,
   type WorkoutTemplateSectionType,
@@ -347,6 +349,26 @@ describe('reorderWorkoutTemplateExercisesInputSchema', () => {
       reorderWorkoutTemplateExercisesInputSchema.parse({
         section: 'main',
         exerciseIds: ['exercise-1', '  '],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('swapWorkoutTemplateExerciseInputSchema', () => {
+  it('accepts a replacement exercise id', () => {
+    const payload: SwapWorkoutTemplateExerciseInput = swapWorkoutTemplateExerciseInputSchema.parse({
+      newExerciseId: 'exercise-2',
+    });
+
+    expect(payload).toEqual({
+      newExerciseId: 'exercise-2',
+    });
+  });
+
+  it('rejects blank replacement ids', () => {
+    expect(() =>
+      swapWorkoutTemplateExerciseInputSchema.parse({
+        newExerciseId: '   ',
       }),
     ).toThrow();
   });

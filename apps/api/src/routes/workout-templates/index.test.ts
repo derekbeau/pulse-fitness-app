@@ -43,6 +43,15 @@ const seedExercise = (values: {
   muscleGroups: string[];
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  trackingType?:
+    | 'weight_reps'
+    | 'weight_seconds'
+    | 'bodyweight_reps'
+    | 'reps_only'
+    | 'reps_seconds'
+    | 'seconds_only'
+    | 'distance'
+    | 'cardio';
   formCues?: string[];
   coachingNotes?: string | null;
   instructions?: string | null;
@@ -51,6 +60,7 @@ const seedExercise = (values: {
     .insert(exercises)
     .values({
       ...values,
+      trackingType: values.trackingType ?? 'weight_reps',
       formCues: values.formCues ?? [],
       instructions: values.instructions ?? null,
       coachingNotes: values.coachingNotes ?? null,
@@ -191,6 +201,15 @@ describe('workout template routes', () => {
       category: 'compound',
     });
     seedExercise({
+      id: 'user-plank',
+      userId: 'user-1',
+      name: 'RKC Plank',
+      muscleGroups: ['core'],
+      equipment: 'bodyweight',
+      category: 'mobility',
+      trackingType: 'seconds_only',
+    });
+    seedExercise({
       id: 'other-user-private',
       userId: 'user-2',
       name: 'Private Exercise',
@@ -232,6 +251,13 @@ describe('workout template routes', () => {
         payload: {
           section: 'main',
           exerciseIds: [],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-templates/template-1/exercises/user-press/swap',
+        payload: {
+          newExerciseId: 'user-row',
         },
       }),
       context.app.inject({
@@ -688,6 +714,188 @@ describe('workout template routes', () => {
       { id: 'template-exercise-main-2', orderIndex: 0 },
       { id: 'template-exercise-main-1', orderIndex: 1 },
     ]);
+  });
+
+  it('swaps a template exercise while preserving row configuration', async () => {
+    seedTemplate({
+      id: 'template-swap',
+      userId: 'user-1',
+      name: 'Upper Push',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-swap',
+      templateId: 'template-swap',
+      exerciseId: 'user-press',
+      orderIndex: 2,
+      section: 'main',
+      sets: 4,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 120,
+      notes: 'Top set and backoff',
+      cues: ['Drive feet'],
+      programmingNotes: 'Leave one rep in reserve.',
+      setTargets: [
+        { setNumber: 1, targetWeight: 100 },
+        { setNumber: 2, targetWeightMin: 90, targetWeightMax: 95 },
+      ],
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-templates/template-swap/exercises/user-press/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-plank',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'template-swap',
+        sections: [
+          { type: 'warmup', exercises: [] },
+          {
+            type: 'main',
+            exercises: [
+              expect.objectContaining({
+                id: 'template-exercise-swap',
+                exerciseId: 'user-plank',
+                sets: 4,
+                repsMin: 6,
+                repsMax: 8,
+                restSeconds: 120,
+                notes: 'Top set and backoff',
+                setTargets: [
+                  { setNumber: 1, targetWeight: 100 },
+                  { setNumber: 2, targetWeightMin: 90, targetWeightMax: 95 },
+                ],
+                programmingNotes: 'Leave one rep in reserve.',
+              }),
+            ],
+          },
+          { type: 'cooldown', exercises: [] },
+        ],
+      }),
+      meta: {
+        warning:
+          'Swapped to an exercise with a different tracking type. Review set targets and expectations.',
+      },
+    });
+
+    const persisted = context.db
+      .select({
+        exerciseId: templateExercises.exerciseId,
+        sets: templateExercises.sets,
+        repsMin: templateExercises.repsMin,
+        repsMax: templateExercises.repsMax,
+        restSeconds: templateExercises.restSeconds,
+        notes: templateExercises.notes,
+        cues: templateExercises.cues,
+        setTargets: templateExercises.setTargets,
+        programmingNotes: templateExercises.programmingNotes,
+        orderIndex: templateExercises.orderIndex,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.id, 'template-exercise-swap'))
+      .get();
+
+    expect(persisted).toEqual({
+      exerciseId: 'user-plank',
+      sets: 4,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 120,
+      notes: 'Top set and backoff',
+      cues: null,
+      setTargets: [
+        { setNumber: 1, targetWeight: 100 },
+        { setNumber: 2, targetWeightMin: 90, targetWeightMax: 95 },
+      ],
+      programmingNotes: 'Leave one rep in reserve.',
+      orderIndex: 2,
+    });
+  });
+
+  it('returns 404 when swapping an exercise not present in the template', async () => {
+    seedTemplate({
+      id: 'template-missing-source',
+      userId: 'user-1',
+      name: 'Upper Push',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-1',
+      templateId: 'template-missing-source',
+      exerciseId: 'user-press',
+      orderIndex: 0,
+      section: 'main',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-templates/template-missing-source/exercises/user-row/swap',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        newExerciseId: 'user-plank',
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_TEMPLATE_EXERCISE_NOT_FOUND',
+        message: 'Template exercise not found',
+      },
+    });
+  });
+
+  it('rejects swap targets that are not user-owned exercises', async () => {
+    seedTemplate({
+      id: 'template-invalid-target',
+      userId: 'user-1',
+      name: 'Upper Push',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-1',
+      templateId: 'template-invalid-target',
+      exerciseId: 'user-press',
+      orderIndex: 0,
+      section: 'main',
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const [globalResponse, otherUserResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-templates/template-invalid-target/exercises/user-press/swap',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          newExerciseId: 'global-row-erg',
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-templates/template-invalid-target/exercises/user-press/swap',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          newExerciseId: 'other-user-private',
+        },
+      }),
+    ]);
+
+    for (const response of [globalResponse, otherUserResponse]) {
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INVALID_TEMPLATE_EXERCISE',
+          message: 'Template references one or more unavailable exercises',
+        },
+      });
+    }
   });
 
   it('soft-deletes only owned templates', async () => {
