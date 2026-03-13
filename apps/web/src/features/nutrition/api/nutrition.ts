@@ -86,6 +86,9 @@ export const useDeleteMeal = () => {
         queryClient.invalidateQueries({
           queryKey: nutritionKeys.summary(variables.date),
         }),
+        queryClient.invalidateQueries({
+          queryKey: nutritionKeys.weekSummary(variables.date),
+        }),
       ]);
       toast.success('Meal deleted');
     },

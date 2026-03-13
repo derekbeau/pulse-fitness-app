@@ -428,6 +428,48 @@ describe('NutritionPage', () => {
     );
   });
 
+  it('renders week strip above date navigation and updates selected date when a strip day is tapped', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = createQueryClientWrapper();
+    render(<NutritionPage />, { wrapper });
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const strip = screen.getByRole('list', { name: 'Nutrition week summary' });
+    const dateNavPreviousButton = screen.getByRole('button', { name: 'Go to previous day' });
+    expect(strip.compareDocumentPosition(dateNavPreviousButton) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    expect(getMealToggleButton('Breakfast')).toBeInTheDocument();
+  });
+
   it('opens contextual nutrition help from the page header', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {

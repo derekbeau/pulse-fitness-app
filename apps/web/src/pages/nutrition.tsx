@@ -161,6 +161,16 @@ export function NutritionPage() {
         </p>
       </header>
 
+      {weekSummaryQuery.isLoading ? (
+        <NutritionWeekStripSkeleton />
+      ) : weekSummaryQuery.data ? (
+        <NutritionWeekStrip
+          days={weekSummaryQuery.data}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      ) : null}
+
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <DateNavBar className="flex-1" selectedDate={selectedDate} onDateChange={setSelectedDate} />
         <Button
@@ -184,16 +194,6 @@ export function NutritionPage() {
           <span>{mealSortDirection === 'asc' ? 'Oldest first' : 'Newest first'}</span>
         </Button>
       </div>
-
-      {weekSummaryQuery.isLoading ? (
-        <NutritionWeekStripSkeleton />
-      ) : weekSummaryQuery.data ? (
-        <NutritionWeekStrip
-          days={weekSummaryQuery.data}
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-        />
-      ) : null}
 
       {nutritionError ? (
         <section className="rounded-2xl border border-destructive/30 px-5 py-6">

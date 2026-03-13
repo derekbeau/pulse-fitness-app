@@ -178,4 +178,18 @@ describe('nutrition store', () => {
       }),
     ).toBe(1);
   });
+
+  it('calculates completeness as partial when meals exist but macros are below target', async () => {
+    const { calculateNutritionCompleteness } = await import('./store.js');
+
+    expect(
+      calculateNutritionCompleteness({
+        calories: 1_650,
+        caloriesTarget: 2_200,
+        protein: 135,
+        proteinTarget: 180,
+        mealCount: 2,
+      }),
+    ).toBe(0.75);
+  });
 });

@@ -150,7 +150,7 @@ describe('nutrition api hooks', () => {
     );
   });
 
-  it('deletes a meal and invalidates daily + summary cache for that date', async () => {
+  it('deletes a meal and invalidates daily + summary + week-summary cache for that date', async () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse({ success: true }));
 
     const { queryClient, wrapper } = createQueryClientWrapper();
@@ -175,6 +175,9 @@ describe('nutrition api hooks', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: nutritionKeys.summary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionKeys.weekSummary('2026-03-09'),
     });
   });
 });
