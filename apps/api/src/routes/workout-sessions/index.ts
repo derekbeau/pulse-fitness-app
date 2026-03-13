@@ -26,6 +26,7 @@ import {
   createSessionSet,
   createWorkoutSession,
   deleteWorkoutSession,
+  findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
   findWorkoutSessionById,
   listSessionSetGroups,
@@ -107,6 +108,13 @@ const toCreateWorkoutSessionInput = (
 
 const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
+
+const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
+  const dedupedIds = [...new Set(invalidExerciseIds)];
+  const preview = dedupedIds.slice(0, 3).join(', ');
+  const suffix = dedupedIds.length > 3 ? ', ...' : '';
+  return `${INVALID_SESSION_EXERCISE_RESPONSE.message}: ${preview}${suffix}`;
+};
 
 const applyExerciseNotesToSets = ({
   sets,
@@ -306,16 +314,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return reply;
     }
 
-    const exerciseAccessible = await allSessionExercisesAccessible({
+    const invalidExerciseIds = await findInvalidSessionExerciseIds({
       userId: request.userId,
       exerciseIds: [parsedBody.data.exerciseId],
     });
-    if (!exerciseAccessible) {
+    if (invalidExerciseIds.length > 0) {
       return sendError(
         reply,
         400,
         INVALID_SESSION_EXERCISE_RESPONSE.code,
-        INVALID_SESSION_EXERCISE_RESPONSE.message,
+        buildInvalidExerciseMessage(invalidExerciseIds),
       );
     }
 
@@ -399,16 +407,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return reply;
     }
 
-    const exercisesAccessible = await allSessionExercisesAccessible({
+    const invalidExerciseIds = await findInvalidSessionExerciseIds({
       userId: request.userId,
       exerciseIds: parsedBody.data.sets.map((set) => set.exerciseId),
     });
-    if (!exercisesAccessible) {
+    if (invalidExerciseIds.length > 0) {
       return sendError(
         reply,
         400,
         INVALID_SESSION_EXERCISE_RESPONSE.code,
-        INVALID_SESSION_EXERCISE_RESPONSE.message,
+        buildInvalidExerciseMessage(invalidExerciseIds),
       );
     }
 
@@ -694,16 +702,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    const exercisesAccessible = await allSessionExercisesAccessible({
+    const invalidExerciseIds = await findInvalidSessionExerciseIds({
       userId: request.userId,
       exerciseIds: getReferencedExerciseIds(input.sets),
     });
-    if (!exercisesAccessible) {
+    if (invalidExerciseIds.length > 0) {
       return sendError(
         reply,
         400,
         INVALID_SESSION_EXERCISE_RESPONSE.code,
-        INVALID_SESSION_EXERCISE_RESPONSE.message,
+        buildInvalidExerciseMessage(invalidExerciseIds),
       );
     }
 

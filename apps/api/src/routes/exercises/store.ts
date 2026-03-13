@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateExerciseInput,
   Exercise,
@@ -7,7 +7,13 @@ import type {
   UpdateExerciseInput,
 } from '@pulse/shared';
 
-import { exercises, sessionSets, workoutSessions } from '../../db/schema/index.js';
+import {
+  exercises,
+  sessionSets,
+  templateExercises,
+  workoutSessions,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 
 type ListExercisesInput = {
   userId: string;
@@ -58,7 +64,36 @@ const buildListWhereClause = ({
   category,
 }: Omit<ListExercisesInput, 'page' | 'limit'>) =>
   and(
-    or(isNull(exercises.userId), and(eq(exercises.userId, userId), isNull(exercises.deletedAt))),
+    or(
+      and(isNull(exercises.userId), isNull(exercises.deletedAt)),
+      and(
+        eq(exercises.userId, userId),
+        or(
+          isNull(exercises.deletedAt),
+          and(
+            isNotNull(exercises.deletedAt),
+            sql`(
+              exists (
+                select 1
+                from ${sessionSets}
+                inner join ${workoutSessions}
+                  on ${workoutSessions.id} = ${sessionSets.sessionId}
+                where ${sessionSets.exerciseId} = ${exercises.id}
+                  and ${workoutSessions.userId} = ${userId}
+              )
+              or exists (
+                select 1
+                from ${templateExercises}
+                inner join ${workoutTemplates}
+                  on ${workoutTemplates.id} = ${templateExercises.templateId}
+                where ${templateExercises.exerciseId} = ${exercises.id}
+                  and ${workoutTemplates.userId} = ${userId}
+              )
+            )`,
+          ),
+        ),
+      ),
+    ),
     q ? sql`lower(${exercises.name}) like ${`%${q.toLowerCase()}%`}` : undefined,
     muscleGroup
       ? sql`exists (

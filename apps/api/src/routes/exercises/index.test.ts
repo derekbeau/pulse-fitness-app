@@ -637,6 +637,82 @@ describe('exercise routes', () => {
     });
   });
 
+  it('includes soft-deleted user exercises when they are referenced by workout history', async () => {
+    seedExercise({
+      id: 'active-owned',
+      userId: 'user-1',
+      name: 'Active Owned',
+      muscleGroups: ['quads'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'deleted-used',
+      userId: 'user-1',
+      name: 'Deleted But Used',
+      muscleGroups: ['hamstrings'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'deleted-unused',
+      userId: 'user-1',
+      name: 'Deleted Unused',
+      muscleGroups: ['calves'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-used'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-unused'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'history-session',
+      userId: 'user-1',
+      name: 'Lower',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_100_000,
+      completedAt: 1_700_000_120_000,
+    });
+    seedSessionSet({
+      id: 'history-set',
+      sessionId: 'history-session',
+      exerciseId: 'deleted-used',
+      setNumber: 1,
+      weight: 100,
+      reps: 10,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({ id: 'active-owned' }),
+        expect.objectContaining({ id: 'deleted-used' }),
+      ],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 2,
+      },
+    });
+  });
+
   it('updates only user-specific exercises and rejects global rows', async () => {
     seedExercise({
       id: 'user-exercise',

@@ -949,7 +949,25 @@ describe('workout session routes', () => {
     expect(inaccessibleExerciseResponse.json()).toEqual({
       error: {
         code: 'INVALID_SESSION_EXERCISE',
-        message: 'Session references one or more unavailable exercises',
+        message: 'Session references one or more unavailable exercises: user-2-private-row',
+      },
+    });
+
+    const missingExerciseResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-active/sets',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: 'missing-exercise-id',
+        setNumber: 1,
+      },
+    });
+
+    expect(missingExerciseResponse.statusCode).toBe(400);
+    expect(missingExerciseResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_SESSION_EXERCISE',
+        message: 'Session references one or more unavailable exercises: missing-exercise-id',
       },
     });
 

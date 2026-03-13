@@ -296,8 +296,19 @@ export const allSessionExercisesAccessible = async ({
   userId: string;
   exerciseIds: string[];
 }): Promise<boolean> => {
+  const invalidExerciseIds = await findInvalidSessionExerciseIds({ userId, exerciseIds });
+  return invalidExerciseIds.length === 0;
+};
+
+export const findInvalidSessionExerciseIds = async ({
+  userId,
+  exerciseIds,
+}: {
+  userId: string;
+  exerciseIds: string[];
+}): Promise<string[]> => {
   if (exerciseIds.length === 0) {
-    return true;
+    return [];
   }
 
   const uniqueIds = [...new Set(exerciseIds)];
@@ -309,16 +320,18 @@ export const allSessionExercisesAccessible = async ({
     .where(
       and(
         inArray(exercises.id, uniqueIds),
+        isNull(exercises.deletedAt),
         or(
           isNull(exercises.userId),
-          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+          eq(exercises.userId, userId),
         ),
       ),
     )
     .all()
     .map((exercise) => exercise.id);
 
-  return visibleExerciseIds.length === uniqueIds.length;
+  const visibleExerciseIdSet = new Set(visibleExerciseIds);
+  return uniqueIds.filter((exerciseId) => !visibleExerciseIdSet.has(exerciseId));
 };
 
 export class SessionSetNotFoundError extends Error {
