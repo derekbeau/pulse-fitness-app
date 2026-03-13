@@ -123,4 +123,29 @@ describe('useDebouncedCallback', () => {
     expect(callback).toHaveBeenNthCalledWith(1, first);
     expect(callback).toHaveBeenNthCalledWith(2, second);
   });
+
+  it('invokes the latest callback after rerender without resetting pending args', async () => {
+    const firstCallback = vi.fn();
+    const secondCallback = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ callback }) => useDebouncedCallback(callback, 500),
+      {
+        initialProps: { callback: firstCallback },
+      },
+    );
+
+    act(() => {
+      result.current.run('value-1');
+    });
+
+    rerender({ callback: secondCallback });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).toHaveBeenCalledTimes(1);
+    expect(secondCallback).toHaveBeenCalledWith('value-1');
+  });
 });

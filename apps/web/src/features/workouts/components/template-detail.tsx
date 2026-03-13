@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   DndContext,
@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
@@ -108,6 +109,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
   const updateTemplateMutation = useUpdateTemplate();
+  const template = templateQuery.data ?? null;
 
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
@@ -131,6 +133,9 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     }),
   );
 
+  const updateQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSectionsRef = useRef<NonNullable<UpdateWorkoutTemplateInput['sections']>>([]);
+
   async function confirmDuplicateDayWorkouts(dateKey: string) {
     const conflicts = await getDayWorkoutConflicts(dateKey);
 
@@ -151,11 +156,63 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     });
   }
 
+  useEffect(() => {
+    if (!template) {
+      latestSectionsRef.current = [];
+      return;
+    }
+
+    if (updateTemplateMutation.isPending) {
+      return;
+    }
+
+    latestSectionsRef.current = template.sections.map(toUpdateSection);
+  }, [template, updateTemplateMutation.isPending]);
+
+  const queueTemplateSectionsUpdate = useCallback(
+    (
+      buildNextSections: (
+        currentSections: NonNullable<UpdateWorkoutTemplateInput['sections']>,
+      ) => NonNullable<UpdateWorkoutTemplateInput['sections']>,
+      options?: {
+        onError?: () => void;
+        onSuccess?: () => void;
+      },
+    ) => {
+      if (!template) {
+        return;
+      }
+
+      updateQueueRef.current = updateQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const nextSections = buildNextSections(latestSectionsRef.current);
+            latestSectionsRef.current = nextSections;
+
+            const updatedTemplate = await updateTemplateMutation.mutateAsync({
+              id: template.id,
+              input: {
+                sections: nextSections,
+              },
+            });
+
+            latestSectionsRef.current = updatedTemplate.sections.map(toUpdateSection);
+            options?.onSuccess?.();
+          } catch {
+            latestSectionsRef.current = template.sections.map(toUpdateSection);
+            options?.onError?.();
+          }
+        });
+    },
+    [template, updateTemplateMutation],
+  );
+
   if (templateQuery.isPending) {
     return <TemplateDetailSkeleton />;
   }
 
-  if (templateQuery.isError) {
+  if (templateQuery.isError || !template) {
     const isLegacyMockTemplate = !UUID_PATTERN.test(templateId);
     const isNotFound =
       isLegacyMockTemplate ||
@@ -182,8 +239,6 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     );
   }
 
-  const template = templateQuery.data;
-
   const saveExerciseEdits = (
     sectionType: WorkoutTemplateSectionType,
     exerciseId: string,
@@ -202,67 +257,62 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       return;
     }
 
-    const nextSections = template.sections.map((section) => {
-      if (section.type !== sectionType) {
-        return toUpdateSection(section);
-      }
+    const targetIndex = template.sections
+      .find((section) => section.type === sectionType)
+      ?.exercises.findIndex((exercise) => exercise.id === exerciseId);
 
-      return {
-        type: section.type,
-        exercises: section.exercises.map((exercise) => {
-          if (exercise.id !== exerciseId) {
-            return toUpdateExercise(exercise);
-          }
+    if (targetIndex == null || targetIndex < 0) {
+      return;
+    }
 
-          return {
-            ...toUpdateExercise(exercise),
-            notes: toNullableString(fields.notes),
-            repsMax: parsedReps.repsMax,
-            repsMin: parsedReps.repsMin,
-            restSeconds,
-            sets,
-          };
-        }),
-      };
-    });
+    queueTemplateSectionsUpdate((currentSections) =>
+      currentSections.map((section) => {
+        if (section.type !== sectionType) {
+          return section;
+        }
 
-    updateTemplateMutation.mutate({
-      id: template.id,
-      input: {
-        sections: nextSections,
-      },
-    });
+        return {
+          ...section,
+          exercises: section.exercises.map((exercise, index) =>
+            index === targetIndex
+              ? {
+                  ...exercise,
+                  notes: toNullableString(fields.notes),
+                  repsMax: parsedReps.repsMax,
+                  repsMin: parsedReps.repsMin,
+                  restSeconds,
+                  sets,
+                }
+              : exercise,
+          ),
+        };
+      }),
+    );
   };
 
   const addExerciseToSection = (sectionType: WorkoutTemplateSectionType, exerciseId: string) => {
-    const nextSections = template.sections.map((section) => ({
-      type: section.type,
-      exercises:
-        section.type === sectionType
-          ? [
-              ...section.exercises.map(toUpdateExercise),
-              {
-                cues: [],
-                exerciseId,
-                notes: null,
-                repsMax: 10,
-                repsMin: 8,
-                restSeconds: 90,
-                sets: 3,
-                supersetGroup: null,
-                tempo: null,
-              },
-            ]
-          : section.exercises.map(toUpdateExercise),
-    }));
-
-    updateTemplateMutation.mutate(
-      {
-        id: template.id,
-        input: {
-          sections: nextSections,
-        },
-      },
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => ({
+          ...section,
+          exercises:
+            section.type === sectionType
+              ? [
+                  ...section.exercises,
+                  {
+                    cues: [],
+                    exerciseId,
+                    notes: null,
+                    repsMax: 10,
+                    repsMin: 8,
+                    restSeconds: 90,
+                    sets: 3,
+                    supersetGroup: null,
+                    tempo: null,
+                  },
+                ]
+              : section.exercises,
+        })),
       {
         onError: () => {
           toast.error('Unable to add exercise. Try again.');
@@ -323,9 +373,6 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                   <h2 className="text-lg font-bold tracking-wide text-foreground">
                     {sectionLabels[section.type]}
                   </h2>
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                    {`${section.exercises.length} exercise${section.exercises.length === 1 ? '' : 's'}`}
-                  </p>
                 </div>
                 <Badge
                   className="border-transparent bg-secondary text-secondary-foreground"
@@ -900,9 +947,9 @@ function InlineEditField({
         {label}
       </span>
       {multiline ? (
-        <textarea
+        <Textarea
           aria-label={ariaLabel}
-          className="min-h-9 w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none transition-colors focus-visible:border-primary focus-visible:bg-card"
+          className="min-h-9 px-2 py-1 text-xs focus-visible:border-primary focus-visible:bg-card"
           onBlur={onBlur}
           onChange={(event) => onChange(event.currentTarget.value)}
           placeholder={placeholder}

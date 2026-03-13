@@ -169,6 +169,8 @@ describe('WorkoutTemplateDetail', () => {
     expect(warmupSection).not.toHaveAttribute('open');
     expect(mainSection).toHaveAttribute('open');
     expect(cooldownSection).not.toHaveAttribute('open');
+    expect(screen.getAllByText('1 exercise')).toHaveLength(2);
+    expect(screen.getByText('0 exercises')).toBeInTheDocument();
 
     const inclinePressCard = screen
       .getByText('Incline Dumbbell Press')
