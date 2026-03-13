@@ -128,6 +128,7 @@ beforeEach(() => {
 afterEach(() => {
   window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -174,13 +175,17 @@ describe('WorkoutTemplateDetail', () => {
       .closest('[data-slot="card"]');
 
     expect(inclinePressCard).not.toBeNull();
-    expect(within(inclinePressCard as HTMLElement).getByText('3 x 8-10')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('3×8-10')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Rest: 90s')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText(/Rest: 90s/)).toBeInTheDocument();
     expect(
-      within(inclinePressCard as HTMLElement).getByText('Drive feet into the floor.'),
-    ).toBeInTheDocument();
+      within(inclinePressCard as HTMLElement).getAllByText('Drive feet into the floor.').length,
+    ).toBeGreaterThan(0);
 
+    fireEvent.click(within(inclinePressCard as HTMLElement).getByText('Show full set detail'));
+    fireEvent.click(
+      within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }),
+    );
     expect(within(inclinePressCard as HTMLElement).getByText('Exercise cues')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText('Template cues')).toBeInTheDocument();
     expect(
@@ -190,7 +195,6 @@ describe('WorkoutTemplateDetail', () => {
       within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked'),
     ).toBeInTheDocument();
 
-    fireEvent.click(within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }));
     expect(
       within(inclinePressCard as HTMLElement).getByText('Exercise coaching notes'),
     ).toBeInTheDocument();
@@ -207,6 +211,164 @@ describe('WorkoutTemplateDetail', () => {
         'Top set first, then reduce load for back-off sets.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('saves inline sets, reps, rest, and notes on blur with debounce', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      const url = new URL(requestUrl, 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}'));
+        mutableTemplate.data.sections = body.sections;
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const setsInput = await screen.findByLabelText('Sets for Incline Dumbbell Press');
+    const repsInput = screen.getByLabelText('Reps for Incline Dumbbell Press');
+    const restInput = screen.getByLabelText('Rest for Incline Dumbbell Press');
+    const notesInput = screen.getByLabelText('Notes for Incline Dumbbell Press');
+
+    fireEvent.change(setsInput, { target: { value: '4' } });
+    fireEvent.blur(setsInput);
+    fireEvent.change(repsInput, { target: { value: '6-8' } });
+    fireEvent.blur(repsInput);
+    fireEvent.change(restInput, { target: { value: '75' } });
+    fireEvent.blur(restInput);
+    fireEvent.change(notesInput, { target: { value: 'Pause one second at bottom.' } });
+    fireEvent.blur(notesInput);
+
+    await waitFor(
+      () => {
+        expect(
+          fetchSpy.mock.calls.some(
+            ([input, init]) =>
+              String(input).includes('/api/v1/workout-templates/upper-push') &&
+              init?.method === 'PATCH',
+          ),
+        ).toBe(true);
+      },
+      { timeout: 2_000 },
+    );
+
+    const updateCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        String(input).includes('/api/v1/workout-templates/upper-push') && init?.method === 'PATCH',
+    );
+    const body = JSON.parse(String(updateCall?.[1]?.body));
+    const updatedExercise = body.sections[1].exercises[0];
+
+    expect(updatedExercise.sets).toBe(4);
+    expect(updatedExercise.repsMin).toBe(6);
+    expect(updatedExercise.repsMax).toBe(8);
+    expect(updatedExercise.restSeconds).toBe(75);
+    expect(updatedExercise.notes).toBe('Pause one second at bottom.');
+  });
+
+  it('renders add exercise button for each section and adds to selected section', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      const url = new URL(requestUrl, 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'rope-pushdown',
+                userId: 'user-1',
+                name: 'Rope Pushdown',
+                muscleGroups: ['triceps'],
+                equipment: 'cable',
+                category: 'isolation',
+                trackingType: 'weight_reps',
+                tags: [],
+                formCues: [],
+                instructions: null,
+                coachingNotes: null,
+                relatedExerciseIds: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+            meta: {
+              page: 1,
+              limit: 8,
+              total: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}'));
+        mutableTemplate.data.sections = body.sections;
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Add exercise to Warmup section' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add exercise to Main section' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add exercise to Cooldown section' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add exercise to Main section' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: /Rope Pushdown/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchSpy.mock.calls.some(
+          ([input, init]) =>
+            String(input).includes('/api/v1/workout-templates/upper-push') &&
+            init?.method === 'PATCH',
+        ),
+      ).toBe(true);
+    });
+
+    const updateCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        String(input).includes('/api/v1/workout-templates/upper-push') && init?.method === 'PATCH',
+    );
+    const body = JSON.parse(String(updateCall?.[1]?.body));
+    const mainSection = body.sections.find((section: { type: string }) => section.type === 'main');
+    expect(
+      mainSection.exercises.some(
+        (exercise: { exerciseId: string }) => exercise.exerciseId === 'rope-pushdown',
+      ),
+    ).toBe(true);
   });
 
   it('creates a workout session before navigating to the active workout page', async () => {
@@ -717,11 +879,13 @@ describe('WorkoutTemplateDetail', () => {
       }
 
       if (
-        url.pathname === '/api/v1/workout-templates/upper-push/exercises/incline-dumbbell-press/swap' &&
+        url.pathname ===
+          '/api/v1/workout-templates/upper-push/exercises/incline-dumbbell-press/swap' &&
         init?.method === 'PATCH'
       ) {
         mutableTemplate.data.sections[1].exercises[0].exerciseId = 'seated-dumbbell-shoulder-press';
-        mutableTemplate.data.sections[1].exercises[0].exerciseName = 'Seated Dumbbell Shoulder Press';
+        mutableTemplate.data.sections[1].exercises[0].exerciseName =
+          'Seated Dumbbell Shoulder Press';
 
         return Promise.resolve(jsonResponse(mutableTemplate));
       }

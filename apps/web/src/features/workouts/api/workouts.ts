@@ -13,6 +13,7 @@ import {
   updateScheduledWorkoutInputSchema,
   updateExerciseInputSchema,
   updateWorkoutTemplateInputSchema,
+  type UpdateWorkoutTemplateInput,
   type Exercise,
   type ExerciseQueryParams,
   type CreateScheduledWorkoutInput,
@@ -57,6 +58,10 @@ type RenameExerciseRequest = {
 type RenameTemplateRequest = {
   id: string;
   name: string;
+};
+type UpdateTemplateRequest = {
+  id: string;
+  input: UpdateWorkoutTemplateInput;
 };
 type DeleteTemplateRequest = {
   id: string;
@@ -306,6 +311,17 @@ async function renameTemplate(input: RenameTemplateRequest) {
   const parsedInput = updateWorkoutTemplateInputSchema.parse({
     name: input.name,
   });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutTemplateResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+async function updateTemplate(input: UpdateTemplateRequest) {
+  const parsedInput = updateWorkoutTemplateInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/workout-templates/${input.id}`, {
     body: JSON.stringify(parsedInput),
     method: 'PATCH',
@@ -615,6 +631,24 @@ export function useRenameTemplate() {
         }),
       ]);
       toast.success('Template renamed');
+    },
+  });
+}
+
+export function useUpdateTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkoutTemplate, Error, UpdateTemplateRequest>({
+    mutationFn: updateTemplate,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.template(variables.id),
+        }),
+      ]);
     },
   });
 }
