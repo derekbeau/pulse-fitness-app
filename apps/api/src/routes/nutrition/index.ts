@@ -78,7 +78,17 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     const created = await createMealForDate(request.userId, request.params.date, parsedBody.data);
 
     const foodIds = [...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString))];
-    await Promise.allSettled(foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)));
+    const usageTrackingResults = await Promise.allSettled(
+      foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
+    );
+    usageTrackingResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        request.log.warn(
+          { err: result.reason, foodId: foodIds[index], userId: request.userId },
+          'Failed to track food usage after meal creation',
+        );
+      }
+    });
 
     return reply.code(201).send({
       data: created,
