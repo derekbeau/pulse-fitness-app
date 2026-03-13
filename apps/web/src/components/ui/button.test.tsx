@@ -64,7 +64,10 @@ describe('Button', () => {
 
     expect(screen.getByRole('button', { name: 'Reschedule' })).toHaveClass(
       'text-foreground',
+      'dark:bg-input/25',
+      'dark:hover:bg-input/70',
       'dark:hover:text-foreground',
+      'dark:active:bg-input/80',
       'active:text-accent-foreground',
       'dark:active:text-foreground',
     );
