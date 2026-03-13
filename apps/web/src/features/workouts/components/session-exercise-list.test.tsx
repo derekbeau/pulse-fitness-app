@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { MouseEvent, ReactNode } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAppQueryClient } from '@/lib/query-client';
@@ -145,6 +145,105 @@ describe('SessionExerciseList', () => {
 
     expect(optionalCard).not.toBeNull();
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
+  });
+
+  it('debounces exercise notes updates until typing pauses', async () => {
+    vi.useFakeTimers();
+
+    try {
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
+
+      const onExerciseNotesChange = vi.fn();
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+
+      renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={onExerciseNotesChange}
+          onRemoveSet={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
+
+      const rowErgCard = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]');
+
+      if (!rowErgCard) {
+        throw new Error('Expected Row Erg card.');
+      }
+
+      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
+      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.change(notesInput, { target: { value: 'Keep elbows stacked.' } });
+
+      expect(notesInput).toHaveValue('Keep elbows stacked.');
+      expect(onExerciseNotesChange).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+
+      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Keep elbows stacked.');
+      expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes pending exercise notes update on blur', () => {
+    vi.useFakeTimers();
+
+    try {
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
+
+      const onExerciseNotesChange = vi.fn();
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+
+      renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={onExerciseNotesChange}
+          onRemoveSet={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
+
+      const rowErgCard = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]');
+
+      if (!rowErgCard) {
+        throw new Error('Expected Row Erg card.');
+      }
+
+      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
+      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.change(notesInput, { target: { value: 'Slight pause at extension.' } });
+
+      expect(onExerciseNotesChange).not.toHaveBeenCalled();
+
+      fireEvent.blur(notesInput);
+
+      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Slight pause at extension.');
+      expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens exercise menu actions and disables remove when only one set remains', async () => {
