@@ -44,7 +44,7 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
   buildSessionHref?: (sessionId: string, status?: WorkoutSessionStatus) => string;
-  buildStartWorkoutHref?: (templateId: string) => string;
+  buildTemplateHref?: (templateId: string) => string;
 };
 
 type DayStatus = 'completed' | 'scheduled' | 'in-progress' | 'mixed' | 'none';
@@ -86,7 +86,7 @@ type DayLookupContext = {
 export function WorkoutCalendar({
   buildDayHref,
   buildSessionHref,
-  buildStartWorkoutHref = (templateId) => `/workouts/active?template=${templateId}`,
+  buildTemplateHref = (templateId) => `/workouts/template/${templateId}`,
 }: WorkoutCalendarProps) {
   const todayKey = useTodayKey();
   const initialMonth = startOfMonth(parseDateKey(todayKey));
@@ -410,7 +410,7 @@ export function WorkoutCalendar({
               {selectedDay.workouts.map((workout) => (
                 <DayWorkoutItemCard
                   buildSessionHref={buildSessionHref}
-                  buildStartWorkoutHref={buildStartWorkoutHref}
+                  buildTemplateHref={buildTemplateHref}
                   dateKey={selectedDay.dateKey}
                   key={workout.id}
                   workout={workout}
@@ -436,12 +436,12 @@ export function WorkoutCalendar({
 
 function DayWorkoutItemCard({
   buildSessionHref,
-  buildStartWorkoutHref,
+  buildTemplateHref,
   dateKey,
   workout,
 }: {
   buildSessionHref?: (sessionId: string, status?: WorkoutSessionStatus) => string;
-  buildStartWorkoutHref: (templateId: string) => string;
+  buildTemplateHref: (templateId: string) => string;
   dateKey: string;
   workout: DayWorkout;
 }) {
@@ -450,7 +450,9 @@ function DayWorkoutItemCard({
   const startSessionMutation = useStartSession();
   const deleteSessionMutation = useDeleteSession(workout.session?.id ?? null);
   const updateSessionStatusMutation = useUpdateSessionStatus(workout.session?.id ?? null);
-  const templateQuery = useWorkoutTemplate(workout.status === 'scheduled' ? (workout.templateId ?? '') : '');
+  const templateId = workout.templateId ?? '';
+  const shouldFetchTemplate = workout.status === 'scheduled' && templateId.trim().length > 0;
+  const templateQuery = useWorkoutTemplate(templateId, { enabled: shouldFetchTemplate });
   const { confirm, dialog } = useConfirmation();
   const canStart = workout.status === 'scheduled' && !workout.isUnavailable;
   const isMutating =
@@ -476,12 +478,26 @@ function DayWorkoutItemCard({
   }
 
   async function handleDelete() {
-    if (workout.scheduledWorkout) {
+    if (workout.status === 'scheduled' && workout.scheduledWorkout) {
       await unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id });
       return;
     }
 
-    await deleteSessionMutation.mutateAsync();
+    const pendingMutations: Array<Promise<unknown>> = [];
+
+    if (workout.scheduledWorkout) {
+      pendingMutations.push(unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id }));
+    }
+
+    if (workout.session) {
+      pendingMutations.push(deleteSessionMutation.mutateAsync());
+    }
+
+    if (pendingMutations.length === 0) {
+      return;
+    }
+
+    await Promise.all(pendingMutations);
   }
 
   async function handleCancel() {
@@ -575,7 +591,7 @@ function DayWorkoutItemCard({
               description:
                 workout.status === 'scheduled'
                   ? `This will remove "${workout.name}" from ${fullDateFormatter.format(parseDateKey(dateKey))}.`
-                  : `This will permanently delete "${workout.name}".`,
+                  : `This will delete "${workout.name}".`,
               confirmLabel: 'Delete workout',
               variant: 'destructive',
               onConfirm: handleDelete,
@@ -589,7 +605,7 @@ function DayWorkoutItemCard({
         </Button>
         {workout.status === 'scheduled' && workout.templateId && workout.isUnavailable ? (
           <Button asChild size="sm" variant="secondary">
-            <Link to={buildStartWorkoutHref(workout.templateId)}>Open template</Link>
+            <Link to={buildTemplateHref(workout.templateId)}>View template</Link>
           </Button>
         ) : null}
       </div>

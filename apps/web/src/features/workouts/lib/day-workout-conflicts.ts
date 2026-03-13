@@ -19,6 +19,7 @@ const scheduledWorkoutListResponseSchema = z.array(scheduledWorkoutListItemSchem
 const workoutSessionListResponseSchema = z.array(workoutSessionListItemSchema);
 
 export async function getDayWorkoutConflicts(dateKey: string): Promise<DayWorkoutConflict[]> {
+  // Intentionally fetch fresh server state before mutating to avoid stale duplicate checks.
   const [scheduledData, sessionData] = await Promise.all([
     apiRequest<unknown>(`/api/v1/scheduled-workouts?from=${dateKey}&to=${dateKey}`, {
       method: 'GET',
