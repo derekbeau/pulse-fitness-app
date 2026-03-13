@@ -99,7 +99,6 @@ export function NutritionPage() {
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
-    (weekSummaryQuery.isError && weekSummaryQuery.error) ||
     null;
   const deleteErrorMessage =
     deleteMealMutation.isError && deleteMealMutation.error instanceof Error
@@ -370,14 +369,16 @@ function NutritionRingsSkeleton() {
 }
 
 function NutritionWeekStripSkeleton() {
+  const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
   return (
     <section
       aria-label="Loading nutrition week strip"
       className="rounded-2xl border border-border/70 p-2"
     >
       <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: 7 }).map((_, index) => (
-          <Skeleton key={index} className="h-14 rounded-xl bg-muted/60" />
+        {dayKeys.map((dayKey) => (
+          <Skeleton key={dayKey} className="h-14 rounded-xl bg-muted/60" />
         ))}
       </div>
     </section>

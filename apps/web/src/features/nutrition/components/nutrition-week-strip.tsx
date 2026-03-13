@@ -13,8 +13,6 @@ type NutritionWeekStripProps = {
   className?: string;
 };
 
-const clampToUnitRange = (value: number) => Math.max(0, Math.min(1, value));
-
 const getIndicatorState = (
   mealCount: number,
   completeness: number,
@@ -48,7 +46,7 @@ export function NutritionWeekStrip({
           const dayLabel = DAY_ABBREVIATIONS[index] ?? '·';
           const isSelected = day.date === selectedDateKey;
           const indicatorState = getIndicatorState(day.mealCount, day.completeness);
-          const progress = clampToUnitRange(day.completeness);
+          const progress = day.completeness;
 
           return (
             <div key={day.date} role="listitem">
@@ -80,7 +78,7 @@ export function NutritionWeekStrip({
                     <span
                       className="h-3 w-3 rounded-full border border-accent/45"
                       style={{
-                        background: `conic-gradient(from 0deg, hsl(var(--accent)) ${Math.round(progress * 360)}deg, transparent 0deg)`,
+                        background: `conic-gradient(from 0deg, var(--color-accent) ${Math.round(progress * 360)}deg, transparent 0deg)`,
                       }}
                     />
                   ) : null}
