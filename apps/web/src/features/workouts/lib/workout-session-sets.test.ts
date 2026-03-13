@@ -45,7 +45,7 @@ describe('buildInitialSessionSets', () => {
                 },
                 {
                   setNumber: 3,
-                  targetWeight: 155,
+                  targetWeight: null,
                   targetSeconds: 30,
                 },
               ],
@@ -88,7 +88,6 @@ describe('buildInitialSessionSets', () => {
         section: 'main',
         setNumber: 3,
         targetSeconds: 30,
-        targetWeight: 155,
         weight: null,
       },
     ]);

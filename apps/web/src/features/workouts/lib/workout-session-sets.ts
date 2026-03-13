@@ -18,7 +18,7 @@ export function buildInitialSessionSets(template: WorkoutTemplate) {
                   targetWeight: target.targetWeight,
                   targetWeightMax: target.targetWeightMax,
                   targetWeightMin: target.targetWeightMin,
-                }).filter(([, value]) => value !== undefined),
+                }).filter(([, value]) => value !== undefined && value !== null),
               )
             : {};
 

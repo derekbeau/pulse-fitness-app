@@ -73,7 +73,8 @@ export const workoutTemplateExerciseSchema = z
         instructions: nullableStringSchema.default(null),
       })
       .optional(),
-    // Deprecated in favor of `exercise.formCues`; retained for compatibility with existing clients.
+    // Deprecated in favor of `exercise.formCues`; retained for compatibility with existing clients
+    // until all consumers are migrated.
     formCues: z.array(requiredStringSchema).max(50).optional(),
     sets: nullablePositiveIntSchema,
     repsMin: nullablePositiveIntSchema,

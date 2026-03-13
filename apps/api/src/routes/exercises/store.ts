@@ -339,6 +339,7 @@ export const allRelatedExercisesOwned = async ({
     .where(
       and(
         inArray(exercises.id, uniqueIds),
+        // Intentional: relatedExerciseIds are restricted to user-owned exercises only.
         eq(exercises.userId, userId),
         isNull(exercises.deletedAt),
       ),

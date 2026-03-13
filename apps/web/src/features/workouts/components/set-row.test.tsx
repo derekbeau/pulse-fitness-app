@@ -193,6 +193,21 @@ describe('SetRow', () => {
     expect(screen.getByText('Target: 0.4 km')).toBeInTheDocument();
   });
 
+  it('renders seconds target hints for reps-seconds tracking', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={6}
+        setNumber={1}
+        targetSeconds={45}
+        trackingType="reps_seconds"
+      />,
+    );
+
+    expect(screen.getByText('Target: 45s')).toBeInTheDocument();
+  });
+
   it('does not render a target hint when no prescribed targets exist', () => {
     render(
       <SetRow

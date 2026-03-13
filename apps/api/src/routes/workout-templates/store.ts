@@ -105,6 +105,7 @@ const buildTemplateSections = (
           coachingNotes: row.exerciseCoachingNotes,
           instructions: row.exerciseInstructions,
         },
+        // Deprecated compatibility field; keep until clients fully migrate to exercise.formCues.
         formCues: row.exerciseFormCues ?? [],
         sets: row.sets,
         repsMin: row.repsMin,

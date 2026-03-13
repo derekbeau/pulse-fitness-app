@@ -76,6 +76,16 @@ const validateWorkoutSessionTiming = (
   }
 };
 
+const hasValidTargetWeightRange = (value: {
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+}) =>
+  value.targetWeightMin === undefined ||
+  value.targetWeightMin === null ||
+  value.targetWeightMax === undefined ||
+  value.targetWeightMax === null ||
+  value.targetWeightMin <= value.targetWeightMax;
+
 export const workoutSessionStatusSchema = z.enum([
   'scheduled',
   'in-progress',
@@ -254,6 +264,10 @@ export const sessionSetSchema = z
   .refine((value) => !(value.completed && value.skipped), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
+  })
+  .refine(hasValidTargetWeightRange, {
+    message: 'targetWeightMin must be less than or equal to targetWeightMax',
+    path: ['targetWeightMax'],
   });
 
 export const workoutSessionExerciseSchema = z.object({
@@ -329,6 +343,10 @@ export const sessionSetInputSchema = z
   .refine((value) => !(value.completed && value.skipped), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
+  })
+  .refine(hasValidTargetWeightRange, {
+    message: 'targetWeightMin must be less than or equal to targetWeightMax',
+    path: ['targetWeightMax'],
   });
 
 export const createWorkoutSessionInputSchema = z

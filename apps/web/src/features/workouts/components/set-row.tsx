@@ -314,6 +314,8 @@ function formatTargetHint({
       return secondsValue ? `Target: ${secondsValue}` : null;
     case 'distance':
       return distanceValue ? `Target: ${distanceValue}` : null;
+    case 'reps_seconds':
+      return secondsValue ? `Target: ${secondsValue}` : null;
     case 'cardio':
       if (secondsValue && distanceValue) {
         return `Target: ${secondsValue} + ${distanceValue}`;
