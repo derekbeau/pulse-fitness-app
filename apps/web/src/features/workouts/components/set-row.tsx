@@ -301,27 +301,27 @@ function formatTargetHint({
 
   switch (trackingType) {
     case 'weight_reps':
-      return weightValue ? `Target ${weightValue}` : null;
+      return weightValue ? `Target: ${weightValue}` : null;
     case 'seconds_only':
-      return secondsValue ? `Target ${secondsValue}` : null;
+      return secondsValue ? `Target: ${secondsValue}` : null;
     case 'weight_seconds':
       if (weightValue && secondsValue) {
-        return `Target ${weightValue} x ${secondsValue}`;
+        return `Target: ${weightValue} × ${secondsValue}`;
       }
       if (weightValue) {
-        return `Target ${weightValue}`;
+        return `Target: ${weightValue}`;
       }
-      return secondsValue ? `Target ${secondsValue}` : null;
+      return secondsValue ? `Target: ${secondsValue}` : null;
     case 'distance':
-      return distanceValue ? `Target ${distanceValue}` : null;
+      return distanceValue ? `Target: ${distanceValue}` : null;
     case 'cardio':
       if (secondsValue && distanceValue) {
-        return `Target ${secondsValue} + ${distanceValue}`;
+        return `Target: ${secondsValue} + ${distanceValue}`;
       }
       if (secondsValue) {
-        return `Target ${secondsValue}`;
+        return `Target: ${secondsValue}`;
       }
-      return distanceValue ? `Target ${distanceValue}` : null;
+      return distanceValue ? `Target: ${distanceValue}` : null;
     default:
       return null;
   }

@@ -142,7 +142,7 @@ describe('SetRow', () => {
       />,
     );
 
-    expect(screen.getByText('Target 135 lbs x 45s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 135 lbs × 45s')).toBeInTheDocument();
   });
 
   it('prefixes cardio target hints when only one dimension exists', () => {
@@ -158,6 +158,52 @@ describe('SetRow', () => {
       />,
     );
 
-    expect(screen.getByText('Target 45s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 45s')).toBeInTheDocument();
+  });
+
+  it('renders weight ranges in target hints for weight-rep exercises', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={8}
+        setNumber={1}
+        targetWeightMax={90}
+        targetWeightMin={70}
+        trackingType="weight_reps"
+      />,
+    );
+
+    expect(screen.getByText('Target: 70-90 lbs')).toBeInTheDocument();
+  });
+
+  it('renders distance targets with unit suffix based on weight unit', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={null}
+        setNumber={1}
+        targetDistance={0.4}
+        trackingType="distance"
+        weightUnit="kg"
+      />,
+    );
+
+    expect(screen.getByText('Target: 0.4 km')).toBeInTheDocument();
+  });
+
+  it('does not render a target hint when no prescribed targets exist', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={10}
+        setNumber={1}
+        trackingType="weight_reps"
+      />,
+    );
+
+    expect(screen.queryByText(/^Target:/i)).not.toBeInTheDocument();
   });
 });
