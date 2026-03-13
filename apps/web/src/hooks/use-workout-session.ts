@@ -31,6 +31,9 @@ type UpdateSessionTimeSegmentsRequest = {
   timeSegments: WorkoutSessionTimeSegment[];
 };
 type ReorderSessionExercisesRequest = ReorderWorkoutSessionExercisesInput;
+type DeleteSessionResult = {
+  success: boolean;
+};
 
 export const workoutSessionQueryKeys = {
   all: ['workout-sessions'] as const,
@@ -106,6 +109,12 @@ async function reorderSessionExercises(sessionId: string, input: ReorderSessionE
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
+}
+
+async function deleteSession(sessionId: string) {
+  return await apiRequest<DeleteSessionResult>(`/api/v1/workout-sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
 }
 
 async function syncSessionMutationCache(
@@ -240,6 +249,32 @@ export function useReorderSessionExercises(sessionId: string | null | undefined)
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session);
+    },
+  });
+}
+
+export function useDeleteSession(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<DeleteSessionResult, Error>({
+    mutationFn: async () => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to delete workout session');
+      }
+
+      return deleteSession(normalizedSessionId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+      ]);
+      toast.success('Workout deleted');
     },
   });
 }
