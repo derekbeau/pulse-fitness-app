@@ -1,4 +1,9 @@
-import { agentCreateMealInputSchema, patchMealInputSchema, patchMealItemInputSchema } from '@pulse/shared';
+import {
+  agentCreateMealInputSchema,
+  type AgentMealItemInput,
+  patchMealInputSchema,
+  patchMealItemInputSchema,
+} from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
@@ -40,6 +45,20 @@ function buildMealSummary(names: string[], maxLength: number): string {
   return summary;
 }
 
+const isAdhocMealItem = (
+  item: AgentMealItemInput,
+): item is AgentMealItemInput & {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+} =>
+  (item.adhoc === true || item.saveToFoods === false) &&
+  item.calories !== undefined &&
+  item.protein !== undefined &&
+  item.carbs !== undefined &&
+  item.fat !== undefined;
+
 export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
     const parsed = agentCreateMealInputSchema.safeParse(request.body);
@@ -50,17 +69,20 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
     const { name, date, time, items } = parsed.data;
     const userId = request.userId;
 
-    // Resolve food names to food records
-    const resolvedFoods = await Promise.all(
+    const itemResults = await Promise.all(
       items.map(async (item) => {
+        if (isAdhocMealItem(item)) {
+          return { kind: 'adhoc' as const, item };
+        }
+
         const food = await findFoodByName(userId, item.foodName);
-        return { item, food };
+        return { kind: 'food' as const, item, food };
       }),
     );
 
-    const unresolved = resolvedFoods
-      .filter(({ food }) => food === undefined)
-      .map(({ item }) => item.foodName);
+    const unresolved = itemResults
+      .filter((entry) => entry.kind === 'food' && entry.food === undefined)
+      .map((entry) => entry.item.foodName);
 
     if (unresolved.length > 0) {
       return sendError(
@@ -71,25 +93,40 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    // All foods resolved — safe to cast since we checked above
-    const resolvedItems = resolvedFoods as Array<{
-      item: (typeof resolvedFoods)[number]['item'];
-      food: NonNullable<(typeof resolvedFoods)[number]['food']>;
-    }>;
+    const mealItems = itemResults.map((entry) => {
+      if (entry.kind === 'adhoc') {
+        return {
+          foodId: null,
+          name: entry.item.foodName,
+          amount: entry.item.quantity,
+          unit: entry.item.unit,
+          displayQuantity: entry.item.displayQuantity ?? null,
+          displayUnit: entry.item.displayUnit ?? null,
+          calories: entry.item.calories,
+          protein: entry.item.protein,
+          carbs: entry.item.carbs,
+          fat: entry.item.fat,
+        };
+      }
 
-    // Scale macros by quantity (1 unit = 1 serving as defined by the food record)
-    const mealItems = resolvedItems.map(({ item, food }) => ({
-      foodId: food.id,
-      name: food.name,
-      amount: item.quantity,
-      unit: item.unit,
-      displayQuantity: item.displayQuantity ?? null,
-      displayUnit: item.displayUnit ?? null,
-      calories: food.calories * item.quantity,
-      protein: food.protein * item.quantity,
-      carbs: food.carbs * item.quantity,
-      fat: food.fat * item.quantity,
-    }));
+      if (!entry.food) {
+        throw new Error('Unresolved food passed validation guard');
+      }
+
+      // Scale macros by quantity (1 unit = 1 serving as defined by the food record)
+      return {
+        foodId: entry.food.id,
+        name: entry.food.name,
+        amount: entry.item.quantity,
+        unit: entry.item.unit,
+        displayQuantity: entry.item.displayQuantity ?? null,
+        displayUnit: entry.item.displayUnit ?? null,
+        calories: entry.food.calories * entry.item.quantity,
+        protein: entry.food.protein * entry.item.quantity,
+        carbs: entry.food.carbs * entry.item.quantity,
+        fat: entry.food.fat * entry.item.quantity,
+      };
+    });
     const summary = buildMealSummary(
       mealItems.map((item) => item.name),
       MAX_MEAL_SUMMARY_LENGTH,
@@ -102,9 +139,13 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       items: mealItems,
     });
 
+    const resolvedFoodIds = itemResults
+      .flatMap((entry) => (entry.kind === 'food' && entry.food ? [entry.food.id] : []))
+      .filter((value, index, list) => list.indexOf(value) === index);
+
     // Update recency/popularity for resolved foods (best-effort)
     await Promise.allSettled(
-      resolvedItems.map(({ food }) => updateFoodLastUsedAt(food.id, userId)),
+      resolvedFoodIds.map((foodId) => updateFoodLastUsedAt(foodId, userId)),
     );
 
     const macros = createdItems.reduce(

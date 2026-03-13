@@ -75,6 +75,7 @@ describe('mealItemInputSchema', () => {
 
     expect(
       mealItemInputSchema.parse({
+        foodId: null,
         name: 'Protein Powder',
         amount: 1,
         unit: 'serving',
@@ -86,6 +87,7 @@ describe('mealItemInputSchema', () => {
         fat: 1.5,
       }),
     ).toEqual({
+      foodId: null,
       name: 'Protein Powder',
       amount: 1,
       unit: 'serving',

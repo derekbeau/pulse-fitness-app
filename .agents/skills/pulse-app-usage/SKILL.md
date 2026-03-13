@@ -47,6 +47,25 @@ Use referential habits when completion should be inferred from other tracked dat
 3. Read habits with `GET /api/v1/habits`; referential habits auto-resolve completion for today.
 4. Manually override a referential habit with `PATCH /api/agent/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.
 
+## Nutrition (Meal Logging)
+
+Use `POST /api/agent/meals` with one of two item modes:
+
+1. **Saved-food mode (default):**
+   - Send `foodName` + `quantity` (+ optional display fields).
+   - The API resolves `foodName` to an existing food and snapshots scaled macros.
+
+2. **Ad-hoc mode (no foods library write):**
+   - Set either `adhoc: true` or `saveToFoods: false`.
+   - Include inline snapshots: `foodName`, `quantity`, `unit`, `calories`, `protein`, `carbs`, `fat`.
+   - Item is stored with `foodId: null`.
+
+Decision heuristic:
+
+- **Create/save food (reusable):** staple ingredients, frequently repeated meals, branded/packaged products, anything likely to be logged again.
+- **Log ad-hoc (one-off):** restaurant estimates, custom recipes that will not be reused, temporary experiments, uncertain approximations.
+- If unsure, prefer ad-hoc first; promote to a saved food only after repeated use.
+
 ## Notes
 
 - User-facing records in habits, workout templates, exercises, foods, and workout sessions are soft-deleted via `deletedAt`; deleted records are hidden from normal list/search/get endpoints.

@@ -36,13 +36,48 @@ export const agentCreateFoodInputSchema = z.object({
   notes: z.string().trim().nullable().optional(),
 });
 
-export const agentMealItemInputSchema = z.object({
-  foodName: requiredText(),
-  quantity: z.number().positive().finite(),
-  unit: z.string().trim().min(1).max(50).default('serving'),
-  displayQuantity: z.number().positive().finite().optional(),
-  displayUnit: z.string().trim().min(1).max(50).optional(),
-});
+export const agentMealItemInputSchema = z
+  .object({
+    foodName: requiredText(),
+    quantity: z.number().positive().finite(),
+    unit: z.string().trim().min(1).max(50).default('serving'),
+    displayQuantity: z.number().positive().finite().optional(),
+    displayUnit: z.string().trim().min(1).max(50).optional(),
+    adhoc: z.boolean().optional(),
+    saveToFoods: z.boolean().optional(),
+    calories: z.number().nonnegative().finite().optional(),
+    protein: z.number().nonnegative().finite().optional(),
+    carbs: z.number().nonnegative().finite().optional(),
+    fat: z.number().nonnegative().finite().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.adhoc !== undefined &&
+      value.saveToFoods !== undefined &&
+      value.adhoc === value.saveToFoods
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '`adhoc` and `saveToFoods` are contradictory',
+      });
+    }
+
+    const isAdhoc = value.adhoc === true || value.saveToFoods === false;
+
+    if (!isAdhoc) {
+      return;
+    }
+
+    for (const field of ['calories', 'protein', 'carbs', 'fat'] as const) {
+      if (value[field] === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} is required when logging an ad-hoc meal item`,
+        });
+      }
+    }
+  });
 
 export const agentCreateMealInputSchema = z.object({
   name: requiredText(120),
