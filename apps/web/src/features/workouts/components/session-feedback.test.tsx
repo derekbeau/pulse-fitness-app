@@ -337,7 +337,7 @@ describe('SessionFeedback', () => {
     expect(screen.getByText('Maximal, all-out effort')).toBeInTheDocument();
   });
 
-  it('applies stronger selected-state styling to option controls', () => {
+  it('marks selected option controls with pressed state', () => {
     render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
 
     const rpeSeven = within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole(
@@ -347,7 +347,7 @@ describe('SessionFeedback', () => {
       },
     );
     fireEvent.click(rpeSeven);
-    expect(rpeSeven).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
+    expect(rpeSeven).toHaveAttribute('aria-pressed', 'true');
 
     const energyStrong = within(
       screen.getByRole('group', { name: 'Energy post workout options' }),
@@ -355,7 +355,7 @@ describe('SessionFeedback', () => {
       name: '💪',
     });
     fireEvent.click(energyStrong);
-    expect(energyStrong).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
+    expect(energyStrong).toHaveAttribute('aria-pressed', 'true');
 
     const yesButton = within(
       screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
@@ -363,6 +363,6 @@ describe('SessionFeedback', () => {
       name: 'Yes',
     });
     fireEvent.click(yesButton);
-    expect(yesButton).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
+    expect(yesButton).toHaveAttribute('aria-pressed', 'true');
   });
 });

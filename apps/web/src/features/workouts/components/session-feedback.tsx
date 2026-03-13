@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -516,7 +517,11 @@ function isCoachNoteField(field: ActiveWorkoutCustomFeedbackField) {
   const normalizedId = field.id.trim().toLowerCase();
   const normalizedLabel = field.label.trim().toLowerCase().replace(/\s+/g, ' ');
 
-  return normalizedId === 'coach-note' || normalizedId === 'session-note' || normalizedLabel === 'coach note';
+  return (
+    normalizedId === 'coach-note' ||
+    normalizedId === 'session-note' ||
+    normalizedLabel === 'coach note'
+  );
 }
 
 function getFeedbackOptionClassName(isSelected: boolean) {
@@ -545,7 +550,7 @@ function RpeScaleHelp() {
             </Button>
           </TooltipTrigger>
           <TooltipContent
-            className="hidden max-w-xs space-y-2 bg-card p-3 text-foreground shadow-xl ring-1 ring-border sm:block"
+            className="max-w-xs space-y-2 bg-card p-3 text-foreground shadow-xl ring-1 ring-border"
             side="top"
             sideOffset={8}
           >
@@ -569,12 +574,13 @@ function RpeScaleHelp() {
             <CircleHelp className="size-4" />
           </Button>
         </DialogTrigger>
-        <DialogContent
-          aria-describedby={undefined}
-          className="top-auto bottom-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 p-5 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6"
-        >
+        <DialogContent className="top-auto bottom-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 p-5 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6">
           <DialogHeader>
             <DialogTitle>Session RPE Guide</DialogTitle>
+            <DialogDescription className="sr-only">
+              This guide explains the Rate of Perceived Exertion scale so you can score your
+              session consistently.
+            </DialogDescription>
           </DialogHeader>
           <RpeScaleAnchorList />
         </DialogContent>
@@ -585,13 +591,16 @@ function RpeScaleHelp() {
 
 function RpeScaleAnchorList() {
   return (
-    <ul className="space-y-2 text-sm text-muted">
-      {RPE_SCALE_ANCHORS.map((anchor) => (
-        <li className="flex gap-2" key={anchor.rating}>
-          <span className="font-semibold text-foreground">{anchor.rating}</span>
-          <span>{anchor.description}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-3">
+      <p className="text-xs text-muted">Below 6: Very light effort or warm-up pace.</p>
+      <ul className="space-y-2 text-sm text-muted">
+        {RPE_SCALE_ANCHORS.map((anchor) => (
+          <li className="flex gap-2" key={anchor.rating}>
+            <span className="font-semibold text-foreground">{anchor.rating}</span>
+            <span>{anchor.description}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
