@@ -670,7 +670,7 @@ describe('migration 0025_meal_summary', () => {
   });
 });
 
-describe('migration 0025_sleepy_wild_pack', () => {
+describe('migration 0026_sleepy_wild_pack', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
@@ -741,7 +741,7 @@ describe('migration 0025_sleepy_wild_pack', () => {
       );
 
       const migrationSql = readFileSync(
-        join(process.cwd(), 'drizzle/0025_sleepy_wild_pack.sql'),
+        join(process.cwd(), 'drizzle/0026_sleepy_wild_pack.sql'),
         'utf8',
       );
       runSqlStatements(db, migrationSql);
@@ -763,7 +763,7 @@ describe('migration 0025_sleepy_wild_pack', () => {
   });
 });
 
-describe('migration 0026_template_set_targets', () => {
+describe('migration 0027_template_set_targets', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
@@ -884,7 +884,7 @@ describe('migration 0026_template_set_targets', () => {
       );
 
       const migrationSql = readFileSync(
-        join(process.cwd(), 'drizzle/0026_template_set_targets.sql'),
+        join(process.cwd(), 'drizzle/0027_template_set_targets.sql'),
         'utf8',
       );
       runSqlStatements(db, migrationSql);

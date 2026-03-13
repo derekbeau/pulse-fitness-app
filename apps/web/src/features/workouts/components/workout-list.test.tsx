@@ -24,6 +24,13 @@ describe('WorkoutList', () => {
         templateId: 'template-legs',
         templateName: 'Lower Body',
       }),
+      createSession({
+        id: 'session-paused',
+        date: '2026-03-11',
+        status: 'paused',
+        templateId: 'template-pull',
+        templateName: 'Upper Pull',
+      }),
     ];
 
     const scheduledWorkouts = [
@@ -47,7 +54,6 @@ describe('WorkoutList', () => {
     renderWorkoutList(sessions, scheduledWorkouts);
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Scheduled' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
     expect(screen.getByText('Bodyweight reps • Time only')).toBeInTheDocument();
@@ -55,6 +61,22 @@ describe('WorkoutList', () => {
     expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Paused').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+
+    const headings = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual(['In Progress', 'Scheduled', 'Completed']);
+
+    const inProgressSection = getSectionByTitle('In Progress');
+    expect(within(inProgressSection).getAllByRole('link', { name: 'Resume' }).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      within(inProgressSection).getAllByRole('button', { name: /Cancel/i }).length,
+    ).toBeGreaterThan(0);
+    expect(within(inProgressSection).getAllByRole('button', { name: /Delete/i }).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('shows unavailable state for soft-deleted scheduled templates and hides stale start actions', async () => {
@@ -120,21 +142,7 @@ describe('WorkoutList', () => {
   it('shows an empty state when no workout sessions or schedules are returned', async () => {
     renderWorkoutList([], []);
 
-    expect(
-      await screen.findByRole('heading', { level: 2, name: 'In Progress' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Scheduled' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
-
-    const headings = screen
-      .getAllByRole('heading', { level: 2 })
-      .map((heading) => heading.textContent);
-    expect(headings).toEqual(['In Progress', 'Scheduled', 'Completed']);
-
-    const inProgressSection = getSectionByTitle('In Progress');
-    expect(within(inProgressSection).getByRole('link', { name: 'Resume' })).toBeInTheDocument();
-    expect(within(inProgressSection).getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
-    expect(within(inProgressSection).getByRole('button', { name: /Delete/i })).toBeInTheDocument();
+    expect(await screen.findByText('No workouts yet. Plan one to get started.')).toBeInTheDocument();
   });
 
   it('does not render completed linked scheduled workouts in scheduled section', async () => {
