@@ -50,11 +50,12 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -122,7 +123,9 @@ describe('SessionFeedback', () => {
         value: false,
       }),
     );
-    expect(submittedFeedback.find((field) => field.id === 'effort' && field.type === 'slider')).toEqual(
+    expect(
+      submittedFeedback.find((field) => field.id === 'effort' && field.type === 'slider'),
+    ).toEqual(
       expect.objectContaining({
         value: 8,
       }),
@@ -151,11 +154,12 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '😐',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '😐',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -236,7 +240,9 @@ describe('SessionFeedback', () => {
       />,
     );
 
-    expect(screen.queryByRole('group', { name: 'Energy post workout rating' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Energy post workout rating' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Knee pain rating' })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Coach note' })).toBeInTheDocument();
@@ -266,9 +272,54 @@ describe('SessionFeedback', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { level: 3, name: 'Muscle pain scale' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Muscle pain scale' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 3, name: 'Joint discomfort check' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows session RPE guidance anchors in the help dialog', () => {
+    render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Session RPE guide' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Session RPE Guide' })).toBeInTheDocument();
+    expect(screen.getByText('Easy, plenty left in the tank')).toBeInTheDocument();
+    expect(screen.getByText('Moderate, solid work but comfortable')).toBeInTheDocument();
+    expect(screen.getByText('Hard, challenging but repeatable')).toBeInTheDocument();
+    expect(screen.getByText('Very hard, close to limit')).toBeInTheDocument();
+    expect(screen.getByText('Maximal, all-out effort')).toBeInTheDocument();
+  });
+
+  it('applies stronger selected-state styling to option controls', () => {
+    render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
+
+    const rpeSeven = within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole(
+      'button',
+      {
+        name: '7',
+      },
+    );
+    fireEvent.click(rpeSeven);
+    expect(rpeSeven).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
+
+    const energyStrong = within(
+      screen.getByRole('group', { name: 'Energy post workout options' }),
+    ).getByRole('button', {
+      name: '💪',
+    });
+    fireEvent.click(energyStrong);
+    expect(energyStrong).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
+
+    const yesButton = within(
+      screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
+    ).getByRole('button', {
+      name: 'Yes',
+    });
+    fireEvent.click(yesButton);
+    expect(yesButton).toHaveClass('bg-[var(--color-accent-peach)]', 'text-on-peach');
   });
 });
