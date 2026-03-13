@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, isNull, lte, sql } from 'drizzle-orm';
 
 import type {
   DashboardConfig,
@@ -84,17 +84,6 @@ const dashboardConfigSelection = {
 
 const activeHabitIdsSelection = {
   id: habits.id,
-};
-
-const getDateRangeForUtcDay = (date: string) => {
-  const start = new Date(`${date}T00:00:00.000Z`);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-
-  return {
-    start: start.getTime(),
-    end: end.getTime(),
-  };
 };
 
 // TODO: Source this from user preferences once kg/lb switching is introduced.
@@ -208,14 +197,12 @@ const toDashboardTrendMetrics = (metrics: string[] | null | undefined): Dashboar
   return validMetrics.length > 0 ? validMetrics : [];
 };
 
-const toDashboardConfig = (
-  value: {
-    habitChainIds: string[] | null;
-    trendMetrics: string[] | null;
-    visibleWidgets: string[] | null;
-    widgetOrder: string[] | null;
-  },
-): DashboardConfig => {
+const toDashboardConfig = (value: {
+  habitChainIds: string[] | null;
+  trendMetrics: string[] | null;
+  visibleWidgets: string[] | null;
+  widgetOrder: string[] | null;
+}): DashboardConfig => {
   const parsed = dashboardConfigSchema.parse({
     habitChainIds: value.habitChainIds ?? [],
     trendMetrics: toDashboardTrendMetrics(value.trendMetrics),
@@ -230,8 +217,6 @@ export const getDashboardSnapshot = async (
   userId: string,
   date: string,
 ): Promise<DashboardSnapshot> => {
-  const dayRange = getDateRangeForUtcDay(date);
-
   const weight =
     db
       .select(weightSelection)
@@ -265,11 +250,11 @@ export const getDashboardSnapshot = async (
     .where(
       and(
         eq(workoutSessions.userId, userId),
-        gte(workoutSessions.startedAt, dayRange.start),
-        lt(workoutSessions.startedAt, dayRange.end),
+        isNull(workoutSessions.deletedAt),
+        eq(workoutSessions.date, date),
       ),
     )
-    .orderBy(desc(workoutSessions.startedAt))
+    .orderBy(desc(workoutSessions.completedAt), desc(workoutSessions.startedAt))
     .limit(1)
     .get();
 
@@ -360,6 +345,7 @@ export const getDashboardConsistencyTrend = async (
       and(
         eq(workoutSessions.userId, userId),
         eq(workoutSessions.status, 'completed'),
+        isNull(workoutSessions.deletedAt),
         between(workoutSessions.date, from, to),
       ),
     )

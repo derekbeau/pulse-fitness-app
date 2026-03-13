@@ -360,6 +360,76 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns the newest same-day completed performance for history lookups', async () => {
+    seedExercise({
+      id: 'global-squat',
+      userId: null,
+      name: 'Back Squat',
+      muscleGroups: ['quads'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    seedWorkoutSession({
+      id: 'session-early',
+      userId: 'user-1',
+      name: 'Lower Body',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T09:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T09:35:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-late',
+      userId: 'user-1',
+      name: 'Lower Body PM',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T17:00:00.000Z'),
+      completedAt: Date.parse('2026-03-12T17:42:00.000Z'),
+    });
+
+    seedSessionSet({
+      id: 'set-early',
+      sessionId: 'session-early',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 225,
+      reps: 5,
+    });
+    seedSessionSet({
+      id: 'set-late',
+      sessionId: 'session-late',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 235,
+      reps: 4,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-squat/last-performance',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        sessionId: 'session-late',
+        date: '2026-03-12',
+        sets: [
+          {
+            setNumber: 1,
+            weight: 235,
+            reps: 4,
+          },
+        ],
+      },
+    });
+  });
+
   it('creates a user-specific exercise for the authenticated user', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
@@ -563,6 +633,204 @@ describe('exercise routes', () => {
         page: 1,
         limit: 2,
         total: 3,
+      },
+    });
+  });
+
+  it('includes soft-deleted user exercises when they are referenced by workout history', async () => {
+    seedExercise({
+      id: 'active-owned',
+      userId: 'user-1',
+      name: 'Active Owned',
+      muscleGroups: ['quads'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'deleted-used',
+      userId: 'user-1',
+      name: 'Deleted But Used',
+      muscleGroups: ['hamstrings'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'deleted-unused',
+      userId: 'user-1',
+      name: 'Deleted Unused',
+      muscleGroups: ['calves'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-used'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-unused'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'history-session',
+      userId: 'user-1',
+      name: 'Lower',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_100_000,
+      completedAt: 1_700_000_120_000,
+    });
+    seedSessionSet({
+      id: 'history-set',
+      sessionId: 'history-session',
+      exerciseId: 'deleted-used',
+      setNumber: 1,
+      weight: 100,
+      reps: 10,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+    const filtersResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/filters',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({ id: 'active-owned' }),
+        expect.objectContaining({ id: 'deleted-used' }),
+      ],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 2,
+      },
+    });
+
+    expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.json()).toEqual({
+      data: {
+        muscleGroups: ['hamstrings', 'quads'],
+        equipment: ['barbell', 'machine'],
+      },
+    });
+  });
+
+  it('excludes soft-deleted exercises referenced only by deleted sessions or templates', async () => {
+    seedExercise({
+      id: 'deleted-session-only',
+      userId: 'user-1',
+      name: 'Deleted Session Only',
+      muscleGroups: ['hamstrings'],
+      equipment: 'machine',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'deleted-template-only',
+      userId: 'user-1',
+      name: 'Deleted Template Only',
+      muscleGroups: ['glutes'],
+      equipment: 'cable',
+      category: 'isolation',
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-session-only'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(exercises.id, 'deleted-template-only'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'deleted-history-session',
+      userId: 'user-1',
+      name: 'Deleted Session',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_100_000,
+      completedAt: 1_700_000_120_000,
+    });
+    seedSessionSet({
+      id: 'deleted-history-set',
+      sessionId: 'deleted-history-session',
+      exerciseId: 'deleted-session-only',
+      setNumber: 1,
+      weight: 100,
+      reps: 10,
+    });
+    context.db
+      .update(workoutSessions)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(workoutSessions.id, 'deleted-history-session'))
+      .run();
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'deleted-template',
+        userId: 'user-1',
+        name: 'Deleted Template',
+        description: null,
+        tags: [],
+      })
+      .run();
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'deleted-template-exercise',
+        templateId: 'deleted-template',
+        exerciseId: 'deleted-template-only',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({ deletedAt: '2026-03-12T00:00:00.000Z' })
+      .where(eq(workoutTemplates.id, 'deleted-template'))
+      .run();
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+    const filtersResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/filters',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 0,
+      },
+    });
+
+    expect(filtersResponse.statusCode).toBe(200);
+    expect(filtersResponse.json()).toEqual({
+      data: {
+        muscleGroups: [],
+        equipment: [],
       },
     });
   });

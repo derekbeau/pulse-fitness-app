@@ -1,4 +1,5 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
+import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
@@ -7,12 +8,16 @@ const testState = vi.hoisted(() => {
   const selectGetResults: unknown[] = [];
   const selectAllResults: unknown[] = [];
   const insertRunResults: unknown[] = [];
+  const whereCalls: unknown[] = [];
 
   const select = vi.fn(() => {
     const chain = {
       from: vi.fn(() => chain),
       leftJoin: vi.fn(() => chain),
-      where: vi.fn(() => chain),
+      where: vi.fn((condition: unknown) => {
+        whereCalls.push(condition);
+        return chain;
+      }),
       groupBy: vi.fn(() => chain),
       orderBy: vi.fn(() => chain),
       limit: vi.fn(() => chain),
@@ -44,10 +49,12 @@ const testState = vi.hoisted(() => {
     selectGetResults,
     selectAllResults,
     insertRunResults,
+    whereCalls,
     reset() {
       selectGetResults.length = 0;
       selectAllResults.length = 0;
       insertRunResults.length = 0;
+      whereCalls.length = 0;
       select.mockClear();
       db.insert.mockClear();
     },
@@ -172,6 +179,20 @@ describe('dashboard store', () => {
       completed: 2,
       percentage: 66.7,
     });
+  });
+
+  it('scopes dashboard workout snapshot lookup by local workout date', async () => {
+    testState.selectGetResults.push(undefined, undefined, undefined, undefined, undefined);
+
+    const { getDashboardSnapshot } = await import('./dashboard-store.js');
+    await getDashboardSnapshot('user-1', '2026-03-11');
+
+    const workoutWhereClause = testState.whereCalls[3];
+    const dialect = new SQLiteSyncDialect();
+    const workoutWhereSql = dialect.sqlToQuery(workoutWhereClause as never).sql;
+
+    expect(workoutWhereSql).toContain('"workout_sessions"."date"');
+    expect(workoutWhereSql).not.toContain('"workout_sessions"."started_at"');
   });
 
   it('returns weight trend points in ascending date order', async () => {

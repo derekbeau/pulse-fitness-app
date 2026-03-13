@@ -47,7 +47,6 @@ vi.mock('../workout-templates/store.js', () => ({
 }));
 
 vi.mock('../workout-sessions/store.js', () => ({
-  allSessionExercisesAccessible: vi.fn(),
   batchUpsertSessionSets: vi.fn(),
   createSessionSet: vi.fn(),
   createWorkoutSession: vi.fn(),

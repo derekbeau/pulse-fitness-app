@@ -949,7 +949,25 @@ describe('workout session routes', () => {
     expect(inaccessibleExerciseResponse.json()).toEqual({
       error: {
         code: 'INVALID_SESSION_EXERCISE',
-        message: 'Session references one or more unavailable exercises',
+        message: 'Session references one or more unavailable exercises: user-2-private-row',
+      },
+    });
+
+    const missingExerciseResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-active/sets',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: 'missing-exercise-id',
+        setNumber: 1,
+      },
+    });
+
+    expect(missingExerciseResponse.statusCode).toBe(400);
+    expect(missingExerciseResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_SESSION_EXERCISE',
+        message: 'Session references one or more unavailable exercises: missing-exercise-id',
       },
     });
 
@@ -1304,6 +1322,50 @@ describe('workout session routes', () => {
         }),
         expect.objectContaining({
           id: 'session-completed-2',
+          status: 'completed',
+        }),
+      ],
+    });
+  });
+
+  it('includes sessions completed on the same-day range boundary', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedWorkoutSession({
+      id: 'session-yesterday',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Yesterday Session',
+      date: '2026-03-11',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-11T23:55:00.000Z'),
+      completedAt: Date.parse('2026-03-11T23:58:00.000Z'),
+      duration: 3,
+    });
+    seedWorkoutSession({
+      id: 'session-today',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Today Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-12T00:05:00.000Z'),
+      completedAt: Date.parse('2026-03-12T00:25:00.000Z'),
+      duration: 20,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions?status=completed&from=2026-03-12&to=2026-03-12',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'session-today',
+          date: '2026-03-12',
           status: 'completed',
         }),
       ],
@@ -2418,7 +2480,7 @@ describe('workout session routes', () => {
     expect(unavailableExerciseResponse.json()).toEqual({
       error: {
         code: 'INVALID_SESSION_EXERCISE',
-        message: 'Session references one or more unavailable exercises',
+        message: 'Session references one or more unavailable exercises: user-2-private-row',
       },
     });
 
@@ -2435,6 +2497,54 @@ describe('workout session routes', () => {
     expect(invalidMergedUpdateResponse.json()).toEqual({
       data: expect.objectContaining({
         id: 'session-1',
+        status: 'completed',
+      }),
+    });
+  });
+
+  it('allows patch updates without sets when existing session sets reference now-deleted exercises', async () => {
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    seedExercise({
+      id: 'user-1-soft-delete-lift',
+      userId: 'user-1',
+      name: 'Temporary Lift',
+    });
+    seedWorkoutSession({
+      id: 'session-with-deleted-exercise',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'set-soft-delete-lift',
+      sessionId: 'session-with-deleted-exercise',
+      exerciseId: 'user-1-soft-delete-lift',
+      setNumber: 1,
+      reps: 8,
+      section: 'main',
+    });
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-13T00:00:00.000Z' })
+      .where(eq(exercises.id, 'user-1-soft-delete-lift'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-with-deleted-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'completed',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-with-deleted-exercise',
         status: 'completed',
       }),
     });
