@@ -564,6 +564,49 @@ describe('SessionExerciseList', () => {
     ).toHaveClass('line-through');
   });
 
+  it('keeps non-current completed exercises expanded by default', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
+    drafts['banded-shoulder-external-rotation'] = drafts['banded-shoulder-external-rotation'].map(
+      (set) => ({
+        ...set,
+        completed: true,
+        reps: 15,
+      }),
+    );
+
+    const session = buildActiveWorkoutSession(activeTemplate, drafts, {
+      sessionStartedAt: '2026-03-06T12:00:00Z',
+    });
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const bandedCard = screen
+      .getByRole('heading', { level: 3, name: 'Banded Shoulder External Rotation' })
+      .closest('[data-slot="card"]');
+
+    expect(bandedCard).not.toBeNull();
+    expect(within(bandedCard as HTMLElement).getByLabelText('Reps for set 1')).toBeInTheDocument();
+    expect(
+      within(bandedCard as HTMLElement).getByRole('heading', {
+        level: 3,
+        name: 'Banded Shoulder External Rotation',
+      }),
+    ).toHaveClass('line-through');
+  });
+
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -633,10 +676,13 @@ describe('SessionExerciseList', () => {
       throw new Error('Expected Row Erg exercise header toggle.');
     }
 
+    const rowErgSecondsInput = within(reopenedRowErgCard as HTMLElement).getByLabelText(
+      'Seconds for set 1',
+    );
+    expect(rowErgSecondsInput).toBeVisible();
+
     fireEvent.click(reopenedRowErgCardHeaderToggle);
-    expect(
-      within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
-    ).not.toBeInTheDocument();
+    expect(rowErgSecondsInput).not.toBeVisible();
   });
 
   it('formats reps-seconds last performance as reps when seconds are unavailable in history', () => {

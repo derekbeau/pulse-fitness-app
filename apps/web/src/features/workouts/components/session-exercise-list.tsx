@@ -585,7 +585,7 @@ function ExerciseCardItem({
   const isExpanded =
     focusTargetExerciseId === exercise.id
       ? true
-      : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
+      : (expandedExercises[exercise.id] ?? true);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
@@ -633,7 +633,7 @@ function ExerciseCardItem({
           onClick={() =>
             setExpandedExercises((current) => ({
               ...current,
-              [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
+              [exercise.id]: !(current[exercise.id] ?? true),
             }))
           }
           type="button"
