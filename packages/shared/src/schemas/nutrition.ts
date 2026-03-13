@@ -27,6 +27,7 @@ export const nutritionMealSchema = z.object({
   id: z.string(),
   nutritionLogId: z.string(),
   name: requiredText(120),
+  summary: z.string().nullable().default(null),
   time: mealTimeSchema.nullable(),
   notes: z.string().nullable(),
   createdAt: z.number().int(),
@@ -91,6 +92,7 @@ export const mealItemInputSchema = z.object({
 
 export const createMealInputSchema = z.object({
   name: requiredText(120),
+  summary: z.string().trim().max(500).nullable().optional(),
   time: mealTimeSchema.optional(),
   notes: requiredText(2_000).optional(),
   items: z.array(mealItemInputSchema).min(1),

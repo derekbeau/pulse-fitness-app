@@ -64,6 +64,7 @@ export function NutritionPage() {
     (dailyNutritionQuery.data?.meals ?? []).map(({ meal, items }) => ({
       id: meal.id,
       name: meal.name,
+      summary: meal.summary,
       time: meal.time,
       loggedAt: toMealLoggedAtTimestamp(dateKey, meal.time, meal.createdAt),
       items: items.map((item) => ({

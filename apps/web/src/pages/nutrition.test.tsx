@@ -59,6 +59,7 @@ function calculateActuals(daily: DailyNutrition): NutritionMacroTotals {
 function createMeal(args: {
   id: string;
   name: string;
+  summary?: string | null;
   time: string;
   items: Array<{
     id: string;
@@ -76,6 +77,7 @@ function createMeal(args: {
       id: args.id,
       nutritionLogId: 'log-2026-03-05',
       name: args.name,
+      summary: args.summary ?? null,
       time: args.time,
       notes: null,
       createdAt: 1,

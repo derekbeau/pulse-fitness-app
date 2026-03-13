@@ -66,6 +66,7 @@ const createdMeal = {
   id: 'meal-1',
   nutritionLogId: 'log-1',
   name: 'Lunch',
+  summary: 'Chicken Breast, White Rice',
   time: '12:00',
   notes: null,
   createdAt: 1_700_000_000_000,
@@ -200,6 +201,7 @@ describe('agent meals routes', () => {
         expect(json.data.meal).toEqual({
           id: 'meal-1',
           name: 'Lunch',
+          summary: 'Chicken Breast, White Rice',
           date: '2026-03-09',
           time: '12:00',
         });
@@ -221,6 +223,7 @@ describe('agent meals routes', () => {
           '2026-03-09',
           expect.objectContaining({
             name: 'Lunch',
+            summary: 'Chicken Breast, White Rice',
             time: '12:00',
             items: [
               expect.objectContaining({

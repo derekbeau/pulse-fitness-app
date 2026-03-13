@@ -6,6 +6,7 @@ import { MealCard } from '@/features/nutrition/components/meal-card';
 const breakfastMeal = {
   id: 'meal-breakfast',
   name: 'Breakfast',
+  summary: 'Large Eggs, Whole Wheat Bread, Whey Protein',
   time: '07:20',
   items: [
     {
@@ -55,9 +56,16 @@ describe('MealCard', () => {
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('7:20 AM')).toBeInTheDocument();
+    expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toHaveClass('truncate');
     expect(screen.getByText('535 cal')).toBeInTheDocument();
     expect(screen.getByText('29g protein')).toBeInTheDocument();
     expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+  });
+
+  it('does not render a summary line when summary is null', () => {
+    render(<MealCard meal={{ ...breakfastMeal, summary: null }} />);
+
+    expect(screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein')).not.toBeInTheDocument();
   });
 
   it('expands to show individual food items and per-item macros', () => {

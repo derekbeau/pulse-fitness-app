@@ -64,9 +64,11 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       carbs: food.carbs * item.quantity,
       fat: food.fat * item.quantity,
     }));
+    const summary = mealItems.map((item) => item.name).join(', ');
 
     const { meal, items: createdItems } = await createMealForDate(userId, date, {
       name,
+      summary,
       time,
       items: mealItems,
     });
@@ -91,6 +93,7 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
         meal: {
           id: meal.id,
           name: meal.name,
+          summary: meal.summary,
           date,
           time: meal.time,
         },

@@ -483,3 +483,101 @@ describe('migration 0018_graceful_lord_hawal', () => {
     }
   });
 });
+
+describe('migration 0025_meal_summary', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds summary column and backfills it from ordered meal items', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0025-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE meals (
+          id TEXT PRIMARY KEY NOT NULL,
+          nutrition_log_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          time TEXT,
+          notes TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.exec(`
+        CREATE TABLE meal_items (
+          id TEXT PRIMARY KEY NOT NULL,
+          meal_id TEXT NOT NULL,
+          food_id TEXT,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          unit TEXT NOT NULL,
+          calories REAL NOT NULL,
+          protein REAL NOT NULL,
+          carbs REAL NOT NULL,
+          fat REAL NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+      `);
+
+      const now = Date.now();
+      db.prepare(
+        `
+          INSERT INTO meals (
+            id,
+            nutrition_log_id,
+            name,
+            time,
+            notes,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run('meal-1', 'log-1', 'Lunch', '12:00', null, now, now);
+
+      const insertMealItem = db.prepare(
+        `
+          INSERT INTO meal_items (
+            id,
+            meal_id,
+            food_id,
+            name,
+            amount,
+            unit,
+            calories,
+            protein,
+            carbs,
+            fat,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      );
+
+      insertMealItem.run('item-1', 'meal-1', null, 'Orgain shake', 1, 'serving', 150, 30, 7, 4, now);
+      insertMealItem.run('item-2', 'meal-1', null, 'milk', 1, 'cup', 120, 8, 12, 5, now + 1);
+      insertMealItem.run('item-3', 'meal-1', null, 'creamer', 1, 'tbsp', 35, 0, 5, 1.5, now + 2);
+
+      const migrationSql = readFileSync(join(process.cwd(), 'drizzle/0025_meal_summary.sql'), 'utf8');
+      runSqlStatements(db, migrationSql);
+
+      const migrated = db
+        .prepare(`SELECT summary FROM meals WHERE id = ?`)
+        .get('meal-1') as { summary: string | null };
+
+      expect(migrated.summary).toBe('Orgain shake, milk, creamer');
+    } finally {
+      db.close();
+    }
+  });
+});

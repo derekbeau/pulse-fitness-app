@@ -158,6 +158,7 @@ describe('createMealInputSchema', () => {
   it('parses a valid meal payload with items', () => {
     const meal = createMealInputSchema.parse({
       name: ' Lunch ',
+      summary: ' Chicken, Rice ',
       time: '12:30',
       notes: ' Post workout ',
       items: [
@@ -175,6 +176,7 @@ describe('createMealInputSchema', () => {
 
     expect(meal).toEqual({
       name: 'Lunch',
+      summary: 'Chicken, Rice',
       time: '12:30',
       notes: 'Post workout',
       items: [
@@ -312,6 +314,7 @@ describe('dailyNutritionSchema', () => {
             id: 'meal-1',
             nutritionLogId: 'log-1',
             name: 'Breakfast',
+            summary: null,
             time: '07:20',
             notes: null,
             createdAt: 1,
@@ -343,6 +346,7 @@ describe('dailyNutritionSchema', () => {
     expect(payload?.meals).toHaveLength(1);
     expect(payload?.meals[0]?.items[0]?.name).toBe('Large Eggs');
     expect(payload?.meals[0]?.items[0]?.displayUnit).toBe('eggs');
+    expect(payload?.meals[0]?.meal.summary).toBeNull();
   });
 
   it('accepts null when no log exists for the date', () => {

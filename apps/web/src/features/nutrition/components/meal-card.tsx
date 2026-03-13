@@ -14,6 +14,7 @@ import {
 export type MealCardMeal = {
   id: string;
   name: string;
+  summary: string | null;
   time: string | null;
   items: Array<{
     id: string;
@@ -64,6 +65,9 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">{meal.name}</h2>
               <p className="text-sm text-muted">{formattedTime}</p>
+              {!isExpanded && meal.summary ? (
+                <p className="truncate text-sm text-muted">{meal.summary}</p>
+              ) : null}
             </div>
             <ChevronDown
               aria-hidden="true"
