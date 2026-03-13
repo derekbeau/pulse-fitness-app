@@ -100,6 +100,9 @@ export function SessionSummary({
             <h2 className="text-sm font-semibold tracking-[0.18em] uppercase opacity-70 dark:text-muted dark:opacity-100">
               Session notes
             </h2>
+            <p className="text-sm text-muted">
+              What happened today? Anything notable about this session?
+            </p>
             <Textarea
               aria-label="Session notes"
               data-testid="session-summary-notes"
@@ -109,7 +112,7 @@ export function SessionSummary({
               onChange={(event) => {
                 onNotesChange?.(event.target.value);
               }}
-              placeholder="How did it feel? What would you change?"
+              placeholder="What happened today? Anything notable about this session?"
               rows={4}
               value={initialSessionNotes}
             />

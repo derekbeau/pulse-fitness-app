@@ -280,6 +280,49 @@ describe('SessionFeedback', () => {
     ).toBeInTheDocument();
   });
 
+  it('clears incoming field values to avoid stale prefills and uses coach-note guidance copy', () => {
+    render(
+      <SessionFeedback
+        fields={[
+          {
+            id: 'shoulder-feel',
+            label: 'Shoulder feel',
+            max: 5,
+            min: 1,
+            notes: 'Previously felt fine.',
+            type: 'scale',
+            value: 4,
+          },
+          {
+            id: 'session-note',
+            label: 'Coach note',
+            notes: 'Carry this note forward.',
+            optional: true,
+            type: 'text',
+            value: 'Use a pause next session.',
+          },
+        ]}
+        onSubmit={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'What should we remember next time? Add a carry-forward coaching or programming note.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        'What should we remember next time? Add a carry-forward coaching or programming note.',
+      ),
+    ).toHaveValue('');
+    expect(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '4',
+      }),
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('shows session RPE guidance anchors in the help dialog', () => {
     render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
 

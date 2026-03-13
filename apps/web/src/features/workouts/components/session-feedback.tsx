@@ -148,7 +148,7 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
                 field.id === 'pain-discomfort' &&
                 field.type === 'yes_no' &&
                 field.value === true
-              ) ? (
+              ) && field.type !== 'text' ? (
                 <div className="space-y-2">
                   <label
                     className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
@@ -247,39 +247,39 @@ function normalizeFeedbackField(
     case 'scale':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'text':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? '',
+        notes: '',
+        value: '',
       };
     case 'yes_no':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'emoji':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'slider':
       return {
         ...field,
-        notes: field.notes ?? '',
+        notes: '',
         step: field.step ?? 1,
-        value: field.value ?? field.min,
+        value: null,
       };
     case 'multi_select':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? [],
+        notes: '',
+        value: [],
       };
     default:
       return field;
@@ -291,6 +291,10 @@ function getFeedbackDescription(field: ActiveWorkoutCustomFeedbackField) {
     case 'scale':
       return `Rate ${field.label.toLowerCase()} from ${field.min} to ${field.max}.`;
     case 'text':
+      if (isCoachNoteField(field)) {
+        return 'What should we remember next time? Add a carry-forward coaching or programming note.';
+      }
+
       return `Add a note for ${field.label.toLowerCase()}.`;
     case 'yes_no':
       return 'Select yes or no.';
@@ -355,7 +359,11 @@ function renderFeedbackInput(
               ),
             )
           }
-          placeholder={`Add your ${field.label.toLowerCase()} notes.`}
+          placeholder={
+            isCoachNoteField(field)
+              ? 'What should we remember next time? Add a carry-forward coaching or programming note.'
+              : `Add your ${field.label.toLowerCase()} notes.`
+          }
           value={field.value}
         />
       );
@@ -502,6 +510,13 @@ function renderFeedbackInput(
     default:
       return null;
   }
+}
+
+function isCoachNoteField(field: ActiveWorkoutCustomFeedbackField) {
+  const normalizedId = field.id.trim().toLowerCase();
+  const normalizedLabel = field.label.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  return normalizedId === 'coach-note' || normalizedId === 'session-note' || normalizedLabel === 'coach note';
 }
 
 function getFeedbackOptionClassName(isSelected: boolean) {
