@@ -1,8 +1,18 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
+import { CircleHelp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import type { ActiveWorkoutCustomFeedbackField, ActiveWorkoutFeedbackDraft } from '../types';
@@ -33,6 +43,14 @@ export const STANDARD_FEEDBACK_QUESTIONS: ActiveWorkoutCustomFeedbackField[] = [
     value: null,
   },
 ];
+
+const RPE_SCALE_ANCHORS = [
+  { rating: 6, description: 'Easy, plenty left in the tank' },
+  { rating: 7, description: 'Moderate, solid work but comfortable' },
+  { rating: 8, description: 'Hard, challenging but repeatable' },
+  { rating: 9, description: 'Very hard, close to limit' },
+  { rating: 10, description: 'Maximal, all-out effort' },
+] as const;
 
 type SessionFeedbackProps = {
   className?: string;
@@ -90,7 +108,10 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
           <section className="rounded-3xl border border-border bg-secondary/25 p-4" key={field.id}>
             <div className="space-y-3">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-foreground">{field.label}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-foreground">{field.label}</h3>
+                  {field.id === 'session-rpe' ? <RpeScaleHelp /> : null}
+                </div>
                 <p className="text-sm text-muted">{getFeedbackDescription(field)}</p>
               </div>
 
@@ -124,7 +145,11 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
                 </div>
               ) : null}
 
-              {!(field.id === 'pain-discomfort' && field.type === 'yes_no' && field.value === true) ? (
+              {!(
+                field.id === 'pain-discomfort' &&
+                field.type === 'yes_no' &&
+                field.value === true
+              ) && field.type !== 'text' ? (
                 <div className="space-y-2">
                   <label
                     className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
@@ -216,44 +241,46 @@ function getCanonicalStandardFieldId(field: ActiveWorkoutCustomFeedbackField) {
   return null;
 }
 
-function normalizeFeedbackField(field: ActiveWorkoutCustomFeedbackField): ActiveWorkoutCustomFeedbackField {
+function normalizeFeedbackField(
+  field: ActiveWorkoutCustomFeedbackField,
+): ActiveWorkoutCustomFeedbackField {
   switch (field.type) {
     case 'scale':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'text':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? '',
+        notes: '',
+        value: '',
       };
     case 'yes_no':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'emoji':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? null,
+        notes: '',
+        value: null,
       };
     case 'slider':
       return {
         ...field,
-        notes: field.notes ?? '',
+        notes: '',
         step: field.step ?? 1,
-        value: field.value ?? field.min,
+        value: null,
       };
     case 'multi_select':
       return {
         ...field,
-        notes: field.notes ?? '',
-        value: field.value ?? [],
+        notes: '',
+        value: [],
       };
     default:
       return field;
@@ -265,6 +292,10 @@ function getFeedbackDescription(field: ActiveWorkoutCustomFeedbackField) {
     case 'scale':
       return `Rate ${field.label.toLowerCase()} from ${field.min} to ${field.max}.`;
     case 'text':
+      if (isCoachNoteField(field)) {
+        return 'What should we remember next time? Add a carry-forward coaching or programming note.';
+      }
+
       return `Add a note for ${field.label.toLowerCase()}.`;
     case 'yes_no':
       return 'Select yes or no.';
@@ -294,11 +325,7 @@ function renderFeedbackInput(
               return (
                 <Button
                   aria-pressed={isSelected}
-                  className={cn(
-                    'min-w-11',
-                    isSelected &&
-                      'border-transparent bg-[var(--color-accent-cream)] text-on-cream hover:bg-[var(--color-accent-cream)]/90 dark:bg-amber-500/20 dark:text-amber-400 dark:hover:bg-amber-500/30',
-                  )}
+                  className={cn('min-w-11', getFeedbackOptionClassName(isSelected))}
                   key={score}
                   onClick={() =>
                     setFeedback((current) =>
@@ -311,7 +338,7 @@ function renderFeedbackInput(
                   }
                   size="sm"
                   type="button"
-                  variant={isSelected ? 'secondary' : 'outline'}
+                  variant="outline"
                 >
                   {score}
                 </Button>
@@ -333,7 +360,11 @@ function renderFeedbackInput(
               ),
             )
           }
-          placeholder={`Add your ${field.label.toLowerCase()} notes.`}
+          placeholder={
+            isCoachNoteField(field)
+              ? 'What should we remember next time? Add a carry-forward coaching or programming note.'
+              : `Add your ${field.label.toLowerCase()} notes.`
+          }
           value={field.value}
         />
       );
@@ -342,6 +373,7 @@ function renderFeedbackInput(
         <div aria-label={`${field.label} response`} className="flex gap-2" role="group">
           <Button
             aria-pressed={field.value === true}
+            className={getFeedbackOptionClassName(field.value === true)}
             onClick={() =>
               setFeedback((current) =>
                 current.map((entry) =>
@@ -352,12 +384,13 @@ function renderFeedbackInput(
               )
             }
             type="button"
-            variant={field.value === true ? 'secondary' : 'outline'}
+            variant="outline"
           >
             Yes
           </Button>
           <Button
             aria-pressed={field.value === false}
+            className={getFeedbackOptionClassName(field.value === false)}
             onClick={() =>
               setFeedback((current) =>
                 current.map((entry) =>
@@ -368,7 +401,7 @@ function renderFeedbackInput(
               )
             }
             type="button"
-            variant={field.value === false ? 'secondary' : 'outline'}
+            variant="outline"
           >
             No
           </Button>
@@ -383,7 +416,7 @@ function renderFeedbackInput(
             return (
               <Button
                 aria-pressed={isSelected}
-                className="min-w-11 px-3"
+                className={cn('min-w-11 px-3', getFeedbackOptionClassName(isSelected))}
                 key={option}
                 onClick={() =>
                   setFeedback((current) =>
@@ -396,7 +429,7 @@ function renderFeedbackInput(
                 }
                 size="sm"
                 type="button"
-                variant={isSelected ? 'secondary' : 'outline'}
+                variant="outline"
               >
                 <span aria-hidden="true" className="text-lg leading-none">
                   {option}
@@ -447,6 +480,7 @@ function renderFeedbackInput(
             return (
               <Button
                 aria-pressed={isSelected}
+                className={getFeedbackOptionClassName(isSelected)}
                 key={option}
                 onClick={() =>
                   setFeedback((current) =>
@@ -466,7 +500,7 @@ function renderFeedbackInput(
                 }
                 size="sm"
                 type="button"
-                variant={isSelected ? 'secondary' : 'outline'}
+                variant="outline"
               >
                 {option}
               </Button>
@@ -477,4 +511,96 @@ function renderFeedbackInput(
     default:
       return null;
   }
+}
+
+function isCoachNoteField(field: ActiveWorkoutCustomFeedbackField) {
+  const normalizedId = field.id.trim().toLowerCase();
+  const normalizedLabel = field.label.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  return (
+    normalizedId === 'coach-note' ||
+    normalizedId === 'session-note' ||
+    normalizedLabel === 'coach note'
+  );
+}
+
+function getFeedbackOptionClassName(isSelected: boolean) {
+  return cn(
+    'border transition-all active:scale-[0.98]',
+    isSelected
+      ? 'border-[var(--color-accent-peach)] bg-[var(--color-accent-peach)] text-on-peach shadow-[0_0_0_1px_var(--color-accent-peach)] hover:bg-[var(--color-accent-peach)]/90 dark:border-[var(--color-accent-cream)] dark:bg-[var(--color-accent-cream)]/25 dark:text-[var(--color-accent-cream)] dark:shadow-[0_0_0_1px_var(--color-accent-cream)] dark:hover:bg-[var(--color-accent-cream)]/35'
+      : 'border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground',
+  );
+}
+
+function RpeScaleHelp() {
+  return (
+    <div className="flex items-center">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="Session RPE scale anchors"
+              className="hidden h-9 w-9 p-0 text-muted sm:inline-flex"
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <CircleHelp className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent
+            className="max-w-xs space-y-2 bg-card p-3 text-foreground shadow-xl ring-1 ring-border"
+            side="top"
+            sideOffset={8}
+          >
+            <p className="text-xs font-semibold tracking-[0.18em] uppercase text-muted">
+              Session RPE Guide
+            </p>
+            <RpeScaleAnchorList />
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button
+            aria-label="Open Session RPE guide"
+            className="h-9 w-9 p-0 text-muted sm:hidden"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <CircleHelp className="size-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="top-auto bottom-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 p-5 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Session RPE Guide</DialogTitle>
+            <DialogDescription className="sr-only">
+              This guide explains the Rate of Perceived Exertion scale so you can score your
+              session consistently.
+            </DialogDescription>
+          </DialogHeader>
+          <RpeScaleAnchorList />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function RpeScaleAnchorList() {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">Below 6: Very light effort or warm-up pace.</p>
+      <ul className="space-y-2 text-sm text-muted">
+        {RPE_SCALE_ANCHORS.map((anchor) => (
+          <li className="flex gap-2" key={anchor.rating}>
+            <span className="font-semibold text-foreground">{anchor.rating}</span>
+            <span>{anchor.description}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }

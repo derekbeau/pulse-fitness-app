@@ -50,11 +50,12 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '🙂',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -122,7 +123,9 @@ describe('SessionFeedback', () => {
         value: false,
       }),
     );
-    expect(submittedFeedback.find((field) => field.id === 'effort' && field.type === 'slider')).toEqual(
+    expect(
+      submittedFeedback.find((field) => field.id === 'effort' && field.type === 'slider'),
+    ).toEqual(
       expect.objectContaining({
         value: 8,
       }),
@@ -151,11 +154,12 @@ describe('SessionFeedback', () => {
       }),
     );
     fireEvent.click(
-      within(
-        screen.getByRole('group', { name: 'Energy post workout options' }),
-      ).getByRole('button', {
-        name: '😐',
-      }),
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '😐',
+        },
+      ),
     );
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
@@ -236,7 +240,9 @@ describe('SessionFeedback', () => {
       />,
     );
 
-    expect(screen.queryByRole('group', { name: 'Energy post workout rating' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Energy post workout rating' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Knee pain rating' })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Coach note' })).toBeInTheDocument();
@@ -266,9 +272,97 @@ describe('SessionFeedback', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { level: 3, name: 'Muscle pain scale' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Muscle pain scale' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 3, name: 'Joint discomfort check' }),
     ).toBeInTheDocument();
+  });
+
+  it('clears incoming field values to avoid stale prefills and uses coach-note guidance copy', () => {
+    render(
+      <SessionFeedback
+        fields={[
+          {
+            id: 'shoulder-feel',
+            label: 'Shoulder feel',
+            max: 5,
+            min: 1,
+            notes: 'Previously felt fine.',
+            type: 'scale',
+            value: 4,
+          },
+          {
+            id: 'session-note',
+            label: 'Coach note',
+            notes: 'Carry this note forward.',
+            optional: true,
+            type: 'text',
+            value: 'Use a pause next session.',
+          },
+        ]}
+        onSubmit={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'What should we remember next time? Add a carry-forward coaching or programming note.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        'What should we remember next time? Add a carry-forward coaching or programming note.',
+      ),
+    ).toHaveValue('');
+    expect(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '4',
+      }),
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows session RPE guidance anchors in the help dialog', () => {
+    render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Session RPE guide' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Session RPE Guide' })).toBeInTheDocument();
+    expect(screen.getByText('Easy, plenty left in the tank')).toBeInTheDocument();
+    expect(screen.getByText('Moderate, solid work but comfortable')).toBeInTheDocument();
+    expect(screen.getByText('Hard, challenging but repeatable')).toBeInTheDocument();
+    expect(screen.getByText('Very hard, close to limit')).toBeInTheDocument();
+    expect(screen.getByText('Maximal, all-out effort')).toBeInTheDocument();
+  });
+
+  it('marks selected option controls with pressed state', () => {
+    render(<SessionFeedback fields={[]} onSubmit={() => {}} />);
+
+    const rpeSeven = within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole(
+      'button',
+      {
+        name: '7',
+      },
+    );
+    fireEvent.click(rpeSeven);
+    expect(rpeSeven).toHaveAttribute('aria-pressed', 'true');
+
+    const energyStrong = within(
+      screen.getByRole('group', { name: 'Energy post workout options' }),
+    ).getByRole('button', {
+      name: '💪',
+    });
+    fireEvent.click(energyStrong);
+    expect(energyStrong).toHaveAttribute('aria-pressed', 'true');
+
+    const yesButton = within(
+      screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
+    ).getByRole('button', {
+      name: 'Yes',
+    });
+    fireEvent.click(yesButton);
+    expect(yesButton).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -149,15 +149,16 @@ export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
     type: 'scale',
     min: 1,
     max: 5,
-    value: 4,
-    notes: 'Left shoulder stayed stable with neutral-grip pressing.',
+    value: null,
+    notes: '',
   },
   {
     id: 'session-note',
     label: 'Coach note',
     optional: true,
     type: 'text',
-    value: 'Keep incline press to a 2-count pause on the chest next week.',
+    value: '',
+    notes: '',
   },
 ];
 

@@ -218,12 +218,13 @@ describe('ActiveWorkoutPage', () => {
         name: '3',
       }),
     );
-    fireEvent.change(
-      screen.getByDisplayValue('Keep incline press to a 2-count pause on the chest next week.'),
-      {
-        target: { value: 'Shoulders stayed stable, keep the same setup.' },
-      },
+    const coachNoteInput = screen.getByPlaceholderText(
+      'What should we remember next time? Add a carry-forward coaching or programming note.',
     );
+    expect(coachNoteInput).toHaveValue('');
+    fireEvent.change(coachNoteInput, {
+      target: { value: 'Shoulders stayed stable, keep the same setup.' },
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
@@ -755,6 +756,12 @@ describe('ActiveWorkoutPage', () => {
         },
       ),
     );
+    expect(
+      screen.getByPlaceholderText(
+        'What should we remember next time? Add a carry-forward coaching or programming note.',
+      ),
+    ).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Finalize session' })).toBeDisabled();
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
         name: '3',

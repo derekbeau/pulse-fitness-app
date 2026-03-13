@@ -86,16 +86,22 @@ describe('SessionSummary', () => {
       screen.getByText('Pause the first rep of each incline set next time.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText('How did it feel? What would you change?'),
+      screen.getByPlaceholderText('What happened today? Anything notable about this session?'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('What happened today? Anything notable about this session?'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('id', 'session-summary-notes');
     expect(screen.getByTestId('session-summary-notes')).toHaveAttribute('name', 'session-summary-notes');
     expect(screen.getByLabelText('Session notes')).toHaveValue('');
     expect(screen.getByRole('textbox', { name: 'Session notes' })).toHaveValue('');
 
-    fireEvent.change(screen.getByPlaceholderText('How did it feel? What would you change?'), {
-      target: { value: 'Tempo was good but shoulders fatigued early.' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText('What happened today? Anything notable about this session?'),
+      {
+        target: { value: 'Tempo was good but shoulders fatigued early.' },
+      },
+    );
     expect(notesChangeSpy).toHaveBeenCalledWith('Tempo was good but shoulders fatigued early.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
