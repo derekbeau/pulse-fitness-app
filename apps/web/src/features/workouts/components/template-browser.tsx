@@ -67,7 +67,7 @@ export function TemplateBrowser({
   const scheduleWorkoutMutation = useScheduleWorkout();
   const requestedDate = searchParams.get('date');
   const scheduleInitialDate =
-    requestedDate != null && /^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDate)
+    requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
       ? requestedDate
       : toDateKey(new Date());
   const normalizedQuery = searchQuery.trim().toLowerCase();

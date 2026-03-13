@@ -197,15 +197,7 @@ export function WorkoutCalendar({
   function handleMonthChange(offset: number) {
     const nextMonth = addMonths(visibleMonth, offset);
     setVisibleMonth(nextMonth);
-    setSelectedDateKey(
-      getDefaultSelectedDateKey(
-        nextMonth,
-        completedSessionByDate,
-        inProgressSessionsByDate,
-        scheduledByDate,
-        todayKey,
-      ),
-    );
+    setSelectedDateKey(toDateKey(startOfMonth(nextMonth)));
   }
 
   return (

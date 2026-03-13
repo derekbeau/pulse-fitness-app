@@ -36,8 +36,11 @@ import {
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
-import { useStartSession } from '@/hooks/use-workout-session';
-import { useDeleteSession, useUpdateSessionStatus } from '@/hooks/use-workout-session';
+import {
+  useDeleteSession,
+  useStartSession,
+  useUpdateSessionStatus,
+} from '@/hooks/use-workout-session';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {

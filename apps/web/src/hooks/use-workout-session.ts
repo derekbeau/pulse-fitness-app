@@ -271,7 +271,13 @@ export function useDeleteSession(sessionId: string | null | undefined) {
           queryKey: workoutSessionQueryKeys.all,
         }),
         queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),
+        }),
+        queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(normalizedSessionId),
         }),
       ]);
       toast.success('Workout deleted');
