@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import type {
   DashboardConfig,
@@ -24,7 +24,9 @@ import {
   meals,
   nutritionLogs,
   nutritionTargets,
+  scheduledWorkouts,
   workoutSessions,
+  workoutTemplates,
 } from '../../db/schema/index.js';
 import { getDatesInRange } from './dashboard-utils.js';
 
@@ -47,10 +49,28 @@ const macroTargetSelection = {
   fat: nutritionTargets.fat,
 };
 
-const workoutSelection = {
-  name: workoutSessions.name,
-  status: workoutSessions.status,
-  duration: workoutSessions.duration,
+const scheduledWorkoutSelection = {
+  scheduledWorkoutId: scheduledWorkouts.id,
+  scheduledTemplateId: scheduledWorkouts.templateId,
+  linkedSessionId: scheduledWorkouts.sessionId,
+  scheduledTemplateName: workoutTemplates.name,
+  scheduledCreatedAt: scheduledWorkouts.createdAt,
+  linkedSessionName: workoutSessions.name,
+  linkedSessionStatus: workoutSessions.status,
+  linkedSessionDuration: workoutSessions.duration,
+  linkedSessionTemplateId: workoutSessions.templateId,
+  linkedSessionStartedAt: workoutSessions.startedAt,
+  linkedSessionCompletedAt: workoutSessions.completedAt,
+};
+
+const standaloneSessionSelection = {
+  sessionId: workoutSessions.id,
+  sessionName: workoutSessions.name,
+  sessionStatus: workoutSessions.status,
+  sessionDuration: workoutSessions.duration,
+  sessionTemplateId: workoutSessions.templateId,
+  sessionStartedAt: workoutSessions.startedAt,
+  sessionCompletedAt: workoutSessions.completedAt,
 };
 
 const habitSummarySelection = {
@@ -128,8 +148,11 @@ const toWorkoutSnapshot = (
     | {
         name: string;
         status: DashboardWorkoutSnapshot['status'];
+        templateId: string | null;
+        sessionId: string | null;
         duration: number | null;
       }
+    | null
     | undefined,
 ): DashboardWorkoutSnapshot | null => {
   if (!value) {
@@ -139,6 +162,8 @@ const toWorkoutSnapshot = (
   return {
     name: value.name,
     status: value.status,
+    templateId: value.templateId,
+    sessionId: value.sessionId,
     duration: value.duration === null ? null : Number(value.duration),
   };
 };
@@ -176,6 +201,135 @@ const toMacroTrendPoint = (
   date,
   ...toMacroTotals(value),
 });
+
+type DashboardWorkoutCandidate = {
+  name: string;
+  status: DashboardWorkoutSnapshot['status'];
+  templateId: string | null;
+  sessionId: string | null;
+  duration: number | null;
+  sortTime: number;
+};
+
+const workoutStatusToDashboardState = (
+  status: 'scheduled' | 'in-progress' | 'paused' | 'completed',
+): DashboardWorkoutSnapshot['status'] => {
+  switch (status) {
+    case 'in-progress':
+    case 'paused':
+      return 'in_progress';
+    case 'completed':
+      return 'completed';
+    case 'scheduled':
+    default:
+      return 'scheduled';
+  }
+};
+
+const workoutPriority = (status: DashboardWorkoutSnapshot['status']) => {
+  switch (status) {
+    case 'in_progress':
+      return 0;
+    case 'scheduled':
+      return 1;
+    case 'completed':
+      return 2;
+    default:
+      return 3;
+  }
+};
+
+const selectTodayWorkoutCandidate = (
+  scheduledRows: Array<{
+    scheduledWorkoutId: string;
+    scheduledTemplateId: string | null;
+    linkedSessionId: string | null;
+    scheduledTemplateName: string | null;
+    scheduledCreatedAt: number;
+    linkedSessionName: string | null;
+    linkedSessionStatus: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed' | null;
+    linkedSessionDuration: number | null;
+    linkedSessionTemplateId: string | null;
+    linkedSessionStartedAt: number | null;
+    linkedSessionCompletedAt: number | null;
+  }>,
+  standaloneSessions: Array<{
+    sessionId: string;
+    sessionName: string;
+    sessionStatus: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
+    sessionDuration: number | null;
+    sessionTemplateId: string | null;
+    sessionStartedAt: number;
+    sessionCompletedAt: number | null;
+  }>,
+): DashboardWorkoutCandidate | null => {
+  const candidates: DashboardWorkoutCandidate[] = [];
+  const consumedSessionIds = new Set<string>();
+
+  for (const scheduledWorkout of scheduledRows) {
+    if (scheduledWorkout.linkedSessionId && scheduledWorkout.linkedSessionStatus) {
+      const linkedStatus = scheduledWorkout.linkedSessionStatus;
+      if (linkedStatus !== 'cancelled') {
+        candidates.push({
+          name:
+            scheduledWorkout.linkedSessionName ??
+            scheduledWorkout.scheduledTemplateName ??
+            'Workout unavailable',
+          status: workoutStatusToDashboardState(linkedStatus),
+          templateId:
+            scheduledWorkout.linkedSessionTemplateId ??
+            scheduledWorkout.scheduledTemplateId ??
+            null,
+          sessionId: scheduledWorkout.linkedSessionId,
+          duration: scheduledWorkout.linkedSessionDuration,
+          sortTime:
+            Number(
+              scheduledWorkout.linkedSessionCompletedAt ??
+                scheduledWorkout.linkedSessionStartedAt ??
+                scheduledWorkout.scheduledCreatedAt,
+            ) || 0,
+        });
+      }
+      consumedSessionIds.add(scheduledWorkout.linkedSessionId);
+      continue;
+    }
+
+    candidates.push({
+      name: scheduledWorkout.scheduledTemplateName ?? 'Workout unavailable',
+      status: 'scheduled',
+      templateId: scheduledWorkout.scheduledTemplateId,
+      sessionId: null,
+      duration: null,
+      sortTime: Number(scheduledWorkout.scheduledCreatedAt) || 0,
+    });
+  }
+
+  for (const session of standaloneSessions) {
+    if (session.sessionStatus === 'cancelled' || consumedSessionIds.has(session.sessionId)) {
+      continue;
+    }
+
+    candidates.push({
+      name: session.sessionName,
+      status: workoutStatusToDashboardState(session.sessionStatus),
+      templateId: session.sessionTemplateId,
+      sessionId: session.sessionId,
+      duration: session.sessionDuration,
+      sortTime: Number(session.sessionCompletedAt ?? session.sessionStartedAt) || 0,
+    });
+  }
+
+  candidates.sort((left, right) => {
+    const priorityDiff = workoutPriority(left.status) - workoutPriority(right.status);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    return right.sortTime - left.sortTime;
+  });
+
+  return candidates[0] ?? null;
+};
 
 const trendMetricSet = new Set<DashboardTrendMetric>(DEFAULT_DASHBOARD_TREND_METRICS);
 
@@ -244,19 +398,42 @@ export const getDashboardSnapshot = async (
       .limit(1)
       .get() ?? undefined;
 
-  const workout = db
-    .select(workoutSelection)
+  const scheduledRows = db
+    .select(scheduledWorkoutSelection)
+    .from(scheduledWorkouts)
+    .leftJoin(
+      workoutSessions,
+      and(
+        eq(workoutSessions.id, scheduledWorkouts.sessionId),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
+    .leftJoin(
+      workoutTemplates,
+      and(
+        eq(workoutTemplates.id, scheduledWorkouts.templateId),
+        eq(workoutTemplates.userId, userId),
+      ),
+    )
+    .where(and(eq(scheduledWorkouts.userId, userId), eq(scheduledWorkouts.date, date)))
+    .all();
+
+  const standaloneSessions = db
+    .select(standaloneSessionSelection)
     .from(workoutSessions)
     .where(
       and(
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         eq(workoutSessions.date, date),
+        inArray(workoutSessions.status, ['scheduled', 'in-progress', 'paused', 'completed']),
       ),
     )
     .orderBy(desc(workoutSessions.completedAt), desc(workoutSessions.startedAt))
-    .limit(1)
-    .get();
+    .all();
+
+  const workout = selectTodayWorkoutCandidate(scheduledRows, standaloneSessions);
 
   const habitsSummary =
     db

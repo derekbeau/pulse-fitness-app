@@ -95,6 +95,8 @@ describe('dashboardSnapshotSchema', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        templateId: 'template-upper-push-a',
+        sessionId: 'session-upper-push-a',
         duration: 64,
       },
       habits: {
@@ -164,6 +166,74 @@ describe('dashboardSnapshotSchema', () => {
     };
 
     expect(snapshot.habits.completed).toBe(1);
+  });
+
+  it('accepts scheduled and in_progress workout states', () => {
+    expect(
+      dashboardSnapshotSchema.parse({
+        date: '2026-03-09',
+        weight: null,
+        macros: {
+          actual: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+          target: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+        },
+        workout: {
+          name: 'Lower Strength',
+          status: 'scheduled',
+          templateId: 'template-lower-strength',
+          sessionId: null,
+          duration: null,
+        },
+        habits: {
+          total: 0,
+          completed: 0,
+          percentage: 0,
+        },
+      }),
+    ).toBeTruthy();
+
+    expect(
+      dashboardSnapshotSchema.parse({
+        date: '2026-03-09',
+        weight: null,
+        macros: {
+          actual: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+          target: {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          },
+        },
+        workout: {
+          name: 'Upper Push A',
+          status: 'in_progress',
+          templateId: 'template-upper-push',
+          sessionId: 'session-upper-push',
+          duration: 25,
+        },
+        habits: {
+          total: 0,
+          completed: 0,
+          percentage: 0,
+        },
+      }),
+    ).toBeTruthy();
   });
 });
 

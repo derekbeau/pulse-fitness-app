@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
-import { workoutSessionStatusSchema } from './workout-sessions.js';
 
 const macroValueSchema = z.number().nonnegative().finite();
 const percentageSchema = z.number().min(0).max(100).finite();
@@ -61,7 +60,9 @@ export const dashboardMacroSnapshotSchema = z.object({
 
 export const dashboardWorkoutSnapshotSchema = z.object({
   name: z.string(),
-  status: workoutSessionStatusSchema,
+  status: z.enum(['scheduled', 'in_progress', 'completed']),
+  templateId: z.string().nullable(),
+  sessionId: z.string().nullable(),
   duration: z.number().int().nonnegative().nullable(),
 });
 

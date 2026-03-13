@@ -86,14 +86,27 @@ describe('dashboard store', () => {
         fat: 70,
       },
       {
-        name: 'Upper Push A',
-        status: 'completed',
-        duration: 64,
-      },
-      {
         total: 6,
         completed: 4,
       },
+    );
+    testState.selectAllResults.push(
+      [
+        {
+          scheduledWorkoutId: 'scheduled-upper-push-a',
+          scheduledTemplateId: 'template-upper-push-a',
+          linkedSessionId: 'session-upper-push-a',
+          scheduledTemplateName: 'Upper Push A',
+          scheduledCreatedAt: 100,
+          linkedSessionName: 'Upper Push A',
+          linkedSessionStatus: 'completed',
+          linkedSessionDuration: 64,
+          linkedSessionTemplateId: 'template-upper-push-a',
+          linkedSessionStartedAt: 200,
+          linkedSessionCompletedAt: 260,
+        },
+      ],
+      [],
     );
 
     const { getDashboardSnapshot } = await import('./dashboard-store.js');
@@ -123,6 +136,8 @@ describe('dashboard store', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        templateId: 'template-upper-push-a',
+        sessionId: 'session-upper-push-a',
         duration: 64,
       },
       habits: {
@@ -131,7 +146,7 @@ describe('dashboard store', () => {
         percentage: 66.7,
       },
     });
-    expect(testState.select).toHaveBeenCalledTimes(5);
+    expect(testState.select).toHaveBeenCalledTimes(6);
   });
 
   it('returns null sections and zeroed values when no data exists for the date', async () => {
@@ -162,14 +177,15 @@ describe('dashboard store', () => {
         percentage: 0,
       },
     });
-    expect(testState.select).toHaveBeenCalledTimes(5);
+    expect(testState.select).toHaveBeenCalledTimes(6);
   });
 
   it('rounds habit completion percentage to one decimal place', async () => {
-    testState.selectGetResults.push(undefined, undefined, undefined, undefined, {
+    testState.selectGetResults.push(undefined, undefined, undefined, {
       total: 3,
       completed: 2,
     });
+    testState.selectAllResults.push([], []);
 
     const { getDashboardSnapshot } = await import('./dashboard-store.js');
     const snapshot = await getDashboardSnapshot('user-1', '2026-03-11');
@@ -182,17 +198,77 @@ describe('dashboard store', () => {
   });
 
   it('scopes dashboard workout snapshot lookup by local workout date', async () => {
-    testState.selectGetResults.push(undefined, undefined, undefined, undefined, undefined);
+    testState.selectGetResults.push(undefined, undefined, undefined, undefined);
+    testState.selectAllResults.push([], []);
 
     const { getDashboardSnapshot } = await import('./dashboard-store.js');
     await getDashboardSnapshot('user-1', '2026-03-11');
 
-    const workoutWhereClause = testState.whereCalls[3];
+    const workoutWhereClause = testState.whereCalls[4];
     const dialect = new SQLiteSyncDialect();
     const workoutWhereSql = dialect.sqlToQuery(workoutWhereClause as never).sql;
 
     expect(workoutWhereSql).toContain('"workout_sessions"."date"');
     expect(workoutWhereSql).not.toContain('"workout_sessions"."started_at"');
+  });
+
+  it('selects in_progress over scheduled and completed when multiple workouts exist', async () => {
+    testState.selectGetResults.push(undefined, undefined, undefined, {
+      total: 0,
+      completed: 0,
+    });
+    testState.selectAllResults.push(
+      [
+        {
+          scheduledWorkoutId: 'scheduled-1',
+          scheduledTemplateId: 'template-scheduled',
+          linkedSessionId: null,
+          scheduledTemplateName: 'Scheduled Session',
+          scheduledCreatedAt: 20,
+          linkedSessionName: null,
+          linkedSessionStatus: null,
+          linkedSessionDuration: null,
+          linkedSessionTemplateId: null,
+          linkedSessionStartedAt: null,
+          linkedSessionCompletedAt: null,
+        },
+        {
+          scheduledWorkoutId: 'scheduled-2',
+          scheduledTemplateId: 'template-completed',
+          linkedSessionId: 'session-completed',
+          scheduledTemplateName: 'Completed Session',
+          scheduledCreatedAt: 10,
+          linkedSessionName: 'Completed Session',
+          linkedSessionStatus: 'completed',
+          linkedSessionDuration: 55,
+          linkedSessionTemplateId: 'template-completed',
+          linkedSessionStartedAt: 100,
+          linkedSessionCompletedAt: 200,
+        },
+      ],
+      [
+        {
+          sessionId: 'session-in-progress',
+          sessionName: 'In Progress Session',
+          sessionStatus: 'in-progress',
+          sessionDuration: 22,
+          sessionTemplateId: 'template-in-progress',
+          sessionStartedAt: 300,
+          sessionCompletedAt: null,
+        },
+      ],
+    );
+
+    const { getDashboardSnapshot } = await import('./dashboard-store.js');
+    const snapshot = await getDashboardSnapshot('user-1', '2026-03-11');
+
+    expect(snapshot.workout).toEqual({
+      name: 'In Progress Session',
+      status: 'in_progress',
+      templateId: 'template-in-progress',
+      sessionId: 'session-in-progress',
+      duration: 22,
+    });
   });
 
   it('returns weight trend points in ascending date order', async () => {

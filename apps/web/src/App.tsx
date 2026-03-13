@@ -133,19 +133,11 @@ function AppRoutes() {
   return (
     <Routes>
       <Route
-        element={
-          <GuestRoute>
-            {renderWithAuthFallback(<LoginPage />)}
-          </GuestRoute>
-        }
+        element={<GuestRoute>{renderWithAuthFallback(<LoginPage />)}</GuestRoute>}
         path="/login"
       />
       <Route
-        element={
-          <GuestRoute>
-            {renderWithAuthFallback(<RegisterPage />)}
-          </GuestRoute>
-        }
+        element={<GuestRoute>{renderWithAuthFallback(<RegisterPage />)}</GuestRoute>}
         path="/register"
       />
       <Route
@@ -165,8 +157,20 @@ function AppRoutes() {
           path="workouts/session/:sessionId"
         />
         <Route
+          element={renderWithPageFallback(<WorkoutSessionDetailPage />)}
+          path="workouts/sessions/:sessionId"
+        />
+        <Route
+          element={renderWithPageFallback(<WorkoutSessionDetailPage />)}
+          path="workouts/sessions/:sessionId/summary"
+        />
+        <Route
           element={renderWithPageFallback(<WorkoutTemplateDetailPage />)}
           path="workouts/template/:templateId"
+        />
+        <Route
+          element={renderWithPageFallback(<WorkoutTemplateDetailPage />)}
+          path="workouts/templates/:templateId"
         />
         <Route element={renderWithPageFallback(<NutritionPage />)} path="nutrition" />
         <Route element={renderWithPageFallback(<HabitsPage />)} path="habits" />
@@ -176,10 +180,7 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<JournalEntryPage />)} path="journal/:entryId" />
         <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight" />
         <Route element={renderWithPageFallback(<ProfilePage />)} path="profile" />
-        <Route
-          element={renderWithPageFallback(<EquipmentRoutePage />)}
-          path="profile/equipment"
-        />
+        <Route element={renderWithPageFallback(<EquipmentRoutePage />)} path="profile/equipment" />
         <Route element={renderWithPageFallback(<InjuriesPage />)} path="profile/injuries" />
         <Route
           element={renderWithPageFallback(<InjuryDetailPage />)}

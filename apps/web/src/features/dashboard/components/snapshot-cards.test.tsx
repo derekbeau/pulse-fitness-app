@@ -34,6 +34,8 @@ const snapshotFixture: DashboardSnapshot = {
   workout: {
     name: 'Upper Push A',
     status: 'completed',
+    templateId: 'template-upper-push-a',
+    sessionId: 'session-upper-push-a',
     duration: 62,
   },
   habits: {
@@ -99,6 +101,10 @@ describe('SnapshotCards', () => {
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+      'href',
+      '/workouts/sessions/session-upper-push-a/summary',
+    );
   });
 
   it('applies accent card backgrounds and neutral trends', () => {
@@ -126,6 +132,7 @@ describe('SnapshotCards', () => {
 
     expect(within(weightCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
     expect(within(weightCard as HTMLElement).getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 
   it('renders placeholders for loading and null weight/workout states', () => {
@@ -190,10 +197,61 @@ describe('SnapshotCards', () => {
     expect(within(habitsCard).getByText('No habits')).toBeInTheDocument();
     expect(within(habitsCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(workoutCard).getByText('Rest Day')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open today's workout/i })).not.toBeInTheDocument();
     expect(weightCard).toHaveClass('border-dashed');
     expect(caloriesCard).toHaveClass('border-dashed');
     expect(proteinCard).toHaveClass('border-dashed');
     expect(habitsCard).toHaveClass('border-dashed');
+  });
+
+  it('links scheduled workouts to template preview', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            workout: {
+              name: 'Lower Strength',
+              status: 'scheduled',
+              templateId: 'template-lower-strength',
+              sessionId: null,
+              duration: null,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+      'href',
+      '/workouts/templates/template-lower-strength',
+    );
+    expect(screen.getByText('Scheduled')).toBeInTheDocument();
+  });
+
+  it('links in-progress workouts to active session', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            workout: {
+              name: 'Upper Pull',
+              status: 'in_progress',
+              templateId: 'template-upper-pull',
+              sessionId: 'session-upper-pull',
+              duration: 24,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+      'href',
+      '/workouts/sessions/session-upper-pull',
+    );
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
   });
 
   it('applies compact font sizing classes to long macro values to avoid overflow', () => {

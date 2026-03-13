@@ -124,6 +124,8 @@ const snapshotForToday: DashboardSnapshot = {
   workout: {
     name: 'Upper Push A',
     status: 'completed',
+    templateId: 'template-upper-push-a',
+    sessionId: 'session-upper-push-a',
     duration: 62,
   },
   habits: {
