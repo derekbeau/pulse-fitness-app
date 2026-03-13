@@ -76,6 +76,9 @@ const seedExercise = (values: {
     | 'seconds_only'
     | 'distance'
     | 'cardio';
+  formCues?: string[];
+  coachingNotes?: string | null;
+  instructions?: string | null;
 }) =>
   context.db
     .insert(exercises)
@@ -87,7 +90,9 @@ const seedExercise = (values: {
       muscleGroups: ['chest'],
       equipment: 'barbell',
       category: values.category ?? 'compound',
-      instructions: null,
+      formCues: values.formCues ?? [],
+      coachingNotes: values.coachingNotes ?? null,
+      instructions: values.instructions ?? null,
     })
     .run();
 
@@ -529,6 +534,9 @@ describe('workout session routes', () => {
       userId: 'user-1',
       name: 'Dead Hang',
       trackingType: 'seconds_only',
+      formCues: ['Pack shoulders', 'Keep ribs down'],
+      coachingNotes: 'Use a full grip and avoid shrugging.',
+      instructions: 'Hang from bar for target time.',
     });
     seedWorkoutSession({
       id: 'session-tracking',
@@ -562,6 +570,11 @@ describe('workout session routes', () => {
           expect.objectContaining({
             exerciseId: 'user-1-hang',
             trackingType: 'seconds_only',
+            exercise: {
+              formCues: ['Pack shoulders', 'Keep ribs down'],
+              coachingNotes: 'Use a full grip and avoid shrugging.',
+              instructions: 'Hang from bar for target time.',
+            },
           }),
         ]),
       }),

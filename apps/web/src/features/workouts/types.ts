@@ -41,8 +41,11 @@ export type ActiveWorkoutLastPerformance = {
 export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
+  coachingNotes?: string | null;
   formCues: string[];
+  instructions?: string | null;
   templateCues: string[];
+  programmingNotes?: string | null;
   injuryCues: string[];
   lastPerformance: ActiveWorkoutLastPerformance | null;
   name: string;

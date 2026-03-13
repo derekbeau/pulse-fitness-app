@@ -34,4 +34,24 @@ describe('FormCueChips', () => {
 
     expect(onAddSessionCue).toHaveBeenCalledWith('Keep ribs stacked');
   });
+
+  it('shows coaching and programming notes in a collapsed section', () => {
+    render(
+      <FormCueChips
+        exerciseCoachingNotes="Keep shoulder blades retracted."
+        exerciseCues={['Brace before each rep']}
+        templateProgrammingNotes="Top set at RPE 8, then two back-off sets."
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Show notes' })).toBeInTheDocument();
+    expect(screen.queryByText('Keep shoulder blades retracted.')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show notes' }));
+
+    expect(screen.getByText('Exercise coaching notes')).toBeInTheDocument();
+    expect(screen.getByText('Keep shoulder blades retracted.')).toBeInTheDocument();
+    expect(screen.getByText('Template programming notes')).toBeInTheDocument();
+    expect(screen.getByText('Top set at RPE 8, then two back-off sets.')).toBeInTheDocument();
+  });
 });

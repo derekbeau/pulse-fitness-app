@@ -37,6 +37,11 @@ describe('workoutTemplateSchema', () => {
               exerciseId: 'row-erg',
               exerciseName: ' Row Erg ',
               trackingType: 'seconds_only',
+              exercise: {
+                formCues: [' Keep shoulders packed '],
+                coachingNotes: ' Keep shoulders packed and avoid shrugging. ',
+                instructions: ' Build pace progressively over the interval. ',
+              },
               formCues: [' Keep shoulders packed '],
               sets: 1,
               repsMin: 240,
@@ -86,6 +91,11 @@ describe('workoutTemplateSchema', () => {
               exerciseId: 'row-erg',
               exerciseName: 'Row Erg',
               trackingType: 'seconds_only',
+              exercise: {
+                formCues: ['Keep shoulders packed'],
+                coachingNotes: 'Keep shoulders packed and avoid shrugging.',
+                instructions: 'Build pace progressively over the interval.',
+              },
               formCues: ['Keep shoulders packed'],
               sets: 1,
               repsMin: 240,

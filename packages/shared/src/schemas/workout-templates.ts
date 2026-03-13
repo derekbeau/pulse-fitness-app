@@ -66,6 +66,14 @@ export const workoutTemplateExerciseSchema = z
     exerciseName: requiredStringSchema,
     // Backward compatibility for legacy payloads; API routes should still return explicit trackingType.
     trackingType: exerciseTrackingTypeSchema.default('weight_reps'),
+    exercise: z
+      .object({
+        formCues: z.array(requiredStringSchema).max(50).default([]),
+        coachingNotes: nullableStringSchema.default(null),
+        instructions: nullableStringSchema.default(null),
+      })
+      .optional(),
+    // Deprecated in favor of `exercise.formCues`; retained for compatibility with existing clients.
     formCues: z.array(requiredStringSchema).max(50).optional(),
     sets: nullablePositiveIntSchema,
     repsMin: nullablePositiveIntSchema,

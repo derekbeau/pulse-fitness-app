@@ -51,6 +51,11 @@ const templatePayload = {
             restSeconds: 0,
             supersetGroup: null,
             notes: null,
+            exercise: {
+              formCues: ['Keep cadence steady'],
+              coachingNotes: null,
+              instructions: null,
+            },
             formCues: ['Keep cadence steady'],
             cues: ['Build heat before pressing'],
           },
@@ -70,8 +75,14 @@ const templatePayload = {
             restSeconds: 90,
             supersetGroup: null,
             notes: 'Drive feet into the floor.',
+            exercise: {
+              formCues: ['Tuck shoulder blades'],
+              coachingNotes: 'Keep your upper back pinned to the bench.',
+              instructions: 'Lower dumbbells with control, then drive straight up.',
+            },
             formCues: ['Tuck shoulder blades'],
             cues: ['Drive feet into the floor', 'Keep wrists stacked'],
+            programmingNotes: 'Top set first, then reduce load for back-off sets.',
           },
         ],
       },
@@ -177,6 +188,24 @@ describe('WorkoutTemplateDetail', () => {
     ).toBeInTheDocument();
     expect(
       within(inclinePressCard as HTMLElement).getByText('Keep wrists stacked'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }));
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Exercise coaching notes'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText(
+        'Keep your upper back pinned to the bench.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText('Template programming notes'),
+    ).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByText(
+        'Top set first, then reduce load for back-off sets.',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -632,6 +661,11 @@ describe('WorkoutTemplateDetail', () => {
       restSeconds: 90,
       supersetGroup: null,
       notes: null,
+      exercise: {
+        formCues: [],
+        coachingNotes: null,
+        instructions: null,
+      },
       formCues: [],
       cues: [],
     });

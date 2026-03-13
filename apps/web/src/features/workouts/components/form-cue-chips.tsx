@@ -8,22 +8,30 @@ import { cn } from '@/lib/utils';
 
 type FormCueChipsProps = {
   exerciseCues: string[];
+  exerciseCoachingNotes?: string | null;
   onAddSessionCue?: (cue: string) => void;
   sessionCues?: string[];
+  templateProgrammingNotes?: string | null;
   templateCues?: string[];
 };
 
 export function FormCueChips({
   exerciseCues,
+  exerciseCoachingNotes = null,
   onAddSessionCue,
   sessionCues = [],
+  templateProgrammingNotes = null,
   templateCues = [],
 }: FormCueChipsProps) {
   const [draftCue, setDraftCue] = useState('');
   const [isAddingCue, setIsAddingCue] = useState(false);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const hasAnyCues = exerciseCues.length > 0 || templateCues.length > 0 || sessionCues.length > 0;
+  const hasAnyNotes =
+    Boolean(exerciseCoachingNotes && exerciseCoachingNotes.trim().length > 0) ||
+    Boolean(templateProgrammingNotes && templateProgrammingNotes.trim().length > 0);
 
-  if (!hasAnyCues && !onAddSessionCue) {
+  if (!hasAnyCues && !hasAnyNotes && !onAddSessionCue) {
     return null;
   }
 
@@ -111,6 +119,41 @@ export function FormCueChips({
           label="Session cues"
           tone="border-dashed border-primary/40 bg-background text-foreground"
         />
+      ) : null}
+
+      {hasAnyNotes ? (
+        <div className="space-y-2">
+          <Button
+            aria-expanded={isNotesExpanded}
+            className="h-7 px-2"
+            onClick={() => setIsNotesExpanded((current) => !current)}
+            size="xs"
+            type="button"
+            variant={isNotesExpanded ? 'secondary' : 'outline'}
+          >
+            {isNotesExpanded ? 'Hide notes' : 'Show notes'}
+          </Button>
+          {isNotesExpanded ? (
+            <div className="space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
+              {exerciseCoachingNotes ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
+                    Exercise coaching notes
+                  </p>
+                  <p className="text-sm text-muted">{exerciseCoachingNotes}</p>
+                </div>
+              ) : null}
+              {templateProgrammingNotes ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
+                    Template programming notes
+                  </p>
+                  <p className="text-sm text-muted">{templateProgrammingNotes}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

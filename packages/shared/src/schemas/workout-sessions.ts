@@ -260,6 +260,13 @@ export const workoutSessionExerciseSchema = z.object({
   exerciseId: requiredStringSchema,
   exerciseName: requiredStringSchema,
   trackingType: exerciseTrackingTypeSchema.nullable().optional(),
+  exercise: z
+    .object({
+      formCues: z.array(requiredStringSchema).max(50).default([]),
+      coachingNotes: nullableLongStringSchema.default(null),
+      instructions: nullableLongStringSchema.default(null),
+    })
+    .optional(),
   orderIndex: z.number().int().min(0),
   section: workoutTemplateSectionTypeSchema.nullable(),
   sets: z.array(sessionSetSchema).max(500),

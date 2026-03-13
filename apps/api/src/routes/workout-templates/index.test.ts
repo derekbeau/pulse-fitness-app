@@ -44,13 +44,16 @@ const seedExercise = (values: {
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'mobility';
   formCues?: string[];
+  coachingNotes?: string | null;
+  instructions?: string | null;
 }) =>
   context.db
     .insert(exercises)
     .values({
       ...values,
       formCues: values.formCues ?? [],
-      instructions: null,
+      instructions: values.instructions ?? null,
+      coachingNotes: values.coachingNotes ?? null,
     })
     .run();
 
@@ -176,6 +179,8 @@ describe('workout template routes', () => {
       equipment: 'dumbbells',
       category: 'compound',
       formCues: ['Drive feet', 'Brace core'],
+      coachingNotes: 'Keep shoulder blades pinned through each rep.',
+      instructions: 'Lower with control and press through mid-foot balance.',
     });
     seedExercise({
       id: 'user-row',
@@ -318,6 +323,11 @@ describe('workout template routes', () => {
             id: string;
             exerciseId: string;
             exerciseName: string;
+            exercise: {
+              formCues: string[];
+              coachingNotes: string | null;
+              instructions: string | null;
+            };
             formCues: string[];
             repsMin: number | null;
             repsMax: number | null;
@@ -340,6 +350,11 @@ describe('workout template routes', () => {
             {
               exerciseId: 'global-row-erg',
               exerciseName: 'Row Erg',
+              exercise: {
+                formCues: [],
+                coachingNotes: null,
+                instructions: null,
+              },
               formCues: [],
               repsMin: 240,
               repsMax: 240,
@@ -354,6 +369,11 @@ describe('workout template routes', () => {
             {
               exerciseId: 'user-press',
               exerciseName: 'Incline Dumbbell Press',
+              exercise: {
+                formCues: ['Drive feet', 'Brace core'],
+                coachingNotes: 'Keep shoulder blades pinned through each rep.',
+                instructions: 'Lower with control and press through mid-foot balance.',
+              },
               formCues: ['Drive feet', 'Brace core'],
               repsMin: 8,
               repsMax: 10,
@@ -368,6 +388,11 @@ describe('workout template routes', () => {
             },
             {
               exerciseId: 'user-row',
+              exercise: {
+                formCues: [],
+                coachingNotes: null,
+                instructions: null,
+              },
               formCues: [],
               repsMin: 10,
               repsMax: 12,

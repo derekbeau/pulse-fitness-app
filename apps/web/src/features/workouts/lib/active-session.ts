@@ -78,17 +78,20 @@ export function buildActiveWorkoutSession(
       return {
         badges: templateExercise.badges,
         category: exercise?.category ?? 'compound',
+        coachingNotes: null,
         completedSets,
         formCues: templateExercise.formCues,
         templateCues: templateExercise.templateCues ?? [],
         id: templateExercise.exerciseId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
+        instructions: null,
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
         name: exercise?.name ?? templateExercise.exerciseName ?? 'Unknown Exercise',
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
+        programmingNotes: null,
         prescribedReps: templateExercise.reps,
         priority: enhancedExercise?.priority ?? 'required',
         restSeconds: templateExercise.restSeconds,

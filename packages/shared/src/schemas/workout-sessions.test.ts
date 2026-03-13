@@ -173,6 +173,34 @@ describe('workoutSessionSchema', () => {
         notes: ' Strong lockout ',
       },
       notes: ' Great session overall. ',
+      exercises: [
+        {
+          exerciseId: 'bench-press',
+          exerciseName: ' Bench Press ',
+          trackingType: 'weight_reps',
+          exercise: {
+            formCues: [' Drive feet '],
+            coachingNotes: ' Keep upper back tight. ',
+            instructions: ' Lower under control and press explosively. ',
+          },
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'bench-press',
+              setNumber: 1,
+              weight: 185,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: ' Smooth bar path ',
+              createdAt: 1_700_000_000_500,
+            },
+          ],
+        },
+      ],
       sets: [
         {
           id: 'set-1',
@@ -214,6 +242,34 @@ describe('workoutSessionSchema', () => {
         notes: 'Strong lockout',
       },
       notes: 'Great session overall.',
+      exercises: [
+        {
+          exerciseId: 'bench-press',
+          exerciseName: 'Bench Press',
+          trackingType: 'weight_reps',
+          exercise: {
+            formCues: ['Drive feet'],
+            coachingNotes: 'Keep upper back tight.',
+            instructions: 'Lower under control and press explosively.',
+          },
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-1',
+              exerciseId: 'bench-press',
+              setNumber: 1,
+              weight: 185,
+              reps: 8,
+              completed: true,
+              skipped: false,
+              section: 'main',
+              notes: 'Smooth bar path',
+              createdAt: 1_700_000_000_500,
+            },
+          ],
+        },
+      ],
       sets: [
         {
           id: 'set-1',

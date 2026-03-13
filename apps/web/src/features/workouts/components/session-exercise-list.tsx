@@ -801,10 +801,12 @@ function ExerciseCardItem({
 
             <div className="rounded-2xl border border-border bg-background/80 p-4">
               <FormCueChips
+                exerciseCoachingNotes={exercise.coachingNotes}
                 exerciseCues={formCues}
                 onAddSessionCue={onAddSessionCue}
                 sessionCues={sessionCues}
                 templateCues={templateCues}
+                templateProgrammingNotes={exercise.programmingNotes}
               />
             </div>
 

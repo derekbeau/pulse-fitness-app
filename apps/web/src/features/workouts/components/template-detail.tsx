@@ -525,16 +525,17 @@ function TemplateExerciseCard({
             <p className="text-sm text-muted">{exercise.notes}</p>
           </div>
         ) : null}
-        {exercise.programmingNotes ? (
-          <div className="space-y-1 rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-            <p className="text-sm font-medium text-foreground">Programming notes</p>
-            <p className="text-sm text-muted">{exercise.programmingNotes}</p>
-          </div>
-        ) : null}
-
-        {(exercise.formCues?.length ?? 0) > 0 || exercise.cues.length > 0 ? (
+        {(exercise.exercise?.formCues?.length ?? exercise.formCues?.length ?? 0) > 0 ||
+        exercise.cues.length > 0 ||
+        Boolean(exercise.exercise?.coachingNotes) ||
+        Boolean(exercise.programmingNotes) ? (
           <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-            <FormCueChips exerciseCues={exercise.formCues ?? []} templateCues={exercise.cues} />
+            <FormCueChips
+              exerciseCoachingNotes={exercise.exercise?.coachingNotes ?? null}
+              exerciseCues={exercise.exercise?.formCues ?? exercise.formCues ?? []}
+              templateCues={exercise.cues}
+              templateProgrammingNotes={exercise.programmingNotes ?? null}
+            />
           </div>
         ) : null}
       </CardContent>
