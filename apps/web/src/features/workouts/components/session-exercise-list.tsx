@@ -856,11 +856,12 @@ function ExerciseCardItem({
                         {relatedExercise.exerciseName}
                       </p>
                       <p className="mt-1 text-sm text-foreground">
-                        {formatHistoryDetail({
+                        {formatHistoryPreview({
                           history: relatedExercise.history,
-                          prescribedReps: exercise.prescribedReps,
-                          trackingType: exercise.trackingType,
+                          prescribedReps: '',
+                          trackingType: relatedExercise.trackingType,
                           weightUnit,
+                          emptyLabel: 'No completed sets yet.',
                         })}
                       </p>
                     </div>
@@ -1177,14 +1178,16 @@ function formatHistoryPreview({
   prescribedReps,
   trackingType,
   weightUnit,
+  emptyLabel = 'No completed history yet.',
 }: {
   history: ActiveWorkoutExercise['lastPerformance'];
   prescribedReps: string;
   trackingType: ExerciseTrackingType;
   weightUnit: WeightUnit;
+  emptyLabel?: string;
 }) {
   if (!history || history.sets.length === 0) {
-    return 'No completed history yet.';
+    return emptyLabel;
   }
 
   const setSummary = history.sets
@@ -1200,29 +1203,6 @@ function formatHistoryPreview({
     .join(', ');
 
   return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
-}
-
-function formatHistoryDetail({
-  history,
-  prescribedReps,
-  trackingType,
-  weightUnit,
-}: {
-  history: ActiveWorkoutExercise['lastPerformance'];
-  prescribedReps: string;
-  trackingType: ExerciseTrackingType;
-  weightUnit: WeightUnit;
-}) {
-  if (!history || history.sets.length === 0) {
-    return 'No completed sets yet.';
-  }
-
-  return formatHistoryPreview({
-    history,
-    prescribedReps,
-    trackingType,
-    weightUnit,
-  });
 }
 
 function parsePrescribedRepTarget(prescribedReps: string) {

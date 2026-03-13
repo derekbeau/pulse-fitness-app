@@ -183,6 +183,20 @@ describe('createExerciseInputSchema', () => {
 
     expect(payload.category).toBe('cardio');
   });
+
+  it('rejects relatedExerciseIds beyond the limit', () => {
+    const relatedExerciseIds = Array.from({ length: 21 }, (_, index) => `exercise-${index}`);
+
+    expect(() =>
+      createExerciseInputSchema.parse({
+        name: 'Air Bike',
+        muscleGroups: ['conditioning'],
+        equipment: 'air bike',
+        category: 'cardio',
+        relatedExerciseIds,
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateExerciseInputSchema', () => {
@@ -342,6 +356,7 @@ describe('exerciseHistoryWithRelatedSchema', () => {
         {
           exerciseId: 'incline-bench',
           exerciseName: 'Incline Bench Press',
+          trackingType: 'weight_reps',
           history: null,
         },
       ],
@@ -350,6 +365,7 @@ describe('exerciseHistoryWithRelatedSchema', () => {
     expect(payload.related[0]).toEqual({
       exerciseId: 'incline-bench',
       exerciseName: 'Incline Bench Press',
+      trackingType: 'weight_reps',
       history: null,
     });
   });

@@ -1150,6 +1150,7 @@ describe('SessionExerciseList', () => {
           {
             exerciseId: 'incline-bench',
             exerciseName: 'Incline Bench Press',
+            trackingType: 'weight_reps',
             history: {
               date: '2026-03-08',
               sessionId: 'session-8',
@@ -1186,7 +1187,9 @@ describe('SessionExerciseList', () => {
     expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).not.toBeVisible();
 
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
-    expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).toBeVisible();
+    const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
+    expect(relatedExerciseLabel).toBeVisible();
+    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60\.0x8/);
 
     useLastPerformanceSpy.mockRestore();
   });

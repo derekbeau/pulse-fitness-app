@@ -523,6 +523,7 @@ describe('exercise routes', () => {
           {
             exerciseId: 'incline-bench',
             exerciseName: 'Incline Bench Press',
+            trackingType: 'weight_reps',
             history: {
               sessionId: 'session-incline',
               date: '2026-03-11',
@@ -538,9 +539,50 @@ describe('exercise routes', () => {
           {
             exerciseId: 'db-bench',
             exerciseName: 'Dumbbell Bench Press',
+            trackingType: 'weight_reps',
             history: null,
           },
         ],
+      },
+    });
+  });
+
+  it('excludes soft-deleted related exercises from includeRelated history results', async () => {
+    seedExercise({
+      id: 'flat-bench',
+      userId: 'user-1',
+      name: 'Flat Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+      relatedExerciseIds: ['incline-bench'],
+    });
+    seedExercise({
+      id: 'incline-bench',
+      userId: 'user-1',
+      name: 'Incline Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    context.db
+      .update(exercises)
+      .set({ deletedAt: new Date().toISOString() })
+      .where(eq(exercises.id, 'incline-bench'))
+      .run();
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/flat-bench/last-performance?includeRelated=true',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        history: null,
+        related: [],
       },
     });
   });

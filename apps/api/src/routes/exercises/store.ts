@@ -5,6 +5,7 @@ import type {
   ExerciseCategory,
   ExerciseHistoryWithRelated,
   ExerciseLastPerformance,
+  ExerciseTrackingType,
   RelatedExerciseLastPerformance,
   UpdateExerciseInput,
 } from '@pulse/shared';
@@ -644,23 +645,46 @@ export const findExerciseHistoryWithRelated = async ({
     .select({
       id: exercises.id,
       name: exercises.name,
+      trackingType: exercises.trackingType,
     })
     .from(exercises)
-    .where(and(inArray(exercises.id, uniqueRelatedIds), eq(exercises.userId, userId)))
+    .where(
+      and(
+        inArray(exercises.id, uniqueRelatedIds),
+        eq(exercises.userId, userId),
+        isNull(exercises.deletedAt),
+      ),
+    )
     .all();
 
-  const relatedNameById = new Map(relatedExercises.map((exercise) => [exercise.id, exercise.name]));
-  const orderedRelated = uniqueRelatedIds
-    .filter((relatedId) => relatedNameById.has(relatedId))
-    .map((relatedId) => ({
-      id: relatedId,
-      name: relatedNameById.get(relatedId) ?? relatedId,
-    }));
+  const relatedMetaById = new Map(
+    relatedExercises.map((exercise) => [
+      exercise.id,
+      {
+        name: exercise.name,
+        trackingType: exercise.trackingType as ExerciseTrackingType,
+      },
+    ]),
+  );
+  const orderedRelated = uniqueRelatedIds.flatMap((relatedId) => {
+    const meta = relatedMetaById.get(relatedId);
+    if (!meta) {
+      return [];
+    }
+
+    return [
+      {
+        id: relatedId,
+        ...meta,
+      },
+    ];
+  });
 
   const relatedHistory = await Promise.all(
     orderedRelated.map(async (relatedExercise): Promise<RelatedExerciseLastPerformance> => ({
       exerciseId: relatedExercise.id,
       exerciseName: relatedExercise.name,
+      trackingType: relatedExercise.trackingType,
       history:
         (await findExerciseLastPerformance({
           exerciseId: relatedExercise.id,

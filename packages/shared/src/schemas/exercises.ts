@@ -62,7 +62,7 @@ export const exerciseSchema = z.object({
   formCues: z.array(z.string()).default([]),
   instructions: nullableInstructionsSchema,
   coachingNotes: z.string().max(8000).nullable().default(null),
-  relatedExerciseIds: z.array(z.string()).default([]),
+  relatedExerciseIds: z.array(z.string()).max(20).default([]),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
 });
@@ -77,7 +77,7 @@ export const createExerciseInputSchema = z.object({
   formCues: z.array(z.string()).optional(),
   instructions: nullableInstructionsSchema.optional().default(null),
   coachingNotes: nullableCoachingNotesSchema.optional().default(null),
-  relatedExerciseIds: z.array(z.string()).optional().default([]),
+  relatedExerciseIds: z.array(z.string()).max(20).optional().default([]),
 });
 
 export const updateExerciseInputSchema = z
@@ -91,7 +91,7 @@ export const updateExerciseInputSchema = z
     formCues: z.array(z.string()).optional(),
     instructions: nullableInstructionsSchema.optional(),
     coachingNotes: nullableCoachingNotesSchema.optional(),
-    relatedExerciseIds: z.array(z.string()).optional(),
+    relatedExerciseIds: z.array(z.string()).max(20).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one exercise field must be provided',
@@ -125,12 +125,13 @@ export const exerciseLastPerformanceSchema = z.object({
 export const relatedExerciseLastPerformanceSchema = z.object({
   exerciseId: z.string(),
   exerciseName: requiredStringSchema,
+  trackingType: exerciseTrackingTypeSchema,
   history: exerciseLastPerformanceSchema.nullable(),
 });
 
 export const exerciseHistoryWithRelatedSchema = z.object({
   history: exerciseLastPerformanceSchema.nullable(),
-  related: z.array(relatedExerciseLastPerformanceSchema).max(200),
+  related: z.array(relatedExerciseLastPerformanceSchema).max(20),
 });
 
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;

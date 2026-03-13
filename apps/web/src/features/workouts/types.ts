@@ -41,6 +41,7 @@ export type ActiveWorkoutLastPerformance = {
 export type ActiveWorkoutRelatedLastPerformance = {
   exerciseId: string;
   exerciseName: string;
+  trackingType: ExerciseTrackingType;
   history: ActiveWorkoutLastPerformance | null;
 };
 

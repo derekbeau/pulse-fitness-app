@@ -181,7 +181,7 @@ export const agentCreateExerciseInputSchema = z.object({
   muscleGroups: z.array(requiredText()).min(1).max(20).optional(),
   equipment: requiredText().optional(),
   coachingNotes: optionalText(8000),
-  relatedExerciseIds: z.array(requiredText()).max(200).optional().default([]),
+  relatedExerciseIds: z.array(requiredText()).max(20).optional().default([]),
   force: z.boolean().optional().default(false),
 });
 
@@ -194,7 +194,7 @@ export const agentPatchExerciseInputSchema = z
     trackingType: exerciseTrackingTypeSchema.optional(),
     instructions: optionalText(4000),
     coachingNotes: optionalText(8000),
-    relatedExerciseIds: z.array(requiredText()).max(200).optional(),
+    relatedExerciseIds: z.array(requiredText()).max(20).optional(),
     formCues: z.array(requiredText(500)).max(50).optional(),
     tags: z.array(requiredText()).max(20).optional(),
   })

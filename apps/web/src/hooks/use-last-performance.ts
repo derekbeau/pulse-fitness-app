@@ -58,6 +58,7 @@ async function getLastPerformance(
       related: payload.related.map((relatedExercise) => ({
         exerciseId: relatedExercise.exerciseId,
         exerciseName: relatedExercise.exerciseName,
+        trackingType: relatedExercise.trackingType,
         history: mapLastPerformance(relatedExercise.history),
       })),
     };

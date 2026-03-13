@@ -86,6 +86,7 @@ describe('use-last-performance hook', () => {
           {
             exerciseId: 'incline-bench',
             exerciseName: 'Incline Bench Press',
+            trackingType: 'weight_reps',
             history: {
               sessionId: 'session-3',
               date: '2026-03-10',
@@ -115,6 +116,7 @@ describe('use-last-performance hook', () => {
         {
           exerciseId: 'incline-bench',
           exerciseName: 'Incline Bench Press',
+          trackingType: 'weight_reps',
           history: {
             sessionId: 'session-3',
             date: '2026-03-10',
