@@ -39,17 +39,8 @@ import {
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
 import { estimateRemainingTime, estimateTotalTime } from '@/features/workouts/lib/time-estimates';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -212,8 +203,7 @@ export function ActiveWorkoutPage() {
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
-  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const { confirm, dialog } = useConfirmation();
   const [isEditTimeDialogOpen, setIsEditTimeDialogOpen] = useState(false);
   const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
   const [timeSegmentError, setTimeSegmentError] = useState<string | null>(null);
@@ -597,7 +587,15 @@ export function ActiveWorkoutPage() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={openEditTimeDialog}>Edit time</DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setIsCancelDialogOpen(true)}
+                    onClick={() =>
+                      confirm({
+                        title: 'Cancel workout session?',
+                        description: `This will mark "${session.workoutName}" as cancelled and keep it in your history.`,
+                        confirmLabel: 'Cancel workout',
+                        variant: 'destructive',
+                        onConfirm: confirmCancelWorkout,
+                      })
+                    }
                     variant="destructive"
                   >
                     Cancel workout
@@ -795,39 +793,7 @@ export function ActiveWorkoutPage() {
         />
       ) : null}
 
-      <AlertDialog onOpenChange={setIsFinishDialogOpen} open={isFinishDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finish workout early?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`End workout with ${remainingSetCount} sets remaining?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmFinishWorkout} type="button">
-              Finish
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog onOpenChange={setIsCancelDialogOpen} open={isCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this workout?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This marks the current session as cancelled and keeps it in your history.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Keep session</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancelWorkout} type="button">
-              Cancel workout
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
 
       <Dialog
         onOpenChange={(open) => {
@@ -1172,15 +1138,16 @@ export function ActiveWorkoutPage() {
 
   function handleFinishWorkout() {
     if (remainingSetCount > 0) {
-      setIsFinishDialogOpen(true);
+      confirm({
+        title: 'Finish workout early?',
+        description: `End workout with ${remainingSetCount} sets remaining?`,
+        confirmLabel: 'Finish',
+        onConfirm: transitionToFeedbackStage,
+        variant: 'default',
+      });
       return;
     }
 
-    transitionToFeedbackStage();
-  }
-
-  function confirmFinishWorkout() {
-    setIsFinishDialogOpen(false);
     transitionToFeedbackStage();
   }
 
@@ -1257,9 +1224,6 @@ export function ActiveWorkoutPage() {
       {
         onError: () => {
           setSessionError('Unable to cancel workout. Try again.');
-        },
-        onSettled: () => {
-          setIsCancelDialogOpen(false);
         },
         onSuccess: () => {
           clearStoredActiveWorkoutDraft(activeWorkoutDraftId);

@@ -1,9 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SetRow } from './set-row';
 
 describe('SetRow', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders compact inline inputs and auto-completes from field updates', () => {
     const onUpdate = vi.fn();
 
@@ -29,8 +37,18 @@ describe('SetRow', () => {
     fireEvent.change(weightInput, { target: { value: '60' } });
     fireEvent.change(repsInput, { target: { value: '10' } });
 
-    expect(onUpdate).toHaveBeenCalledWith({ completed: true, weight: 60 });
-    expect(onUpdate).toHaveBeenCalledWith({ completed: true, reps: 10 });
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(500);
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
+      distance: null,
+      reps: 10,
+      seconds: null,
+      weight: 60,
+    });
   });
 
   it('applies completed styling and handles cleared numeric values', () => {
@@ -38,10 +56,18 @@ describe('SetRow', () => {
 
     render(<SetRow completed onUpdate={onUpdate} reps={13} setNumber={1} weight={50} />);
 
-    fireEvent.change(screen.getByLabelText('Reps for set 1'), { target: { value: '' } });
+    const repsInput = screen.getByLabelText('Reps for set 1');
+    fireEvent.change(repsInput, { target: { value: '' } });
+    fireEvent.blur(repsInput);
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
-    expect(onUpdate).toHaveBeenCalledWith({ completed: false, reps: null });
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: false,
+      distance: null,
+      reps: null,
+      seconds: null,
+      weight: 50,
+    });
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
   });
 
@@ -75,8 +101,15 @@ describe('SetRow', () => {
     );
 
     fireEvent.change(screen.getByLabelText('Seconds for set 4'), { target: { value: '45' } });
+    vi.advanceTimersByTime(500);
 
-    expect(onUpdate).toHaveBeenCalledWith({ completed: true, seconds: 45 });
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
+      distance: null,
+      reps: null,
+      seconds: 45,
+      weight: null,
+    });
   });
 
   it('uses km distance suffix for metric users', () => {

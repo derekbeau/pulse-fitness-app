@@ -2,19 +2,10 @@ import { CheckCircle2Icon, SearchIcon, Trash2Icon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
 import { useEffect, useRef, useState } from 'react';
 import { FoodCardSkeleton } from '@/components/skeletons';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -32,8 +23,6 @@ type FoodListProps = {
   pageSize?: number;
   foodsQuery?: ReturnType<typeof useFoods>;
 };
-
-type PendingDeleteFood = Pick<Food, 'id' | 'name'>;
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -92,6 +81,7 @@ export function FoodList({
   pageSize = DEFAULT_PAGE_SIZE,
   foodsQuery: pageFoodsQuery,
 }: FoodListProps) {
+  const { confirm, dialog } = useConfirmation();
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
@@ -99,7 +89,6 @@ export function FoodList({
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [foodPendingDelete, setFoodPendingDelete] = useState<PendingDeleteFood | null>(null);
   const editCancelledRef = useRef(false);
 
   useEffect(() => {
@@ -194,18 +183,24 @@ export function FoodList({
     }
   }
 
-  async function confirmDelete(foodId: string) {
-    if (editingFoodId === foodId) {
-      cancelEditing();
-    }
+  function handleDeleteFood(foodId: string, foodName: string) {
+    confirm({
+      title: 'Delete food?',
+      description: `This will permanently remove "${foodName}" from your foods database.`,
+      confirmLabel: 'Delete food',
+      variant: 'destructive',
+      onConfirm: async () => {
+        if (editingFoodId === foodId) {
+          cancelEditing();
+        }
 
-    setFoodPendingDelete(null);
-
-    try {
-      await deleteFood.mutateAsync(foodId);
-    } catch {
-      return;
-    }
+        try {
+          await deleteFood.mutateAsync(foodId);
+        } catch {
+          return;
+        }
+      },
+    });
   }
 
   const isInitialLoading = foodsQuery.isLoading;
@@ -398,12 +393,7 @@ export function FoodList({
                           aria-label={`Delete ${food.name}`}
                           className="text-muted-foreground hover:text-destructive"
                           disabled={isDeletingFood}
-                          onClick={() =>
-                            setFoodPendingDelete({
-                              id: food.id,
-                              name: food.name,
-                            })
-                          }
+                          onClick={() => handleDeleteFood(food.id, food.name)}
                           size="icon-xs"
                           type="button"
                           variant="ghost"
@@ -487,39 +477,7 @@ export function FoodList({
           ) : null}
         </>
       )}
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setFoodPendingDelete(null);
-          }
-        }}
-        open={foodPendingDelete !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove food?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {foodPendingDelete
-                ? `Are you sure you want to remove ${foodPendingDelete.name}?`
-                : 'Are you sure you want to remove this food?'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (foodPendingDelete) {
-                  void confirmDelete(foodPendingDelete.id);
-                }
-              }}
-              type="button"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </div>
   );
 }

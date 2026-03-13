@@ -107,6 +107,10 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '9' },
     });
 
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
     expect(screen.getByText('After Incline Dumbbell Press set 3')).toBeInTheDocument();
 
     act(() => {

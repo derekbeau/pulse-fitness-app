@@ -294,7 +294,8 @@ describe('HabitCardMenu', () => {
     fireEvent.click(menuDeleteButton);
 
     const dialog = await screen.findByRole('alertdialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(within(dialog).getByText('Delete habit?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete habit' }));
 
     await waitFor(() => expect(deleteMutation.mutateAsync).toHaveBeenCalledWith({ id: 'sleep' }));
   });

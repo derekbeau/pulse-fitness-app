@@ -1,7 +1,8 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Input } from '@/components/ui/input';
+import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import { getDistanceUnit, isSetCompleteForTrackingType } from '../lib/tracking';
@@ -37,6 +38,8 @@ type MetricInputConfig = {
   suffix?: string;
 };
 
+type InputValues = Record<InputKey, number | null>;
+
 export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   {
     completed,
@@ -52,12 +55,26 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   ref,
 ) {
   const { inputs, separator } = getMetricInputs(trackingType, weightUnit);
+  const [localOverrides, setLocalOverrides] = useState<Partial<InputValues>>({});
+  const resolvedValues = resolveInputValues(
+    {
+      distance,
+      reps,
+      seconds,
+      weight,
+    },
+    localOverrides,
+  );
+  const debouncedOnUpdate = useDebouncedCallback((update: SetRowUpdate) => {
+    onUpdate(update);
+  });
+  const localCompleted = completed || isSetCompleteForTrackingType(trackingType, resolvedValues);
 
   return (
     <div
       className={cn(
         'flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors',
-        completed ? 'border-emerald-500/25 bg-emerald-500/10' : 'border-border bg-background',
+        localCompleted ? 'border-emerald-500/25 bg-emerald-500/10' : 'border-border bg-background',
       )}
       data-slot="set-row"
     >
@@ -71,27 +88,33 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
       >
         {inputs.map((input, index) => (
           <InputWithSeparator
-            completed={completed}
+            completed={localCompleted}
             input={input}
             key={input.key}
             onChange={(value) => {
-              const nextValues = {
-                distance,
-                reps,
-                seconds,
-                weight,
+              const nextValues: InputValues = {
+                ...resolvedValues,
                 [input.key]: value,
               };
-
-              onUpdate({
+              const nextCompleted = isSetCompleteForTrackingType(trackingType, nextValues);
+              setLocalOverrides((current) => ({
+                ...current,
                 [input.key]: value,
-                completed: isSetCompleteForTrackingType(trackingType, nextValues),
+              }));
+
+              debouncedOnUpdate.run({
+                ...nextValues,
+                completed: nextCompleted,
               });
+            }}
+            onBlur={() => {
+              debouncedOnUpdate.flush();
+              setLocalOverrides({});
             }}
             ref={shouldAttachFocusRef(input.key, trackingType) ? ref : undefined}
             separator={index > 0 ? separator : null}
             setNumber={setNumber}
-            value={getInputValue(input.key, { distance, reps, seconds, weight })}
+            value={getInputValue(input.key, resolvedValues)}
           />
         ))}
       </div>
@@ -104,11 +127,12 @@ const MetricInput = forwardRef<
   {
     completed: boolean;
     input: MetricInputConfig;
+    onBlur: () => void;
     onChange: (value: number | null) => void;
     setNumber: number;
     value: number | null;
   }
->(function MetricInput({ completed, input, onChange, setNumber, value }, ref) {
+>(function MetricInput({ completed, input, onBlur, onChange, setNumber, value }, ref) {
   return (
     <div className="relative">
       <Input
@@ -119,6 +143,7 @@ const MetricInput = forwardRef<
         )}
         inputMode={input.inputMode}
         min={0}
+        onBlur={onBlur}
         onChange={(event) => onChange(parseNumberInput(event.currentTarget.value))}
         placeholder={input.placeholder}
         ref={ref}
@@ -140,13 +165,14 @@ const InputWithSeparator = forwardRef<
   {
     completed: boolean;
     input: MetricInputConfig;
+    onBlur: () => void;
     onChange: (value: number | null) => void;
     separator: string | null;
     setNumber: number;
     value: number | null;
   }
 >(function InputWithSeparator(
-  { completed, input, onChange, separator, setNumber, value },
+  { completed, input, onBlur, onChange, separator, setNumber, value },
   ref,
 ) {
   return (
@@ -159,6 +185,7 @@ const InputWithSeparator = forwardRef<
       <MetricInput
         completed={completed}
         input={input}
+        onBlur={onBlur}
         onChange={onChange}
         ref={ref}
         setNumber={setNumber}
@@ -251,6 +278,16 @@ function parseNumberInput(value: string) {
 
 function getInputValue(input: InputKey, values: Record<InputKey, number | null>) {
   return values[input] ?? null;
+}
+
+function resolveInputValues(
+  serverValues: InputValues,
+  localOverrides: Partial<InputValues>,
+): InputValues {
+  return {
+    ...serverValues,
+    ...localOverrides,
+  };
 }
 
 export type { SetRowProps, SetRowUpdate };

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sidebarNavItems } from '@/components/layout/nav-items';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useUser } from '@/hooks/use-user';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -20,6 +21,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const navigate = useNavigate();
   const { logout } = useAuthStore();
+  const { confirm, dialog } = useConfirmation();
   const { data: user } = useUser();
   const displayName = user?.name?.trim() || user?.username || 'Account';
   const subtitle = user?.name ? `@${user.username}` : 'Signed in';
@@ -40,8 +42,16 @@ export function Sidebar() {
   }
 
   function handleLogout() {
-    logout();
-    navigate('/login', { replace: true });
+    confirm({
+      title: 'Sign out?',
+      description: "You'll need to sign in again to continue.",
+      confirmLabel: 'Sign out',
+      variant: 'default',
+      onConfirm: () => {
+        logout();
+        navigate('/login', { replace: true });
+      },
+    });
   }
 
   return (
@@ -199,6 +209,7 @@ export function Sidebar() {
           </div>
         </div>
       </TooltipProvider>
+      {dialog}
     </aside>
   );
 }

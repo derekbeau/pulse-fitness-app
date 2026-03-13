@@ -106,7 +106,12 @@ describe('TrashManager', () => {
     );
 
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(/Delete "Hydrate" permanently\?/i)).toBeInTheDocument();
+    expect(within(dialog).getByText('Delete habit?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'This will permanently remove "Hydrate" from trash and it cannot be restored.',
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
 

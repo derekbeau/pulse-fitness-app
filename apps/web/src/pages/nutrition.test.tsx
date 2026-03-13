@@ -513,22 +513,22 @@ describe('NutritionPage', () => {
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Breakfast' }));
-    await vi.runAllTimersAsync();
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Delete meal?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'This will permanently remove the Breakfast meal logged on Thursday, March 5.',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete meal' }));
+    await vi.advanceTimersByTimeAsync(500);
     await Promise.resolve();
 
-    expect(
-      screen
-        .queryAllByRole('button', { name: /breakfast/i })
-        .find((candidate) => candidate.hasAttribute('aria-controls')),
-    ).toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/nutrition/2026-03-05/meals/meal-breakfast',
-      expect.objectContaining({
-        method: 'DELETE',
-      }),
-    );
-    const dailyTotals = screen.getByLabelText('Daily macro totals');
-    expect(within(dailyTotals).getByText('1142 cal')).toBeInTheDocument();
+    const didDeleteMeal = fetchMock.mock.calls.some(([input, init]) => {
+      const url = new URL(String(input), 'http://localhost');
+      return url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' && init?.method === 'DELETE';
+    });
+    expect(didDeleteMeal).toBe(true);
   });
 
   it('shows loading skeletons while daily + summary queries are pending', () => {

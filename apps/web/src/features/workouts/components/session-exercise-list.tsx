@@ -51,6 +51,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 import { ApiError } from '@/lib/api-client';
+import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
@@ -566,6 +567,13 @@ function ExerciseCardItem({
   visibleNotesPanels,
   weightUnit,
 }: ExerciseCardItemProps) {
+  const [localExerciseNotes, setLocalExerciseNotes] = useState<string | undefined>(undefined);
+  const resolvedExerciseNotes = localExerciseNotes === undefined ? exercise.notes : localExerciseNotes;
+  const debouncedExerciseNotesChange = useDebouncedCallback(
+    (notes: string) => onExerciseNotesChange(exercise.id, notes),
+    500,
+  );
+
   const lastPerformanceQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
   });
@@ -577,7 +585,7 @@ function ExerciseCardItem({
   const isExpanded =
     focusTargetExerciseId === exercise.id
       ? true
-      : (expandedExercises[exercise.id] ?? exercise.id === sessionCurrentExerciseId);
+      : (expandedExercises[exercise.id] ?? true);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
@@ -625,7 +633,7 @@ function ExerciseCardItem({
           onClick={() =>
             setExpandedExercises((current) => ({
               ...current,
-              [exercise.id]: !(current[exercise.id] ?? exercise.id === sessionCurrentExerciseId),
+              [exercise.id]: !(current[exercise.id] ?? true),
             }))
           }
           type="button"
@@ -813,9 +821,17 @@ function ExerciseCardItem({
               </label>
               <Textarea
                 id={`exercise-note-${exercise.id}`}
-                onChange={(event) => onExerciseNotesChange(exercise.id, event.target.value)}
+                onBlur={() => {
+                  debouncedExerciseNotesChange.flush();
+                  setLocalExerciseNotes(undefined);
+                }}
+                onChange={(event) => {
+                  const nextNotes = event.target.value;
+                  setLocalExerciseNotes(nextNotes);
+                  debouncedExerciseNotesChange.run(nextNotes);
+                }}
                 placeholder="Add any technique reminders, machine settings, or quick context."
-                value={exercise.notes}
+                value={resolvedExerciseNotes}
               />
             </div>
           </div>

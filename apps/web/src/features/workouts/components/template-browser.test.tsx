@@ -16,7 +16,7 @@ vi.mock('@/features/workouts/api/workouts', () => ({
   }),
   useDeleteTemplate: () => ({
     isPending: false,
-    mutate: deleteMutateMock,
+    mutateAsync: deleteMutateMock,
   }),
   useScheduleWorkout: () => ({
     isPending: false,
@@ -44,7 +44,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 describe('TemplateBrowser', () => {
   beforeEach(() => {
     renameMutateMock.mockReset();
-    deleteMutateMock.mockReset();
+    deleteMutateMock.mockReset().mockResolvedValue({ id: 'template-1' });
     scheduleMutateAsyncMock.mockReset();
   });
 
@@ -159,19 +159,16 @@ describe('TemplateBrowser', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
 
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText('Delete this template?')).toBeInTheDocument();
+    expect(within(dialog).getByText('Delete template?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('This will permanently remove "Upper Push" from your templates.'),
+    ).toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete template' }));
 
-    expect(deleteMutateMock).toHaveBeenCalledWith(
-      {
-        id: 'template-1',
-      },
-      expect.objectContaining({
-        onError: expect.any(Function),
-        onSuccess: expect.any(Function),
-      }),
-    );
+    expect(deleteMutateMock).toHaveBeenCalledWith({
+      id: 'template-1',
+    });
   });
 
   it('opens schedule dialog from template actions and submits selected date', async () => {

@@ -477,9 +477,12 @@ describe('FoodList', () => {
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Broccoli' }));
-    expect(screen.getByText('Are you sure you want to remove Broccoli?')).toBeInTheDocument();
+    expect(screen.getByText('Delete food?')).toBeInTheDocument();
+    expect(
+      screen.getByText('This will permanently remove "Broccoli" from your foods database.'),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete food' }));
 
     await waitFor(() => {
       expect(screen.queryByRole('heading', { level: 3, name: 'Broccoli' })).not.toBeInTheDocument();

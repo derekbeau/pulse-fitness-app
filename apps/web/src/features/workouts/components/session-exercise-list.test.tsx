@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { MouseEvent, ReactNode } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAppQueryClient } from '@/lib/query-client';
@@ -145,6 +145,105 @@ describe('SessionExerciseList', () => {
 
     expect(optionalCard).not.toBeNull();
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
+  });
+
+  it('debounces exercise notes updates until typing pauses', async () => {
+    vi.useFakeTimers();
+
+    try {
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
+
+      const onExerciseNotesChange = vi.fn();
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+
+      renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={onExerciseNotesChange}
+          onRemoveSet={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
+
+      const rowErgCard = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]');
+
+      if (!rowErgCard) {
+        throw new Error('Expected Row Erg card.');
+      }
+
+      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
+      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.change(notesInput, { target: { value: 'Keep elbows stacked.' } });
+
+      expect(notesInput).toHaveValue('Keep elbows stacked.');
+      expect(onExerciseNotesChange).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+
+      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Keep elbows stacked.');
+      expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes pending exercise notes update on blur', () => {
+    vi.useFakeTimers();
+
+    try {
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
+
+      const onExerciseNotesChange = vi.fn();
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+
+      renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={onExerciseNotesChange}
+          onRemoveSet={vi.fn()}
+          onRestTimerComplete={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
+
+      const rowErgCard = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]');
+
+      if (!rowErgCard) {
+        throw new Error('Expected Row Erg card.');
+      }
+
+      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
+      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.change(notesInput, { target: { value: 'Slight pause at extension.' } });
+
+      expect(onExerciseNotesChange).not.toHaveBeenCalled();
+
+      fireEvent.blur(notesInput);
+
+      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Slight pause at extension.');
+      expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens exercise menu actions and disables remove when only one set remains', async () => {
@@ -465,6 +564,49 @@ describe('SessionExerciseList', () => {
     ).toHaveClass('line-through');
   });
 
+  it('keeps non-current completed exercises expanded by default', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
+    drafts['banded-shoulder-external-rotation'] = drafts['banded-shoulder-external-rotation'].map(
+      (set) => ({
+        ...set,
+        completed: true,
+        reps: 15,
+      }),
+    );
+
+    const session = buildActiveWorkoutSession(activeTemplate, drafts, {
+      sessionStartedAt: '2026-03-06T12:00:00Z',
+    });
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const bandedCard = screen
+      .getByRole('heading', { level: 3, name: 'Banded Shoulder External Rotation' })
+      .closest('[data-slot="card"]');
+
+    expect(bandedCard).not.toBeNull();
+    expect(within(bandedCard as HTMLElement).getByLabelText('Reps for set 1')).toBeInTheDocument();
+    expect(
+      within(bandedCard as HTMLElement).getByRole('heading', {
+        level: 3,
+        name: 'Banded Shoulder External Rotation',
+      }),
+    ).toHaveClass('line-through');
+  });
+
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -534,10 +676,13 @@ describe('SessionExerciseList', () => {
       throw new Error('Expected Row Erg exercise header toggle.');
     }
 
+    const rowErgSecondsInput = within(reopenedRowErgCard as HTMLElement).getByLabelText(
+      'Seconds for set 1',
+    );
+    expect(rowErgSecondsInput).toBeVisible();
+
     fireEvent.click(reopenedRowErgCardHeaderToggle);
-    expect(
-      within(reopenedRowErgCard as HTMLElement).queryByLabelText('Weight for set 1'),
-    ).not.toBeInTheDocument();
+    expect(rowErgSecondsInput).not.toBeVisible();
   });
 
   it('formats reps-seconds last performance as reps when seconds are unavailable in history', () => {

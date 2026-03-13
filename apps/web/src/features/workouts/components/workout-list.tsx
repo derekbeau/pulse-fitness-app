@@ -19,16 +19,7 @@ import type {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useNavigate } from 'react-router';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
@@ -220,6 +211,7 @@ function ScheduledWorkoutCard({
   scheduledWorkout: ScheduledWorkoutListItem & { isMissed: boolean; isUnavailable: boolean };
 }) {
   const navigate = useNavigate();
+  const { confirm, dialog } = useConfirmation();
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const startSessionMutation = useStartSession();
@@ -231,7 +223,6 @@ function ScheduledWorkoutCard({
     unscheduleWorkoutMutation.isPending ||
     startSessionMutation.isPending;
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
-  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
   const isStartDisabled = isMutating || !isTemplateAvailable || templateQuery.isPending;
 
@@ -260,7 +251,6 @@ function ScheduledWorkoutCard({
 
   async function handleRemove() {
     await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
-    setIsRemoveDialogOpen(false);
   }
 
   return (
@@ -345,7 +335,15 @@ function ScheduledWorkoutCard({
           </Button>
           <Button
             disabled={isMutating}
-            onClick={() => setIsRemoveDialogOpen(true)}
+            onClick={() =>
+              confirm({
+                title: 'Delete scheduled workout?',
+                description: `This will remove "${scheduledWorkout.templateName ?? 'this workout'}" from ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}.`,
+                confirmLabel: 'Delete workout',
+                variant: 'destructive',
+                onConfirm: handleRemove,
+              })
+            }
             size="sm"
             type="button"
             variant="ghost"
@@ -373,20 +371,7 @@ function ScheduledWorkoutCard({
         submitLabel="Save"
         title="Reschedule workout"
       />
-      <AlertDialog onOpenChange={setIsRemoveDialogOpen} open={isRemoveDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this scheduled workout?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove it from your calendar.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={isMutating} onClick={() => void handleRemove()}>
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </Card>
   );
 }
