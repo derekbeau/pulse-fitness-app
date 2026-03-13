@@ -253,7 +253,7 @@ describe('agent meals routes', () => {
       }
     });
 
-    it('truncates auto-generated meal summary to 500 characters', async () => {
+    it('truncates auto-generated meal summary at item boundaries', async () => {
       const app = buildServer();
 
       try {
@@ -294,7 +294,7 @@ describe('agent meals routes', () => {
           'user-1',
           '2026-03-09',
           expect.objectContaining({
-            summary: `${veryLongFoodNameA}, ${veryLongFoodNameB}`.slice(0, 500),
+            summary: `${veryLongFoodNameA}…`,
           }),
         );
       } finally {

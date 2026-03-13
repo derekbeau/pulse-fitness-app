@@ -23,6 +23,7 @@ import {
   isSameDay,
   addDays,
   sortMeals,
+  toMealLoggedAtTimestamp,
   startOfDay,
   type MealSortDirection,
   type MacroTotals,
@@ -81,6 +82,7 @@ export function NutritionPage() {
       })),
     })),
     mealSortDirection,
+    (meal) => meal.name,
   );
 
   const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
@@ -155,7 +157,7 @@ export function NutritionPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <DateNavBar className="flex-1" selectedDate={selectedDate} onDateChange={setSelectedDate} />
         <Button
-          aria-label={`Sort meals by time (${mealSortDirection === 'asc' ? 'oldest first' : 'newest first'})`}
+          aria-label="Toggle meal sort direction"
           aria-pressed={mealSortDirection === 'desc'}
           className="w-full justify-center sm:w-auto sm:justify-start"
           size="sm"
@@ -343,15 +345,4 @@ function NutritionRingsSkeleton() {
       </div>
     </section>
   );
-}
-
-function toMealLoggedAtTimestamp(dateKey: string, mealTime: string | null, fallbackTimestamp: number): number {
-  if (mealTime) {
-    const parsedTime = new Date(`${dateKey}T${mealTime}:00`).getTime();
-    if (!Number.isNaN(parsedTime)) {
-      return parsedTime;
-    }
-  }
-
-  return fallbackTimestamp;
 }

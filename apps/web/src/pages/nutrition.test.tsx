@@ -511,7 +511,7 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const sortToggle = screen.getByRole('button', { name: /sort meals by time/i });
+    const sortToggle = screen.getByRole('button', { name: /toggle meal sort direction/i });
     expect(sortToggle).toHaveAttribute('aria-pressed', 'false');
     expect(within(sortToggle).getByText('Oldest first')).toBeInTheDocument();
     expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
@@ -553,7 +553,7 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    fireEvent.click(screen.getByRole('button', { name: /sort meals by time/i }));
+    fireEvent.click(screen.getByRole('button', { name: /toggle meal sort direction/i }));
     expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));

@@ -59,9 +59,10 @@ function toTimestamp(value: number | string | Date): number {
   return Number.isNaN(parsedTimestamp) ? 0 : parsedTimestamp;
 }
 
-export function sortMeals<T extends { name: string; loggedAt: number | string | Date }>(
+export function sortMeals<T extends { loggedAt: number | string | Date }>(
   meals: T[],
   direction: MealSortDirection = 'asc',
+  tieBreaker?: (meal: T) => string,
 ): T[] {
   return [...meals].sort((left, right) => {
     const leftTimestamp = toTimestamp(left.loggedAt);
@@ -72,8 +73,28 @@ export function sortMeals<T extends { name: string; loggedAt: number | string | 
       return direction === 'asc' ? orderDifference : -orderDifference;
     }
 
-    return left.name.localeCompare(right.name);
+    if (!tieBreaker) {
+      return 0;
+    }
+
+    return tieBreaker(left).localeCompare(tieBreaker(right));
   });
+}
+
+export function toMealLoggedAtTimestamp(
+  dateKey: string,
+  mealTime: string | null,
+  fallbackTimestamp: number,
+): number {
+  if (mealTime) {
+    // Parse as local wall-clock time because meal times are user-entered local intent.
+    const parsedTime = new Date(`${dateKey}T${mealTime}:00`).getTime();
+    if (!Number.isNaN(parsedTime)) {
+      return parsedTime;
+    }
+  }
+
+  return fallbackTimestamp;
 }
 
 export function formatCalories(value: number): string {

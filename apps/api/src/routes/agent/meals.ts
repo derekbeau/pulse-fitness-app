@@ -15,6 +15,30 @@ import { isValidDate } from './date-utils.js';
 import { findFoodByName } from './store.js';
 
 const MAX_MEAL_SUMMARY_LENGTH = 500;
+const SUMMARY_ELLIPSIS = '…';
+
+function buildMealSummary(names: string[], maxLength: number): string {
+  let summary = '';
+
+  for (const name of names) {
+    const candidate = summary ? `${summary}, ${name}` : name;
+
+    if (candidate.length <= maxLength) {
+      summary = candidate;
+      continue;
+    }
+
+    if (!summary) {
+      return name.slice(0, maxLength);
+    }
+
+    return summary.length + SUMMARY_ELLIPSIS.length <= maxLength
+      ? `${summary}${SUMMARY_ELLIPSIS}`
+      : summary.slice(0, maxLength - SUMMARY_ELLIPSIS.length) + SUMMARY_ELLIPSIS;
+  }
+
+  return summary;
+}
 
 export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
@@ -66,10 +90,10 @@ export const agentMealsRoutes: FastifyPluginAsync = async (app) => {
       carbs: food.carbs * item.quantity,
       fat: food.fat * item.quantity,
     }));
-    const summary = mealItems
-      .map((item) => item.name)
-      .join(', ')
-      .slice(0, MAX_MEAL_SUMMARY_LENGTH);
+    const summary = buildMealSummary(
+      mealItems.map((item) => item.name),
+      MAX_MEAL_SUMMARY_LENGTH,
+    );
 
     const { meal, items: createdItems } = await createMealForDate(userId, date, {
       name,
