@@ -39,6 +39,15 @@ type TemplateExerciseRecord = {
   section: WorkoutTemplateSectionType;
   notes: string | null;
   cues: string[] | null;
+  setTargets: Array<{
+    setNumber: number;
+    targetWeight?: number | null;
+    targetWeightMin?: number | null;
+    targetWeightMax?: number | null;
+    targetSeconds?: number | null;
+    targetDistance?: number | null;
+  }> | null;
+  programmingNotes: string | null;
 };
 
 const templateSelection = {
@@ -67,6 +76,8 @@ const templateExerciseSelection = {
   section: templateExercises.section,
   notes: templateExercises.notes,
   cues: templateExercises.cues,
+  setTargets: templateExercises.setTargets,
+  programmingNotes: templateExercises.programmingNotes,
 };
 
 const buildTemplateSections = (
@@ -90,6 +101,8 @@ const buildTemplateSections = (
         supersetGroup: row.supersetGroup,
         notes: row.notes,
         cues: row.cues ?? [],
+        ...(row.setTargets !== null ? { setTargets: row.setTargets } : {}),
+        ...(row.programmingNotes !== null ? { programmingNotes: row.programmingNotes } : {}),
       })),
   })) as [WorkoutTemplateSection, WorkoutTemplateSection, WorkoutTemplateSection];
 
@@ -128,6 +141,9 @@ const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInpu
       section: sectionType,
       notes: exercise.notes,
       cues: exercise.cues,
+      setTargets:
+        exercise.setTargets && exercise.setTargets.length > 0 ? exercise.setTargets : null,
+      programmingNotes: exercise.programmingNotes,
     }));
   });
 

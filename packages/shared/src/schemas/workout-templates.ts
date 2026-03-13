@@ -33,8 +33,17 @@ const nullableTempoSchema = z.preprocess(
 );
 const nullablePositiveIntSchema = z.number().int().min(1).max(999).nullable();
 const nullableRestSecondsSchema = z.number().int().min(0).max(3600).nullable();
+const nullableNonNegativeNumberSchema = z.number().min(0).nullable();
 
 export const workoutTemplateSectionTypeSchema = z.enum(['warmup', 'main', 'cooldown']);
+export const workoutTemplateExerciseSetSchema = z.object({
+  setNumber: z.number().int().min(1),
+  targetWeight: nullableNonNegativeNumberSchema.optional(),
+  targetWeightMin: nullableNonNegativeNumberSchema.optional(),
+  targetWeightMax: nullableNonNegativeNumberSchema.optional(),
+  targetSeconds: z.number().int().min(0).nullable().optional(),
+  targetDistance: nullableNonNegativeNumberSchema.optional(),
+});
 
 export const workoutTemplateExerciseSchema = z
   .object({
@@ -50,6 +59,8 @@ export const workoutTemplateExerciseSchema = z
     supersetGroup: nullableShortStringSchema,
     notes: nullableStringSchema,
     cues: z.array(requiredStringSchema).max(20).default([]),
+    setTargets: z.array(workoutTemplateExerciseSetSchema).max(100).optional(),
+    programmingNotes: nullableStringSchema.optional(),
   })
   .refine(
     (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
@@ -75,6 +86,8 @@ const workoutTemplateExerciseInputSchema = z
     supersetGroup: nullableShortStringSchema.optional().default(null),
     notes: nullableStringSchema.optional().default(null),
     cues: z.array(requiredStringSchema).max(20).optional().default([]),
+    setTargets: z.array(workoutTemplateExerciseSetSchema).max(100).optional(),
+    programmingNotes: nullableStringSchema.optional(),
   })
   .refine(
     (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
@@ -181,6 +194,7 @@ export const reorderWorkoutTemplateExercisesInputSchema = z.object({
 });
 
 export type WorkoutTemplateSectionType = z.infer<typeof workoutTemplateSectionTypeSchema>;
+export type WorkoutTemplateExerciseSet = z.infer<typeof workoutTemplateExerciseSetSchema>;
 export type WorkoutTemplateExercise = z.infer<typeof workoutTemplateExerciseSchema>;
 export type WorkoutTemplateSection = z.infer<typeof workoutTemplateSectionSchema>;
 export type WorkoutTemplate = z.infer<typeof workoutTemplateSchema>;

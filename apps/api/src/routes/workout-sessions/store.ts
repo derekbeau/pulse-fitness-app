@@ -60,6 +60,11 @@ type SessionSetRecord = {
   setNumber: number;
   weight: number | null;
   reps: number | null;
+  targetWeight: number | null;
+  targetWeightMin: number | null;
+  targetWeightMax: number | null;
+  targetSeconds: number | null;
+  targetDistance: number | null;
   completed: boolean;
   skipped: boolean;
   section: WorkoutTemplateSectionType | null;
@@ -120,6 +125,11 @@ const sessionSetSelection = {
   setNumber: sessionSets.setNumber,
   weight: sessionSets.weight,
   reps: sessionSets.reps,
+  targetWeight: sessionSets.targetWeight,
+  targetWeightMin: sessionSets.targetWeightMin,
+  targetWeightMax: sessionSets.targetWeightMax,
+  targetSeconds: sessionSets.targetSeconds,
+  targetDistance: sessionSets.targetDistance,
   completed: sessionSets.completed,
   skipped: sessionSets.skipped,
   section: sessionSets.section,
@@ -159,6 +169,11 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   setNumber: set.setNumber,
   weight: set.weight,
   reps: set.reps,
+  ...(set.targetWeight !== null ? { targetWeight: set.targetWeight } : {}),
+  ...(set.targetWeightMin !== null ? { targetWeightMin: set.targetWeightMin } : {}),
+  ...(set.targetWeightMax !== null ? { targetWeightMax: set.targetWeightMax } : {}),
+  ...(set.targetSeconds !== null ? { targetSeconds: set.targetSeconds } : {}),
+  ...(set.targetDistance !== null ? { targetDistance: set.targetDistance } : {}),
   completed: set.completed,
   skipped: set.skipped,
   section: set.section,
@@ -283,6 +298,11 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     setNumber: set.setNumber,
     weight: set.weight,
     reps: set.reps,
+    targetWeight: set.targetWeight,
+    targetWeightMin: set.targetWeightMin,
+    targetWeightMax: set.targetWeightMax,
+    targetSeconds: set.targetSeconds,
+    targetDistance: set.targetDistance,
     completed: set.completed,
     skipped: set.skipped,
     section: set.section,

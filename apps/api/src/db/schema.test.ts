@@ -908,6 +908,8 @@ describe('templateExercises schema', () => {
       'section',
       'notes',
       'cues',
+      'setTargets',
+      'programmingNotes',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
@@ -1062,6 +1064,11 @@ describe('sessionSets schema', () => {
       'setNumber',
       'weight',
       'reps',
+      'targetWeight',
+      'targetWeightMin',
+      'targetWeightMax',
+      'targetSeconds',
+      'targetDistance',
       'completed',
       'skipped',
       'section',

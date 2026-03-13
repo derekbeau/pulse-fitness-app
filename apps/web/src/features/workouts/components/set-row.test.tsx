@@ -127,4 +127,21 @@ describe('SetRow', () => {
 
     expect(screen.getByText('km')).toBeInTheDocument();
   });
+
+  it('renders read-only target hints when prescribed targets exist', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={null}
+        seconds={null}
+        setNumber={2}
+        targetSeconds={45}
+        targetWeight={135}
+        trackingType="weight_seconds"
+      />,
+    );
+
+    expect(screen.getByText('Target 135 lbs x 45s')).toBeInTheDocument();
+  });
 });

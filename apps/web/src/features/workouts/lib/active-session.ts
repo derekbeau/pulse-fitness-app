@@ -200,6 +200,11 @@ export function createWorkoutSetDraft(
     number: setNumber,
     reps: shouldSeedReps(trackingType) ? initialValue : null,
     seconds: shouldSeedSeconds(trackingType) ? initialValue : null,
+    targetDistance: null,
+    targetSeconds: null,
+    targetWeight: null,
+    targetWeightMax: null,
+    targetWeightMin: null,
     weight: completed ? (sampleWeightByExerciseId.get(exerciseId) ?? null) : null,
   };
 }

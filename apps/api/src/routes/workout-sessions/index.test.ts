@@ -1116,6 +1116,8 @@ describe('workout session routes', () => {
             setNumber: 1,
             weight: 185,
             reps: 8,
+            targetWeightMin: 175,
+            targetWeightMax: 185,
             completed: true,
             section: 'main',
             notes: ' Fast bar path ',
@@ -1157,6 +1159,11 @@ describe('workout session routes', () => {
           setNumber: number;
           weight: number | null;
           reps: number | null;
+          targetWeight: number | null;
+          targetWeightMin: number | null;
+          targetWeightMax: number | null;
+          targetSeconds: number | null;
+          targetDistance: number | null;
           completed: boolean;
           skipped: boolean;
           section: string | null;
@@ -1190,6 +1197,8 @@ describe('workout session routes', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
+          targetWeightMin: 175,
+          targetWeightMax: 185,
           completed: true,
           skipped: false,
           section: 'main',

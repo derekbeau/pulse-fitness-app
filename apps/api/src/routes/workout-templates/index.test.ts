@@ -84,6 +84,15 @@ const seedTemplateExercise = (values: {
   supersetGroup?: string | null;
   notes?: string | null;
   cues?: string[] | null;
+  setTargets?: Array<{
+    setNumber: number;
+    targetWeight?: number | null;
+    targetWeightMin?: number | null;
+    targetWeightMax?: number | null;
+    targetSeconds?: number | null;
+    targetDistance?: number | null;
+  }> | null;
+  programmingNotes?: string | null;
 }) =>
   context.db
     .insert(templateExercises)
@@ -97,6 +106,8 @@ const seedTemplateExercise = (values: {
       supersetGroup: values.supersetGroup ?? null,
       notes: values.notes ?? null,
       cues: values.cues ?? null,
+      setTargets: values.setTargets ?? null,
+      programmingNotes: values.programmingNotes ?? null,
     })
     .run();
 
@@ -259,6 +270,12 @@ describe('workout template routes', () => {
                 restSeconds: 90,
                 notes: ' Drive feet into floor. ',
                 cues: [' Stack wrists ', ' Stay tucked '],
+                programmingNotes: ' Top-set focus while keeping two reps in reserve. ',
+                setTargets: [
+                  { setNumber: 1, targetWeightMin: 60, targetWeightMax: 65 },
+                  { setNumber: 2, targetWeight: 62.5 },
+                  { setNumber: 3, targetWeight: 60 },
+                ],
               },
               {
                 exerciseId: 'user-row',
@@ -342,6 +359,12 @@ describe('workout template routes', () => {
               repsMax: 10,
               notes: 'Drive feet into floor.',
               cues: ['Stack wrists', 'Stay tucked'],
+              programmingNotes: 'Top-set focus while keeping two reps in reserve.',
+              setTargets: [
+                { setNumber: 1, targetWeightMin: 60, targetWeightMax: 65 },
+                { setNumber: 2, targetWeight: 62.5 },
+                { setNumber: 3, targetWeight: 60 },
+              ],
             },
             {
               exerciseId: 'user-row',

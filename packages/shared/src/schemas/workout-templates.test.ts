@@ -45,6 +45,13 @@ describe('workoutTemplateSchema', () => {
               supersetGroup: null,
               notes: ' Keep this conversational. ',
               cues: [' Drive legs ', ' Relax shoulders '],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetSeconds: 240,
+                },
+              ],
+              programmingNotes: ' Keep this easy before loading pressing.',
             },
           ],
         },
@@ -86,6 +93,13 @@ describe('workoutTemplateSchema', () => {
               supersetGroup: null,
               notes: 'Keep this conversational.',
               cues: ['Drive legs', 'Relax shoulders'],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetSeconds: 240,
+                },
+              ],
+              programmingNotes: 'Keep this easy before loading pressing.',
             },
           ],
         },
@@ -143,6 +157,18 @@ describe('createWorkoutTemplateInputSchema', () => {
               supersetGroup: ' A ',
               notes: ' Brace hard. ',
               cues: [' Spread floor ', ' Drive up '],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetWeightMin: 205,
+                  targetWeightMax: 225,
+                },
+                {
+                  setNumber: 2,
+                  targetWeight: 215,
+                },
+              ],
+              programmingNotes: ' Top-set focus before back-off work. ',
             },
           ],
         },
@@ -169,10 +195,46 @@ describe('createWorkoutTemplateInputSchema', () => {
               supersetGroup: 'A',
               notes: 'Brace hard.',
               cues: ['Spread floor', 'Drive up'],
+              setTargets: [
+                {
+                  setNumber: 1,
+                  targetWeightMin: 205,
+                  targetWeightMax: 225,
+                },
+                {
+                  setNumber: 2,
+                  targetWeight: 215,
+                },
+              ],
+              programmingNotes: 'Top-set focus before back-off work.',
             },
           ],
         },
       ],
+    });
+  });
+
+  it('keeps set targets and programming notes optional when omitted', () => {
+    const payload = createWorkoutTemplateInputSchema.parse({
+      name: 'Conditioning',
+      sections: [
+        {
+          type: 'main',
+          exercises: [{ exerciseId: 'row-erg' }],
+        },
+      ],
+    });
+
+    expect(payload.sections[0]?.exercises[0]).toEqual({
+      exerciseId: 'row-erg',
+      sets: null,
+      repsMin: null,
+      repsMax: null,
+      tempo: null,
+      restSeconds: null,
+      supersetGroup: null,
+      notes: null,
+      cues: [],
     });
   });
 

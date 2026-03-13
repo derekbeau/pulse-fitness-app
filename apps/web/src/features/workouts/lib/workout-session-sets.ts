@@ -8,6 +8,7 @@ export function buildInitialSessionSets(template: WorkoutTemplate) {
       }
 
       return Array.from({ length: exercise.sets }, (_, index) => ({
+        ...(exercise.setTargets?.find((target) => target.setNumber === index + 1) ?? {}),
         exerciseId: exercise.exerciseId,
         orderIndex: exerciseIndex,
         reps: null,

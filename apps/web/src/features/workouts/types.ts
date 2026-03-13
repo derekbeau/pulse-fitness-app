@@ -15,6 +15,11 @@ export type ActiveWorkoutSet = {
   number: number;
   reps: number | null;
   seconds: number | null;
+  targetDistance?: number | null;
+  targetSeconds?: number | null;
+  targetWeight?: number | null;
+  targetWeightMax?: number | null;
+  targetWeightMin?: number | null;
   weight: number | null;
 };
 

@@ -66,6 +66,8 @@ const resolveTemplateUpdateInput = ({
           supersetGroup: exercise.supersetGroup,
           notes: exercise.notes,
           cues: exercise.cues,
+          setTargets: exercise.setTargets ?? [],
+          programmingNotes: exercise.programmingNotes ?? null,
         })),
       })),
   };
