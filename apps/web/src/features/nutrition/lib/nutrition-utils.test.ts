@@ -75,6 +75,18 @@ describe('sortMeals', () => {
     ]);
   });
 
+  it('reverses tie-break ordering when direction is desc', () => {
+    const mealsWithMatchingTimestamp = [
+      { id: 'meal-1', name: 'Breakfast', loggedAt: '2026-03-05T12:30:00.000Z' },
+      { id: 'meal-2', name: 'Lunch', loggedAt: '2026-03-05T12:30:00.000Z' },
+      { id: 'meal-3', name: 'Dinner', loggedAt: '2026-03-05T12:30:00.000Z' },
+    ];
+
+    expect(
+      sortMeals(mealsWithMatchingTimestamp, 'desc', (meal) => meal.name).map((meal) => meal.name),
+    ).toEqual(['Lunch', 'Dinner', 'Breakfast']);
+  });
+
   it('sorts meal-like objects without requiring a name field', () => {
     const entries = [
       { id: 'entry-2', loggedAt: '2026-03-05T10:00:00.000Z' },

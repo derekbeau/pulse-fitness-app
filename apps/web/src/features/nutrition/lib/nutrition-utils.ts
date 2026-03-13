@@ -77,7 +77,9 @@ export function sortMeals<T extends { loggedAt: number | string | Date }>(
       return 0;
     }
 
-    return tieBreaker(left).localeCompare(tieBreaker(right));
+    return direction === 'asc'
+      ? tieBreaker(left).localeCompare(tieBreaker(right))
+      : tieBreaker(right).localeCompare(tieBreaker(left));
   });
 }
 

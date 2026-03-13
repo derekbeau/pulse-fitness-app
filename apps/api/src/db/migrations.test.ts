@@ -580,4 +580,92 @@ describe('migration 0025_meal_summary', () => {
       db.close();
     }
   });
+
+  it('caps backfilled summaries at 500 characters', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0025-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE meals (
+          id TEXT PRIMARY KEY NOT NULL,
+          nutrition_log_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          time TEXT,
+          notes TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+
+      db.exec(`
+        CREATE TABLE meal_items (
+          id TEXT PRIMARY KEY NOT NULL,
+          meal_id TEXT NOT NULL,
+          food_id TEXT,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          unit TEXT NOT NULL,
+          calories REAL NOT NULL,
+          protein REAL NOT NULL,
+          carbs REAL NOT NULL,
+          fat REAL NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+      `);
+
+      const now = Date.now();
+      db.prepare(
+        `
+          INSERT INTO meals (
+            id,
+            nutrition_log_id,
+            name,
+            time,
+            notes,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run('meal-1', 'log-1', 'Lunch', '12:00', null, now, now);
+
+      const longFoodName = 'x'.repeat(251);
+      const insertMealItem = db.prepare(
+        `
+          INSERT INTO meal_items (
+            id,
+            meal_id,
+            food_id,
+            name,
+            amount,
+            unit,
+            calories,
+            protein,
+            carbs,
+            fat,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      );
+
+      insertMealItem.run('item-1', 'meal-1', null, longFoodName, 1, 'serving', 150, 30, 7, 4, now);
+      insertMealItem.run('item-2', 'meal-1', null, longFoodName, 1, 'serving', 150, 30, 7, 4, now + 1);
+
+      const migrationSql = readFileSync(join(process.cwd(), 'drizzle/0025_meal_summary.sql'), 'utf8');
+      runSqlStatements(db, migrationSql);
+
+      const migrated = db
+        .prepare(`SELECT summary FROM meals WHERE id = ?`)
+        .get('meal-1') as { summary: string | null };
+
+      expect(migrated.summary).toHaveLength(500);
+      expect(migrated.summary).toBe(`${longFoodName}, ${longFoodName.slice(0, 247)}`);
+    } finally {
+      db.close();
+    }
+  });
 });

@@ -1,7 +1,7 @@
 ALTER TABLE `meals` ADD `summary` text;--> statement-breakpoint
 UPDATE `meals`
 SET `summary` = (
-  SELECT group_concat(`ordered_items`.`name`, ', ')
+  SELECT substr(group_concat(`ordered_items`.`name`, ', '), 1, 500)
   FROM (
     SELECT `meal_items`.`name` AS `name`
     FROM `meal_items`
