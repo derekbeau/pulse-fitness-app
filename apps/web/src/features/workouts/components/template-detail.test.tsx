@@ -1177,28 +1177,25 @@ describe('WorkoutTemplateDetail', () => {
         return Promise.resolve(jsonResponse(templatePayload));
       }
 
-      if (url.pathname === '/api/v1/exercises' && init?.method !== 'PATCH') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method !== 'PATCH') {
         return Promise.resolve(
           jsonResponse({
-            data: [
-              {
-                id: 'incline-dumbbell-press',
-                userId: 'user-1',
-                name: 'Incline Dumbbell Press',
-                muscleGroups: ['upper chest', 'triceps'],
-                equipment: 'Dumbbells',
-                category: 'compound',
-                trackingType: 'weight_reps',
-                tags: [],
-                formCues: ['Tuck shoulder blades', 'Drive elbows 45°'],
-                instructions: 'Lower dumbbells with control, then drive up.',
-                coachingNotes: 'Keep your upper back pinned to the bench.',
-                relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
-                createdAt: 1,
-                updatedAt: 1,
-              },
-            ],
-            meta: { page: 1, limit: 20, total: 1 },
+            data: {
+              id: 'incline-dumbbell-press',
+              userId: 'user-1',
+              name: 'Incline Dumbbell Press',
+              muscleGroups: ['upper chest', 'triceps'],
+              equipment: 'Dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: ['Tuck shoulder blades', 'Drive elbows 45°'],
+              instructions: 'Lower dumbbells with control, then drive up.',
+              coachingNotes: 'Keep your upper back pinned to the bench.',
+              relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
+              createdAt: 1,
+              updatedAt: 1,
+            },
           }),
         );
       }

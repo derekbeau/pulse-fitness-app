@@ -66,6 +66,7 @@ import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import {
+  useExercise,
   useExercises,
   useRenameExercise,
   useReorderTemplateExercises,
@@ -896,8 +897,13 @@ function TemplateExerciseCard({
   const compactSummary = formatCompactSetSummary(exercise, weightUnit);
   const targetBreakdown = formatSetTargetBreakdown(exercise, weightUnit);
   const [fields, setFields] = useState<EditableExerciseFields>(() => toEditableFields(exercise));
+  const focusedFieldCountRef = useRef(0);
 
   useEffect(() => {
+    if (focusedFieldCountRef.current > 0) {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- local editable state must resync to server snapshot when not actively editing
     setFields(toEditableFields(exercise));
   }, [exercise]);
 
@@ -996,7 +1002,15 @@ function TemplateExerciseCard({
           <InlineEditField
             ariaLabel={`Sets for ${exercise.exerciseName}`}
             label="Sets"
-            onBlur={() => debouncedInlineSave.run(fields)}
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
             onChange={(nextValue) => setFields((current) => ({ ...current, sets: nextValue }))}
             placeholder="3"
             value={fields.sets}
@@ -1004,7 +1018,15 @@ function TemplateExerciseCard({
           <InlineEditField
             ariaLabel={`Reps for ${exercise.exerciseName}`}
             label="Reps"
-            onBlur={() => debouncedInlineSave.run(fields)}
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
             onChange={(nextValue) => setFields((current) => ({ ...current, reps: nextValue }))}
             placeholder="8-10"
             value={fields.reps}
@@ -1012,7 +1034,15 @@ function TemplateExerciseCard({
           <InlineEditField
             ariaLabel={`Rest for ${exercise.exerciseName}`}
             label="Rest (s)"
-            onBlur={() => debouncedInlineSave.run(fields)}
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
             onChange={(nextValue) =>
               setFields((current) => ({ ...current, restSeconds: nextValue }))
             }
@@ -1024,7 +1054,15 @@ function TemplateExerciseCard({
             className="sm:col-span-3 lg:col-span-1"
             label="Notes"
             multiline
-            onBlur={() => debouncedInlineSave.run(fields)}
+            onBlur={() => {
+              debouncedInlineSave.run(fields);
+              setTimeout(() => {
+                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
+              }, 0);
+            }}
+            onFocus={() => {
+              focusedFieldCountRef.current += 1;
+            }}
             onChange={(nextValue) => setFields((current) => ({ ...current, notes: nextValue }))}
             placeholder="Optional note"
             value={fields.notes}
@@ -1240,23 +1278,13 @@ function ExerciseDetailModal({
   const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
   const [isSaving, setIsSaving] = useState(false);
 
-  const exerciseQuery = useExercises(
-    {
-      page: 1,
-      limit: 20,
-      q: exercise.exerciseName,
-    },
-    { enabled: true },
-  );
+  const exerciseQuery = useExercise(exercise.exerciseId, { enabled: true });
   const historyQuery = useLastPerformance(exercise.exerciseId, {
     enabled: true,
     includeRelated: true,
   });
 
-  const matchedExercise = useMemo(
-    () => exerciseQuery.data?.data.find((item) => item.id === exercise.exerciseId) ?? null,
-    [exercise.exerciseId, exerciseQuery.data?.data],
-  );
+  const matchedExercise = exerciseQuery.data ?? null;
 
   const formCues = matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
   const instructionText = matchedExercise?.instructions ?? exercise.exercise?.instructions ?? null;
@@ -1266,145 +1294,143 @@ function ExerciseDetailModal({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <>
-            <DialogHeader>
-              <DialogTitle>{exercise.exerciseName}</DialogTitle>
-              <DialogDescription>
-                {formatTrackingTypeLabel(trackingType)} •{' '}
-                {muscleGroups.length > 0 ? muscleGroups.join(', ') : 'Muscle groups not specified'}
-              </DialogDescription>
-            </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{exercise.exerciseName}</DialogTitle>
+          <DialogDescription>
+            {formatTrackingTypeLabel(trackingType)} •{' '}
+            {muscleGroups.length > 0 ? muscleGroups.join(', ') : 'Muscle groups not specified'}
+          </DialogDescription>
+        </DialogHeader>
 
-            <div className="flex gap-2 border-b border-border pb-2">
-              <Button
-                onClick={() => setActiveTab('overview')}
-                size="sm"
-                type="button"
-                variant={activeTab === 'overview' ? 'default' : 'outline'}
-              >
-                Overview
-              </Button>
-              <Button
-                onClick={() => setActiveTab('history')}
-                size="sm"
-                type="button"
-                variant={activeTab === 'history' ? 'default' : 'outline'}
-              >
-                History
-              </Button>
-              <Button
-                onClick={() => setActiveTab('related')}
-                size="sm"
-                type="button"
-                variant={activeTab === 'related' ? 'default' : 'outline'}
-              >
-                Related
-              </Button>
-            </div>
+        <div className="flex gap-2 border-b border-border pb-2">
+          <Button
+            onClick={() => setActiveTab('overview')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'overview' ? 'default' : 'outline'}
+          >
+            Overview
+          </Button>
+          <Button
+            onClick={() => setActiveTab('history')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'history' ? 'default' : 'outline'}
+          >
+            History
+          </Button>
+          <Button
+            onClick={() => setActiveTab('related')}
+            size="sm"
+            type="button"
+            variant={activeTab === 'related' ? 'default' : 'outline'}
+          >
+            Related
+          </Button>
+        </div>
 
-            {activeTab === 'overview' ? (
-              <div className="space-y-4">
-                {formCues.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                      Form cues
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {formCues.map((cue) => (
-                        <Badge key={cue} variant="secondary">
-                          {cue}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {instructionText ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                      Instructions
-                    </p>
-                    <p className="text-sm text-foreground">{instructionText}</p>
-                  </div>
-                ) : null}
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                    Coaching notes
-                  </p>
-                  <Textarea
-                    aria-label="Coaching notes"
-                    onChange={(event) => setCoachingNotes(event.currentTarget.value)}
-                    rows={4}
-                    value={coachingNotes}
-                  />
-                  <Button
-                    disabled={isPending || isSaving}
-                    onClick={() => {
-                      setIsSaving(true);
-                      onSaveCoachingNotes(exercise.exerciseId, toNullableString(coachingNotes))
-                        .then(() => {
-                          toast.success('Coaching notes saved');
-                        })
-                        .catch((error) => {
-                          const message =
-                            error instanceof Error ? error.message : 'Unable to save coaching notes';
-                          toast.error(message);
-                        })
-                        .finally(() => {
-                          setIsSaving(false);
-                        });
-                    }}
-                    type="button"
-                  >
-                    Save coaching notes
-                  </Button>
+        {activeTab === 'overview' ? (
+          <div className="space-y-4">
+            {formCues.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Form cues
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {formCues.map((cue) => (
+                    <Badge key={cue} variant="secondary">
+                      {cue}
+                    </Badge>
+                  ))}
                 </div>
               </div>
             ) : null}
 
-            {activeTab === 'history' ? (
+            {instructionText ? (
               <div className="space-y-2">
-                {historyQuery.isPending ? (
-                  <p className="text-sm text-muted">Loading recent performance...</p>
-                ) : (
-                  <p className="text-sm text-foreground">
-                    {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType)}
-                  </p>
-                )}
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Instructions
+                </p>
+                <p className="text-sm text-foreground">{instructionText}</p>
               </div>
             ) : null}
 
-            {activeTab === 'related' ? (
-              <div className="space-y-2">
-                {historyQuery.isPending ? (
-                  <p className="text-sm text-muted">Loading related exercises...</p>
-                ) : historyQuery.data?.related.length ? (
-                  historyQuery.data.related.map((relatedExercise) => (
-                    <div
-                      className="space-y-1 rounded-lg border border-border bg-card px-3 py-2"
-                      key={relatedExercise.exerciseId}
-                    >
-                      <p className="text-sm font-semibold text-foreground">
-                        {relatedExercise.exerciseName}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {formatTrackingTypeLabel(relatedExercise.trackingType)}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {formatLastPerformanceSummary(
-                          relatedExercise.history,
-                          relatedExercise.trackingType,
-                        )}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted">No related exercises configured.</p>
-                )}
-              </div>
-            ) : null}
-          </>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Coaching notes
+              </p>
+              <Textarea
+                aria-label="Coaching notes"
+                onChange={(event) => setCoachingNotes(event.currentTarget.value)}
+                rows={4}
+                value={coachingNotes}
+              />
+              <Button
+                disabled={isPending || isSaving}
+                onClick={() => {
+                  setIsSaving(true);
+                  onSaveCoachingNotes(exercise.exerciseId, toNullableString(coachingNotes))
+                    .then(() => {
+                      toast.success('Coaching notes saved');
+                    })
+                    .catch((error) => {
+                      const message =
+                        error instanceof Error ? error.message : 'Unable to save coaching notes';
+                      toast.error(message);
+                    })
+                    .finally(() => {
+                      setIsSaving(false);
+                    });
+                }}
+                type="button"
+              >
+                Save coaching notes
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === 'history' ? (
+          <div className="space-y-2">
+            {historyQuery.isPending ? (
+              <p className="text-sm text-muted">Loading recent performance...</p>
+            ) : (
+              <p className="text-sm text-foreground">
+                {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType)}
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {activeTab === 'related' ? (
+          <div className="space-y-2">
+            {historyQuery.isPending ? (
+              <p className="text-sm text-muted">Loading related exercises...</p>
+            ) : historyQuery.data?.related.length ? (
+              historyQuery.data.related.map((relatedExercise) => (
+                <div
+                  className="space-y-1 rounded-lg border border-border bg-card px-3 py-2"
+                  key={relatedExercise.exerciseId}
+                >
+                  <p className="text-sm font-semibold text-foreground">
+                    {relatedExercise.exerciseName}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {formatTrackingTypeLabel(relatedExercise.trackingType)}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {formatLastPerformanceSummary(
+                      relatedExercise.history,
+                      relatedExercise.trackingType,
+                    )}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted">No related exercises configured.</p>
+            )}
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -1515,6 +1541,7 @@ function InlineEditField({
   label,
   multiline = false,
   onBlur,
+  onFocus,
   onChange,
   placeholder,
   value,
@@ -1524,6 +1551,7 @@ function InlineEditField({
   label: string;
   multiline?: boolean;
   onBlur: () => void;
+  onFocus: () => void;
   onChange: (value: string) => void;
   placeholder: string;
   value: string;
@@ -1538,6 +1566,7 @@ function InlineEditField({
           aria-label={ariaLabel}
           className="min-h-9 px-2 py-1 text-xs focus-visible:border-primary focus-visible:bg-card"
           onBlur={onBlur}
+          onFocus={onFocus}
           onChange={(event) => onChange(event.currentTarget.value)}
           placeholder={placeholder}
           rows={2}
@@ -1548,6 +1577,7 @@ function InlineEditField({
           aria-label={ariaLabel}
           className="h-8 text-xs focus-visible:border-primary focus-visible:bg-card"
           onBlur={onBlur}
+          onFocus={onFocus}
           onChange={(event) => onChange(event.currentTarget.value)}
           placeholder={placeholder}
           value={value}
@@ -1642,13 +1672,13 @@ function buildTemplateExerciseGroups(exercises: WorkoutTemplateExercise[]) {
 }
 
 function getSupersetAccentClass(groupId: string) {
-  let hash = 0;
+  let hash = 5381;
 
   for (const character of groupId) {
-    hash = (hash + character.charCodeAt(0)) % supersetAccentStyles.length;
+    hash = ((hash << 5) + hash + character.charCodeAt(0)) >>> 0;
   }
 
-  return supersetAccentStyles[hash] ?? supersetAccentStyles[0];
+  return supersetAccentStyles[hash % supersetAccentStyles.length] ?? supersetAccentStyles[0];
 }
 
 function formatSupersetLabel(groupId: string) {

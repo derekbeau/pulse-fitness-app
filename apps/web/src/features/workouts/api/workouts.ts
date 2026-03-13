@@ -149,6 +149,8 @@ type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchem
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
   completedSessions: () => ['workouts', 'completed-sessions'] as const,
+  exercise: (id: string) => ['workouts', 'exercise', id] as const,
+  exercisesRoot: () => ['workouts', 'exercises'] as const,
   exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
@@ -158,6 +160,7 @@ export const workoutQueryKeys = {
   sessions: () => ['workouts', 'sessions'] as const,
   sessionsList: (params: WorkoutSessionQueryParams = {}) =>
     ['workouts', 'sessions', params] as const,
+  templateRoot: () => ['workouts', 'template'] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
 };
@@ -281,6 +284,16 @@ async function getExercises(params: ExerciseQueryParams) {
   );
 
   return exercisesResponseSchema.parse(payload);
+}
+
+async function getExercise(id: string, signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(`/api/v1/exercises/${id}`, {
+    method: 'GET',
+    signal,
+  });
+  const payload = z.object({ data: exerciseSchema }).parse({ data });
+
+  return payload.data;
 }
 
 async function getExerciseFilters() {
@@ -516,6 +529,14 @@ export function useExercises(params: ExerciseQueryParams, options?: { enabled?: 
   });
 }
 
+export function useExercise(id: string, options?: { enabled?: boolean }) {
+  return useQuery<Exercise>({
+    enabled: (options?.enabled ?? true) && id.trim().length > 0,
+    queryFn: ({ signal }) => getExercise(id, signal),
+    queryKey: workoutQueryKeys.exercise(id),
+  });
+}
+
 export function useExerciseFilters() {
   return useQuery<ExerciseFiltersResponse>({
     queryFn: getExerciseFilters,
@@ -624,13 +645,19 @@ export function useUpdateExercise() {
 
   return useMutation<Exercise, Error, UpdateExerciseRequest>({
     mutationFn: updateExercise,
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.all,
+          queryKey: workoutQueryKeys.exercise(variables.id),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessions(),
+          queryKey: workoutQueryKeys.exercisesRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templates(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templateRoot(),
         }),
       ]);
     },
