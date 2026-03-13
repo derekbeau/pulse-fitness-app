@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 
+import * as lastPerformanceHooks from '@/hooks/use-last-performance';
 import { createAppQueryClient } from '@/lib/query-client';
 import { mockTemplates } from '@/lib/mock-data/workouts';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
@@ -1130,5 +1131,103 @@ describe('SessionExerciseList', () => {
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).getByLabelText('Reps for set 1')).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+  });
+
+  it('renders related history collapsed by default and expands on demand', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+    useLastPerformanceSpy.mockReturnValue({
+      data: {
+        history: {
+          date: '2026-03-12',
+          sessionId: 'session-10',
+          sets: [{ completed: true, reps: 10, setNumber: 1, weight: 55 }],
+        },
+        related: [
+          {
+            exerciseId: 'incline-bench',
+            exerciseName: 'Incline Bench Press',
+            history: {
+              date: '2026-03-08',
+              sessionId: 'session-8',
+              sets: [{ completed: true, reps: 8, setNumber: 1, weight: 60 }],
+            },
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        enableApiLastPerformance
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    expect(rowErgCard).not.toBeNull();
+    expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).getByText('Related history')).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).not.toBeVisible();
+
+    fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
+    expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).toBeVisible();
+
+    useLastPerformanceSpy.mockRestore();
+  });
+
+  it('hides related history section when no related exercises are configured', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+    useLastPerformanceSpy.mockReturnValue({
+      data: {
+        history: null,
+        related: [],
+      },
+    } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        enableApiLastPerformance
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onRestTimerComplete={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    expect(rowErgCard).not.toBeNull();
+    expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).queryByText('Related history')).not.toBeInTheDocument();
+
+    useLastPerformanceSpy.mockRestore();
   });
 });

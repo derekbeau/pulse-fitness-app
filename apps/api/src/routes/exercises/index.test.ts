@@ -434,6 +434,117 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns exact and related history when includeRelated=true', async () => {
+    seedExercise({
+      id: 'flat-bench',
+      userId: 'user-1',
+      name: 'Flat Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+      relatedExerciseIds: ['incline-bench', 'db-bench'],
+    });
+    seedExercise({
+      id: 'incline-bench',
+      userId: 'user-1',
+      name: 'Incline Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'db-bench',
+      userId: 'user-1',
+      name: 'Dumbbell Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+
+    seedWorkoutSession({
+      id: 'session-flat',
+      userId: 'user-1',
+      name: 'Push Day',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+    });
+    seedWorkoutSession({
+      id: 'session-incline',
+      userId: 'user-1',
+      name: 'Push Day 2',
+      date: '2026-03-11',
+      status: 'completed',
+      startedAt: 1_700_000_010_000,
+      completedAt: 1_700_000_015_000,
+    });
+
+    seedSessionSet({
+      id: 'set-flat-1',
+      sessionId: 'session-flat',
+      exerciseId: 'flat-bench',
+      setNumber: 1,
+      weight: 205,
+      reps: 5,
+    });
+    seedSessionSet({
+      id: 'set-incline-1',
+      sessionId: 'session-incline',
+      exerciseId: 'incline-bench',
+      setNumber: 1,
+      weight: 185,
+      reps: 6,
+    });
+
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/flat-bench/last-performance?includeRelated=true',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        history: {
+          sessionId: 'session-flat',
+          date: '2026-03-10',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 205,
+              reps: 5,
+            },
+          ],
+        },
+        related: [
+          {
+            exerciseId: 'incline-bench',
+            exerciseName: 'Incline Bench Press',
+            history: {
+              sessionId: 'session-incline',
+              date: '2026-03-11',
+              sets: [
+                {
+                  setNumber: 1,
+                  weight: 185,
+                  reps: 6,
+                },
+              ],
+            },
+          },
+          {
+            exerciseId: 'db-bench',
+            exerciseName: 'Dumbbell Bench Press',
+            history: null,
+          },
+        ],
+      },
+    });
+  });
+
   it('creates a user-specific exercise for the authenticated user', async () => {
     const authToken = context.app.jwt.sign({ userId: 'user-1' });
 

@@ -3,7 +3,9 @@ import type {
   CreateExerciseInput,
   Exercise,
   ExerciseCategory,
+  ExerciseHistoryWithRelated,
   ExerciseLastPerformance,
+  RelatedExerciseLastPerformance,
   UpdateExerciseInput,
 } from '@pulse/shared';
 
@@ -28,6 +30,10 @@ type ListExercisesInput = {
 type ExerciseOwnershipRecord = {
   id: string;
   userId: string | null;
+};
+
+type VisibleExerciseRecord = ExerciseOwnershipRecord & {
+  relatedExerciseIds: string[];
 };
 
 export type ExerciseDedupCandidate = {
@@ -297,13 +303,14 @@ export const findVisibleExerciseById = async ({
 }: {
   id: string;
   userId: string;
-}): Promise<ExerciseOwnershipRecord | undefined> => {
+}): Promise<VisibleExerciseRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
   return db
     .select({
       id: exercises.id,
       userId: exercises.userId,
+      relatedExerciseIds: exercises.relatedExerciseIds,
     })
     .from(exercises)
     .where(
@@ -607,5 +614,63 @@ export const findExerciseLastPerformance = async ({
       weight: set.weight,
       reps: set.reps,
     })),
+  };
+};
+
+export const findExerciseHistoryWithRelated = async ({
+  exerciseId,
+  relatedExerciseIds,
+  userId,
+}: {
+  exerciseId: string;
+  relatedExerciseIds: string[];
+  userId: string;
+}): Promise<ExerciseHistoryWithRelated> => {
+  const history = (await findExerciseLastPerformance({
+    exerciseId,
+    userId,
+  })) ?? null;
+
+  const uniqueRelatedIds = [...new Set(relatedExerciseIds)];
+  if (uniqueRelatedIds.length === 0) {
+    return {
+      history,
+      related: [],
+    };
+  }
+
+  const { db } = await import('../../db/index.js');
+  const relatedExercises = await db
+    .select({
+      id: exercises.id,
+      name: exercises.name,
+    })
+    .from(exercises)
+    .where(and(inArray(exercises.id, uniqueRelatedIds), eq(exercises.userId, userId)))
+    .all();
+
+  const relatedNameById = new Map(relatedExercises.map((exercise) => [exercise.id, exercise.name]));
+  const orderedRelated = uniqueRelatedIds
+    .filter((relatedId) => relatedNameById.has(relatedId))
+    .map((relatedId) => ({
+      id: relatedId,
+      name: relatedNameById.get(relatedId) ?? relatedId,
+    }));
+
+  const relatedHistory = await Promise.all(
+    orderedRelated.map(async (relatedExercise): Promise<RelatedExerciseLastPerformance> => ({
+      exerciseId: relatedExercise.id,
+      exerciseName: relatedExercise.name,
+      history:
+        (await findExerciseLastPerformance({
+          exerciseId: relatedExercise.id,
+          userId,
+        })) ?? null,
+    })),
+  );
+
+  return {
+    history,
+    related: relatedHistory,
   };
 };

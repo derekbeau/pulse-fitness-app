@@ -106,6 +106,10 @@ export const exerciseQueryParamsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const exerciseLastPerformanceQuerySchema = z.object({
+  includeRelated: z.coerce.boolean().optional().default(false),
+});
+
 export const exerciseLastPerformanceSetSchema = z.object({
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable(),
@@ -118,11 +122,25 @@ export const exerciseLastPerformanceSchema = z.object({
   sets: z.array(exerciseLastPerformanceSetSchema).max(100),
 });
 
+export const relatedExerciseLastPerformanceSchema = z.object({
+  exerciseId: z.string(),
+  exerciseName: requiredStringSchema,
+  history: exerciseLastPerformanceSchema.nullable(),
+});
+
+export const exerciseHistoryWithRelatedSchema = z.object({
+  history: exerciseLastPerformanceSchema.nullable(),
+  related: z.array(relatedExerciseLastPerformanceSchema).max(200),
+});
+
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;
 export type ExerciseTrackingType = z.infer<typeof exerciseTrackingTypeSchema>;
 export type Exercise = z.infer<typeof exerciseSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseInputSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseInputSchema>;
 export type ExerciseQueryParams = z.infer<typeof exerciseQueryParamsSchema>;
+export type ExerciseLastPerformanceQuery = z.infer<typeof exerciseLastPerformanceQuerySchema>;
 export type ExerciseLastPerformance = z.infer<typeof exerciseLastPerformanceSchema>;
 export type ExerciseLastPerformanceSet = z.infer<typeof exerciseLastPerformanceSetSchema>;
+export type RelatedExerciseLastPerformance = z.infer<typeof relatedExerciseLastPerformanceSchema>;
+export type ExerciseHistoryWithRelated = z.infer<typeof exerciseHistoryWithRelatedSchema>;

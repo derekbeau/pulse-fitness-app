@@ -38,6 +38,17 @@ export type ActiveWorkoutLastPerformance = {
   sets: ActiveWorkoutLastPerformanceSet[];
 };
 
+export type ActiveWorkoutRelatedLastPerformance = {
+  exerciseId: string;
+  exerciseName: string;
+  history: ActiveWorkoutLastPerformance | null;
+};
+
+export type ActiveWorkoutExerciseHistorySummary = {
+  history: ActiveWorkoutLastPerformance | null;
+  related: ActiveWorkoutRelatedLastPerformance[];
+};
+
 export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
   category: WorkoutExerciseCategory;
