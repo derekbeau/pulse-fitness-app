@@ -27,8 +27,12 @@ const testState = vi.hoisted(() => {
 
   const selectGet = vi.fn();
   const selectAll = vi.fn();
+  const selectOffset = vi.fn(() => ({
+    all: selectAll,
+  }));
   const selectLimit = vi.fn(() => ({
     get: selectGet,
+    offset: selectOffset,
   }));
   const selectOrderBy = vi.fn(() => ({
     all: selectAll,
@@ -37,6 +41,7 @@ const testState = vi.hoisted(() => {
   const selectWhere = vi.fn(() => ({
     orderBy: selectOrderBy,
     limit: selectLimit,
+    get: selectGet,
   }));
   const selectFrom = vi.fn(() => ({
     where: selectWhere,
@@ -65,6 +70,7 @@ const testState = vi.hoisted(() => {
       selectWhere.mockClear();
       selectOrderBy.mockClear();
       selectLimit.mockClear();
+      selectOffset.mockClear();
       selectAll.mockClear();
       selectGet.mockClear();
     },
@@ -81,6 +87,7 @@ const testState = vi.hoisted(() => {
     selectWhere,
     selectOrderBy,
     selectLimit,
+    selectOffset,
     selectAll,
     selectGet,
   };
@@ -254,6 +261,50 @@ describe('weight store', () => {
     });
     await expect(getLatestBodyWeightEntry('user-1')).resolves.toBeNull();
     expect(testState.selectLimit).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies database pagination and returns total count for paginated listing', async () => {
+    testState.selectAll.mockReturnValue([
+      {
+        id: 'entry-5',
+        date: '2026-03-08',
+        weight: 182.1,
+        notes: null,
+        createdAt: 1_700_000_000_400,
+        updatedAt: 1_700_000_000_400,
+      },
+    ]);
+    testState.selectGet.mockReturnValue({ total: 12 });
+
+    const { listBodyWeightEntriesPaginated } = await import('./store.js');
+    const result = await listBodyWeightEntriesPaginated(
+      'user-1',
+      {
+        from: '2026-03-01',
+        to: '2026-03-31',
+      },
+      {
+        limit: 10,
+        offset: 10,
+      },
+    );
+
+    expect(result).toEqual({
+      entries: [
+        {
+          id: 'entry-5',
+          date: '2026-03-08',
+          weight: 182.1,
+          notes: null,
+          createdAt: 1_700_000_000_400,
+          updatedAt: 1_700_000_000_400,
+        },
+      ],
+      total: 12,
+    });
+    expect(testState.selectLimit).toHaveBeenCalledWith(10);
+    expect(testState.selectOffset).toHaveBeenCalledWith(10);
+    expect(testState.selectGet).toHaveBeenCalledTimes(1);
   });
 
   it('deletes an entry only when id and userId match', async () => {
