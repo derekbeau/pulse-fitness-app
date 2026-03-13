@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   DndContext,
@@ -16,7 +16,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDown, ArrowUp, GripVertical, MoreVertical, Plus } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Braces,
+  GripVertical,
+  Link2Off,
+  MoreVertical,
+  Plus,
+} from 'lucide-react';
 
 import type {
   Exercise,
@@ -32,6 +40,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
@@ -48,6 +57,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useLastPerformance } from '@/hooks/use-last-performance';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
@@ -60,6 +70,7 @@ import {
   useRenameExercise,
   useReorderTemplateExercises,
   useScheduleWorkout,
+  useUpdateExercise,
   useUpdateTemplate,
   useWorkoutTemplate,
 } from '../api/workouts';
@@ -97,7 +108,19 @@ const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
   cooldown: 'border-l-[var(--color-accent-cream)]',
 };
 
+const supersetAccentStyles = [
+  'border-l-[var(--color-accent-mint)] bg-[var(--color-accent-mint)]/5',
+  'border-l-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/5',
+  'border-l-[var(--color-accent-pink)] bg-[var(--color-accent-pink)]/5',
+  'border-l-[var(--color-accent-cream)] bg-[var(--color-accent-cream)]/12',
+];
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
 
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const { weightUnit } = useWeightUnit();
@@ -108,6 +131,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const scheduleWorkoutMutation = useScheduleWorkout();
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
+  const updateExerciseMutation = useUpdateExercise();
   const updateTemplateMutation = useUpdateTemplate();
   const template = templateQuery.data ?? null;
 
@@ -120,6 +144,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     exerciseName: string;
   } | null>(null);
   const [addSectionTarget, setAddSectionTarget] = useState<WorkoutTemplateSectionType | null>(null);
+  const [supersetSectionTarget, setSupersetSectionTarget] = useState<WorkoutTemplateSectionType | null>(
+    null,
+  );
+  const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
+    exerciseId: string;
+    templateExerciseId: string;
+  } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
   const sensors = useSensors(
@@ -325,6 +356,71 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     );
   };
 
+  const updateSectionSupersetGroup = (
+    sectionType: WorkoutTemplateSectionType,
+    templateExerciseIds: string[],
+    supersetGroup: string | null,
+  ) => {
+    if (!template || templateExerciseIds.length === 0) {
+      return;
+    }
+
+    const section = template.sections.find((item) => item.type === sectionType);
+    if (!section) {
+      return;
+    }
+
+    const selectedIndexes = new Set<number>();
+    section.exercises.forEach((exercise, index) => {
+      if (templateExerciseIds.includes(exercise.id)) {
+        selectedIndexes.add(index);
+      }
+    });
+
+    if (selectedIndexes.size === 0) {
+      return;
+    }
+
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => {
+          if (section.type !== sectionType) {
+            return section;
+          }
+
+          return {
+            ...section,
+            exercises: section.exercises.map((exercise, index) =>
+              selectedIndexes.has(index) ? { ...exercise, supersetGroup } : exercise,
+            ),
+          };
+        }),
+      {
+        onError: () => toast.error('Unable to update superset. Try again.'),
+      },
+    );
+  };
+
+  const activeExerciseDetail = (() => {
+    if (!template || !exerciseDetailTarget) {
+      return null;
+    }
+
+    for (const section of template.sections) {
+      const exercise = section.exercises.find(
+        (item) => item.id === exerciseDetailTarget.templateExerciseId,
+      );
+      if (exercise) {
+        return {
+          sectionType: section.type,
+          exercise,
+        };
+      }
+    }
+
+    return null;
+  })();
+
   return (
     <section className="space-y-6">
       <Card className="gap-4 overflow-hidden border-transparent bg-card/80 py-0">
@@ -421,60 +517,152 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                     items={section.exercises.map((exercise) => exercise.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {section.exercises.map((exercise, index) => (
-                      <TemplateExerciseCard
-                        exercise={exercise}
-                        index={index}
-                        isMoveDownDisabled={index === section.exercises.length - 1}
-                        isMoveUpDisabled={index === 0}
-                        key={exercise.id}
-                        onMoveDown={() => {
-                          if (index >= section.exercises.length - 1) {
-                            return;
-                          }
+                    {buildTemplateExerciseGroups(section.exercises).map((group) => {
+                      if (group.type === 'single') {
+                        const index = group.index;
+                        const exercise = group.exercise;
+                        return (
+                          <TemplateExerciseCard
+                            exercise={exercise}
+                            index={index}
+                            isMoveDownDisabled={index === section.exercises.length - 1}
+                            isMoveUpDisabled={index === 0}
+                            key={exercise.id}
+                            onMoveDown={() => {
+                              if (index >= section.exercises.length - 1) {
+                                return;
+                              }
 
-                          const reordered = arrayMove(section.exercises, index, index + 1);
-                          reorderExercisesMutation.mutate({
-                            templateId: template.id,
-                            section: section.type,
-                            exerciseIds: reordered.map((item) => item.id),
-                          });
-                        }}
-                        onMoveUp={() => {
-                          if (index <= 0) {
-                            return;
-                          }
+                              const reordered = arrayMove(section.exercises, index, index + 1);
+                              reorderExercisesMutation.mutate({
+                                templateId: template.id,
+                                section: section.type,
+                                exerciseIds: reordered.map((item) => item.id),
+                              });
+                            }}
+                            onMoveUp={() => {
+                              if (index <= 0) {
+                                return;
+                              }
 
-                          const reordered = arrayMove(section.exercises, index, index - 1);
-                          reorderExercisesMutation.mutate({
-                            templateId: template.id,
-                            section: section.type,
-                            exerciseIds: reordered.map((item) => item.id),
-                          });
-                        }}
-                        onRename={() =>
-                          setRenameTarget({
-                            exerciseId: exercise.exerciseId,
-                            exerciseName: exercise.exerciseName,
-                          })
-                        }
-                        onSaveInline={(fields) =>
-                          saveExerciseEdits(section.type, exercise.id, fields)
-                        }
-                        onSwap={() =>
-                          setSwapTarget({
-                            exerciseId: exercise.exerciseId,
-                            exerciseName: exercise.exerciseName,
-                          })
-                        }
-                        weightUnit={weightUnit}
-                      />
-                    ))}
+                              const reordered = arrayMove(section.exercises, index, index - 1);
+                              reorderExercisesMutation.mutate({
+                                templateId: template.id,
+                                section: section.type,
+                                exerciseIds: reordered.map((item) => item.id),
+                              });
+                            }}
+                            onOpenDetails={() =>
+                              setExerciseDetailTarget({
+                                exerciseId: exercise.exerciseId,
+                                templateExerciseId: exercise.id,
+                              })
+                            }
+                            onRename={() =>
+                              setRenameTarget({
+                                exerciseId: exercise.exerciseId,
+                                exerciseName: exercise.exerciseName,
+                              })
+                            }
+                            onSaveInline={(fields) =>
+                              saveExerciseEdits(section.type, exercise.id, fields)
+                            }
+                            onSwap={() =>
+                              setSwapTarget({
+                                exerciseId: exercise.exerciseId,
+                                exerciseName: exercise.exerciseName,
+                              })
+                            }
+                            weightUnit={weightUnit}
+                          />
+                        );
+                      }
+
+                      const supersetAccentClass = getSupersetAccentClass(group.groupId);
+
+                      return (
+                        <div
+                          className={cn(
+                            'relative space-y-2 rounded-2xl border border-border/90 border-l-4 px-3 py-3',
+                            supersetAccentClass,
+                          )}
+                          data-testid={`superset-group-${group.groupId}`}
+                          key={`${group.groupId}-${group.exercises[0]?.id ?? 'group'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Braces aria-hidden="true" className="size-4 text-muted" />
+                            <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                              {formatSupersetLabel(group.groupId)}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {group.exercises.map((exercise, exerciseIndex) => {
+                              const index = group.startIndex + exerciseIndex;
+                              return (
+                                <TemplateExerciseCard
+                                  exercise={exercise}
+                                  index={index}
+                                  isMoveDownDisabled={index === section.exercises.length - 1}
+                                  isMoveUpDisabled={index === 0}
+                                  key={exercise.id}
+                                  onMoveDown={() => {
+                                    if (index >= section.exercises.length - 1) {
+                                      return;
+                                    }
+
+                                    const reordered = arrayMove(section.exercises, index, index + 1);
+                                    reorderExercisesMutation.mutate({
+                                      templateId: template.id,
+                                      section: section.type,
+                                      exerciseIds: reordered.map((item) => item.id),
+                                    });
+                                  }}
+                                  onMoveUp={() => {
+                                    if (index <= 0) {
+                                      return;
+                                    }
+
+                                    const reordered = arrayMove(section.exercises, index, index - 1);
+                                    reorderExercisesMutation.mutate({
+                                      templateId: template.id,
+                                      section: section.type,
+                                      exerciseIds: reordered.map((item) => item.id),
+                                    });
+                                  }}
+                                  onOpenDetails={() =>
+                                    setExerciseDetailTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      templateExerciseId: exercise.id,
+                                    })
+                                  }
+                                  onRename={() =>
+                                    setRenameTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      exerciseName: exercise.exerciseName,
+                                    })
+                                  }
+                                  onSaveInline={(fields) =>
+                                    saveExerciseEdits(section.type, exercise.id, fields)
+                                  }
+                                  onSwap={() =>
+                                    setSwapTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      exerciseName: exercise.exerciseName,
+                                    })
+                                  }
+                                  weightUnit={weightUnit}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </SortableContext>
                 </DndContext>
               )}
 
-              <div className="pt-1">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   aria-label={`Add exercise to ${sectionLabels[section.type]} section`}
                   className="w-full justify-center text-sm sm:w-auto"
@@ -486,6 +674,18 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                   <Plus aria-hidden="true" className="size-4" />
                   Add exercise
                 </Button>
+                {section.exercises.length >= 2 ? (
+                  <Button
+                    className="w-full justify-center text-sm sm:w-auto"
+                    onClick={() => setSupersetSectionTarget(section.type)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Braces aria-hidden="true" className="size-4" />
+                    Manage supersets
+                  </Button>
+                ) : null}
               </div>
             </div>
           </details>
@@ -558,6 +758,39 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         sourceExerciseName={swapTarget?.exerciseName ?? ''}
         sourceLabel="this template"
       />
+      {supersetSectionTarget ? (
+        <SupersetManagerDialog
+          onApply={(exerciseIds, supersetGroup) => {
+            updateSectionSupersetGroup(supersetSectionTarget, exerciseIds, supersetGroup);
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSupersetSectionTarget(null);
+            }
+          }}
+          section={template.sections.find((section) => section.type === supersetSectionTarget) ?? null}
+        />
+      ) : null}
+      {exerciseDetailTarget && activeExerciseDetail ? (
+        <ExerciseDetailModal
+          key={exerciseDetailTarget.templateExerciseId}
+          exercise={activeExerciseDetail.exercise}
+          isPending={updateExerciseMutation.isPending}
+          onOpenChange={(open) => {
+            if (!open) {
+              setExerciseDetailTarget(null);
+            }
+          }}
+          onSaveCoachingNotes={(exerciseId, coachingNotes) =>
+            updateExerciseMutation.mutateAsync({
+              id: exerciseId,
+              input: {
+                coachingNotes,
+              },
+            })
+          }
+        />
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -642,6 +875,7 @@ function TemplateExerciseCard({
   isMoveUpDisabled,
   onMoveDown,
   onMoveUp,
+  onOpenDetails,
   onRename,
   onSaveInline,
   onSwap,
@@ -653,6 +887,7 @@ function TemplateExerciseCard({
   isMoveUpDisabled: boolean;
   onMoveDown: () => void;
   onMoveUp: () => void;
+  onOpenDetails: () => void;
   onRename: () => void;
   onSaveInline: (fields: EditableExerciseFields) => void;
   onSwap: () => void;
@@ -706,7 +941,13 @@ function TemplateExerciseCard({
             </Button>
             <div className="min-w-0 space-y-0.5">
               <CardTitle className="truncate text-base font-semibold sm:text-lg">
-                {exercise.exerciseName}
+                <button
+                  className="cursor-pointer truncate text-left hover:text-primary hover:underline"
+                  onClick={onOpenDetails}
+                  type="button"
+                >
+                  {exercise.exerciseName}
+                </button>
               </CardTitle>
               <p className="text-xs font-medium text-muted sm:text-sm">{compactSummary}</p>
               {exercise.notes ? (
@@ -820,6 +1061,352 @@ function TemplateExerciseCard({
         </details>
       </CardContent>
     </Card>
+  );
+}
+
+function SupersetManagerDialog({
+  onApply,
+  onOpenChange,
+  section,
+}: {
+  onApply: (templateExerciseIds: string[], supersetGroup: string | null) => void;
+  onOpenChange: (open: boolean) => void;
+  section: WorkoutTemplate['sections'][number] | null;
+}) {
+  const supersetGroups = useMemo(() => {
+    if (!section) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        section.exercises
+          .map((exercise) => exercise.supersetGroup)
+          .filter((group): group is string => typeof group === 'string' && group.length > 0),
+      ),
+    ];
+  }, [section]);
+  const [newSupersetName, setNewSupersetName] = useState(() => getNextSupersetName(supersetGroups));
+  const [selectedGroup, setSelectedGroup] = useState(() => supersetGroups[0] ?? '');
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Manage supersets</DialogTitle>
+          <DialogDescription>
+            Select exercises to create a new superset, edit an existing group, or remove grouping.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!section ? null : (
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-3">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Exercises
+              </p>
+              <div className="space-y-2">
+                {section.exercises.map((exercise, index) => (
+                  <label
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                    key={exercise.id}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedExerciseIds.includes(exercise.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedExerciseIds((current) => {
+                            if (checked !== true) {
+                              return current.filter((value) => value !== exercise.id);
+                            }
+
+                            if (current.includes(exercise.id)) {
+                              return current;
+                            }
+
+                            return [...current, exercise.id];
+                          });
+                        }}
+                      />
+                      <span className="text-sm text-foreground">
+                        {index + 1}. {exercise.exerciseName}
+                      </span>
+                    </span>
+                    {exercise.supersetGroup ? (
+                      <Badge variant="secondary">{formatSupersetLabel(exercise.supersetGroup)}</Badge>
+                    ) : (
+                      <Badge variant="outline">Ungrouped</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Create superset
+                </p>
+                <Input
+                  aria-label="Superset name"
+                  onChange={(event) => setNewSupersetName(event.currentTarget.value)}
+                  placeholder="Superset A"
+                  value={newSupersetName}
+                />
+                <Button
+                  className="w-full"
+                  disabled={selectedExerciseIds.length < 2}
+                  onClick={() => {
+                    const supersetGroup = toSupersetGroupId(newSupersetName);
+                    if (!supersetGroup) {
+                      toast.error('Superset name is required');
+                      return;
+                    }
+
+                    onApply(selectedExerciseIds, supersetGroup);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                >
+                  Create superset
+                </Button>
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                  Edit superset
+                </p>
+                <select
+                  aria-label="Existing superset"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  onChange={(event) => setSelectedGroup(event.currentTarget.value)}
+                  value={selectedGroup}
+                >
+                  <option value="">Select superset</option>
+                  {supersetGroups.map((group) => (
+                    <option key={group} value={group}>
+                      {formatSupersetLabel(group)}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  className="w-full"
+                  disabled={!selectedGroup || selectedExerciseIds.length === 0}
+                  onClick={() => {
+                    onApply(selectedExerciseIds, selectedGroup);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Add selected to superset
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={selectedExerciseIds.length === 0}
+              onClick={() => {
+                onApply(selectedExerciseIds, null);
+                onOpenChange(false);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <Link2Off aria-hidden="true" className="size-4" />
+              Remove superset
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ExerciseDetailModal({
+  exercise,
+  isPending,
+  onOpenChange,
+  onSaveCoachingNotes,
+}: {
+  exercise: WorkoutTemplateExercise;
+  isPending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
+  const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const exerciseQuery = useExercises(
+    {
+      page: 1,
+      limit: 20,
+      q: exercise.exerciseName,
+    },
+    { enabled: true },
+  );
+  const historyQuery = useLastPerformance(exercise.exerciseId, {
+    enabled: true,
+    includeRelated: true,
+  });
+
+  const matchedExercise = useMemo(
+    () => exerciseQuery.data?.data.find((item) => item.id === exercise.exerciseId) ?? null,
+    [exercise.exerciseId, exerciseQuery.data?.data],
+  );
+
+  const formCues = matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
+  const instructionText = matchedExercise?.instructions ?? exercise.exercise?.instructions ?? null;
+  const muscleGroups = matchedExercise?.muscleGroups ?? [];
+  const trackingType = matchedExercise?.trackingType ?? exercise.trackingType;
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <>
+            <DialogHeader>
+              <DialogTitle>{exercise.exerciseName}</DialogTitle>
+              <DialogDescription>
+                {formatTrackingTypeLabel(trackingType)} •{' '}
+                {muscleGroups.length > 0 ? muscleGroups.join(', ') : 'Muscle groups not specified'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex gap-2 border-b border-border pb-2">
+              <Button
+                onClick={() => setActiveTab('overview')}
+                size="sm"
+                type="button"
+                variant={activeTab === 'overview' ? 'default' : 'outline'}
+              >
+                Overview
+              </Button>
+              <Button
+                onClick={() => setActiveTab('history')}
+                size="sm"
+                type="button"
+                variant={activeTab === 'history' ? 'default' : 'outline'}
+              >
+                History
+              </Button>
+              <Button
+                onClick={() => setActiveTab('related')}
+                size="sm"
+                type="button"
+                variant={activeTab === 'related' ? 'default' : 'outline'}
+              >
+                Related
+              </Button>
+            </div>
+
+            {activeTab === 'overview' ? (
+              <div className="space-y-4">
+                {formCues.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                      Form cues
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {formCues.map((cue) => (
+                        <Badge key={cue} variant="secondary">
+                          {cue}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {instructionText ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                      Instructions
+                    </p>
+                    <p className="text-sm text-foreground">{instructionText}</p>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                    Coaching notes
+                  </p>
+                  <Textarea
+                    aria-label="Coaching notes"
+                    onChange={(event) => setCoachingNotes(event.currentTarget.value)}
+                    rows={4}
+                    value={coachingNotes}
+                  />
+                  <Button
+                    disabled={isPending || isSaving}
+                    onClick={() => {
+                      setIsSaving(true);
+                      onSaveCoachingNotes(exercise.exerciseId, toNullableString(coachingNotes))
+                        .then(() => {
+                          toast.success('Coaching notes saved');
+                        })
+                        .catch((error) => {
+                          const message =
+                            error instanceof Error ? error.message : 'Unable to save coaching notes';
+                          toast.error(message);
+                        })
+                        .finally(() => {
+                          setIsSaving(false);
+                        });
+                    }}
+                    type="button"
+                  >
+                    Save coaching notes
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {activeTab === 'history' ? (
+              <div className="space-y-2">
+                {historyQuery.isPending ? (
+                  <p className="text-sm text-muted">Loading recent performance...</p>
+                ) : (
+                  <p className="text-sm text-foreground">
+                    {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType)}
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {activeTab === 'related' ? (
+              <div className="space-y-2">
+                {historyQuery.isPending ? (
+                  <p className="text-sm text-muted">Loading related exercises...</p>
+                ) : historyQuery.data?.related.length ? (
+                  historyQuery.data.related.map((relatedExercise) => (
+                    <div
+                      className="space-y-1 rounded-lg border border-border bg-card px-3 py-2"
+                      key={relatedExercise.exerciseId}
+                    >
+                      <p className="text-sm font-semibold text-foreground">
+                        {relatedExercise.exerciseName}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {formatTrackingTypeLabel(relatedExercise.trackingType)}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {formatLastPerformanceSummary(
+                          relatedExercise.history,
+                          relatedExercise.trackingType,
+                        )}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted">No related exercises configured.</p>
+                )}
+              </div>
+            ) : null}
+          </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -992,6 +1579,148 @@ function TemplateDetailSkeleton() {
       ))}
     </section>
   );
+}
+
+function buildTemplateExerciseGroups(exercises: WorkoutTemplateExercise[]) {
+  const groups: Array<
+    | { type: 'single'; exercise: WorkoutTemplateExercise; index: number }
+    | {
+        type: 'superset';
+        groupId: string;
+        exercises: WorkoutTemplateExercise[];
+        startIndex: number;
+      }
+  > = [];
+
+  let index = 0;
+  while (index < exercises.length) {
+    const currentExercise = exercises[index];
+    if (!currentExercise) {
+      break;
+    }
+
+    if (!currentExercise.supersetGroup) {
+      groups.push({
+        type: 'single',
+        exercise: currentExercise,
+        index,
+      });
+      index += 1;
+      continue;
+    }
+
+    const groupedExercises = [currentExercise];
+    let nextIndex = index + 1;
+    while (nextIndex < exercises.length && exercises[nextIndex]?.supersetGroup === currentExercise.supersetGroup) {
+      const nextExercise = exercises[nextIndex];
+      if (nextExercise) {
+        groupedExercises.push(nextExercise);
+      }
+      nextIndex += 1;
+    }
+
+    if (groupedExercises.length >= 2) {
+      groups.push({
+        type: 'superset',
+        groupId: currentExercise.supersetGroup,
+        exercises: groupedExercises,
+        startIndex: index,
+      });
+      index = nextIndex;
+      continue;
+    }
+
+    groups.push({
+      type: 'single',
+      exercise: currentExercise,
+      index,
+    });
+    index += 1;
+  }
+
+  return groups;
+}
+
+function getSupersetAccentClass(groupId: string) {
+  let hash = 0;
+
+  for (const character of groupId) {
+    hash = (hash + character.charCodeAt(0)) % supersetAccentStyles.length;
+  }
+
+  return supersetAccentStyles[hash] ?? supersetAccentStyles[0];
+}
+
+function formatSupersetLabel(groupId: string) {
+  return groupId
+    .replace(/^superset-?/i, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .trim()
+    .replace(/^/, 'Superset ');
+}
+
+function getNextSupersetName(existingGroups: string[]) {
+  const used = new Set(
+    existingGroups
+      .map((group) => group.replace(/^superset-?/i, '').trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (const letter of letters) {
+    if (!used.has(letter)) {
+      return `Superset ${letter}`;
+    }
+  }
+
+  return `Superset ${existingGroups.length + 1}`;
+}
+
+function toSupersetGroupId(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^superset\s+/, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (!normalized) {
+    return null;
+  }
+
+  return `superset-${normalized}`.slice(0, 255);
+}
+
+function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
+  return trackingType.replaceAll('_', ' ');
+}
+
+function formatLastPerformanceSummary(
+  history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
+  trackingType: ExerciseTrackingType,
+) {
+  if (!history || history.sets.length === 0) {
+    return 'No history yet.';
+  }
+
+  const setSummary = history.sets
+    .map((set) => {
+      switch (trackingType) {
+        case 'weight_reps':
+        case 'weight_seconds':
+          return set.weight != null ? `${set.weight} x ${set.reps}` : `${set.reps}`;
+        case 'seconds_only':
+          return `${set.reps}s`;
+        case 'distance':
+          return `${set.reps} distance`;
+        default:
+          return `${set.reps} reps`;
+      }
+    })
+    .join(', ');
+
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
 }
 
 function formatLabel(value: string) {
