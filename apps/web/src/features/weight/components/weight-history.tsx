@@ -1,16 +1,9 @@
 import { Scale, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useDeleteWeight, useWeightTrend } from '@/features/weight/api/weight';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { parseDateInput } from '@/lib/date';
@@ -21,17 +14,12 @@ const entryDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-type PendingDeleteWeight = {
-  date: string;
-  id: string;
-};
-
 function formatEntryDate(dateKey: string) {
   return entryDateFormatter.format(parseDateInput(`${dateKey}T00:00:00`));
 }
 
 export function WeightHistory() {
-  const [pendingDeleteWeight, setPendingDeleteWeight] = useState<PendingDeleteWeight | null>(null);
+  const { confirm, dialog } = useConfirmation();
   // Intentional for now: this view is a full history log. Add pagination/date bounds if dataset size becomes a UX issue.
   const weightEntriesQuery = useWeightTrend();
   const deleteWeightMutation = useDeleteWeight();
@@ -44,24 +32,25 @@ export function WeightHistory() {
     [weightEntriesQuery.data],
   );
 
-  async function handleDelete() {
-    if (!pendingDeleteWeight) {
-      return;
-    }
-
-    try {
-      await deleteWeightMutation.mutateAsync(pendingDeleteWeight.id);
-    } catch {
-      // Error feedback is handled by the mutation onError callback.
-      return;
-    } finally {
-      setPendingDeleteWeight(null);
-    }
+  function handleDelete(entry: { date: string; id: string }) {
+    confirm({
+      title: 'Delete weight entry?',
+      description: `This will permanently remove your entry from ${formatEntryDate(entry.date)}.`,
+      confirmLabel: 'Delete entry',
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          await deleteWeightMutation.mutateAsync(entry.id);
+        } catch {
+          // Error feedback is handled by the mutation onError callback.
+          return;
+        }
+      },
+    });
   }
 
   const isLoading = weightEntriesQuery.isLoading;
   const isError = weightEntriesQuery.isError;
-  const isDeletePending = deleteWeightMutation.isPending;
   const isEmpty = !isLoading && !isError && sortedWeightEntries.length === 0;
 
   return (
@@ -106,9 +95,7 @@ export function WeightHistory() {
                 <Button
                   aria-label={`Delete weight entry from ${formattedDate}`}
                   className="min-h-[44px] min-w-[44px]"
-                  onClick={() => {
-                    setPendingDeleteWeight({ date: entry.date, id: entry.id });
-                  }}
+                  onClick={() => handleDelete({ date: entry.date, id: entry.id })}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -120,49 +107,7 @@ export function WeightHistory() {
           })}
         </ul>
       ) : null}
-
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingDeleteWeight(null);
-          }
-        }}
-        open={pendingDeleteWeight !== null}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete this weight entry?</DialogTitle>
-            <DialogDescription>
-              {pendingDeleteWeight
-                ? `This will permanently remove your entry from ${formatEntryDate(pendingDeleteWeight.date)}.`
-                : 'This action cannot be undone.'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              className="min-h-[44px]"
-              onClick={() => {
-                setPendingDeleteWeight(null);
-              }}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              className="min-h-[44px]"
-              disabled={isDeletePending}
-              onClick={() => {
-                void handleDelete();
-              }}
-              type="button"
-              variant="destructive"
-            >
-              {isDeletePending ? 'Deleting...' : 'Delete entry'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {dialog}
     </section>
   );
 }

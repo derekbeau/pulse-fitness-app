@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -125,6 +125,11 @@ describe('Sidebar', () => {
     renderSidebar(store);
 
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    expect(store.logout).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Sign out?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Sign out' }));
 
     expect(store.logout).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });

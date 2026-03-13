@@ -3,18 +3,9 @@ import { useMemo, useState } from 'react';
 import type { TrashItem, TrashType } from '@pulse/shared';
 import { ChevronDownIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { usePurgeItem, useRestoreItem, useTrashItems } from '@/features/settings/api/trash';
 
 const TRASH_GROUPS: Array<{ label: string; type: TrashType }> = [
@@ -39,11 +30,11 @@ function formatDeletedAt(value: string): string {
 }
 
 export function TrashManager() {
+  const { confirm, dialog } = useConfirmation();
   const { data, isPending } = useTrashItems();
   const restoreItemMutation = useRestoreItem();
   const purgeItemMutation = usePurgeItem();
   const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
-  const [purgeTarget, setPurgeTarget] = useState<TrashItem | null>(null);
 
   const itemGroups = useMemo(() => {
     if (!data) {
@@ -76,20 +67,11 @@ export function TrashManager() {
     }
   }
 
-  async function handlePurgeItem() {
-    if (!purgeTarget) {
-      return;
-    }
-
-    try {
-      await purgeItemMutation.mutateAsync({
-        id: purgeTarget.id,
-        type: purgeTarget.type,
-      });
-      setPurgeTarget(null);
-    } catch {
-      // Keep dialog open to allow user retry if request fails.
-    }
+  async function handlePurgeItem(item: TrashItem) {
+    await purgeItemMutation.mutateAsync({
+      id: item.id,
+      type: item.type,
+    });
   }
 
   return (
@@ -160,7 +142,13 @@ export function TrashManager() {
                             className="min-w-36"
                             disabled={isRestoring || isPurgePending}
                             onClick={() => {
-                              setPurgeTarget(item);
+                              confirm({
+                                title: `Delete ${getTrashItemLabel(item.type)}?`,
+                                description: `This will permanently remove "${item.name}" from trash and it cannot be restored.`,
+                                confirmLabel: 'Delete permanently',
+                                variant: 'destructive',
+                                onConfirm: () => handlePurgeItem(item),
+                              });
                             }}
                             size="sm"
                             type="button"
@@ -179,36 +167,24 @@ export function TrashManager() {
           </div>
         )}
       </CardContent>
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open && !isPurgePending) {
-            setPurgeTarget(null);
-          }
-        }}
-        open={purgeTarget !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{purgeTarget?.name}" permanently?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This item will be removed forever and cannot be restored.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPurgePending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              disabled={isPurgePending}
-              onClick={() => {
-                void handlePurgeItem();
-              }}
-            >
-              {isPurgePending ? 'Deleting...' : 'Delete permanently'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </Card>
   );
+}
+
+function getTrashItemLabel(type: TrashType) {
+  switch (type) {
+    case 'habits':
+      return 'habit';
+    case 'workout-templates':
+      return 'template';
+    case 'exercises':
+      return 'exercise';
+    case 'foods':
+      return 'food';
+    case 'workout-sessions':
+      return 'workout session';
+    default:
+      return 'item';
+  }
 }

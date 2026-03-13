@@ -5,6 +5,7 @@ import { UtensilsCrossed } from 'lucide-react';
 import { MealCardSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavBar, MealCard, NutritionMacroRings } from '@/features/nutrition';
 import {
@@ -49,6 +50,7 @@ const EMPTY_TOTALS: MacroTotals = {
 export function NutritionPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const { confirm, dialog } = useConfirmation();
   const dateKey = formatDateKey(selectedDate);
 
   const dailyNutritionQuery = useDailyNutrition(dateKey);
@@ -96,15 +98,29 @@ export function NutritionPage() {
     void prefetchNutritionDay(queryClient, nextDateKey);
   }, [queryClient, selectedDate]);
 
-  async function handleDeleteMeal(mealId: string) {
-    try {
-      await deleteMealMutation.mutateAsync({
-        date: dateKey,
-        mealId,
-      });
-    } catch {
-      return;
-    }
+  function handleDeleteMeal(mealId: string) {
+    const mealName = selectedMeals.find((meal) => meal.id === mealId)?.name;
+    const dayLabel = formatDayLabel(dateKey);
+    const description = mealName
+      ? `This will permanently remove the ${mealName} meal logged on ${dayLabel}.`
+      : `This will permanently remove the meal logged on ${dayLabel}.`;
+
+    confirm({
+      title: 'Delete meal?',
+      description,
+      confirmLabel: 'Delete meal',
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          await deleteMealMutation.mutateAsync({
+            date: dateKey,
+            mealId,
+          });
+        } catch {
+          return;
+        }
+      },
+    });
   }
 
   return (
@@ -237,7 +253,7 @@ export function NutritionPage() {
                     deleteMealMutation.isPending && deleteMealMutation.variables?.mealId === meal.id
                   }
                   meal={meal}
-                  onDelete={(mealId) => void handleDeleteMeal(mealId)}
+                  onDelete={handleDeleteMeal}
                 />
               ))
             ) : (
@@ -258,6 +274,7 @@ export function NutritionPage() {
           </div>
         </>
       )}
+      {dialog}
     </section>
   );
 }

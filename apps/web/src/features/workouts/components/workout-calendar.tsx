@@ -5,16 +5,7 @@ import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -506,8 +497,8 @@ function ScheduledWorkoutActions({
 }) {
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
+  const { confirm, dialog } = useConfirmation();
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
-  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const isUnavailable =
     scheduledWorkout.templateId == null || scheduledWorkout.templateName == null;
   const templateId = scheduledWorkout.templateId;
@@ -523,9 +514,8 @@ function ScheduledWorkoutActions({
     });
   }
 
-  function handleRemove() {
-    void unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
-    setIsRemoveDialogOpen(false);
+  async function handleRemove() {
+    await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
   }
 
   return (
@@ -575,7 +565,18 @@ function ScheduledWorkoutActions({
               Reschedule
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => setIsRemoveDialogOpen(true)} variant="destructive">
+          <DropdownMenuItem
+            onSelect={() =>
+              confirm({
+                title: 'Delete scheduled workout?',
+                description: `This will remove "${scheduledWorkout.templateName ?? 'this workout'}" from ${fullDateFormatter.format(parseDateKey(scheduledWorkout.date))}.`,
+                confirmLabel: 'Delete workout',
+                variant: 'destructive',
+                onConfirm: handleRemove,
+              })
+            }
+            variant="destructive"
+          >
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -594,23 +595,7 @@ function ScheduledWorkoutActions({
           title="Reschedule workout"
         />
       ) : null}
-      <AlertDialog onOpenChange={setIsRemoveDialogOpen} open={isRemoveDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this scheduled workout?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove it from your calendar.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={unscheduleWorkoutMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={unscheduleWorkoutMutation.isPending}
-              onClick={handleRemove}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </>
   );
 }

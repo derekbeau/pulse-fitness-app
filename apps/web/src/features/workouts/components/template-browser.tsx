@@ -3,19 +3,10 @@ import { ArrowRight, ListChecks, MoreVertical, Search, Tag } from 'lucide-react'
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
   DialogContent,
@@ -61,9 +52,9 @@ export function TemplateBrowser({
   className,
   templates = [],
 }: TemplateBrowserProps) {
+  const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameTemplateMutation = useRenameTemplate();
@@ -94,6 +85,18 @@ export function TemplateBrowser({
     trimmedRenameValue.length > 0 &&
     trimmedRenameValue !== renameTarget.name &&
     !renameTemplateMutation.isPending;
+
+  async function handleDeleteTemplate(templateId: string) {
+    try {
+      await deleteTemplateMutation.mutateAsync({
+        id: templateId,
+      });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Unable to delete template.';
+      toast.error(message);
+      throw error;
+    }
+  }
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -179,9 +182,12 @@ export function TemplateBrowser({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
-                        setDeleteTarget({
-                          id: template.id,
-                          name: template.name,
+                        confirm({
+                          title: 'Delete template?',
+                          description: `This will permanently remove "${template.name}" from your templates.`,
+                          confirmLabel: 'Delete template',
+                          variant: 'destructive',
+                          onConfirm: () => handleDeleteTemplate(template.id),
                         })
                       }
                       variant="destructive"
@@ -294,54 +300,7 @@ export function TemplateBrowser({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
-        open={deleteTarget != null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this template?</AlertDialogTitle>
-            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTemplateMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteTemplateMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-
-                if (!deleteTarget) {
-                  return;
-                }
-
-                deleteTemplateMutation.mutate(
-                  {
-                    id: deleteTarget.id,
-                  },
-                  {
-                    onError: (error) => {
-                      const message =
-                        error instanceof ApiError ? error.message : 'Unable to delete template.';
-                      toast.error(message);
-                    },
-                    onSuccess: () => {
-                      setDeleteTarget(null);
-                    },
-                  },
-                );
-              }}
-            >
-              {deleteTemplateMutation.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
       <ScheduleWorkoutDialog
         description={`Pick a date for ${scheduleTarget?.name ?? 'this workout'}.`}
         initialDate={toDateKey(new Date())}

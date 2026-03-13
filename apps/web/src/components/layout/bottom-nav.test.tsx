@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { BottomNav } from '@/components/layout/bottom-nav';
@@ -124,6 +124,11 @@ describe('BottomNav', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Log out' }));
+    expect(store.logout).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Sign out?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Sign out' }));
 
     expect(store.logout).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });

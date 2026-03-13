@@ -9,18 +9,9 @@ import {
   TrashIcon,
 } from 'lucide-react';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
   DialogContent,
@@ -279,17 +270,15 @@ function TokenRow({
 }
 
 export function AgentTokensCard() {
+  const { confirm, dialog } = useConfirmation();
   const { data: tokens = [], isLoading } = useAgentTokens();
   const deleteMutation = useDeleteAgentToken();
 
   const [showCreate, setShowCreate] = useState(false);
   const [regenerateTarget, setRegenerateTarget] = useState<AgentTokenListItem | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AgentTokenListItem | null>(null);
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    await deleteMutation.mutateAsync(deleteTarget.id);
-    setDeleteTarget(null);
+  async function handleDelete(token: AgentTokenListItem) {
+    await deleteMutation.mutateAsync(token.id);
   }
 
   return (
@@ -339,7 +328,15 @@ export function AgentTokensCard() {
               {tokens.map((token) => (
                 <TokenRow
                   key={token.id}
-                  onDelete={setDeleteTarget}
+                  onDelete={(target) =>
+                    confirm({
+                      title: 'Delete token?',
+                      description: `This will permanently delete "${target.name}". Any agents using it will immediately lose access.`,
+                      confirmLabel: 'Delete token',
+                      variant: 'destructive',
+                      onConfirm: () => handleDelete(target),
+                    })
+                  }
                   onRegenerate={setRegenerateTarget}
                   token={token}
                 />
@@ -358,29 +355,7 @@ export function AgentTokensCard() {
         open={regenerateTarget !== null}
         token={regenerateTarget}
       />
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-        open={deleteTarget !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This token will stop working immediately. Any agents using it will lose access. This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={deleteMutation.isPending} onClick={handleDelete}>
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete token'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </>
   );
 }

@@ -12,17 +12,8 @@ import {
 } from 'lucide-react';
 import type { Habit } from '@pulse/shared';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
   DialogContent,
@@ -67,7 +58,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
   const today = getToday();
   const todayKey = toDateKey(today);
   const defaultPauseUntil = toDateKey(addDays(today, 7));
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { confirm, dialog } = useConfirmation();
   const [isPauseDialogOpen, setIsPauseDialogOpen] = useState(false);
   const [pauseUntil, setPauseUntil] = useState(defaultPauseUntil);
 
@@ -125,7 +116,6 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
   async function handleDelete() {
     try {
       await deleteHabitMutation.mutateAsync({ id: habit.id });
-      setIsDeleteDialogOpen(false);
     } catch {
       // Mutation hook handles toasts and query recovery.
     }
@@ -212,7 +202,13 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault();
-              setIsDeleteDialogOpen(true);
+              confirm({
+                title: 'Delete habit?',
+                description: `This will permanently remove "${habit.name}" from your daily habits.`,
+                confirmLabel: 'Delete habit',
+                variant: 'destructive',
+                onConfirm: handleDelete,
+              });
             }}
             variant="destructive"
           >
@@ -272,30 +268,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog onOpenChange={setIsDeleteDialogOpen} open={isDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete habit?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove <strong>{habit.name}</strong> from your daily habits
-              list. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteHabitMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteHabitMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
-            >
-              {deleteHabitMutation.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </>
   );
 }

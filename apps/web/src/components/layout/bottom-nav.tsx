@@ -3,6 +3,7 @@ import { LogOut } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { moreNavIcon, moreNavItems, primaryNavItems } from '@/components/layout/nav-items';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useAuthStore } from '@/store/auth-store';
 
 const moreRoutes = new Set(moreNavItems.map((item) => item.to));
@@ -13,14 +14,23 @@ export function BottomNav() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { logout } = useAuthStore();
+  const { confirm, dialog } = useConfirmation();
 
   const MoreIcon = moreNavIcon;
   const isMoreActive = moreRoutes.has(pathname);
 
   function handleLogout() {
     setMenuOpen(false);
-    logout();
-    navigate('/login', { replace: true });
+    confirm({
+      title: 'Sign out?',
+      description: "You'll need to sign in again to continue.",
+      confirmLabel: 'Sign out',
+      variant: 'default',
+      onConfirm: () => {
+        logout();
+        navigate('/login', { replace: true });
+      },
+    });
   }
 
   useEffect(() => {
@@ -127,6 +137,7 @@ export function BottomNav() {
           ) : null}
         </div>
       </nav>
+      {dialog}
     </div>
   );
 }

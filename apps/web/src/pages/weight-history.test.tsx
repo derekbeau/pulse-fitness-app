@@ -107,7 +107,7 @@ describe('WeightHistoryPage', () => {
     expect(weightsInOrder).toEqual(['181.4 lbs', '181.2 lbs', '181.8 lbs']);
 
     fireEvent.click(screen.getByRole('button', { name: /Delete weight entry from Mar 5, 2026/i }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Delete entry' }));
 
     await waitFor(() => {
@@ -184,12 +184,12 @@ describe('WeightHistoryPage', () => {
 
     expect(await screen.findByText('181.4 lbs')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Delete weight entry from Mar 6, 2026/i }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete entry' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
   });
 
