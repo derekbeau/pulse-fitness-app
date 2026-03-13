@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,10 +19,22 @@ afterEach(() => {
 });
 
 describe('WorkoutCalendar', () => {
-  it('renders completed and scheduled workouts with session links', async () => {
+  it('renders per-workout indicators and a count badge for days with 3+ workouts', async () => {
     const sessionDate = new Date();
-    sessionDate.setDate(Math.min(sessionDate.getDate(), 10));
     const sessionDateKey = toDateKey(sessionDate);
+    const inProgressSession = {
+      id: 'session-in-progress',
+      name: 'Morning Conditioning',
+      date: sessionDateKey,
+      status: 'in-progress' as const,
+      templateId: 'template-3',
+      templateName: 'Morning Conditioning',
+      startedAt: Date.parse(`${sessionDateKey}T06:30:00Z`),
+      completedAt: null,
+      duration: null,
+      exerciseCount: 4,
+      createdAt: 3,
+    };
     const completedSession = {
       id: 'session-1',
       name: 'Upper Push',
@@ -41,16 +53,7 @@ describe('WorkoutCalendar', () => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-sessions') {
-        const statuses = url.searchParams.getAll('status');
-        if (statuses.includes('completed')) {
-          return Promise.resolve(jsonResponse({ data: [completedSession] }));
-        }
-
-        if (statuses.includes('in-progress') || statuses.includes('paused')) {
-          return Promise.resolve(jsonResponse({ data: [] }));
-        }
-
-        return Promise.resolve(jsonResponse({ data: [] }));
+        return Promise.resolve(jsonResponse({ data: [completedSession, inProgressSession] }));
       }
 
       if (url.pathname === '/api/v1/scheduled-workouts') {
@@ -73,7 +76,31 @@ describe('WorkoutCalendar', () => {
                 sessionId: null,
                 createdAt: 2,
               },
+              {
+                id: 'schedule-3',
+                date: sessionDateKey,
+                templateId: 'template-3',
+                templateName: 'Morning Conditioning',
+                sessionId: 'session-in-progress',
+                createdAt: 3,
+              },
             ],
+          }),
+        );
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
           }),
         );
       }
@@ -88,17 +115,112 @@ describe('WorkoutCalendar', () => {
     );
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
+    expect((await screen.findAllByLabelText('In-progress workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByLabelText('Scheduled workout')).length).toBeGreaterThan(0);
-    expect(screen.getByText('+1')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
       '/workouts/session/session-1',
     );
-    expect(screen.getByRole('button', { name: /selected/i })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows empty calendar details when no workouts exist', async () => {
+  it('shows selected-day workouts with status-aware actions', async () => {
+    const dateKey = toDateKey(new Date());
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'session-in-progress',
+                name: 'Conditioning',
+                date: dateKey,
+                status: 'in-progress',
+                templateId: 'template-conditioning',
+                templateName: 'Conditioning',
+                startedAt: Date.parse(`${dateKey}T08:00:00Z`),
+                completedAt: null,
+                duration: null,
+                exerciseCount: 4,
+                createdAt: 2,
+              },
+              {
+                id: 'session-completed',
+                name: 'Recovery Flow',
+                date: dateKey,
+                status: 'completed',
+                templateId: 'template-recovery',
+                templateName: 'Recovery Flow',
+                startedAt: Date.parse(`${dateKey}T06:00:00Z`),
+                completedAt: Date.parse(`${dateKey}T06:45:00Z`),
+                duration: 45,
+                exerciseCount: 3,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-1',
+                date: dateKey,
+                templateId: 'template-upper',
+                templateName: 'Upper Push',
+                sessionId: null,
+                createdAt: 3,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar buildSessionHref={(sessionId) => `/workouts/session/${sessionId}`} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Upper Push');
+    const detailsPanel = document.getElementById('workout-day-details');
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel as HTMLElement).getByText('Conditioning')).toBeInTheDocument();
+    expect(within(detailsPanel as HTMLElement).getByText('Recovery Flow')).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Resume' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View details' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(3);
+  });
+
+  it('shows empty selected-day state with a schedule CTA', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
@@ -120,8 +242,70 @@ describe('WorkoutCalendar', () => {
     );
 
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Completed workout')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'No workout planned' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No workouts on this day' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Schedule a workout' })).toBeInTheDocument();
+  });
+
+  it('updates selected-day details when a calendar day is tapped', async () => {
+    const targetDate = new Date();
+    targetDate.setDate(Math.min(targetDate.getDate(), 11));
+    const targetDateKey = toDateKey(targetDate);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-target',
+                date: targetDateKey,
+                templateId: 'template-target',
+                templateName: 'Leg Day',
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname.startsWith('/api/v1/workout-templates/')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: url.pathname.split('/').at(-1),
+              name: 'Template',
+              description: null,
+              sections: [],
+              tags: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Workout Calendar');
+    fireEvent.click(getCalendarDayTile(targetDate));
+
+    const detailsPanel = document.getElementById('workout-day-details');
+    expect(detailsPanel).not.toBeNull();
+    expect(within(detailsPanel as HTMLElement).getByText('Leg Day')).toBeInTheDocument();
   });
 
   it('navigates between months', async () => {
@@ -160,4 +344,21 @@ function formatMonth(date: Date) {
     month: 'long',
     year: 'numeric',
   }).format(date);
+}
+
+function getCalendarDayTile(date: Date) {
+  const fullLabel = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+
+  return screen.getByRole('button', {
+    name: new RegExp(`^${escapeRegExp(fullLabel)}(?:, selected)?$`),
+  });
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

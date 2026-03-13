@@ -1,8 +1,10 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { jsonResponse } from '@/test/test-utils';
 import { TemplateBrowser } from './template-browser';
 
 const renameMutateMock = vi.fn();
@@ -43,9 +45,28 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 
 describe('TemplateBrowser', () => {
   beforeEach(() => {
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
     renameMutateMock.mockReset();
     deleteMutateMock.mockReset().mockResolvedValue({ id: 'template-1' });
     scheduleMutateAsyncMock.mockReset();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+    vi.restoreAllMocks();
   });
 
   it('renders updated copy and empty state for users without templates', () => {
@@ -195,10 +216,81 @@ describe('TemplateBrowser', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Schedule workout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Schedule' }));
 
-    expect(scheduleMutateAsyncMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        templateId: 'template-1',
-      }),
+    await waitFor(() => {
+      expect(scheduleMutateAsyncMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateId: 'template-1',
+        }),
+      );
+    });
+  });
+
+  it('warns before scheduling another workout on an occupied day', async () => {
+    scheduleMutateAsyncMock.mockResolvedValue({});
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'session-1',
+                name: 'Upper Push',
+                date: '2026-03-13',
+                status: 'completed',
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                startedAt: Date.parse('2026-03-13T10:00:00Z'),
+                completedAt: Date.parse('2026-03-13T11:00:00Z'),
+                duration: 60,
+                exerciseCount: 5,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/workouts?date=2026-03-13']}>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            {
+              id: 'template-1',
+              name: 'Upper Push',
+              description: 'Chest and shoulders',
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            },
+          ]}
+        />
+      </MemoryRouter>,
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Template actions for Upper Push' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule workout' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('This day already has a workout')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Upper Push \(completed\)/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create another anyway' }));
+
+    await waitFor(() => {
+      expect(scheduleMutateAsyncMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateId: 'template-1',
+        }),
+      );
+    });
   });
 });

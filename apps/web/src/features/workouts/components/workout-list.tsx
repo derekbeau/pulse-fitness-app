@@ -9,6 +9,8 @@ import {
   Dumbbell,
   Timer,
   TriangleAlert,
+  Trash2,
+  XCircle,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import type {
@@ -34,7 +36,11 @@ import {
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
-import { useStartSession } from '@/hooks/use-workout-session';
+import {
+  useDeleteSession,
+  useStartSession,
+  useUpdateSessionStatus,
+} from '@/hooks/use-workout-session';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const sessionDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -65,6 +71,9 @@ type WorkoutListViewItem = {
   statusLabel: string;
 };
 
+const SCHEDULED_PAGE_SIZE = 4;
+const COMPLETED_PAGE_SIZE = 6;
+
 export function WorkoutList({
   buildSessionHref = (sessionId, status) =>
     status === 'in-progress' || status === 'paused'
@@ -84,28 +93,42 @@ export function WorkoutList({
   });
 
   const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
-  const activeSessions = resolvedSessions.filter(hasAvailableTemplate);
-  const linkedSessionIds = new Set(activeSessions.map((session) => session.id));
+  const sessionsById = new Map(resolvedSessions.map((session) => [session.id, session]));
+  const visibleSessions = resolvedSessions.filter(hasAvailableTemplate);
   const resolvedScheduledWorkouts = scheduledWorkouts ?? scheduledQuery.data ?? [];
+  const dedupedScheduledWorkouts = Array.from(
+    new Map(resolvedScheduledWorkouts.map((workout) => [workout.id, workout])).values(),
+  );
 
-  const scheduledItems = resolvedScheduledWorkouts
+  const scheduledItems = dedupedScheduledWorkouts
+    .filter((scheduledWorkout) => {
+      if (scheduledWorkout.sessionId == null) {
+        return true;
+      }
+
+      return !sessionsById.has(scheduledWorkout.sessionId);
+    })
     .map((scheduledWorkout) => ({
       ...scheduledWorkout,
       isMissed:
         scheduledWorkout.date < todayKey &&
-        (scheduledWorkout.sessionId == null || !linkedSessionIds.has(scheduledWorkout.sessionId)),
+        (scheduledWorkout.sessionId == null || !sessionsById.has(scheduledWorkout.sessionId)),
       isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
     }))
     .sort((left, right) => left.date.localeCompare(right.date));
 
-  const listItems = activeSessions.map((session) => buildWorkoutListItem(session));
-  const upcomingSessions = listItems
-    .filter((session) => session.status !== 'completed' && session.status !== 'scheduled')
+  const listItems = visibleSessions.map((session) => buildWorkoutListItem(session));
+  const inProgressSessions = listItems
+    .filter((session) => session.status === 'in-progress' || session.status === 'paused')
     .sort((left, right) => left.date.getTime() - right.date.getTime());
   const completedSessions = listItems
     .filter((session) => session.status === 'completed')
     .sort((left, right) => right.date.getTime() - left.date.getTime());
-  const hasPlannedWorkouts = scheduledItems.length > 0 || upcomingSessions.length > 0;
+  const hasPlannedWorkouts = scheduledItems.length > 0 || inProgressSessions.length > 0;
+  const [scheduledVisibleCount, setScheduledVisibleCount] = useState(SCHEDULED_PAGE_SIZE);
+  const [completedVisibleCount, setCompletedVisibleCount] = useState(COMPLETED_PAGE_SIZE);
+  const visibleScheduledItems = scheduledItems.slice(0, scheduledVisibleCount);
+  const visibleCompletedSessions = completedSessions.slice(0, completedVisibleCount);
 
   if ((sessionsQuery.isLoading && !sessions) || (scheduledQuery.isLoading && !scheduledWorkouts)) {
     return (
@@ -130,24 +153,24 @@ export function WorkoutList({
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <SectionHeading count={scheduledItems.length} title="Scheduled" />
-        {scheduledItems.length > 0 ? (
+        <SectionHeading count={inProgressSessions.length} title="In Progress" />
+        {inProgressSessions.length > 0 ? (
           <div className="grid gap-3">
-            {scheduledItems.map((scheduledWorkout) => (
-              <ScheduledWorkoutCard
-                buildStartWorkoutHref={buildStartWorkoutHref}
-                key={scheduledWorkout.id}
-                scheduledWorkout={scheduledWorkout}
+            {inProgressSessions.map((session) => (
+              <InProgressWorkoutCard
+                buildSessionHref={buildSessionHref}
+                key={session.id}
+                session={session}
               />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted">No scheduled workouts right now.</p>
+          <p className="text-sm text-muted">No workouts in progress.</p>
         )}
       </section>
 
       <section className="space-y-3">
-        <SectionHeading count={upcomingSessions.length} title="Upcoming" />
+        <SectionHeading count={scheduledItems.length} title="Scheduled" />
         {!hasPlannedWorkouts ? (
           <Card className="border-dashed">
             <CardContent className="space-y-4 py-5">
@@ -168,26 +191,36 @@ export function WorkoutList({
             </CardContent>
           </Card>
         ) : null}
-        {upcomingSessions.length > 0 ? (
+        {scheduledItems.length > 0 ? (
           <div className="grid gap-3">
-            {upcomingSessions.map((session) => (
-              <WorkoutListCard
-                buildSessionHref={buildSessionHref}
-                key={session.id}
-                session={session}
+            {visibleScheduledItems.map((scheduledWorkout) => (
+              <ScheduledWorkoutCard
+                buildStartWorkoutHref={buildStartWorkoutHref}
+                key={scheduledWorkout.id}
+                scheduledWorkout={scheduledWorkout}
               />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted">No upcoming sessions right now.</p>
+          <p className="text-sm text-muted">No scheduled workouts right now.</p>
         )}
+        {scheduledItems.length > scheduledVisibleCount ? (
+          <Button
+            onClick={() => setScheduledVisibleCount((count) => count + SCHEDULED_PAGE_SIZE)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Show more
+          </Button>
+        ) : null}
       </section>
 
       <section className="space-y-3">
         <SectionHeading count={completedSessions.length} title="Completed" />
         {completedSessions.length > 0 ? (
           <div className="grid gap-3">
-            {completedSessions.map((session) => (
+            {visibleCompletedSessions.map((session) => (
               <WorkoutListCard
                 buildSessionHref={buildSessionHref}
                 key={session.id}
@@ -198,8 +231,118 @@ export function WorkoutList({
         ) : (
           <p className="text-sm text-muted">No completed workouts yet.</p>
         )}
+        {completedSessions.length > completedVisibleCount ? (
+          <Button
+            onClick={() => setCompletedVisibleCount((count) => count + COMPLETED_PAGE_SIZE)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Show more
+          </Button>
+        ) : null}
       </section>
     </div>
+  );
+}
+
+function InProgressWorkoutCard({
+  buildSessionHref,
+  session,
+}: {
+  buildSessionHref: (sessionId: string, status: WorkoutSessionStatus) => string;
+  session: WorkoutListViewItem;
+}) {
+  const { confirm, dialog } = useConfirmation();
+  const updateSessionStatusMutation = useUpdateSessionStatus(session.id);
+  const deleteSessionMutation = useDeleteSession(session.id);
+  const isMutating = updateSessionStatusMutation.isPending || deleteSessionMutation.isPending;
+
+  async function handleCancel() {
+    await updateSessionStatusMutation.mutateAsync({ status: 'cancelled' });
+  }
+
+  async function handleDelete() {
+    await deleteSessionMutation.mutateAsync();
+  }
+
+  return (
+    <Card
+      className={cn(
+        'h-full gap-4 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        session.cardClass,
+      )}
+      style={{ borderLeftColor: session.accentColor }}
+    >
+      <CardHeader className="gap-3 py-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle>{session.name}</CardTitle>
+            <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
+          </div>
+
+          <span
+            className={cn(
+              'inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase',
+              session.statusBadgeClass,
+            )}
+          >
+            {getStatusBadgeIcon(session.status)}
+            {session.statusLabel}
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 pb-5">
+        <ul className="flex flex-wrap gap-3 text-sm text-muted">
+          {buildStatusStats(session).map((stat) => (
+            <WorkoutStat icon={stat.icon} key={`${session.id}-${stat.label}`} label={stat.label} />
+          ))}
+        </ul>
+
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link to={buildSessionHref(session.id, session.status)}>Resume</Link>
+          </Button>
+          <Button
+            disabled={isMutating}
+            onClick={() =>
+              confirm({
+                title: 'Cancel workout?',
+                description: `This will mark "${session.name}" as cancelled.`,
+                confirmLabel: 'Cancel workout',
+                onConfirm: handleCancel,
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <XCircle aria-hidden="true" className="size-4" />
+            Cancel
+          </Button>
+          <Button
+            disabled={isMutating}
+            onClick={() =>
+              confirm({
+                title: 'Delete workout?',
+                description: `This will permanently delete "${session.name}".`,
+                confirmLabel: 'Delete workout',
+                variant: 'destructive',
+                onConfirm: handleDelete,
+              })
+            }
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <Trash2 aria-hidden="true" className="size-4" />
+            Delete
+          </Button>
+        </div>
+      </CardContent>
+      {dialog}
+    </Card>
   );
 }
 

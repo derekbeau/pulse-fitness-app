@@ -1,17 +1,15 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, EllipsisVertical, TriangleAlert } from 'lucide-react';
-import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
-import { Link } from 'react-router';
+import { ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
+import type {
+  ScheduledWorkoutListItem,
+  WorkoutSessionListItem,
+  WorkoutSessionStatus,
+} from '@pulse/shared';
+import { Link, useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   addDays,
   differenceInDays,
@@ -21,15 +19,16 @@ import {
 } from '@/lib/date-utils';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
+import { useDeleteSession, useStartSession, useUpdateSessionStatus } from '@/hooks/use-workout-session';
 import {
-  useRescheduleWorkout,
   useScheduledWorkouts,
   useUnscheduleWorkout,
+  useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
-import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const monthFormatter = new Intl.DateTimeFormat('en-US', {
@@ -42,40 +41,52 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-const timeFormatter = new Intl.DateTimeFormat('en-US', {
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
-  buildSessionHref?: (sessionId: string) => string;
-  buildStartWorkoutHref?: (templateId: string) => string;
+  buildSessionHref?: (sessionId: string, status?: WorkoutSessionStatus) => string;
+  buildTemplateHref?: (templateId: string) => string;
 };
 
 type DayStatus = 'completed' | 'scheduled' | 'in-progress' | 'mixed' | 'none';
+type WorkoutIndicatorStatus = 'completed' | 'scheduled' | 'in-progress' | 'unavailable';
+
+type WorkoutIndicator = {
+  id: string;
+  status: WorkoutIndicatorStatus;
+};
+
+type DayWorkoutStatus = 'scheduled' | 'in-progress' | 'completed';
+
+type DayWorkout = {
+  id: string;
+  isUnavailable: boolean;
+  name: string;
+  scheduledWorkout: ScheduledWorkoutListItem | null;
+  session: WorkoutSessionListItem | null;
+  status: DayWorkoutStatus;
+  templateId: string | null;
+};
 
 type DayDetails = {
   date: Date;
   dateKey: string;
   completedSession: WorkoutSessionListItem | null;
-  inProgressSession: WorkoutSessionListItem | null;
-  scheduledWorkouts: ScheduledWorkoutListItem[];
+  workouts: DayWorkout[];
+  workoutIndicators: WorkoutIndicator[];
   status: DayStatus;
-  templateName: string | null;
-  notes: string | null;
 };
 
 type DayLookupContext = {
-  completedSessionByDate: Map<string, WorkoutSessionListItem>;
+  completedSessionsByDate: Map<string, WorkoutSessionListItem[]>;
+  inProgressSessionsByDate: Map<string, WorkoutSessionListItem[]>;
+  sessionById: Map<string, WorkoutSessionListItem>;
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>;
-  inProgressTodaySession: WorkoutSessionListItem | null;
 };
 
 export function WorkoutCalendar({
   buildDayHref,
   buildSessionHref,
-  buildStartWorkoutHref = (templateId) => `/workouts/active?template=${templateId}`,
+  buildTemplateHref = (templateId) => `/workouts/template/${templateId}`,
 }: WorkoutCalendarProps) {
   const todayKey = useTodayKey();
   const initialMonth = startOfMonth(parseDateKey(todayKey));
@@ -115,13 +126,18 @@ export function WorkoutCalendar({
     [activeSessions, dateRange.from, dateRange.to],
   );
   const completedSessionByDate = useMemo(
-    () =>
-      new Map(
-        activeCompletedSessions
-          .slice()
-          .sort((left, right) => right.startedAt - left.startedAt)
-          .map((session) => [session.date, session]),
-      ),
+    () => {
+      const grouped = new Map<string, WorkoutSessionListItem[]>();
+      for (const session of activeCompletedSessions
+        .slice()
+        .sort((left, right) => right.startedAt - left.startedAt)) {
+        const sessionsForDate = grouped.get(session.date) ?? [];
+        sessionsForDate.push(session);
+        grouped.set(session.date, sessionsForDate);
+      }
+
+      return grouped;
+    },
     [activeCompletedSessions],
   );
   const scheduledByDate = useMemo(() => {
@@ -134,39 +150,54 @@ export function WorkoutCalendar({
 
     return grouped;
   }, [scheduledQuery.data]);
-  const inProgressTodaySession = useMemo(
-    () =>
-      activeSessions
-        .filter((session) => session.status === 'in-progress' || session.status === 'paused')
-        .find((session) => spansToday(session, todayKey)) ?? null,
-    [activeSessions, todayKey],
+  const inProgressSessionsByDate = useMemo(() => {
+    const grouped = new Map<string, WorkoutSessionListItem[]>();
+    for (const session of activeSessions) {
+      if (session.status !== 'in-progress' && session.status !== 'paused') {
+        continue;
+      }
+      const sessionsForDate = grouped.get(session.date) ?? [];
+      sessionsForDate.push(session);
+      grouped.set(session.date, sessionsForDate);
+    }
+
+    return grouped;
+  }, [activeSessions]);
+  const sessionById = useMemo(
+    () => new Map(activeSessions.map((session) => [session.id, session])),
+    [activeSessions],
   );
 
   const lookupContext = useMemo(
     () => ({
-      completedSessionByDate,
-      inProgressTodaySession,
+      completedSessionsByDate: completedSessionByDate,
+      inProgressSessionsByDate,
+      sessionById,
       scheduledByDate,
     }),
-    [completedSessionByDate, inProgressTodaySession, scheduledByDate],
+    [completedSessionByDate, inProgressSessionsByDate, scheduledByDate, sessionById],
   );
 
   const [selectedDateKey, setSelectedDateKey] = useState(
-    getDefaultSelectedDateKey(initialMonth, completedSessionByDate, scheduledByDate, todayKey),
+    getDefaultSelectedDateKey(
+      initialMonth,
+      completedSessionByDate,
+      inProgressSessionsByDate,
+      scheduledByDate,
+      todayKey,
+    ),
   );
 
-  const selectedDay = getDayDetails(selectedDateKey, lookupContext, todayKey);
-  const openDayHref = buildDayHref?.(selectedDateKey) ?? `?date=${selectedDateKey}`;
-  const detailStats = getDetailStats(selectedDay);
-  const hasWorkout = selectedDay.status !== 'none';
+  const selectedDay = getDayDetails(selectedDateKey, lookupContext);
+  const scheduleDayHref =
+    buildDayHref?.(selectedDateKey) ?? `/workouts?view=templates&date=${selectedDateKey}`;
+  const hasWorkout = selectedDay.workouts.length > 0;
   const accentPanel = hasWorkout ? accentCardStyles.mint : 'bg-card text-foreground';
 
   function handleMonthChange(offset: number) {
     const nextMonth = addMonths(visibleMonth, offset);
     setVisibleMonth(nextMonth);
-    setSelectedDateKey(
-      getDefaultSelectedDateKey(nextMonth, completedSessionByDate, scheduledByDate, todayKey),
-    );
+    setSelectedDateKey(toDateKey(startOfMonth(nextMonth)));
   }
 
   return (
@@ -231,7 +262,7 @@ export function WorkoutCalendar({
           <div className="grid grid-cols-7 gap-2">
             {calendarDays.map((day) => {
               const dateKey = toDateKey(day);
-              const details = getDayDetails(dateKey, lookupContext, todayKey);
+              const details = getDayDetails(dateKey, lookupContext);
               const isSelected = selectedDateKey === dateKey;
               const isToday = dateKey === todayKey;
               const isInMonth = day.getMonth() === visibleMonth.getMonth();
@@ -277,33 +308,19 @@ export function WorkoutCalendar({
                           className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400"
                           onClick={(event) => event.stopPropagation()}
                           to={
-                            buildSessionHref?.(details.completedSession.id) ??
+                            buildSessionHref?.(details.completedSession.id, details.completedSession.status) ??
                             `/workouts/session/${details.completedSession.id}`
                           }
                         >
                           Done
                         </Link>
                       ) : null}
-                      {details.scheduledWorkouts[0] ? (
-                        details.scheduledWorkouts[0].templateId != null &&
-                        details.scheduledWorkouts[0].templateName != null ? (
-                          <ScheduledWorkoutActions
-                            buildStartWorkoutHref={buildStartWorkoutHref}
-                            compact
-                            scheduledWorkout={details.scheduledWorkouts[0]}
-                          />
-                        ) : (
-                          <span
-                            aria-label="Unavailable scheduled workout"
-                            className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive"
-                          >
-                            <TriangleAlert aria-hidden="true" className="size-3" />
-                          </span>
-                        )
-                      ) : null}
-                      {details.scheduledWorkouts.length > 1 ? (
-                        <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          +{details.scheduledWorkouts.length - 1}
+                      {details.workouts.some((workout) => workout.isUnavailable) ? (
+                        <span
+                          aria-label="Unavailable scheduled workout"
+                          className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive"
+                        >
+                          <TriangleAlert aria-hidden="true" className="size-3" />
                         </span>
                       ) : null}
                     </div>
@@ -316,40 +333,28 @@ export function WorkoutCalendar({
                         isInMonth ? 'text-foreground' : 'text-muted',
                       )}
                     >
-                      {details.templateName ?? 'No workout'}
+                      {details.workouts[0]?.name ?? 'No workout'}
                     </p>
                     <p className="truncate text-[10px] leading-snug text-muted">
-                      {details.notes ?? ''}
+                      {getDaySubtitle(details)}
                     </p>
                   </div>
 
                   <div className="mt-auto flex items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
-                    {details.completedSession ? (
+                    {getTileIndicators(details.workoutIndicators).map((indicator) => (
                       <span
-                        aria-label="Completed workout"
-                        className="size-2 rounded-full bg-emerald-500 sm:size-2.5"
+                        aria-label={`${statusToLabel(indicator.status)} workout`}
+                        className={cn(
+                          'size-2 rounded-full sm:size-2.5',
+                          indicatorDotClassName(indicator.status),
+                        )}
+                        key={indicator.id}
                       />
-                    ) : null}
-                    {details.scheduledWorkouts.length > 0 ? (
-                      <span
-                        aria-label="Scheduled workout"
-                        className="size-2 rounded-full border border-slate-500 bg-transparent sm:size-2.5"
-                      />
-                    ) : null}
-                    {details.scheduledWorkouts.some(
-                      (scheduledWorkout) =>
-                        scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
-                    ) ? (
-                      <span
-                        aria-label="Unavailable scheduled workout"
-                        className="size-2 rounded-full bg-destructive/80 sm:size-2.5"
-                      />
-                    ) : null}
-                    {details.inProgressSession ? (
-                      <span
-                        aria-label="In-progress workout"
-                        className="size-2 rounded-full bg-orange-500 animate-pulse sm:size-2.5"
-                      />
+                    ))}
+                    {details.workoutIndicators.length >= 3 ? (
+                      <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        +{details.workoutIndicators.length - 2}
+                      </span>
                     ) : null}
                     {isToday ? (
                       <span className="hidden text-[11px] font-medium text-primary sm:inline">
@@ -370,234 +375,271 @@ export function WorkoutCalendar({
           )}
           id="workout-day-details"
         >
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p
               className={cn(
                 'text-xs font-semibold uppercase tracking-[0.2em]',
                 hasWorkout ? 'opacity-70 dark:text-muted dark:opacity-100' : 'text-muted',
               )}
             >
-              Day details
+              Selected day
             </p>
-            <h3 className="text-2xl font-semibold">
-              {selectedDay.templateName ?? 'No workout planned'}
-            </h3>
+            <h3 className="text-2xl font-semibold">{fullDateFormatter.format(selectedDay.date)}</h3>
             <p
               className={cn(
                 'text-sm',
                 hasWorkout ? 'opacity-80 dark:text-muted dark:opacity-100' : 'text-muted',
               )}
             >
-              {fullDateFormatter.format(selectedDay.date)}
+              {hasWorkout
+                ? `${selectedDay.workouts.length} workout${selectedDay.workouts.length === 1 ? '' : 's'} on this day`
+                : 'No workouts on this day yet.'}
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {detailStats.map((stat) => (
-              <div
-                className={cn(
-                  'rounded-2xl border p-3',
-                  hasWorkout
-                    ? 'border-white/35 bg-white/45 dark:border-border dark:bg-secondary/60'
-                    : 'border-border bg-secondary/40 text-foreground',
-                )}
-                key={stat.label}
-              >
-                <p
-                  className={cn(
-                    'text-[11px] font-semibold uppercase tracking-[0.18em]',
-                    hasWorkout ? 'opacity-70 dark:text-muted dark:opacity-100' : 'text-muted',
-                  )}
-                >
-                  {stat.label}
-                </p>
-                <p className="mt-2 text-base font-semibold">{stat.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <p
-            className={cn(
-              'text-sm leading-6',
-              hasWorkout ? 'opacity-85 dark:text-muted dark:opacity-100' : 'text-muted',
-            )}
-          >
-            {selectedDay.notes ??
-              'No workout is attached to this day yet. Complete or schedule a workout to see it here.'}
-          </p>
-
-          {selectedDay.completedSession ? (
-            <Button
-              asChild
-              className="mt-auto self-start bg-white/60 hover:bg-white/75 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
-              size="sm"
-              variant="secondary"
-            >
-              <Link
-                to={
-                  buildSessionHref?.(selectedDay.completedSession.id) ??
-                  `/workouts/session/${selectedDay.completedSession.id}`
-                }
-              >
-                View Session
-              </Link>
-            </Button>
-          ) : null}
-
-          {selectedDay.scheduledWorkouts.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                Scheduled
-              </p>
-              <div className="space-y-2">
-                {selectedDay.scheduledWorkouts.map((scheduledWorkout) => (
-                  <div
-                    className="flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-secondary/40 px-3 py-2"
-                    key={scheduledWorkout.id}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {scheduledWorkout.templateName ?? 'Workout unavailable'}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {scheduledWorkout.templateName == null || scheduledWorkout.templateId == null
-                          ? 'Unavailable'
-                          : 'Scheduled'}
-                      </p>
-                    </div>
-                    <ScheduledWorkoutActions
-                      buildStartWorkoutHref={buildStartWorkoutHref}
-                      scheduledWorkout={scheduledWorkout}
-                    />
-                  </div>
-                ))}
-              </div>
+          {selectedDay.workouts.length > 0 ? (
+            <div className="space-y-3">
+              {selectedDay.workouts.map((workout) => (
+                <DayWorkoutItemCard
+                  buildSessionHref={buildSessionHref}
+                  buildTemplateHref={buildTemplateHref}
+                  dateKey={selectedDay.dateKey}
+                  key={workout.id}
+                  workout={workout}
+                />
+              ))}
             </div>
-          ) : null}
-
-          {!selectedDay.completedSession && selectedDay.scheduledWorkouts.length === 0 ? (
-            <Button asChild className="mt-auto self-start" size="sm" variant="outline">
-              <Link to={openDayHref}>Open Day</Link>
-            </Button>
-          ) : null}
+          ) : (
+            <div className="rounded-2xl border border-border bg-secondary/35 p-4">
+              <h4 className="text-base font-semibold text-foreground">No workouts on this day</h4>
+              <p className="mt-1 text-sm text-muted">
+                Schedule a workout to plan this day from your templates.
+              </p>
+              <Button asChild className="mt-4" size="sm">
+                <Link to={scheduleDayHref}>Schedule a workout</Link>
+              </Button>
+            </div>
+          )}
         </aside>
       </CardContent>
     </Card>
   );
 }
 
-function ScheduledWorkoutActions({
-  buildStartWorkoutHref,
-  compact = false,
-  scheduledWorkout,
+function DayWorkoutItemCard({
+  buildSessionHref,
+  buildTemplateHref,
+  dateKey,
+  workout,
 }: {
-  buildStartWorkoutHref: (templateId: string) => string;
-  compact?: boolean;
-  scheduledWorkout: ScheduledWorkoutListItem;
+  buildSessionHref?: (sessionId: string, status?: WorkoutSessionStatus) => string;
+  buildTemplateHref: (templateId: string) => string;
+  dateKey: string;
+  workout: DayWorkout;
 }) {
-  const rescheduleWorkoutMutation = useRescheduleWorkout();
+  const navigate = useNavigate();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
+  const startSessionMutation = useStartSession();
+  const deleteSessionMutation = useDeleteSession(workout.session?.id ?? null);
+  const updateSessionStatusMutation = useUpdateSessionStatus(workout.session?.id ?? null);
+  const templateId = workout.templateId ?? '';
+  const shouldFetchTemplate = workout.status === 'scheduled' && templateId.trim().length > 0;
+  const templateQuery = useWorkoutTemplate(templateId, { enabled: shouldFetchTemplate });
   const { confirm, dialog } = useConfirmation();
-  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
-  const isUnavailable =
-    scheduledWorkout.templateId == null || scheduledWorkout.templateName == null;
-  const templateId = scheduledWorkout.templateId;
+  const canStart = workout.status === 'scheduled' && !workout.isUnavailable;
+  const isMutating =
+    unscheduleWorkoutMutation.isPending ||
+    startSessionMutation.isPending ||
+    deleteSessionMutation.isPending ||
+    updateSessionStatusMutation.isPending;
 
-  async function handleReschedule(requestedDate: string) {
-    if (isUnavailable) {
+  async function handleStart() {
+    if (!workout.scheduledWorkout || !workout.templateId || !templateQuery.data) {
       return;
     }
 
-    await rescheduleWorkoutMutation.mutateAsync({
-      date: requestedDate,
-      id: scheduledWorkout.id,
+    const startedAt = Date.now();
+    const session = await startSessionMutation.mutateAsync({
+      date: toDateKey(new Date(startedAt)),
+      name: workout.name,
+      sets: buildInitialSessionSets(templateQuery.data),
+      startedAt,
+      templateId: workout.templateId,
     });
+    navigate(`/workouts/active?template=${workout.templateId}&sessionId=${session.id}`);
   }
 
-  async function handleRemove() {
-    await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
+  async function handleDelete() {
+    if (workout.status === 'scheduled' && workout.scheduledWorkout) {
+      await unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id });
+      return;
+    }
+
+    const pendingMutations: Array<Promise<unknown>> = [];
+
+    if (workout.scheduledWorkout) {
+      pendingMutations.push(unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id }));
+    }
+
+    if (workout.session) {
+      pendingMutations.push(deleteSessionMutation.mutateAsync());
+    }
+
+    if (pendingMutations.length === 0) {
+      return;
+    }
+
+    await Promise.all(pendingMutations);
+  }
+
+  async function handleCancel() {
+    await updateSessionStatusMutation.mutateAsync({ status: 'cancelled' });
   }
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            aria-label={
-              compact
-                ? 'Scheduled workout actions'
-                : `Actions for ${scheduledWorkout.templateName ?? 'scheduled workout'}`
-            }
-            className={cn(
-              'inline-flex items-center justify-center rounded-full border border-slate-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground hover:bg-secondary',
-              isUnavailable &&
-                'border-destructive/55 bg-destructive/10 text-destructive hover:bg-destructive/20',
-              compact && 'size-5 border-slate-500/70 px-0 py-0',
-            )}
-            onClick={(event) => event.stopPropagation()}
+    <div className="rounded-2xl border border-border/70 bg-secondary/40 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">{workout.name}</p>
+        <span
+          className={cn(
+            'inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]',
+            workout.status === 'completed'
+              ? 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+              : workout.status === 'in-progress'
+                ? 'bg-orange-500/15 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'
+                : workout.isUnavailable
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-secondary text-muted-foreground',
+          )}
+        >
+          {workoutStatusLabel(workout)}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {workout.status === 'scheduled' ? (
+          <Button
+            disabled={isMutating || !canStart || templateQuery.isPending}
+            onClick={() => {
+              void handleStart();
+            }}
+            size="sm"
             type="button"
           >
-            {compact ? (
-              isUnavailable ? (
-                <TriangleAlert aria-hidden="true" className="size-3" />
-              ) : (
-                <EllipsisVertical aria-hidden="true" className="size-3" />
-              )
-            ) : isUnavailable ? (
-              'Unavailable'
-            ) : (
-              'Scheduled'
-            )}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-44"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {!isUnavailable && templateId ? (
-            <DropdownMenuItem asChild>
-              <Link to={buildStartWorkoutHref(templateId)}>Start workout</Link>
-            </DropdownMenuItem>
-          ) : null}
-          {!isUnavailable ? (
-            <DropdownMenuItem onSelect={() => setIsRescheduleDialogOpen(true)}>
-              Reschedule
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem
-            onSelect={() =>
+            Start
+          </Button>
+        ) : null}
+
+        {workout.status === 'in-progress' && workout.session ? (
+          <Button asChild size="sm">
+            <Link
+              to={
+                buildSessionHref?.(workout.session.id, workout.session.status) ??
+                `/workouts/active?sessionId=${workout.session.id}`
+              }
+            >
+              Resume
+            </Link>
+          </Button>
+        ) : null}
+
+        {workout.status === 'completed' && workout.session ? (
+          <Button asChild size="sm" variant="secondary">
+            <Link
+              to={
+                buildSessionHref?.(workout.session.id, workout.session.status) ??
+                `/workouts/session/${workout.session.id}`
+              }
+            >
+              View details
+            </Link>
+          </Button>
+        ) : null}
+
+        {workout.status === 'in-progress' ? (
+          <Button
+            disabled={isMutating}
+            onClick={() =>
               confirm({
-                title: 'Delete scheduled workout?',
-                description: `This will remove "${scheduledWorkout.templateName ?? 'this workout'}" from ${fullDateFormatter.format(parseDateKey(scheduledWorkout.date))}.`,
-                confirmLabel: 'Delete workout',
-                variant: 'destructive',
-                onConfirm: handleRemove,
+                title: 'Cancel workout?',
+                description: `This will mark "${workout.name}" as cancelled.`,
+                confirmLabel: 'Cancel workout',
+                onConfirm: handleCancel,
               })
             }
-            variant="destructive"
+            size="sm"
+            type="button"
+            variant="outline"
           >
-            Remove
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {!isUnavailable ? (
-        <ScheduleWorkoutDialog
-          description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
-          disallowDateKey={scheduledWorkout.date}
-          disallowDateMessage="Pick a different date to reschedule."
-          initialDate={scheduledWorkout.date}
-          isPending={rescheduleWorkoutMutation.isPending}
-          onOpenChange={setIsRescheduleDialogOpen}
-          onSubmitDate={handleReschedule}
-          open={isRescheduleDialogOpen}
-          submitLabel="Save"
-          title="Reschedule workout"
-        />
-      ) : null}
+            Cancel
+          </Button>
+        ) : null}
+
+        <Button
+          disabled={isMutating}
+          onClick={() =>
+            confirm({
+              title: workout.status === 'scheduled' ? 'Delete scheduled workout?' : 'Delete workout?',
+              description:
+                workout.status === 'scheduled'
+                  ? `This will remove "${workout.name}" from ${fullDateFormatter.format(parseDateKey(dateKey))}.`
+                  : `This will delete "${workout.name}".`,
+              confirmLabel: 'Delete workout',
+              variant: 'destructive',
+              onConfirm: handleDelete,
+            })
+          }
+          size="sm"
+          type="button"
+          variant={workout.status === 'scheduled' ? 'outline' : 'ghost'}
+        >
+          Delete
+        </Button>
+        {workout.status === 'scheduled' && workout.templateId && workout.isUnavailable ? (
+          <Button asChild size="sm" variant="secondary">
+            <Link to={buildTemplateHref(workout.templateId)}>View template</Link>
+          </Button>
+        ) : null}
+      </div>
       {dialog}
-    </>
+    </div>
   );
+}
+
+function workoutStatusLabel(workout: DayWorkout) {
+  if (workout.status === 'completed') {
+    return 'Completed';
+  }
+  if (workout.status === 'in-progress') {
+    return 'In progress';
+  }
+  if (workout.isUnavailable) {
+    return 'Unavailable';
+  }
+  return 'Scheduled';
+}
+
+function getDaySubtitle(day: DayDetails) {
+  if (day.workouts.length === 0) {
+    return '';
+  }
+
+  const completed = day.workouts.filter((workout) => workout.status === 'completed').length;
+  const inProgress = day.workouts.filter((workout) => workout.status === 'in-progress').length;
+  const scheduled = day.workouts.filter((workout) => workout.status === 'scheduled').length;
+  const parts: string[] = [];
+
+  if (inProgress > 0) {
+    parts.push(`${inProgress} in progress`);
+  }
+  if (scheduled > 0) {
+    parts.push(`${scheduled} scheduled`);
+  }
+  if (completed > 0) {
+    parts.push(`${completed} completed`);
+  }
+
+  return parts.join(' · ');
 }
 
 function LegendDot({ className, label }: { className: string; label: string }) {
@@ -609,15 +651,23 @@ function LegendDot({ className, label }: { className: string; label: string }) {
   );
 }
 
-function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: string): DayDetails {
+function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
   const date = parseDateKey(dateKey);
-  const completedSession = context.completedSessionByDate.get(dateKey) ?? null;
+  const completedSessions = context.completedSessionsByDate.get(dateKey) ?? [];
   const scheduledWorkouts = context.scheduledByDate.get(dateKey) ?? [];
-  const inProgressSession = dateKey === todayKey ? context.inProgressTodaySession : null;
+  const inProgressSessions = context.inProgressSessionsByDate.get(dateKey) ?? [];
+  const workouts = buildDayWorkouts({
+    scheduledWorkouts,
+    completedSessions,
+    inProgressSessions,
+    sessionById: context.sessionById,
+  });
+  const completedSession = workouts.find((workout) => workout.status === 'completed')?.session ?? null;
+  const workoutIndicators = buildWorkoutIndicators(workouts);
 
-  const hasCompleted = completedSession != null;
-  const hasScheduled = scheduledWorkouts.length > 0;
-  const hasInProgress = inProgressSession != null;
+  const hasCompleted = workouts.some((workout) => workout.status === 'completed');
+  const hasScheduled = workouts.some((workout) => workout.status === 'scheduled');
+  const hasInProgress = workouts.some((workout) => workout.status === 'in-progress');
 
   let status: DayStatus = 'none';
   if (hasCompleted && (hasScheduled || hasInProgress)) {
@@ -630,101 +680,133 @@ function getDayDetails(dateKey: string, context: DayLookupContext, todayKey: str
     status = 'in-progress';
   }
 
-  const templateName =
-    completedSession?.templateName ??
-    (scheduledWorkouts[0]
-      ? (scheduledWorkouts[0].templateName ?? 'Workout unavailable')
-      : null) ??
-    inProgressSession?.templateName ??
-    null;
-  const notes = hasCompleted
-    ? `${completedSession.exerciseCount} exercise${completedSession.exerciseCount === 1 ? '' : 's'} logged`
-    : hasScheduled
-      ? `${scheduledWorkouts.length} scheduled workout${scheduledWorkouts.length === 1 ? '' : 's'}`
-      : hasInProgress
-        ? 'Workout currently in progress'
-        : null;
-
   return {
     completedSession,
     date,
     dateKey,
-    inProgressSession,
-    notes,
-    scheduledWorkouts,
+    workouts,
+    workoutIndicators,
     status,
-    templateName,
   };
 }
 
-function getDetailStats(selectedDay: DayDetails) {
-  if (selectedDay.completedSession) {
-    return [
-      { label: 'Status', value: 'Completed' },
-      {
-        label: 'Duration',
-        value:
-          selectedDay.completedSession.duration != null
-            ? `${selectedDay.completedSession.duration} min`
-            : 'Not tracked',
-      },
-      {
-        label: 'Exercises',
-        value: `${selectedDay.completedSession.exerciseCount}`,
-      },
-      {
-        label: 'Started',
-        value: timeFormatter.format(new Date(selectedDay.completedSession.startedAt)),
-      },
-    ];
+function buildDayWorkouts({
+  scheduledWorkouts,
+  completedSessions,
+  inProgressSessions,
+  sessionById,
+}: {
+  scheduledWorkouts: ScheduledWorkoutListItem[];
+  completedSessions: WorkoutSessionListItem[];
+  inProgressSessions: WorkoutSessionListItem[];
+  sessionById: Map<string, WorkoutSessionListItem>;
+}) {
+  const workouts: DayWorkout[] = [];
+  const consumedSessionIds = new Set<string>();
+
+  for (const scheduledWorkout of scheduledWorkouts) {
+    const linkedSession = scheduledWorkout.sessionId
+      ? (sessionById.get(scheduledWorkout.sessionId) ?? null)
+      : null;
+    const fallbackName = scheduledWorkout.templateName ?? 'Workout unavailable';
+
+    if (linkedSession && linkedSession.status === 'completed') {
+      workouts.push({
+        id: `scheduled-${scheduledWorkout.id}`,
+        isUnavailable: false,
+        name: linkedSession.templateName ?? linkedSession.name ?? fallbackName,
+        scheduledWorkout: scheduledWorkout,
+        session: linkedSession,
+        status: 'completed',
+        templateId: linkedSession.templateId ?? scheduledWorkout.templateId ?? null,
+      });
+      consumedSessionIds.add(linkedSession.id);
+      continue;
+    }
+
+    if (linkedSession && (linkedSession.status === 'in-progress' || linkedSession.status === 'paused')) {
+      workouts.push({
+        id: `scheduled-${scheduledWorkout.id}`,
+        isUnavailable: false,
+        name: linkedSession.templateName ?? linkedSession.name ?? fallbackName,
+        scheduledWorkout: scheduledWorkout,
+        session: linkedSession,
+        status: 'in-progress',
+        templateId: linkedSession.templateId ?? scheduledWorkout.templateId ?? null,
+      });
+      consumedSessionIds.add(linkedSession.id);
+      continue;
+    }
+
+    workouts.push({
+      id: `scheduled-${scheduledWorkout.id}`,
+      isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
+      name: fallbackName,
+      scheduledWorkout: scheduledWorkout,
+      session: null,
+      status: 'scheduled',
+      templateId: scheduledWorkout.templateId ?? null,
+    });
   }
 
-  if (selectedDay.inProgressSession) {
-    return [
-      { label: 'Status', value: 'In progress' },
-      { label: 'Duration', value: 'Timer running' },
-      { label: 'Exercises', value: `${selectedDay.inProgressSession.exerciseCount}` },
-      {
-        label: 'Started',
-        value: timeFormatter.format(new Date(selectedDay.inProgressSession.startedAt)),
-      },
-    ];
+  for (const session of completedSessions) {
+    if (consumedSessionIds.has(session.id)) {
+      continue;
+    }
+    workouts.push({
+      id: `completed-${session.id}`,
+      isUnavailable: false,
+      name: session.templateName ?? session.name,
+      scheduledWorkout: null,
+      session,
+      status: 'completed',
+      templateId: session.templateId ?? null,
+    });
   }
 
-  if (selectedDay.scheduledWorkouts.length > 0) {
-    return [
-      { label: 'Status', value: 'Scheduled' },
-      { label: 'Planned', value: `${selectedDay.scheduledWorkouts.length} workouts` },
-      {
-        label: 'Focus',
-        value: selectedDay.scheduledWorkouts[0]?.templateName ?? 'Workout planned',
-      },
-      { label: 'Readiness', value: 'Ready to start' },
-    ];
+  for (const session of inProgressSessions) {
+    if (consumedSessionIds.has(session.id)) {
+      continue;
+    }
+    workouts.push({
+      id: `in-progress-${session.id}`,
+      isUnavailable: false,
+      name: session.templateName ?? session.name,
+      scheduledWorkout: null,
+      session,
+      status: 'in-progress',
+      templateId: session.templateId ?? null,
+    });
   }
 
-  return [
-    { label: 'Status', value: 'Open day' },
-    { label: 'Focus', value: 'No session linked' },
-    { label: 'Plan', value: 'Use for flexibility' },
-    { label: 'Readiness', value: 'Template can be added later' },
-  ];
+  return workouts.sort((left, right) => {
+    const priority = workoutPriority(left.status) - workoutPriority(right.status);
+    if (priority !== 0) {
+      return priority;
+    }
+    const leftTime = left.session?.startedAt ?? left.scheduledWorkout?.createdAt ?? 0;
+    const rightTime = right.session?.startedAt ?? right.scheduledWorkout?.createdAt ?? 0;
+    return rightTime - leftTime;
+  });
 }
 
 function getDefaultSelectedDateKey(
   month: Date,
-  completedByDate: Map<string, WorkoutSessionListItem>,
+  completedByDate: Map<string, WorkoutSessionListItem[]>,
+  inProgressByDate: Map<string, WorkoutSessionListItem[]>,
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>,
   todayKey: string,
 ): string {
   if (
     isSameMonth(parseDateKey(todayKey), month) &&
-    (completedByDate.has(todayKey) || (scheduledByDate.get(todayKey)?.length ?? 0) > 0)
+    (completedByDate.has(todayKey) ||
+      inProgressByDate.has(todayKey) ||
+      (scheduledByDate.get(todayKey)?.length ?? 0) > 0)
   ) {
     return todayKey;
   }
 
-  const monthActivity = [...completedByDate.keys(), ...scheduledByDate.keys()]
+  const monthActivity = [...completedByDate.keys(), ...inProgressByDate.keys(), ...scheduledByDate.keys()]
     .map((dateKey) => parseDateKey(dateKey))
     .filter((date) => isSameMonth(date, month))
     .sort((left, right) => left.getTime() - right.getTime());
@@ -771,10 +853,82 @@ function isSameMonth(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
 }
 
-function spansToday(session: WorkoutSessionListItem, todayKey: string) {
-  const dayStart = new Date(`${todayKey}T00:00:00`).getTime();
-  const dayEnd = new Date(`${todayKey}T23:59:59.999`).getTime();
-  const sessionEnd = session.completedAt ?? Number.POSITIVE_INFINITY;
+function workoutPriority(status: DayWorkoutStatus) {
+  switch (status) {
+    case 'in-progress':
+      return 0;
+    case 'scheduled':
+      return 1;
+    case 'completed':
+      return 2;
+    default:
+      return 3;
+  }
+}
 
-  return session.startedAt <= dayEnd && sessionEnd >= dayStart;
+function buildWorkoutIndicators(workouts: DayWorkout[]): WorkoutIndicator[] {
+  return workouts
+    .map((workout): WorkoutIndicator => ({
+      id: workout.id,
+      status:
+        workout.status === 'scheduled'
+          ? workout.isUnavailable
+            ? 'unavailable'
+            : 'scheduled'
+          : workout.status,
+    }))
+    .sort((left, right) => indicatorPriority(left.status) - indicatorPriority(right.status));
+}
+
+function indicatorPriority(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'in-progress':
+      return 0;
+    case 'completed':
+      return 1;
+    case 'scheduled':
+      return 2;
+    case 'unavailable':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+function getTileIndicators(indicators: WorkoutIndicator[]) {
+  if (indicators.length <= 2) {
+    return indicators;
+  }
+
+  return indicators.slice(0, 2);
+}
+
+function indicatorDotClassName(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'completed':
+      return 'bg-emerald-500';
+    case 'scheduled':
+      return 'border border-slate-500 bg-transparent';
+    case 'in-progress':
+      return 'animate-pulse bg-orange-500 ring-2 ring-orange-500/30 ring-offset-1 ring-offset-background';
+    case 'unavailable':
+      return 'bg-destructive/80';
+    default:
+      return 'bg-muted';
+  }
+}
+
+function statusToLabel(status: WorkoutIndicatorStatus) {
+  switch (status) {
+    case 'completed':
+      return 'Completed';
+    case 'scheduled':
+      return 'Scheduled';
+    case 'in-progress':
+      return 'In-progress';
+    case 'unavailable':
+      return 'Unavailable scheduled';
+    default:
+      return 'Workout';
+  }
 }

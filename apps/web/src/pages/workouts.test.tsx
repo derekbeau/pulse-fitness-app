@@ -292,7 +292,9 @@ describe('WorkoutsPage', () => {
 
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=list');
-    expect(await screen.findByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'In Progress' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Workout Calendar')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
@@ -395,10 +397,7 @@ describe('WorkoutsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 
     const searchbox = await screen.findByRole('searchbox', { name: /search templates by name/i });
-    expect(searchbox).toHaveAttribute(
-      'id',
-      'template-search',
-    );
+    expect(searchbox).toHaveAttribute('id', 'template-search');
     expect(await screen.findByRole('link', { name: 'Upper Push' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Lower Quad-Dominant' })).toBeInTheDocument();
 
@@ -564,7 +563,9 @@ describe('WorkoutsPage', () => {
   it('shows a completion notice when redirected from an already-completed active session', () => {
     renderWithQueryClient(
       <MemoryRouter
-        initialEntries={[`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`]}
+        initialEntries={[
+          `/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`,
+        ]}
       >
         <Routes>
           <Route element={<WorkoutsPage />} path="/workouts" />

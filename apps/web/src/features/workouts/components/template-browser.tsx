@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, MoreVertical, Search, Tag } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,10 @@ import { toDateKey } from '@/lib/date-utils';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { ScheduleWorkoutDialog } from '@/features/workouts/components/schedule-workout-dialog';
+import {
+  formatWorkoutConflictDescription,
+  getDayWorkoutConflicts,
+} from '@/features/workouts/lib/day-workout-conflicts';
 
 // Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
 interface TemplateSummary {
@@ -52,6 +56,7 @@ export function TemplateBrowser({
   className,
   templates = [],
 }: TemplateBrowserProps) {
+  const [searchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
@@ -60,6 +65,11 @@ export function TemplateBrowser({
   const renameTemplateMutation = useRenameTemplate();
   const deleteTemplateMutation = useDeleteTemplate();
   const scheduleWorkoutMutation = useScheduleWorkout();
+  const requestedDate = searchParams.get('date');
+  const scheduleInitialDate =
+    requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+      ? requestedDate
+      : toDateKey(new Date());
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const filteredTemplates = useMemo(
@@ -96,6 +106,26 @@ export function TemplateBrowser({
       toast.error(message);
       throw error;
     }
+  }
+
+  async function confirmDuplicateDayWorkouts(dateKey: string) {
+    const conflicts = await getDayWorkoutConflicts(dateKey);
+
+    if (conflicts.length === 0) {
+      return true;
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      confirm({
+        title: 'This day already has a workout',
+        description: formatWorkoutConflictDescription(conflicts),
+        cancelLabel: 'Cancel',
+        confirmLabel: 'Create another anyway',
+        variant: 'default',
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
   }
 
   return (
@@ -303,7 +333,7 @@ export function TemplateBrowser({
       {dialog}
       <ScheduleWorkoutDialog
         description={`Pick a date for ${scheduleTarget?.name ?? 'this workout'}.`}
-        initialDate={toDateKey(new Date())}
+        initialDate={scheduleInitialDate}
         isPending={scheduleWorkoutMutation.isPending}
         onOpenChange={(open) => {
           if (!open) {
@@ -312,6 +342,11 @@ export function TemplateBrowser({
         }}
         onSubmitDate={async (date) => {
           if (!scheduleTarget) {
+            return;
+          }
+
+          const shouldCreateAnother = await confirmDuplicateDayWorkouts(date);
+          if (!shouldCreateAnother) {
             return;
           }
 

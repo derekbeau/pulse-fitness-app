@@ -188,6 +188,14 @@ describe('WorkoutTemplateDetail', () => {
         return Promise.resolve(jsonResponse(templatePayload));
       }
 
+      if (url.includes('/api/v1/scheduled-workouts') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
       if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
         return Promise.resolve(jsonResponse(createdSessionPayload, { status: 201 }));
       }
@@ -274,6 +282,14 @@ describe('WorkoutTemplateDetail', () => {
         return Promise.resolve(jsonResponse(templatePayload));
       }
 
+      if (url.includes('/api/v1/scheduled-workouts?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
       if (url.endsWith('/api/v1/scheduled-workouts') && init?.method === 'POST') {
         return Promise.resolve(
           jsonResponse({
@@ -313,6 +329,59 @@ describe('WorkoutTemplateDetail', () => {
 
       expect(scheduleCall).toBeDefined();
     });
+  });
+
+  it('shows duplicate warning before starting when the day already has workouts', async () => {
+    const createSessionSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.includes('/api/v1/scheduled-workouts?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'scheduled-1',
+                date: '2026-03-07',
+                templateId: 'upper-push',
+                templateName: 'Upper Push',
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.includes('/api/v1/workout-sessions?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
+        createSessionSpy();
+        return Promise.resolve(jsonResponse(createdSessionPayload, { status: 201 }));
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start Workout' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('This day already has a workout')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(createSessionSpy).not.toHaveBeenCalled();
   });
 
   it('renames an exercise from the template exercise menu', async () => {

@@ -392,9 +392,9 @@ export function useWorkoutSessions(
   });
 }
 
-export function useWorkoutTemplate(id: string) {
+export function useWorkoutTemplate(id: string, options?: { enabled?: boolean }) {
   return useQuery<WorkoutTemplate>({
-    enabled: id.trim().length > 0,
+    enabled: (options?.enabled ?? true) && id.trim().length > 0,
     queryFn: ({ signal }) => getWorkoutTemplate(id, signal),
     queryKey: workoutQueryKeys.template(id),
   });
