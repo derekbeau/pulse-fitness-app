@@ -1,3 +1,8 @@
+---
+name: pulse-app-usage
+description: Pulse app API usage patterns for workout, habit, and nutrition agent workflows
+---
+
 # Pulse App Usage Skill
 
 ## Workout Workflow
