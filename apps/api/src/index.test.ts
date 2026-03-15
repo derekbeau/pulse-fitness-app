@@ -53,6 +53,53 @@ describe('OpenAPI docs', () => {
           description: 'AgentToken <token>',
         },
       });
+
+      expect(body.paths?.['/api/v1/auth/register']?.post).toMatchObject({
+        summary: 'Register a new user account',
+        tags: ['auth'],
+      });
+      expect(body.paths?.['/api/v1/auth/register']?.post.security).toBeUndefined();
+      expect(body.paths?.['/api/v1/auth/register']?.post.requestBody).toBeTruthy();
+
+      expect(body.paths?.['/api/v1/foods/']?.get).toMatchObject({
+        summary: 'List foods',
+        tags: ['foods'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/foods/']?.get.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'page', in: 'query' }),
+          expect.objectContaining({ name: 'limit', in: 'query' }),
+        ]),
+      );
+
+      expect(body.paths?.['/api/v1/meals/']?.post).toMatchObject({
+        summary: 'Create a meal entry',
+        tags: ['nutrition'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/meals/']?.post.requestBody).toBeTruthy();
+
+      expect(body.paths?.['/api/v1/nutrition/{date}/summary']?.get).toMatchObject({
+        summary: 'Get daily nutrition summary',
+        tags: ['nutrition'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/nutrition/{date}/summary']?.get.parameters).toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: 'date', in: 'path' })]),
+      );
+
+      expect(body.paths?.['/api/v1/exercises/{id}/last-performance']?.get).toMatchObject({
+        summary: 'Get the latest completed performance for an exercise',
+        tags: ['exercises'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/exercises/{id}/last-performance']?.get.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'id', in: 'path' }),
+          expect.objectContaining({ name: 'includeRelated', in: 'query' }),
+        ]),
+      );
     } finally {
       await app.close();
     }
@@ -67,7 +114,7 @@ describe('OpenAPI docs', () => {
         url: '/api/docs',
       });
 
-      expect([200, 302]).toContain(response.statusCode);
+      expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/html');
     } finally {
       await app.close();

@@ -3,6 +3,8 @@ import swaggerUi from '@fastify/swagger-ui';
 import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
   jsonSchemaTransform,
   serializerCompiler,
   validatorCompiler,
@@ -82,6 +84,38 @@ export const buildServer = () => {
 
   app.register(swaggerUi, {
     routePrefix: '/api/docs',
+  });
+
+  app.setErrorHandler((error, request, reply) => {
+    if (hasZodFastifySchemaValidationErrors(error)) {
+      return reply.code(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+          details: {
+            issues: error.validation,
+            method: request.method,
+            url: request.url,
+          },
+        },
+      });
+    }
+
+    if (isResponseSerializationError(error)) {
+      request.log.error(
+        { err: error, method: error.method, url: error.url, issues: error.cause.issues },
+        "Response doesn't match the route schema",
+      );
+
+      return reply.code(500).send({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Response serialization failed',
+        },
+      });
+    }
+
+    return reply.send(error);
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

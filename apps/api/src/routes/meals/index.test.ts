@@ -6,7 +6,7 @@ import {
   findUserAuthById,
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
-import { createFood, findFoodByName } from '../foods/store.js';
+import { createFood, findFoodByName, trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -24,6 +24,7 @@ vi.mock('../../middleware/store.js', () => ({
 vi.mock('../foods/store.js', () => ({
   createFood: vi.fn(),
   findFoodByName: vi.fn(),
+  trackFoodUsage: vi.fn(),
 }));
 
 vi.mock('../nutrition/store.js', async () => {
@@ -43,6 +44,31 @@ const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken
   authorization: `${scheme} ${token}`,
 });
 
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    url: string;
+    instancePath: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: 'POST',
+        url: expectation.url,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
+
 describe('meal routes', () => {
   beforeEach(() => {
     vi.mocked(findAgentTokenByHash).mockReset();
@@ -50,6 +76,7 @@ describe('meal routes', () => {
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(createFood).mockReset();
     vi.mocked(findFoodByName).mockReset();
+    vi.mocked(trackFoodUsage).mockReset();
     vi.mocked(createMealForDate).mockReset();
     vi.mocked(findMealById).mockReset();
     vi.mocked(findMealItemById).mockReset();
@@ -95,6 +122,8 @@ describe('meal routes', () => {
         },
       ],
     });
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
+
     const app = buildServer();
 
     try {
@@ -187,11 +216,9 @@ describe('meal routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid meal payload',
-        },
+      expectValidationError(response.json(), {
+        url: '/api/v1/meals',
+        instancePath: '/',
       });
       expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
     } finally {
@@ -287,6 +314,8 @@ describe('meal routes', () => {
         },
       ],
     });
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
+
     const app = buildServer();
 
     try {
