@@ -1,5 +1,12 @@
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
@@ -19,6 +26,7 @@ import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
+const OPENAPI_SERVER_URL = 'http://localhost:3001';
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
@@ -37,8 +45,43 @@ const getJwtSecret = () => {
 export const buildServer = () => {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
   app.register(fastifyJwt, {
     secret: getJwtSecret(),
+  });
+
+  app.register(swagger, {
+    openapi: {
+      openapi: '3.1.0',
+      info: {
+        title: 'Pulse Fitness API',
+        description: 'Unified API for Pulse fitness app and agent integrations',
+        version: '1.0.0',
+      },
+      servers: [{ url: OPENAPI_SERVER_URL }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+          agentToken: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'Authorization',
+            description: 'AgentToken <token>',
+          },
+        },
+      },
+    },
+    transform: jsonSchemaTransform,
+  });
+
+  app.register(swaggerUi, {
+    routePrefix: '/api/docs',
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
