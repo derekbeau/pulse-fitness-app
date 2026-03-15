@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { trashKeys, usePurgeItem, useRestoreItem, useTrashItems } from './trash';
+import { trashQueryKeys, usePurgeItem, useRestoreItem, useTrashItems } from './trash';
 
 const mockFetch = vi.fn();
 
@@ -64,9 +64,11 @@ describe('trash api hooks', () => {
       });
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/trash/habits/habit-1/restore',
-      expect.objectContaining({ method: 'POST' }));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashKeys.all });
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/trash/habits/habit-1/restore',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['habits'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['foods'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['workouts'] });
@@ -86,9 +88,11 @@ describe('trash api hooks', () => {
       });
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/trash/foods/food-1',
-      expect.objectContaining({ method: 'DELETE' }));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashKeys.all });
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/trash/foods/food-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['habits'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['foods'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['workouts'] });

@@ -4,11 +4,13 @@ import type { Habit, HabitEntry } from '@pulse/shared';
 import { type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { apiRequest } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 
 import { useHabits, useToggleHabit, useUpdateHabitEntry } from './habits';
-import { habitKeys } from './keys';
+import { habitQueryKeys } from './keys';
 
 vi.mock('@/lib/api-client', () => ({
   apiRequest: vi.fn(),
@@ -124,7 +126,7 @@ describe('habit api hooks', () => {
   it('optimistically updates and rolls back a toggled habit entry on failure', async () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
-    const queryKey = habitKeys.entries({ from: '2026-03-07', to: '2026-03-07' });
+    const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-1',
@@ -217,7 +219,7 @@ describe('habit api hooks', () => {
   it('optimistically patches a tracked entry and keeps the server result on success', async () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
-    const queryKey = habitKeys.entries({ from: '2026-03-07', to: '2026-03-07' });
+    const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-2',
@@ -269,6 +271,46 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual([updatedEntry]);
+    });
+  });
+
+  it('invalidates dashboard snapshot and chain queries after a toggle succeeds', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const serverEntry: HabitEntry = {
+      id: 'entry-4',
+      habitId: 'habit-4',
+      userId: 'user-1',
+      date: '2026-03-08',
+      completed: true,
+      value: null,
+      isOverride: false,
+      createdAt: 4,
+    };
+    mockedApiRequest.mockResolvedValueOnce(serverEntry);
+
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useToggleHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        habitId: 'habit-4',
+        date: '2026-03-08',
+        completed: true,
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.entryList(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.list(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitChainQueryKeys.all,
     });
   });
 });

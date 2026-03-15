@@ -97,6 +97,8 @@ export function useUpdateFood() {
       }));
 
       queryClient.setQueryData(foodQueryKeys.food(updatedFood.id), updatedFood);
+      queryClient.setQueryData(foodQueryKeys.food(updatedFood.id), updatedFood);
+      queryClient.setQueryData(foodQueryKeys.detail(updatedFood.id), updatedFood);
       await queryClient.invalidateQueries({
         queryKey: foodQueryKeys.foods(),
       });
@@ -140,6 +142,9 @@ export function useDeleteFood() {
       queryClient.removeQueries({
         queryKey: foodQueryKeys.food(foodId),
       });
+      queryClient.removeQueries({
+        queryKey: foodQueryKeys.detail(foodId),
+      });
 
       return {
         previousLists,
@@ -160,6 +165,9 @@ export function useDeleteFood() {
         }),
         queryClient.invalidateQueries({
           queryKey: foodQueryKeys.food(foodId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: foodQueryKeys.detail(foodId),
         }),
       ]),
   });

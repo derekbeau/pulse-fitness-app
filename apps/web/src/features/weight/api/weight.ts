@@ -7,6 +7,7 @@ import type {
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
 
 type WeightTrendFilters = {
@@ -84,7 +85,10 @@ export const useLogWeight = () => {
   return useMutation({
     mutationFn: postWeightEntry,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: weightQueryKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: weightQueryKeys.all }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.weightMutation()),
+      ]);
       toast.success('Weight logged');
     },
   });
@@ -96,7 +100,10 @@ export const useDeleteWeight = () => {
   return useMutation({
     mutationFn: deleteWeightEntry,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: weightQueryKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: weightQueryKeys.all }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.weightMutation()),
+      ]);
       toast.success('Weight entry deleted');
     },
     onError: () => {
@@ -112,7 +119,10 @@ export const useUpdateWeight = () => {
     mutationFn: ({ id, input }: { id: string; input: PatchWeightInput }) =>
       patchWeightEntry(id, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: weightQueryKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: weightQueryKeys.all }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.weightMutation()),
+      ]);
       toast.success('Weight entry updated');
     },
     onError: () => {

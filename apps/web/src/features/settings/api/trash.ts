@@ -19,11 +19,13 @@ const mutationResultSchema = z.object({
 export const trashQueryKeys = {
   all: ['trash'] as const,
   items: () => ['trash', 'items'] as const,
+  list: () => ['trash', 'list'] as const,
 };
 
 export const trashKeys = {
   all: trashQueryKeys.all,
-  list: trashQueryKeys.items,
+  items: trashQueryKeys.items,
+  list: trashQueryKeys.list,
 };
 
 type TrashMutationInput = {

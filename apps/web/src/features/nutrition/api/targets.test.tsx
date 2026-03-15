@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { nutritionTargetKeys, useNutritionTargets, useUpdateTargets } from './targets';
+import { nutritionTargetQueryKeys, useNutritionTargets, useUpdateTargets } from './targets';
 
 const mockFetch = vi.fn();
 
@@ -100,6 +100,6 @@ describe('nutrition target api hooks', () => {
         method: 'POST',
       }),
     );
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: nutritionTargetKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: nutritionTargetQueryKeys.all });
   });
 });

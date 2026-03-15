@@ -3,9 +3,9 @@ import { userProfileSchema, type UserProfile, type UpdateUserInput } from '@puls
 
 import { apiRequest } from '@/lib/api-client';
 
-export const userKeys = {
+export const userQueryKeys = {
   all: ['user'] as const,
-  me: () => [...userKeys.all, 'me'] as const,
+  current: () => [...userQueryKeys.all, 'current'] as const,
 };
 
 const fetchCurrentUser = async (signal?: AbortSignal): Promise<UserProfile> => {
@@ -29,7 +29,7 @@ const patchCurrentUser = async (data: UpdateUserInput): Promise<UserProfile> => 
 export const useUser = () =>
   useQuery({
     queryFn: ({ signal }) => fetchCurrentUser(signal),
-    queryKey: userKeys.me(),
+    queryKey: userQueryKeys.current(),
   });
 
 export const useUpdateUser = () => {
@@ -38,7 +38,7 @@ export const useUpdateUser = () => {
   return useMutation({
     mutationFn: patchCurrentUser,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: userKeys.all });
+      await queryClient.invalidateQueries({ queryKey: userQueryKeys.all });
     },
   });
 };

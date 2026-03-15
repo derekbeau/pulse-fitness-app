@@ -3,9 +3,9 @@ import { dashboardConfigSchema, type DashboardConfig } from '@pulse/shared';
 
 import { apiRequest } from '@/lib/api-client';
 
-export const dashboardConfigKeys = {
+export const dashboardConfigQueryKeys = {
   all: ['dashboard', 'config'] as const,
-  detail: () => [...dashboardConfigKeys.all, 'current'] as const,
+  detail: () => [...dashboardConfigQueryKeys.all, 'current'] as const,
 };
 
 const fetchDashboardConfig = async (signal?: AbortSignal): Promise<DashboardConfig> => {
@@ -30,7 +30,7 @@ const putDashboardConfig = async (config: DashboardConfig): Promise<DashboardCon
 export const useDashboardConfig = () =>
   useQuery({
     queryFn: ({ signal }) => fetchDashboardConfig(signal),
-    queryKey: dashboardConfigKeys.detail(),
+    queryKey: dashboardConfigQueryKeys.detail(),
   });
 
 export const useSaveDashboardConfig = () => {
@@ -39,7 +39,7 @@ export const useSaveDashboardConfig = () => {
   return useMutation({
     mutationFn: putDashboardConfig,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: dashboardConfigKeys.all });
+      await queryClient.invalidateQueries({ queryKey: dashboardConfigQueryKeys.all });
     },
   });
 };

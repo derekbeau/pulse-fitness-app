@@ -7,14 +7,15 @@ import { addDays, getToday, parseDateInput, toDateKey } from '@/lib/date';
 const DEFAULT_TREND_DAYS = 30;
 const DEFAULT_QUERY_ENABLED = true;
 
-export const weightTrendKeys = {
+export const dashboardWeightTrendQueryKeys = {
   all: ['dashboard', 'weight-trend'] as const,
-  range: (from: string, to: string) => [...weightTrendKeys.all, from, to] as const,
+  range: (from: string, to: string) => [...dashboardWeightTrendQueryKeys.all, from, to] as const,
 };
 
 const resolveDateRange = (from?: string, to?: string) => {
   const resolvedTo = to ?? toDateKey(getToday());
-  const resolvedFrom = from ?? toDateKey(addDays(parseDateInput(resolvedTo), -(DEFAULT_TREND_DAYS - 1)));
+  const resolvedFrom =
+    from ?? toDateKey(addDays(parseDateInput(resolvedTo), -(DEFAULT_TREND_DAYS - 1)));
 
   return {
     from: resolvedFrom,
@@ -39,17 +40,13 @@ const fetchWeightTrend = async (
   return dashboardWeightTrendSchema.parse(trend);
 };
 
-export const useWeightTrend = (
-  from?: string,
-  to?: string,
-  options: { enabled?: boolean } = {},
-) => {
+export const useWeightTrend = (from?: string, to?: string, options: { enabled?: boolean } = {}) => {
   const range = resolveDateRange(from, to);
   const enabled = options.enabled ?? DEFAULT_QUERY_ENABLED;
 
   return useQuery({
     enabled,
     queryFn: ({ signal }) => fetchWeightTrend(range.from, range.to, signal),
-    queryKey: weightTrendKeys.range(range.from, range.to),
+    queryKey: dashboardWeightTrendQueryKeys.range(range.from, range.to),
   });
 };

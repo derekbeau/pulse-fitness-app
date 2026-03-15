@@ -19,9 +19,9 @@ type RegenerateTokenResponse = {
   token: string;
 };
 
-export const agentTokenKeys = {
+export const agentTokenQueryKeys = {
   all: ['agent-tokens'] as const,
-  list: () => [...agentTokenKeys.all, 'list'] as const,
+  list: () => [...agentTokenQueryKeys.all, 'list'] as const,
 };
 
 const fetchAgentTokens = async (signal?: AbortSignal): Promise<AgentTokenListItem[]> => {
@@ -53,7 +53,7 @@ const deleteAgentToken = async (id: string): Promise<{ success: boolean }> => {
 export const useAgentTokens = () =>
   useQuery({
     queryFn: ({ signal }) => fetchAgentTokens(signal),
-    queryKey: agentTokenKeys.list(),
+    queryKey: agentTokenQueryKeys.list(),
   });
 
 export const useCreateAgentToken = () => {
@@ -62,7 +62,7 @@ export const useCreateAgentToken = () => {
   return useMutation({
     mutationFn: createAgentToken,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: agentTokenKeys.all });
+      await queryClient.invalidateQueries({ queryKey: agentTokenQueryKeys.all });
     },
   });
 };
@@ -73,7 +73,7 @@ export const useRegenerateAgentToken = () => {
   return useMutation({
     mutationFn: regenerateAgentToken,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: agentTokenKeys.all });
+      await queryClient.invalidateQueries({ queryKey: agentTokenQueryKeys.all });
     },
   });
 };
@@ -84,7 +84,7 @@ export const useDeleteAgentToken = () => {
   return useMutation({
     mutationFn: deleteAgentToken,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: agentTokenKeys.all });
+      await queryClient.invalidateQueries({ queryKey: agentTokenQueryKeys.all });
     },
   });
 };

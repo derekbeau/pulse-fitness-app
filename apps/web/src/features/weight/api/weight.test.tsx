@@ -2,6 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 
+import { habitQueryKeys } from '@/features/habits/api/keys';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
@@ -10,7 +14,7 @@ import {
   useLogWeight,
   useUpdateWeight,
   useWeightTrend,
-  weightKeys,
+  weightQueryKeys,
 } from './weight';
 
 const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
@@ -127,7 +131,14 @@ describe('weight api hooks', () => {
         method: 'POST',
       }),
     );
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardWeightTrendQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
   });
 
   it('deletes a weight entry and invalidates weight queries', async () => {
@@ -152,7 +163,11 @@ describe('weight api hooks', () => {
         method: 'DELETE',
       }),
     );
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardWeightTrendQueryKeys.all,
+    });
   });
 
   it('shows a specific error toast when deleting a weight entry fails', async () => {
@@ -177,7 +192,9 @@ describe('weight api hooks', () => {
     const { result } = renderHook(() => useDeleteWeight(), { wrapper });
 
     await act(async () => {
-      await expect(result.current.mutateAsync('missing-weight')).rejects.toThrow('Weight entry not found');
+      await expect(result.current.mutateAsync('missing-weight')).rejects.toThrow(
+        'Weight entry not found',
+      );
     });
 
     expect(toast.error).toHaveBeenCalledWith('Failed to delete weight entry');
@@ -215,6 +232,10 @@ describe('weight api hooks', () => {
         method: 'PATCH',
       }),
     );
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardWeightTrendQueryKeys.all,
+    });
   });
 });

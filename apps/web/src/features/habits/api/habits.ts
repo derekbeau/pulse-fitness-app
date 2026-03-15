@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { invalidateQueryKeys, crossFeatureInvalidationMap } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
 
 import { habitQueryKeys } from './keys';
@@ -318,6 +319,7 @@ export function useReorderHabits() {
         }
 
         queryClient.setQueryData(habitQueryKeys.habits(), context.previousHabits);
+        queryClient.setQueryData(habitQueryKeys.habits(), context.previousHabits);
       },
       onSuccess: () => {
         toast.success('Habit order updated');
@@ -379,7 +381,11 @@ export function useToggleHabit() {
       applyHabitEntryToCache(queryClient, entry);
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: habitQueryKeys.list() }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitEntryMutation()),
+      ]);
     },
   });
 }
@@ -434,7 +440,11 @@ export function useUpdateHabitEntry() {
       applyHabitEntryToCache(queryClient, entry);
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: habitQueryKeys.list() }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitEntryMutation()),
+      ]);
     },
   });
 }

@@ -1,8 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  type WorkoutSessionListItem,
-  workoutSessionListItemSchema,
-} from '@pulse/shared';
+import { type WorkoutSessionListItem, workoutSessionListItemSchema } from '@pulse/shared';
 import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
@@ -15,9 +12,9 @@ export type RecentWorkout = Pick<WorkoutSessionListItem, 'id' | 'name' | 'date' 
   exerciseCount: number;
 };
 
-export const recentWorkoutsKeys = {
+export const recentWorkoutQueryKeys = {
   all: ['dashboard', 'recent-workouts'] as const,
-  list: (limit: number) => [...recentWorkoutsKeys.all, limit] as const,
+  list: (limit: number) => [...recentWorkoutQueryKeys.all, limit] as const,
 };
 
 const fetchRecentWorkouts = async (limit = DEFAULT_WORKOUT_LIMIT, signal?: AbortSignal) => {
@@ -46,6 +43,6 @@ export const useRecentWorkouts = (limit = DEFAULT_WORKOUT_LIMIT) => {
 
   return useQuery({
     queryFn: ({ signal }) => fetchRecentWorkouts(normalizedLimit, signal),
-    queryKey: recentWorkoutsKeys.list(normalizedLimit),
+    queryKey: recentWorkoutQueryKeys.list(normalizedLimit),
   });
 };

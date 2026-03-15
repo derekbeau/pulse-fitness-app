@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { clearStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { apiRequest } from '@/lib/api-client';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 import { workoutSessionQueryKeys } from './use-workout-session';
 
@@ -141,7 +142,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
         },
       );
       queryClient.setQueryData<WorkoutSessionListItem[]>(
-        workoutQueryKeys.sessionsList({}),
+        workoutQueryKeys.sessionList({}),
         (current) => {
           const existing = current?.find((item) => item.id === session.id);
           const nextItem = mergeSessionListItem(session, existing ?? fallbackItem);
@@ -150,7 +151,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
         },
       );
       queryClient.setQueryData<WorkoutSessionListItem[]>(
-        workoutQueryKeys.completedSessions(),
+        workoutQueryKeys.completedSessionList(),
         (current) => {
           const existing = current?.find((item) => item.id === session.id);
           const nextItem = mergeSessionListItem(session, existing ?? fallbackItem);
@@ -163,6 +164,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(session.id) }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutCompletion()),
       ]);
       toast.success('Workout completed');
     },

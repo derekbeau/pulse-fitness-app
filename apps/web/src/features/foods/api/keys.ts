@@ -17,10 +17,17 @@ export const foodQueryKeys = {
     params
       ? (['foods', 'list', normalizeListParams(params)] as const)
       : (['foods', 'list'] as const),
+  detail: (id: string) => ['foods', 'detail', id] as const,
+  list: (params?: Partial<FoodQueryParams>) =>
+    params
+      ? (['foods', 'list', normalizeListParams(params)] as const)
+      : (['foods', 'list'] as const),
 };
 
 export const foodKeys = {
   all: foodQueryKeys.all,
-  detail: foodQueryKeys.food,
-  list: foodQueryKeys.foods,
+  detail: foodQueryKeys.detail,
+  food: foodQueryKeys.food,
+  foods: foodQueryKeys.foods,
+  list: foodQueryKeys.list,
 };

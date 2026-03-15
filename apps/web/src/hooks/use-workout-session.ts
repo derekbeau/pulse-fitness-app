@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { apiRequest } from '@/lib/api-client';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const workoutSessionResponseSchema = z.object({
   data: workoutSessionSchema,
@@ -279,6 +280,7 @@ export function useDeleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(normalizedSessionId),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutCompletion()),
       ]);
       toast.success('Workout deleted');
     },

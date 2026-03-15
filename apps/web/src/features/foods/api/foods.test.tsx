@@ -4,7 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDeleteFood, useFoods, type FoodListResponse } from '@/features/foods/api/foods';
-import { foodKeys } from '@/features/foods/api/keys';
+import { foodQueryKeys } from '@/features/foods/api/keys';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 
@@ -109,7 +109,7 @@ describe('foods api hooks', () => {
     expect(result.current.data?.meta.total).toBe(12);
     expect(
       queryClient.getQueryState(
-        foodKeys.list({
+        foodQueryKeys.list({
           q: 'chicken',
           tags: ['protein', 'dinner'],
           sort: 'popular',
@@ -149,7 +149,7 @@ describe('foods api hooks', () => {
       },
     };
 
-    queryClient.setQueryData(foodKeys.list({ page: 1, limit: 12, sort: 'name' }), initialData);
+    queryClient.setQueryData(foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }), initialData);
 
     const { result } = renderHook(() => useDeleteFood(), { wrapper });
 
@@ -160,7 +160,7 @@ describe('foods api hooks', () => {
     await waitFor(() => {
       expect(
         queryClient.getQueryData<FoodListResponse>(
-          foodKeys.list({ page: 1, limit: 12, sort: 'name' }),
+          foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }),
         )?.data,
       ).toHaveLength(1);
     });
@@ -188,7 +188,7 @@ describe('foods api hooks', () => {
 
     expect(
       queryClient.getQueryData<FoodListResponse>(
-        foodKeys.list({ page: 1, limit: 12, sort: 'name' }),
+        foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }),
       ),
     ).toEqual(initialData);
   });

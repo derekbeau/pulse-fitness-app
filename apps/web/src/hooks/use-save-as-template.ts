@@ -46,7 +46,7 @@ export function useSaveAsTemplate(sessionId: string | null | undefined) {
       queryClient.setQueryData(workoutQueryKeys.template(template.id), template);
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: workoutQueryKeys.templates() }),
+        queryClient.invalidateQueries({ queryKey: workoutQueryKeys.templateList() }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
         queryClient.invalidateQueries({
           queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),

@@ -91,7 +91,7 @@ describe('use-save-as-template hook', () => {
       tags: ['strength', 'push'],
     });
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutQueryKeys.templates() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutQueryKeys.templateList() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
