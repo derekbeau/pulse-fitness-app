@@ -2,6 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
@@ -110,6 +112,13 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutQueryKeys.sessions() });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.session('session-1'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 
@@ -187,6 +196,9 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workoutSessionQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
     });
   });
 

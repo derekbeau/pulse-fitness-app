@@ -37,6 +37,7 @@ import { z } from 'zod';
 
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { createOptimisticMutation } from '@/lib/optimistic';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const paginationMetaSchema = z.object({
   page: z.number().int(),
@@ -842,10 +843,13 @@ export function useStartWorkoutSession() {
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: createWorkoutSession,
     onSuccess: async () => {
-      // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionList(params)` caches.
-      await queryClient.invalidateQueries({
-        queryKey: workoutQueryKeys.sessions(),
-      });
+      await Promise.all([
+        // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionList(params)` caches.
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+      ]);
       toast.success('Workout started');
     },
   });
@@ -869,6 +873,7 @@ export function useScheduleWorkout() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
       ]);
       toast.success(`Scheduled for ${formatter.format(new Date(`${variables.date}T12:00:00`))}`);
     },
@@ -878,7 +883,11 @@ export function useScheduleWorkout() {
 export function useRescheduleWorkout() {
   return createOptimisticMutation<ScheduledWorkoutListItem[], ScheduledWorkout, UpdateScheduledWorkoutRequest>({
     mutationFn: updateScheduledWorkout,
-    invalidateKeys: () => [workoutQueryKeys.scheduledWorkoutListRoot(), workoutQueryKeys.sessions()],
+    invalidateKeys: () => [
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.scheduledWorkoutMutation(),
+    ],
     onSuccess: async () => {
       toast.success('Workout rescheduled');
     },
@@ -897,7 +906,11 @@ export function useUnscheduleWorkout() {
     DeleteScheduledWorkoutRequest
   >({
     mutationFn: deleteScheduledWorkout,
-    invalidateKeys: () => [workoutQueryKeys.scheduledWorkoutListRoot(), workoutQueryKeys.sessions()],
+    invalidateKeys: () => [
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.scheduledWorkoutMutation(),
+    ],
     onSuccess: async () => {
       toast.success('Scheduled workout removed');
     },
@@ -948,7 +961,11 @@ export function useUpdateExercise() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.templateDetailPrefix(),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessionDetailPrefix(),
+        }),
       ]);
+      toast.success('Exercise updated');
     },
   });
 }
@@ -959,6 +976,9 @@ export function useRenameTemplate() {
     invalidateKeys: (params) => [
       workoutQueryKeys.templateList(),
       workoutQueryKeys.template(params.variables.id),
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.workoutTemplateMutation(),
     ],
     onSuccess: async () => {
       toast.success('Template renamed');
@@ -989,7 +1009,15 @@ export function useUpdateTemplate() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
+      toast.success('Template updated');
     },
   });
 }
@@ -1007,6 +1035,13 @@ export function useDeleteTemplate() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
       toast.success('Template deleted');
     },
@@ -1049,7 +1084,11 @@ export function useSwapTemplateExercise() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.templateId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
       ]);
+      toast.success('Exercise swapped');
     },
   });
 }
@@ -1068,6 +1107,7 @@ export function useSwapSessionExercise() {
           queryKey: workoutQueryKeys.session(variables.sessionId),
         }),
       ]);
+      toast.success('Exercise swapped');
     },
   });
 }

@@ -9,7 +9,14 @@ import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { apiRequest } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 
-import { useHabits, useToggleHabit, useUpdateHabitEntry } from './habits';
+import {
+  useCreateHabit,
+  useDeleteHabit,
+  useHabits,
+  useToggleHabit,
+  useUpdateHabit,
+  useUpdateHabitEntry,
+} from './habits';
 import { habitQueryKeys } from './keys';
 
 vi.mock('@/lib/api-client', () => ({
@@ -331,6 +338,104 @@ describe('habit api hooks', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: habitChainQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after creating a habit', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const createdHabit: Habit = {
+      id: 'habit-created',
+      userId: 'user-1',
+      name: 'Walk',
+      description: null,
+      emoji: '🚶',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 2,
+      active: true,
+      createdAt: 3,
+      updatedAt: 3,
+    } as Habit;
+    mockedApiRequest.mockResolvedValueOnce(createdHabit);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useCreateHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        emoji: '🚶',
+        frequency: 'daily',
+        name: 'Walk',
+        target: null,
+        trackingType: 'boolean',
+        unit: null,
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after updating a habit definition', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const updatedHabit: Habit = {
+      id: 'habit-updated',
+      userId: 'user-1',
+      name: 'Evening Walk',
+      description: null,
+      emoji: '🚶',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 2,
+      active: true,
+      createdAt: 3,
+      updatedAt: 4,
+    } as Habit;
+    mockedApiRequest.mockResolvedValueOnce(updatedHabit);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: 'habit-updated',
+        values: {
+          name: 'Evening Walk',
+        },
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after deleting a habit', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    mockedApiRequest.mockResolvedValueOnce({ success: true });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useDeleteHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: 'habit-delete',
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
     });
   });
 });

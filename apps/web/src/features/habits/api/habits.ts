@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
-import { crossFeatureInvalidationMap } from '@/lib/query-invalidation';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
 import { createOptimisticMutation } from '@/lib/optimistic';
 
@@ -244,7 +244,10 @@ export function useCreateHabit() {
       toast.success('Habit created');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitDefinitionMutation()),
+      ]);
     },
   });
 }
@@ -273,7 +276,10 @@ export function useUpdateHabit() {
       toast.success('Habit updated');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitDefinitionMutation()),
+      ]);
     },
   });
 }
@@ -296,7 +302,10 @@ export function useDeleteHabit() {
       toast.success('Habit deleted');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitDefinitionMutation()),
+      ]);
     },
   });
 }
@@ -329,7 +338,6 @@ export function useReorderHabits() {
           return;
         }
 
-        queryClient.setQueryData(habitQueryKeys.habits(), context.previousHabits);
         queryClient.setQueryData(habitQueryKeys.habits(), context.previousHabits);
       },
       onSuccess: () => {
@@ -405,14 +413,14 @@ export function useUpdateHabitEntry() {
       const existingEntry = findCachedHabitEntry(queryClient, variables.id);
       return {
         optimisticEntry: {
-        id: variables.id,
-        habitId: variables.habitId,
-        userId: existingEntry?.userId ?? 'optimistic',
-        date: variables.date,
-        completed: variables.completed ?? existingEntry?.completed ?? false,
-        value: variables.value ?? existingEntry?.value ?? null,
-        isOverride: variables.isOverride ?? existingEntry?.isOverride ?? false,
-        createdAt: existingEntry?.createdAt ?? Date.now(),
+          id: variables.id,
+          habitId: variables.habitId,
+          userId: existingEntry?.userId ?? 'optimistic',
+          date: variables.date,
+          completed: variables.completed ?? existingEntry?.completed ?? false,
+          value: variables.value ?? existingEntry?.value ?? null,
+          isOverride: variables.isOverride ?? existingEntry?.isOverride ?? false,
+          createdAt: existingEntry?.createdAt ?? Date.now(),
         },
       };
     },

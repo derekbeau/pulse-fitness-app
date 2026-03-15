@@ -1,11 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
   useRenameExercise,
   useRenameTemplate,
+  useScheduleWorkout,
   useRescheduleWorkout,
   useUnscheduleWorkout,
   workoutQueryKeys,
@@ -152,6 +154,7 @@ describe('workout optimistic mutations', () => {
   it('renames a template optimistically in list and detail caches', async () => {
     const deferred = createDeferredPromise<Response>();
     const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
     queryClient.setQueryData(workoutQueryKeys.templateList(), [template]);
     queryClient.setQueryData(workoutQueryKeys.template('template-1'), template);
@@ -183,6 +186,18 @@ describe('workout optimistic mutations', () => {
         }),
       );
       await deferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+      });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workoutQueryKeys.sessions(),
+      });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: dashboardSnapshotQueryKeys.all,
+      });
     });
   });
 
@@ -257,6 +272,7 @@ describe('workout optimistic mutations', () => {
     const rescheduleDeferred = createDeferredPromise<Response>();
     const unscheduleDeferred = createDeferredPromise<Response>();
     const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
     queryClient.setQueryData(
       workoutQueryKeys.scheduledWorkoutList({ from: '2026-03-01', to: '2026-03-31' }),
@@ -319,6 +335,47 @@ describe('workout optimistic mutations', () => {
         }),
       );
       await unscheduleDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: dashboardSnapshotQueryKeys.all,
+      });
+    });
+  });
+
+  it('schedules workouts and invalidates dashboard snapshot queries', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'scheduled-2',
+        userId: 'user-1',
+        templateId: 'template-1',
+        date: '2026-03-11',
+        sessionId: null,
+        createdAt: 2,
+        updatedAt: 2,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useScheduleWorkout(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        date: '2026-03-11',
+        templateId: 'template-1',
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.scheduledWorkoutList(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.sessions(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
     });
   });
 });

@@ -121,11 +121,11 @@ async function deleteSession(sessionId: string) {
 async function syncSessionMutationCache(
   queryClient: ReturnType<typeof useQueryClient>,
   session: WorkoutSession,
+  options?: { invalidateDashboard?: boolean },
 ) {
   queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
   queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
-
-  await Promise.all([
+  const invalidations = [
     queryClient.invalidateQueries({
       queryKey: workoutSessionQueryKeys.all,
     }),
@@ -138,7 +138,15 @@ async function syncSessionMutationCache(
     queryClient.invalidateQueries({
       queryKey: workoutQueryKeys.session(session.id),
     }),
-  ]);
+  ];
+
+  if (options?.invalidateDashboard) {
+    invalidations.push(
+      invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+    );
+  }
+
+  await Promise.all(invalidations);
 }
 
 type UseWorkoutSessionOptions = {
@@ -168,6 +176,7 @@ export function useStartSession() {
     onSuccess: async (session) => {
       setStoredActiveWorkoutSessionId(session.id);
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -176,6 +185,13 @@ export function useStartSession() {
         queryClient.invalidateQueries({
           queryKey: workoutSessionQueryKeys.detail(session.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(session.id),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
       ]);
       toast.success('Workout started');
     },
@@ -195,7 +211,7 @@ export function useUpdateSessionStartTime(sessionId: string | null | undefined) 
       return updateSessionStartTime(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
     },
   });
 }
@@ -213,7 +229,7 @@ export function useUpdateSessionStatus(sessionId: string | null | undefined) {
       return updateSessionStatus(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
     },
   });
 }
@@ -231,7 +247,7 @@ export function useUpdateSessionTimeSegments(sessionId: string | null | undefine
       return updateSessionTimeSegments(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
     },
   });
 }
