@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   typecheck:
+    name: typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -27,9 +28,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: pnpm turbo typecheck
+        run: pnpm typecheck
 
   lint:
+    name: lint
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -46,9 +48,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm turbo lint
+        run: pnpm lint
 
   build:
+    name: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -65,9 +68,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm turbo build
+        run: pnpm build
 
   test:
+    name: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -84,4 +88,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Test
-        run: pnpm turbo test
+        run: pnpm test
