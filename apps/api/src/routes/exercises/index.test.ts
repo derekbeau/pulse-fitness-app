@@ -609,7 +609,7 @@ describe('exercise routes', () => {
   });
 
   it('creates a user-specific exercise for the authenticated user', async () => {
-    const authToken = seedAgentToken('user-1');
+    const authToken = context.app.jwt.sign({ userId: 'user-1' });
 
     const response = await context.app.inject({
       method: 'POST',
@@ -1335,7 +1335,7 @@ describe('exercise routes', () => {
       category: 'compound',
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1');
 
     const response = await context.app.inject({
       method: 'POST',
