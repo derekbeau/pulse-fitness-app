@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 
 import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
@@ -15,6 +16,18 @@ import {
   useWorkoutSession,
   workoutSessionQueryKeys,
 } from './use-workout-session';
+
+const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastErrorMock,
+    success: toastSuccessMock,
+  },
+}));
 
 const mockFetch = vi.fn();
 
@@ -53,6 +66,8 @@ describe('use-workout-session hooks', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     vi.stubGlobal('fetch', mockFetch);
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
     window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
   });
 
@@ -160,6 +175,7 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });
+    expect(toast.success).toHaveBeenCalledWith('Workout start time updated');
   });
 
   it('updates workout status and refreshes session + list caches', async () => {
@@ -200,6 +216,7 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: dashboardSnapshotQueryKeys.all,
     });
+    expect(toast.success).toHaveBeenCalledWith('Workout paused');
   });
 
   it('updates workout time segments via dedicated endpoint', async () => {
@@ -237,6 +254,7 @@ describe('use-workout-session hooks', () => {
         method: 'PATCH',
       }),
     );
+    expect(toast.success).toHaveBeenCalledWith('Workout timing updated');
   });
 
   it('reorders workout session exercises via dedicated endpoint', async () => {
@@ -258,5 +276,6 @@ describe('use-workout-session hooks', () => {
         method: 'PATCH',
       }),
     );
+    expect(toast.success).toHaveBeenCalledWith('Workout exercise order updated');
   });
 });

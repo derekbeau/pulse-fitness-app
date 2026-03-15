@@ -1054,7 +1054,11 @@ export function useReorderTemplateExercises() {
     invalidateKeys: (params) => [
       workoutQueryKeys.templateList(),
       workoutQueryKeys.template(params.variables.templateId),
+      ...crossFeatureInvalidationMap.workoutTemplateMutation(),
     ],
+    onSuccess: async () => {
+      toast.success('Template exercise order updated');
+    },
     queryKey: (params) => [
       workoutQueryKeys.templateList(),
       workoutQueryKeys.template(params.variables.templateId),
@@ -1087,6 +1091,7 @@ export function useSwapTemplateExercise() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
       toast.success('Exercise swapped');
     },

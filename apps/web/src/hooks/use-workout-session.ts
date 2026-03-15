@@ -149,6 +149,22 @@ async function syncSessionMutationCache(
   await Promise.all(invalidations);
 }
 
+function getSessionStatusSuccessMessage(status: WorkoutSession['status']) {
+  if (status === 'paused') {
+    return 'Workout paused';
+  }
+
+  if (status === 'cancelled') {
+    return 'Workout cancelled';
+  }
+
+  if (status === 'in-progress') {
+    return 'Workout resumed';
+  }
+
+  return 'Workout status updated';
+}
+
 type UseWorkoutSessionOptions = {
   refetchInterval?: number | false;
 };
@@ -212,6 +228,7 @@ export function useUpdateSessionStartTime(sessionId: string | null | undefined) 
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success('Workout start time updated');
     },
   });
 }
@@ -230,6 +247,7 @@ export function useUpdateSessionStatus(sessionId: string | null | undefined) {
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success(getSessionStatusSuccessMessage(session.status));
     },
   });
 }
@@ -248,6 +266,7 @@ export function useUpdateSessionTimeSegments(sessionId: string | null | undefine
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success('Workout timing updated');
     },
   });
 }
@@ -266,6 +285,7 @@ export function useReorderSessionExercises(sessionId: string | null | undefined)
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session);
+      toast.success('Workout exercise order updated');
     },
   });
 }
