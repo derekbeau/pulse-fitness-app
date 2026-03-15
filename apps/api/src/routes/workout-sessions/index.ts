@@ -121,6 +121,11 @@ const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
   message: 'One or more corrections reference sets outside the workout session',
 } as const;
 
+const UNSUPPORTED_SESSION_CORRECTION_RESPONSE = {
+  code: 'INVALID_SESSION_CORRECTION',
+  message: 'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
+} as const;
+
 const toCreateWorkoutSessionInput = (
   session: Awaited<ReturnType<typeof findWorkoutSessionById>>,
 ): CreateWorkoutSessionInput => {
@@ -449,6 +454,18 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       const parsedBody = sessionCorrectionRequestSchema.safeParse(request.body);
       if (!parsedBody.success) {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const unsupportedCorrection = parsedBody.data.corrections.find(
+        (correction) => correction.weight === undefined && correction.reps === undefined,
+      );
+      if (unsupportedCorrection) {
+        return sendError(
+          reply,
+          400,
+          UNSUPPORTED_SESSION_CORRECTION_RESPONSE.code,
+          `${UNSUPPORTED_SESSION_CORRECTION_RESPONSE.message}: ${unsupportedCorrection.setId}`,
+        );
       }
 
       try {

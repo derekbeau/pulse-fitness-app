@@ -777,7 +777,7 @@ function getSessionSetEditorFields(
 
   const secondsField: SessionSetEditorField = {
     inputMode: 'numeric',
-    key: 'reps',
+    key: 'reps', // seconds are stored in the reps column for time-based tracking types
     label: 'Seconds',
     step: '1',
     suffix: 'sec',

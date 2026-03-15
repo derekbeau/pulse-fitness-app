@@ -878,6 +878,9 @@ export function useCorrectSessionSets(sessionId: string) {
       previousSession: WorkoutSession | undefined;
     }
   >({
+    meta: {
+      suppressGlobalErrorToast: true,
+    },
     mutationFn: (corrections) => correctSessionSets({ sessionId, corrections }),
     onMutate: async (corrections) => {
       await queryClient.cancelQueries({
@@ -901,6 +904,7 @@ export function useCorrectSessionSets(sessionId: string) {
       if (context?.previousSession) {
         queryClient.setQueryData(sessionQueryKey, context.previousSession);
       }
+      toast.error('Failed to save corrections. Please try again.');
     },
     onSuccess: async (session) => {
       queryClient.setQueryData(sessionQueryKey, session);

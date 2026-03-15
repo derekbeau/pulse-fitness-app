@@ -7,6 +7,10 @@ import { useAuthStore } from '@/store/auth-store';
 let appQueryClient: QueryClient | null = null;
 let isHandlingUnauthorized = false;
 
+type GlobalErrorOptions = {
+  skipToast?: boolean;
+};
+
 function redirectToLogin(): void {
   if (typeof window === 'undefined') {
     return;
@@ -20,9 +24,11 @@ function redirectToLogin(): void {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function handleGlobalError(error: unknown): void {
+function handleGlobalError(error: unknown, options: GlobalErrorOptions = {}): void {
   if (!isUnauthorizedApiError(error)) {
-    toast.error(toUserFriendlyApiErrorMessage(error));
+    if (!options.skipToast) {
+      toast.error(toUserFriendlyApiErrorMessage(error));
+    }
     return;
   }
 
@@ -50,8 +56,10 @@ export function createAppQueryClient(): QueryClient {
 
   appQueryClient = new QueryClient({
     mutationCache: new MutationCache({
-      onError: (error) => {
-        handleGlobalError(error);
+      onError: (error, _variables, _context, mutation) => {
+        handleGlobalError(error, {
+          skipToast: mutation.meta?.suppressGlobalErrorToast === true,
+        });
       },
     }),
     queryCache: new QueryCache({

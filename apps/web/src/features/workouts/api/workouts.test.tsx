@@ -192,7 +192,8 @@ describe('workouts api corrections', () => {
       queryClient.getQueryData<WorkoutSession>(workoutQueryKeys.session(initialSession.id))?.sets[0]
         ?.weight,
     ).toBe(185);
-    expect(toast.error).toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith('Failed to save corrections. Please try again.');
   });
 });
 

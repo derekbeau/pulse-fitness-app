@@ -1565,6 +1565,7 @@ describe('workout session routes', () => {
 
   it('applies workout session corrections to completed sessions and preserves session timing', async () => {
     const agentToken = seedAgentToken('user-1', 'session-correction-agent-token');
+    const updatedAtTimestamp = 1_700_000_004_200;
 
     seedWorkoutSession({
       id: 'session-completed',
@@ -1615,6 +1616,8 @@ describe('workout session routes', () => {
       .where(eq(workoutSessions.id, 'session-completed'))
       .get();
 
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(updatedAtTimestamp);
+
     const response = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/workout-sessions/session-completed/corrections',
@@ -1624,6 +1627,9 @@ describe('workout session routes', () => {
           {
             setId: 'set-1',
             weight: 190,
+          },
+          {
+            setId: 'set-1',
             reps: 6,
           },
           {
@@ -1633,6 +1639,7 @@ describe('workout session routes', () => {
         ],
       },
     });
+    dateNowSpy.mockRestore();
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
@@ -1676,7 +1683,10 @@ describe('workout session routes', () => {
       .where(eq(sessionSets.sessionId, 'session-completed'))
       .all();
 
-    expect(afterSessionRow).toEqual(beforeSessionRow);
+    expect(afterSessionRow).toEqual({
+      ...beforeSessionRow,
+      updatedAt: updatedAtTimestamp,
+    });
     expect(correctedSets).toEqual([
       {
         id: 'set-1',
@@ -1756,8 +1766,13 @@ describe('workout session routes', () => {
       section: 'main',
     });
 
-    const [inProgressResponse, otherUserResponse, invalidSetResponse, emptyCorrectionsResponse] =
-      await Promise.all([
+    const [
+      inProgressResponse,
+      otherUserResponse,
+      invalidSetResponse,
+      emptyCorrectionsResponse,
+      unsupportedCorrectionResponse,
+    ] = await Promise.all([
         context.app.inject({
           method: 'PATCH',
           url: '/api/v1/workout-sessions/session-in-progress/corrections',
@@ -1805,6 +1820,19 @@ describe('workout session routes', () => {
             corrections: [],
           },
         }),
+        context.app.inject({
+          method: 'PATCH',
+          url: '/api/v1/workout-sessions/session-completed/corrections',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            corrections: [
+              {
+                setId: 'set-1',
+                rpe: 8,
+              },
+            ],
+          },
+        }),
       ]);
 
     expect(inProgressResponse.statusCode).toBe(409);
@@ -1836,6 +1864,15 @@ describe('workout session routes', () => {
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid workout session payload',
+      },
+    });
+
+    expect(unsupportedCorrectionResponse.statusCode).toBe(400);
+    expect(unsupportedCorrectionResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_SESSION_CORRECTION',
+        message:
+          'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet: set-1',
       },
     });
   });
