@@ -139,8 +139,8 @@ export function NutritionPage() {
   }
 
   return (
-    <section className="space-y-5">
-      <header className="space-y-2">
+    <section className="space-y-4 sm:space-y-5">
+      <header className="space-y-1.5">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
           <HelpIcon title="Nutrition help">
@@ -210,7 +210,7 @@ export function NutritionPage() {
         <>
           <section
             aria-label="Daily macro totals"
-            className={cn('rounded-2xl border border-border/70 px-5 py-5', accentCardStyles.cream)}
+            className={cn('rounded-2xl border border-border/70 px-4 py-4', accentCardStyles.cream)}
           >
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -227,7 +227,7 @@ export function NutritionPage() {
             {isLoadingDay ? (
               <NutritionTotalsSkeleton />
             ) : (
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 {MACRO_CONFIG.map((macro) => {
                   const actual = dailyTotals[macro.key];
                   const target = dailyTargets?.[macro.key] ?? null;
@@ -236,7 +236,7 @@ export function NutritionPage() {
                   return (
                     <div
                       key={macro.key}
-                      className="rounded-xl border border-black/8 bg-white/30 px-4 py-4 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
+                      className="rounded-xl border border-black/8 bg-white/30 px-3.5 py-3 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
                     >
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65 dark:text-muted dark:opacity-100">
                         {macro.label}
@@ -287,9 +287,9 @@ export function NutritionPage() {
             </p>
           ) : null}
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {isLoadingDay ? (
-              <div aria-label="Loading nutrition meals" className="space-y-3">
+              <div aria-label="Loading nutrition meals" className="space-y-2">
                 {Array.from({ length: 4 }).map((_, index) => (
                   <MealCardSkeleton key={index} />
                 ))}
@@ -332,7 +332,7 @@ export function NutritionPage() {
 
 function NutritionTargetsPlaceholder() {
   return (
-    <section className="rounded-2xl border border-dashed border-border/70 bg-card/70 px-6 py-8 text-center shadow-sm">
+    <section className="rounded-2xl border border-dashed border-border/70 bg-card/70 px-5 py-6 text-center shadow-sm">
       <h2 className="text-lg font-semibold text-foreground">Macro progress</h2>
       <p className="mt-2 text-sm text-muted">
         No daily macro target is set yet. Add one in settings to enable progress rings.
@@ -345,12 +345,12 @@ function NutritionTotalsSkeleton() {
   return (
     <div
       aria-label="Loading nutrition"
-      className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
     >
       {Array.from({ length: 4 }).map((_, index) => (
         <Skeleton
           key={index}
-          className="h-20 rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
+          className="h-18 rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
         />
       ))}
     </div>

@@ -49,71 +49,35 @@ const breakfastMeal = {
 };
 
 describe('MealCard', () => {
-  it('renders the meal summary collapsed by default', () => {
+  it('renders a compact meal header with visible food rows by default', () => {
     render(<MealCard meal={breakfastMeal} />);
-
-    const trigger = screen.getByRole('button', { name: /breakfast/i });
-
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('7:20 AM')).toBeInTheDocument();
-    expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toHaveClass('truncate');
-    expect(screen.getByText('535 cal')).toBeInTheDocument();
-    expect(screen.getByText('29g protein')).toBeInTheDocument();
-    expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
-
-    const summaryContainer = screen.getByRole('heading', { name: 'Breakfast' }).parentElement;
-    expect(summaryContainer).toHaveClass('min-w-0');
-  });
-
-  it('does not render a summary line when summary is null', () => {
-    render(<MealCard meal={{ ...breakfastMeal, summary: null }} />);
 
     expect(screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein')).not.toBeInTheDocument();
-  });
-
-  it('expands to show individual food items and per-item macros', () => {
-    render(<MealCard meal={breakfastMeal} />);
-
-    const trigger = screen.getByRole('button', { name: /breakfast/i });
-    fireEvent.click(trigger);
-
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('535cal · 29P · 72C · 17F')).toBeInTheDocument();
+    expect(screen.getByText('7:20 AM · 3 foods')).toBeInTheDocument();
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
+    expect(screen.getByText('210cal · 18P · 1C · 15F')).toBeInTheDocument();
     expect(screen.getByText('5.5 oz')).toBeInTheDocument();
-    expect(screen.getByText('2 scoops')).toBeInTheDocument();
-    expect(screen.getByText('210 cal')).toBeInTheDocument();
-    expect(screen.getByText('18g')).toBeInTheDocument();
-    expect(screen.getByText('44g')).toBeInTheDocument();
-    expect(screen.getByText('15g')).toBeInTheDocument();
+    expect(screen.getByText('220cal · 10P · 44C · 2F')).toBeInTheDocument();
   });
 
-  it('collapses the item list when the header is clicked again', () => {
+  it('uses compact row styling while keeping meal headers and rows at a 44px touch target', () => {
     render(<MealCard meal={breakfastMeal} />);
 
-    const trigger = screen.getByRole('button', { name: /breakfast/i });
+    const mealCard = screen.getByRole('heading', { name: 'Breakfast' }).closest('[data-slot="card"]');
+    const mealHeader = mealCard?.firstElementChild;
+    const firstRow = screen.getByText('Large Eggs').closest('li');
 
-    fireEvent.click(trigger);
-    fireEvent.click(trigger);
-
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+    expect(mealHeader).toHaveClass('min-h-11');
+    expect(firstRow).toHaveClass('min-h-11');
+    expect(screen.getByText('Large Eggs')).toHaveClass('truncate');
   });
 
-  it('keeps horizontal padding consistent between collapsed and expanded states', () => {
-    render(<MealCard meal={breakfastMeal} />);
+  it('shows fallback time copy when meal time is not set', () => {
+    render(<MealCard meal={{ ...breakfastMeal, time: null }} />);
 
-    const trigger = screen.getByRole('button', { name: /breakfast/i });
-    const summarySection = trigger.parentElement;
-
-    expect(summarySection).toHaveClass('px-4', 'sm:px-5');
-
-    fireEvent.click(trigger);
-
-    const detailsId = trigger.getAttribute('aria-controls');
-    const expandedSection = detailsId ? document.getElementById(detailsId) : null;
-
-    expect(expandedSection).toHaveClass('px-4', 'sm:px-5');
+    expect(screen.getByText('Time not set · 3 foods')).toBeInTheDocument();
   });
 
   it('calls onDelete with the meal id when delete is clicked', () => {
