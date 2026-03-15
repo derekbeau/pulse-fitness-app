@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 import { findHabitById } from '../habits/store.js';
 
 import {
@@ -23,8 +24,17 @@ vi.mock('./store.js', () => ({
   upsertHabitEntry: vi.fn(),
 }));
 
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
+}));
+
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
+});
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
 });
 
 describe('habit entry routes', () => {
@@ -35,6 +45,9 @@ describe('habit entry routes', () => {
     vi.mocked(listHabitEntriesForHabitByDateRange).mockReset();
     vi.mocked(updateHabitEntry).mockReset();
     vi.mocked(upsertHabitEntry).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-habit-entry-secret';
   });
 
@@ -198,6 +211,10 @@ describe('habit entry routes', () => {
   });
 
   it('patch-upserts habit entries by date for unified agent flows', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
     vi.mocked(findHabitById).mockResolvedValue({
       id: 'habit-1',
       userId: 'user-1',
@@ -234,11 +251,10 @@ describe('habit entry routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/habits/habit-1/entries',
-        headers: createAuthorizationHeader(authToken),
+        headers: createAgentTokenHeader('plain-agent-token'),
         payload: {
           date: '2026-03-07',
           completed: true,
@@ -258,12 +274,31 @@ describe('habit entry routes', () => {
           isOverride: true,
           createdAt: 1,
         },
+        agent: {
+          hints: [
+            'Water is complete with 8 glasses logged against the 8 glasses target.',
+            'This check-in keeps the habit chain active for today.',
+          ],
+          suggestedActions: ['Review other habits that are still open for today.'],
+          relatedState: {
+            habitId: 'habit-1',
+            habitName: 'Water',
+            trackingType: 'numeric',
+            date: '2026-03-07',
+            completed: true,
+            value: 8,
+            target: 8,
+            unit: 'glasses',
+            referenceSource: 'weight',
+          },
+        },
       });
       expect(vi.mocked(findHabitEntryByHabitAndDate)).toHaveBeenCalledWith(
         'habit-1',
         'user-1',
         '2026-03-07',
       );
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();
     }

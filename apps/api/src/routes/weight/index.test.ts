@@ -145,6 +145,68 @@ describe('weight routes', () => {
     }
   });
 
+  it('adds agent enrichment when an agent token upserts a body weight entry', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(findBodyWeightEntryByDate).mockResolvedValue(null);
+    vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
+      id: 'entry-1',
+      date: '2026-03-07',
+      weight: 181.5,
+      notes: 'Fasted',
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_000_000,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/weight',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+        payload: {
+          date: '2026-03-07',
+          weight: 181.5,
+          notes: 'Fasted',
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'entry-1',
+          date: '2026-03-07',
+          weight: 181.5,
+          notes: 'Fasted',
+          createdAt: 1_700_000_000_000,
+          updatedAt: 1_700_000_000_000,
+        },
+        agent: {
+          hints: [
+            'Logged 181.5 for 2026-03-07. Another check-in later this week will help establish direction.',
+            'Consistent check-ins under similar conditions make the trend easier to interpret.',
+          ],
+          suggestedActions: [
+            'Keep a steady weigh-in cadence, ideally daily or several times per week.',
+          ],
+          relatedState: {
+            date: '2026-03-07',
+            weight: 181.5,
+            trendDirection: 'unknown',
+          },
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects invalid upsert payloads', async () => {
     const app = buildServer();
 

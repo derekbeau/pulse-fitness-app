@@ -7,6 +7,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 import { trackFoodUsage } from '../foods/store.js';
 
 import {
@@ -90,9 +91,25 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       }
     });
 
-    return reply.code(201).send({
-      data: created,
-    });
+    const mealMacros = created.items.reduce(
+      (totals, item) => ({
+        calories: totals.calories + item.calories,
+        protein: totals.protein + item.protein,
+        carbs: totals.carbs + item.carbs,
+        fat: totals.fat + item.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    );
+
+    return reply.code(201).send(
+      buildDataResponse(request, created, {
+        endpoint: 'meal.create',
+        mealDate: request.params.date,
+        mealName: created.meal.name,
+        itemCount: created.items.length,
+        mealMacros,
+      }),
+    );
   });
 
   app.get<{ Params: { date: string } }>('/:date', async (request, reply) => {
@@ -188,9 +205,13 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      return reply.send({
-        data: updatedMeal,
-      });
+      return reply.send(
+        buildDataResponse(request, updatedMeal, {
+          endpoint: 'meal.update',
+          mealDate: request.params.date,
+          mealName: updatedMeal.name,
+        }),
+      );
     },
   );
 
@@ -230,9 +251,20 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
       }
 
-      return reply.send({
-        data: updatedMealItem,
-      });
+      return reply.send(
+        buildDataResponse(request, updatedMealItem, {
+          endpoint: 'meal.update',
+          mealDate: request.params.date,
+          mealName: existingMealItem.name,
+          itemCount: 1,
+          mealMacros: {
+            calories: updatedMealItem.calories,
+            protein: updatedMealItem.protein,
+            carbs: updatedMealItem.carbs,
+            fat: updatedMealItem.fat,
+          },
+        }),
+      );
     },
   );
 };

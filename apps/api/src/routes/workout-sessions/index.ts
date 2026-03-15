@@ -16,10 +16,11 @@ import {
   updateWorkoutSessionTimeSegmentsInputSchema,
   workoutSessionQueryParamsSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
@@ -310,9 +311,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      return reply.code(201).send({
-        data: session,
-      });
+      return reply.code(201).send(
+        buildDataResponse(request, session, {
+          endpoint: 'workout-session.mutation',
+          action: 'create',
+          session,
+        }),
+      );
     }
 
     const parsedBody = createWorkoutSessionInputSchema.safeParse(request.body);
@@ -371,9 +376,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    return reply.code(201).send({
-      data: session,
-    });
+    return reply.code(201).send(buildDataResponse(request, session));
   });
 
   app.get('/', async (request, reply) => {
@@ -699,7 +702,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   };
 
   const updateSessionById = async (
-    request: { body: unknown; params: { id: string }; userId: string; authType?: string },
+    request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) => {
     if (request.authType === 'agent-token') {
@@ -894,9 +897,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      return reply.send({
-        data: session,
-      });
+      return reply.send(
+        buildDataResponse(request, session, {
+          endpoint: 'workout-session.mutation',
+          action: 'update',
+          session,
+        }),
+      );
     }
 
     const parsedBody = updateWorkoutSessionInputSchema.safeParse(request.body);
@@ -1021,9 +1028,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: session,
-    });
+    return reply.send(
+      buildDataResponse(request, session, {
+        endpoint: 'workout-session.mutation',
+        action: 'update',
+        session,
+      }),
+    );
   };
 
   app.patch<{ Params: { id: string } }>('/:id/time-segments', async (request, reply) => {
@@ -1065,9 +1076,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: updated,
-    });
+    return reply.send(
+      buildDataResponse(request, updated, {
+        endpoint: 'workout-session.mutation',
+        action: 'time-segments',
+        session: updated,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
@@ -1132,9 +1147,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: reordered,
-    });
+    return reply.send(
+      buildDataResponse(request, reordered, {
+        endpoint: 'workout-session.mutation',
+        action: 'reorder',
+        session: reordered,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string; exerciseId: string } }>(
@@ -1231,7 +1250,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         existingExercise.trackingType !== swappedExercise.trackingType;
 
       return reply.send({
-        data: swapped,
+        ...buildDataResponse(request, swapped, {
+          endpoint: 'workout-session.mutation',
+          action: 'swap',
+          session: swapped,
+        }),
         ...(hasTrackingTypeWarning
           ? {
               meta: {

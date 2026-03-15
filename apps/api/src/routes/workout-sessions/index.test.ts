@@ -3109,6 +3109,25 @@ describe('workout session routes', () => {
         status: 'in-progress',
         date: expect.any(String),
       }),
+      agent: expect.objectContaining({
+        hints: [
+          'Session progress is 0/0 completed sets across 0 exercises.',
+          'All planned exercises are complete, so the session can be wrapped up whenever you are ready.',
+        ],
+        suggestedActions: [
+          'Mark the session completed or add a finisher set if more work is needed.',
+          'Pause or complete the session when the workout ends.',
+        ],
+        relatedState: expect.objectContaining({
+          action: 'create',
+          status: 'in-progress',
+          totalSets: 0,
+          completedSets: 0,
+          remainingSets: 0,
+          remainingExercises: 0,
+          nextSet: null,
+        }),
+      }),
     });
   });
 
@@ -3140,6 +3159,29 @@ describe('workout session routes', () => {
           expect.objectContaining({ setNumber: 1 }),
           expect.objectContaining({ setNumber: 2 }),
         ]),
+      }),
+      agent: expect.objectContaining({
+        hints: [
+          'Session progress is 0/2 completed sets across 1 exercises.',
+          '1 exercise still has unfinished work.',
+        ],
+        suggestedActions: [
+          'Log set 1 for Landmine Press.',
+          'Pause or complete the session when the workout ends.',
+        ],
+        relatedState: expect.objectContaining({
+          action: 'update',
+          status: 'in-progress',
+          totalSets: 2,
+          completedSets: 0,
+          remainingSets: 2,
+          remainingExercises: 1,
+          nextSet: {
+            exerciseId: expect.any(String),
+            exerciseName: 'Landmine Press',
+            setNumber: 1,
+          },
+        }),
       }),
     });
 

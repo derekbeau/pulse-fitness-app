@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { autoCreateIfMissing, resolveByName } from '../agentEnrichment.js';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 import { trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
@@ -203,31 +204,39 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         { calories: 0, protein: 0, carbs: 0, fat: 0 },
       );
 
-      return reply.code(201).send({
-        data: {
-          meal: {
-            id: created.meal.id,
-            name: created.meal.name,
-            summary: created.meal.summary,
-            date,
-            time: created.meal.time,
-          },
-          macros,
-          items: created.items.map((item) => ({
-            id: item.id,
-            foodId: item.foodId,
-            name: item.name,
-            amount: item.amount,
-            unit: item.unit,
-            displayQuantity: item.displayQuantity,
-            displayUnit: item.displayUnit,
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-          })),
+      const responseData = {
+        meal: {
+          id: created.meal.id,
+          name: created.meal.name,
+          summary: created.meal.summary,
+          date,
+          time: created.meal.time,
         },
-      });
+        macros,
+        items: created.items.map((item) => ({
+          id: item.id,
+          foodId: item.foodId,
+          name: item.name,
+          amount: item.amount,
+          unit: item.unit,
+          displayQuantity: item.displayQuantity,
+          displayUnit: item.displayUnit,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+        })),
+      };
+
+      return reply.code(201).send(
+        buildDataResponse(request, responseData, {
+          endpoint: 'meal.create',
+          mealDate: date,
+          mealName: created.meal.name,
+          itemCount: created.items.length,
+          mealMacros: macros,
+        }),
+      );
     }
 
     if (
@@ -272,9 +281,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       }
     });
 
-    return reply.code(201).send({
-      data: created,
-    });
+    return reply.code(201).send(buildDataResponse(request, created));
   });
 
   app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
@@ -293,9 +300,12 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
     }
 
-    return reply.send({
-      data: updatedMeal,
-    });
+    return reply.send(
+      buildDataResponse(request, updatedMeal, {
+        endpoint: 'meal.update',
+        mealName: updatedMeal.name,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string; itemId: string } }>('/:id/items/:itemId', async (request, reply) => {
@@ -319,8 +329,18 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
     }
 
-    return reply.send({
-      data: updatedMealItem,
-    });
+    return reply.send(
+      buildDataResponse(request, updatedMealItem, {
+        endpoint: 'meal.update',
+        mealName: existingMealItem.name,
+        itemCount: 1,
+        mealMacros: {
+          calories: updatedMealItem.calories,
+          protein: updatedMealItem.protein,
+          carbs: updatedMealItem.carbs,
+          fat: updatedMealItem.fat,
+        },
+      }),
+    );
   });
 };

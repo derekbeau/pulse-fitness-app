@@ -287,6 +287,27 @@ describe('meal routes', () => {
             expect.objectContaining({ id: 'item-2', foodId: 'food-2' }),
           ],
         },
+        agent: {
+          hints: [
+            'Lunch adds 600 kcal, 45g protein, 70g carbs, and 13g fat.',
+            'Use the day nutrition summary to judge what macros remain before the next meal.',
+          ],
+          suggestedActions: [
+            'Log the next meal or snack when it happens.',
+            "Review today's nutrition summary if you need remaining macro targets.",
+          ],
+          relatedState: {
+            date: '2026-03-09',
+            mealName: 'Lunch',
+            itemCount: 2,
+            mealMacros: {
+              calories: 600,
+              protein: 45,
+              carbs: 70,
+              fat: 13,
+            },
+          },
+        },
       });
       expect(vi.mocked(createFood)).toHaveBeenCalledWith(
         expect.objectContaining({

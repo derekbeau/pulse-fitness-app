@@ -4,6 +4,7 @@ export * from './schemas/agent.js';
 export * from './schemas/auth.js';
 export * from './schemas/activities.js';
 export * from './schemas/agent-tokens.js';
+export * from './schemas/common.js';
 export * from './schemas/dashboard-config.js';
 export * from './schemas/dashboard.js';
 export * from './schemas/entity-links.js';

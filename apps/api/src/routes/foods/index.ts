@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 
 import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
@@ -28,23 +29,29 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
       ...parsedBody.data,
     });
 
+    const responseData = isAgentRequest(request)
+      ? {
+          id: food.id,
+          name: food.name,
+          brand: food.brand,
+          servingSize: food.servingSize,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fat: food.fat,
+        }
+      : food;
+
     return reply.code(201).send(
-      isAgentRequest(request)
-        ? {
-            data: {
-              id: food.id,
-              name: food.name,
-              brand: food.brand,
-              servingSize: food.servingSize,
-              calories: food.calories,
-              protein: food.protein,
-              carbs: food.carbs,
-              fat: food.fat,
-            },
-          }
-        : {
-            data: food,
-          },
+      buildDataResponse(
+        request,
+        responseData,
+        isAgentRequest(request)
+          ? {
+              endpoint: 'food.create',
+            }
+          : undefined,
+      ),
     );
   });
 

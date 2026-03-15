@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 import { findHabitById } from '../habits/store.js';
 
 import {
@@ -54,9 +55,12 @@ export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
       isOverride: parsedBody.data.isOverride,
     });
 
-    return reply.code(201).send({
-      data: entry,
-    });
+    return reply.code(201).send(
+      buildDataResponse(request, entry, {
+        endpoint: 'habit-entry.mutation',
+        habit,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
@@ -90,9 +94,18 @@ export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
       isOverride: habit.referenceSource != null,
     });
 
-    return reply.code(existingEntry ? 200 : 201).send({
-      data: entry,
-    });
+    return reply.code(existingEntry ? 200 : 201).send(
+      buildDataResponse(request, entry, {
+        endpoint: 'habit-entry.mutation',
+        habit,
+        previousEntry: existingEntry
+          ? {
+              completed: existingEntry.completed,
+              value: existingEntry.value ?? null,
+            }
+          : undefined,
+      }),
+    );
   });
 
   app.get<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {

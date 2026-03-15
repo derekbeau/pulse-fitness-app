@@ -251,6 +251,22 @@ describe('foods routes', () => {
           carbs: 5,
           fat: 0,
         },
+        agent: {
+          hints: [
+            'Search for similarly named foods before creating another branded variant to avoid duplicates.',
+          ],
+          suggestedActions: ['Reuse this food in the next meal log when it matches the serving.'],
+          relatedState: {
+            id: (response.json() as { data: { id: string } }).data.id,
+            name: 'Greek Yogurt',
+            brand: 'Fage 0%',
+            calories: 90,
+            protein: 18,
+            carbs: 5,
+            fat: 0,
+            similarFoods: [],
+          },
+        },
       });
     } finally {
       await app.close();
