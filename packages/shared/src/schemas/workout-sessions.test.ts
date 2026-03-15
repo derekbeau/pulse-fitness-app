@@ -3,12 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
+  sessionCorrectionRequestSchema,
+  setCorrectionSchema,
   swapWorkoutSessionExerciseInputSchema,
   sessionSetSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
+  type SessionCorrectionRequest,
   type SaveWorkoutSessionAsTemplateInput,
+  type SetCorrection,
   type SwapWorkoutSessionExerciseInput,
   type UpdateWorkoutSessionInput,
   type UpdateWorkoutSessionTimeSegmentsInput,
@@ -181,6 +185,68 @@ describe('sessionSetSchema', () => {
         createdAt: 1_700_000_000_500,
       }),
     ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
+  });
+});
+
+describe('setCorrectionSchema', () => {
+  it('accepts partial correction updates', () => {
+    const payload: SetCorrection = setCorrectionSchema.parse({
+      setId: ' set-1 ',
+      reps: 9,
+      rpe: 8,
+    });
+
+    expect(payload).toEqual({
+      setId: 'set-1',
+      reps: 9,
+      rpe: 8,
+    });
+  });
+
+  it('rejects corrections without any editable fields', () => {
+    expect(() =>
+      setCorrectionSchema.parse({
+        setId: 'set-1',
+      }),
+    ).toThrow('At least one correction field must be provided');
+  });
+});
+
+describe('sessionCorrectionRequestSchema', () => {
+  it('requires at least one correction row', () => {
+    expect(() =>
+      sessionCorrectionRequestSchema.parse({
+        corrections: [],
+      }),
+    ).toThrow();
+  });
+
+  it('parses a correction request payload', () => {
+    const payload: SessionCorrectionRequest = sessionCorrectionRequestSchema.parse({
+      corrections: [
+        {
+          setId: 'set-1',
+          weight: 190,
+        },
+        {
+          setId: 'set-2',
+          reps: 10,
+        },
+      ],
+    });
+
+    expect(payload).toEqual({
+      corrections: [
+        {
+          setId: 'set-1',
+          weight: 190,
+        },
+        {
+          setId: 'set-2',
+          reps: 10,
+        },
+      ],
+    });
   });
 });
 
