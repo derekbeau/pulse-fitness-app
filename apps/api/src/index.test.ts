@@ -7,6 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { buildServer } from './index.js';
 
 const ROUTE_DIR = fileURLToPath(new URL('./routes', import.meta.url));
+const REPO_AGENTS_DOC = fileURLToPath(new URL('../../../AGENTS.md', import.meta.url));
+const REPO_README = fileURLToPath(new URL('../../../README.md', import.meta.url));
+const PULSE_APP_USAGE_SKILL = fileURLToPath(
+  new URL('../../../.agents/skills/pulse-app-usage/SKILL.md', import.meta.url),
+);
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
 const listRouteFiles = async (dir: string): Promise<string[]> => {
@@ -239,6 +244,28 @@ describe('OpenAPI docs', () => {
     } finally {
       await app.close();
     }
+  });
+
+  it('documents the OpenAPI and Swagger UI endpoints consistently in project docs', async () => {
+    const [agentsDoc, readme, skillDoc] = await Promise.all([
+      readFile(REPO_AGENTS_DOC, 'utf8'),
+      readFile(REPO_README, 'utf8'),
+      readFile(PULSE_APP_USAGE_SKILL, 'utf8'),
+    ]);
+
+    expect(agentsDoc).toContain('API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`');
+    expect(agentsDoc).toContain('Request and response schemas are auto-generated from Zod schemas into the OpenAPI spec');
+
+    expect(readme).toContain(
+      'API documentation available at `/api/docs` (Swagger UI) and `/api/docs/json` (OpenAPI 3.1 spec).',
+    );
+    expect(readme).toContain('Response schemas are Zod-validated and documented in the OpenAPI spec.');
+
+    expect(skillDoc).toContain('OpenAPI spec: `GET /api/docs/json` (no auth required)');
+    expect(skillDoc).toContain('Swagger UI: `/api/docs` (browsable in browser)');
+    expect(skillDoc).toContain(
+      'For the full list of endpoints, request/response schemas, and auth requirements, fetch the OpenAPI spec.',
+    );
   });
 });
 

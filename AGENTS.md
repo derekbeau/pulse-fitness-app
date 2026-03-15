@@ -54,6 +54,7 @@ pnpm --filter shared build  # Build shared package
 ### API Design
 
 - All API routes live under `/api/v1/` and accept either `Authorization: Bearer <jwt>` or `Authorization: AgentToken <token>` when the route uses shared auth.
+- API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`
 - JWTs are for web app sessions; AgentToken auth is for agent integrations.
 - Agent-specific convenience features such as name resolution, auto-create behavior, and response enrichment activate automatically when a request uses AgentToken auth.
 - Sensitive routes such as auth management and agent token CRUD are JWT-only.
@@ -62,6 +63,7 @@ pnpm --filter shared build  # Build shared package
 - Error response: `{ error: { code: string, message: string } }`
 - Paginated: `{ data: T[], meta: { page, limit, total }, agent?: AgentEnrichment }`
 - All inputs validated with Zod
+- Request and response schemas are auto-generated from Zod schemas into the OpenAPI spec
 
 ### Frontend Patterns
 

@@ -5,6 +5,12 @@ description: Pulse app API usage patterns for workout, habit, and nutrition agen
 
 # Pulse App Usage Skill
 
+## API Documentation
+
+- OpenAPI spec: `GET /api/docs/json` (no auth required)
+- Swagger UI: `/api/docs` (browsable in browser)
+- For the full list of endpoints, request/response schemas, and auth requirements, fetch the OpenAPI spec.
+
 ## Authentication
 
 Agents call the unified `/api/v1/*` API surface with `Authorization: AgentToken <token>`.
