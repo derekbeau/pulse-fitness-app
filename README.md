@@ -74,8 +74,9 @@ pnpm format     # Format with Prettier
 
 ### API Routes
 
-- `/api/v1/` — App endpoints (user session auth)
-- `/api/agent/` — Agent endpoints (token auth, scoped per user)
+- `/api/v1/` — Single API surface with auth-aware behavior. Use `Authorization: Bearer <jwt>` for web app sessions and `Authorization: AgentToken <token>` for agent integrations.
+- Agent-specific conveniences such as name resolution, auto-create behavior, and enriched hints activate automatically for AgentToken callers on `/api/v1/*`.
+- Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
 
 ### Response Format
 
@@ -83,11 +84,14 @@ pnpm format     # Format with Prettier
 // Success
 { "data": { ... } }
 
+// Success with optional agent enrichment for AgentToken callers
+{ "data": { ... }, "agent": { "hints": ["..."], "suggestedActions": ["..."] } }
+
 // Error
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 
 // Paginated list
-{ "data": [...], "meta": { "page": 1, "limit": 20, "total": 42 } }
+{ "data": [...], "meta": { "page": 1, "limit": 20, "total": 42 }, "agent": { ... } }
 ```
 
 ### Key Design Decisions

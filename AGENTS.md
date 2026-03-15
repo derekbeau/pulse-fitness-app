@@ -53,11 +53,14 @@ pnpm --filter shared build  # Build shared package
 
 ### API Design
 
-- App routes: `/api/v1/` (JWT session auth)
-- Agent routes: `/api/agent/` (token auth, scoped per user)
-- Success response: `{ data: T }`
+- All API routes live under `/api/v1/` and accept either `Authorization: Bearer <jwt>` or `Authorization: AgentToken <token>` when the route uses shared auth.
+- JWTs are for web app sessions; AgentToken auth is for agent integrations.
+- Agent-specific convenience features such as name resolution, auto-create behavior, and response enrichment activate automatically when a request uses AgentToken auth.
+- Sensitive routes such as auth management and agent token CRUD are JWT-only.
+- JWTs issued by Pulse include `type: "session"` and `iss: "pulse-api"` claims; hand-crafted JWTs without these claims are rejected.
+- Success response: `{ data: T, agent?: AgentEnrichment }`
 - Error response: `{ error: { code: string, message: string } }`
-- Paginated: `{ data: T[], meta: { page, limit, total } }`
+- Paginated: `{ data: T[], meta: { page, limit, total }, agent?: AgentEnrichment }`
 - All inputs validated with Zod
 
 ### Frontend Patterns

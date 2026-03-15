@@ -1,12 +1,12 @@
 # Agent Integration Conventions
 
-This document defines how external AI agents should authenticate, call `/api/agent/*` endpoints, and handle common success/error patterns.
+This document defines how external AI agents should authenticate, call unified `/api/v1/*` endpoints, and handle common success and error patterns.
 
 ## Purpose
 
-- Use `/api/agent/*` for programmatic assistant workflows (meal logging, workout logging, daily updates, context retrieval).
-- Use `/api/v1/*` for user-facing app flows and settings management.
-- Treat `GET /api/agent/context` as the first call in most agent sessions.
+- Use `/api/v1/*` for both app flows and programmatic agent workflows.
+- Agent-specific conveniences such as name resolution, auto-create behavior, and response hints activate automatically for `Authorization: AgentToken <token>` requests.
+- Treat `GET /api/v1/context` as the first call in most agent sessions. It is on the unified route surface but remains AgentToken-only.
 
 ## Authentication
 
@@ -36,16 +36,24 @@ Storage model:
 
 ### Supported Auth Schemes
 
-Both are accepted on `/api/agent/*` by `requireAuth` in `apps/api/src/middleware/auth.ts`:
+Most unified routes use `requireAuth` and accept both:
 
-- `Authorization: Bearer <jwt>` (normal app JWT from register/login)
-- `Authorization: AgentToken <token>` (programmatic token)
+- `Authorization: Bearer <jwt>` for interactive app sessions
+- `Authorization: AgentToken <token>` for programmatic agents
 
-Sensitive user-only routes use `requireUserAuth` (JWT-only), including `/api/v1/agent-tokens`.
+Important exceptions:
+
+- `GET /api/v1/context` also uses `requireAgentOnly`, so JWT callers receive `403 FORBIDDEN`.
+- Sensitive user-only routes use `requireUserAuth` and stay JWT-only, including `/api/v1/agent-tokens`.
+
+JWT requirements:
+
+- Pulse-issued session JWTs include `type: "session"` and `iss: "pulse-api"`.
+- Hand-crafted JWTs without those claims are rejected.
 
 ### Auth Failure Contract
 
-On missing/invalid credentials:
+On missing or invalid credentials:
 
 ```json
 {
@@ -56,13 +64,51 @@ On missing/invalid credentials:
 }
 ```
 
+On hitting an AgentToken-only route with JWT auth:
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Agent token authentication required"
+  }
+}
+```
+
+## Response Patterns
+
+All successful responses use the unified `{ data: ... }` envelope.
+
+AgentToken callers may also receive an optional `agent` field with extra guidance:
+
+```json
+{
+  "data": {
+    "id": "meal-1"
+  },
+  "agent": {
+    "hints": ["Lunch adds 536 kcal and 66.3g protein."],
+    "suggestedActions": ["Review today's nutrition summary next."],
+    "relatedState": {
+      "date": "2026-03-09"
+    }
+  }
+}
+```
+
+Notes:
+
+- JWT callers should not depend on `agent`.
+- Agent responses are additive. Core resource data still lives under `data`.
+- List endpoints may omit `meta` for AgentToken callers when the agent-focused shape is intentionally simplified.
+
 ## Endpoint Reference
 
 ### Auth Check
 
-#### `GET /api/agent/ping`
+#### `GET /api/v1/ping`
 
-Minimal authenticated probe route.
+Minimal authenticated probe route for either JWT or AgentToken auth.
 
 Response:
 
@@ -76,9 +122,13 @@ Response:
 
 ### Context
 
-#### `GET /api/agent/context`
+#### `GET /api/v1/context`
 
 Returns a planning snapshot with user profile, recent workouts, today nutrition, weight trend, habits, and upcoming scheduled workouts.
+
+Auth note:
+
+- Requires `Authorization: AgentToken <token>`.
 
 Response:
 
@@ -103,22 +153,7 @@ Response:
     "todayNutrition": {
       "actual": { "calories": 2100, "protein": 180, "carbs": 210, "fat": 70 },
       "target": { "calories": 2400, "protein": 200, "carbs": 250, "fat": 80 },
-      "meals": [
-        {
-          "name": "Lunch",
-          "items": [
-            {
-              "name": "Chicken Breast",
-              "amount": 1.5,
-              "unit": "serving",
-              "calories": 248,
-              "protein": 46.5,
-              "carbs": 0,
-              "fat": 5.4
-            }
-          ]
-        }
-      ]
+      "meals": []
     },
     "weight": { "current": 182.4, "trend7d": -0.8 },
     "habits": [
@@ -131,85 +166,27 @@ Response:
 
 Notes:
 
-- Missing data still returns stable defaults (zeros/empty arrays/null name).
+- Missing data still returns stable defaults such as zeros, empty arrays, and nullable fields.
 - Scheduled workouts whose template was deleted return `"Unknown template"`.
 
 ### Foods And Meals
 
-#### `GET /api/agent/foods/search?q=<term>&limit=<n>`
+#### `GET /api/v1/foods?q=<term>&limit=<n>`
 
-Searches user foods by name/brand with recency-aware ordering.
+Searches user foods by name or brand. AgentToken callers receive a compact result shape without pagination metadata.
 
-Response:
-
-```json
-{
-  "data": [
-    {
-      "id": "food-1",
-      "name": "Chicken Breast",
-      "brand": null,
-      "servingSize": "100 g",
-      "calories": 165,
-      "protein": 31,
-      "carbs": 0,
-      "fat": 3.6
-    }
-  ]
-}
-```
-
-#### `POST /api/agent/foods`
+#### `POST /api/v1/foods`
 
 Creates a user-scoped food entry.
 
-Request:
+#### `POST /api/v1/meals`
 
-```json
-{
-  "name": "Chicken Breast",
-  "servingSize": "100 g",
-  "calories": 165,
-  "protein": 31,
-  "carbs": 0,
-  "fat": 3.6
-}
-```
+Logs a meal for a date from food-name references. Under AgentToken auth:
 
-Response (`201`):
-
-```json
-{
-  "data": {
-    "id": "food-1",
-    "name": "Chicken Breast",
-    "brand": null,
-    "servingSize": "100 g",
-    "calories": 165,
-    "protein": 31,
-    "carbs": 0,
-    "fat": 3.6
-  }
-}
-```
-
-#### `POST /api/agent/meals`
-
-Logs a meal for a date from food-name references.
-
-Request:
-
-```json
-{
-  "name": "Lunch",
-  "date": "2026-03-09",
-  "time": "12:00",
-  "items": [
-    { "foodName": "Chicken Breast", "quantity": 2, "unit": "serving" },
-    { "foodName": "White Rice", "quantity": 1, "unit": "serving" }
-  ]
-}
-```
+- `foodName` values are resolved against the user's foods.
+- Foods can be auto-created when inline macros are provided.
+- If any food name cannot be resolved, the API returns `422 UNRESOLVED_FOODS`.
+- The response may include an `agent` field with nutrition hints and `suggestedActions`.
 
 Response (`201`):
 
@@ -241,632 +218,107 @@ Response (`201`):
         "fat": 7.2
       }
     ]
+  },
+  "agent": {
+    "suggestedActions": ["Review today's nutrition summary next."]
   }
 }
 ```
-
-Behavior notes:
-
-- Quantity scales food macros directly (`scaled = foodMacro * quantity`).
-- If any food name cannot be resolved, returns `422 UNRESOLVED_FOODS`.
 
 ### Exercises And Workouts
 
-#### `POST /api/agent/exercises`
+#### `POST /api/v1/exercises`
 
-Creates an exercise with fuzzy dedup protection.
+Creates an exercise. Under AgentToken auth the endpoint adds fuzzy dedup protection:
 
-Request:
+- If close matches exist and `force` is omitted or `false`, the response returns `{ "data": { "created": false, "candidates": [...] } }`.
+- If creation proceeds, default metadata is applied for omitted agent fields.
 
-```json
-{
-  "name": "Dumbbell Row",
-  "force": false
-}
-```
-
-Response (`201`, created):
-
-```json
-{
-  "data": {
-    "created": true,
-    "exercise": {
-      "id": "exercise-1",
-      "name": "Dumbbell Row",
-      "category": "compound",
-      "trackingType": "weight_reps",
-      "muscleGroups": [],
-      "equipment": "",
-      "instructions": null,
-      "tags": [],
-      "formCues": []
-    }
-  }
-}
-```
-
-Response (`200`, dedup candidate found and `force` omitted/false):
-
-```json
-{
-  "data": {
-    "created": false,
-    "candidates": [
-      {
-        "id": "exercise-existing-1",
-        "name": "Barbell Row",
-        "similarity": 0.83
-      }
-    ]
-  }
-}
-```
-
-Behavior notes:
-
-- Dedup checks user-visible exercises with normalized matching (case-insensitive plus prefix normalization such as `barbell`/`dumbbell`).
-- If candidates are returned, no exercise is created unless `force: true` is provided.
-
-#### `PATCH /api/agent/exercises/:id`
+#### `PATCH /api/v1/exercises/:id`
 
 Enriches metadata for a user-owned exercise after creation.
 
-Patchable fields:
+#### `GET /api/v1/exercises?q=<term>&limit=<n>`
 
-- `muscleGroups`
-- `equipment`
-- `category`
-- `trackingType`
-- `instructions`
-- `formCues`
-- `tags`
+Searches visible exercises (shared + user-scoped). AgentToken callers receive the compact exercise list shape.
 
-`404 EXERCISE_NOT_FOUND` is returned when the row is missing or not owned by the caller.
+#### `POST /api/v1/workout-templates`
 
-#### `GET /api/agent/exercises/search?q=<term>&limit=<n>`
+Creates a template from plain-text sections and exercises. AgentToken auth enables:
 
-Searches visible exercises (shared + user-scoped).
+- name-based exercise resolution
+- auto-create behavior for unknown exercises
+- `newExercises` enrichment for follow-up metadata patching
 
-Response:
-
-```json
-{
-  "data": [
-    {
-      "id": "exercise-1",
-      "name": "Barbell Bench Press",
-      "category": "compound",
-      "muscleGroups": ["Chest", "Triceps"],
-      "equipment": "Barbell"
-    }
-  ]
-}
-```
-
-#### `POST /api/agent/workout-templates`
-
-Creates a template from plain-text sections/exercises.
-
-Request:
-
-```json
-{
-  "name": "Push Day",
-  "sections": [
-    {
-      "name": "Main",
-      "exercises": [{ "name": "Bench Press", "sets": 4, "reps": 8, "restSeconds": 120 }]
-    }
-  ]
-}
-```
-
-Response (`201`):
-
-```json
-{
-  "data": {
-    "template": {
-      "id": "template-1",
-      "userId": "user-1",
-      "name": "Push Day",
-      "description": null,
-      "tags": [],
-      "sections": [
-        {
-          "type": "main",
-          "exercises": [
-            {
-              "id": "template-exercise-1",
-              "exerciseId": "exercise-1",
-              "exerciseName": "Bench Press",
-              "sets": 4,
-              "repsMin": 8,
-              "repsMax": 8,
-              "tempo": null,
-              "restSeconds": 120,
-              "supersetGroup": null,
-              "notes": null,
-              "cues": []
-            }
-          ]
-        }
-      ]
-    },
-    "newExercises": [
-      {
-        "id": "exercise-1",
-        "name": "Bench Press",
-        "possibleDuplicates": ["exercise-existing-1"]
-      }
-    ]
-  }
-}
-```
-
-Behavior notes:
-
-- Unknown exercise names are auto-created with placeholder metadata (`muscleGroups: []`, `equipment: ""`, `instructions: null`) and then returned in `newExercises` for enrichment.
-- Template creation never blocks on dedup candidates; candidate ids are surfaced in `newExercises[*].possibleDuplicates`.
-- Section names are normalized to `warmup | main | cooldown` by keyword inference.
-
-#### `PUT /api/agent/workout-templates/:id`
+#### `PUT /api/v1/workout-templates/:id`
 
 Replaces template content.
 
-Response (`200`):
-
-```json
-{
-  "data": {
-    "id": "template-1",
-    "userId": "user-1",
-    "name": "Upper A",
-    "description": null,
-    "tags": [],
-    "sections": [
-      {
-        "type": "main",
-        "exercises": [
-          {
-            "id": "template-exercise-2",
-            "exerciseId": "exercise-2",
-            "exerciseName": "Incline Press",
-            "sets": 3,
-            "repsMin": 10,
-            "repsMax": 10,
-            "tempo": null,
-            "restSeconds": null,
-            "supersetGroup": null,
-            "notes": null,
-            "cues": []
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-- `404 WORKOUT_TEMPLATE_NOT_FOUND` if template is missing or not user-owned.
-
-#### `POST /api/agent/scheduled-workouts`
+#### `POST /api/v1/scheduled-workouts`
 
 Schedules a template for a specific date.
 
-Request:
-
-```json
-{
-  "templateId": "template-1",
-  "date": "2026-03-12"
-}
-```
-
-Response (`201`):
-
-```json
-{
-  "data": {
-    "id": "schedule-1",
-    "userId": "user-1",
-    "templateId": "template-1",
-    "date": "2026-03-12",
-    "sessionId": null,
-    "createdAt": 1700000000000,
-    "updatedAt": 1700000000000
-  }
-}
-```
-
-- `404 WORKOUT_TEMPLATE_NOT_FOUND` if template is missing, not user-owned, or soft-deleted.
-
-#### `GET /api/agent/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`
+#### `GET /api/v1/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`
 
 Lists scheduled workouts in the requested date window.
 
-Response (`200`):
-
-```json
-{
-  "data": [
-    {
-      "id": "schedule-1",
-      "date": "2026-03-12",
-      "templateId": "template-1",
-      "templateName": "Upper Push",
-      "sessionId": null,
-      "createdAt": 1700000000000
-    }
-  ]
-}
-```
-
-Notes:
-
-- If a referenced template has been soft-deleted, `templateName` is `null`.
-
-#### `POST /api/agent/workout-sessions`
-
-Starts an in-progress session.
-
-Request options:
-
-- `{ "templateId": "..." }` to start from template (prebuilds sets), or
-- `{ "name": "Ad hoc Session" }` for a named non-template session.
-
-Example request:
-
-```json
-{
-  "templateId": "template-1"
-}
-```
-
-Response (`201`):
-
-```json
-{
-  "data": {
-    "id": "session-1",
-    "userId": "user-1",
-    "templateId": "template-1",
-    "name": "Leg Day",
-    "date": "2026-03-09",
-    "status": "in-progress",
-    "startedAt": 1700000000000,
-    "completedAt": null,
-    "duration": null,
-    "feedback": null,
-    "notes": null,
-    "sets": [
-      {
-        "id": "set-1",
-        "exerciseId": "exercise-squat",
-        "setNumber": 1,
-        "weight": null,
-        "reps": null,
-        "completed": false,
-        "skipped": false,
-        "section": "main",
-        "notes": null
-      }
-    ]
-  }
-}
-```
-
-#### `PATCH /api/agent/workout-sessions/:id`
-
-Updates session status/notes, upserts set logs by `exerciseName + setNumber`, and supports
-mid-session structural edits.
-
-Request:
-
-```json
-{
-  "notes": "Agent adjusted plan mid-session",
-  "sets": [
-    { "exerciseName": "Bench Press", "setNumber": 1, "weight": 105, "reps": 7 }
-  ],
-  "addExercises": [{ "name": "Goblet Squat", "sets": 2, "reps": 10, "section": "main" }],
-  "removeExercises": ["exercise-unstarted-isolation"],
-  "reorderExercises": ["exercise-bench-press", "exercise-goblet-squat"]
-}
-```
-
-Response (`200`):
-
-```json
-{
-  "data": {
-    "id": "session-1",
-    "userId": "user-1",
-    "templateId": "template-1",
-    "name": "Leg Day",
-    "date": "2026-03-09",
-    "status": "completed",
-    "startedAt": 1700000000000,
-    "completedAt": 1700003720000,
-    "duration": 62,
-    "feedback": null,
-    "notes": "Solid session",
-    "exercises": [
-      {
-        "exerciseId": "exercise-bench-press",
-        "exerciseName": "Bench Press",
-        "orderIndex": 0,
-        "section": "main",
-        "sets": [{ "id": "set-1", "exerciseId": "exercise-bench-press", "setNumber": 1 }]
-      },
-      {
-        "exerciseId": "exercise-goblet-squat",
-        "exerciseName": "Goblet Squat",
-        "orderIndex": 1,
-        "section": "main",
-        "sets": [{ "id": "set-2", "exerciseId": "exercise-goblet-squat", "setNumber": 1 }]
-      }
-    ],
-    "sets": [
-      {
-        "id": "set-1",
-        "exerciseId": "exercise-bench-press",
-        "setNumber": 1,
-        "weight": 105,
-        "reps": 7,
-        "completed": true,
-        "skipped": false,
-        "section": "main",
-        "notes": null,
-        "createdAt": 1700000000000
-      },
-      {
-        "id": "set-2",
-        "exerciseId": "exercise-squat",
-        "setNumber": 1,
-        "weight": 225,
-        "reps": 5,
-        "completed": true,
-        "skipped": false,
-        "section": "main",
-        "notes": null,
-        "createdAt": 1700000000000
-      }
-    ],
-    "createdAt": 1700000000000,
-    "updatedAt": 1700003720000
-  }
-}
-```
-
-Behavior notes:
-
-- Unknown exercise names are auto-created.
-- Upserted sets are marked `completed: true`, `skipped: false`.
-- `addExercises` appends planned sets for the exercise (`completed: false`).
-- `removeExercises` is allowed only when that exercise has no completed sets.
-- `reorderExercises` updates exercise order while preserving set data.
-- Completing a session sets `completedAt` and duration.
-- `404 WORKOUT_SESSION_NOT_FOUND` if missing.
-- `409 WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS` when removing an exercise that has logged sets.
-
-### Daily Tracking
-
-#### `POST /api/agent/weight`
-
-Creates or updates weight entry by date.
-
-Request:
-
-```json
-{
-  "date": "2026-03-09",
-  "weight": 182.4,
-  "notes": "fasted"
-}
-```
-
-Response:
-
-- `201` when row is created
-- `200` when existing row is updated
-
-Example response:
-
-```json
-{
-  "data": {
-    "id": "weight-1",
-    "date": "2026-03-09",
-    "weight": 182.4,
-    "notes": "fasted",
-    "createdAt": 1700000000000,
-    "updatedAt": 1700000000000
-  }
-}
-```
-
-#### `GET /api/agent/habits`
-
-Returns active habits with today entry projection:
-
-```json
-{
-  "data": [
-    {
-      "id": "habit-1",
-      "name": "Supplements",
-      "trackingType": "boolean",
-      "todayEntry": null
-    },
-    {
-      "id": "habit-2",
-      "name": "Sleep",
-      "trackingType": "time",
-      "todayEntry": { "value": 8, "completed": true }
-    }
-  ]
-}
-```
-
-#### `PATCH /api/agent/habits/:id/entries`
-
-Upserts one day for one habit.
-
-Request:
-
-```json
-{
-  "date": "2026-03-09",
-  "value": 8
-}
-```
-
-Response (`200` or `201`):
-
-```json
-{
-  "data": {
-    "id": "entry-1",
-    "habitId": "habit-2",
-    "userId": "user-1",
-    "date": "2026-03-09",
-    "completed": true,
-    "value": 8,
-    "createdAt": 1700000000000
-  }
-}
-```
-
-Behavior notes:
-
-- At least one of `completed` or `value` is required.
-- Omitted fields merge from existing entry if present.
-- `201` on insert, `200` on update.
-- `404 HABIT_NOT_FOUND` when habit is missing.
-
-#### `GET /api/agent/nutrition/:date/summary`
-
-Returns aggregate summary + expanded meal rows for one day.
-
-Response:
-
-```json
-{
-  "data": {
-    "summary": {
-      "date": "2026-03-09",
-      "meals": 1,
-      "actual": { "calories": 450, "protein": 40, "carbs": 30, "fat": 15 },
-      "target": { "calories": 2500, "protein": 180, "carbs": 260, "fat": 80 }
-    },
-    "meals": [
-      {
-        "meal": {
-          "id": "meal-1",
-          "nutritionLogId": "log-1",
-          "name": "Lunch",
-          "time": "12:00",
-          "notes": null,
-          "createdAt": 1700000000000,
-          "updatedAt": 1700000000000
-        },
-        "items": [
-          {
-            "id": "item-1",
-            "mealId": "meal-1",
-            "foodId": "food-1",
-            "name": "Chicken Breast",
-            "amount": 1,
-            "unit": "serving",
-            "calories": 165,
-            "protein": 31,
-            "carbs": 0,
-            "fat": 3.6,
-            "fiber": null,
-            "sugar": null,
-            "createdAt": 1700000000000
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Required Workflow Patterns
-
-### 1) Context-First Pattern
-
-1. Call `GET /api/agent/context`.
-2. Derive plan from current nutrition/workout/habit/weight state.
-3. Execute one or more write operations (`/api/agent/meals`, `/api/agent/weight`, `/api/agent/workout-sessions`, `/api/agent/habits/:id/entries`).
-4. Optionally re-read context for confirmation.
-
-### 2) Food Search + Meal Logging
-
-1. Call `GET /api/agent/foods/search?q=<food>`.
-2. If missing, create via `POST /api/agent/foods`.
-3. Submit all meal items using `POST /api/agent/meals`.
-4. Handle `UNRESOLVED_FOODS` by creating missing foods and retrying.
-
-### 3) Workout Creation + Session Logging
-
-1. Search/create exercises (`GET /api/agent/exercises/search`, `POST /api/agent/exercises`).
-2. If `POST /api/agent/exercises` returns `created: false`, review `candidates` and retry with `force: true` only when intentional.
-3. Create/update template (`POST/PUT /api/agent/workout-templates`).
-4. Schedule template (`POST /api/agent/scheduled-workouts`) and review upcoming plan (`GET /api/agent/scheduled-workouts`).
-5. Read `newExercises` from template create response and enrich each via `PATCH /api/agent/exercises/:id`.
-6. Start session (`POST /api/agent/workout-sessions`).
-7. Log sets and status (`PATCH /api/agent/workout-sessions/:id`).
-
-## Error Handling Conventions
-
-Standard error envelope:
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid request payload",
-    "details": {}
-  }
-}
-```
-
-`details` is optional and may be omitted.
-
-Common base codes:
-
-- `UNAUTHORIZED`
-- `NOT_FOUND`
-- `VALIDATION_ERROR`
-- `CONFLICT`
-- `INTERNAL_ERROR`
-
-Agent-route-specific codes in current implementation:
-
-- `UNRESOLVED_FOODS`
-- `HABIT_NOT_FOUND`
-- `WORKOUT_TEMPLATE_NOT_FOUND`
-- `WORKOUT_SESSION_NOT_FOUND`
-
-## Request Validation Rules
-
-- Dates must be `YYYY-MM-DD` and valid calendar dates.
-- Time fields use `HH:MM` 24-hour format.
-- All writes are user-scoped from `request.userId`.
-- Validation failures return `400 VALIDATION_ERROR`.
-
-## Rate Limiting
-
-Current status:
-
-- No explicit rate-limit middleware is applied to `/api/agent/*` yet.
-
-Planned approach:
-
-- Add per-user/token rate limiting at the Fastify layer (request identity derived from auth).
-- Return `429` with the standard error envelope when limits are exceeded.
-- Start with conservative write limits (`/meals`, `/workout-sessions`, `/weight`, habit entry patch), then tune using production telemetry.
+#### `POST /api/v1/workout-sessions`
+
+Starts an in-progress session. AgentToken responses may include `agent.hints`, `agent.suggestedActions`, and `agent.relatedState` describing the next set and remaining work.
+
+#### `PATCH /api/v1/workout-sessions/:id`
+
+Updates session status, set progress, and agent-driven mid-session changes on the unified route surface.
+
+### Weight And Habits
+
+#### `POST /api/v1/weight`
+
+Creates or updates a weight entry for the provided date. AgentToken responses may include follow-up hints about deltas from the previous entry.
+
+#### `GET /api/v1/habits`
+
+Lists user habits available for agent workflows.
+
+#### `PATCH /api/v1/habits/:id/entries`
+
+Upserts a habit entry for a date. AgentToken responses may include completion hints plus `suggestedActions`.
+
+### Nutrition Summary
+
+#### `GET /api/v1/nutrition/:date/summary`
+
+Returns macro totals, targets, and remaining intake for the requested date.
+
+## Recommended Workflows
+
+### General Assistant Session
+
+1. Call `GET /api/v1/context`.
+2. Decide whether the user intent maps to meals, workouts, weight, or habits.
+3. Execute one or more write operations such as `/api/v1/meals`, `/api/v1/weight`, `/api/v1/workout-sessions`, or `/api/v1/habits/:id/entries`.
+4. Read the optional `agent` field after each mutation to drive the next action.
+
+### Meal Logging
+
+1. Call `GET /api/v1/foods?q=<food>`.
+2. If needed, create a missing food via `POST /api/v1/foods`.
+3. Submit all meal items using `POST /api/v1/meals`.
+4. Review `agent.suggestedActions` or `GET /api/v1/nutrition/:date/summary` if remaining macros matter.
+
+### Workout Planning And Logging
+
+1. Search or create exercises using `GET /api/v1/exercises?q=<term>` and `POST /api/v1/exercises`.
+2. If `POST /api/v1/exercises` returns `created: false`, review `candidates` before retrying with `force: true`.
+3. Create or update templates with `POST` or `PUT /api/v1/workout-templates`.
+4. Schedule training using `POST /api/v1/scheduled-workouts`, then review the plan with `GET /api/v1/scheduled-workouts`.
+5. Read `newExercises` from template creation responses and enrich each via `PATCH /api/v1/exercises/:id`.
+6. Start a session with `POST /api/v1/workout-sessions`.
+7. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
+
+## Operational Notes
+
+- Treat AgentToken secrets like passwords. They are bearer credentials.
+- Expect the API to reject invalid JWTs that are missing Pulse session claims.
+- AgentToken auth is the switch for agent conveniences on unified routes.
+- No explicit rate-limit middleware is applied to agent-token traffic on `/api/v1/*` yet.
