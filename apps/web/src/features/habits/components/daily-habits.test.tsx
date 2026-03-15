@@ -176,7 +176,12 @@ describe('DailyHabits', () => {
   it('renders a menu trigger for every habit card', () => {
     render(<DailyHabits />);
 
-    expect(screen.getAllByRole('button', { name: /open habit actions for/i })).toHaveLength(3);
+    const menuButtons = screen.getAllByRole('button', { name: /open habit actions for/i });
+
+    expect(menuButtons).toHaveLength(3);
+    menuButtons.forEach((button) => {
+      expect(button).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    });
   });
 
   it('shows frequency subtitles and paused badge on cards', () => {

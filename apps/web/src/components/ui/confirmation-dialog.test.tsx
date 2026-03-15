@@ -17,6 +17,8 @@ describe('ConfirmationDialog', () => {
 
     expect(screen.getByText('Delete template?')).toBeInTheDocument();
     expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toHaveClass('gap-3', 'p-5');
+    expect(document.querySelector('[data-slot="alert-dialog-footer"]')).toHaveClass('pt-1');
   });
 
   it('calls onConfirm when confirm button is clicked', () => {

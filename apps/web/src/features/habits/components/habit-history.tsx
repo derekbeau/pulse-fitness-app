@@ -264,8 +264,8 @@ export function HabitHistory() {
 
   if (habitsQuery.isLoading || habitEntriesQuery.isLoading) {
     return (
-      <Card className="gap-5 border-border/70 shadow-sm">
-        <CardHeader className="gap-3">
+      <Card className="gap-4 border-border/70 shadow-sm">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
@@ -291,8 +291,8 @@ export function HabitHistory() {
           : 'Unable to load habit history.';
 
     return (
-      <Card className="gap-5 border-border/70 shadow-sm">
-        <CardHeader className="gap-3">
+      <Card className="gap-4 border-border/70 shadow-sm">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
@@ -322,8 +322,8 @@ export function HabitHistory() {
 
   if (historyRows.length === 0) {
     return (
-      <Card className="gap-5 border-border/70 shadow-sm">
-        <CardHeader className="gap-3">
+      <Card className="gap-4 border-border/70 shadow-sm">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             Habit history
           </p>
@@ -341,9 +341,9 @@ export function HabitHistory() {
   }
 
   return (
-    <Card className="gap-5 border-border/70 shadow-sm">
-      <CardHeader className="gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <Card className="gap-4 border-border/70 shadow-sm">
+      <CardHeader className="gap-2">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
               Habit history
@@ -361,24 +361,24 @@ export function HabitHistory() {
             </CardDescription>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex rounded-full bg-[var(--color-accent-pink)] px-3 py-1 text-xs font-semibold text-on-pink dark:bg-pink-500/20 dark:text-pink-400">
+          <div className="flex flex-wrap gap-1.5">
+            <span className="inline-flex rounded-full bg-[var(--color-accent-pink)] px-2.5 py-0.5 text-xs font-semibold text-on-pink dark:bg-pink-500/20 dark:text-pink-400">
               Boolean habits: gray or green
             </span>
-            <span className="inline-flex rounded-full bg-[var(--color-accent-cream)] px-3 py-1 text-xs font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
+            <span className="inline-flex rounded-full bg-[var(--color-accent-cream)] px-2.5 py-0.5 text-xs font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
               Numeric/time habits: intensity by target %
             </span>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="rounded-3xl border border-border/70 bg-card/40 p-4">
+      <CardContent className="space-y-3">
+        <div className="rounded-2xl border border-border/70 bg-card/40 p-3">
           <TooltipProvider>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {historyRows.map((habit) => (
                 <div
-                  className="grid gap-3 border-b border-border/70 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[minmax(180px,220px)_1fr]"
+                  className="grid gap-2.5 border-b border-border/70 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[minmax(160px,200px)_1fr]"
                   key={habit.id}
                 >
                   <div className="space-y-1 md:pt-1">

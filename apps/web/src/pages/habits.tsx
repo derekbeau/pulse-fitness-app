@@ -70,8 +70,8 @@ export function HabitsPage() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-2">
+    <section className="space-y-3">
+      <div className="flex items-center gap-1.5">
         <h1 className="text-3xl font-semibold text-primary">Habits</h1>
         <HelpIcon title="Habits help">
           <p>

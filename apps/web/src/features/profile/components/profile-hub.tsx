@@ -79,8 +79,8 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
   ];
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
-      <header className="space-y-2">
+    <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8">
+      <header className="space-y-1.5">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Profile hub</p>
         <h1 className="text-3xl font-semibold text-primary">Profile</h1>
         <p className="max-w-3xl text-sm text-muted">
@@ -90,9 +90,9 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
       </header>
 
       <Card className="overflow-hidden border-border/70 bg-card/95 shadow-sm">
-        <CardContent className="flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex size-16 items-center justify-center rounded-full bg-[var(--color-accent-mint)] text-2xl font-semibold text-on-mint shadow-sm">
+            <div className="flex size-14 items-center justify-center rounded-full bg-[var(--color-accent-mint)] text-xl font-semibold text-on-mint shadow-sm">
               {initials}
             </div>
             <div className="space-y-1">
@@ -106,7 +106,7 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold text-foreground">Quick access</h2>
@@ -117,7 +117,7 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
         </div>
 
         <div
-          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
           data-testid="profile-quick-access-grid"
         >
           {profileDestinations.map((destination) => {
@@ -127,13 +127,13 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
               <Link className="block cursor-pointer" key={destination.href} to={destination.href}>
                 <Card
                   className={cn(
-                    'h-full gap-4 border-border/70 bg-card/90 transition-all duration-200 hover:-translate-y-1 hover:border-primary/45 hover:bg-secondary/40 hover:shadow-lg focus-within:border-primary/55 focus-within:ring-2 focus-within:ring-primary/20',
+                    'h-full gap-3 border-border/70 bg-card/90 transition-all duration-200 hover:-translate-y-1 hover:border-primary/45 hover:bg-secondary/40 hover:shadow-lg focus-within:border-primary/55 focus-within:ring-2 focus-within:ring-primary/20',
                     destination.accentClassName,
                   )}
                 >
-                  <CardHeader className="gap-4">
+                  <CardHeader className="gap-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+                      <div className="flex size-11 items-center justify-center rounded-2xl bg-secondary text-primary">
                         <Icon aria-hidden="true" className="size-5" />
                       </div>
                       <span className="rounded-full border border-border/70 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">

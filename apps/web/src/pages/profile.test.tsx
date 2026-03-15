@@ -112,9 +112,11 @@ describe('ProfilePage', () => {
   });
 
   it('uses the responsive quick access grid classes required by the prototype', () => {
-    renderProfilePage();
+    const { container } = renderProfilePage();
 
     expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('grid-cols-2');
+    expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('gap-3');
     expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('lg:grid-cols-4');
+    expect(container.querySelector('section')).toHaveClass('gap-5', 'pb-8');
   });
 });

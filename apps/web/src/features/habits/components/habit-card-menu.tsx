@@ -154,6 +154,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Open habit actions for ${habit.name}`}
+            className="-mr-1 size-11 min-h-11 min-w-11"
             disabled={isPending}
             size="icon-sm"
             type="button"
@@ -219,7 +220,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
       </DropdownMenu>
 
       <Dialog onOpenChange={setIsPauseDialogOpen} open={isPauseDialogOpen}>
-        <DialogContent>
+        <DialogContent className="gap-4 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Pause scheduling</DialogTitle>
             <DialogDescription>
@@ -228,7 +229,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="space-y-2">
               <Label htmlFor={`pause-until-${habit.id}`}>Pause until</Label>
               <Input
@@ -241,7 +242,7 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 pt-1">
             <Button
               disabled={isPending}
               onClick={() => setIsPauseDialogOpen(false)}

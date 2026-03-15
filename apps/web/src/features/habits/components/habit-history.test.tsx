@@ -136,6 +136,8 @@ describe('HabitHistory', () => {
 
     const hydrateGrid = screen.getByTestId('habit-history-grid-hydrate');
     expect(hydrateGrid).toHaveClass('flex', 'flex-wrap', 'gap-1');
+    expect(screen.getByText('Boolean habits: gray or green')).toHaveClass('px-2.5', 'py-0.5');
+    expect(hydrateGrid.parentElement).toHaveClass('pb-3');
     expect(container.querySelector('.overflow-x-auto')).toBeNull();
     expect(container.querySelector('.min-w-max')).toBeNull();
   });

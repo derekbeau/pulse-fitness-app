@@ -253,7 +253,7 @@ function ThemeOptionCard({
   return (
     <Label
       className={cn(
-        'grid cursor-pointer gap-4 rounded-2xl border p-4 transition-colors',
+        'grid cursor-pointer gap-3 rounded-2xl border p-3.5 transition-colors',
         checked
           ? 'border-primary bg-secondary/70 shadow-sm'
           : 'border-border hover:border-primary/40 hover:bg-secondary/40',
@@ -261,7 +261,7 @@ function ThemeOptionCard({
       htmlFor={id}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-3">
             <RadioGroupItem checked={checked} id={id} value={value} />
             <span className="text-base font-semibold text-foreground">{label}</span>
@@ -488,10 +488,10 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
+    <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8">
       <BackLink />
 
-      <header className="space-y-2">
+      <header className="space-y-1.5">
         <h1 className="text-3xl font-semibold text-primary">Settings</h1>
         <p className="max-w-3xl text-sm text-muted">
           Manage the profile and appearance details that shape the Pulse experience across devices.
@@ -499,13 +499,13 @@ export function SettingsPage() {
       </header>
 
       <Card className="gap-4 border-border/70 shadow-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-1.5">
           <CardTitle>
             <h2 className="text-xl font-semibold text-foreground">Profile</h2>
           </CardTitle>
           <CardDescription>Update your display name and view account details.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground" htmlFor="display-name">
               Display name
@@ -554,14 +554,14 @@ export function SettingsPage() {
               value={weightUnit}
             >
               <Label
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-3"
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-2.5"
                 htmlFor="weight-unit-lbs"
               >
                 <RadioGroupItem id="weight-unit-lbs" value="lbs" />
                 <span className="text-sm text-foreground">lbs</span>
               </Label>
               <Label
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-3"
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 p-2.5"
                 htmlFor="weight-unit-kg"
               >
                 <RadioGroupItem id="weight-unit-kg" value="kg" />
@@ -570,7 +570,7 @@ export function SettingsPage() {
             </RadioGroup>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2.5 border-t border-border/80 pt-3 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm text-muted-foreground">
               {profileMessage || '\u00A0'}
             </p>
@@ -588,7 +588,7 @@ export function SettingsPage() {
       <AgentTokensCard />
 
       <Card className="gap-4 border-border/70 shadow-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-1.5">
           <CardTitle>
             <h2 className="text-xl font-semibold text-foreground">Theme</h2>
           </CardTitle>
@@ -596,7 +596,7 @@ export function SettingsPage() {
             Choose how Pulse looks. Changes apply immediately and stay saved on this device.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <RadioGroup
             aria-label="Theme options"
             className="grid gap-3 lg:grid-cols-3"
@@ -614,7 +614,7 @@ export function SettingsPage() {
       </Card>
 
       <Card className="gap-4 border-border/70 shadow-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-1.5">
           <CardTitle>
             <h2 className="text-xl font-semibold text-foreground">Nutrition Targets</h2>
           </CardTitle>
@@ -622,7 +622,7 @@ export function SettingsPage() {
             Set daily macro targets for the dashboard rings and nutrition summaries.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground" htmlFor="target-calories">
               Daily calories
@@ -686,7 +686,7 @@ export function SettingsPage() {
       </Card>
 
       <Card className="gap-4 border-border/70 shadow-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-1.5">
           <CardTitle>
             <h2 className="text-xl font-semibold text-foreground">Dashboard Configuration</h2>
           </CardTitle>
@@ -694,8 +694,8 @@ export function SettingsPage() {
             Choose which habit streaks and trend sparklines show up on the dashboard.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
+        <CardContent className="space-y-5">
+          <div className="space-y-2.5">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">Habit Chains</h3>
               <p className="text-sm text-muted-foreground">
@@ -714,7 +714,7 @@ export function SettingsPage() {
                   return (
                     <Label
                       key={habit.id}
-                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-2.5"
                       htmlFor={checkboxId}
                     >
                       <Checkbox
@@ -735,7 +735,7 @@ export function SettingsPage() {
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">Trend Sparklines</h3>
               <p className="text-sm text-muted-foreground">
@@ -749,7 +749,7 @@ export function SettingsPage() {
                 return (
                   <Label
                     key={metric.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-2.5"
                     htmlFor={checkboxId}
                   >
                     <Checkbox
@@ -769,7 +769,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">Widget Visibility</h3>
               <p className="text-sm text-muted-foreground">
@@ -783,7 +783,7 @@ export function SettingsPage() {
                 return (
                   <Label
                     key={widgetId}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-3"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 p-2.5"
                     htmlFor={checkboxId}
                   >
                     <Checkbox
@@ -805,7 +805,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2.5 border-t border-border/80 pt-3 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm text-muted-foreground">
               {saveMessage || 'Save changes to sync these preferences to your account.'}
             </p>
