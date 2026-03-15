@@ -130,6 +130,7 @@ describe('weight api hooks', () => {
     const deferred = createDeferredPromise<Response>();
 
     const { queryClient, wrapper } = createQueryClientWrapper();
+    const cancelQueries = vi.spyOn(queryClient, 'cancelQueries');
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     queryClient.setQueryData(weightQueryKeys.latest(), {
       id: 'weight-1',
@@ -222,6 +223,11 @@ describe('weight api hooks', () => {
       ]);
     });
 
+    expect(cancelQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.latest() });
+    expect(cancelQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.trendRoot() });
+    expect(cancelQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(cancelQueries).toHaveBeenCalledWith({ queryKey: dashboardWeightTrendQueryKeys.all });
+
     await act(async () => {
       deferred.resolve(
         createJsonResponse({
@@ -254,6 +260,7 @@ describe('weight api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
+    expect(toast.success).toHaveBeenCalledWith('Weight logged');
   });
 
   it('rolls back an optimistic weight entry when logging fails', async () => {

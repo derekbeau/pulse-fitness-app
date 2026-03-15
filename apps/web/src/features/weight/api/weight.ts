@@ -20,8 +20,12 @@ type WeightTrendFilters = {
   to?: string;
 };
 
-type DashboardSnapshotCache = Array<readonly [QueryKey, DashboardSnapshot | undefined]>;
-type DashboardWeightTrendCache = Array<readonly [QueryKey, DashboardWeightTrendPoint[] | undefined]>;
+type LogWeightCache =
+  | BodyWeightEntry[]
+  | BodyWeightEntry
+  | null
+  | DashboardSnapshot
+  | DashboardWeightTrendPoint[];
 
 const normalizeWeightTrendFilters = ({ from, to }: WeightTrendFilters = {}) => ({
   from: from ?? null,
@@ -200,6 +204,72 @@ const applyWeightEntryToDashboardTrend = (
   return nextPoints.sort((left, right) => left.date.localeCompare(right.date));
 };
 
+const hasQueryKeyPrefix = (queryKey: QueryKey, prefix: QueryKey) =>
+  prefix.every((segment, index) => queryKey[index] === segment);
+
+const isLatestWeightCache = (
+  cache: LogWeightCache | undefined,
+  queryKey: QueryKey,
+): cache is BodyWeightEntry | null | undefined =>
+  hasQueryKeyPrefix(queryKey, weightQueryKeys.latest()) &&
+  (cache === undefined ||
+    cache === null ||
+    (typeof cache === 'object' && !Array.isArray(cache) && 'createdAt' in cache));
+
+const isWeightTrendCache = (
+  cache: LogWeightCache | undefined,
+  queryKey: QueryKey,
+): cache is BodyWeightEntry[] | undefined =>
+  hasQueryKeyPrefix(queryKey, weightQueryKeys.trendRoot()) &&
+  (cache === undefined ||
+    (Array.isArray(cache) &&
+      (cache.length === 0 || (typeof cache[0] === 'object' && cache[0] !== null && 'createdAt' in cache[0]))));
+
+const isDashboardSnapshotCache = (
+  cache: LogWeightCache | undefined,
+  queryKey: QueryKey,
+): cache is DashboardSnapshot | undefined =>
+  hasQueryKeyPrefix(queryKey, dashboardSnapshotQueryKeys.all) &&
+  (cache === undefined ||
+    (typeof cache === 'object' &&
+      cache !== null &&
+      !Array.isArray(cache) &&
+      'macros' in cache &&
+      'habits' in cache));
+
+const isDashboardWeightTrendCache = (
+  cache: LogWeightCache | undefined,
+  queryKey: QueryKey,
+): cache is DashboardWeightTrendPoint[] | undefined =>
+  hasQueryKeyPrefix(queryKey, dashboardWeightTrendQueryKeys.all) &&
+  (cache === undefined ||
+    (Array.isArray(cache) &&
+      (cache.length === 0 || (typeof cache[0] === 'object' && cache[0] !== null && 'value' in cache[0]))));
+
+const updateLogWeightCache = (
+  current: LogWeightCache | undefined,
+  nextEntry: BodyWeightEntry,
+  queryKey: QueryKey,
+) => {
+  if (isLatestWeightCache(current, queryKey)) {
+    return applyWeightEntryToLatestCache(current, nextEntry);
+  }
+
+  if (isWeightTrendCache(current, queryKey)) {
+    return applyWeightEntryToTrendCache(current, nextEntry, queryKey);
+  }
+
+  if (isDashboardSnapshotCache(current, queryKey)) {
+    return applyWeightEntryToDashboardSnapshot(current, nextEntry);
+  }
+
+  if (isDashboardWeightTrendCache(current, queryKey)) {
+    return applyWeightEntryToDashboardTrend(current, nextEntry, queryKey);
+  }
+
+  return current;
+};
+
 export const useLatestWeight = () =>
   useQuery({
     queryKey: weightQueryKeys.latest(),
@@ -214,18 +284,13 @@ export const useWeightTrend = (from?: string, to?: string) =>
 
 export const useLogWeight = () => {
   return createOptimisticMutation<
-    BodyWeightEntry[],
+    LogWeightCache,
     BodyWeightEntry,
     CreateWeightInput,
-    {
-      optimisticEntry: BodyWeightEntry;
-      previousDashboardSnapshots: DashboardSnapshotCache;
-      previousDashboardWeightTrend: DashboardWeightTrendCache;
-      previousLatest: BodyWeightEntry | null | undefined;
-    }
+    { optimisticEntry: BodyWeightEntry }
   >({
     mutationFn: postWeightEntry,
-    getMeta: (variables, queryClient) => ({
+    getMeta: (variables) => ({
       optimisticEntry: {
         id: `optimistic-weight-${variables.date}`,
         date: variables.date,
@@ -234,70 +299,20 @@ export const useLogWeight = () => {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       },
-      previousDashboardSnapshots: queryClient.getQueriesData<DashboardSnapshot>({
-        queryKey: dashboardSnapshotQueryKeys.all,
-      }),
-      previousDashboardWeightTrend: queryClient.getQueriesData<DashboardWeightTrendPoint[]>({
-        queryKey: dashboardWeightTrendQueryKeys.all,
-      }),
-      previousLatest: queryClient.getQueryData(weightQueryKeys.latest()),
     }),
     invalidateKeys: () => [weightQueryKeys.all, ...crossFeatureInvalidationMap.weightMutation()],
-    onError: async (_error, _variables, context, queryClient) => {
-      if (!context) {
-        return;
-      }
-
-      queryClient.setQueryData(weightQueryKeys.latest(), context.meta.previousLatest);
-      context.meta.previousDashboardSnapshots.forEach(([queryKey, snapshot]) => {
-        queryClient.setQueryData(queryKey, snapshot);
-      });
-      context.meta.previousDashboardWeightTrend.forEach(([queryKey, trend]) => {
-        queryClient.setQueryData(queryKey, trend);
-      });
-    },
-    onMutate: async (_variables, context, queryClient) => {
-      queryClient.setQueryData<BodyWeightEntry | null>(
-        weightQueryKeys.latest(),
-        (current) => applyWeightEntryToLatestCache(current, context.meta.optimisticEntry),
-      );
-
-      context.meta.previousDashboardSnapshots.forEach(([queryKey]) => {
-        queryClient.setQueryData<DashboardSnapshot>(queryKey, (current) =>
-          applyWeightEntryToDashboardSnapshot(current, context.meta.optimisticEntry),
-        );
-      });
-
-      context.meta.previousDashboardWeightTrend.forEach(([queryKey]) => {
-        queryClient.setQueryData<DashboardWeightTrendPoint[]>(queryKey, (current) =>
-          applyWeightEntryToDashboardTrend(current, context.meta.optimisticEntry, queryKey),
-        );
-      });
-    },
-    onSuccess: async (entry, _variables, context, queryClient) => {
-      queryClient.setQueryData<BodyWeightEntry | null>(weightQueryKeys.latest(), (current) =>
-        applyWeightEntryToLatestCache(current, entry),
-      );
-
-      context?.meta.previousDashboardSnapshots.forEach(([queryKey]) => {
-        queryClient.setQueryData<DashboardSnapshot>(queryKey, (current) =>
-          applyWeightEntryToDashboardSnapshot(current, entry),
-        );
-      });
-
-      context?.meta.previousDashboardWeightTrend.forEach(([queryKey]) => {
-        queryClient.setQueryData<DashboardWeightTrendPoint[]>(queryKey, (current) =>
-          applyWeightEntryToDashboardTrend(current, entry, queryKey),
-        );
-      });
-
+    onSuccess: async () => {
       toast.success('Weight logged');
     },
-    queryKey: () => weightQueryKeys.trendRoot(),
-    reconcile: (current, entry, _variables, context) =>
-      applyWeightEntryToTrendCache(current, entry, context.queryKey),
+    queryKey: () => [
+      weightQueryKeys.latest(),
+      weightQueryKeys.trendRoot(),
+      dashboardSnapshotQueryKeys.all,
+      dashboardWeightTrendQueryKeys.all,
+    ],
+    reconcile: (current, entry, _variables, context) => updateLogWeightCache(current, entry, context.queryKey),
     updater: (current, _variables, context) =>
-      applyWeightEntryToTrendCache(current, context.meta.optimisticEntry, context.queryKey),
+      updateLogWeightCache(current, context.meta.optimisticEntry, context.queryKey),
   });
 };
 
