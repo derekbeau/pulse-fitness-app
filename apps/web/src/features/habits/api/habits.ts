@@ -14,8 +14,10 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { invalidateQueryKeys, crossFeatureInvalidationMap } from '@/lib/query-invalidation';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { crossFeatureInvalidationMap } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
+import { createOptimisticMutation } from '@/lib/optimistic';
 
 import { habitQueryKeys } from './keys';
 
@@ -57,13 +59,6 @@ type UpdateHabitEntryVariables = {
   isOverride?: boolean;
 };
 
-type HabitEntryQuerySnapshot = Array<readonly [QueryKey, HabitEntry[] | undefined]>;
-
-type MutationContext = {
-  optimisticEntry: HabitEntry;
-  previousEntries: HabitEntryQuerySnapshot;
-};
-
 type ReorderMutationContext = {
   previousHabits: Habit[] | undefined;
 };
@@ -94,18 +89,26 @@ const getEntriesParamsFromQueryKey = (queryKey: QueryKey): HabitEntriesParams | 
   return isHabitEntriesParams(maybeParams) ? maybeParams : null;
 };
 
-const snapshotHabitEntryQueries = (queryClient: ReturnType<typeof useQueryClient>) =>
-  queryClient.getQueriesData<HabitEntry[]>({
-    queryKey: habitEntriesQueryKey,
-  });
+const isHabitChainRangeQueryKey = (queryKey: QueryKey) =>
+  queryKey[0] === 'habits' &&
+  queryKey[1] === 'chains' &&
+  typeof queryKey[2] === 'string' &&
+  typeof queryKey[3] === 'string';
 
-const restoreHabitEntryQueries = (
-  queryClient: ReturnType<typeof useQueryClient>,
-  snapshot: HabitEntryQuerySnapshot,
-) => {
-  snapshot.forEach(([queryKey, entries]) => {
-    queryClient.setQueryData(queryKey, entries);
-  });
+const getRangeFromQueryKey = (queryKey: QueryKey) => {
+  const habitEntryParams = getEntriesParamsFromQueryKey(queryKey);
+  if (habitEntryParams) {
+    return habitEntryParams;
+  }
+
+  if (isHabitChainRangeQueryKey(queryKey)) {
+    return {
+      from: queryKey[2] as string,
+      to: queryKey[3] as string,
+    };
+  }
+
+  return null;
 };
 
 const upsertHabitEntry = (entries: HabitEntry[] | undefined, nextEntry: HabitEntry) => {
@@ -126,24 +129,32 @@ const upsertHabitEntry = (entries: HabitEntry[] | undefined, nextEntry: HabitEnt
 };
 
 const applyHabitEntryToCache = (
-  queryClient: ReturnType<typeof useQueryClient>,
+  entries: HabitEntry[] | undefined,
   nextEntry: HabitEntry,
+  queryKey: QueryKey,
 ) => {
-  snapshotHabitEntryQueries(queryClient).forEach(([queryKey, entries]) => {
-    const params = getEntriesParamsFromQueryKey(queryKey);
-    if (!params || nextEntry.date < params.from || nextEntry.date > params.to) {
-      return;
-    }
+  const range = getRangeFromQueryKey(queryKey);
+  if (!range || nextEntry.date < range.from || nextEntry.date > range.to) {
+    return entries;
+  }
 
-    queryClient.setQueryData(queryKey, upsertHabitEntry(entries, nextEntry));
-  });
+  return upsertHabitEntry(entries, nextEntry);
 };
 
 const findCachedHabitEntry = (
   queryClient: ReturnType<typeof useQueryClient>,
   entryId: string,
 ): HabitEntry | undefined => {
-  for (const [, entries] of snapshotHabitEntryQueries(queryClient)) {
+  const snapshots = [
+    ...queryClient.getQueriesData<HabitEntry[]>({
+      queryKey: habitEntriesQueryKey,
+    }),
+    ...queryClient.getQueriesData<HabitEntry[]>({
+      queryKey: habitChainQueryKeys.all,
+    }),
+  ];
+
+  for (const [, entries] of snapshots) {
     const match = entries?.find((entry) => entry.id === entryId);
     if (match) {
       return match;
@@ -332,9 +343,7 @@ export function useReorderHabits() {
 }
 
 export function useToggleHabit() {
-  const queryClient = useQueryClient();
-
-  return useMutation<HabitEntry, Error, ToggleHabitVariables, MutationContext>({
+  return createOptimisticMutation<HabitEntry[], HabitEntry, ToggleHabitVariables, { optimisticEntry: HabitEntry }>({
     mutationFn: async ({ habitId, date, completed, value, isOverride }) => {
       const entry = await apiRequest<HabitEntry>(`/api/v1/habits/${habitId}/entries`, {
         body: {
@@ -348,11 +357,8 @@ export function useToggleHabit() {
 
       return habitEntrySchema.parse(entry);
     },
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey: habitEntriesQueryKey });
-
-      const previousEntries = snapshotHabitEntryQueries(queryClient);
-      const optimisticEntry: HabitEntry = {
+    getMeta: (variables) => ({
+      optimisticEntry: {
         id: variables.entryId ?? `optimistic-${variables.habitId}-${variables.date}`,
         habitId: variables.habitId,
         userId: 'optimistic',
@@ -361,39 +367,28 @@ export function useToggleHabit() {
         value: variables.value ?? null,
         isOverride: variables.isOverride ?? false,
         createdAt: Date.now(),
-      };
-
-      applyHabitEntryToCache(queryClient, optimisticEntry);
-
-      return {
-        optimisticEntry,
-        previousEntries,
-      };
-    },
-    onError: (_error, _variables, context) => {
-      if (!context) {
-        return;
-      }
-
-      restoreHabitEntryQueries(queryClient, context.previousEntries);
-    },
-    onSuccess: (entry) => {
-      applyHabitEntryToCache(queryClient, entry);
-    },
-    onSettled: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey }),
-        queryClient.invalidateQueries({ queryKey: habitQueryKeys.list() }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitEntryMutation()),
-      ]);
-    },
+      },
+    }),
+    invalidateKeys: () => [
+      habitEntriesQueryKey,
+      habitQueryKeys.list(),
+      ...crossFeatureInvalidationMap.habitEntryMutation(),
+    ],
+    queryKey: () => [habitEntriesQueryKey, habitChainQueryKeys.all],
+    reconcile: (current, entry, _variables, context) =>
+      applyHabitEntryToCache(current, entry, context.queryKey),
+    updater: (current, _variables, context) =>
+      applyHabitEntryToCache(current, context.meta.optimisticEntry, context.queryKey),
   });
 }
 
 export function useUpdateHabitEntry() {
-  const queryClient = useQueryClient();
-
-  return useMutation<HabitEntry, Error, UpdateHabitEntryVariables, MutationContext>({
+  return createOptimisticMutation<
+    HabitEntry[],
+    HabitEntry,
+    UpdateHabitEntryVariables,
+    { optimisticEntry: HabitEntry }
+  >({
     mutationFn: async ({ id, completed, value, isOverride }) => {
       const entry = await apiRequest<HabitEntry>(`/api/v1/habit-entries/${id}`, {
         body: {
@@ -406,12 +401,10 @@ export function useUpdateHabitEntry() {
 
       return habitEntrySchema.parse(entry);
     },
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey: habitEntriesQueryKey });
-
-      const previousEntries = snapshotHabitEntryQueries(queryClient);
+    getMeta: (variables, queryClient) => {
       const existingEntry = findCachedHabitEntry(queryClient, variables.id);
-      const optimisticEntry: HabitEntry = {
+      return {
+        optimisticEntry: {
         id: variables.id,
         habitId: variables.habitId,
         userId: existingEntry?.userId ?? 'optimistic',
@@ -420,31 +413,18 @@ export function useUpdateHabitEntry() {
         value: variables.value ?? existingEntry?.value ?? null,
         isOverride: variables.isOverride ?? existingEntry?.isOverride ?? false,
         createdAt: existingEntry?.createdAt ?? Date.now(),
-      };
-
-      applyHabitEntryToCache(queryClient, optimisticEntry);
-
-      return {
-        optimisticEntry,
-        previousEntries,
+        },
       };
     },
-    onError: (_error, _variables, context) => {
-      if (!context) {
-        return;
-      }
-
-      restoreHabitEntryQueries(queryClient, context.previousEntries);
-    },
-    onSuccess: (entry) => {
-      applyHabitEntryToCache(queryClient, entry);
-    },
-    onSettled: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey }),
-        queryClient.invalidateQueries({ queryKey: habitQueryKeys.list() }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.habitEntryMutation()),
-      ]);
-    },
+    invalidateKeys: () => [
+      habitEntriesQueryKey,
+      habitQueryKeys.list(),
+      ...crossFeatureInvalidationMap.habitEntryMutation(),
+    ],
+    queryKey: () => [habitEntriesQueryKey, habitChainQueryKeys.all],
+    reconcile: (current, entry, _variables, context) =>
+      applyHabitEntryToCache(current, entry, context.queryKey),
+    updater: (current, _variables, context) =>
+      applyHabitEntryToCache(current, context.meta.optimisticEntry, context.queryKey),
   });
 }

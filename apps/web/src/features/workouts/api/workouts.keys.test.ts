@@ -32,4 +32,9 @@ describe('workoutQueryKeys', () => {
   it('returns a stable template detail prefix key', () => {
     expect(workoutQueryKeys.templateDetailPrefix()).toEqual(['workouts', 'template']);
   });
+
+  it('returns stable scheduled-workout and session detail prefixes', () => {
+    expect(workoutQueryKeys.scheduledWorkoutListRoot()).toEqual(['workouts', 'scheduled-workouts']);
+    expect(workoutQueryKeys.sessionDetailPrefix()).toEqual(['workouts', 'session']);
+  });
 });

@@ -127,6 +127,7 @@ describe('habit api hooks', () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
     const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
+    const chainQueryKey = habitChainQueryKeys.range('2026-02-07', '2026-03-07');
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-1',
@@ -140,6 +141,7 @@ describe('habit api hooks', () => {
     ];
 
     queryClient.setQueryData(queryKey, initialEntries);
+    queryClient.setQueryData(chainQueryKey, initialEntries);
 
     const deferred = createDeferredPromise<HabitEntry>();
     void deferred.promise.catch(() => undefined);
@@ -164,6 +166,13 @@ describe('habit api hooks', () => {
           id: 'entry-1',
         }),
       ]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([
+        expect.objectContaining({
+          completed: true,
+          habitId: 'habit-1',
+          id: 'entry-1',
+        }),
+      ]);
     });
 
     act(() => {
@@ -172,6 +181,7 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual(initialEntries);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual(initialEntries);
     });
   });
 
@@ -220,6 +230,7 @@ describe('habit api hooks', () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
     const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
+    const chainQueryKey = habitChainQueryKeys.range('2026-02-07', '2026-03-07');
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-2',
@@ -238,6 +249,7 @@ describe('habit api hooks', () => {
     };
 
     queryClient.setQueryData(queryKey, initialEntries);
+    queryClient.setQueryData(chainQueryKey, initialEntries);
 
     const deferred = createDeferredPromise<HabitEntry>();
     mockedApiRequest.mockReturnValueOnce(deferred.promise);
@@ -262,6 +274,13 @@ describe('habit api hooks', () => {
           value: 8,
         }),
       ]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([
+        expect.objectContaining({
+          completed: true,
+          id: 'entry-2',
+          value: 8,
+        }),
+      ]);
     });
 
     await act(async () => {
@@ -271,6 +290,7 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual([updatedEntry]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([updatedEntry]);
     });
   });
 
