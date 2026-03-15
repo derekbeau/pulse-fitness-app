@@ -1,13 +1,17 @@
 import { dateSchema } from '@pulse/shared';
 import { z } from 'zod';
 
-const nonEmptyParamSchema = z.string().trim().min(1);
+const opaqueIdParamSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, 'Invalid id');
 
 export const authSecurity = [{ bearerAuth: [] }, { agentToken: [] }] as const;
 export const jwtSecurity = [{ bearerAuth: [] }] as const;
 
 export const idParamsSchema = z.object({
-  id: nonEmptyParamSchema,
+  id: opaqueIdParamSchema,
 });
 
 export const dateParamsSchema = z.object({
@@ -15,11 +19,11 @@ export const dateParamsSchema = z.object({
 });
 
 export const mealParamsSchema = dateParamsSchema.extend({
-  mealId: nonEmptyParamSchema,
+  mealId: opaqueIdParamSchema,
 });
 
 export const mealItemParamsSchema = mealParamsSchema.extend({
-  itemId: nonEmptyParamSchema,
+  itemId: opaqueIdParamSchema,
 });
 
 export const successFlagSchema = z.object({
@@ -36,12 +40,24 @@ export const apiErrorResponseSchema = z.object({
   error: apiErrorSchema,
 });
 
+const zodIssueSchema = z
+  .object({
+    code: z.string(),
+    path: z.array(z.union([z.string(), z.number()])),
+    message: z.string(),
+  })
+  .catchall(z.unknown());
+
 export const zodValidationIssueSchema = z.object({
   keyword: z.string(),
   instancePath: z.string(),
   schemaPath: z.string(),
   message: z.string(),
-  params: z.record(z.unknown()),
+  params: z
+    .object({
+      issue: zodIssueSchema,
+    })
+    .catchall(z.unknown()),
 });
 
 export const validationErrorResponseSchema = z.object({

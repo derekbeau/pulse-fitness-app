@@ -59,6 +59,9 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
 const DEFAULT_CATEGORY = 'compound' as const;
 const DEFAULT_TRACKING_TYPE = 'weight_reps' as const;
 
+// Fastify can only advertise one static body schema, so this union keeps
+// validation and OpenAPI generation in Fastify while the auth-mode guard below
+// rejects the branch that does not match the resolved credentials.
 const createExerciseRequestSchema = z.union([
   createExerciseInputSchema.transform((data) => ({
     mode: 'standard' as const,

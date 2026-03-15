@@ -1391,6 +1391,50 @@ describe('exercise routes', () => {
     });
   });
 
+  it('defaults tags and formCues when a standard create payload omits them', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Romanian Deadlift',
+        muscleGroups: ['hamstrings', 'glutes'],
+        equipment: 'barbell',
+        category: 'compound',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Romanian Deadlift',
+        tags: [],
+        formCues: [],
+      }),
+    });
+
+    const created = context.db
+      .select({
+        name: exercises.name,
+        tags: exercises.tags,
+        formCues: exercises.formCues,
+      })
+      .from(exercises)
+      .where(eq(exercises.name, 'Romanian Deadlift'))
+      .get();
+
+    expect(created).toEqual({
+      name: 'Romanian Deadlift',
+      tags: [],
+      formCues: [],
+    });
+  });
+
   it('agent create exercise: creates when no close dedup candidates are found', async () => {
     seedExercise({
       id: 'agent-related-owned',

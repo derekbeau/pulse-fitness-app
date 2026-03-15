@@ -25,6 +25,7 @@ import {
   authSecurity,
   badRequestResponseSchema,
   idParamsSchema,
+  mealItemParamsSchema,
 } from '../../openapi.js';
 import {
   createMealForDate,
@@ -37,10 +38,9 @@ import {
 const MAX_MEAL_SUMMARY_LENGTH = 500;
 const SUMMARY_ELLIPSIS = '...';
 
-const mealItemIdParamsSchema = idParamsSchema.extend({
-  itemId: z.string().trim().min(1),
-});
-
+// Fastify can only advertise one static body schema, so this union keeps
+// validation and OpenAPI generation in Fastify while the auth-mode guard below
+// rejects the branch that does not match the resolved credentials.
 const createMealRequestSchema = z.union([
   agentCreateMealInputSchema.transform((data) => ({
     mode: 'agent' as const,
@@ -390,7 +390,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
     '/:id/items/:itemId',
     {
       schema: {
-        params: mealItemIdParamsSchema,
+        params: mealItemParamsSchema,
         body: patchMealItemInputSchema,
         response: {
           200: apiDataResponseSchema(nutritionMealItemSchema),
@@ -406,7 +406,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const existingMealItem = await findMealItemById(
         request.userId,
-        request.params.id,
+        request.params.mealId,
         request.params.itemId,
       );
       if (!existingMealItem) {
@@ -415,7 +415,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
 
       const updatedMealItem = await patchMealItemById(
         request.userId,
-        request.params.id,
+        request.params.mealId,
         request.params.itemId,
         request.body,
       );
