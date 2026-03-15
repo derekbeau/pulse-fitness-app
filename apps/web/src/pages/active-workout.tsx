@@ -88,6 +88,7 @@ import {
 } from '@/features/workouts/lib/session-persistence';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
 import { ApiError, apiRequest } from '@/lib/api-client';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 import {
   mockExercises,
   mockTemplates,
@@ -722,7 +723,10 @@ export function ActiveWorkoutPage() {
                 return;
               }
 
-              void queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all });
+              void Promise.all([
+                queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
+                invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
+              ]);
 
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
               setSessionFeedback(feedback);

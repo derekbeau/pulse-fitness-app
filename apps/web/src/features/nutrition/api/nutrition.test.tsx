@@ -1,9 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { habitQueryKeys } from '@/features/habits/api/keys';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { nutritionKeys } from './keys';
+import { nutritionQueryKeys } from './keys';
 import {
   useDailyNutrition,
   useDeleteMeal,
@@ -189,13 +193,28 @@ describe('nutrition api hooks', () => {
       }),
     );
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: nutritionKeys.daily('2026-03-09'),
+      queryKey: nutritionQueryKeys.daily('2026-03-09'),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: nutritionKeys.summary('2026-03-09'),
+      queryKey: nutritionQueryKeys.summary('2026-03-09'),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: nutritionKeys.weekSummary('2026-03-09'),
+      queryKey: nutritionQueryKeys.weekSummary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: macroTrendQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.list(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.entryList(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitChainQueryKeys.all,
     });
   });
 });

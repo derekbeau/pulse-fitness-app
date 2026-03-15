@@ -2,8 +2,12 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutSessionListItem } from '@pulse/shared';
 
+import { habitQueryKeys } from '@/features/habits/api/keys';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import { useCompleteSession } from './use-complete-session';
@@ -58,7 +62,7 @@ describe('use-complete-session hook', () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse(completedSessionResponse));
 
     const { queryClient, wrapper } = createQueryClientWrapper();
-    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}), [
+    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionList({}), [
       {
         completedAt: null,
         createdAt: 100,
@@ -73,7 +77,7 @@ describe('use-complete-session hook', () => {
         templateName: 'Upper Push Template',
       },
     ]);
-    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessions(), [
+    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessionList(), [
       {
         completedAt: 1_000,
         createdAt: 90,
@@ -140,10 +144,19 @@ describe('use-complete-session hook', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutSessionQueryKeys.detail('session-1'),
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: recentWorkoutQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBeNull();
 
     expect(
-      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({})),
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionList({})),
     ).toEqual([
       {
         completedAt: 2_700_000,
@@ -163,7 +176,7 @@ describe('use-complete-session hook', () => {
       completedSessionResponse,
     );
     expect(
-      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessions()),
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.completedSessionList()),
     ).toEqual([
       {
         completedAt: 2_700_000,
@@ -198,7 +211,7 @@ describe('use-complete-session hook', () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse(completedSessionResponse));
 
     const { queryClient, wrapper } = createQueryClientWrapper();
-    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({}), [
+    queryClient.setQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionList({}), [
       {
         completedAt: 1_000,
         createdAt: 90,
@@ -226,7 +239,7 @@ describe('use-complete-session hook', () => {
     });
 
     expect(
-      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionsList({})),
+      queryClient.getQueryData<WorkoutSessionListItem[]>(workoutQueryKeys.sessionList({})),
     ).toEqual([
       {
         completedAt: 2_700_000,

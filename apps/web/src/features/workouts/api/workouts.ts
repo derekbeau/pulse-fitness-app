@@ -1,4 +1,4 @@
-import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, type QueryKey, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createScheduledWorkoutInputSchema,
   createWorkoutSessionInputSchema,
@@ -36,6 +36,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
+import { createOptimisticMutation } from '@/lib/optimistic';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const paginationMetaSchema = z.object({
   page: z.number().int(),
@@ -121,6 +123,13 @@ type SwapSessionExerciseResponse = {
   data: WorkoutSession;
   meta?: SwapResponseMeta;
 };
+type RenameTemplateCache = WorkoutTemplate | WorkoutTemplate[];
+type RenameExerciseCache =
+  | Exercise
+  | ExercisesResponse
+  | WorkoutTemplate
+  | WorkoutTemplate[]
+  | WorkoutSession;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutTemplateResponseSchema = z.object({
@@ -185,32 +194,256 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
   };
 };
 
+const completedSessionsKey = () =>
+  ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const;
+const exercisesKey = (params?: ExerciseQueryParams) =>
+  params
+    ? (['workouts', 'exercises', normalizeExerciseParams(params)] as const)
+    : (['workouts', 'exercises'] as const);
+const scheduledWorkoutsKey = (params?: ScheduledWorkoutQueryParams) =>
+  params
+    ? (['workouts', 'scheduled-workouts', normalizeScheduledWorkoutParams(params)] as const)
+    : (['workouts', 'scheduled-workouts'] as const);
+const sessionListKey = (params: WorkoutSessionQueryParams = {}) =>
+  ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const;
+const templatePrefixKey = () => ['workouts', 'template'] as const;
+const templatesKey = () => ['workouts', 'templates'] as const;
+
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
-  completedSessions: () =>
-    ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const,
+  completedSessions: completedSessionsKey,
+  completedSessionList: completedSessionsKey,
   exercise: (id: string) => ['workouts', 'exercise', id] as const,
   exercisesRoot: () => ['workouts', 'exercises'] as const,
-  exercises: (params?: ExerciseQueryParams) =>
-    params
-      ? (['workouts', 'exercises', normalizeExerciseParams(params)] as const)
-      : (['workouts', 'exercises'] as const),
+  exercises: exercisesKey,
+  exerciseList: exercisesKey,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
-  scheduledWorkouts: (params?: ScheduledWorkoutQueryParams) =>
-    params
-      ? (['workouts', 'scheduled-workouts', normalizeScheduledWorkoutParams(params)] as const)
-      : (['workouts', 'scheduled-workouts'] as const),
+  scheduledWorkouts: scheduledWorkoutsKey,
+  scheduledWorkoutList: scheduledWorkoutsKey,
+  scheduledWorkoutListRoot: () => ['workouts', 'scheduled-workouts'] as const,
   session: (id: string) => ['workouts', 'session', id] as const,
+  sessionDetailPrefix: () => ['workouts', 'session'] as const,
   sessions: () => ['workouts', 'sessions'] as const,
-  sessionsList: (params: WorkoutSessionQueryParams = {}) =>
-    ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const,
-  templateRoot: () => ['workouts', 'template'] as const,
+  sessionsList: sessionListKey,
+  sessionList: sessionListKey,
+  workouts: sessionListKey,
+  templateRoot: templatePrefixKey,
+  templateDetailPrefix: templatePrefixKey,
   template: (id: string) => ['workouts', 'template', id] as const,
-  templates: () => ['workouts', 'templates'] as const,
-  workouts: (params: WorkoutSessionQueryParams = {}) =>
-    ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const,
+  templates: templatesKey,
+  templateList: templatesKey,
 };
+
+const renameTemplateInTemplate = (template: WorkoutTemplate, request: RenameTemplateRequest) =>
+  template.id === request.id
+    ? {
+        ...template,
+        name: request.name,
+      }
+    : template;
+
+const reorderTemplateExercisesInTemplate = (
+  template: WorkoutTemplate,
+  request: ReorderTemplateExercisesRequest,
+) => {
+  if (template.id !== request.templateId) {
+    return template;
+  }
+
+  return {
+    ...template,
+    sections: template.sections.map((section) => {
+      if (section.type !== request.section) {
+        return section;
+      }
+
+      const exerciseById = new Map(section.exercises.map((exercise) => [exercise.id, exercise]));
+
+      return {
+        ...section,
+        exercises: request.exerciseIds
+          .map((exerciseId) => exerciseById.get(exerciseId))
+          .filter((exercise): exercise is WorkoutTemplate['sections'][number]['exercises'][number] =>
+            exercise !== undefined,
+          ),
+      };
+    }),
+  };
+};
+
+const updateTemplateNameInCache = (
+  cache: RenameTemplateCache | undefined,
+  request: RenameTemplateRequest,
+) => {
+  if (!cache) {
+    return cache;
+  }
+
+  return Array.isArray(cache)
+    ? cache.map((template) => renameTemplateInTemplate(template, request))
+    : renameTemplateInTemplate(cache, request);
+};
+
+const reorderTemplateExercisesInCache = (
+  cache: RenameTemplateCache | undefined,
+  request: ReorderTemplateExercisesRequest,
+) => {
+  if (!cache) {
+    return cache;
+  }
+
+  return Array.isArray(cache)
+    ? cache.map((template) => reorderTemplateExercisesInTemplate(template, request))
+    : reorderTemplateExercisesInTemplate(cache, request);
+};
+
+const isExercisesResponse = (value: RenameExerciseCache | undefined): value is ExercisesResponse =>
+  typeof value === 'object' && value !== null && 'data' in value && 'meta' in value;
+
+const isExerciseRecord = (value: RenameExerciseCache | undefined): value is Exercise =>
+  typeof value === 'object' &&
+  value !== null &&
+  'muscleGroups' in value &&
+  'equipment' in value &&
+  'category' in value;
+
+const isWorkoutTemplateRecord = (
+  value: RenameExerciseCache | undefined,
+): value is WorkoutTemplate =>
+  typeof value === 'object' &&
+  value !== null &&
+  'sections' in value &&
+  Array.isArray(value.sections) &&
+  'name' in value;
+
+const isWorkoutSessionRecord = (value: RenameExerciseCache | undefined): value is WorkoutSession =>
+  typeof value === 'object' &&
+  value !== null &&
+  'sets' in value &&
+  Array.isArray(value.sets) &&
+  'status' in value;
+
+const renameExerciseInTemplate = (template: WorkoutTemplate, request: RenameExerciseRequest) => ({
+  ...template,
+  sections: template.sections.map((section) => ({
+    ...section,
+    exercises: section.exercises.map((exercise) =>
+      exercise.exerciseId === request.id
+        ? {
+            ...exercise,
+            exerciseName: request.name,
+          }
+        : exercise,
+    ),
+  })),
+});
+
+const renameExerciseInSession = (session: WorkoutSession, request: RenameExerciseRequest) => ({
+  ...session,
+  exercises: session.exercises?.map((exercise) =>
+    exercise.exerciseId === request.id
+      ? {
+          ...exercise,
+          exerciseName: request.name,
+        }
+      : exercise,
+  ),
+});
+
+const updateExerciseNameInCache = (
+  cache: RenameExerciseCache | undefined,
+  request: RenameExerciseRequest,
+) => {
+  if (!cache) {
+    return cache;
+  }
+
+  if (Array.isArray(cache)) {
+    return cache.map((entry) => {
+      if (isWorkoutTemplateRecord(entry)) {
+        return renameExerciseInTemplate(entry, request);
+      }
+
+      return entry;
+    });
+  }
+
+  if (isExerciseRecord(cache)) {
+    return {
+      ...cache,
+      name: request.name,
+    };
+  }
+
+  if (isExercisesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((exercise) =>
+        exercise.id === request.id
+          ? {
+              ...exercise,
+              name: request.name,
+            }
+          : exercise,
+      ),
+    };
+  }
+
+  if (isWorkoutTemplateRecord(cache)) {
+    return renameExerciseInTemplate(cache, request);
+  }
+
+  if (isWorkoutSessionRecord(cache)) {
+    return renameExerciseInSession(cache, request);
+  }
+
+  return cache;
+};
+
+const getScheduledWorkoutRangeFromKey = (queryKey: QueryKey) => {
+  const maybeParams = queryKey[2];
+
+  if (
+    typeof maybeParams === 'object' &&
+    maybeParams !== null &&
+    'from' in maybeParams &&
+    'to' in maybeParams &&
+    typeof maybeParams.from === 'string' &&
+    typeof maybeParams.to === 'string'
+  ) {
+    return {
+      from: maybeParams.from,
+      to: maybeParams.to,
+    };
+  }
+
+  return null;
+};
+
+const updateScheduledWorkoutInList = (
+  current: ScheduledWorkoutListItem[] | undefined,
+  request: UpdateScheduledWorkoutRequest,
+  queryKey: QueryKey,
+) => {
+  if (!current) {
+    return current;
+  }
+
+  const range = getScheduledWorkoutRangeFromKey(queryKey);
+  const nextItems = current
+    .map((item) => (item.id === request.id ? { ...item, date: request.date } : item))
+    .filter((item) =>
+      range ? item.date >= range.from && item.date <= range.to : true,
+    );
+
+  return nextItems.sort((left, right) => left.date.localeCompare(right.date));
+};
+
+const removeScheduledWorkoutFromList = (
+  current: ScheduledWorkoutListItem[] | undefined,
+  request: DeleteScheduledWorkoutRequest,
+) => current?.filter((item) => item.id !== request.id);
 
 async function getWorkoutTemplates() {
   const data = await apiRequest<unknown>('/api/v1/workout-templates');
@@ -524,14 +757,14 @@ async function deleteScheduledWorkout(input: DeleteScheduledWorkoutRequest) {
 export function useWorkoutTemplates() {
   return useQuery<WorkoutTemplate[]>({
     queryFn: getWorkoutTemplates,
-    queryKey: workoutQueryKeys.templates(),
+    queryKey: workoutQueryKeys.templateList(),
   });
 }
 
 export function useCompletedSessions() {
   return useQuery<WorkoutSessionListItem[]>({
     queryFn: ({ signal }) => getCompletedSessions(signal),
-    queryKey: workoutQueryKeys.completedSessions(),
+    queryKey: workoutQueryKeys.completedSessionList(),
   });
 }
 
@@ -542,7 +775,7 @@ export function useScheduledWorkouts(
   return useQuery<ScheduledWorkoutListItem[]>({
     enabled: options?.enabled,
     queryFn: ({ signal }) => getScheduledWorkouts(params, signal),
-    queryKey: workoutQueryKeys.scheduledWorkouts(params),
+    queryKey: workoutQueryKeys.scheduledWorkoutList(params),
   });
 }
 
@@ -553,7 +786,7 @@ export function useWorkoutSessions(
   return useQuery<WorkoutSessionListItem[]>({
     enabled: options?.enabled,
     queryFn: ({ signal }) => getWorkoutSessions(params, signal),
-    queryKey: workoutQueryKeys.workouts(params),
+    queryKey: workoutQueryKeys.sessionList(params),
   });
 }
 
@@ -585,7 +818,7 @@ export function useExercises(params: ExerciseQueryParams, options?: { enabled?: 
     placeholderData: (previousData) => previousData,
     // getExercises already validates/normalizes with the shared schema.
     queryFn: () => getExercises(params),
-    queryKey: workoutQueryKeys.exercises(params),
+    queryKey: workoutQueryKeys.exerciseList(params),
   });
 }
 
@@ -610,10 +843,13 @@ export function useStartWorkoutSession() {
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: createWorkoutSession,
     onSuccess: async () => {
-      // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionsList(params)` caches.
-      await queryClient.invalidateQueries({
-        queryKey: workoutQueryKeys.sessions(),
-      });
+      await Promise.all([
+        // Intentional prefix invalidation: refreshes both `sessions()` and all `sessionList(params)` caches.
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+      ]);
       toast.success('Workout started');
     },
   });
@@ -632,11 +868,12 @@ export function useScheduleWorkout() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkouts(),
+          queryKey: workoutQueryKeys.scheduledWorkoutList(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
       ]);
       toast.success(`Scheduled for ${formatter.format(new Date(`${variables.date}T12:00:00`))}`);
     },
@@ -644,59 +881,64 @@ export function useScheduleWorkout() {
 }
 
 export function useRescheduleWorkout() {
-  const queryClient = useQueryClient();
-
-  return useMutation<ScheduledWorkout, Error, UpdateScheduledWorkoutRequest>({
+  return createOptimisticMutation<ScheduledWorkoutListItem[], ScheduledWorkout, UpdateScheduledWorkoutRequest>({
     mutationFn: updateScheduledWorkout,
+    invalidateKeys: () => [
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.scheduledWorkoutMutation(),
+    ],
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkouts(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessions(),
-        }),
-      ]);
       toast.success('Workout rescheduled');
     },
+    queryKey: () => workoutQueryKeys.scheduledWorkoutListRoot(),
+    reconcile: (current, _data, variables, context) =>
+      updateScheduledWorkoutInList(current, variables, context.queryKey),
+    updater: (current, variables, context) =>
+      updateScheduledWorkoutInList(current, variables, context.queryKey),
   });
 }
 
 export function useUnscheduleWorkout() {
-  const queryClient = useQueryClient();
-
-  return useMutation<DeleteScheduledWorkoutResponse, Error, DeleteScheduledWorkoutRequest>({
+  return createOptimisticMutation<
+    ScheduledWorkoutListItem[],
+    DeleteScheduledWorkoutResponse,
+    DeleteScheduledWorkoutRequest
+  >({
     mutationFn: deleteScheduledWorkout,
+    invalidateKeys: () => [
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.scheduledWorkoutMutation(),
+    ],
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkouts(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessions(),
-        }),
-      ]);
       toast.success('Scheduled workout removed');
     },
+    queryKey: () => workoutQueryKeys.scheduledWorkoutListRoot(),
+    updater: (current, variables) => removeScheduledWorkoutFromList(current, variables),
   });
 }
 
 export function useRenameExercise() {
-  const queryClient = useQueryClient();
-
-  return useMutation<Exercise, Error, RenameExerciseRequest>({
+  return createOptimisticMutation<RenameExerciseCache, Exercise, RenameExerciseRequest>({
     mutationFn: ({ id, name }) => updateExercise({ id, input: { name } }),
+    invalidateKeys: () => [workoutQueryKeys.all, workoutQueryKeys.sessions()],
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.all,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessions(),
-        }),
-      ]);
       toast.success('Exercise renamed');
     },
+    queryKey: (params) => [
+      workoutQueryKeys.exercise(params.variables.id),
+      workoutQueryKeys.exerciseList(),
+      workoutQueryKeys.templateList(),
+      workoutQueryKeys.templateDetailPrefix(),
+      workoutQueryKeys.sessionDetailPrefix(),
+    ],
+    reconcile: (current, exercise, variables) =>
+      updateExerciseNameInCache(current, {
+        id: variables.id,
+        name: exercise.name,
+      }),
+    updater: (current, variables) => updateExerciseNameInCache(current, variables),
   });
 }
 
@@ -711,35 +953,46 @@ export function useUpdateExercise() {
           queryKey: workoutQueryKeys.exercise(variables.id),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.exercises(),
+          queryKey: workoutQueryKeys.exerciseList(),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
+          queryKey: workoutQueryKeys.templateList(),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
+          queryKey: workoutQueryKeys.templateDetailPrefix(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessionDetailPrefix(),
         }),
       ]);
+      toast.success('Exercise updated');
     },
   });
 }
 
 export function useRenameTemplate() {
-  const queryClient = useQueryClient();
-
-  return useMutation<WorkoutTemplate, Error, RenameTemplateRequest>({
+  return createOptimisticMutation<RenameTemplateCache, WorkoutTemplate, RenameTemplateRequest>({
     mutationFn: renameTemplate,
-    onSuccess: async (_, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.template(variables.id),
-        }),
-      ]);
+    invalidateKeys: (params) => [
+      workoutQueryKeys.templateList(),
+      workoutQueryKeys.template(params.variables.id),
+      workoutQueryKeys.scheduledWorkoutListRoot(),
+      workoutQueryKeys.sessions(),
+      ...crossFeatureInvalidationMap.workoutTemplateMutation(),
+    ],
+    onSuccess: async () => {
       toast.success('Template renamed');
     },
+    queryKey: (params) => [
+      workoutQueryKeys.templateList(),
+      workoutQueryKeys.template(params.variables.id),
+    ],
+    reconcile: (current, template, variables) =>
+      updateTemplateNameInCache(current, {
+        id: variables.id,
+        name: template.name,
+      }),
+    updater: (current, variables) => updateTemplateNameInCache(current, variables),
   });
 }
 
@@ -751,12 +1004,20 @@ export function useUpdateTemplate() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
+          queryKey: workoutQueryKeys.templateList(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
+      toast.success('Template updated');
     },
   });
 }
@@ -769,11 +1030,18 @@ export function useDeleteTemplate() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
+          queryKey: workoutQueryKeys.templateList(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
       toast.success('Template deleted');
     },
@@ -781,20 +1049,29 @@ export function useDeleteTemplate() {
 }
 
 export function useReorderTemplateExercises() {
-  const queryClient = useQueryClient();
-
-  return useMutation<WorkoutTemplate, Error, ReorderTemplateExercisesRequest>({
+  return createOptimisticMutation<RenameTemplateCache, WorkoutTemplate, ReorderTemplateExercisesRequest>({
     mutationFn: reorderTemplateExercises,
-    onSuccess: async (_, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.template(variables.templateId),
-        }),
-      ]);
+    invalidateKeys: (params) => [
+      workoutQueryKeys.templateList(),
+      workoutQueryKeys.template(params.variables.templateId),
+      ...crossFeatureInvalidationMap.workoutTemplateMutation(),
+    ],
+    onSuccess: async () => {
+      toast.success('Template exercise order updated');
     },
+    queryKey: (params) => [
+      workoutQueryKeys.templateList(),
+      workoutQueryKeys.template(params.variables.templateId),
+    ],
+    reconcile: (current, template, variables) =>
+      reorderTemplateExercisesInCache(current, {
+        ...variables,
+        exerciseIds:
+          template.sections.find((section) => section.type === variables.section)?.exercises.map(
+            (exercise) => exercise.id,
+          ) ?? variables.exerciseIds,
+      }),
+    updater: (current, variables) => reorderTemplateExercisesInCache(current, variables),
   });
 }
 
@@ -806,12 +1083,17 @@ export function useSwapTemplateExercise() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templates(),
+          queryKey: workoutQueryKeys.templateList(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.template(variables.templateId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutTemplateMutation()),
       ]);
+      toast.success('Exercise swapped');
     },
   });
 }
@@ -830,6 +1112,7 @@ export function useSwapSessionExercise() {
           queryKey: workoutQueryKeys.session(variables.sessionId),
         }),
       ]);
+      toast.success('Exercise swapped');
     },
   });
 }

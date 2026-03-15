@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { apiRequest } from '@/lib/api-client';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const workoutSessionResponseSchema = z.object({
   data: workoutSessionSchema,
@@ -120,11 +121,11 @@ async function deleteSession(sessionId: string) {
 async function syncSessionMutationCache(
   queryClient: ReturnType<typeof useQueryClient>,
   session: WorkoutSession,
+  options?: { invalidateDashboard?: boolean },
 ) {
   queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
   queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
-
-  await Promise.all([
+  const invalidations = [
     queryClient.invalidateQueries({
       queryKey: workoutSessionQueryKeys.all,
     }),
@@ -137,7 +138,31 @@ async function syncSessionMutationCache(
     queryClient.invalidateQueries({
       queryKey: workoutQueryKeys.session(session.id),
     }),
-  ]);
+  ];
+
+  if (options?.invalidateDashboard) {
+    invalidations.push(
+      invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+    );
+  }
+
+  await Promise.all(invalidations);
+}
+
+function getSessionStatusSuccessMessage(status: WorkoutSession['status']) {
+  if (status === 'paused') {
+    return 'Workout paused';
+  }
+
+  if (status === 'cancelled') {
+    return 'Workout cancelled';
+  }
+
+  if (status === 'in-progress') {
+    return 'Workout resumed';
+  }
+
+  return 'Workout status updated';
 }
 
 type UseWorkoutSessionOptions = {
@@ -167,6 +192,7 @@ export function useStartSession() {
     onSuccess: async (session) => {
       setStoredActiveWorkoutSessionId(session.id);
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -175,6 +201,13 @@ export function useStartSession() {
         queryClient.invalidateQueries({
           queryKey: workoutSessionQueryKeys.detail(session.id),
         }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(session.id),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
       ]);
       toast.success('Workout started');
     },
@@ -194,7 +227,8 @@ export function useUpdateSessionStartTime(sessionId: string | null | undefined) 
       return updateSessionStartTime(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success('Workout start time updated');
     },
   });
 }
@@ -212,7 +246,8 @@ export function useUpdateSessionStatus(sessionId: string | null | undefined) {
       return updateSessionStatus(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success(getSessionStatusSuccessMessage(session.status));
     },
   });
 }
@@ -230,7 +265,8 @@ export function useUpdateSessionTimeSegments(sessionId: string | null | undefine
       return updateSessionTimeSegments(normalizedSessionId, input);
     },
     onSuccess: async (session) => {
-      await syncSessionMutationCache(queryClient, session);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
+      toast.success('Workout timing updated');
     },
   });
 }
@@ -249,6 +285,7 @@ export function useReorderSessionExercises(sessionId: string | null | undefined)
     },
     onSuccess: async (session) => {
       await syncSessionMutationCache(queryClient, session);
+      toast.success('Workout exercise order updated');
     },
   });
 }
@@ -279,6 +316,7 @@ export function useDeleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(normalizedSessionId),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
       ]);
       toast.success('Workout deleted');
     },

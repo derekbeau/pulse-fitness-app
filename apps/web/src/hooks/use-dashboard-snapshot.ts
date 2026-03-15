@@ -3,9 +3,9 @@ import { dashboardSnapshotSchema, type DashboardSnapshot } from '@pulse/shared';
 
 import { apiRequest } from '@/lib/api-client';
 
-export const dashboardSnapshotKeys = {
+export const dashboardSnapshotQueryKeys = {
   all: ['dashboard', 'snapshot'] as const,
-  detail: (date: string) => [...dashboardSnapshotKeys.all, date] as const,
+  detail: (date: string) => [...dashboardSnapshotQueryKeys.all, date] as const,
 };
 
 const fetchDashboardSnapshot = async (
@@ -27,11 +27,11 @@ export const useDashboardSnapshot = (date: string) =>
   useQuery({
     enabled: date.length > 0,
     queryFn: ({ signal }) => fetchDashboardSnapshot(date, signal),
-    queryKey: dashboardSnapshotKeys.detail(date),
+    queryKey: dashboardSnapshotQueryKeys.detail(date),
   });
 
 export const prefetchDashboardSnapshot = (queryClient: QueryClient, date: string) =>
   queryClient.prefetchQuery({
-    queryKey: dashboardSnapshotKeys.detail(date),
+    queryKey: dashboardSnapshotQueryKeys.detail(date),
     queryFn: ({ signal }) => fetchDashboardSnapshot(date, signal),
   });

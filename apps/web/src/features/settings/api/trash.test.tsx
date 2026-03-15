@@ -1,9 +1,25 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { trashKeys, usePurgeItem, useRestoreItem, useTrashItems } from './trash';
+import { trashQueryKeys, usePurgeItem, useRestoreItem, useTrashItems } from './trash';
+
+const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastErrorMock,
+    success: toastSuccessMock,
+  },
+}));
 
 const mockFetch = vi.fn();
 
@@ -19,6 +35,8 @@ describe('trash api hooks', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     vi.stubGlobal('fetch', mockFetch);
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
   });
 
   it('loads grouped trash items', async () => {
@@ -64,12 +82,18 @@ describe('trash api hooks', () => {
       });
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/trash/habits/habit-1/restore',
-      expect.objectContaining({ method: 'POST' }));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashKeys.all });
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/trash/habits/habit-1/restore',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['habits'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['foods'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['workouts'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: recentWorkoutQueryKeys.all });
+    expect(toast.success).toHaveBeenCalledWith('Item restored');
   });
 
   it('purges an item and invalidates related queries', async () => {
@@ -86,11 +110,50 @@ describe('trash api hooks', () => {
       });
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/trash/foods/food-1',
-      expect.objectContaining({ method: 'DELETE' }));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashKeys.all });
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/trash/foods/food-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: trashQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['habits'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['foods'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['workouts'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: recentWorkoutQueryKeys.all });
+    expect(toast.success).toHaveBeenCalledWith('Item permanently deleted');
+  });
+
+  it('surfaces an error toast when restore fails', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Trash item not found',
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          status: 404,
+        },
+      ),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useRestoreItem(), { wrapper });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          id: 'habit-missing',
+          type: 'habits',
+        }),
+      ).rejects.toThrow('Trash item not found');
+    });
+
+    expect(toast.error).toHaveBeenCalledWith('The requested item was not found');
   });
 });

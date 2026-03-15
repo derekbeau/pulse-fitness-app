@@ -7,6 +7,7 @@ import type {
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
 
 import { nutritionQueryKeys } from './keys';
@@ -92,6 +93,7 @@ export const useDeleteMeal = () => {
         queryClient.invalidateQueries({
           queryKey: nutritionQueryKeys.weekSummary(variables.date),
         }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.mealMutation()),
       ]);
       toast.success('Meal deleted');
     },

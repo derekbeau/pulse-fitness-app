@@ -5,11 +5,15 @@ import {
   type TrashListResponse,
   type TrashType,
 } from '@pulse/shared';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { foodQueryKeys } from '@/features/foods/api/keys';
 import { habitQueryKeys } from '@/features/habits/api/keys';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
+import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { apiRequest } from '@/lib/api-client';
 
 const mutationResultSchema = z.object({
@@ -19,11 +23,13 @@ const mutationResultSchema = z.object({
 export const trashQueryKeys = {
   all: ['trash'] as const,
   items: () => ['trash', 'items'] as const,
+  list: () => ['trash', 'list'] as const,
 };
 
 export const trashKeys = {
   all: trashQueryKeys.all,
-  list: trashQueryKeys.items,
+  items: trashQueryKeys.items,
+  list: trashQueryKeys.list,
 };
 
 type TrashMutationInput = {
@@ -67,6 +73,9 @@ async function invalidateRelatedQueries(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: habitQueryKeys.all }),
     queryClient.invalidateQueries({ queryKey: foodQueryKeys.all }),
     queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: dashboardSnapshotQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: habitChainQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: recentWorkoutQueryKeys.all }),
   ]);
 }
 
@@ -84,6 +93,7 @@ export function useRestoreItem() {
     mutationFn: restoreTrashItem,
     onSuccess: async () => {
       await invalidateRelatedQueries(queryClient);
+      toast.success('Item restored');
     },
   });
 }
@@ -95,6 +105,7 @@ export function usePurgeItem() {
     mutationFn: purgeTrashItem,
     onSuccess: async () => {
       await invalidateRelatedQueries(queryClient);
+      toast.success('Item permanently deleted');
     },
   });
 }

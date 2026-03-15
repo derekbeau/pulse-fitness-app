@@ -23,11 +23,7 @@ import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-c
 import { useHabits } from '@/features/habits/api/habits';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { useLogWeight } from '@/features/weight/api/weight';
-import {
-  prefetchDashboardSnapshot,
-  useDashboardSnapshot,
-  dashboardSnapshotKeys,
-} from '@/hooks/use-dashboard-snapshot';
+import { prefetchDashboardSnapshot, useDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
 import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
@@ -129,10 +125,13 @@ export function DashboardPage() {
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
-  const persistedVisibleWidgets = (dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS)
-    .filter(isDashboardWidgetId);
+  const persistedVisibleWidgets = (
+    dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS
+  ).filter(isDashboardWidgetId);
   const visibleWidgets = visibleWidgetsDraft ?? persistedVisibleWidgets;
-  const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter((widgetId) => !visibleWidgets.includes(widgetId));
+  const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter(
+    (widgetId) => !visibleWidgets.includes(widgetId),
+  );
   const showWeightTrendChart = visibleWidgets.includes('weight-trend');
   const isSavingDashboardConfig = saveDashboardConfigMutation.isPending;
   const selectedWeight = snapshotQuery.data?.weight;
@@ -216,7 +215,6 @@ export function DashboardPage() {
         date: selectedDateKey,
         weight: parsedWeight,
       });
-      await queryClient.invalidateQueries({ queryKey: dashboardSnapshotKeys.all });
       setWeightInput('');
       setWeightStatus({
         message: 'Weight entry saved.',
@@ -259,10 +257,18 @@ export function DashboardPage() {
                   recent workout activity.
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
-                  <li>Nutrition totals come from meals logged by your AI agent, not manual entry.</li>
-                  <li>Use Weight Trend range buttons to zoom and compare short vs long-term direction.</li>
-                  <li>The trend line smooths daily swings so it is easier to spot overall momentum.</li>
-                  <li>Habit streaks show how many consecutive days each habit has been completed.</li>
+                  <li>
+                    Nutrition totals come from meals logged by your AI agent, not manual entry.
+                  </li>
+                  <li>
+                    Use Weight Trend range buttons to zoom and compare short vs long-term direction.
+                  </li>
+                  <li>
+                    The trend line smooths daily swings so it is easier to spot overall momentum.
+                  </li>
+                  <li>
+                    Habit streaks show how many consecutive days each habit has been completed.
+                  </li>
                 </ul>
               </HelpIcon>
             </div>
@@ -350,7 +356,10 @@ export function DashboardPage() {
                 onHide={() => hideWidget('calendar')}
                 widgetLabel={DASHBOARD_WIDGET_IDS.calendar}
               >
-                <CalendarPicker onDateSelect={handleSelectedDateChange} selectedDate={selectedDate} />
+                <CalendarPicker
+                  onDateSelect={handleSelectedDateChange}
+                  selectedDate={selectedDate}
+                />
               </DashboardWidgetFrame>
             ) : null}
 
@@ -383,12 +392,17 @@ export function DashboardPage() {
                       onHide={() => hideWidget('log-weight')}
                       widgetLabel={DASHBOARD_WIDGET_IDS['log-weight']}
                     >
-                      <Card data-qa="dashboard-log-weight-card" data-testid="dashboard-log-weight-card">
+                      <Card
+                        data-qa="dashboard-log-weight-card"
+                        data-testid="dashboard-log-weight-card"
+                      >
                         <CardHeader className="space-y-1">
                           <div className="flex items-center justify-between gap-3">
                             <div className="space-y-1">
                               <CardTitle>Body Weight</CardTitle>
-                              <CardDescription>Track your body weight for the selected day.</CardDescription>
+                              <CardDescription>
+                                Track your body weight for the selected day.
+                              </CardDescription>
                             </div>
                             <Link
                               className="text-sm font-medium text-primary hover:underline"
@@ -601,10 +615,17 @@ export function DashboardPage() {
                 >
                   <CardContent className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{DASHBOARD_WIDGET_IDS[widgetId]}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {DASHBOARD_WIDGET_IDS[widgetId]}
+                      </p>
                       <p className="text-xs text-muted-foreground">Currently hidden</p>
                     </div>
-                    <Button onClick={() => showWidget(widgetId)} size="sm" type="button" variant="outline">
+                    <Button
+                      onClick={() => showWidget(widgetId)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
                       <Plus />
                       Show
                     </Button>

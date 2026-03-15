@@ -6,9 +6,9 @@ import { apiRequest } from '@/lib/api-client';
 
 const habitEntriesSchema = z.array(habitEntrySchema);
 
-export const habitChainKeys = {
+export const habitChainQueryKeys = {
   all: ['habits', 'chains'] as const,
-  range: (from: string, to: string) => [...habitChainKeys.all, from, to] as const,
+  range: (from: string, to: string) => [...habitChainQueryKeys.all, from, to] as const,
 };
 
 const fetchHabitChains = async (
@@ -31,5 +31,5 @@ export const useHabitChains = (from: string, to: string) =>
   useQuery({
     enabled: from.length > 0 && to.length > 0,
     queryFn: ({ signal }) => fetchHabitChains(from, to, signal),
-    queryKey: habitChainKeys.range(from, to),
+    queryKey: habitChainQueryKeys.range(from, to),
   });

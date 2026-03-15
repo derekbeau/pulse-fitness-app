@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 
 import type { ActiveWorkoutCustomFeedbackField, ActiveWorkoutFeedbackDraft } from '../types';
 
-export const STANDARD_FEEDBACK_QUESTIONS: ActiveWorkoutCustomFeedbackField[] = [
+const STANDARD_FEEDBACK_QUESTIONS: ActiveWorkoutCustomFeedbackField[] = [
   {
     id: 'session-rpe',
     label: 'Session RPE',

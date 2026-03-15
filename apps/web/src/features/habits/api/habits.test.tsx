@@ -4,11 +4,20 @@ import type { Habit, HabitEntry } from '@pulse/shared';
 import { type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { apiRequest } from '@/lib/api-client';
 import { createAppQueryClient } from '@/lib/query-client';
 
-import { useHabits, useToggleHabit, useUpdateHabitEntry } from './habits';
-import { habitKeys } from './keys';
+import {
+  useCreateHabit,
+  useDeleteHabit,
+  useHabits,
+  useToggleHabit,
+  useUpdateHabit,
+  useUpdateHabitEntry,
+} from './habits';
+import { habitQueryKeys } from './keys';
 
 vi.mock('@/lib/api-client', () => ({
   apiRequest: vi.fn(),
@@ -124,7 +133,8 @@ describe('habit api hooks', () => {
   it('optimistically updates and rolls back a toggled habit entry on failure', async () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
-    const queryKey = habitKeys.entries({ from: '2026-03-07', to: '2026-03-07' });
+    const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
+    const chainQueryKey = habitChainQueryKeys.range('2026-02-07', '2026-03-07');
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-1',
@@ -138,6 +148,7 @@ describe('habit api hooks', () => {
     ];
 
     queryClient.setQueryData(queryKey, initialEntries);
+    queryClient.setQueryData(chainQueryKey, initialEntries);
 
     const deferred = createDeferredPromise<HabitEntry>();
     void deferred.promise.catch(() => undefined);
@@ -162,6 +173,13 @@ describe('habit api hooks', () => {
           id: 'entry-1',
         }),
       ]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([
+        expect.objectContaining({
+          completed: true,
+          habitId: 'habit-1',
+          id: 'entry-1',
+        }),
+      ]);
     });
 
     act(() => {
@@ -170,6 +188,7 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual(initialEntries);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual(initialEntries);
     });
   });
 
@@ -217,7 +236,8 @@ describe('habit api hooks', () => {
   it('optimistically patches a tracked entry and keeps the server result on success', async () => {
     const queryClient = createAppQueryClient();
     const wrapper = createWrapper(queryClient);
-    const queryKey = habitKeys.entries({ from: '2026-03-07', to: '2026-03-07' });
+    const queryKey = habitQueryKeys.entryList({ from: '2026-03-07', to: '2026-03-07' });
+    const chainQueryKey = habitChainQueryKeys.range('2026-02-07', '2026-03-07');
     const initialEntries: HabitEntry[] = [
       {
         id: 'entry-2',
@@ -236,6 +256,7 @@ describe('habit api hooks', () => {
     };
 
     queryClient.setQueryData(queryKey, initialEntries);
+    queryClient.setQueryData(chainQueryKey, initialEntries);
 
     const deferred = createDeferredPromise<HabitEntry>();
     mockedApiRequest.mockReturnValueOnce(deferred.promise);
@@ -260,6 +281,13 @@ describe('habit api hooks', () => {
           value: 8,
         }),
       ]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([
+        expect.objectContaining({
+          completed: true,
+          id: 'entry-2',
+          value: 8,
+        }),
+      ]);
     });
 
     await act(async () => {
@@ -269,6 +297,145 @@ describe('habit api hooks', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual([updatedEntry]);
+      expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([updatedEntry]);
+    });
+  });
+
+  it('invalidates dashboard snapshot and chain queries after a toggle succeeds', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const serverEntry: HabitEntry = {
+      id: 'entry-4',
+      habitId: 'habit-4',
+      userId: 'user-1',
+      date: '2026-03-08',
+      completed: true,
+      value: null,
+      isOverride: false,
+      createdAt: 4,
+    };
+    mockedApiRequest.mockResolvedValueOnce(serverEntry);
+
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useToggleHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        habitId: 'habit-4',
+        date: '2026-03-08',
+        completed: true,
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.entryList(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitQueryKeys.list(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: habitChainQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after creating a habit', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const createdHabit: Habit = {
+      id: 'habit-created',
+      userId: 'user-1',
+      name: 'Walk',
+      description: null,
+      emoji: '🚶',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 2,
+      active: true,
+      createdAt: 3,
+      updatedAt: 3,
+    } as Habit;
+    mockedApiRequest.mockResolvedValueOnce(createdHabit);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useCreateHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        emoji: '🚶',
+        frequency: 'daily',
+        name: 'Walk',
+        target: null,
+        trackingType: 'boolean',
+        unit: null,
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after updating a habit definition', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const updatedHabit: Habit = {
+      id: 'habit-updated',
+      userId: 'user-1',
+      name: 'Evening Walk',
+      description: null,
+      emoji: '🚶',
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 2,
+      active: true,
+      createdAt: 3,
+      updatedAt: 4,
+    } as Habit;
+    mockedApiRequest.mockResolvedValueOnce(updatedHabit);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: 'habit-updated',
+        values: {
+          name: 'Evening Walk',
+        },
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
+    });
+  });
+
+  it('invalidates dashboard snapshot after deleting a habit', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    mockedApiRequest.mockResolvedValueOnce({ success: true });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useDeleteHabit(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        id: 'habit-delete',
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: dashboardSnapshotQueryKeys.all,
     });
   });
 });
