@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
@@ -65,6 +66,17 @@ const weightEntriesFixture = [
 describe('WeightTrendChart', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
+  function renderChart() {
+    const { wrapper } = createQueryClientWrapper();
+
+    return render(
+      <MemoryRouter>
+        <WeightTrendChart />
+      </MemoryRouter>,
+      { wrapper },
+    );
+  }
+
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-03-08T12:00:00'));
@@ -105,9 +117,7 @@ describe('WeightTrendChart', () => {
   });
 
   it('fetches 1M range by default and renders header + insight metrics', async () => {
-    const { wrapper } = createQueryClientWrapper();
-
-    const { container } = render(<WeightTrendChart />, { wrapper });
+    const { container } = renderChart();
 
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Weight trend chart' })).toBeInTheDocument();
@@ -135,9 +145,7 @@ describe('WeightTrendChart', () => {
   });
 
   it('switches ranges and re-fetches weight entries with selected days', async () => {
-    const { wrapper } = createQueryClientWrapper();
-
-    render(<WeightTrendChart />, { wrapper });
+    renderChart();
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?days=30', expect.any(Object));
@@ -157,9 +165,7 @@ describe('WeightTrendChart', () => {
   });
 
   it('allows toggling each legend series', async () => {
-    const { wrapper } = createQueryClientWrapper();
-
-    render(<WeightTrendChart />, { wrapper });
+    renderChart();
 
     const scaleToggle = await screen.findByRole('button', { name: 'Scale Weight' });
     const trendToggle = screen.getByRole('button', { name: 'Trend Weight' });
@@ -206,13 +212,12 @@ describe('WeightTrendChart', () => {
       );
     });
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<WeightTrendChart />, { wrapper });
+    renderChart();
 
     expect(await screen.findByText('Log your weight to see trends')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to weight entry' })).toHaveAttribute(
       'href',
-      '#dashboard-log-weight-card',
+      '/#dashboard-log-weight-card',
     );
   });
 });

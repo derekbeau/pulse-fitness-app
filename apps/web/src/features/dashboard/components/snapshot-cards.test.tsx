@@ -110,7 +110,7 @@ describe('SnapshotCards', () => {
     );
   });
 
-  it('applies accent card backgrounds and neutral trends', () => {
+  it('applies accent card backgrounds and only shows a trend where the compact card meaningfully uses one', () => {
     render(
       <MemoryRouter>
         <SnapshotCards snapshot={snapshotFixture} />
@@ -133,8 +133,13 @@ describe('SnapshotCards', () => {
     expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
     expect(screen.getByText('Habits')).toHaveClass('text-on-mint');
 
-    expect(within(weightCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
-    expect(within(weightCard as HTMLElement).getByText('0%')).toBeInTheDocument();
+    expect(within(weightCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(
+      within(caloriesCard as HTMLElement).queryByLabelText(/trend/i),
+    ).not.toBeInTheDocument();
+    expect(within(proteinCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(within(habitsCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(habitsCard as HTMLElement).getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 

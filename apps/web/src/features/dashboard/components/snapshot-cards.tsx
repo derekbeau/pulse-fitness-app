@@ -233,7 +233,6 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         density="compact"
         data-stagger="0"
         label="Body Weight"
-        trend={snapshot && hasWeight ? { direction: 'neutral', value: 0 } : undefined}
         value={weightValue}
         valueClassName={getSnapshotValueClassName(weightValue)}
         valueTitle={weightValue}
@@ -249,7 +248,6 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         density="compact"
         data-stagger="1"
         label="Calories"
-        trend={snapshot && hasCaloriesTarget ? { direction: 'neutral', value: 0 } : undefined}
         value={caloriesValue}
         valueClassName={getSnapshotValueClassName(caloriesValueText)}
         valueTitle={hasCaloriesTarget ? caloriesValueText : undefined}
@@ -265,7 +263,6 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         density="compact"
         data-stagger="2"
         label="Protein"
-        trend={snapshot && hasProteinTarget ? { direction: 'neutral', value: 0 } : undefined}
         value={proteinValue}
         valueClassName={getSnapshotValueClassName(proteinValueText)}
         valueTitle={hasProteinTarget ? proteinValueText : undefined}

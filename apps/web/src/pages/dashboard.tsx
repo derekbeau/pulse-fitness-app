@@ -378,7 +378,11 @@ export function DashboardPage() {
                           className="grid grid-cols-2 gap-3"
                         >
                           {Array.from({ length: 5 }).map((_, index) => (
-                            <StatCardSkeleton key={index} showTrend={index !== 4} />
+                            <StatCardSkeleton
+                              className={index === 4 ? 'col-span-2' : undefined}
+                              key={index}
+                              showTrend={index !== 4}
+                            />
                           ))}
                         </div>
                       ) : (

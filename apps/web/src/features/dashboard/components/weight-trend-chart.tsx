@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BodyWeightEntry } from '@pulse/shared';
 import { computeEWMA, computeWeightInsights } from '@pulse/shared';
+import { Link } from 'react-router';
 import {
   CartesianGrid,
   Line,
@@ -173,12 +174,12 @@ export function WeightTrendChart() {
           <p className="text-xs text-muted-foreground sm:text-sm">
             Scale weight with EWMA smoothing.
           </p>
-          <a
+          <Link
             className="text-xs font-medium text-primary hover:underline sm:text-sm"
-            href="/weight/history"
+            to="/weight/history"
           >
             View history
-          </a>
+          </Link>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -243,12 +244,12 @@ export function WeightTrendChart() {
               <p className="text-base font-semibold text-foreground">
                 Log your weight to see trends
               </p>
-              <a
+              <Link
                 className="text-sm font-medium text-primary hover:underline"
-                href="#dashboard-log-weight-card"
+                to="#dashboard-log-weight-card"
               >
                 Go to weight entry
-              </a>
+              </Link>
             </div>
           </div>
         ) : (

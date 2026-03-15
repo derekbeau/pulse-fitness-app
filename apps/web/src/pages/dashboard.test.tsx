@@ -617,7 +617,9 @@ describe('DashboardPage', () => {
     );
 
     expect(screen.getByLabelText('Loading dashboard snapshots')).toBeInTheDocument();
-    expect(screen.getAllByTestId('stat-card-skeleton')).toHaveLength(5);
+    const skeletonCards = screen.getAllByTestId('stat-card-skeleton');
+    expect(skeletonCards).toHaveLength(5);
+    expect(skeletonCards[4]).toHaveClass('col-span-2');
 
     deferredSnapshot.resolve(
       new Response(JSON.stringify({ data: snapshotForToday }), {

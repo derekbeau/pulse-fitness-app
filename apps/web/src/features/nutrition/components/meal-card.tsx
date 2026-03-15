@@ -77,7 +77,8 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
             <li
               key={item.id}
               className={cn(
-                'min-h-11 px-4 py-2 sm:px-5',
+                CARD_HORIZONTAL_PADDING,
+                'min-h-11 py-2',
                 index > 0 && 'border-t border-border/60',
                 index % 2 === 1 && 'bg-secondary/15',
               )}
@@ -128,17 +129,9 @@ function formatMacroSummary(macros: {
   fat: number;
 }) {
   return [
-    formatCompactCalories(macros.calories),
-    formatCompactGrams(macros.protein, 'P'),
-    formatCompactGrams(macros.carbs, 'C'),
-    formatCompactGrams(macros.fat, 'F'),
+    formatCalories(macros.calories, { compact: true }),
+    formatGrams(macros.protein, { compact: true, suffix: 'P' }),
+    formatGrams(macros.carbs, { compact: true, suffix: 'C' }),
+    formatGrams(macros.fat, { compact: true, suffix: 'F' }),
   ].join(' · ');
-}
-
-function formatCompactCalories(value: number) {
-  return formatCalories(value).replace(' cal', 'cal');
-}
-
-function formatCompactGrams(value: number, suffix: string) {
-  return `${formatGrams(value).replace(/g$/, '')}${suffix}`;
 }
