@@ -19,6 +19,7 @@ export type StatCardProps = Omit<React.ComponentProps<typeof Card>, 'children'> 
   accentTextClassName?: string;
   valueClassName?: string;
   valueTitle?: string;
+  density?: 'default' | 'compact';
 };
 
 const TREND_STYLES: Record<
@@ -54,6 +55,7 @@ export function StatCard({
   accentTextClassName,
   valueClassName: customValueClassName,
   valueTitle,
+  density = 'default',
   className,
   ...props
 }: StatCardProps) {
@@ -74,13 +76,26 @@ export function StatCard({
     ? cn(accentClass, 'opacity-80 dark:text-muted dark:opacity-100')
     : trendStyle?.className;
   const resolvedValueTitle = valueTitle ?? (typeof value === 'string' ? value : undefined);
+  const isCompact = density === 'compact';
 
   return (
-    <Card data-slot="stat-card" className={cn('gap-3 py-4 sm:gap-4 sm:py-5', className)} {...props}>
-      <CardHeader className="min-w-0 flex flex-row items-start justify-between gap-2 pb-0">
+    <Card
+      data-density={density}
+      data-slot="stat-card"
+      className={cn(isCompact ? 'gap-2.5 py-2.5' : 'gap-3 py-4 sm:gap-4 sm:py-5', className)}
+      {...props}
+    >
+      <CardHeader
+        className={cn(
+          'min-w-0 flex flex-row items-start justify-between pb-0',
+          isCompact ? 'gap-1.5 px-3' : 'gap-2',
+        )}
+      >
         <p
           className={cn(
-            'min-w-0 truncate text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
+            isCompact
+              ? 'min-w-0 truncate text-[11px] leading-4 font-semibold uppercase tracking-[0.14em] sm:text-xs'
+              : 'min-w-0 truncate text-xs font-semibold uppercase tracking-wide sm:text-sm sm:normal-case sm:tracking-normal',
             labelClassName,
           )}
         >
@@ -88,10 +103,12 @@ export function StatCard({
         </p>
         {icon ? <div className={cn('shrink-0', iconClassName)}>{icon}</div> : null}
       </CardHeader>
-      <CardContent className="min-w-0 space-y-1.5">
+      <CardContent className={cn('min-w-0', isCompact ? 'space-y-1 px-3' : 'space-y-1.5')}>
         <p
           className={cn(
-            'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl',
+            isCompact
+              ? 'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-base leading-tight font-bold tracking-tight sm:text-lg lg:text-xl'
+              : 'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight sm:text-2xl lg:text-3xl',
             valueTextClassName,
             customValueClassName,
           )}
@@ -103,9 +120,14 @@ export function StatCard({
           <div
             aria-label={`trend ${trend.direction}`}
             data-slot="stat-card-trend"
-            className={cn('flex items-center gap-2 text-sm font-medium', trendClassName)}
+            className={cn(
+              isCompact
+                ? 'flex items-center gap-1.5 text-xs font-medium'
+                : 'flex items-center gap-2 text-sm font-medium',
+              trendClassName,
+            )}
           >
-            <TrendIcon className="size-4" />
+            <TrendIcon className={cn(isCompact ? 'size-3.5' : 'size-4')} />
             <span>{formattedTrend}</span>
           </div>
         ) : null}

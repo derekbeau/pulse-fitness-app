@@ -14,8 +14,8 @@ type SnapshotCardsProps = {
 const notConfiguredCardClassName =
   'border-dashed border-border/80 bg-muted/35 text-muted-foreground shadow-none';
 const notConfiguredAccentTextClassName = 'text-muted-foreground';
-const longValueClassName = 'text-lg sm:text-xl lg:text-2xl';
-const shortValueClassName = 'text-2xl sm:text-2xl lg:text-3xl';
+const longValueClassName = 'text-sm sm:text-base lg:text-lg';
+const shortValueClassName = 'text-lg sm:text-xl lg:text-2xl';
 
 export const getSnapshotValueClassName = (value: string) => {
   return value.length >= 13 ? longValueClassName : shortValueClassName;
@@ -193,11 +193,12 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   const workoutCard = (
     <StatCard
       className={cn(
-        'border-primary/20 bg-secondary',
+        'col-span-2 border-primary/20 bg-secondary',
         workoutHref
           ? 'cursor-pointer transition-colors hover:border-primary/40 hover:bg-secondary/80'
           : undefined,
       )}
+      density="compact"
       data-stagger="4"
       icon={
         workoutStatusBadge ? (
@@ -223,12 +224,13 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   );
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+    <div className="grid grid-cols-2 gap-3">
       <StatCard
         accentTextClassName={
           snapshot && !hasWeight ? notConfiguredAccentTextClassName : 'text-on-cream'
         }
         className={snapshot && !hasWeight ? notConfiguredCardClassName : accentCardStyles.cream}
+        density="compact"
         data-stagger="0"
         label="Body Weight"
         trend={snapshot && hasWeight ? { direction: 'neutral', value: 0 } : undefined}
@@ -244,6 +246,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         className={
           snapshot && !hasCaloriesTarget ? notConfiguredCardClassName : accentCardStyles.pink
         }
+        density="compact"
         data-stagger="1"
         label="Calories"
         trend={snapshot && hasCaloriesTarget ? { direction: 'neutral', value: 0 } : undefined}
@@ -259,6 +262,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         className={
           snapshot && !hasProteinTarget ? notConfiguredCardClassName : accentCardStyles.mint
         }
+        density="compact"
         data-stagger="2"
         label="Protein"
         trend={snapshot && hasProteinTarget ? { direction: 'neutral', value: 0 } : undefined}
@@ -272,6 +276,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
           snapshot && !hasHabits ? notConfiguredAccentTextClassName : 'text-on-mint'
         }
         className={snapshot && !hasHabits ? notConfiguredCardClassName : accentCardStyles.mint}
+        density="compact"
         data-stagger="3"
         label="Habits"
         trend={
@@ -287,7 +292,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       {workoutHref ? (
         <Link
           aria-label={`Open today's workout: ${snapshot?.workout?.name ?? 'workout'}`}
-          className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="col-span-2 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           to={workoutHref}
         >
           {workoutCard}

@@ -74,11 +74,11 @@ describe('calculateHabitCompletionPercent', () => {
 
 describe('getSnapshotValueClassName', () => {
   it('returns larger text sizing for shorter values', () => {
-    expect(getSnapshotValueClassName('3/5')).toContain('text-2xl');
+    expect(getSnapshotValueClassName('3/5')).toContain('text-lg');
   });
 
   it('returns compact text sizing for longer values', () => {
-    expect(getSnapshotValueClassName('2,450 / 2,200')).toContain('text-lg');
+    expect(getSnapshotValueClassName('2,450 / 2,200')).toContain('text-sm');
   });
 });
 
@@ -90,11 +90,14 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    const grid = container.querySelector('div.grid.grid-cols-1.sm\\:grid-cols-2');
+    const grid = container.querySelector('div.grid.grid-cols-2.gap-3');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');
     expect(cards).toHaveLength(5);
+    cards.forEach((card) => {
+      expect(card).toHaveAttribute('data-density', 'compact');
+    });
 
     expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
@@ -277,6 +280,6 @@ describe('SnapshotCards', () => {
     );
 
     const caloriesValue = screen.getByText('12450 / 11200');
-    expect(caloriesValue).toHaveClass('text-lg', 'sm:text-xl', 'lg:text-2xl');
+    expect(caloriesValue).toHaveClass('text-sm', 'sm:text-base', 'lg:text-lg');
   });
 });

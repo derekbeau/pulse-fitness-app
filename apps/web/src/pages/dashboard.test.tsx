@@ -437,7 +437,9 @@ describe('DashboardPage', () => {
       expect.objectContaining({ method: 'GET' }),
     );
 
-    const bodyWeightCard = screen.getAllByText('Body Weight')[0]?.closest('[data-slot="stat-card"]');
+    const bodyWeightCard = screen
+      .getAllByText('Body Weight')[0]
+      ?.closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     expect(
       within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
@@ -456,11 +458,15 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
-    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
+    const proteinCard = screen.getAllByText('Protein')[0]?.closest('[data-slot="stat-card"]');
+    expect(within(proteinCard as HTMLElement).getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/weight/history');
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute(
+      'href',
+      '/weight/history',
+    );
     expect(screen.queryByTestId('dashboard-log-weight-form')).not.toBeInTheDocument();
 
     const layout = container.querySelector('[data-slot="dashboard-layout"]');
@@ -476,18 +482,21 @@ describe('DashboardPage', () => {
       'grid',
       'min-w-0',
       'grid-cols-1',
-      'gap-6',
+      'gap-3',
       'md:grid-cols-2',
-      'xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]',
+      'xl:grid-cols-[minmax(220px,248px)_minmax(0,1fr)_minmax(260px,300px)]',
     );
-    expect(mainColumn).toHaveClass('order-1', 'md:order-1', 'xl:order-2');
-    expect(sidebarColumn).toHaveClass('order-2', 'md:order-2', 'xl:order-1');
-    expect(container.querySelector('[data-qa="dashboard-log-weight-form"]')).not.toBeInTheDocument();
+    expect(mainColumn).toHaveClass('order-1', 'gap-3', 'md:order-1', 'xl:order-2');
+    expect(sidebarColumn).toHaveClass('order-2', 'gap-3', 'md:order-2', 'xl:order-1');
+    expect(
+      container.querySelector('[data-qa="dashboard-log-weight-form"]'),
+    ).not.toBeInTheDocument();
     expect(recentColumn).toHaveClass('order-3', 'md:col-span-2', 'xl:col-span-1', 'xl:col-start-3');
     expect(weightTrendRow).toHaveClass('order-4', 'md:col-span-2', 'xl:col-span-3');
     expect(calendarPanel).toHaveClass('order-1', 'md:order-3');
     expect(snapshotPanel).toHaveClass('order-2', 'md:order-1');
     expect(macroPanel).toHaveClass('order-3', 'md:order-2');
+    expect(screen.getByTestId('dashboard-log-weight-card')).toHaveClass('gap-3', 'py-3');
   });
 
   it('opens contextual dashboard help from the page header', async () => {
@@ -634,7 +643,9 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const bodyWeightCard = screen.getAllByText('Body Weight')[0]?.closest('[data-slot="stat-card"]');
+    const bodyWeightCard = screen
+      .getAllByText('Body Weight')[0]
+      ?.closest('[data-slot="stat-card"]');
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
 
     expect(bodyWeightCard).toBeInTheDocument();

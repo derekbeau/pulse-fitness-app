@@ -155,41 +155,50 @@ export function WeightTrendChart() {
   };
 
   return (
-    <Card aria-labelledby="weight-trend-chart-heading" data-slot="weight-trend-chart">
-      <CardHeader className="gap-4 border-b border-border/70 pb-5">
+    <Card
+      aria-labelledby="weight-trend-chart-heading"
+      className="gap-3 py-3 sm:py-4"
+      data-slot="weight-trend-chart"
+    >
+      <CardHeader className="gap-2.5 border-b border-border/70 px-3 pb-3 sm:px-4">
         <div className="space-y-1">
           <CardTitle>
             <h2
-              className="text-xl font-semibold text-foreground md:text-2xl"
+              className="text-lg leading-tight font-semibold text-foreground md:text-xl"
               id="weight-trend-chart-heading"
             >
               Weight Trend
             </h2>
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Scale weight with EWMA smoothing.</p>
-          <a className="text-sm font-medium text-primary hover:underline" href="/weight/history">
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Scale weight with EWMA smoothing.
+          </p>
+          <a
+            className="text-xs font-medium text-primary hover:underline sm:text-sm"
+            href="/weight/history"
+          >
             View history
           </a>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl bg-secondary/45 px-4 py-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl bg-secondary/45 px-3 py-2.5">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Current trend
             </p>
             <p
-              className="mt-1 text-2xl font-semibold text-foreground"
+              className="mt-1 text-lg font-semibold text-foreground sm:text-xl"
               data-slot="weight-trend-current-trend"
             >
               {chartData.length > 0 ? formatWeightLabel(headerInsights.currentTrend) : '--'}
             </p>
           </div>
-          <div className="rounded-xl bg-secondary/45 px-4 py-3">
+          <div className="rounded-xl bg-secondary/45 px-3 py-2.5">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Period average
             </p>
             <p
-              className="mt-1 text-2xl font-semibold text-foreground"
+              className="mt-1 text-lg font-semibold text-foreground sm:text-xl"
               data-slot="weight-trend-period-average"
             >
               {chartData.length > 0 ? formatWeightLabel(headerInsights.avgWeight) : '--'}
@@ -199,13 +208,13 @@ export function WeightTrendChart() {
 
         <div
           aria-label="Weight trend range"
-          className="inline-flex w-full flex-wrap items-center gap-2 rounded-full border border-border bg-secondary/35 p-1"
+          className="inline-flex w-full flex-wrap items-center gap-1 rounded-full border border-border bg-secondary/35 p-0.5"
           role="group"
         >
           {RANGE_OPTIONS.map((option) => (
             <Button
               aria-pressed={selectedRange.value === option.value}
-              className="rounded-full"
+              className="rounded-full px-2.5 text-xs"
               key={option.value}
               onClick={() => setSelectedRange(option)}
               size="sm"
@@ -218,18 +227,18 @@ export function WeightTrendChart() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5 px-4 py-5 sm:px-6">
+      <CardContent className="space-y-3 px-3 py-3 sm:px-4">
         {weightEntriesQuery.isLoading ? (
           <div
-            className="h-[280px] w-full animate-pulse rounded-2xl bg-muted/50"
+            className="h-[220px] w-full animate-pulse rounded-2xl bg-muted/50 sm:h-[260px]"
             data-slot="weight-trend-loading"
           />
         ) : weightEntriesQuery.isError ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border/70 bg-muted/20 px-6 text-center">
+          <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-border/70 bg-muted/20 px-4 text-center sm:min-h-[220px]">
             <p className="text-sm text-muted-foreground">Unable to load weight trend data.</p>
           </div>
         ) : chartData.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/15 px-6 text-center">
+          <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/15 px-4 text-center sm:min-h-[220px]">
             <div className="space-y-2">
               <p className="text-base font-semibold text-foreground">
                 Log your weight to see trends
@@ -245,23 +254,23 @@ export function WeightTrendChart() {
         ) : (
           <>
             {!visibleSeries.scale && !visibleSeries.trend ? (
-              <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground sm:h-[320px]">
+              <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground sm:h-[280px]">
                 Enable at least one series to display the chart.
               </div>
             ) : (
               <div
                 aria-label="Weight trend chart"
-                className="h-[280px] w-full sm:h-[320px]"
+                className="h-[220px] w-full sm:h-[280px]"
                 role="img"
               >
                 <ResponsiveContainer height="100%" width="100%">
-                  <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 6, left: 2 }}>
+                  <LineChart data={chartData} margin={{ top: 8, right: 4, bottom: 2, left: 0 }}>
                     <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                     <XAxis
                       axisLine={false}
                       dataKey="date"
-                      minTickGap={20}
-                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      minTickGap={16}
+                      tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
                       tickFormatter={(value: string) =>
                         axisDateFormatter.format(new Date(`${value}T12:00:00`))
                       }
@@ -270,10 +279,10 @@ export function WeightTrendChart() {
                     <YAxis
                       axisLine={false}
                       domain={yDomain}
-                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
+                      tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
                       tickFormatter={(value: number) => formatTrendChange(value)}
                       tickLine={false}
-                      width={50}
+                      width={40}
                     />
                     <Tooltip
                       contentStyle={{
@@ -333,7 +342,7 @@ export function WeightTrendChart() {
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2" data-slot="weight-trend-legend">
+            <div className="flex flex-wrap items-center gap-1.5" data-slot="weight-trend-legend">
               <LegendToggle
                 active={visibleSeries.scale}
                 color={SERIES_COLORS.scale}
@@ -349,7 +358,7 @@ export function WeightTrendChart() {
             </div>
 
             <div
-              className="grid gap-2 rounded-xl border border-border/70 bg-secondary/25 px-4 py-3"
+              className="grid gap-1.5 rounded-xl border border-border/70 bg-secondary/25 px-3 py-2.5 sm:grid-cols-2"
               data-slot="weight-trend-insights"
             >
               <p className="text-sm text-foreground">
@@ -387,7 +396,7 @@ function LegendToggle({
     <button
       aria-pressed={active}
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
         active
           ? 'border-border bg-secondary/55 text-foreground'
           : 'border-border/70 bg-background text-muted-foreground',
@@ -395,11 +404,7 @@ function LegendToggle({
       onClick={onClick}
       type="button"
     >
-      <span
-        aria-hidden="true"
-        className="size-2.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
+      <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: color }} />
       <span>{label}</span>
     </button>
   );

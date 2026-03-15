@@ -107,7 +107,7 @@ describe('WeightTrendChart', () => {
   it('fetches 1M range by default and renders header + insight metrics', async () => {
     const { wrapper } = createQueryClientWrapper();
 
-    render(<WeightTrendChart />, { wrapper });
+    const { container } = render(<WeightTrendChart />, { wrapper });
 
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Weight trend chart' })).toBeInTheDocument();
@@ -128,6 +128,10 @@ describe('WeightTrendChart', () => {
     expect(screen.getByText(/7-day change:/)).toBeInTheDocument();
     expect(screen.getByLabelText('3-day direction stable')).toBeInTheDocument();
     expect(screen.getByLabelText('7-day direction down')).toBeInTheDocument();
+
+    const chartCard = container.querySelector('[data-slot="weight-trend-chart"]');
+    expect(chartCard).toHaveClass('gap-3', 'py-3');
+    expect(container.querySelector('[data-slot="weight-trend-legend"]')).toHaveClass('gap-1.5');
   });
 
   it('switches ranges and re-fetches weight entries with selected days', async () => {
