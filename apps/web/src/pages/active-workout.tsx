@@ -725,7 +725,7 @@ export function ActiveWorkoutPage() {
 
               void Promise.all([
                 queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
-                invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutCompletion()),
+                invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
               ]);
 
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);

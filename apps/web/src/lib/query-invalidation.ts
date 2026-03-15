@@ -14,7 +14,7 @@ import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
  * - Dynamic ids or normalized params are always the final segment.
  *
  * Cross-feature invalidation map:
- * - Workout completion refreshes dashboard snapshot data, recent workouts, and referential habit caches.
+ * - Workout session changes refresh dashboard snapshot data, recent workouts, and referential habit caches.
  * - Meal mutations refresh dashboard nutrition widgets and referential habit caches.
  * - Habit entry mutations refresh dashboard snapshot and chain views.
  * - Weight mutations refresh dashboard weight widgets and referential habit caches.
@@ -41,7 +41,7 @@ export const crossFeatureInvalidationMap = {
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
     ] as const satisfies readonly QueryKey[],
-  workoutCompletion: () =>
+  workoutSessionChange: () =>
     [
       dashboardSnapshotQueryKeys.all,
       recentWorkoutQueryKeys.all,

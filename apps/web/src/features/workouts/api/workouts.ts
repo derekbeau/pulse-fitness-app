@@ -197,6 +197,7 @@ const scheduledWorkoutsKey = (params?: ScheduledWorkoutQueryParams) =>
     : (['workouts', 'scheduled-workouts'] as const);
 const sessionListKey = (params: WorkoutSessionQueryParams = {}) =>
   ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const;
+const templatePrefixKey = () => ['workouts', 'template'] as const;
 const templatesKey = () => ['workouts', 'templates'] as const;
 
 export const workoutQueryKeys = {
@@ -216,7 +217,8 @@ export const workoutQueryKeys = {
   sessionsList: sessionListKey,
   sessionList: sessionListKey,
   workouts: sessionListKey,
-  templateRoot: () => ['workouts', 'template'] as const,
+  templateRoot: templatePrefixKey,
+  templateDetailPrefix: templatePrefixKey,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: templatesKey,
   templateList: templatesKey,
@@ -725,6 +727,9 @@ export function useUpdateExercise() {
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.templateList(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.templateDetailPrefix(),
         }),
       ]);
     },

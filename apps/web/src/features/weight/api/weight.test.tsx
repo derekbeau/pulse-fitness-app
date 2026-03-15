@@ -168,6 +168,9 @@ describe('weight api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: dashboardWeightTrendQueryKeys.all,
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
   });
 
   it('shows a specific error toast when deleting a weight entry fails', async () => {
@@ -237,5 +240,8 @@ describe('weight api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: dashboardWeightTrendQueryKeys.all,
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
   });
 });

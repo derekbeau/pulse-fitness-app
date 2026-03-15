@@ -10,8 +10,8 @@ import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { crossFeatureInvalidationMap } from './query-invalidation';
 
 describe('crossFeatureInvalidationMap', () => {
-  it('returns the expected workout-completion invalidations', () => {
-    expect(crossFeatureInvalidationMap.workoutCompletion()).toEqual([
+  it('returns the expected workout-session invalidations', () => {
+    expect(crossFeatureInvalidationMap.workoutSessionChange()).toEqual([
       dashboardSnapshotQueryKeys.all,
       recentWorkoutQueryKeys.all,
       habitQueryKeys.list(),

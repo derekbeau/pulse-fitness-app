@@ -280,7 +280,7 @@ export function useDeleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(normalizedSessionId),
         }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutCompletion()),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
       ]);
       toast.success('Workout deleted');
     },

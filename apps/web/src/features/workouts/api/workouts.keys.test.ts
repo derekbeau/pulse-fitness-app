@@ -28,4 +28,8 @@ describe('workoutQueryKeys', () => {
   it('returns a stable template list key', () => {
     expect(workoutQueryKeys.templateList()).toEqual(['workouts', 'templates']);
   });
+
+  it('returns a stable template detail prefix key', () => {
+    expect(workoutQueryKeys.templateDetailPrefix()).toEqual(['workouts', 'template']);
+  });
 });

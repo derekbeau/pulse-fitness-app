@@ -164,7 +164,7 @@ export function useCompleteSession(sessionId: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(session.id) }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutCompletion()),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
       ]);
       toast.success('Workout completed');
     },
