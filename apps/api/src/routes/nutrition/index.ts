@@ -6,7 +6,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { trackFoodUsage } from '../foods/store.js';
 
 import {
@@ -110,6 +110,20 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { date: string } }>('/:date/summary', async (request, reply) => {
     if (!isValidDateParam(request.params.date)) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition date');
+    }
+
+    if (isAgentRequest(request)) {
+      const [summary, dailyNutrition] = await Promise.all([
+        getDailyNutritionSummaryForDate(request.userId, request.params.date),
+        getDailyNutritionForDate(request.userId, request.params.date),
+      ]);
+
+      return reply.send({
+        data: {
+          summary,
+          meals: dailyNutrition?.meals ?? [],
+        },
+      });
     }
 
     const summary = await getDailyNutritionSummaryForDate(request.userId, request.params.date);

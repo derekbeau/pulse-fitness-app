@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  agentUpdateHabitEntryInputSchema,
   createHabitEntryInputSchema,
   habitEntryQueryParamsSchema,
   updateHabitEntryInputSchema,
@@ -12,6 +13,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { findHabitById } from '../habits/store.js';
 
 import {
+  findHabitEntryByHabitAndDate,
   updateHabitEntry,
   upsertHabitEntry,
   listHabitEntriesByDateRange,
@@ -53,6 +55,42 @@ export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
     });
 
     return reply.code(201).send({
+      data: entry,
+    });
+  });
+
+  app.patch<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
+    const habitId = parseId(request.params.id);
+    if (!habitId) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
+    }
+
+    const parsedBody = agentUpdateHabitEntryInputSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry payload');
+    }
+
+    const habit = await findHabitById(habitId, request.userId);
+    if (!habit) {
+      return sendHabitNotFound(reply);
+    }
+
+    const existingEntry = await findHabitEntryByHabitAndDate(
+      habitId,
+      request.userId,
+      parsedBody.data.date,
+    );
+    const entry = await upsertHabitEntry({
+      id: existingEntry?.id ?? randomUUID(),
+      habitId,
+      userId: request.userId,
+      date: parsedBody.data.date,
+      completed: parsedBody.data.completed ?? existingEntry?.completed ?? false,
+      value: parsedBody.data.value ?? existingEntry?.value ?? undefined,
+      isOverride: habit.referenceSource != null,
+    });
+
+    return reply.code(existingEntry ? 200 : 201).send({
       data: entry,
     });
   });

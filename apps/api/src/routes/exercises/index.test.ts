@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  agentTokens,
   exercises,
   sessionSets,
   templateExercises,
@@ -31,6 +33,24 @@ let context: TestContext;
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
+});
+
+const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
+  context.db
+    .insert(agentTokens)
+    .values({
+      id: `agent-token-${userId}`,
+      userId,
+      name: `Agent ${userId}`,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    })
+    .run();
+
+  return token;
+};
 
 const seedUser = (id: string, username: string) =>
   context.db
@@ -159,6 +179,7 @@ describe('exercise routes', () => {
   });
 
   beforeEach(() => {
+    context.db.delete(agentTokens).run();
     context.db.delete(sessionSets).run();
     context.db.delete(workoutSessions).run();
     context.db.delete(templateExercises).run();
@@ -588,7 +609,7 @@ describe('exercise routes', () => {
   });
 
   it('creates a user-specific exercise for the authenticated user', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1');
 
     const response = await context.app.inject({
       method: 'POST',
@@ -1318,8 +1339,8 @@ describe('exercise routes', () => {
 
     const response = await context.app.inject({
       method: 'POST',
-      url: '/api/agent/exercises',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         name: 'Landmine Press',
         coachingNotes: 'Keep ribs down and punch through at lockout.',
@@ -1351,12 +1372,12 @@ describe('exercise routes', () => {
       equipment: 'barbell',
       category: 'compound',
     });
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-2');
 
     const response = await context.app.inject({
       method: 'POST',
-      url: '/api/agent/exercises',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         name: 'Bench Press',
       },
@@ -1386,12 +1407,12 @@ describe('exercise routes', () => {
       equipment: 'barbell',
       category: 'compound',
     });
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-3');
 
     const response = await context.app.inject({
       method: 'POST',
-      url: '/api/agent/exercises',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         name: 'Benchpress',
       },
@@ -1419,12 +1440,12 @@ describe('exercise routes', () => {
       equipment: 'barbell',
       category: 'compound',
     });
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-4');
 
     const response = await context.app.inject({
       method: 'POST',
-      url: '/api/agent/exercises',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         name: 'Bench Press',
         force: true,
@@ -1452,12 +1473,12 @@ describe('exercise routes', () => {
       equipment: 'barbell',
       category: 'compound',
     });
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-5');
 
     const response = await context.app.inject({
       method: 'POST',
-      url: '/api/agent/workout-templates',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/workout-templates',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         name: 'Push Day',
         sections: [
@@ -1522,12 +1543,12 @@ describe('exercise routes', () => {
       equipment: 'dumbbell',
       category: 'isolation',
     });
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-6');
 
     const response = await context.app.inject({
       method: 'PATCH',
-      url: '/api/agent/exercises/to-enrich',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises/to-enrich',
+      headers: createAgentTokenHeader(authToken),
       payload: {
         category: 'isolation',
         trackingType: 'reps_only',
@@ -1589,12 +1610,12 @@ describe('exercise routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = seedAgentToken('user-1', 'plain-agent-token-7');
 
     const response = await context.app.inject({
       method: 'GET',
-      url: '/api/agent/exercises/search?q=cable%20curl&limit=10',
-      headers: createAuthorizationHeader(authToken),
+      url: '/api/v1/exercises?q=cable%20curl&limit=10',
+      headers: createAgentTokenHeader(authToken),
     });
 
     expect(response.statusCode).toBe(200);

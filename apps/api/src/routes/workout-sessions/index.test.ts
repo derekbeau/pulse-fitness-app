@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  agentTokens,
   exercises,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
@@ -34,6 +36,24 @@ let context: TestContext;
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
+});
+
+const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
+  context.db
+    .insert(agentTokens)
+    .values({
+      id: `agent-token-${userId}`,
+      userId,
+      name: `Agent ${userId}`,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    })
+    .run();
+
+  return token;
+};
 
 const seedUser = (id: string, username: string) =>
   context.db
@@ -235,6 +255,7 @@ describe('workout session routes', () => {
   });
 
   beforeEach(() => {
+    context.db.delete(agentTokens).run();
     context.db.delete(scheduledWorkouts).run();
     context.db.delete(sessionSets).run();
     context.db.delete(workoutSessions).run();
@@ -3066,6 +3087,71 @@ describe('workout session routes', () => {
         code: 'VALIDATION_ERROR',
         message: 'Invalid workout session payload',
       },
+    });
+  });
+
+  it('creates agent-style sessions at /api/v1/workout-sessions with AgentToken auth', async () => {
+    const agentToken = seedAgentToken('user-1');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        name: 'Quick Lift',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Quick Lift',
+        status: 'in-progress',
+        date: expect.any(String),
+      }),
+    });
+  });
+
+  it('patches sessions with agent exercise mutations and auto-creates missing exercises', async () => {
+    const agentToken = seedAgentToken('user-1', 'plain-agent-token-2');
+    seedWorkoutSession({
+      id: 'session-agent',
+      userId: 'user-1',
+      name: 'Agent Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-agent',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        addExercises: [{ name: 'Landmine Press', sets: 2, reps: 10, section: 'main' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-agent',
+        sets: expect.arrayContaining([
+          expect.objectContaining({ setNumber: 1 }),
+          expect.objectContaining({ setNumber: 2 }),
+        ]),
+      }),
+    });
+
+    const createdExercise = context.db
+      .select({ id: exercises.id, name: exercises.name, userId: exercises.userId })
+      .from(exercises)
+      .where(eq(exercises.name, 'Landmine Press'))
+      .get();
+    expect(createdExercise).toEqual({
+      id: expect.any(String),
+      name: 'Landmine Press',
+      userId: 'user-1',
     });
   });
 });

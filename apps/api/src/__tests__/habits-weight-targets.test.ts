@@ -775,7 +775,7 @@ describe('weight and nutrition target integration', () => {
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/agent/weight/${latestEntryId}`,
+        url: `/api/v1/weight/${latestEntryId}`,
         headers: createAuthorizationHeader(agentToken.token, 'AgentToken'),
       });
 

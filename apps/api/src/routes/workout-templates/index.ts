@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  agentCreateWorkoutTemplateInputSchema,
+  agentUpdateWorkoutTemplateInputSchema,
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
@@ -10,8 +12,9 @@ import {
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
+import { buildTemplateSections } from '../workout-agent.js';
 
 import {
   allTemplateExercisesAccessible,
@@ -114,6 +117,35 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/', async (request, reply) => {
+    if (isAgentRequest(request)) {
+      const parsedBody = agentCreateWorkoutTemplateInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
+      }
+
+      const { sections, newExercises } = await buildTemplateSections({
+        sections: parsedBody.data.sections,
+        userId: request.userId,
+      });
+      const template = await createWorkoutTemplate({
+        id: randomUUID(),
+        userId: request.userId,
+        input: {
+          name: parsedBody.data.name,
+          description: null,
+          tags: [],
+          sections,
+        },
+      });
+
+      return reply.code(201).send({
+        data: {
+          template,
+          newExercises,
+        },
+      });
+    }
+
     const parsedBody = createWorkoutTemplateInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
@@ -145,9 +177,56 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   });
 
   const updateTemplateById = async (
-    request: { body: unknown; params: { id: string }; userId: string },
+    request: { body: unknown; params: { id: string }; userId: string; authType?: string },
     reply: FastifyReply,
   ) => {
+    if (request.authType === 'agent-token') {
+      const parsedBody = agentUpdateWorkoutTemplateInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
+      }
+
+      const existingTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
+      if (!existingTemplate) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const { sections, newExercises } = await buildTemplateSections({
+        sections: parsedBody.data.sections,
+        userId: request.userId,
+      });
+      const template = await updateWorkoutTemplate({
+        id: request.params.id,
+        userId: request.userId,
+        input: {
+          name: parsedBody.data.name,
+          description: null,
+          tags: [],
+          sections,
+        },
+      });
+      if (!template) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: {
+          template,
+          newExercises,
+        },
+      });
+    }
+
     const parsedBody = updateWorkoutTemplateInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');

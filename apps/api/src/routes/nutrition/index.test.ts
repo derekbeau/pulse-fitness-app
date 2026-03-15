@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 import { trackFoodUsage } from '../foods/store.js';
 
 import {
@@ -31,8 +32,14 @@ vi.mock('../foods/store.js', () => ({
   trackFoodUsage: vi.fn(),
 }));
 
-const createAuthorizationHeader = (token: string) => ({
-  authorization: `Bearer ${token}`,
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
+}));
+
+const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
+  authorization: `${scheme} ${token}`,
 });
 
 const meal = {
@@ -197,7 +204,11 @@ describe('nutrition routes', () => {
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
     vi.mocked(trackFoodUsage).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(findUserAuthById).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
 
@@ -850,6 +861,47 @@ describe('nutrition routes', () => {
         'user-1',
         '2026-03-10',
       );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns agent-enriched daily summary payloads for AgentToken requests', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(getDailyNutritionSummaryForDate).mockResolvedValue(nutritionSummary);
+    vi.mocked(getDailyNutritionForDate).mockResolvedValue({
+      log: {
+        id: 'log-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      meals: [{ meal, items: mealItems }],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/nutrition/2026-03-09/summary',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          summary: nutritionSummary,
+          meals: [{ meal, items: mealItems }],
+        },
+      });
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();
     }

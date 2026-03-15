@@ -9,7 +9,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 
 import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
@@ -28,9 +28,24 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
       ...parsedBody.data,
     });
 
-    return reply.code(201).send({
-      data: food,
-    });
+    return reply.code(201).send(
+      isAgentRequest(request)
+        ? {
+            data: {
+              id: food.id,
+              name: food.name,
+              brand: food.brand,
+              servingSize: food.servingSize,
+              calories: food.calories,
+              protein: food.protein,
+              carbs: food.carbs,
+              fat: food.fat,
+            },
+          }
+        : {
+            data: food,
+          },
+    );
   });
 
   app.get('/', async (request, reply) => {
@@ -42,6 +57,21 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
     const result = await listFoods(request.userId, parsedQuery.data);
 
     reply.header('Cache-Control', 'private, no-cache');
+
+    if (isAgentRequest(request)) {
+      return reply.send({
+        data: result.foods.map((food) => ({
+          id: food.id,
+          name: food.name,
+          brand: food.brand,
+          servingSize: food.servingSize,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fat: food.fat,
+        })),
+      });
+    }
 
     return reply.send({
       data: result.foods,

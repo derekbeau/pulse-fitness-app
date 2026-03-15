@@ -4,6 +4,7 @@ import { buildServer } from '../../index.js';
 import { findHabitById } from '../habits/store.js';
 
 import {
+  findHabitEntryByHabitAndDate,
   listHabitEntriesByDateRange,
   listHabitEntriesForHabitByDateRange,
   updateHabitEntry,
@@ -15,6 +16,7 @@ vi.mock('../habits/store.js', () => ({
 }));
 
 vi.mock('./store.js', () => ({
+  findHabitEntryByHabitAndDate: vi.fn(),
   listHabitEntriesByDateRange: vi.fn(),
   listHabitEntriesForHabitByDateRange: vi.fn(),
   updateHabitEntry: vi.fn(),
@@ -28,6 +30,7 @@ const createAuthorizationHeader = (token: string) => ({
 describe('habit entry routes', () => {
   beforeEach(() => {
     vi.mocked(findHabitById).mockReset();
+    vi.mocked(findHabitEntryByHabitAndDate).mockReset();
     vi.mocked(listHabitEntriesByDateRange).mockReset();
     vi.mocked(listHabitEntriesForHabitByDateRange).mockReset();
     vi.mocked(updateHabitEntry).mockReset();
@@ -187,6 +190,78 @@ describe('habit entry routes', () => {
       expect(vi.mocked(listHabitEntriesByDateRange)).toHaveBeenCalledWith(
         'user-1',
         '2026-03-01',
+        '2026-03-07',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('patch-upserts habit entries by date for unified agent flows', async () => {
+    vi.mocked(findHabitById).mockResolvedValue({
+      id: 'habit-1',
+      userId: 'user-1',
+      name: 'Water',
+      description: null,
+      emoji: '💧',
+      trackingType: 'numeric',
+      target: 8,
+      unit: 'glasses',
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      referenceSource: 'weight',
+      referenceConfig: { condition: 'exists_today' },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    vi.mocked(findHabitEntryByHabitAndDate).mockResolvedValue(undefined);
+    vi.mocked(upsertHabitEntry).mockResolvedValue({
+      id: 'entry-1',
+      habitId: 'habit-1',
+      userId: 'user-1',
+      date: '2026-03-07',
+      completed: true,
+      value: 8,
+      isOverride: true,
+      createdAt: 1,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/habits/habit-1/entries',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          date: '2026-03-07',
+          completed: true,
+          value: 8,
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        data: {
+          id: 'entry-1',
+          habitId: 'habit-1',
+          userId: 'user-1',
+          date: '2026-03-07',
+          completed: true,
+          value: 8,
+          isOverride: true,
+          createdAt: 1,
+        },
+      });
+      expect(vi.mocked(findHabitEntryByHabitAndDate)).toHaveBeenCalledWith(
+        'habit-1',
+        'user-1',
         '2026-03-07',
       );
     } finally {

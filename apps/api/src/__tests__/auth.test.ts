@@ -406,7 +406,7 @@ describe('auth integration', () => {
       const authData = await registerAndLogin(app);
       const response = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
         headers: createAuthorizationHeader(authData.token),
       });
 
@@ -429,7 +429,7 @@ describe('auth integration', () => {
       const expiredToken = app.jwt.sign({ userId: authData.user.id }, { expiresIn: -1 });
       const response = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
         headers: createAuthorizationHeader(expiredToken),
       });
 
@@ -451,7 +451,7 @@ describe('auth integration', () => {
     try {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
         headers: createAuthorizationHeader('not-a-jwt'),
       });
 
@@ -473,7 +473,7 @@ describe('auth integration', () => {
     try {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
       });
 
       expect(response.statusCode).toBe(401);
@@ -546,7 +546,7 @@ describe('auth integration', () => {
     }
   });
 
-  it('authenticates /api/agent routes with an agent token and updates lastUsedAt', async () => {
+  it('authenticates unified /api/v1 routes with an agent token and updates lastUsedAt', async () => {
     const { app } = await createTestApp();
 
     try {
@@ -572,7 +572,7 @@ describe('auth integration', () => {
 
       const useResponse = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
         headers: createAuthorizationHeader(createdPayload.data.token, 'AgentToken'),
       });
 
@@ -626,7 +626,7 @@ describe('auth integration', () => {
 
       const useResponse = await app.inject({
         method: 'GET',
-        url: '/api/agent/ping',
+        url: '/api/v1/ping',
         headers: createAuthorizationHeader(createdPayload.data.token, 'AgentToken'),
       });
 
