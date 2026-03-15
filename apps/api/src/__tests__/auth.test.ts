@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  SESSION_JWT_ISSUER,
+  SESSION_JWT_TYPE,
+  type SessionJwtPayload,
+} from '../lib/session-jwt.js';
+
 type StoredUser = {
   id: string;
   username: string;
@@ -15,7 +21,9 @@ type StoredAgentToken = {
   userId: string;
   name: string;
   tokenHash: string;
+  expiresAt: number | null;
   lastUsedAt: number | null;
+  lastRotatedAt: number | null;
   createdAt: number;
 };
 
@@ -85,18 +93,24 @@ vi.mock('../routes/agent-tokens/store.js', () => ({
       userId,
       name,
       tokenHash,
+      expiresAt,
+      lastRotatedAt,
     }: {
       id: string;
       userId: string;
       name: string;
       tokenHash: string;
+      expiresAt?: number | null;
+      lastRotatedAt: number;
     }) => {
       testState.agentTokens.set(id, {
         id,
         userId,
         name,
         tokenHash,
+        expiresAt: expiresAt ?? null,
         lastUsedAt: null,
+        lastRotatedAt,
         createdAt: testState.nextCreatedAt(),
       });
 
@@ -131,7 +145,9 @@ vi.mock('../middleware/store.js', () => ({
       (candidate) => candidate.tokenHash === tokenHash,
     );
 
-    return token ? { id: token.id, userId: token.userId } : undefined;
+    return token
+      ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt }
+      : undefined;
   }),
   findUserAuthById: vi.fn(async (userId: string) => {
     const user = [...testState.users.values()].find((candidate) => candidate.id === userId);
@@ -258,8 +274,10 @@ describe('auth integration', () => {
       expect(payload.data.user.username).toBe('derek');
       expect(payload.data.user.name).toBe('Derek');
 
-      const decoded = app.jwt.verify<{ userId: string }>(payload.data.token);
-      expect(decoded.userId).toBe(payload.data.user.id);
+      const decoded = app.jwt.verify<SessionJwtPayload>(payload.data.token);
+      expect(decoded.sub).toBe(payload.data.user.id);
+      expect(decoded.type).toBe(SESSION_JWT_TYPE);
+      expect(decoded.iss).toBe(SESSION_JWT_ISSUER);
 
       const storedUser = testState.users.get('derek');
 
@@ -350,8 +368,10 @@ describe('auth integration', () => {
         name: 'Derek',
       });
 
-      const decoded = app.jwt.verify<{ userId: string }>(authData.token);
-      expect(decoded.userId).toBe(authData.user.id);
+      const decoded = app.jwt.verify<SessionJwtPayload>(authData.token);
+      expect(decoded.sub).toBe(authData.user.id);
+      expect(decoded.type).toBe(SESSION_JWT_TYPE);
+      expect(decoded.iss).toBe(SESSION_JWT_ISSUER);
     } finally {
       await app.close();
     }
@@ -426,11 +446,100 @@ describe('auth integration', () => {
 
     try {
       const authData = await registerAndLogin(app);
-      const expiredToken = app.jwt.sign({ userId: authData.user.id }, { expiresIn: -1 });
+      const expiredToken = app.jwt.sign(
+        {
+          sub: authData.user.id,
+          type: SESSION_JWT_TYPE,
+          iss: SESSION_JWT_ISSUER,
+        },
+        { expiresIn: -1 },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/ping',
         headers: createAuthorizationHeader(expiredToken),
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required type claim', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const token = app.jwt.sign({
+        sub: authData.user.id,
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/ping',
+        headers: createAuthorizationHeader(token),
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs with the wrong type claim', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const token = app.jwt.sign({
+        sub: authData.user.id,
+        type: 'agent',
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/ping',
+        headers: createAuthorizationHeader(token),
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required issuer claim', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const token = app.jwt.sign({
+        sub: authData.user.id,
+        type: SESSION_JWT_TYPE,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/ping',
+        headers: createAuthorizationHeader(token),
       });
 
       expect(response.statusCode).toBe(401);
@@ -585,6 +694,94 @@ describe('auth integration', () => {
 
       const afterUse = testState.agentTokens.get(createdPayload.data.id);
       expect(afterUse?.lastUsedAt).toBeTypeOf('number');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects expired agent tokens on unified /api/v1 routes', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens',
+        headers: createAuthorizationHeader(authData.token),
+        payload: {
+          name: 'Meal logger',
+        },
+      });
+
+      const createdPayload = createResponse.json() as {
+        data: {
+          id: string;
+          token: string;
+        };
+      };
+
+      const storedToken = testState.agentTokens.get(createdPayload.data.id);
+      expect(storedToken).toBeDefined();
+      if (!storedToken) {
+        throw new Error('Expected created agent token to be stored');
+      }
+
+      storedToken.expiresAt = Date.now() - 1;
+
+      const useResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/ping',
+        headers: createAuthorizationHeader(createdPayload.data.token, 'AgentToken'),
+      });
+
+      expect(useResponse.statusCode).toBe(401);
+      expect(useResponse.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('accepts agent tokens with null expiresAt for backward compatibility', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens',
+        headers: createAuthorizationHeader(authData.token),
+        payload: {
+          name: 'Meal logger',
+        },
+      });
+
+      const createdPayload = createResponse.json() as {
+        data: {
+          id: string;
+          token: string;
+        };
+      };
+
+      const storedToken = testState.agentTokens.get(createdPayload.data.id);
+      expect(storedToken?.expiresAt).toBeNull();
+
+      const useResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/ping',
+        headers: createAuthorizationHeader(createdPayload.data.token, 'AgentToken'),
+      });
+
+      expect(useResponse.statusCode).toBe(200);
+      expect(useResponse.json()).toEqual({
+        data: {
+          userId: authData.user.id,
+        },
+      });
     } finally {
       await app.close();
     }

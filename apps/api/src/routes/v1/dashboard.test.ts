@@ -82,7 +82,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/dashboard/snapshot?date=2026-03-09',
@@ -144,7 +144,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/dashboard/config',
@@ -178,7 +178,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const payload = {
         habitChainIds: ['habit-1'],
         trendMetrics: ['calories'],
@@ -217,7 +217,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'PUT',
         url: '/api/v1/dashboard/config',
@@ -252,7 +252,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const payload = {
         habitChainIds: ['habit-1'],
         trendMetrics: ['weight'],
@@ -279,7 +279,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'PUT',
         url: '/api/v1/dashboard/config',
@@ -336,7 +336,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/dashboard/snapshot',
@@ -362,7 +362,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/dashboard/trends/weight?from=2026-03-07&to=2026-03-09',
@@ -416,7 +416,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-2' });
+      const authToken = app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const [macrosResponse, consistencyResponse] = await Promise.all([
         app.inject({
           method: 'GET',
@@ -455,7 +455,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-3' });
+      const authToken = app.jwt.sign({ sub: 'user-3', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const [invalidShapeResponse, invalidDateResponse] = await Promise.all([
         app.inject({
           method: 'GET',
@@ -495,7 +495,7 @@ describe('dashboard routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-3' });
+      const authToken = app.jwt.sign({ sub: 'user-3', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const [invalidShapeResponse, invalidCalendarDateResponse, oversizedRangeResponse] =
         await Promise.all([
           app.inject({

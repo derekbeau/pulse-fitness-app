@@ -91,13 +91,17 @@ describe('agentTokens schema', () => {
       'userId',
       'name',
       'tokenHash',
+      'expiresAt',
       'lastUsedAt',
+      'lastRotatedAt',
       'createdAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
     expect(columns.tokenHash.isUnique).toBe(true);
     expect(columns.tokenHash.uniqueName).toBe('agent_tokens_token_hash_unique');
+    expect(columns.expiresAt.notNull).toBe(false);
+    expect(columns.lastRotatedAt.notNull).toBe(false);
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 

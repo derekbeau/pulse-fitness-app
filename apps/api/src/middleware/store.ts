@@ -5,6 +5,7 @@ import { agentTokens, users } from '../db/schema/index.js';
 export type AgentTokenAuthRecord = {
   id: string;
   userId: string;
+  expiresAt?: number | null;
 };
 
 export const findUserAuthById = async (
@@ -31,6 +32,7 @@ export const findAgentTokenByHash = async (
     .select({
       id: agentTokens.id,
       userId: agentTokens.userId,
+      expiresAt: agentTokens.expiresAt,
     })
     .from(agentTokens)
     .where(eq(agentTokens.tokenHash, tokenHash))

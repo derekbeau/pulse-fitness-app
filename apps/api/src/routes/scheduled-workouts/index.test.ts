@@ -259,7 +259,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('creates and lists scheduled workouts for the authenticated user within a date range', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedScheduledWorkout({
       id: 'existing-1',
@@ -343,7 +343,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('includes template tracking types in scheduled list items when template exercises exist', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedExercise({
       id: 'exercise-pullup',
@@ -396,7 +396,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('omits templateTrackingTypes when a scheduled template has no exercises', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedScheduledWorkout({
       id: 'scheduled-no-template-exercises',
@@ -427,7 +427,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('excludes soft-deleted user exercises from templateTrackingTypes', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedExercise({
       id: 'exercise-active-user',
@@ -481,7 +481,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('reschedules a workout date within the user scope', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -539,7 +539,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('deletes scheduled workouts within the authenticated user scope', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedScheduledWorkout({
       id: 'schedule-1',
@@ -572,7 +572,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('does not expose soft-deleted template metadata in list responses', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedTemplate({
       id: 'template-soft-deleted-list',
@@ -609,7 +609,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('rejects creation against missing, inaccessible, or soft-deleted templates', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedTemplate({
       id: 'template-soft-deleted',
@@ -665,7 +665,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns validation errors for invalid schedule payloads and queries', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const [postResponse, getResponse, patchResponse] = await Promise.all([
       context.app.inject({
@@ -716,7 +716,7 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns not found for schedules outside the authenticated user scope', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedScheduledWorkout({
       id: 'other-user-schedule',

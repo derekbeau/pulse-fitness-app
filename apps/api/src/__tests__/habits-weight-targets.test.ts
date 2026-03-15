@@ -17,7 +17,9 @@ type StoredAgentToken = {
   userId: string;
   name: string;
   tokenHash: string;
+  expiresAt: number | null;
   lastUsedAt: number | null;
+  lastRotatedAt: number | null;
   createdAt: number;
 };
 
@@ -140,18 +142,24 @@ vi.mock('../routes/agent-tokens/store.js', () => ({
       userId,
       name,
       tokenHash,
+      expiresAt,
+      lastRotatedAt,
     }: {
       id: string;
       userId: string;
       name: string;
       tokenHash: string;
+      expiresAt?: number | null;
+      lastRotatedAt: number;
     }) => {
       testState.agentTokens.set(id, {
         id,
         userId,
         name,
         tokenHash,
+        expiresAt: expiresAt ?? null,
         lastUsedAt: null,
+        lastRotatedAt,
         createdAt: testState.nextCreatedAt(),
       });
 
@@ -186,7 +194,9 @@ vi.mock('../middleware/store.js', () => ({
       (candidate) => candidate.tokenHash === tokenHash,
     );
 
-    return token ? { id: token.id, userId: token.userId } : undefined;
+    return token
+      ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt }
+      : undefined;
   }),
   findUserAuthById: vi.fn(async (userId: string) => {
     const user = [...testState.users.values()].find((candidate) => candidate.id === userId);

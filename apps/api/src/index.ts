@@ -22,6 +22,8 @@ const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
+    // Inject JWT_SECRET at runtime. Do not keep a production signing secret in
+    // agent-readable env files or committed config.
     return process.env.JWT_SECRET;
   }
 

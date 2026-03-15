@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  SESSION_JWT_ISSUER,
+  SESSION_JWT_TYPE,
+  type SessionJwtPayload,
+} from '../../lib/session-jwt.js';
 import { buildServer } from '../../index.js';
 import { createUser, ensureStarterHabitsForUser, findUserByUsername } from './store.js';
 
@@ -66,13 +71,11 @@ describe('auth routes', () => {
       expect(vi.mocked(findUserByUsername)).toHaveBeenCalledWith('derek');
       expect(vi.mocked(createUser)).toHaveBeenCalledOnce();
 
-      const decoded = app.jwt.verify<{
-        userId: string;
-        iat: number;
-        exp: number;
-      }>(payload.data.token);
+      const decoded = app.jwt.verify<SessionJwtPayload>(payload.data.token);
 
-      expect(decoded.userId).toBe(payload.data.user.id);
+      expect(decoded.sub).toBe(payload.data.user.id);
+      expect(decoded.type).toBe(SESSION_JWT_TYPE);
+      expect(decoded.iss).toBe(SESSION_JWT_ISSUER);
       expect(decoded.exp - decoded.iat).toBe(60 * 60 * 24 * 7);
     } finally {
       await app.close();
@@ -149,8 +152,10 @@ describe('auth routes', () => {
         name: 'Derek',
       });
 
-      const decoded = app.jwt.verify<{ userId: string }>(payload.data.token);
-      expect(decoded.userId).toBe('user-1');
+      const decoded = app.jwt.verify<SessionJwtPayload>(payload.data.token);
+      expect(decoded.sub).toBe('user-1');
+      expect(decoded.type).toBe(SESSION_JWT_TYPE);
+      expect(decoded.iss).toBe(SESSION_JWT_ISSUER);
       expect(vi.mocked(findUserByUsername)).toHaveBeenCalledWith('derek');
       expect(vi.mocked(ensureStarterHabitsForUser)).toHaveBeenCalledWith('user-1');
     } finally {

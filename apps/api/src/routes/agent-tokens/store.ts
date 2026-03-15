@@ -7,6 +7,8 @@ export type CreateAgentTokenRecordInput = {
   userId: string;
   name: string;
   tokenHash: string;
+  expiresAt?: number | null;
+  lastRotatedAt: number;
 };
 
 export type AgentTokenListItem = {
@@ -21,6 +23,8 @@ export const createAgentToken = async ({
   userId,
   name,
   tokenHash,
+  expiresAt = null,
+  lastRotatedAt,
 }: CreateAgentTokenRecordInput): Promise<{ id: string; name: string }> => {
   const { db } = await import('../../db/index.js');
 
@@ -31,6 +35,8 @@ export const createAgentToken = async ({
       userId,
       name,
       tokenHash,
+      expiresAt,
+      lastRotatedAt,
     })
     .run();
 
@@ -69,7 +75,7 @@ export const regenerateAgentToken = async (
 
   const result = db
     .update(agentTokens)
-    .set({ tokenHash: newTokenHash, lastUsedAt: null })
+    .set({ tokenHash: newTokenHash, lastUsedAt: null, lastRotatedAt: Date.now() })
     .where(and(eq(agentTokens.id, id), eq(agentTokens.userId, userId)))
     .run();
 

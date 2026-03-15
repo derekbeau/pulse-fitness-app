@@ -4,6 +4,7 @@ import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SESSION_JWT_ISSUER, SESSION_JWT_TYPE, issueSessionJwt } from '../lib/session-jwt.js';
 import { isAgentRequest, requireAuth, requireJwtOnly } from './auth.js';
 import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
@@ -83,7 +84,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const token = app.jwt.sign({ userId: 'user-jwt-1' });
+      const token = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -114,7 +115,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -140,6 +141,7 @@ describe('auth middleware', () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-agent-1',
+      expiresAt: null,
     });
 
     const app = await buildTestApp();
@@ -177,6 +179,7 @@ describe('auth middleware', () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-agent-1',
+      expiresAt: null,
     });
     vi.mocked(updateAgentTokenLastUsedAt).mockRejectedValue(new Error('best-effort write failure'));
 
@@ -214,7 +217,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/jwt-only',
@@ -240,6 +243,7 @@ describe('auth middleware', () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-agent-1',
+      expiresAt: null,
     });
 
     const app = await buildTestApp();
@@ -270,7 +274,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/jwt-only',
@@ -358,6 +362,7 @@ describe('auth middleware', () => {
       .mockResolvedValueOnce({
         id: 'agent-token-1',
         userId: 'user-agent-1',
+        expiresAt: null,
       })
       .mockResolvedValueOnce(undefined);
 
@@ -401,7 +406,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const token = app.jwt.sign({ userId: 'deleted-user-id' });
+      const token = issueSessionJwt(app, 'deleted-user-id');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -420,6 +425,104 @@ describe('auth middleware', () => {
       expect(vi.mocked(findUserAuthById)).toHaveBeenCalledWith('deleted-user-id');
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required type claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs with the wrong type claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        type: 'agent',
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required issuer claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        type: SESSION_JWT_TYPE,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects expired agent tokens', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: Date.now() - 1,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).not.toHaveBeenCalled();
+    } finally {
       await app.close();
     }
   });

@@ -108,7 +108,7 @@ describe('v1 context routes', () => {
 
     try {
       await app.ready();
-      const token = app.jwt.sign({ userId: 'user-1' });
+      const token = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/context',

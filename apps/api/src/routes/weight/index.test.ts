@@ -71,7 +71,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -127,7 +127,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -212,7 +212,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -323,7 +323,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?days=7',
@@ -356,7 +356,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?page=2&limit=1',
@@ -404,7 +404,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?from=2026-03-08&to=2026-03-07',
@@ -429,7 +429,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?from=2026-03-01&days=30',
@@ -489,7 +489,7 @@ describe('weight routes', () => {
           updatedAt: 1_700_000_003_000,
         });
 
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const weightOnlyResponse = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/entry-1',
@@ -541,7 +541,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/missing-entry',
@@ -569,7 +569,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/entry-1',
@@ -607,7 +607,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const [latestResponse, emptyResponse] = await Promise.all([
         app.inject({
           method: 'GET',
@@ -699,7 +699,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const deleteResponse = await app.inject({
         method: 'DELETE',
         url: '/api/v1/weight/entry-1',
@@ -732,7 +732,7 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/weight/entry-404',

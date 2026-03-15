@@ -2,15 +2,16 @@ import { createHash } from 'node:crypto';
 
 import type { FastifyReply, FastifyRequest, onRequestHookHandler } from 'fastify';
 
+import {
+  SESSION_JWT_ISSUER,
+  SESSION_JWT_TYPE,
+  type SessionJwtPayload,
+} from '../lib/session-jwt.js';
 import { sendError } from '../lib/reply.js';
 
 import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
 type AuthScheme = 'AgentToken' | 'Bearer';
-
-type SessionJwtPayload = {
-  userId: string;
-};
 
 type AuthContext =
   | {
@@ -75,13 +76,26 @@ const verifyJwt = async (request: FastifyRequest): Promise<AuthContext | undefin
   }
 
   try {
+    // Unified auth supports two schemes on the same route surface:
+    // 1. Bearer JWTs issued by login/register for interactive user sessions.
+    // 2. AgentToken values that are stored hashed in the database for agents.
+    //
+    // JWTs must carry explicit session-only claims so a hand-crafted token that
+    // only copies a user identifier is rejected even if it has a valid shape.
     const payload = await request.jwtVerify<SessionJwtPayload>();
 
-    if (typeof payload.userId !== 'string' || payload.userId.length === 0) {
+    if (
+      typeof payload.sub !== 'string' ||
+      payload.sub.length === 0 ||
+      payload.type !== SESSION_JWT_TYPE ||
+      payload.iss !== SESSION_JWT_ISSUER ||
+      typeof payload.iat !== 'number' ||
+      typeof payload.exp !== 'number'
+    ) {
       return undefined;
     }
 
-    const verifiedUserId = await resolveVerifiedUserId(payload.userId);
+    const verifiedUserId = await resolveVerifiedUserId(payload.sub);
     if (!verifiedUserId) {
       return undefined;
     }
@@ -101,9 +115,16 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<AuthContext | 
     return undefined;
   }
 
+  // Agent tokens are bearer secrets stored only as hashes. Validation must hit
+  // the database on every request so revocation and expiry take effect
+  // immediately; do not cache token validity in memory.
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const agentToken = await findAgentTokenByHash(tokenHash);
   if (!agentToken) {
+    return undefined;
+  }
+
+  if (typeof agentToken.expiresAt === 'number' && agentToken.expiresAt <= Date.now()) {
     return undefined;
   }
 

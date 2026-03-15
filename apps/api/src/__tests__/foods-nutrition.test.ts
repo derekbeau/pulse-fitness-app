@@ -502,8 +502,8 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ userId: 'user-a' });
-      const otherUserToken = app.jwt.sign({ userId: 'user-b' });
+      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const otherUserToken = app.jwt.sign({ sub: 'user-b', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
       const yogurt = await createFoodViaApi(app, userToken, {
         name: 'Greek Yogurt',
@@ -654,7 +654,7 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ userId: 'user-a' });
+      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const date = '2026-03-10';
 
       const breakfast = await createMealViaApi(app, userToken, date, {
@@ -762,7 +762,7 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ userId: 'user-a' });
+      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const date = '2026-03-11';
 
       await createMealViaApi(app, userToken, date, {
@@ -850,7 +850,7 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ userId: 'user-a' });
+      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
       const eggs = await createFoodViaApi(app, userToken, {
         name: 'Eggs',

@@ -26,11 +26,13 @@ export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const token = randomBytes(32).toString('hex');
+    const now = Date.now();
     const createdToken = await createAgentToken({
       id: randomUUID(),
       userId: request.userId,
       name: parsedBody.data.name,
       tokenHash: hashToken(token),
+      lastRotatedAt: now,
     });
 
     return reply.code(201).send({
