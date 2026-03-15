@@ -1,5 +1,14 @@
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
+import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
@@ -19,6 +28,7 @@ import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
+const DEFAULT_OPENAPI_SERVER_URL = 'http://localhost:3001';
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
@@ -37,8 +47,91 @@ const getJwtSecret = () => {
 export const buildServer = () => {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
   app.register(fastifyJwt, {
     secret: getJwtSecret(),
+  });
+
+  app.register(swagger, {
+    openapi: {
+      openapi: '3.1.0',
+      info: {
+        title: 'Pulse Fitness API',
+        description: 'Unified API for Pulse fitness app and agent integrations',
+        version: '1.0.0',
+      },
+      servers: [{ url: process.env.API_URL ?? DEFAULT_OPENAPI_SERVER_URL }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+          agentToken: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'Authorization',
+            description:
+              'Send the full Authorization header value as `AgentToken <token>`. OpenAPI-generated clients may require manual prefixing.',
+          },
+        },
+      },
+    },
+    transform: jsonSchemaTransform,
+  });
+
+  app.register(swaggerUi, {
+    routePrefix: '/api/docs',
+  });
+
+  app.setErrorHandler((error, request, reply) => {
+    if (hasZodFastifySchemaValidationErrors(error)) {
+      return reply.code(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+          details: {
+            issues: error.validation,
+            method: request.method,
+            url: request.url,
+          },
+        },
+      });
+    }
+
+    if (isResponseSerializationError(error)) {
+      request.log.error(
+        { err: error, method: error.method, url: error.url, issues: error.cause.issues },
+        "Response doesn't match the route schema",
+      );
+
+      return reply.code(500).send({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Response serialization failed',
+        },
+      });
+    }
+
+    const statusCode =
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number'
+        ? error.statusCode
+        : 500;
+
+    request.log.error({ err: error, statusCode }, 'Unhandled error');
+
+    return reply.code(statusCode).send({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

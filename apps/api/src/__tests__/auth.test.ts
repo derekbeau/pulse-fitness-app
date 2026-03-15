@@ -27,6 +27,30 @@ type StoredAgentToken = {
   createdAt: number;
 };
 
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    instancePath: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
+
 const testState = vi.hoisted(() => {
   const users = new Map<string, StoredUser>();
   const agentTokens = new Map<string, StoredAgentToken>();
@@ -169,9 +193,7 @@ vi.mock('../middleware/store.js', () => ({
       (candidate) => candidate.tokenHash === tokenHash,
     );
 
-    return token
-      ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt }
-      : undefined;
+    return token ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt } : undefined;
   }),
   findUserAuthById: vi.fn(async (userId: string) => {
     const user = [...testState.users.values()].find((candidate) => candidate.id === userId);
@@ -349,11 +371,8 @@ describe('auth integration', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid registration payload',
-        },
+      expectValidationError(response.json(), {
+        instancePath: '/password',
       });
     } finally {
       await app.close();
@@ -369,11 +388,8 @@ describe('auth integration', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid registration payload',
-        },
+      expectValidationError(response.json(), {
+        instancePath: '/password',
       });
     } finally {
       await app.close();

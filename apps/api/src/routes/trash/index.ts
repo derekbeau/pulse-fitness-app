@@ -1,6 +1,14 @@
-import { trashTypeSchema, type TrashListResponse, type TrashType } from '@pulse/shared';
+import {
+  apiDataResponseSchema,
+  trashListResponseSchema,
+  trashTypeSchema,
+  type TrashListResponse,
+  type TrashType,
+} from '@pulse/shared';
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import {
   exercises,
@@ -16,19 +24,23 @@ import {
 } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  opaqueIdParamSchema,
+  successFlagSchema,
+} from '../../openapi.js';
+
+const trashItemParamsSchema = z.object({
+  type: trashTypeSchema,
+  id: opaqueIdParamSchema,
+});
 
 const TRASH_ITEM_NOT_FOUND_RESPONSE = {
   code: 'TRASH_ITEM_NOT_FOUND',
   message: 'Trash item not found',
 } as const;
-
-const TRASH_INVALID_TYPE_RESPONSE = {
-  code: 'VALIDATION_ERROR',
-  message: 'Invalid trash type',
-} as const;
-
-const parseId = (value: unknown) =>
-  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
 const requireDeletedAt = (value: string | null): string => {
   if (value === null) {
@@ -365,32 +377,47 @@ const purgeTrashItem = async ({
 export const trashRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  app.get('/', async (request, reply) => {
-    const trash = await listTrash(request.userId);
-    return reply.send({ data: trash });
-  });
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-  app.post<{ Params: { id: string; type: string } }>(
-    '/:type/:id/restore',
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        response: {
+          200: apiDataResponseSchema(trashListResponseSchema),
+          401: apiErrorResponseSchema,
+        },
+        tags: ['trash'],
+        summary: 'List soft-deleted resources',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      const typeParse = trashTypeSchema.safeParse(request.params.type);
-      if (!typeParse.success) {
-        return sendError(
-          reply,
-          400,
-          TRASH_INVALID_TYPE_RESPONSE.code,
-          TRASH_INVALID_TYPE_RESPONSE.message,
-        );
-      }
+      const trash = await listTrash(request.userId);
+      return reply.send({ data: trash });
+    },
+  );
 
-      const id = parseId(request.params.id);
-      if (!id) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid trash item id');
-      }
-
+  typedApp.post(
+    '/:type/:id/restore',
+    {
+      schema: {
+        params: trashItemParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['trash'],
+        summary: 'Restore a soft-deleted resource',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
       const restored = await restoreTrashItem({
-        id,
-        type: typeParse.data,
+        id: request.params.id,
+        type: request.params.type,
         userId: request.userId,
       });
       if (!restored) {
@@ -406,36 +433,38 @@ export const trashRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.delete<{ Params: { id: string; type: string } }>('/:type/:id', async (request, reply) => {
-    const typeParse = trashTypeSchema.safeParse(request.params.type);
-    if (!typeParse.success) {
-      return sendError(
-        reply,
-        400,
-        TRASH_INVALID_TYPE_RESPONSE.code,
-        TRASH_INVALID_TYPE_RESPONSE.message,
-      );
-    }
+  typedApp.delete(
+    '/:type/:id',
+    {
+      schema: {
+        params: trashItemParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['trash'],
+        summary: 'Purge a soft-deleted resource',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const purged = await purgeTrashItem({
+        id: request.params.id,
+        type: request.params.type,
+        userId: request.userId,
+      });
+      if (!purged) {
+        return sendError(
+          reply,
+          404,
+          TRASH_ITEM_NOT_FOUND_RESPONSE.code,
+          TRASH_ITEM_NOT_FOUND_RESPONSE.message,
+        );
+      }
 
-    const id = parseId(request.params.id);
-    if (!id) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid trash item id');
-    }
-
-    const purged = await purgeTrashItem({
-      id,
-      type: typeParse.data,
-      userId: request.userId,
-    });
-    if (!purged) {
-      return sendError(
-        reply,
-        404,
-        TRASH_ITEM_NOT_FOUND_RESPONSE.code,
-        TRASH_ITEM_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({ data: { success: true } });
-  });
+      return reply.send({ data: { success: true } });
+    },
+  );
 };

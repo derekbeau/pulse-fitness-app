@@ -32,6 +32,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 const seedUser = (id: string, username: string) =>
   context.db
     .insert(users)
@@ -691,28 +708,17 @@ describe('scheduled workout routes', () => {
     ]);
 
     expect(postResponse.statusCode).toBe(400);
-    expect(postResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid scheduled workout payload',
-      },
-    });
+    expectRequestValidationError(postResponse, 'POST', '/api/v1/scheduled-workouts');
 
     expect(getResponse.statusCode).toBe(400);
-    expect(getResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid scheduled workout query',
-      },
-    });
+    expectRequestValidationError(
+      getResponse,
+      'GET',
+      '/api/v1/scheduled-workouts?from=2026-03-16&to=2026-03-10',
+    );
 
     expect(patchResponse.statusCode).toBe(400);
-    expect(patchResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid scheduled workout payload',
-      },
-    });
+    expectRequestValidationError(patchResponse, 'PATCH', '/api/v1/scheduled-workouts/schedule-1');
   });
 
   it('returns not found for schedules outside the authenticated user scope', async () => {

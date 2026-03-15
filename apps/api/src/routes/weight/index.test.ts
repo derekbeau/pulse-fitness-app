@@ -36,6 +36,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('weight routes', () => {
   beforeEach(() => {
     vi.mocked(deleteBodyWeightEntryById).mockReset();
@@ -224,12 +241,7 @@ describe('weight routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid weight payload',
-        },
-      });
+      expectRequestValidationError(response, 'POST', '/api/v1/weight');
       expect(vi.mocked(upsertBodyWeightEntry)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -412,12 +424,7 @@ describe('weight routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid weight query params',
-        },
-      });
+      expectRequestValidationError(response, 'GET', '/api/v1/weight?from=2026-03-08&to=2026-03-07');
       expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -437,12 +444,7 @@ describe('weight routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid weight query params',
-        },
-      });
+      expectRequestValidationError(response, 'GET', '/api/v1/weight?from=2026-03-01&days=30');
       expect(vi.mocked(listBodyWeightEntries)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -578,12 +580,7 @@ describe('weight routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid weight payload',
-        },
-      });
+      expectRequestValidationError(response, 'PATCH', '/api/v1/weight/entry-1');
       expect(vi.mocked(findBodyWeightEntryById)).not.toHaveBeenCalled();
       expect(vi.mocked(patchBodyWeightEntryById)).not.toHaveBeenCalled();
     } finally {

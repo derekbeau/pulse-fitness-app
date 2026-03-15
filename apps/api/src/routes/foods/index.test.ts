@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
+import {
+  findAgentTokenByHash,
+  findUserAuthById,
+  updateAgentTokenLastUsedAt,
+} from '../../middleware/store.js';
 import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
 vi.mock('./store.js', () => ({
@@ -21,6 +25,32 @@ vi.mock('../../middleware/store.js', () => ({
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
   authorization: `${scheme} ${token}`,
 });
+
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    method: 'GET' | 'PATCH' | 'POST';
+    url: string;
+    instancePath: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: expectation.method,
+        url: expectation.url,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
 
 const buildFood = (
   overrides?: Partial<{
@@ -94,7 +124,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/foods',
@@ -145,7 +178,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/foods?q=%20yogurt%20&tags=protein,dairy&sort=popular&page=2&limit=1',
@@ -278,7 +314,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const [createResponse, queryResponse] = await Promise.all([
         app.inject({
           method: 'POST',
@@ -300,19 +339,17 @@ describe('foods routes', () => {
       ]);
 
       expect(createResponse.statusCode).toBe(400);
-      expect(createResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid food payload',
-        },
+      expectValidationError(createResponse.json(), {
+        method: 'POST',
+        url: '/api/v1/foods',
+        instancePath: '/name',
       });
 
       expect(queryResponse.statusCode).toBe(400);
-      expect(queryResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid food query parameters',
-        },
+      expectValidationError(queryResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/foods?sort=calories&page=0',
+        instancePath: '/sort',
       });
     } finally {
       await app.close();
@@ -379,12 +416,17 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       vi.mocked(findFoodById).mockResolvedValue(buildFood());
       vi.mocked(updateFood)
         .mockResolvedValueOnce(buildFood({ name: 'Lowfat Greek Yogurt' }))
         .mockResolvedValueOnce(buildFood({ protein: 20, carbs: 4, fat: 0, calories: 100 }))
-        .mockResolvedValueOnce(buildFood({ name: 'Skyr', calories: 110, protein: 19, notes: 'new' }));
+        .mockResolvedValueOnce(
+          buildFood({ name: 'Skyr', calories: 110, protein: 19, notes: 'new' }),
+        );
 
       const nameOnlyResponse = await app.inject({
         method: 'PATCH',
@@ -448,7 +490,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       vi.mocked(findFoodById).mockResolvedValue(undefined);
 
       const response = await app.inject({
@@ -478,7 +523,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/foods/food-1',
@@ -487,11 +535,10 @@ describe('foods routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid food payload',
-        },
+      expectValidationError(response.json(), {
+        method: 'PATCH',
+        url: '/api/v1/foods/food-1',
+        instancePath: '/',
       });
       expect(vi.mocked(findFoodById)).not.toHaveBeenCalled();
       expect(vi.mocked(updateFood)).not.toHaveBeenCalled();
@@ -510,7 +557,10 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const updateResponse = await app.inject({
         method: 'PUT',

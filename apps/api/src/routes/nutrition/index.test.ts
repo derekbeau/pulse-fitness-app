@@ -6,6 +6,7 @@ import {
   findUserAuthById,
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
+import { trackFoodUsage } from '../foods/store.js';
 
 import {
   createMealForDate,
@@ -31,6 +32,10 @@ vi.mock('./store.js', () => ({
   patchMealItemById: vi.fn(),
 }));
 
+vi.mock('../foods/store.js', () => ({
+  trackFoodUsage: vi.fn(),
+}));
+
 vi.mock('../../middleware/store.js', () => ({
   findAgentTokenByHash: vi.fn(),
   findUserAuthById: vi.fn(),
@@ -40,6 +45,32 @@ vi.mock('../../middleware/store.js', () => ({
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
   authorization: `${scheme} ${token}`,
 });
+
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    method: 'DELETE' | 'GET' | 'PATCH' | 'POST';
+    url: string;
+    instancePath: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: expectation.method,
+        url: expectation.url,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
 
 const meal = {
   id: 'meal-1',
@@ -202,9 +233,11 @@ describe('nutrition routes', () => {
     vi.mocked(getNutritionWeekSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
+    vi.mocked(trackFoodUsage).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
@@ -213,7 +246,7 @@ describe('nutrition routes', () => {
     delete process.env.JWT_SECRET;
   });
 
-  it('creates a meal for a date', async () => {
+  it('creates a meal for a date and updates referenced food recency', async () => {
     vi.mocked(createMealForDate).mockResolvedValue({
       meal,
       items: mealItems,
@@ -294,16 +327,19 @@ describe('nutrition routes', () => {
           },
         ],
       });
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
   });
 
-  it('returns success when the store creates a meal', async () => {
+  it('does not fail meal creation when recency updates fail', async () => {
     vi.mocked(createMealForDate).mockResolvedValue({
       meal,
       items: mealItems,
     });
+    vi.mocked(trackFoodUsage).mockRejectedValueOnce(new Error('transient update failure'));
 
     const app = buildServer();
 
@@ -341,6 +377,7 @@ describe('nutrition routes', () => {
           items: mealItems,
         },
       });
+      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
@@ -997,64 +1034,56 @@ describe('nutrition routes', () => {
       ]);
 
       expect(invalidDateResponse.statusCode).toBe(400);
-      expect(invalidDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nutrition date',
-        },
+      expectValidationError(invalidDateResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/nutrition/03-09-2026',
+        instancePath: '/date',
       });
       expect(invalidCalendarDateResponse.statusCode).toBe(400);
-      expect(invalidCalendarDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nutrition date',
-        },
+      expectValidationError(invalidCalendarDateResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/nutrition/2026-02-30',
+        instancePath: '/date',
       });
       expect(invalidSummaryDateResponse.statusCode).toBe(400);
-      expect(invalidSummaryDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nutrition date',
-        },
+      expectValidationError(invalidSummaryDateResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/nutrition/03-09-2026/summary',
+        instancePath: '/date',
       });
       expect(invalidWeekDateResponse.statusCode).toBe(400);
-      expect(invalidWeekDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nutrition week date',
-        },
+      expectValidationError(invalidWeekDateResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/nutrition/week-summary?date=invalid',
+        instancePath: '/date',
       });
 
       expect(invalidPayloadResponse.statusCode).toBe(400);
-      expect(invalidPayloadResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid meal payload',
-        },
+      expectValidationError(invalidPayloadResponse.json(), {
+        method: 'POST',
+        url: '/api/v1/nutrition/2026-03-09/meals',
+        instancePath: '/time',
       });
 
       expect(invalidDeleteParamsResponse.statusCode).toBe(400);
-      expect(invalidDeleteParamsResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid meal parameters',
-        },
+      expectValidationError(invalidDeleteParamsResponse.json(), {
+        method: 'DELETE',
+        url: '/api/v1/nutrition/2026-03-09/meals/%20%20',
+        instancePath: '/mealId',
       });
 
       expect(invalidPatchMealPayloadResponse.statusCode).toBe(400);
-      expect(invalidPatchMealPayloadResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid meal payload',
-        },
+      expectValidationError(invalidPatchMealPayloadResponse.json(), {
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        instancePath: '/',
       });
 
       expect(invalidPatchMealItemParamsResponse.statusCode).toBe(400);
-      expect(invalidPatchMealItemParamsResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid meal item parameters',
-        },
+      expectValidationError(invalidPatchMealItemParamsResponse.json(), {
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/%20%20',
+        instancePath: '/itemId',
       });
     } finally {
       await app.close();

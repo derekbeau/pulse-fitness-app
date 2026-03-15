@@ -75,10 +75,14 @@ pnpm format     # Format with Prettier
 ### API Routes
 
 - `/api/v1/` — Single API surface with auth-aware behavior. Use `Authorization: Bearer <jwt>` for web app sessions and `Authorization: AgentToken <token>` for agent integrations.
+- OpenAPI-generated clients using the `agentToken` security scheme must still prefix the header value manually as `AgentToken <token>`.
+- API documentation available at `/api/docs` (Swagger UI) and `/api/docs/json` (OpenAPI 3.1 spec).
 - Agent-specific conveniences such as name resolution, auto-create behavior, and enriched hints activate automatically for AgentToken callers on `/api/v1/*`.
 - Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
 
 ### Response Format
+
+Response schemas are Zod-validated and documented in the OpenAPI spec.
 
 ```json
 // Success

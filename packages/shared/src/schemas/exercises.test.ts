@@ -167,6 +167,18 @@ describe('createExerciseInputSchema', () => {
     });
   });
 
+  it('defaults tags and formCues to empty arrays when omitted', () => {
+    const payload = createExerciseInputSchema.parse({
+      name: 'Air Bike',
+      muscleGroups: ['conditioning'],
+      equipment: 'air bike',
+      category: 'cardio',
+    });
+
+    expect(payload.tags).toEqual([]);
+    expect(payload.formCues).toEqual([]);
+  });
+
   it('infers the CreateExerciseInput type from the schema', () => {
     const payload: CreateExerciseInput = {
       name: 'Air Bike',

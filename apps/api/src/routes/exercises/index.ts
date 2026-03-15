@@ -2,15 +2,30 @@ import { randomUUID } from 'node:crypto';
 
 import {
   agentCreateExerciseInputSchema,
+  agentExerciseCreateResponseSchema,
+  apiDataResponseSchema,
+  apiPaginatedResponseSchema,
   createExerciseInputSchema,
+  exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
+  exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
+  exerciseSchema,
   updateExerciseInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  idParamsSchema,
+  successFlagSchema,
+} from '../../openapi.js';
 
 import {
   allRelatedExercisesOwned,
@@ -43,6 +58,39 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
 
 const DEFAULT_CATEGORY = 'compound' as const;
 const DEFAULT_TRACKING_TYPE = 'weight_reps' as const;
+
+// Fastify can only advertise one static body schema, so this union keeps
+// validation and OpenAPI generation in Fastify while the auth-mode guard below
+// rejects the branch that does not match the resolved credentials.
+const createExerciseRequestSchema = z.union([
+  createExerciseInputSchema.transform((data) => ({
+    mode: 'standard' as const,
+    data,
+  })),
+  agentCreateExerciseInputSchema.transform((data) => ({
+    mode: 'agent' as const,
+    data,
+  })),
+]);
+
+const agentExerciseListItemSchema = exerciseSchema.pick({
+  id: true,
+  name: true,
+  category: true,
+  muscleGroups: true,
+  equipment: true,
+});
+
+const exerciseFiltersSchema = z.object({
+  muscleGroups: z.array(z.string()),
+  equipment: z.array(z.string()),
+});
+
+type UpdateExerciseRequest = {
+  body: z.infer<typeof updateExerciseInputSchema>;
+  params: z.infer<typeof idParamsSchema>;
+  userId: string;
+};
 
 const ensureOwnedMutableExercise = async ({
   exerciseId,
@@ -80,23 +128,13 @@ const ensureOwnedMutableExercise = async ({
 export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  const updateExerciseHandler = async (
-    request: {
-      body: unknown;
-      params: { id: string };
-      userId: string;
-    },
-    reply: FastifyReply,
-  ) => {
-    const parsedBody = updateExerciseInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    if (parsedBody.data.relatedExerciseIds !== undefined) {
+  const updateExerciseHandler = async (request: UpdateExerciseRequest, reply: FastifyReply) => {
+    if (request.body.relatedExerciseIds !== undefined) {
       const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
         userId: request.userId,
-        exerciseIds: parsedBody.data.relatedExerciseIds,
+        exerciseIds: request.body.relatedExerciseIds,
       });
       if (!hasValidRelatedExerciseIds) {
         return sendError(
@@ -120,7 +158,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
     const exercise = await updateOwnedExercise({
       id: request.params.id,
       userId: request.userId,
-      changes: parsedBody.data,
+      changes: request.body,
     });
 
     if (!exercise) {
@@ -137,29 +175,99 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
     });
   };
 
-  app.post('/', async (request, reply) => {
-    if (isAgentRequest(request)) {
-      const parsedBody = agentCreateExerciseInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
+  typedApp.post(
+    '/',
+    {
+      schema: {
+        body: createExerciseRequestSchema,
+        response: {
+          200: apiDataResponseSchema(agentExerciseCreateResponseSchema),
+          201: z.union([
+            apiDataResponseSchema(exerciseSchema),
+            apiDataResponseSchema(agentExerciseCreateResponseSchema),
+          ]),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Create an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (isAgentRequest(request) && request.body.mode !== 'agent') {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
       }
 
-      const dedupCandidates = await findExerciseDedupCandidates({
-        userId: request.userId,
-        name: parsedBody.data.name,
-      });
-      if (dedupCandidates.length > 0 && !parsedBody.data.force) {
-        return reply.send({
+      if (!isAgentRequest(request) && request.body.mode !== 'standard') {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
+      }
+
+      if (request.body.mode === 'agent') {
+        const dedupCandidates = await findExerciseDedupCandidates({
+          userId: request.userId,
+          name: request.body.data.name,
+        });
+        if (dedupCandidates.length > 0 && !request.body.data.force) {
+          return reply.send({
+            data: {
+              created: false,
+              candidates: dedupCandidates,
+            },
+          });
+        }
+
+        const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+          userId: request.userId,
+          exerciseIds: request.body.data.relatedExerciseIds,
+        });
+        if (!hasValidRelatedExerciseIds) {
+          return sendError(
+            reply,
+            400,
+            INVALID_RELATED_EXERCISES_RESPONSE.code,
+            INVALID_RELATED_EXERCISES_RESPONSE.message,
+          );
+        }
+
+        const exercise = await createExercise({
+          id: randomUUID(),
+          userId: request.userId,
+          name: request.body.data.name,
+          category: request.body.data.category ?? DEFAULT_CATEGORY,
+          trackingType: DEFAULT_TRACKING_TYPE,
+          muscleGroups: request.body.data.muscleGroups ?? [],
+          equipment: request.body.data.equipment ?? '',
+          tags: [],
+          formCues: [],
+          instructions: null,
+          coachingNotes: request.body.data.coachingNotes ?? null,
+          relatedExerciseIds: request.body.data.relatedExerciseIds,
+        });
+
+        return reply.code(201).send({
           data: {
-            created: false,
-            candidates: dedupCandidates,
+            created: true,
+            exercise: {
+              id: exercise.id,
+              name: exercise.name,
+              category: exercise.category,
+              trackingType: exercise.trackingType,
+              muscleGroups: exercise.muscleGroups,
+              equipment: exercise.equipment,
+              instructions: exercise.instructions,
+              coachingNotes: exercise.coachingNotes,
+              relatedExerciseIds: exercise.relatedExerciseIds,
+              tags: exercise.tags,
+              formCues: exercise.formCues,
+            },
           },
         });
       }
 
       const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
         userId: request.userId,
-        exerciseIds: parsedBody.data.relatedExerciseIds,
+        exerciseIds: request.body.data.relatedExerciseIds,
       });
       if (!hasValidRelatedExerciseIds) {
         return sendError(
@@ -173,179 +281,221 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       const exercise = await createExercise({
         id: randomUUID(),
         userId: request.userId,
-        name: parsedBody.data.name,
-        category: parsedBody.data.category ?? DEFAULT_CATEGORY,
-        trackingType: DEFAULT_TRACKING_TYPE,
-        muscleGroups: parsedBody.data.muscleGroups ?? [],
-        equipment: parsedBody.data.equipment ?? '',
-        tags: [],
-        formCues: [],
-        instructions: null,
-        coachingNotes: parsedBody.data.coachingNotes ?? null,
-        relatedExerciseIds: parsedBody.data.relatedExerciseIds,
+        ...request.body.data,
       });
 
       return reply.code(201).send({
-        data: {
-          created: true,
-          exercise: {
+        data: exercise,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        querystring: exerciseQueryParamsSchema,
+        response: {
+          200: z.union([
+            apiPaginatedResponseSchema(exerciseSchema),
+            apiDataResponseSchema(z.array(agentExerciseListItemSchema)),
+          ]),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'List visible exercises',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const result = await listExercises({
+        userId: request.userId,
+        ...request.query,
+      });
+
+      reply.header('Cache-Control', 'private, no-cache');
+
+      if (isAgentRequest(request)) {
+        return reply.send({
+          data: result.data.map((exercise) => ({
             id: exercise.id,
             name: exercise.name,
             category: exercise.category,
-            trackingType: exercise.trackingType,
             muscleGroups: exercise.muscleGroups,
             equipment: exercise.equipment,
-            instructions: exercise.instructions,
-            coachingNotes: exercise.coachingNotes,
-            relatedExerciseIds: exercise.relatedExerciseIds,
-            tags: exercise.tags,
-            formCues: exercise.formCues,
-          },
+          })),
+        });
+      }
+
+      return reply.send(result);
+    },
+  );
+
+  typedApp.get(
+    '/filters',
+    {
+      schema: {
+        response: {
+          200: apiDataResponseSchema(exerciseFiltersSchema),
+          401: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'List available exercise filters',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const filters = await listExerciseFilters(request.userId);
+
+      reply.header('Cache-Control', 'private, no-cache');
+
+      return reply.send({
+        data: filters,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/:id/last-performance',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: exerciseLastPerformanceQuerySchema,
+        response: {
+          200: apiDataResponseSchema(
+            z.union([exerciseLastPerformanceSchema.nullable(), exerciseHistoryWithRelatedSchema]),
+          ),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Get the latest completed performance for an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const exercise = await findVisibleExerciseById({
+        id: request.params.id,
+        userId: request.userId,
+      });
+      if (!exercise) {
+        return sendError(
+          reply,
+          404,
+          EXERCISE_NOT_FOUND_RESPONSE.code,
+          EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (request.query.includeRelated) {
+        const historyWithRelated = await findExerciseHistoryWithRelated({
+          exerciseId: request.params.id,
+          relatedExerciseIds: exercise.relatedExerciseIds,
+          userId: request.userId,
+        });
+
+        return reply.send({
+          data: historyWithRelated,
+        });
+      }
+
+      const lastPerformance =
+        (await findExerciseLastPerformance({
+          exerciseId: request.params.id,
+          userId: request.userId,
+        })) ?? null;
+
+      return reply.send({
+        data: lastPerformance,
+      });
+    },
+  );
+
+  typedApp.put(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateExerciseInputSchema,
+        response: {
+          200: apiDataResponseSchema(exerciseSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Replace an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => updateExerciseHandler(request, reply),
+  );
+
+  typedApp.patch(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateExerciseInputSchema,
+        response: {
+          200: apiDataResponseSchema(exerciseSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Update an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => updateExerciseHandler(request, reply),
+  );
+
+  typedApp.delete(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Delete an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const canMutate = await ensureOwnedMutableExercise({
+        exerciseId: request.params.id,
+        reply,
+        userId: request.userId,
+      });
+      if (!canMutate) {
+        return reply;
+      }
+
+      const deleted = await deleteOwnedExercise(request.params.id, request.userId);
+      if (!deleted) {
+        return sendError(
+          reply,
+          404,
+          EXERCISE_NOT_FOUND_RESPONSE.code,
+          EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: {
+          success: true,
         },
       });
-    }
-
-    const parsedBody = createExerciseInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
-    }
-
-    const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
-      userId: request.userId,
-      exerciseIds: parsedBody.data.relatedExerciseIds,
-    });
-    if (!hasValidRelatedExerciseIds) {
-      return sendError(
-        reply,
-        400,
-        INVALID_RELATED_EXERCISES_RESPONSE.code,
-        INVALID_RELATED_EXERCISES_RESPONSE.message,
-      );
-    }
-
-    const exercise = await createExercise({
-      id: randomUUID(),
-      userId: request.userId,
-      ...parsedBody.data,
-    });
-
-    return reply.code(201).send({
-      data: exercise,
-    });
-  });
-
-  app.get('/', async (request, reply) => {
-    const parsedQuery = exerciseQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise query');
-    }
-
-    const result = await listExercises({
-      userId: request.userId,
-      ...parsedQuery.data,
-    });
-
-    reply.header('Cache-Control', 'private, no-cache');
-
-    if (isAgentRequest(request)) {
-      return reply.send({
-        data: result.data.map((exercise) => ({
-          id: exercise.id,
-          name: exercise.name,
-          category: exercise.category,
-          muscleGroups: exercise.muscleGroups,
-          equipment: exercise.equipment,
-        })),
-      });
-    }
-
-    return reply.send(result);
-  });
-
-  app.get('/filters', async (request, reply) => {
-    const filters = await listExerciseFilters(request.userId);
-
-    reply.header('Cache-Control', 'private, no-cache');
-
-    return reply.send({
-      data: filters,
-    });
-  });
-
-  app.get<{ Params: { id: string } }>('/:id/last-performance', async (request, reply) => {
-    const parsedQuery = exerciseLastPerformanceQuerySchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise history query');
-    }
-
-    const exercise = await findVisibleExerciseById({
-      id: request.params.id,
-      userId: request.userId,
-    });
-    if (!exercise) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    if (parsedQuery.data.includeRelated) {
-      const historyWithRelated = await findExerciseHistoryWithRelated({
-        exerciseId: request.params.id,
-        relatedExerciseIds: exercise.relatedExerciseIds,
-        userId: request.userId,
-      });
-
-      return reply.send({
-        data: historyWithRelated,
-      });
-    }
-
-    const lastPerformance =
-      (await findExerciseLastPerformance({
-        exerciseId: request.params.id,
-        userId: request.userId,
-      })) ?? null;
-
-    return reply.send({
-      data: lastPerformance,
-    });
-  });
-
-  app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    return updateExerciseHandler(request, reply);
-  });
-
-  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    return updateExerciseHandler(request, reply);
-  });
-
-  app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const canMutate = await ensureOwnedMutableExercise({
-      exerciseId: request.params.id,
-      reply,
-      userId: request.userId,
-    });
-    if (!canMutate) {
-      return reply;
-    }
-
-    const deleted = await deleteOwnedExercise(request.params.id, request.userId);
-    if (!deleted) {
-      return sendError(
-        reply,
-        404,
-        EXERCISE_NOT_FOUND_RESPONSE.code,
-        EXERCISE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({
-      data: {
-        success: true,
-      },
-    });
-  });
+    },
+  );
 };

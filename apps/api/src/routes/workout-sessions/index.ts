@@ -3,28 +3,43 @@ import { randomUUID } from 'node:crypto';
 import {
   agentCreateWorkoutSessionInputSchema,
   agentUpdateWorkoutSessionInputSchema,
+  apiDataResponseSchema,
   batchUpsertSetsSchema,
   createSetSchema,
+  createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
   sessionCorrectionRequestSchema,
   saveWorkoutSessionAsTemplateInputSchema,
+  sessionSetSchema,
   swapWorkoutSessionExerciseInputSchema,
-  createWorkoutSessionInputSchema,
   type CreateWorkoutSessionInput,
   type SessionSetInput,
   updateSetSchema,
   updateWorkoutSessionInputSchema,
   updateWorkoutSessionTimeSegmentsInputSchema,
+  workoutSessionListItemSchema,
   workoutSessionQueryParamsSchema,
+  workoutSessionSchema,
+  workoutTemplateSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  idParamsSchema,
+  opaqueIdParamSchema,
+  successFlagSchema,
+} from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
-import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
+import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
   applyExerciseNotesToSets,
   buildExerciseSectionOrder,
@@ -44,10 +59,10 @@ import {
   findWorkoutSessionById,
   InvalidSessionCorrectionSetError,
   listSessionSetGroups,
-  reorderWorkoutSessionExercises,
-  SessionSetNotFoundError,
   listWorkoutSessions,
+  reorderWorkoutSessionExercises,
   saveCompletedSessionAsTemplate,
+  SessionSetNotFoundError,
   swapWorkoutSessionExercise,
   updateSessionSet,
   updateWorkoutSession,
@@ -55,6 +70,53 @@ import {
   WorkoutSessionNotFoundError,
 } from './store.js';
 import { calculateActiveDuration, closeOpenTimeSegment, openTimeSegment } from './time-segments.js';
+
+const createWorkoutSessionRequestSchema = z.union([
+  createWorkoutSessionInputSchema.transform((data) => ({
+    mode: 'standard' as const,
+    data,
+  })),
+  agentCreateWorkoutSessionInputSchema.transform((data) => ({
+    mode: 'agent' as const,
+    data,
+  })),
+]);
+
+const updateWorkoutSessionRequestSchema = z.union([
+  updateWorkoutSessionInputSchema.transform((data) => ({
+    mode: 'standard' as const,
+    data,
+  })),
+  agentUpdateWorkoutSessionInputSchema.transform((data) => ({
+    mode: 'agent' as const,
+    data,
+  })),
+]);
+
+const sessionIdParamsSchema = z.object({
+  sessionId: opaqueIdParamSchema,
+});
+
+const sessionSetParamsSchema = sessionIdParamsSchema.extend({
+  setId: opaqueIdParamSchema,
+});
+
+const sessionExerciseParamsSchema = idParamsSchema.extend({
+  exerciseId: opaqueIdParamSchema,
+});
+
+const sessionSetGroupSchema = z.object({
+  exerciseId: z.string(),
+  sets: z.array(sessionSetSchema),
+});
+
+const warningMetaSchema = z.object({
+  warning: z.string(),
+});
+
+const swapWorkoutSessionResponseSchema = apiDataResponseSchema(workoutSessionSchema).extend({
+  meta: warningMetaSchema.optional(),
+});
 
 const WORKOUT_SESSION_NOT_FOUND_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_FOUND',
@@ -228,23 +290,108 @@ const toIsoString = (value: number) => new Date(value).toISOString();
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  app.post('/', async (request, reply) => {
-    if (isAgentRequest(request)) {
-      const parsedBody = agentCreateWorkoutSessionInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  typedApp.post(
+    '/',
+    {
+      schema: {
+        body: createWorkoutSessionRequestSchema,
+        response: {
+          201: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Create a workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (isAgentRequest(request) && request.body.mode !== 'agent') {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
       }
 
-      const startedAt = Date.now();
-      const date = new Date(startedAt).toISOString().slice(0, 10);
-      const templateId = parsedBody.data.templateId ?? null;
-      let name = parsedBody.data.name;
-      let sets: CreateWorkoutSessionInput['sets'] = [];
+      if (!isAgentRequest(request) && request.body.mode !== 'standard') {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
 
-      if (templateId) {
-        const { findWorkoutTemplateById } = await import('../workout-templates/store.js');
-        const template = await findWorkoutTemplateById(templateId, request.userId);
-        if (!template) {
+      if (request.body.mode === 'agent') {
+        const startedAt = Date.now();
+        const date = new Date(startedAt).toISOString().slice(0, 10);
+        const templateId = request.body.data.templateId ?? null;
+        let name = request.body.data.name;
+        let sets: CreateWorkoutSessionInput['sets'] = [];
+
+        if (templateId) {
+          const { findWorkoutTemplateById } = await import('../workout-templates/store.js');
+          const template = await findWorkoutTemplateById(templateId, request.userId);
+          if (!template) {
+            return sendError(
+              reply,
+              404,
+              WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+              WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+            );
+          }
+
+          name = name ?? template.name;
+          sets = buildInitialSessionSets(template.sections);
+        }
+
+        const inputName = name ?? request.body.data.name;
+        if (inputName === undefined) {
+          return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+        }
+
+        // This payload is assembled from validated agent input plus trusted
+        // template/runtime data, so construct it directly instead of
+        // re-validating with an internal safeParse.
+        const input: CreateWorkoutSessionInput = {
+          templateId,
+          name: inputName,
+          date,
+          status: 'in-progress',
+          startedAt,
+          completedAt: null,
+          duration: null,
+          timeSegments: [],
+          feedback: null,
+          notes: null,
+          sets,
+        };
+
+        const session = await createWorkoutSession({
+          id: randomUUID(),
+          userId: request.userId,
+          input,
+        });
+
+        if (input.templateId !== null) {
+          await linkTodayScheduledWorkoutToSession({
+            userId: request.userId,
+            templateId: input.templateId,
+            date: input.date,
+            sessionId: session.id,
+          });
+        }
+
+        return reply.code(201).send(
+          buildDataResponse(request, session, {
+            endpoint: 'workout-session.mutation',
+            action: 'create',
+            session,
+          }),
+        );
+      }
+
+      if (request.body.data.templateId !== null) {
+        const templateAccessible = await templateBelongsToUser(
+          request.body.data.templateId,
+          request.userId,
+        );
+        if (!templateAccessible) {
           return sendError(
             reply,
             404,
@@ -252,173 +399,147 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
           );
         }
-
-        name = name ?? template.name;
-        sets = buildInitialSessionSets(template.sections);
       }
 
-      const payload = createWorkoutSessionInputSchema.safeParse({
-        templateId,
-        name,
-        date,
-        status: 'in-progress',
-        startedAt,
-        completedAt: null,
-        duration: null,
-        feedback: null,
-        notes: null,
-        sets,
+      const invalidExerciseIds = await findInvalidSessionExerciseIds({
+        userId: request.userId,
+        exerciseIds: getReferencedExerciseIds(request.body.data.sets),
       });
-      if (!payload.success) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      if (invalidExerciseIds.length > 0) {
+        return sendError(
+          reply,
+          400,
+          INVALID_SESSION_EXERCISE_RESPONSE.code,
+          buildInvalidExerciseMessage(invalidExerciseIds),
+        );
       }
+
+      const inputWithInitialSegment =
+        request.body.data.status === 'in-progress' && request.body.data.timeSegments.length === 0
+          ? {
+              ...request.body.data,
+              timeSegments: [{ start: toIsoString(request.body.data.startedAt), end: null }],
+            }
+          : request.body.data;
 
       const session = await createWorkoutSession({
         id: randomUUID(),
         userId: request.userId,
-        input: payload.data,
+        input: inputWithInitialSegment,
       });
 
-      if (payload.data.templateId !== null) {
+      if (inputWithInitialSegment.templateId !== null) {
         await linkTodayScheduledWorkoutToSession({
           userId: request.userId,
-          templateId: payload.data.templateId,
-          date: payload.data.date,
+          templateId: inputWithInitialSegment.templateId,
+          date: inputWithInitialSegment.date,
           sessionId: session.id,
         });
       }
 
-      return reply.code(201).send(
-        buildDataResponse(request, session, {
-          endpoint: 'workout-session.mutation',
-          action: 'create',
-          session,
-        }),
-      );
-    }
+      return reply.code(201).send(buildDataResponse(request, session));
+    },
+  );
 
-    const parsedBody = createWorkoutSessionInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-    }
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        querystring: workoutSessionQueryParamsSchema,
+        response: {
+          200: apiDataResponseSchema(z.array(workoutSessionListItemSchema)),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'List workout sessions',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const sessions = await listWorkoutSessions({
+        userId: request.userId,
+        ...request.query,
+      });
 
-    if (parsedBody.data.templateId !== null) {
-      const templateAccessible = await templateBelongsToUser(
-        parsedBody.data.templateId,
-        request.userId,
-      );
-      if (!templateAccessible) {
+      return reply.send({
+        data: sessions,
+      });
+    },
+  );
+
+  typedApp.post(
+    '/:sessionId/sets',
+    {
+      schema: {
+        params: sessionIdParamsSchema,
+        body: createSetSchema,
+        response: {
+          201: apiDataResponseSchema(sessionSetSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Create a set in an active workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await ensureOwnedActiveSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
+        reply,
+      });
+      if (!session) {
+        return reply;
+      }
+
+      const invalidExerciseIds = await findInvalidSessionExerciseIds({
+        userId: request.userId,
+        exerciseIds: [request.body.exerciseId],
+      });
+      if (invalidExerciseIds.length > 0) {
         return sendError(
           reply,
-          404,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+          400,
+          INVALID_SESSION_EXERCISE_RESPONSE.code,
+          buildInvalidExerciseMessage(invalidExerciseIds),
         );
       }
-    }
 
-    const invalidExerciseIds = await findInvalidSessionExerciseIds({
-      userId: request.userId,
-      exerciseIds: getReferencedExerciseIds(parsedBody.data.sets),
-    });
-    if (invalidExerciseIds.length > 0) {
-      return sendError(
-        reply,
-        400,
-        INVALID_SESSION_EXERCISE_RESPONSE.code,
-        buildInvalidExerciseMessage(invalidExerciseIds),
-      );
-    }
-
-    const inputWithInitialSegment =
-      parsedBody.data.status === 'in-progress' && parsedBody.data.timeSegments.length === 0
-        ? {
-            ...parsedBody.data,
-            timeSegments: [{ start: toIsoString(parsedBody.data.startedAt), end: null }],
-          }
-        : parsedBody.data;
-
-    const session = await createWorkoutSession({
-      id: randomUUID(),
-      userId: request.userId,
-      input: inputWithInitialSegment,
-    });
-
-    if (inputWithInitialSegment.templateId !== null) {
-      await linkTodayScheduledWorkoutToSession({
-        userId: request.userId,
-        templateId: inputWithInitialSegment.templateId,
-        date: inputWithInitialSegment.date,
+      const set = await createSessionSet({
+        id: randomUUID(),
         sessionId: session.id,
+        input: request.body,
       });
-    }
 
-    return reply.code(201).send(buildDataResponse(request, session));
-  });
+      return reply.code(201).send({
+        data: set,
+      });
+    },
+  );
 
-  app.get('/', async (request, reply) => {
-    const parsedQuery = workoutSessionQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session query');
-    }
-
-    const sessions = await listWorkoutSessions({
-      userId: request.userId,
-      ...parsedQuery.data,
-    });
-
-    return reply.send({
-      data: sessions,
-    });
-  });
-
-  app.post<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
-    const parsedBody = createSetSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
-    }
-
-    const session = await ensureOwnedActiveSession({
-      sessionId: request.params.sessionId,
-      userId: request.userId,
-      reply,
-    });
-    if (!session) {
-      return reply;
-    }
-
-    const invalidExerciseIds = await findInvalidSessionExerciseIds({
-      userId: request.userId,
-      exerciseIds: [parsedBody.data.exerciseId],
-    });
-    if (invalidExerciseIds.length > 0) {
-      return sendError(
-        reply,
-        400,
-        INVALID_SESSION_EXERCISE_RESPONSE.code,
-        buildInvalidExerciseMessage(invalidExerciseIds),
-      );
-    }
-
-    const set = await createSessionSet({
-      id: randomUUID(),
-      sessionId: session.id,
-      input: parsedBody.data,
-    });
-
-    return reply.code(201).send({
-      data: set,
-    });
-  });
-
-  app.patch<{ Params: { sessionId: string; setId: string } }>(
+  typedApp.patch(
     '/:sessionId/sets/:setId',
+    {
+      schema: {
+        params: sessionSetParamsSchema,
+        body: updateSetSchema,
+        response: {
+          200: apiDataResponseSchema(sessionSetSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Update a set in an active workout session',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      const parsedBody = updateSetSchema.safeParse(request.body);
-      if (!parsedBody.success) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
-      }
-
       const session = await ensureOwnedActiveSession({
         sessionId: request.params.sessionId,
         userId: request.userId,
@@ -431,7 +552,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       const set = await updateSessionSet({
         sessionId: session.id,
         setId: request.params.setId,
-        input: parsedBody.data,
+        input: request.body,
       });
       if (!set) {
         return sendError(
@@ -448,15 +569,26 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.patch<{ Params: { sessionId: string } }>(
+  typedApp.patch(
     '/:sessionId/corrections',
+    {
+      schema: {
+        params: sessionIdParamsSchema,
+        body: sessionCorrectionRequestSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Apply corrections to a completed workout session',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      const parsedBody = sessionCorrectionRequestSchema.safeParse(request.body);
-      if (!parsedBody.success) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-      }
-
-      const unsupportedCorrection = parsedBody.data.corrections.find(
+      const unsupportedCorrection = request.body.corrections.find(
         (correction) => correction.weight === undefined && correction.reps === undefined,
       );
       if (unsupportedCorrection) {
@@ -472,7 +604,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         const session = await applySessionCorrections({
           sessionId: request.params.sessionId,
           userId: request.userId,
-          corrections: parsedBody.data.corrections,
+          corrections: request.body.corrections,
         });
 
         return reply.send({
@@ -511,125 +643,187 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
-    const session = await ensureOwnedSession({
-      sessionId: request.params.sessionId,
-      userId: request.userId,
-      reply,
-    });
-    if (!session) {
-      return reply;
-    }
-
-    const groupedSets = await listSessionSetGroups(session.id);
-
-    return reply.send({
-      data: groupedSets,
-    });
-  });
-
-  app.put<{ Params: { sessionId: string } }>('/:sessionId/sets', async (request, reply) => {
-    const parsedBody = batchUpsertSetsSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid session set payload');
-    }
-
-    const session = await ensureOwnedActiveSession({
-      sessionId: request.params.sessionId,
-      userId: request.userId,
-      reply,
-    });
-    if (!session) {
-      return reply;
-    }
-
-    const invalidExerciseIds = await findInvalidSessionExerciseIds({
-      userId: request.userId,
-      exerciseIds: parsedBody.data.sets.map((set) => set.exerciseId),
-    });
-    if (invalidExerciseIds.length > 0) {
-      return sendError(
+  typedApp.get(
+    '/:sessionId/sets',
+    {
+      schema: {
+        params: sessionIdParamsSchema,
+        response: {
+          200: apiDataResponseSchema(z.array(sessionSetGroupSchema)),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'List grouped sets for a workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await ensureOwnedSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
         reply,
-        400,
-        INVALID_SESSION_EXERCISE_RESPONSE.code,
-        buildInvalidExerciseMessage(invalidExerciseIds),
-      );
-    }
-
-    try {
-      const groupedSets = await batchUpsertSessionSets({
-        sessionId: session.id,
-        input: parsedBody.data,
       });
+      if (!session) {
+        return reply;
+      }
+
+      const groupedSets = await listSessionSetGroups(session.id);
 
       return reply.send({
         data: groupedSets,
       });
-    } catch (error) {
-      if (error instanceof SessionSetNotFoundError) {
+    },
+  );
+
+  typedApp.put(
+    '/:sessionId/sets',
+    {
+      schema: {
+        params: sessionIdParamsSchema,
+        body: batchUpsertSetsSchema,
+        response: {
+          200: apiDataResponseSchema(z.array(sessionSetGroupSchema)),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Batch upsert sets in an active workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await ensureOwnedActiveSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
+        reply,
+      });
+      if (!session) {
+        return reply;
+      }
+
+      const invalidExerciseIds = await findInvalidSessionExerciseIds({
+        userId: request.userId,
+        exerciseIds: request.body.sets.map((set) => set.exerciseId),
+      });
+      if (invalidExerciseIds.length > 0) {
         return sendError(
           reply,
-          404,
-          SESSION_SET_NOT_FOUND_RESPONSE.code,
-          SESSION_SET_NOT_FOUND_RESPONSE.message,
+          400,
+          INVALID_SESSION_EXERCISE_RESPONSE.code,
+          buildInvalidExerciseMessage(invalidExerciseIds),
         );
       }
 
-      throw error;
-    }
-  });
+      try {
+        const groupedSets = await batchUpsertSessionSets({
+          sessionId: session.id,
+          input: request.body,
+        });
 
-  app.post<{ Params: { id: string } }>('/:id/save-as-template', async (request, reply) => {
-    const parsedBody = saveWorkoutSessionAsTemplateInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid save as template payload');
-    }
+        return reply.send({
+          data: groupedSets,
+        });
+      } catch (error) {
+        if (error instanceof SessionSetNotFoundError) {
+          return sendError(
+            reply,
+            404,
+            SESSION_SET_NOT_FOUND_RESPONSE.code,
+            SESSION_SET_NOT_FOUND_RESPONSE.message,
+          );
+        }
 
-    const session = await findWorkoutSessionById(request.params.id, request.userId);
-    if (!session) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
+        throw error;
+      }
+    },
+  );
 
-    if (session.status !== 'completed') {
-      return sendError(
-        reply,
-        409,
-        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.code,
-        WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.message,
-      );
-    }
+  typedApp.post(
+    '/:id/save-as-template',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: saveWorkoutSessionAsTemplateInputSchema,
+        response: {
+          201: apiDataResponseSchema(workoutTemplateSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Save a completed workout session as a template',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!session) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
 
-    const template = await saveCompletedSessionAsTemplate({
-      input: parsedBody.data,
-      session,
-      userId: request.userId,
-    });
+      if (session.status !== 'completed') {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.code,
+          WORKOUT_SESSION_NOT_COMPLETED_RESPONSE.message,
+        );
+      }
 
-    return reply.code(201).send({
-      data: template,
-    });
-  });
+      const template = await saveCompletedSessionAsTemplate({
+        input: request.body,
+        session,
+        userId: request.userId,
+      });
 
-  app.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const session = await findWorkoutSessionById(request.params.id, request.userId);
-    if (!session) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
+      return reply.code(201).send({
+        data: template,
+      });
+    },
+  );
 
-    return reply.send({
-      data: session,
-    });
-  });
+  typedApp.get(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Get a workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!session) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: session,
+      });
+    },
+  );
 
   const resolveSessionTransition = ({
     existingStatus,
@@ -742,12 +936,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   };
 
   const updateSessionById = async (
-    request: FastifyRequest<{ Params: { id: string } }>,
+    request: FastifyRequest<{
+      Body: z.infer<typeof updateWorkoutSessionRequestSchema>;
+      Params: z.infer<typeof idParamsSchema>;
+    }>,
     reply: FastifyReply,
   ) => {
     if (request.authType === 'agent-token') {
-      const parsedBody = agentUpdateWorkoutSessionInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
+      if (request.body.mode !== 'agent') {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
       }
 
@@ -763,7 +959,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       const merged = toCreateWorkoutSessionInput(existingSession);
 
-      if (parsedBody.data.sets) {
+      if (request.body.data.sets) {
         const setMap = new Map(
           merged.sets.map((set) => [`${set.exerciseId}:${set.setNumber}`, { ...set }]),
         );
@@ -774,7 +970,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           }
         }
 
-        for (const set of parsedBody.data.sets) {
+        for (const set of request.body.data.sets) {
           const resolvedExercise = await resolveExerciseIdByName({
             name: set.exerciseName,
             userId: request.userId,
@@ -822,7 +1018,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      if (parsedBody.data.addExercises) {
+      if (request.body.data.addExercises) {
         const exerciseSectionOrder = buildExerciseSectionOrder(merged.sets);
         const nextOrderIndexBySection = new Map<SessionSetInput['section'], number>();
 
@@ -831,7 +1027,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           nextOrderIndexBySection.set(metadata.section, Math.max(current, metadata.orderIndex + 1));
         }
 
-        for (const exercise of parsedBody.data.addExercises) {
+        for (const exercise of request.body.data.addExercises) {
           const resolvedExercise = await resolveExerciseIdByName({
             name: exercise.name,
             userId: request.userId,
@@ -868,8 +1064,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      if (parsedBody.data.removeExercises) {
-        const removeExerciseIds = new Set(parsedBody.data.removeExercises);
+      if (request.body.data.removeExercises) {
+        const removeExerciseIds = new Set(request.body.data.removeExercises);
         const hasLoggedSets = merged.sets.some(
           (set) => removeExerciseIds.has(set.exerciseId) && set.completed,
         );
@@ -885,9 +1081,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         merged.sets = merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId));
       }
 
-      if (parsedBody.data.reorderExercises) {
+      if (request.body.data.reorderExercises) {
         const currentExerciseIds = new Set(merged.sets.map((set) => set.exerciseId));
-        const hasUnknownExercise = parsedBody.data.reorderExercises.some(
+        const hasUnknownExercise = request.body.data.reorderExercises.some(
           (exerciseId) => !currentExerciseIds.has(exerciseId),
         );
         if (hasUnknownExercise) {
@@ -899,12 +1095,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           );
         }
 
-        merged.sets = reorderSessionSetsByExercise(merged.sets, parsedBody.data.reorderExercises);
+        merged.sets = reorderSessionSetsByExercise(merged.sets, request.body.data.reorderExercises);
       }
 
-      if (parsedBody.data.status !== undefined) {
-        merged.status = parsedBody.data.status;
-        if (parsedBody.data.status === 'completed') {
+      if (request.body.data.status !== undefined) {
+        merged.status = request.body.data.status;
+        if (request.body.data.status === 'completed') {
           const completedAt = Date.now();
           merged.completedAt = completedAt;
           merged.duration = Math.max(0, completedAt - merged.startedAt);
@@ -914,8 +1110,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      if (parsedBody.data.notes !== undefined) {
-        merged.notes = parsedBody.data.notes;
+      if (request.body.data.notes !== undefined) {
+        merged.notes = request.body.data.notes;
       }
 
       const payload = createWorkoutSessionInputSchema.safeParse(merged);
@@ -946,17 +1142,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const parsedBody = updateWorkoutSessionInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
+    if (request.body.mode !== 'standard') {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
     }
 
-    if (parsedBody.data.startedAt !== undefined) {
-      if (!isValidTimestamp(parsedBody.data.startedAt)) {
+    if (request.body.data.startedAt !== undefined) {
+      if (!isValidTimestamp(request.body.data.startedAt)) {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid startedAt timestamp');
       }
 
-      if (parsedBody.data.startedAt > Date.now()) {
+      if (request.body.data.startedAt > Date.now()) {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'startedAt cannot be in the future');
       }
     }
@@ -973,22 +1168,21 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
     const basePayload = {
       ...toCreateWorkoutSessionInput(existingSession),
-      ...parsedBody.data,
+      ...request.body.data,
     };
 
-    // When startedAt changes, update the first time segment's start to match
     if (
-      parsedBody.data.startedAt !== undefined &&
+      request.body.data.startedAt !== undefined &&
       basePayload.timeSegments.length > 0 &&
-      basePayload.timeSegments[0].start !== toIsoString(parsedBody.data.startedAt)
+      basePayload.timeSegments[0].start !== toIsoString(request.body.data.startedAt)
     ) {
       basePayload.timeSegments = [
-        { ...basePayload.timeSegments[0], start: toIsoString(parsedBody.data.startedAt) },
+        { ...basePayload.timeSegments[0], start: toIsoString(request.body.data.startedAt) },
         ...basePayload.timeSegments.slice(1),
       ];
     }
 
-    const transitionStatus = parsedBody.data.status ?? existingSession.status;
+    const transitionStatus = request.body.data.status ?? existingSession.status;
     const transitionResult = resolveSessionTransition({
       existingStatus: existingSession.status,
       requestedStatus: transitionStatus,
@@ -1017,12 +1211,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const input =
-      parsedBody.data.exerciseNotes && Object.keys(parsedBody.data.exerciseNotes).length > 0
+      request.body.data.exerciseNotes && Object.keys(request.body.data.exerciseNotes).length > 0
         ? {
             ...mergedPayload.data,
             sets: applyExerciseNotesToSets({
               sets: mergedPayload.data.sets,
-              exerciseNotes: parsedBody.data.exerciseNotes,
+              exerciseNotes: request.body.data.exerciseNotes,
             }),
           }
         : mergedPayload.data;
@@ -1039,7 +1233,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    if (parsedBody.data.sets !== undefined) {
+    if (request.body.data.sets !== undefined) {
       const invalidExerciseIds = await findInvalidSessionExerciseIds({
         userId: request.userId,
         exerciseIds: getReferencedExerciseIds(input.sets),
@@ -1077,133 +1271,171 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     );
   };
 
-  app.patch<{ Params: { id: string } }>('/:id/time-segments', async (request, reply) => {
-    const parsedBody = updateWorkoutSessionTimeSegmentsInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-    }
-
-    const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
-    if (!existingSession) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    const payload = createWorkoutSessionInputSchema.safeParse({
-      ...toCreateWorkoutSessionInput(existingSession),
-      duration: calculateActiveDuration(parsedBody.data.timeSegments),
-      timeSegments: parsedBody.data.timeSegments,
-    });
-    if (!payload.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-    }
-
-    const updated = await updateWorkoutSession({
-      id: request.params.id,
-      userId: request.userId,
-      input: payload.data,
-    });
-    if (!updated) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send(
-      buildDataResponse(request, updated, {
-        endpoint: 'workout-session.mutation',
-        action: 'time-segments',
-        session: updated,
-      }),
-    );
-  });
-
-  app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
-    const parsedBody = reorderWorkoutSessionExercisesInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-    }
-
-    const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
-    if (!existingSession) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    if (existingSession.status !== 'in-progress' && existingSession.status !== 'paused') {
-      return sendError(
-        reply,
-        409,
-        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
-        WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.message,
-      );
-    }
-
-    const currentExerciseIds = Array.from(
-      new Set(
-        existingSession.sets
-          .filter((set) => set.section === parsedBody.data.section)
-          .sort((left, right) => {
-            if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
-              return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
-            }
-
-            return left.exerciseId.localeCompare(right.exerciseId);
-          })
-          .map((set) => set.exerciseId),
-      ),
-    );
-    const requestedIds = parsedBody.data.exerciseIds;
-    const hasSameMembership =
-      currentExerciseIds.length === requestedIds.length &&
-      currentExerciseIds.every((exerciseId) => requestedIds.includes(exerciseId));
-    if (!hasSameMembership) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-    }
-
-    const reordered = await reorderWorkoutSessionExercises({
-      sessionId: request.params.id,
-      userId: request.userId,
-      section: parsedBody.data.section,
-      exerciseIds: requestedIds,
-    });
-    if (!reordered) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send(
-      buildDataResponse(request, reordered, {
-        endpoint: 'workout-session.mutation',
-        action: 'reorder',
-        session: reordered,
-      }),
-    );
-  });
-
-  app.patch<{ Params: { id: string; exerciseId: string } }>(
-    '/:id/exercises/:exerciseId/swap',
+  typedApp.patch(
+    '/:id/time-segments',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateWorkoutSessionTimeSegmentsInputSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Replace workout session time segments',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      const parsedBody = swapWorkoutSessionExerciseInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const payload = createWorkoutSessionInputSchema.safeParse({
+        ...toCreateWorkoutSessionInput(existingSession),
+        duration: calculateActiveDuration(request.body.timeSegments),
+        timeSegments: request.body.timeSegments,
+      });
+      if (!payload.success) {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
       }
 
+      const updated = await updateWorkoutSession({
+        id: request.params.id,
+        userId: request.userId,
+        input: payload.data,
+      });
+      if (!updated) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, updated, {
+          endpoint: 'workout-session.mutation',
+          action: 'time-segments',
+          session: updated,
+        }),
+      );
+    },
+  );
+
+  typedApp.patch(
+    '/:id/reorder',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: reorderWorkoutSessionExercisesInputSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Reorder exercises in a workout session section',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (existingSession.status !== 'in-progress' && existingSession.status !== 'paused') {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+          WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.message,
+        );
+      }
+
+      const currentExerciseIds = Array.from(
+        new Set(
+          existingSession.sets
+            .filter((set) => set.section === request.body.section)
+            .sort((left, right) => {
+              if ((left.orderIndex ?? 0) !== (right.orderIndex ?? 0)) {
+                return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
+              }
+
+              return left.exerciseId.localeCompare(right.exerciseId);
+            })
+            .map((set) => set.exerciseId),
+        ),
+      );
+      const requestedIds = request.body.exerciseIds;
+      const hasSameMembership =
+        currentExerciseIds.length === requestedIds.length &&
+        currentExerciseIds.every((exerciseId) => requestedIds.includes(exerciseId));
+      if (!hasSameMembership) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const reordered = await reorderWorkoutSessionExercises({
+        sessionId: request.params.id,
+        userId: request.userId,
+        section: request.body.section,
+        exerciseIds: requestedIds,
+      });
+      if (!reordered) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, reordered, {
+          endpoint: 'workout-session.mutation',
+          action: 'reorder',
+          session: reordered,
+        }),
+      );
+    },
+  );
+
+  typedApp.patch(
+    '/:id/exercises/:exerciseId/swap',
+    {
+      schema: {
+        params: sessionExerciseParamsSchema,
+        body: swapWorkoutSessionExerciseInputSchema,
+        response: {
+          200: swapWorkoutSessionResponseSchema,
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Swap an exercise in a workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
       const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
       if (!existingSession) {
         return sendError(
@@ -1242,8 +1474,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (
-        request.params.exerciseId !== parsedBody.data.newExerciseId &&
-        sessionExercises.some((exercise) => exercise.exerciseId === parsedBody.data.newExerciseId)
+        request.params.exerciseId !== request.body.newExerciseId &&
+        sessionExercises.some((exercise) => exercise.exerciseId === request.body.newExerciseId)
       ) {
         return sendError(
           reply,
@@ -1255,7 +1487,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       const hasValidSwapTarget = await allRelatedExercisesOwned({
         userId: request.userId,
-        exerciseIds: [parsedBody.data.newExerciseId],
+        exerciseIds: [request.body.newExerciseId],
       });
       if (!hasValidSwapTarget) {
         return sendError(
@@ -1270,7 +1502,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         sessionId: request.params.id,
         userId: request.userId,
         exerciseId: request.params.exerciseId,
-        newExerciseId: parsedBody.data.newExerciseId,
+        newExerciseId: request.body.newExerciseId,
       });
       if (!swapped) {
         return sendError(
@@ -1283,7 +1515,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       const swappedExercises = swapped.exercises ?? [];
       const swappedExercise = swappedExercises.find(
-        (exercise) => exercise.exerciseId === parsedBody.data.newExerciseId,
+        (exercise) => exercise.exerciseId === request.body.newExerciseId,
       );
       const hasTrackingTypeWarning =
         swappedExercise?.trackingType !== undefined &&
@@ -1307,25 +1539,80 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.put<{ Params: { id: string } }>('/:id', updateSessionById);
-  app.patch<{ Params: { id: string } }>('/:id', updateSessionById);
-
-  app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const deleted = await deleteWorkoutSession(request.params.id, request.userId);
-    if (!deleted) {
-      // Return the same 404 for missing and non-owned sessions to avoid leaking ownership.
-      return sendError(
-        reply,
-        404,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
-        WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({
-      data: {
-        success: true,
+  typedApp.put(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateWorkoutSessionRequestSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Replace a workout session',
+        security: authSecurity,
       },
-    });
-  });
+    },
+    updateSessionById,
+  );
+
+  typedApp.patch(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateWorkoutSessionRequestSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Update a workout session',
+        security: authSecurity,
+      },
+    },
+    updateSessionById,
+  );
+
+  typedApp.delete(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Delete a workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const deleted = await deleteWorkoutSession(request.params.id, request.userId);
+      if (!deleted) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: {
+          success: true,
+        },
+      });
+    },
+  );
 };

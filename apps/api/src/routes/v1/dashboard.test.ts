@@ -26,6 +26,23 @@ const createAuthorizationHeader = (token: string) => ({
 });
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('dashboard routes', () => {
   beforeEach(() => {
     vi.mocked(getDashboardConfig).mockReset();
@@ -229,12 +246,7 @@ describe('dashboard routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard config payload',
-        },
-      });
+      expectRequestValidationError(response, 'PUT', '/api/v1/dashboard/config');
       expect(vi.mocked(upsertDashboardConfig)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -292,12 +304,7 @@ describe('dashboard routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard config payload',
-        },
-      });
+      expectRequestValidationError(response, 'PUT', '/api/v1/dashboard/config');
       expect(vi.mocked(upsertDashboardConfig)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -470,20 +477,18 @@ describe('dashboard routes', () => {
       ]);
 
       expect(invalidShapeResponse.statusCode).toBe(400);
-      expect(invalidShapeResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard snapshot query',
-        },
-      });
+      expectRequestValidationError(
+        invalidShapeResponse,
+        'GET',
+        '/api/v1/dashboard/snapshot?date=03-09-2026',
+      );
 
       expect(invalidDateResponse.statusCode).toBe(400);
-      expect(invalidDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard snapshot query',
-        },
-      });
+      expectRequestValidationError(
+        invalidDateResponse,
+        'GET',
+        '/api/v1/dashboard/snapshot?date=2026-02-30',
+      );
       expect(vi.mocked(getDashboardSnapshot)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -513,31 +518,28 @@ describe('dashboard routes', () => {
             url: '/api/v1/dashboard/trends/consistency?from=2025-01-01&to=2026-03-09',
             headers: createAuthorizationHeader(authToken),
           }),
-        ]);
+      ]);
 
       expect(invalidShapeResponse.statusCode).toBe(400);
-      expect(invalidShapeResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard trend query',
-        },
-      });
+      expectRequestValidationError(
+        invalidShapeResponse,
+        'GET',
+        '/api/v1/dashboard/trends/weight?from=03-09-2026',
+      );
 
       expect(invalidCalendarDateResponse.statusCode).toBe(400);
-      expect(invalidCalendarDateResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard trend query',
-        },
-      });
+      expectRequestValidationError(
+        invalidCalendarDateResponse,
+        'GET',
+        '/api/v1/dashboard/trends/macros?from=2026-02-30&to=2026-03-01',
+      );
 
       expect(oversizedRangeResponse.statusCode).toBe(400);
-      expect(oversizedRangeResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard trend query',
-        },
-      });
+      expectRequestValidationError(
+        oversizedRangeResponse,
+        'GET',
+        '/api/v1/dashboard/trends/consistency?from=2025-01-01&to=2026-03-09',
+      );
 
       expect(vi.mocked(getDashboardWeightTrend)).not.toHaveBeenCalled();
       expect(vi.mocked(getDashboardMacrosTrend)).not.toHaveBeenCalled();

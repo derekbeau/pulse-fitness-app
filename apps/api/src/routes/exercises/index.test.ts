@@ -38,6 +38,32 @@ const createAgentTokenHeader = (token: string) => ({
   authorization: `AgentToken ${token}`,
 });
 
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    method: 'GET' | 'POST';
+    url: string;
+    instancePath: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: expectation.method,
+        url: expectation.url,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
+
 const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
   context.db
     .insert(agentTokens)
@@ -336,7 +362,10 @@ describe('exercise routes', () => {
       reps: 20,
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const response = await context.app.inject({
       method: 'GET',
@@ -431,7 +460,10 @@ describe('exercise routes', () => {
       reps: 4,
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const response = await context.app.inject({
       method: 'GET',
@@ -518,7 +550,10 @@ describe('exercise routes', () => {
       reps: 6,
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const response = await context.app.inject({
       method: 'GET',
@@ -592,7 +627,10 @@ describe('exercise routes', () => {
       .where(eq(exercises.id, 'incline-bench'))
       .run();
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/v1/exercises/flat-bench/last-performance?includeRelated=true',
@@ -609,7 +647,10 @@ describe('exercise routes', () => {
   });
 
   it('creates a user-specific exercise for the authenticated user', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const response = await context.app.inject({
       method: 'POST',
@@ -682,7 +723,10 @@ describe('exercise routes', () => {
   });
 
   it('defaults tags and formCues to empty arrays when omitted', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const response = await context.app.inject({
       method: 'POST',
@@ -726,7 +770,10 @@ describe('exercise routes', () => {
       category: 'compound',
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const validResponse = await context.app.inject({
       method: 'POST',
@@ -805,7 +852,10 @@ describe('exercise routes', () => {
       category: 'compound',
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const [searchResponse, filterResponse, filtersResponse, pagedResponse] = await Promise.all([
       context.app.inject({
@@ -944,7 +994,10 @@ describe('exercise routes', () => {
       reps: 10,
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/v1/exercises?page=1&limit=20',
@@ -1056,7 +1109,10 @@ describe('exercise routes', () => {
       .where(eq(workoutTemplates.id, 'deleted-template'))
       .run();
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/v1/exercises?page=1&limit=20',
@@ -1106,7 +1162,10 @@ describe('exercise routes', () => {
       category: 'cardio',
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const updateResponse = await context.app.inject({
       method: 'PATCH',
@@ -1189,7 +1248,10 @@ describe('exercise routes', () => {
       category: 'compound',
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const updateResponse = await context.app.inject({
       method: 'PATCH',
@@ -1246,7 +1308,10 @@ describe('exercise routes', () => {
       category: 'mobility',
     });
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const deleteResponse = await context.app.inject({
       method: 'DELETE',
@@ -1287,7 +1352,10 @@ describe('exercise routes', () => {
   });
 
   it('returns validation errors for invalid create payloads and query params', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const [createResponse, queryResponse] = await Promise.all([
       context.app.inject({
@@ -1309,19 +1377,61 @@ describe('exercise routes', () => {
     ]);
 
     expect(createResponse.statusCode).toBe(400);
-    expect(createResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid exercise payload',
-      },
+    expectValidationError(createResponse.json(), {
+      method: 'POST',
+      url: '/api/v1/exercises',
+      instancePath: '/',
     });
 
     expect(queryResponse.statusCode).toBe(400);
-    expect(queryResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid exercise query',
+    expectValidationError(queryResponse.json(), {
+      method: 'GET',
+      url: '/api/v1/exercises?page=0&limit=200',
+      instancePath: '/page',
+    });
+  });
+
+  it('defaults tags and formCues when a standard create payload omits them', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Romanian Deadlift',
+        muscleGroups: ['hamstrings', 'glutes'],
+        equipment: 'barbell',
+        category: 'compound',
       },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Romanian Deadlift',
+        tags: [],
+        formCues: [],
+      }),
+    });
+
+    const created = context.db
+      .select({
+        name: exercises.name,
+        tags: exercises.tags,
+        formCues: exercises.formCues,
+      })
+      .from(exercises)
+      .where(eq(exercises.name, 'Romanian Deadlift'))
+      .get();
+
+    expect(created).toEqual({
+      name: 'Romanian Deadlift',
+      tags: [],
+      formCues: [],
     });
   });
 

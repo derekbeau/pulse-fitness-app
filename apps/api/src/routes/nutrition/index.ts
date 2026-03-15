@@ -1,13 +1,33 @@
 import {
+  apiDataResponseSchema,
   createMealInputSchema,
+  dailyNutritionMealSchema,
+  dailyNutritionSchema,
+  deleteMealResultSchema,
+  nutritionMealItemSchema,
+  nutritionMealSchema,
+  nutritionSummarySchema,
+  nutritionWeekSummarySchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import { trackFoodUsage } from '../foods/store.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  dateParamsSchema,
+  isoDateTimeQuerySchema,
+  mealItemParamsSchema,
+  mealParamsSchema,
+} from '../../openapi.js';
 
 import {
   createMealForDate,
@@ -21,125 +41,181 @@ import {
   patchMealItemById,
 } from './store.js';
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const isNonEmptyString = (value: string | null): value is string =>
+  typeof value === 'string' && value.length > 0;
 
-const isValidDateParam = (date: string) => {
-  if (!DATE_PATTERN.test(date)) {
-    return false;
-  }
-
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
-};
-const isValidMealIdParam = (mealId: string) => mealId.trim().length > 0;
-const isValidItemIdParam = (itemId: string) => itemId.trim().length > 0;
-const parseIsoDate = (value: unknown): Date | null => {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed;
-};
+const nutritionSummaryWithMealsSchema = z.object({
+  summary: nutritionSummarySchema,
+  meals: z.array(dailyNutritionMealSchema),
+});
 
 export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  app.get<{ Querystring: { date?: string } }>('/week-summary', async (request, reply) => {
-    const parsedDate = parseIsoDate(request.query.date);
-    if (!parsedDate) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition week date');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const summary = await getNutritionWeekSummaryForDate(request.userId, parsedDate);
-
-    return reply.send({
-      data: summary,
-    });
-  });
-
-  app.post<{ Params: { date: string } }>('/:date/meals', async (request, reply) => {
-    if (!isValidDateParam(request.params.date)) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition date');
-    }
-
-    const parsedBody = createMealInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
-    }
-
-    const created = await createMealForDate(request.userId, request.params.date, parsedBody.data);
-
-    const mealMacros = created.items.reduce(
-      (totals, item) => ({
-        calories: totals.calories + item.calories,
-        protein: totals.protein + item.protein,
-        carbs: totals.carbs + item.carbs,
-        fat: totals.fat + item.fat,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    );
-
-    return reply.code(201).send(
-      buildDataResponse(request, created, {
-        endpoint: 'meal.create',
-        mealDate: request.params.date,
-        mealName: created.meal.name,
-        itemCount: created.items.length,
-        mealMacros,
-      }),
-    );
-  });
-
-  app.get<{ Params: { date: string } }>('/:date', async (request, reply) => {
-    if (!isValidDateParam(request.params.date)) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition date');
-    }
-
-    const nutrition = await getDailyNutritionForDate(request.userId, request.params.date);
-
-    return reply.send({
-      data: nutrition,
-    });
-  });
-
-  app.get<{ Params: { date: string } }>('/:date/summary', async (request, reply) => {
-    if (!isValidDateParam(request.params.date)) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid nutrition date');
-    }
-
-    if (isAgentRequest(request)) {
-      const [summary, dailyNutrition] = await Promise.all([
-        getDailyNutritionSummaryForDate(request.userId, request.params.date),
-        getDailyNutritionForDate(request.userId, request.params.date),
-      ]);
+  typedApp.get(
+    '/week-summary',
+    {
+      schema: {
+        querystring: isoDateTimeQuerySchema,
+        response: {
+          200: apiDataResponseSchema(nutritionWeekSummarySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get a weekly nutrition summary',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const summary = await getNutritionWeekSummaryForDate(request.userId, request.query.date);
 
       return reply.send({
-        data: {
-          summary,
-          meals: dailyNutrition?.meals ?? [],
-        },
+        data: summary,
       });
-    }
+    },
+  );
 
-    const summary = await getDailyNutritionSummaryForDate(request.userId, request.params.date);
-
-    return reply.send({
-      data: summary,
-    });
-  });
-
-  app.delete<{ Params: { date: string; mealId: string } }>(
-    '/:date/meals/:mealId',
+  typedApp.post(
+    '/:date/meals',
+    {
+      schema: {
+        params: dateParamsSchema,
+        body: createMealInputSchema,
+        response: {
+          201: apiDataResponseSchema(dailyNutritionMealSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Create a meal for a specific date',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      if (!isValidDateParam(request.params.date) || !isValidMealIdParam(request.params.mealId)) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal parameters');
+      const created = await createMealForDate(request.userId, request.params.date, request.body);
+
+      const foodIds = [
+        ...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString)),
+      ];
+      const usageTrackingResults = await Promise.allSettled(
+        foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
+      );
+      usageTrackingResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          request.log.warn(
+            { err: result.reason, foodId: foodIds[index], userId: request.userId },
+            'Failed to track food usage after meal creation',
+          );
+        }
+      });
+
+      const mealMacros = created.items.reduce(
+        (totals, item) => ({
+          calories: totals.calories + item.calories,
+          protein: totals.protein + item.protein,
+          carbs: totals.carbs + item.carbs,
+          fat: totals.fat + item.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+
+      return reply.code(201).send(
+        buildDataResponse(request, created, {
+          endpoint: 'meal.create',
+          mealDate: request.params.date,
+          mealName: created.meal.name,
+          itemCount: created.items.length,
+          mealMacros,
+        }),
+      );
+    },
+  );
+
+  typedApp.get(
+    '/:date',
+    {
+      schema: {
+        params: dateParamsSchema,
+        response: {
+          200: apiDataResponseSchema(dailyNutritionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get daily nutrition details',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const nutrition = await getDailyNutritionForDate(request.userId, request.params.date);
+
+      return reply.send({
+        data: nutrition,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/:date/summary',
+    {
+      schema: {
+        params: dateParamsSchema,
+        response: {
+          200: z.union([
+            apiDataResponseSchema(nutritionSummarySchema),
+            apiDataResponseSchema(nutritionSummaryWithMealsSchema),
+          ]),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get daily nutrition summary',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (isAgentRequest(request)) {
+        const [summary, dailyNutrition] = await Promise.all([
+          getDailyNutritionSummaryForDate(request.userId, request.params.date),
+          getDailyNutritionForDate(request.userId, request.params.date),
+        ]);
+
+        return reply.send({
+          data: {
+            summary,
+            meals: dailyNutrition?.meals ?? [],
+          },
+        });
       }
 
+      const summary = await getDailyNutritionSummaryForDate(request.userId, request.params.date);
+
+      return reply.send({
+        data: summary,
+      });
+    },
+  );
+
+  typedApp.delete(
+    '/:date/meals/:mealId',
+    {
+      schema: {
+        params: mealParamsSchema,
+        response: {
+          200: apiDataResponseSchema(deleteMealResultSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Delete a meal for a specific date',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
       const deleted = await deleteMealForDate(
         request.userId,
         request.params.date,
@@ -158,18 +234,24 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.patch<{ Params: { date: string; mealId: string } }>(
+  typedApp.patch(
     '/:date/meals/:mealId',
+    {
+      schema: {
+        params: mealParamsSchema,
+        body: patchMealInputSchema,
+        response: {
+          200: apiDataResponseSchema(nutritionMealSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Update a meal for a specific date',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      if (!isValidDateParam(request.params.date) || !isValidMealIdParam(request.params.mealId)) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal parameters');
-      }
-
-      const parsedBody = patchMealInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
-      }
-
       const existingMeal = await findMealForDate(
         request.userId,
         request.params.date,
@@ -179,11 +261,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      const updatedMeal = await patchMealById(
-        request.userId,
-        request.params.mealId,
-        parsedBody.data,
-      );
+      const updatedMeal = await patchMealById(request.userId, request.params.mealId, request.body);
       if (!updatedMeal) {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
@@ -198,22 +276,24 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.patch<{ Params: { date: string; mealId: string; itemId: string } }>(
+  typedApp.patch(
     '/:date/meals/:mealId/items/:itemId',
+    {
+      schema: {
+        params: mealItemParamsSchema,
+        body: patchMealItemInputSchema,
+        response: {
+          200: apiDataResponseSchema(nutritionMealItemSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Update a meal item for a specific date',
+        security: authSecurity,
+      },
+    },
     async (request, reply) => {
-      if (
-        !isValidDateParam(request.params.date) ||
-        !isValidMealIdParam(request.params.mealId) ||
-        !isValidItemIdParam(request.params.itemId)
-      ) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item parameters');
-      }
-
-      const parsedBody = patchMealItemInputSchema.safeParse(request.body);
-      if (!parsedBody.success) {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item payload');
-      }
-
       const existingMealItem = await findMealItemForDate(
         request.userId,
         request.params.date,
@@ -228,7 +308,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         request.userId,
         request.params.mealId,
         request.params.itemId,
-        parsedBody.data,
+        request.body,
       );
       if (!updatedMealItem) {
         return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');

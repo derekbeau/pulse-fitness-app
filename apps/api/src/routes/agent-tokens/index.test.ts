@@ -23,6 +23,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('agent token routes', () => {
   beforeEach(() => {
     vi.mocked(createAgentToken).mockReset();
@@ -101,12 +118,7 @@ describe('agent token routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid agent token payload',
-        },
-      });
+      expectRequestValidationError(response, 'POST', '/api/v1/agent-tokens');
       expect(vi.mocked(createAgentToken)).not.toHaveBeenCalled();
     } finally {
       await app.close();

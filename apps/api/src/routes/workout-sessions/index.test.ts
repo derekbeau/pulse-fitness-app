@@ -41,6 +41,23 @@ const createAgentTokenHeader = (token: string) => ({
   authorization: `AgentToken ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
   context.db
     .insert(agentTokens)
@@ -1184,12 +1201,11 @@ describe('workout session routes', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid save as template payload',
-      },
-    });
+    expectRequestValidationError(
+      response,
+      'POST',
+      '/api/v1/workout-sessions/session-1/save-as-template',
+    );
   });
 
   it('creates, updates, lists, and batch-upserts sets for an active owned session', async () => {
@@ -1428,12 +1444,11 @@ describe('workout session routes', () => {
     });
 
     expect(invalidPatchBodyResponse.statusCode).toBe(400);
-    expect(invalidPatchBodyResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid session set payload',
-      },
-    });
+    expectRequestValidationError(
+      invalidPatchBodyResponse,
+      'PATCH',
+      '/api/v1/workout-sessions/session-active/sets/set-missing',
+    );
 
     const inaccessibleExerciseResponse = await context.app.inject({
       method: 'POST',
@@ -1860,12 +1875,11 @@ describe('workout session routes', () => {
     });
 
     expect(emptyCorrectionsResponse.statusCode).toBe(400);
-    expect(emptyCorrectionsResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(
+      emptyCorrectionsResponse,
+      'PATCH',
+      '/api/v1/workout-sessions/session-completed/corrections',
+    );
 
     expect(unsupportedCorrectionResponse.statusCode).toBe(400);
     expect(unsupportedCorrectionResponse.json()).toEqual({
@@ -2594,12 +2608,11 @@ describe('workout session routes', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(
+      response,
+      'PATCH',
+      '/api/v1/workout-sessions/session-time-edit/time-segments',
+    );
   });
 
   it('validates out-of-order time segments when editing', async () => {
@@ -2643,12 +2656,11 @@ describe('workout session routes', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(
+      response,
+      'PATCH',
+      '/api/v1/workout-sessions/session-time-out-of-order/time-segments',
+    );
   });
 
   it('supports directly editing a segment end timestamp', async () => {
@@ -3468,26 +3480,23 @@ describe('workout session routes', () => {
       ]);
 
     expect(invalidRangeQueryResponse.statusCode).toBe(400);
-    expect(invalidRangeQueryResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session query',
-      },
-    });
+    expectRequestValidationError(
+      invalidRangeQueryResponse,
+      'GET',
+      '/api/v1/workout-sessions?from=2026-03-12&to=2026-03-10',
+    );
     expect(invalidStatusQueryResponse.statusCode).toBe(400);
-    expect(invalidStatusQueryResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session query',
-      },
-    });
+    expectRequestValidationError(
+      invalidStatusQueryResponse,
+      'GET',
+      '/api/v1/workout-sessions?status=finished',
+    );
     expect(invalidLimitQueryResponse.statusCode).toBe(400);
-    expect(invalidLimitQueryResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session query',
-      },
-    });
+    expectRequestValidationError(
+      invalidLimitQueryResponse,
+      'GET',
+      '/api/v1/workout-sessions?limit=0',
+    );
 
     const invalidCreateResponse = await context.app.inject({
       method: 'POST',
@@ -3501,12 +3510,7 @@ describe('workout session routes', () => {
     });
 
     expect(invalidCreateResponse.statusCode).toBe(400);
-    expect(invalidCreateResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(invalidCreateResponse, 'POST', '/api/v1/workout-sessions');
 
     const invalidUpdateResponse = await context.app.inject({
       method: 'PUT',
@@ -3516,12 +3520,7 @@ describe('workout session routes', () => {
     });
 
     expect(invalidUpdateResponse.statusCode).toBe(400);
-    expect(invalidUpdateResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(invalidUpdateResponse, 'PUT', '/api/v1/workout-sessions/session-1');
   });
 
   it('creates agent-style sessions at /api/v1/workout-sessions with AgentToken auth', async () => {

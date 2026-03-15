@@ -15,6 +15,31 @@ vi.mock('./store.js', () => ({
   findUserByUsername: vi.fn(),
 }));
 
+const expectValidationError = (
+  body: unknown,
+  expectation: {
+    instancePath: string;
+    url: string;
+  },
+) => {
+  expect(body).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method: 'POST',
+        url: expectation.url,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            instancePath: expectation.instancePath,
+            message: expect.any(String),
+          }),
+        ]),
+      },
+    },
+  });
+};
+
 describe('auth routes', () => {
   beforeEach(() => {
     vi.mocked(createUser).mockReset();
@@ -110,6 +135,29 @@ describe('auth routes', () => {
         },
       });
       expect(vi.mocked(createUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns Zod validation details for invalid registration payloads', async () => {
+    const app = buildServer();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: {
+          username: 'ab',
+          password: 'short',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expectValidationError(response.json(), {
+        instancePath: '/username',
+        url: '/api/v1/auth/register',
+      });
     } finally {
       await app.close();
     }
