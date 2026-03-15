@@ -1,11 +1,13 @@
 # API Conventions
 
-Pulse uses Fastify plugins plus shared Zod schemas. This document defines the route layout, request validation rules, auth middleware contracts, and the response envelope every API surface should follow.
+Pulse uses Fastify plugins plus shared Zod schemas. This document defines the unified `/api/v1/*` route layout, request validation rules, auth middleware contracts, and the response envelope every API route should follow.
 
 ## Route Structure
 
 - App routes live under `/api/v1/`.
-- Agent-specific routes live under `/api/agent/`.
+- Single API surface with auth-aware behavior replaces separate user and agent route trees.
+- Most routes accept either JWT or AgentToken auth on the same endpoint.
+- Agent-only capabilities stay on the same `/api/v1/*` surface and may layer `requireAgentOnly` after `requireAuth`, for example `/api/v1/context`.
 - Health and infrastructure checks may live outside the versioned prefix, for example `/health`.
 - Group routes by domain plugin, then register each plugin with a prefix in `apps/api/src/index.ts`.
 
@@ -14,6 +16,7 @@ Current examples:
 - `/api/v1/auth/register`
 - `/api/v1/auth/login`
 - `/api/v1/agent-tokens`
+- `/api/v1/context`
 
 ## Request Validation
 
@@ -40,22 +43,29 @@ Common validation rules:
 
 ## Authentication
 
-Two auth hooks are available:
+Three auth hooks are available:
 
 - `requireAuth`: accepts either `Authorization: Bearer <jwt>` or `Authorization: AgentToken <token>`.
 - `requireUserAuth`: accepts only `Authorization: Bearer <jwt>`.
+- `requireAgentOnly`: accepts only `Authorization: AgentToken <token>` after `requireAuth` has populated auth context.
 
 Rules:
 
 - Most application data routes should use `requireAuth`.
 - User-account and credential-management routes should use `requireUserAuth`.
 - Agent token CRUD is JWT-only, so `/api/v1/agent-tokens` uses `requireUserAuth`.
-- After either hook succeeds, handlers may rely on `request.userId`.
+- Agent-only planning routes such as `/api/v1/context` should use `requireAuth` plus `requireAgentOnly`.
+- JWTs issued by Pulse must include `type: "session"` and `iss: "pulse-api"` claims; hand-crafted JWTs without those claims are rejected.
+- Agent tokens are bearer secrets stored only as hashes and validated on every request.
+- After a successful auth hook, handlers may rely on `request.userId`.
+- Agent-token requests may also rely on `request.agentTokenId`.
 - Agent-token `lastUsedAt` updates are best-effort and must not fail an otherwise valid request.
 
 ## Response Envelope
 
-Success responses return `{ data: T }`.
+Base success responses return `{ data: T }`.
+
+Unified routes that add agent guidance may return `{ data: T, agent?: AgentEnrichment }`.
 
 ```json
 {
@@ -66,7 +76,24 @@ Success responses return `{ data: T }`.
 }
 ```
 
-List responses return `{ data: T[], meta: { page, limit, total } }`.
+Agent-aware responses may include hints, `"suggestedActions"`, and `relatedState`:
+
+```json
+{
+  "data": {
+    "id": "meal-1"
+  },
+  "agent": {
+    "hints": ["Lunch adds 536 kcal and 66.3g protein."],
+    "suggestedActions": ["Review today's nutrition summary next."],
+    "relatedState": {
+      "date": "2026-03-09"
+    }
+  }
+}
+```
+
+List responses return `{ data: T[], meta: { page, limit, total } }`. Routes may also add optional agent enrichment when the shared schema supports it: `{ data: T[], meta: { page, limit, total }, agent?: AgentEnrichment }`.
 
 ```json
 {
@@ -159,3 +186,4 @@ Guidelines:
 - Return `404` instead of leaking whether a resource belongs to another user.
 - Keep route plugins thin: validation, auth, and envelope formatting in the route; query details in a store or service module.
 - Use shared schemas from `@pulse/shared` as the single source of truth for API contracts.
+- Do not introduce new legacy agent-only routes. Agent-specific behavior belongs on the unified `/api/v1/*` surface.

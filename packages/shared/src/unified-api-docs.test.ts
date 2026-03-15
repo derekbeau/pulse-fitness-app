@@ -8,6 +8,7 @@ describe('unified API documentation', () => {
   const monorepoRoot = resolve(currentFileDir, '..', '..', '..');
   const agentsPath = resolve(monorepoRoot, 'AGENTS.md');
   const readmePath = resolve(monorepoRoot, 'README.md');
+  const agentConventionPath = resolve(monorepoRoot, 'docs', 'conventions', 'agent-integration.md');
   const skillPath = resolve(monorepoRoot, '.agents', 'skills', 'pulse-app-usage', 'SKILL.md');
 
   it('documents the unified auth-aware /api/v1 surface in AGENTS.md', async () => {
@@ -29,7 +30,19 @@ describe('unified API documentation', () => {
     expect(readmeDoc).toContain('Single API surface with auth-aware behavior');
     expect(readmeDoc).toContain('Bearer <jwt>');
     expect(readmeDoc).toContain('AgentToken <token>');
-    expect(readmeDoc).toContain('agent');
+    expect(readmeDoc).toContain('"suggestedActions"');
+  });
+
+  it('documents agent workflows on unified /api/v1 endpoints in agent integration conventions', async () => {
+    const agentConventionDoc = await readFile(agentConventionPath, 'utf8');
+
+    expect(agentConventionDoc).not.toContain('/api/agent/');
+    expect(agentConventionDoc).toContain('GET /api/v1/context');
+    expect(agentConventionDoc).toContain('GET /api/v1/foods?q=<term>&limit=<n>');
+    expect(agentConventionDoc).toContain('GET /api/v1/exercises?q=<term>&limit=<n>');
+    expect(agentConventionDoc).toContain('Authorization: AgentToken <token>');
+    expect(agentConventionDoc).toContain('optional `agent` field');
+    expect(agentConventionDoc).toContain('suggestedActions');
   });
 
   it('documents agent workflows on /api/v1 endpoints in the pulse app usage skill', async () => {
