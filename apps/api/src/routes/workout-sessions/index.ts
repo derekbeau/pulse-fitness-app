@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  agentCreateWorkoutSessionInputSchema,
+  agentUpdateWorkoutSessionInputSchema,
   batchUpsertSetsSchema,
   createSetSchema,
   reorderWorkoutSessionExercisesInputSchema,
@@ -14,13 +16,21 @@ import {
   updateWorkoutSessionTimeSegmentsInputSchema,
   workoutSessionQueryParamsSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
+import {
+  applyExerciseNotesToSets,
+  buildExerciseSectionOrder,
+  buildInitialSessionSets,
+  reorderSessionSetsByExercise,
+  resolveExerciseIdByName,
+} from '../workout-agent.js';
 
 import {
   batchUpsertSessionSets,
@@ -86,6 +96,11 @@ const WORKOUT_SESSION_DUPLICATE_EXERCISE_RESPONSE = {
   message: 'Session already contains the replacement exercise',
 } as const;
 
+const WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE = {
+  code: 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS',
+  message: 'Cannot remove an exercise with logged sets',
+} as const;
+
 const SESSION_SET_NOT_FOUND_RESPONSE = {
   code: 'SESSION_SET_NOT_FOUND',
   message: 'Session set not found',
@@ -130,50 +145,6 @@ const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
   const preview = invalidExerciseIds.slice(0, 3).join(', ');
   const suffix = invalidExerciseIds.length > 3 ? ', ...' : '';
   return `${INVALID_SESSION_EXERCISE_RESPONSE.message}: ${preview}${suffix}`;
-};
-
-const applyExerciseNotesToSets = ({
-  sets,
-  exerciseNotes,
-}: {
-  sets: SessionSetInput[];
-  exerciseNotes: Record<string, string | null>;
-}) => {
-  const firstSetIndexByExerciseId = new Map<string, number>();
-
-  sets.forEach((set, index) => {
-    const existingIndex = firstSetIndexByExerciseId.get(set.exerciseId);
-    if (existingIndex === undefined) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
-      return;
-    }
-
-    const existingSet = sets[existingIndex];
-    if (!existingSet) {
-      return;
-    }
-
-    if (set.setNumber < existingSet.setNumber) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
-    }
-  });
-
-  return sets.map((set, index) => {
-    const nextExerciseNote = exerciseNotes[set.exerciseId];
-
-    if (
-      firstSetIndexByExerciseId.get(set.exerciseId) !== index ||
-      !Object.hasOwn(exerciseNotes, set.exerciseId) ||
-      nextExerciseNote === null
-    ) {
-      return set;
-    }
-
-    return {
-      ...set,
-      notes: nextExerciseNote,
-    };
-  });
 };
 
 const ensureOwnedSession = async ({
@@ -235,9 +206,77 @@ const nowIsoString = () => new Date().toISOString();
 const toIsoString = (value: number) => new Date(value).toISOString();
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   app.post('/', async (request, reply) => {
+    if (isAgentRequest(request)) {
+      const parsedBody = agentCreateWorkoutSessionInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const startedAt = Date.now();
+      const date = new Date(startedAt).toISOString().slice(0, 10);
+      const templateId = parsedBody.data.templateId ?? null;
+      let name = parsedBody.data.name;
+      let sets: CreateWorkoutSessionInput['sets'] = [];
+
+      if (templateId) {
+        const { findWorkoutTemplateById } = await import('../workout-templates/store.js');
+        const template = await findWorkoutTemplateById(templateId, request.userId);
+        if (!template) {
+          return sendError(
+            reply,
+            404,
+            WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+            WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+          );
+        }
+
+        name = name ?? template.name;
+        sets = buildInitialSessionSets(template.sections);
+      }
+
+      const payload = createWorkoutSessionInputSchema.safeParse({
+        templateId,
+        name,
+        date,
+        status: 'in-progress',
+        startedAt,
+        completedAt: null,
+        duration: null,
+        feedback: null,
+        notes: null,
+        sets,
+      });
+      if (!payload.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const session = await createWorkoutSession({
+        id: randomUUID(),
+        userId: request.userId,
+        input: payload.data,
+      });
+
+      if (payload.data.templateId !== null) {
+        await linkTodayScheduledWorkoutToSession({
+          userId: request.userId,
+          templateId: payload.data.templateId,
+          date: payload.data.date,
+          sessionId: session.id,
+        });
+      }
+
+      return reply.code(201).send(
+        buildDataResponse(request, session, {
+          endpoint: 'workout-session.mutation',
+          action: 'create',
+          session,
+        }),
+      );
+    }
+
     const parsedBody = createWorkoutSessionInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
@@ -294,9 +333,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    return reply.code(201).send({
-      data: session,
-    });
+    return reply.code(201).send(buildDataResponse(request, session));
   });
 
   app.get('/', async (request, reply) => {
@@ -622,9 +659,210 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   };
 
   const updateSessionById = async (
-    request: { body: unknown; params: { id: string }; userId: string },
+    request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply,
   ) => {
+    if (request.authType === 'agent-token') {
+      const parsedBody = agentUpdateWorkoutSessionInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const merged = toCreateWorkoutSessionInput(existingSession);
+
+      if (parsedBody.data.sets) {
+        const setMap = new Map(
+          merged.sets.map((set) => [`${set.exerciseId}:${set.setNumber}`, { ...set }]),
+        );
+        const exerciseOrder = new Map<string, number>();
+        for (const set of merged.sets) {
+          if (!exerciseOrder.has(set.exerciseId)) {
+            exerciseOrder.set(set.exerciseId, exerciseOrder.size);
+          }
+        }
+
+        for (const set of parsedBody.data.sets) {
+          const resolvedExercise = await resolveExerciseIdByName({
+            name: set.exerciseName,
+            userId: request.userId,
+          });
+          const exerciseId = resolvedExercise.exerciseId;
+          if (!exerciseOrder.has(exerciseId)) {
+            exerciseOrder.set(exerciseId, exerciseOrder.size);
+          }
+
+          const key = `${exerciseId}:${set.setNumber}`;
+          const previous = setMap.get(key);
+
+          if (previous) {
+            setMap.set(key, {
+              ...previous,
+              weight: set.weight,
+              reps: set.reps,
+              completed: true,
+              skipped: false,
+            });
+            continue;
+          }
+
+          setMap.set(key, {
+            exerciseId,
+            orderIndex: exerciseOrder.get(exerciseId) ?? 0,
+            setNumber: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+            completed: true,
+            skipped: false,
+            section: null,
+            notes: null,
+          });
+        }
+
+        merged.sets = Array.from(setMap.values()).sort((left, right) => {
+          const leftOrder = exerciseOrder.get(left.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+          const rightOrder = exerciseOrder.get(right.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+          if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+          }
+
+          return left.setNumber - right.setNumber;
+        });
+      }
+
+      if (parsedBody.data.addExercises) {
+        const exerciseSectionOrder = buildExerciseSectionOrder(merged.sets);
+        const nextOrderIndexBySection = new Map<SessionSetInput['section'], number>();
+
+        for (const metadata of exerciseSectionOrder.values()) {
+          const current = nextOrderIndexBySection.get(metadata.section) ?? 0;
+          nextOrderIndexBySection.set(metadata.section, Math.max(current, metadata.orderIndex + 1));
+        }
+
+        for (const exercise of parsedBody.data.addExercises) {
+          const resolvedExercise = await resolveExerciseIdByName({
+            name: exercise.name,
+            userId: request.userId,
+          });
+          const existingMetadata = exerciseSectionOrder.get(resolvedExercise.exerciseId);
+          const targetSection = existingMetadata?.section ?? exercise.section;
+          const orderIndex =
+            existingMetadata?.orderIndex ?? nextOrderIndexBySection.get(targetSection) ?? 0;
+          const maxSetNumber = merged.sets
+            .filter((set) => set.exerciseId === resolvedExercise.exerciseId)
+            .reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0);
+
+          for (let setOffset = 1; setOffset <= exercise.sets; setOffset += 1) {
+            merged.sets.push({
+              exerciseId: resolvedExercise.exerciseId,
+              orderIndex,
+              setNumber: maxSetNumber + setOffset,
+              weight: exercise.weight ?? null,
+              reps: exercise.reps ?? null,
+              completed: false,
+              skipped: false,
+              section: targetSection,
+              notes: null,
+            });
+          }
+
+          if (!existingMetadata) {
+            exerciseSectionOrder.set(resolvedExercise.exerciseId, {
+              section: targetSection,
+              orderIndex,
+            });
+            nextOrderIndexBySection.set(targetSection, orderIndex + 1);
+          }
+        }
+      }
+
+      if (parsedBody.data.removeExercises) {
+        const removeExerciseIds = new Set(parsedBody.data.removeExercises);
+        const hasLoggedSets = merged.sets.some(
+          (set) => removeExerciseIds.has(set.exerciseId) && set.completed,
+        );
+        if (hasLoggedSets) {
+          return sendError(
+            reply,
+            409,
+            WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE.code,
+            WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE.message,
+          );
+        }
+
+        merged.sets = merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId));
+      }
+
+      if (parsedBody.data.reorderExercises) {
+        const currentExerciseIds = new Set(merged.sets.map((set) => set.exerciseId));
+        const hasUnknownExercise = parsedBody.data.reorderExercises.some(
+          (exerciseId) => !currentExerciseIds.has(exerciseId),
+        );
+        if (hasUnknownExercise) {
+          return sendError(
+            reply,
+            400,
+            'VALIDATION_ERROR',
+            'reorderExercises contains unknown exercise ids',
+          );
+        }
+
+        merged.sets = reorderSessionSetsByExercise(merged.sets, parsedBody.data.reorderExercises);
+      }
+
+      if (parsedBody.data.status !== undefined) {
+        merged.status = parsedBody.data.status;
+        if (parsedBody.data.status === 'completed') {
+          const completedAt = Date.now();
+          merged.completedAt = completedAt;
+          merged.duration = Math.max(0, completedAt - merged.startedAt);
+        } else {
+          merged.completedAt = null;
+          merged.duration = null;
+        }
+      }
+
+      if (parsedBody.data.notes !== undefined) {
+        merged.notes = parsedBody.data.notes;
+      }
+
+      const payload = createWorkoutSessionInputSchema.safeParse(merged);
+      if (!payload.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const session = await updateWorkoutSession({
+        id: request.params.id,
+        userId: request.userId,
+        input: payload.data,
+      });
+      if (!session) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, session, {
+          endpoint: 'workout-session.mutation',
+          action: 'update',
+          session,
+        }),
+      );
+    }
+
     const parsedBody = updateWorkoutSessionInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
@@ -747,9 +985,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: session,
-    });
+    return reply.send(
+      buildDataResponse(request, session, {
+        endpoint: 'workout-session.mutation',
+        action: 'update',
+        session,
+      }),
+    );
   };
 
   app.patch<{ Params: { id: string } }>('/:id/time-segments', async (request, reply) => {
@@ -791,9 +1033,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: updated,
-    });
+    return reply.send(
+      buildDataResponse(request, updated, {
+        endpoint: 'workout-session.mutation',
+        action: 'time-segments',
+        session: updated,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string } }>('/:id/reorder', async (request, reply) => {
@@ -858,9 +1104,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return reply.send({
-      data: reordered,
-    });
+    return reply.send(
+      buildDataResponse(request, reordered, {
+        endpoint: 'workout-session.mutation',
+        action: 'reorder',
+        session: reordered,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string; exerciseId: string } }>(
@@ -957,7 +1207,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         existingExercise.trackingType !== swappedExercise.trackingType;
 
       return reply.send({
-        data: swapped,
+        ...buildDataResponse(request, swapped, {
+          endpoint: 'workout-session.mutation',
+          action: 'swap',
+          session: swapped,
+        }),
         ...(hasTrackingTypeWarning
           ? {
               meta: {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  agentTokens,
   exercises,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
@@ -34,6 +36,24 @@ let context: TestContext;
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
+});
+
+const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
+  context.db
+    .insert(agentTokens)
+    .values({
+      id: `agent-token-${userId}`,
+      userId,
+      name: `Agent ${userId}`,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    })
+    .run();
+
+  return token;
+};
 
 const seedUser = (id: string, username: string) =>
   context.db
@@ -235,6 +255,7 @@ describe('workout session routes', () => {
   });
 
   beforeEach(() => {
+    context.db.delete(agentTokens).run();
     context.db.delete(scheduledWorkouts).run();
     context.db.delete(sessionSets).run();
     context.db.delete(workoutSessions).run();
@@ -373,7 +394,7 @@ describe('workout session routes', () => {
   });
 
   it('saves a completed session as a template and allows duplicate saves', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-completed',
@@ -553,7 +574,7 @@ describe('workout session routes', () => {
   });
 
   it('includes trackingType on each exercise in session detail responses', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedExercise({
       id: 'user-1-hang',
@@ -608,7 +629,7 @@ describe('workout session routes', () => {
   });
 
   it('omits metadata from soft-deleted exercises in session detail responses', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedExercise({
       id: 'user-1-soft-deleted',
@@ -670,7 +691,7 @@ describe('workout session routes', () => {
   });
 
   it('reorders active session exercises by updating set orderIndex while preserving set data', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-reorder',
@@ -772,7 +793,7 @@ describe('workout session routes', () => {
   });
 
   it('swaps a session exercise while preserving entered set data', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-swap',
@@ -921,7 +942,7 @@ describe('workout session routes', () => {
   });
 
   it('rejects swaps for completed sessions', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-completed-swap',
@@ -959,7 +980,7 @@ describe('workout session routes', () => {
   });
 
   it('returns 404 when swapping an exercise not present in the session', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-missing-source',
@@ -996,7 +1017,7 @@ describe('workout session routes', () => {
   });
 
   it('rejects swap targets that are not user-owned exercises', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-invalid-target',
@@ -1045,7 +1066,7 @@ describe('workout session routes', () => {
   });
 
   it('applies save-as-template metadata overrides when provided', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-completed-overrides',
@@ -1109,7 +1130,7 @@ describe('workout session routes', () => {
   });
 
   it('returns a validation error for invalid save-as-template payload', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const response = await context.app.inject({
       method: 'POST',
@@ -1130,7 +1151,7 @@ describe('workout session routes', () => {
   });
 
   it('creates, updates, lists, and batch-upserts sets for an active owned session', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -1287,7 +1308,7 @@ describe('workout session routes', () => {
   });
 
   it('enforces ownership, active-session writes, and set-level validation', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-active',
@@ -1421,7 +1442,7 @@ describe('workout session routes', () => {
   });
 
   it('batch upsert is atomic when one set id is invalid', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -1492,7 +1513,7 @@ describe('workout session routes', () => {
   });
 
   it('creates, lists, and fetches workout sessions for the authenticated user', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'existing-session',
@@ -1702,7 +1723,7 @@ describe('workout session routes', () => {
   });
 
   it('filters workout session listings by status and limit', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-completed-1',
@@ -1769,7 +1790,7 @@ describe('workout session routes', () => {
   });
 
   it('includes sessions completed on the same-day range boundary', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-yesterday',
@@ -1813,7 +1834,7 @@ describe('workout session routes', () => {
   });
 
   it('filters workout session listings by multiple statuses', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-paused',
@@ -1867,7 +1888,7 @@ describe('workout session routes', () => {
   });
 
   it('links a newly started session to an unclaimed scheduled workout for today', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const today = new Date().toISOString().slice(0, 10);
 
     seedScheduledWorkout({
@@ -1911,7 +1932,7 @@ describe('workout session routes', () => {
   });
 
   it('backfills empty time segments for in-progress sessions at read time', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const startedAt = Date.UTC(2026, 2, 12, 14, 30, 0);
 
     seedWorkoutSession({
@@ -1946,7 +1967,7 @@ describe('workout session routes', () => {
   });
 
   it('creates an initial open time segment when starting a new in-progress session', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const startedAt = Date.UTC(2026, 2, 12, 10, 0, 0);
 
     const response = await context.app.inject({
@@ -1977,7 +1998,7 @@ describe('workout session routes', () => {
   });
 
   it('pausing closes the current segment and resuming opens a new one', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const startedAt = '2026-03-12T10:00:00.000Z';
 
     seedWorkoutSession({
@@ -2041,7 +2062,7 @@ describe('workout session routes', () => {
   });
 
   it('cancelling closes open segment and marks session cancelled', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-cancelled',
@@ -2084,7 +2105,7 @@ describe('workout session routes', () => {
   });
 
   it('completing closes the final segment and calculates duration from segments', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const completedAt = Date.parse('2026-03-12T10:25:00.000Z');
 
     seedWorkoutSession({
@@ -2138,7 +2159,7 @@ describe('workout session routes', () => {
   });
 
   it('validates chronological ordering when editing time segments', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-time-edit',
@@ -2184,7 +2205,7 @@ describe('workout session routes', () => {
   });
 
   it('validates out-of-order time segments when editing', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-time-out-of-order',
@@ -2230,7 +2251,7 @@ describe('workout session routes', () => {
   });
 
   it('supports directly editing a segment end timestamp', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-time-end-edit',
@@ -2279,7 +2300,7 @@ describe('workout session routes', () => {
   });
 
   it('supports segment deletion merge and additional split edits', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-time-merge',
@@ -2367,7 +2388,7 @@ describe('workout session routes', () => {
   });
 
   it('updates owned workout sessions by replacing nested set rows', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2517,7 +2538,7 @@ describe('workout session routes', () => {
   });
 
   it('patches workout session startedAt and rejects invalid, too-old, or future timestamps', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const now = Date.now();
 
     seedWorkoutSession({
@@ -2599,7 +2620,7 @@ describe('workout session routes', () => {
   });
 
   it('patches session notes and exercise notes on an existing completed session', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2670,7 +2691,7 @@ describe('workout session routes', () => {
   });
 
   it('rejects reverting a completed session back to in-progress', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2704,7 +2725,7 @@ describe('workout session routes', () => {
   });
 
   it('does not overwrite first-set notes when exerciseNotes are normalized to null', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2772,7 +2793,7 @@ describe('workout session routes', () => {
   });
 
   it('soft-deletes owned workout sessions', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2868,7 +2889,7 @@ describe('workout session routes', () => {
   });
 
   it('rejects inaccessible templates, unavailable exercises, and invalid merged updates', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedWorkoutSession({
       id: 'session-1',
@@ -2943,7 +2964,7 @@ describe('workout session routes', () => {
   });
 
   it('allows patch updates without sets when existing session sets reference now-deleted exercises', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     seedExercise({
       id: 'user-1-soft-delete-lift',
@@ -2991,7 +3012,7 @@ describe('workout session routes', () => {
   });
 
   it('rejects invalid list queries and malformed payloads', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const [invalidRangeQueryResponse, invalidStatusQueryResponse, invalidLimitQueryResponse] =
       await Promise.all([
@@ -3066,6 +3087,113 @@ describe('workout session routes', () => {
         code: 'VALIDATION_ERROR',
         message: 'Invalid workout session payload',
       },
+    });
+  });
+
+  it('creates agent-style sessions at /api/v1/workout-sessions with AgentToken auth', async () => {
+    const agentToken = seedAgentToken('user-1');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        name: 'Quick Lift',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Quick Lift',
+        status: 'in-progress',
+        date: expect.any(String),
+      }),
+      agent: expect.objectContaining({
+        hints: [
+          'Session progress is 0/0 completed sets across 0 exercises.',
+          'All planned exercises are complete, so the session can be wrapped up whenever you are ready.',
+        ],
+        suggestedActions: [
+          'Mark the session completed or add a finisher set if more work is needed.',
+          'Pause or complete the session when the workout ends.',
+        ],
+        relatedState: expect.objectContaining({
+          action: 'create',
+          status: 'in-progress',
+          totalSets: 0,
+          completedSets: 0,
+          remainingSets: 0,
+          remainingExercises: 0,
+          nextSet: null,
+        }),
+      }),
+    });
+  });
+
+  it('patches sessions with agent exercise mutations and auto-creates missing exercises', async () => {
+    const agentToken = seedAgentToken('user-1', 'plain-agent-token-2');
+    seedWorkoutSession({
+      id: 'session-agent',
+      userId: 'user-1',
+      name: 'Agent Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-agent',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        addExercises: [{ name: 'Landmine Press', sets: 2, reps: 10, section: 'main' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-agent',
+        sets: expect.arrayContaining([
+          expect.objectContaining({ setNumber: 1 }),
+          expect.objectContaining({ setNumber: 2 }),
+        ]),
+      }),
+      agent: expect.objectContaining({
+        hints: [
+          'Session progress is 0/2 completed sets across 1 exercises.',
+          '1 exercise still has unfinished work.',
+        ],
+        suggestedActions: [
+          'Log set 1 for Landmine Press.',
+          'Pause or complete the session when the workout ends.',
+        ],
+        relatedState: expect.objectContaining({
+          action: 'update',
+          status: 'in-progress',
+          totalSets: 2,
+          completedSets: 0,
+          remainingSets: 2,
+          remainingExercises: 1,
+          nextSet: {
+            exerciseId: expect.any(String),
+            exerciseName: 'Landmine Press',
+            setNumber: 1,
+          },
+        }),
+      }),
+    });
+
+    const createdExercise = context.db
+      .select({ id: exercises.id, name: exercises.name, userId: exercises.userId })
+      .from(exercises)
+      .where(eq(exercises.name, 'Landmine Press'))
+      .get();
+    expect(createdExercise).toEqual({
+      id: expect.any(String),
+      name: 'Landmine Press',
+      userId: 'user-1',
     });
   });
 });

@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { loginInputSchema, registerInputSchema } from '@pulse/shared';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 
+import { issueSessionJwt } from '../../lib/session-jwt.js';
 import { sendError } from '../../lib/reply.js';
 
 import { createUser, ensureStarterHabitsForUser, findUserByUsername } from './store.js';
@@ -16,8 +17,6 @@ const INVALID_CREDENTIALS_RESPONSE = {
 } as const;
 
 const PASSWORD_SALT_ROUNDS = 12;
-const JWT_EXPIRES_IN = '7d';
-
 const isSqliteUniqueConstraintError = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
@@ -32,7 +31,7 @@ type AuthUser = {
 
 const buildAuthResponse = (app: FastifyInstance, user: AuthUser) => ({
   data: {
-    token: app.jwt.sign({ userId: user.id }, { expiresIn: JWT_EXPIRES_IN }),
+    token: issueSessionJwt(app, user.id),
     user,
   },
 });

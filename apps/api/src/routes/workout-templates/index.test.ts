@@ -278,7 +278,7 @@ describe('workout template routes', () => {
   });
 
   it('creates, lists, and fetches workout templates with canonical section ordering', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const createResponse = await context.app.inject({
       method: 'POST',
@@ -501,7 +501,7 @@ describe('workout template routes', () => {
       tags: ['private'],
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const updateResponse = await context.app.inject({
       method: 'PUT',
@@ -670,7 +670,7 @@ describe('workout template routes', () => {
       section: 'main',
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const response = await context.app.inject({
       method: 'PATCH',
@@ -741,7 +741,7 @@ describe('workout template routes', () => {
       ],
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const response = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/workout-templates/template-swap/exercises/user-press/swap',
@@ -833,7 +833,7 @@ describe('workout template routes', () => {
       section: 'main',
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const response = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/workout-templates/template-missing-source/exercises/user-row/swap',
@@ -873,7 +873,7 @@ describe('workout template routes', () => {
       section: 'main',
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const response = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/workout-templates/template-duplicate-target/exercises/user-press/swap',
@@ -906,7 +906,7 @@ describe('workout template routes', () => {
       section: 'main',
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const [globalResponse, otherUserResponse] = await Promise.all([
       context.app.inject({
@@ -959,7 +959,7 @@ describe('workout template routes', () => {
       tags: ['private'],
     });
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const deleteResponse = await context.app.inject({
       method: 'DELETE',
@@ -1010,7 +1010,7 @@ describe('workout template routes', () => {
   });
 
   it('rejects invalid payloads and inaccessible exercise references', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const [validationResponse, inaccessibleExerciseResponse] = await Promise.all([
       context.app.inject({

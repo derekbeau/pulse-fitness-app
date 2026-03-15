@@ -7,6 +7,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { buildDataResponse } from '../../middleware/agent-enrichment.js';
 
 import {
   deleteBodyWeightEntryById,
@@ -31,17 +32,18 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
     const existingEntry = await findBodyWeightEntryByDate(request.userId, parsedBody.data.date);
     const entry = await upsertBodyWeightEntry(request.userId, parsedBody.data);
 
-    return reply.code(existingEntry ? 200 : 201).send({
-      data: entry,
-    });
+    return reply.code(existingEntry ? 200 : 201).send(
+      buildDataResponse(request, entry, {
+        endpoint: 'weight.mutation',
+        previousEntry: existingEntry,
+      }),
+    );
   });
 
   app.get('/latest', async (request, reply) => {
     const entry = await getLatestBodyWeightEntry(request.userId);
 
-    return reply.send({
-      data: entry,
-    });
+    return reply.send(buildDataResponse(request, entry));
   });
 
   app.get('/', async (request, reply) => {

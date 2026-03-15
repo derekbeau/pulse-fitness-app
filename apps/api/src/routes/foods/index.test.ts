@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
 vi.mock('./store.js', () => ({
@@ -11,8 +12,14 @@ vi.mock('./store.js', () => ({
   updateFood: vi.fn(),
 }));
 
-const createAuthorizationHeader = (token: string) => ({
-  authorization: `Bearer ${token}`,
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
+}));
+
+const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
+  authorization: `${scheme} ${token}`,
 });
 
 const buildFood = (
@@ -69,6 +76,10 @@ describe('foods routes', () => {
     vi.mocked(findFoodById).mockReset();
     vi.mocked(listFoods).mockReset();
     vi.mocked(updateFood).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(findUserAuthById).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-foods-secret';
   });
 
@@ -83,7 +94,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/foods',
@@ -134,7 +145,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/foods?q=%20yogurt%20&tags=protein,dairy&sort=popular&page=2&limit=1',
@@ -163,12 +174,111 @@ describe('foods routes', () => {
     }
   });
 
+  it('returns agent-friendly food list payloads for AgentToken requests', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(listFoods).mockResolvedValue({
+      foods: [buildFood()],
+      total: 1,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/foods?q=yogurt&limit=5',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          {
+            id: 'food-1',
+            name: 'Greek Yogurt',
+            brand: 'Fage 0%',
+            servingSize: '170 g',
+            calories: 90,
+            protein: 18,
+            carbs: 5,
+            fat: 0,
+          },
+        ],
+      });
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns agent-friendly create payloads for AgentToken requests', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(createFood).mockImplementation(async (input) => buildFood({ id: input.id }));
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/foods',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        payload: {
+          name: 'Greek Yogurt',
+          calories: 90,
+          protein: 18,
+          carbs: 5,
+          fat: 0,
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        data: {
+          id: (response.json() as { data: { id: string } }).data.id,
+          name: 'Greek Yogurt',
+          brand: 'Fage 0%',
+          servingSize: '170 g',
+          calories: 90,
+          protein: 18,
+          carbs: 5,
+          fat: 0,
+        },
+        agent: {
+          hints: [
+            'Search for similarly named foods before creating another branded variant to avoid duplicates.',
+          ],
+          suggestedActions: ['Reuse this food in the next meal log when it matches the serving.'],
+          relatedState: {
+            id: (response.json() as { data: { id: string } }).data.id,
+            name: 'Greek Yogurt',
+            brand: 'Fage 0%',
+            calories: 90,
+            protein: 18,
+            carbs: 5,
+            fat: 0,
+            similarFoods: [],
+          },
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects invalid food payloads and query parameters', async () => {
     const app = buildServer();
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const [createResponse, queryResponse] = await Promise.all([
         app.inject({
           method: 'POST',
@@ -269,7 +379,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       vi.mocked(findFoodById).mockResolvedValue(buildFood());
       vi.mocked(updateFood)
         .mockResolvedValueOnce(buildFood({ name: 'Lowfat Greek Yogurt' }))
@@ -338,7 +448,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       vi.mocked(findFoodById).mockResolvedValue(undefined);
 
       const response = await app.inject({
@@ -368,7 +478,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/foods/food-1',
@@ -400,7 +510,7 @@ describe('foods routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
       const updateResponse = await app.inject({
         method: 'PUT',

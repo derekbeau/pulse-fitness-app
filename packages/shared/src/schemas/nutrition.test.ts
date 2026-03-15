@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CreateMealInput,
+  type CreateMealForDateInput,
   type DailyNutrition,
   type DeleteMealResult,
   type MealItemInput,
@@ -10,6 +11,7 @@ import {
   type NutritionSummary,
   type NutritionWeekSummary,
   createMealInputSchema,
+  createMealForDateInputSchema,
   dailyNutritionSchema,
   deleteMealResultSchema,
   mealItemInputSchema,
@@ -224,6 +226,48 @@ describe('createMealInputSchema', () => {
     };
 
     expect(meal.name).toBe('Breakfast');
+  });
+});
+
+describe('createMealForDateInputSchema', () => {
+  it('parses a valid meal payload with a calendar date', () => {
+    const meal: CreateMealForDateInput = createMealForDateInputSchema.parse({
+      date: '2026-03-09',
+      name: 'Lunch',
+      items: [
+        {
+          name: 'Cooked Rice',
+          amount: 1,
+          unit: 'cup',
+          calories: 200,
+          protein: 4,
+          carbs: 45,
+          fat: 1,
+        },
+      ],
+    });
+
+    expect(meal.date).toBe('2026-03-09');
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(() =>
+      createMealForDateInputSchema.parse({
+        date: '2026-02-30',
+        name: 'Lunch',
+        items: [
+          {
+            name: 'Cooked Rice',
+            amount: 1,
+            unit: 'cup',
+            calories: 200,
+            protein: 4,
+            carbs: 45,
+            fat: 1,
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });
 

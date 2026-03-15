@@ -10,7 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { getTodayDate } from '../../lib/date.js';
 import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
 import { habitEntryNestedRoutes } from '../habit-entries/index.js';
 import { ensureStarterHabitsForUser } from '../auth/store.js';
@@ -125,7 +125,14 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
     );
 
     return reply.send({
-      data: habitsWithResolvedEntries,
+      data: isAgentRequest(request)
+        ? habitsWithResolvedEntries.map((habit) => ({
+            id: habit.id,
+            name: habit.name,
+            trackingType: habit.trackingType,
+            todayEntry: habit.todayEntry,
+          }))
+        : habitsWithResolvedEntries,
     });
   });
 

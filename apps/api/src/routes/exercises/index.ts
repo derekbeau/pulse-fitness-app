@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  agentCreateExerciseInputSchema,
   createExerciseInputSchema,
   exerciseLastPerformanceQuerySchema,
   exerciseQueryParamsSchema,
@@ -9,12 +10,13 @@ import {
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 
 import {
   allRelatedExercisesOwned,
   createExercise,
   deleteOwnedExercise,
+  findExerciseDedupCandidates,
   findExerciseHistoryWithRelated,
   findExerciseLastPerformance,
   findExerciseOwnership,
@@ -38,6 +40,9 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
   code: 'VALIDATION_ERROR',
   message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
+
+const DEFAULT_CATEGORY = 'compound' as const;
+const DEFAULT_TRACKING_TYPE = 'weight_reps' as const;
 
 const ensureOwnedMutableExercise = async ({
   exerciseId,
@@ -73,8 +78,7 @@ const ensureOwnedMutableExercise = async ({
 };
 
 export const exerciseRoutes: FastifyPluginAsync = async (app) => {
-  // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   const updateExerciseHandler = async (
     request: {
@@ -134,6 +138,73 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   };
 
   app.post('/', async (request, reply) => {
+    if (isAgentRequest(request)) {
+      const parsedBody = agentCreateExerciseInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
+      }
+
+      const dedupCandidates = await findExerciseDedupCandidates({
+        userId: request.userId,
+        name: parsedBody.data.name,
+      });
+      if (dedupCandidates.length > 0 && !parsedBody.data.force) {
+        return reply.send({
+          data: {
+            created: false,
+            candidates: dedupCandidates,
+          },
+        });
+      }
+
+      const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
+        userId: request.userId,
+        exerciseIds: parsedBody.data.relatedExerciseIds,
+      });
+      if (!hasValidRelatedExerciseIds) {
+        return sendError(
+          reply,
+          400,
+          INVALID_RELATED_EXERCISES_RESPONSE.code,
+          INVALID_RELATED_EXERCISES_RESPONSE.message,
+        );
+      }
+
+      const exercise = await createExercise({
+        id: randomUUID(),
+        userId: request.userId,
+        name: parsedBody.data.name,
+        category: parsedBody.data.category ?? DEFAULT_CATEGORY,
+        trackingType: DEFAULT_TRACKING_TYPE,
+        muscleGroups: parsedBody.data.muscleGroups ?? [],
+        equipment: parsedBody.data.equipment ?? '',
+        tags: [],
+        formCues: [],
+        instructions: null,
+        coachingNotes: parsedBody.data.coachingNotes ?? null,
+        relatedExerciseIds: parsedBody.data.relatedExerciseIds,
+      });
+
+      return reply.code(201).send({
+        data: {
+          created: true,
+          exercise: {
+            id: exercise.id,
+            name: exercise.name,
+            category: exercise.category,
+            trackingType: exercise.trackingType,
+            muscleGroups: exercise.muscleGroups,
+            equipment: exercise.equipment,
+            instructions: exercise.instructions,
+            coachingNotes: exercise.coachingNotes,
+            relatedExerciseIds: exercise.relatedExerciseIds,
+            tags: exercise.tags,
+            formCues: exercise.formCues,
+          },
+        },
+      });
+    }
+
     const parsedBody = createExerciseInputSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
@@ -175,6 +246,18 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
     });
 
     reply.header('Cache-Control', 'private, no-cache');
+
+    if (isAgentRequest(request)) {
+      return reply.send({
+        data: result.data.map((exercise) => ({
+          id: exercise.id,
+          name: exercise.name,
+          category: exercise.category,
+          muscleGroups: exercise.muscleGroups,
+          equipment: exercise.equipment,
+        })),
+      });
+    }
 
     return reply.send(result);
   });

@@ -8,7 +8,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 import {
@@ -30,7 +30,7 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
 } as const;
 
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createScheduledWorkoutInputSchema.safeParse(request.body);

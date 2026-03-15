@@ -1,8 +1,9 @@
 import { agentContextResponseSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
+import { addUtcDays, getTodayDate } from '../../lib/date.js';
 import { sendError } from '../../lib/reply.js';
-
+import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
 import {
   findAgentContextUser,
   getAgentContextTodayNutrition,
@@ -10,13 +11,15 @@ import {
   listAgentContextHabits,
   listAgentContextRecentWorkouts,
   listAgentContextScheduledWorkouts,
-} from './context-store.js';
-import { getTodayDate, shiftDate } from './date-utils.js';
+} from '../agent/context-store.js';
 
-export const agentContextRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/context', async (request, reply) => {
+export const contextRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireAgentOnly);
+
+  app.get('/', async (request, reply) => {
     const today = getTodayDate();
-    const scheduleEnd = shiftDate(today, 6);
+    const scheduleEnd = addUtcDays(today, 6);
 
     const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =
       await Promise.all([
@@ -40,15 +43,9 @@ export const agentContextRoutes: FastifyPluginAsync = async (app) => {
       habits,
       scheduledWorkouts,
     };
-
     const parsed = agentContextResponseSchema.safeParse(payload);
     if (!parsed.success) {
-      request.log.error(
-        {
-          issues: parsed.error.issues,
-        },
-        'Failed to build agent context payload',
-      );
+      request.log.error({ issues: parsed.error.issues }, 'Failed to build agent context payload');
       return sendError(reply, 500, 'INTERNAL_ERROR', 'Failed to build agent context payload');
     }
 

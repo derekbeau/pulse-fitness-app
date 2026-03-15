@@ -1028,3 +1028,67 @@ describe('migration 0028_food_usage_and_tags', () => {
     }
   });
 });
+
+describe('migration 0029_agent_token_expiry', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds nullable expiry metadata and backfills last_rotated_at from created_at', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0029-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE agent_tokens (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          token_hash TEXT NOT NULL,
+          last_used_at INTEGER,
+          created_at INTEGER NOT NULL
+        );
+      `);
+
+      db.prepare(
+        `
+          INSERT INTO agent_tokens (
+            id,
+            user_id,
+            name,
+            token_hash,
+            last_used_at,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      ).run('token-1', 'user-1', 'Meal logger', 'hash', null, 1_700_000_000_000);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0029_agent_token_expiry.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const migratedRow = db
+        .prepare(
+          `SELECT expires_at AS expiresAt, last_rotated_at AS lastRotatedAt FROM agent_tokens WHERE id = ?`,
+        )
+        .get('token-1') as { expiresAt: number | null; lastRotatedAt: number | null };
+
+      expect(migratedRow).toEqual({
+        expiresAt: null,
+        lastRotatedAt: 1_700_000_000_000,
+      });
+    } finally {
+      db.close();
+    }
+  });
+});

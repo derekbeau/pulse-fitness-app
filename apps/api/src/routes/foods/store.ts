@@ -186,6 +186,124 @@ export const listFoods = async (
   };
 };
 
+export const searchFoodsByName = async (
+  userId: string,
+  query: string | undefined,
+  limit: number,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    brand: string | null;
+    servingSize: string | null;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }>
+> => {
+  const { db } = await import('../../db/index.js');
+  const filters: SQL<unknown>[] = [eq(foods.userId, userId), isNull(foods.deletedAt)];
+
+  if (query) {
+    const pattern = `%${escapeLikePattern(query)}%`;
+    filters.push(
+      sql`(
+        lower(${foods.name}) like ${pattern} escape '\\'
+        or lower(coalesce(${foods.brand}, '')) like ${pattern} escape '\\'
+      )`,
+    );
+  }
+
+  return db
+    .select({
+      id: foods.id,
+      name: foods.name,
+      brand: foods.brand,
+      servingSize: foods.servingSize,
+      calories: foods.calories,
+      protein: foods.protein,
+      carbs: foods.carbs,
+      fat: foods.fat,
+    })
+    .from(foods)
+    .where(and(...filters))
+    .orderBy(buildFoodSort('recent'))
+    .limit(limit)
+    .all();
+};
+
+export const findFoodByName = async (
+  userId: string,
+  foodName: string,
+): Promise<
+  | {
+      id: string;
+      name: string;
+      brand: string | null;
+      servingSize: string | null;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    }
+  | undefined
+> => {
+  const { db } = await import('../../db/index.js');
+  const nameLower = foodName.trim().toLowerCase();
+
+  const exact = db
+    .select({
+      id: foods.id,
+      name: foods.name,
+      brand: foods.brand,
+      servingSize: foods.servingSize,
+      calories: foods.calories,
+      protein: foods.protein,
+      carbs: foods.carbs,
+      fat: foods.fat,
+    })
+    .from(foods)
+    .where(
+      and(
+        eq(foods.userId, userId),
+        isNull(foods.deletedAt),
+        sql`lower(${foods.name}) = ${nameLower}`,
+      ),
+    )
+    .orderBy(buildFoodSort('recent'))
+    .limit(1)
+    .get();
+
+  if (exact) {
+    return exact;
+  }
+
+  const pattern = `%${escapeLikePattern(nameLower)}%`;
+  return db
+    .select({
+      id: foods.id,
+      name: foods.name,
+      brand: foods.brand,
+      servingSize: foods.servingSize,
+      calories: foods.calories,
+      protein: foods.protein,
+      carbs: foods.carbs,
+      fat: foods.fat,
+    })
+    .from(foods)
+    .where(
+      and(
+        eq(foods.userId, userId),
+        isNull(foods.deletedAt),
+        sql`lower(${foods.name}) like ${pattern} escape '\\'`,
+      ),
+    )
+    .orderBy(buildFoodSort('recent'))
+    .limit(1)
+    .get();
+};
+
 export const updateFood = async (
   id: string,
   userId: string,

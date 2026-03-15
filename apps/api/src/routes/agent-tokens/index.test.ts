@@ -3,12 +3,20 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
+import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
+import { createAgentToken, deleteAgentToken, listAgentTokens, regenerateAgentToken } from './store.js';
 
 vi.mock('./store.js', () => ({
   createAgentToken: vi.fn(),
   deleteAgentToken: vi.fn(),
   listAgentTokens: vi.fn(),
+  regenerateAgentToken: vi.fn(),
+}));
+
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -20,6 +28,10 @@ describe('agent token routes', () => {
     vi.mocked(createAgentToken).mockReset();
     vi.mocked(deleteAgentToken).mockReset();
     vi.mocked(listAgentTokens).mockReset();
+    vi.mocked(regenerateAgentToken).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-agent-token-secret';
   });
 
@@ -37,7 +49,7 @@ describe('agent token routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/agent-tokens',
@@ -66,6 +78,7 @@ describe('agent token routes', () => {
         userId: 'user-1',
         name: 'Meal logger',
         tokenHash: createHash('sha256').update(payload.data.token).digest('hex'),
+        lastRotatedAt: expect.any(Number),
       });
     } finally {
       await app.close();
@@ -77,7 +90,7 @@ describe('agent token routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/agent-tokens',
@@ -135,6 +148,38 @@ describe('agent token routes', () => {
     }
   });
 
+  it('rejects valid agent tokens with 403 because agent token management is JWT-only', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+      expiresAt: null,
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/agent-tokens',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'JWT authentication required',
+        },
+      });
+      expect(vi.mocked(listAgentTokens)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it('lists only the safe token metadata for the authenticated user', async () => {
     vi.mocked(listAgentTokens).mockResolvedValue([
       {
@@ -155,7 +200,7 @@ describe('agent token routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/agent-tokens',
@@ -185,6 +230,65 @@ describe('agent token routes', () => {
     }
   });
 
+  it('regenerates a token within the authenticated user scope', async () => {
+    vi.mocked(regenerateAgentToken).mockResolvedValue(true);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens/token-1/regenerate',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const payload = response.json() as { data: { token: string } };
+      expect(payload.data.token).toHaveLength(64);
+      expect(vi.mocked(regenerateAgentToken)).toHaveBeenCalledWith(
+        'token-1',
+        'user-1',
+        createHash('sha256').update(payload.data.token).digest('hex'),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns not found when regenerating a token outside the user scope', async () => {
+    vi.mocked(regenerateAgentToken).mockResolvedValue(false);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens/token-1/regenerate',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'AGENT_TOKEN_NOT_FOUND',
+          message: 'Agent token not found',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('deletes a token only within the authenticated user scope', async () => {
     vi.mocked(deleteAgentToken).mockResolvedValue(true);
 
@@ -192,7 +296,7 @@ describe('agent token routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/agent-tokens/token-1',
@@ -218,7 +322,7 @@ describe('agent token routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ userId: 'user-1' });
+      const authToken = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: "7d" });
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/agent-tokens/token-1',

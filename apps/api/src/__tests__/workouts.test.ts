@@ -225,7 +225,7 @@ describe('workouts integration', () => {
   });
 
   it('supports workout template CRUD and cascade deletion of template exercises', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const createdTemplate = await createTemplate(authToken, {
       name: 'Upper Push Day',
@@ -359,7 +359,7 @@ describe('workouts integration', () => {
   });
 
   it('handles session lifecycle with template-derived planned sets and live set logging', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const template = await createTemplate(authToken);
     const plannedSets = template.sections.flatMap((section) =>
@@ -504,7 +504,7 @@ describe('workouts integration', () => {
   });
 
   it('supports scheduled workouts create, date-range reads, update, and delete', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const templateA = await createTemplate(authToken, { name: 'Template A' });
     const templateB = await createTemplate(authToken, { name: 'Template B' });
@@ -627,7 +627,7 @@ describe('workouts integration', () => {
   });
 
   it('supports exercise CRUD plus search and filter queries', async () => {
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const createResponse = await context.app.inject({
       method: 'POST',

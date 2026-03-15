@@ -4,7 +4,8 @@ import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireAuth, requireUserAuth } from './auth.js';
+import { SESSION_JWT_ISSUER, SESSION_JWT_TYPE, issueSessionJwt } from '../lib/session-jwt.js';
+import { isAgentRequest, requireAgentOnly, requireAuth, requireJwtOnly } from './auth.js';
 import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
 vi.mock('./store.js', () => ({
@@ -27,20 +28,59 @@ const buildTestApp = async () => {
     },
     async (request) => ({
       data: {
+        agentTokenId: request.agentTokenId ?? null,
+        authType: request.authType,
+        isAgentRequest: isAgentRequest(request),
         userId: request.userId,
       },
     }),
   );
 
   app.get(
-    '/require-user-auth',
+    '/jwt-only',
     {
-      onRequest: requireUserAuth,
+      onRequest: [requireAuth, requireJwtOnly],
     },
     async (request) => ({
       data: {
+        agentTokenId: request.agentTokenId ?? null,
+        authType: request.authType,
         userId: request.userId,
       },
+    }),
+  );
+
+  app.get(
+    '/agent-only',
+    {
+      onRequest: [requireAuth, requireAgentOnly],
+    },
+    async (request) => ({
+      data: {
+        agentTokenId: request.agentTokenId ?? null,
+        authType: request.authType,
+        userId: request.userId,
+      },
+    }),
+  );
+
+  app.get(
+    '/jwt-only-direct',
+    {
+      onRequest: requireJwtOnly,
+    },
+    async () => ({
+      data: { ok: true },
+    }),
+  );
+
+  app.get(
+    '/agent-only-direct',
+    {
+      onRequest: requireAgentOnly,
+    },
+    async () => ({
+      data: { ok: true },
     }),
   );
 
@@ -49,6 +89,8 @@ const buildTestApp = async () => {
 
     instance.get('/plugin-protected', async (request) => ({
       data: {
+        agentTokenId: request.agentTokenId ?? null,
+        authType: request.authType,
         userId: request.userId,
       },
     }));
@@ -72,11 +114,11 @@ describe('auth middleware', () => {
     vi.clearAllMocks();
   });
 
-  it('accepts bearer JWTs and injects request.userId for requireAuth', async () => {
+  it('accepts bearer JWTs and injects authType and request.userId for requireAuth', async () => {
     const app = await buildTestApp();
 
     try {
-      const token = app.jwt.sign({ userId: 'user-jwt-1' });
+      const token = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -88,6 +130,9 @@ describe('auth middleware', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
         data: {
+          agentTokenId: null,
+          authType: 'jwt',
+          isAgentRequest: false,
           userId: 'user-jwt-1',
         },
       });
@@ -104,7 +149,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -126,10 +171,49 @@ describe('auth middleware', () => {
     }
   });
 
+  it('accepts agent tokens and injects authType, userId, and agentTokenId', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: null,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const token = 'plain-agent-token';
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `AgentToken ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          agentTokenId: 'agent-token-1',
+          authType: 'agent-token',
+          isAgentRequest: true,
+          userId: 'user-agent-1',
+        },
+      });
+      expect(vi.mocked(findUserAuthById)).not.toHaveBeenCalled();
+      expect(vi.mocked(findAgentTokenByHash)).toHaveBeenCalledWith(
+        createHash('sha256').update(token).digest('hex'),
+      );
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
+    } finally {
+      await app.close();
+    }
+  });
+
   it('accepts agent tokens through plugin-level protection when lastUsedAt update fails', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-agent-1',
+      expiresAt: null,
     });
     vi.mocked(updateAgentTokenLastUsedAt).mockRejectedValue(new Error('best-effort write failure'));
 
@@ -148,6 +232,8 @@ describe('auth middleware', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
         data: {
+          agentTokenId: 'agent-token-1',
+          authType: 'agent-token',
           userId: 'user-agent-1',
         },
       });
@@ -161,14 +247,14 @@ describe('auth middleware', () => {
     }
   });
 
-  it('rejects tampered bearer JWTs for requireUserAuth', async () => {
+  it('rejects tampered bearer JWTs for requireJwtOnly routes', async () => {
     const app = await buildTestApp();
 
     try {
-      const jwt = app.jwt.sign({ userId: 'user-jwt-1' });
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
       const response = await app.inject({
         method: 'GET',
-        url: '/require-user-auth',
+        url: '/jwt-only',
         headers: {
           authorization: `Bearer ${jwt}tampered`,
         },
@@ -187,16 +273,70 @@ describe('auth middleware', () => {
     }
   });
 
-  it('rejects agent tokens for requireUserAuth', async () => {
+  it('rejects agent tokens for requireJwtOnly', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: null,
+    });
+
     const app = await buildTestApp();
 
     try {
       const response = await app.inject({
         method: 'GET',
-        url: '/require-user-auth',
+        url: '/jwt-only',
         headers: {
           authorization: 'AgentToken plain-agent-token',
         },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'JWT authentication required',
+        },
+      });
+      expect(vi.mocked(findAgentTokenByHash)).toHaveBeenCalledOnce();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows JWTs through requireJwtOnly', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
+      const response = await app.inject({
+        method: 'GET',
+        url: '/jwt-only',
+        headers: {
+          authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          agentTokenId: null,
+          authType: 'jwt',
+          userId: 'user-jwt-1',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects unauthenticated requests when requireJwtOnly is registered without requireAuth', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/jwt-only-direct',
       });
 
       expect(response.statusCode).toBe(401);
@@ -206,7 +346,83 @@ describe('auth middleware', () => {
           message: 'Authentication required',
         },
       });
-      expect(vi.mocked(findAgentTokenByHash)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows agent tokens through requireAgentOnly', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: null,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          agentTokenId: 'agent-token-1',
+          authType: 'agent-token',
+          userId: 'user-agent-1',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs for requireAgentOnly', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only',
+        headers: {
+          authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Agent token authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects unauthenticated requests when requireAgentOnly is registered without requireAuth', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only-direct',
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
     } finally {
       await app.close();
     }
@@ -246,6 +462,74 @@ describe('auth middleware', () => {
     }
   });
 
+  it('rejects deleted or invalid agent tokens', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue(undefined);
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: 'AgentToken deleted-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('checks agent token storage on every request so revoked tokens immediately fail', async () => {
+    vi.mocked(findAgentTokenByHash)
+      .mockResolvedValueOnce({
+        id: 'agent-token-1',
+        userId: 'user-agent-1',
+        expiresAt: null,
+      })
+      .mockResolvedValueOnce(undefined);
+
+    const app = await buildTestApp();
+
+    try {
+      const headers = {
+        authorization: 'AgentToken plain-agent-token',
+      };
+
+      const firstResponse = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers,
+      });
+      const secondResponse = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers,
+      });
+
+      expect(firstResponse.statusCode).toBe(200);
+      expect(secondResponse.statusCode).toBe(401);
+      expect(secondResponse.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+      expect(vi.mocked(findAgentTokenByHash)).toHaveBeenCalledTimes(2);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects bearer JWTs when the user no longer exists outside test mode', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'development';
@@ -254,7 +538,7 @@ describe('auth middleware', () => {
     const app = await buildTestApp();
 
     try {
-      const token = app.jwt.sign({ userId: 'deleted-user-id' });
+      const token = issueSessionJwt(app, 'deleted-user-id');
       const response = await app.inject({
         method: 'GET',
         url: '/require-auth',
@@ -273,6 +557,104 @@ describe('auth middleware', () => {
       expect(vi.mocked(findUserAuthById)).toHaveBeenCalledWith('deleted-user-id');
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required type claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs with the wrong type claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        type: 'agent',
+        iss: SESSION_JWT_ISSUER,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs without the required issuer claim', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const token = app.jwt.sign({
+        sub: 'user-jwt-1',
+        type: SESSION_JWT_TYPE,
+      });
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects expired agent tokens', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: Date.now() - 1,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/require-auth',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).not.toHaveBeenCalled();
+    } finally {
       await app.close();
     }
   });

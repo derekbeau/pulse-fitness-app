@@ -3,12 +3,12 @@ import Fastify from 'fastify';
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
-import { agentRoutes } from './routes/agent/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { exerciseRoutes } from './routes/exercises/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
 import { habitEntryCollectionRoutes } from './routes/habit-entries/index.js';
 import { habitRoutes } from './routes/habits/index.js';
+import { mealRoutes } from './routes/meals/index.js';
 import { nutritionRoutes } from './routes/nutrition/index.js';
 import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
 import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
@@ -22,6 +22,8 @@ const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
+    // Inject JWT_SECRET at runtime. Do not keep a production signing secret in
+    // agent-readable env files or committed config.
     return process.env.JWT_SECRET;
   }
 
@@ -40,13 +42,13 @@ export const buildServer = () => {
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
-  app.register(agentRoutes, { prefix: '/api/agent' });
   app.register(authRoutes, { prefix: '/api/v1/auth' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });
   app.register(foodsRoutes, { prefix: '/api/v1/foods' });
   app.register(habitRoutes, { prefix: '/api/v1/habits' });
   app.register(habitEntryCollectionRoutes, { prefix: '/api/v1/habit-entries' });
+  app.register(mealRoutes, { prefix: '/api/v1/meals' });
   app.register(nutritionRoutes, { prefix: '/api/v1/nutrition' });
   app.register(nutritionTargetRoutes, { prefix: '/api/v1/nutrition-targets' });
   app.register(scheduledWorkoutRoutes, { prefix: '/api/v1/scheduled-workouts' });

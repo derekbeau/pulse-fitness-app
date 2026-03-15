@@ -173,7 +173,7 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/v1/trash',
@@ -210,7 +210,7 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
     const response = await context.app.inject({
       method: 'POST',
       url: '/api/v1/trash/habits/habit-1/restore',
@@ -317,7 +317,7 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ userId: 'user-1' });
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
 
     const purgeFoodResponse = await context.app.inject({
       method: 'DELETE',

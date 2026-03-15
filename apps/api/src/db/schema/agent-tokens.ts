@@ -14,7 +14,9 @@ export const agentTokens = sqliteTable('agent_tokens', {
     .references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'number' }),
   lastUsedAt: integer('last_used_at', { mode: 'number' }),
+  lastRotatedAt: integer('last_rotated_at', { mode: 'number' }),
   createdAt: integer('created_at', { mode: 'number' })
     .notNull()
     .default(sql`(unixepoch() * 1000)`)
