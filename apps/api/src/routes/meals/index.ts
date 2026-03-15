@@ -38,16 +38,15 @@ import {
 const MAX_MEAL_SUMMARY_LENGTH = 500;
 const SUMMARY_ELLIPSIS = '...';
 
-// Fastify can only advertise one static body schema, so this union keeps
-// validation and OpenAPI generation in Fastify while the auth-mode guard below
-// rejects the branch that does not match the resolved credentials.
+// Keep the standard schema first to match the other mixed-auth routes and
+// avoid accidental first-match ambiguity if these payloads ever converge.
 const createMealRequestSchema = z.union([
-  agentCreateMealInputSchema.transform((data) => ({
-    mode: 'agent' as const,
-    data,
-  })),
   createMealForDateInputSchema.transform((data) => ({
     mode: 'standard' as const,
+    data,
+  })),
+  agentCreateMealInputSchema.transform((data) => ({
+    mode: 'agent' as const,
     data,
   })),
 ]);

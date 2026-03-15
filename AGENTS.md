@@ -54,6 +54,7 @@ pnpm --filter shared build  # Build shared package
 ### API Design
 
 - All API routes live under `/api/v1/` and accept either `Authorization: Bearer <jwt>` or `Authorization: AgentToken <token>` when the route uses shared auth.
+- OpenAPI-generated clients using the `agentToken` security scheme must still send the full header value as `Authorization: AgentToken <token>`; the prefix is not implied automatically.
 - API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`
 - JWTs are for web app sessions; AgentToken auth is for agent integrations.
 - Agent-specific convenience features such as name resolution, auto-create behavior, and response enrichment activate automatically when a request uses AgentToken auth.

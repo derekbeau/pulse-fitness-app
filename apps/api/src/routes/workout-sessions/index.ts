@@ -340,33 +340,39 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           sets = buildInitialSessionSets(template.sections);
         }
 
-        const payload = createWorkoutSessionInputSchema.safeParse({
+        const inputName = name ?? request.body.data.name;
+        if (inputName === undefined) {
+          return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+        }
+
+        // This payload is assembled from validated agent input plus trusted
+        // template/runtime data, so construct it directly instead of
+        // re-validating with an internal safeParse.
+        const input: CreateWorkoutSessionInput = {
           templateId,
-          name,
+          name: inputName,
           date,
           status: 'in-progress',
           startedAt,
           completedAt: null,
           duration: null,
+          timeSegments: [],
           feedback: null,
           notes: null,
           sets,
-        });
-        if (!payload.success) {
-          return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
-        }
+        };
 
         const session = await createWorkoutSession({
           id: randomUUID(),
           userId: request.userId,
-          input: payload.data,
+          input,
         });
 
-        if (payload.data.templateId !== null) {
+        if (input.templateId !== null) {
           await linkTodayScheduledWorkoutToSession({
             userId: request.userId,
-            templateId: payload.data.templateId,
-            date: payload.data.date,
+            templateId: input.templateId,
+            date: input.date,
             sessionId: session.id,
           });
         }

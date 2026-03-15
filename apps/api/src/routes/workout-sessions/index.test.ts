@@ -1875,12 +1875,11 @@ describe('workout session routes', () => {
     });
 
     expect(emptyCorrectionsResponse.statusCode).toBe(400);
-    expect(emptyCorrectionsResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout session payload',
-      },
-    });
+    expectRequestValidationError(
+      emptyCorrectionsResponse,
+      'PATCH',
+      '/api/v1/workout-sessions/session-completed/corrections',
+    );
 
     expect(unsupportedCorrectionResponse.statusCode).toBe(400);
     expect(unsupportedCorrectionResponse.json()).toEqual({

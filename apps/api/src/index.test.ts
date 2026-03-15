@@ -54,6 +54,9 @@ describe('GET /health', () => {
 
 describe('OpenAPI docs', () => {
   it('serves an OpenAPI 3.1 document with Pulse security schemes', async () => {
+    const previousApiUrl = process.env.API_URL;
+    process.env.API_URL = 'https://api.pulse.test';
+
     const app = buildServer();
 
     try {
@@ -70,7 +73,7 @@ describe('OpenAPI docs', () => {
         title: 'Pulse Fitness API',
         version: '1.0.0',
       });
-      expect(body.servers).toEqual([{ url: 'http://localhost:3001' }]);
+      expect(body.servers).toEqual([{ url: 'https://api.pulse.test' }]);
       expect(body.paths).toBeTypeOf('object');
       expect(body.components?.securitySchemes).toMatchObject({
         bearerAuth: {
@@ -82,7 +85,8 @@ describe('OpenAPI docs', () => {
           type: 'apiKey',
           in: 'header',
           name: 'Authorization',
-          description: 'AgentToken <token>',
+          description:
+            'Send the full Authorization header value as `AgentToken <token>`. OpenAPI-generated clients may require manual prefixing.',
         },
       });
 
@@ -175,6 +179,11 @@ describe('OpenAPI docs', () => {
       });
     } finally {
       await app.close();
+      if (previousApiUrl === undefined) {
+        delete process.env.API_URL;
+      } else {
+        process.env.API_URL = previousApiUrl;
+      }
     }
   });
 
@@ -246,6 +255,30 @@ describe('OpenAPI docs', () => {
     }
   });
 
+  it('wraps unhandled errors in the standard API error envelope', async () => {
+    const app = buildServer();
+    app.get('/__test/unhandled-error', async () => {
+      throw new Error('boom');
+    });
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/__test/unhandled-error',
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An unexpected error occurred',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('documents the OpenAPI and Swagger UI endpoints consistently in project docs', async () => {
     const [agentsDoc, readme, skillDoc] = await Promise.all([
       readFile(REPO_AGENTS_DOC, 'utf8'),
@@ -255,16 +288,25 @@ describe('OpenAPI docs', () => {
 
     expect(agentsDoc).toContain('API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`');
     expect(agentsDoc).toContain('Request and response schemas are auto-generated from Zod schemas into the OpenAPI spec');
+    expect(agentsDoc).toContain(
+      'OpenAPI-generated clients using the `agentToken` security scheme must still send the full header value as `Authorization: AgentToken <token>`; the prefix is not implied automatically.',
+    );
 
     expect(readme).toContain(
       'API documentation available at `/api/docs` (Swagger UI) and `/api/docs/json` (OpenAPI 3.1 spec).',
     );
     expect(readme).toContain('Response schemas are Zod-validated and documented in the OpenAPI spec.');
+    expect(readme).toContain(
+      'OpenAPI-generated clients using the `agentToken` security scheme must still prefix the header value manually as `AgentToken <token>`.',
+    );
 
     expect(skillDoc).toContain('OpenAPI spec: `GET /api/docs/json` (no auth required)');
     expect(skillDoc).toContain('Swagger UI: `/api/docs` (browsable in browser)');
     expect(skillDoc).toContain(
       'For the full list of endpoints, request/response schemas, and auth requirements, fetch the OpenAPI spec.',
+    );
+    expect(skillDoc).toContain(
+      'OpenAPI-generated clients using the `agentToken` security scheme must still send the full `Authorization: AgentToken <token>` header manually; the prefix is not implied by the spec metadata.',
     );
   });
 });

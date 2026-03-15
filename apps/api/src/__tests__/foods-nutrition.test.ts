@@ -343,12 +343,6 @@ vi.mock('../routes/nutrition/store.js', () => ({
         return createdItem;
       });
 
-      items.forEach((item) => {
-        if (item.foodId) {
-          incrementFoodUsageInState(item.foodId, userId);
-        }
-      });
-
       return { meal, items };
     },
   ),

@@ -28,7 +28,7 @@ import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
-const OPENAPI_SERVER_URL = 'http://localhost:3001';
+const DEFAULT_OPENAPI_SERVER_URL = 'http://localhost:3001';
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
@@ -62,7 +62,7 @@ export const buildServer = () => {
         description: 'Unified API for Pulse fitness app and agent integrations',
         version: '1.0.0',
       },
-      servers: [{ url: OPENAPI_SERVER_URL }],
+      servers: [{ url: process.env.API_URL ?? DEFAULT_OPENAPI_SERVER_URL }],
       components: {
         securitySchemes: {
           bearerAuth: {
@@ -74,7 +74,8 @@ export const buildServer = () => {
             type: 'apiKey',
             in: 'header',
             name: 'Authorization',
-            description: 'AgentToken <token>',
+            description:
+              'Send the full Authorization header value as `AgentToken <token>`. OpenAPI-generated clients may require manual prefixing.',
           },
         },
       },
@@ -115,7 +116,22 @@ export const buildServer = () => {
       });
     }
 
-    return reply.send(error);
+    const statusCode =
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number'
+        ? error.statusCode
+        : 500;
+
+    request.log.error({ err: error, statusCode }, 'Unhandled error');
+
+    return reply.code(statusCode).send({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

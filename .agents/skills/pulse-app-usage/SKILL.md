@@ -18,6 +18,7 @@ Agents call the unified `/api/v1/*` API surface with `Authorization: AgentToken 
 - Agent-specific convenience features such as name resolution, auto-create behavior, and other workflow shortcuts activate automatically on `/api/v1/*` when the request uses AgentToken auth.
 - Responses for AgentToken callers can include an optional `agent` field with hints, suggested actions, and related state to help drive the next step.
 - Sensitive routes such as auth management and agent token CRUD remain JWT-only.
+- OpenAPI-generated clients using the `agentToken` security scheme must still send the full `Authorization: AgentToken <token>` header manually; the prefix is not implied by the spec metadata.
 
 ## Workout Workflow
 
