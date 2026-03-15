@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
-import { createFood, findFoodByName, trackFoodUsage } from '../foods/store.js';
+import {
+  findAgentTokenByHash,
+  findUserAuthById,
+  updateAgentTokenLastUsedAt,
+} from '../../middleware/store.js';
+import { createFood, findFoodByName } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -20,11 +24,11 @@ vi.mock('../../middleware/store.js', () => ({
 vi.mock('../foods/store.js', () => ({
   createFood: vi.fn(),
   findFoodByName: vi.fn(),
-  trackFoodUsage: vi.fn(),
 }));
 
 vi.mock('../nutrition/store.js', async () => {
-  const actual = await vi.importActual<typeof import('../nutrition/store.js')>('../nutrition/store.js');
+  const actual =
+    await vi.importActual<typeof import('../nutrition/store.js')>('../nutrition/store.js');
   return {
     ...actual,
     createMealForDate: vi.fn(),
@@ -46,7 +50,6 @@ describe('meal routes', () => {
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(createFood).mockReset();
     vi.mocked(findFoodByName).mockReset();
-    vi.mocked(trackFoodUsage).mockReset();
     vi.mocked(createMealForDate).mockReset();
     vi.mocked(findMealById).mockReset();
     vi.mocked(findMealItemById).mockReset();
@@ -92,13 +95,14 @@ describe('meal routes', () => {
         },
       ],
     });
-    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
-
     const app = buildServer();
 
     try {
       await app.ready();
-      const token = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/meals',
@@ -283,8 +287,6 @@ describe('meal routes', () => {
         },
       ],
     });
-    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
-
     const app = buildServer();
 
     try {

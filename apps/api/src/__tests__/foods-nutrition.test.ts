@@ -139,6 +139,31 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => 
   return [...foods].sort(byName);
 };
 
+const incrementFoodUsageInState = (foodId: string, userId: string, lastUsedAt = Date.now()) => {
+  const existing = testState.foods.get(foodId);
+  if (!existing || existing.userId !== userId) {
+    throw new Error('Failed to update food last used timestamp');
+  }
+
+  testState.foods.set(foodId, {
+    ...existing,
+    lastUsedAt,
+    usageCount: existing.usageCount + 1,
+  });
+};
+
+const decrementFoodUsageInState = (foodId: string, userId: string) => {
+  const existing = testState.foods.get(foodId);
+  if (!existing || existing.userId !== userId) {
+    throw new Error('Failed to decrement food usage count');
+  }
+
+  testState.foods.set(foodId, {
+    ...existing,
+    usageCount: Math.max(0, existing.usageCount - 1),
+  });
+};
+
 vi.mock('../routes/foods/store.js', () => ({
   createFood: vi.fn(
     async (
@@ -239,18 +264,10 @@ vi.mock('../routes/foods/store.js', () => ({
     return true;
   }),
   trackFoodUsage: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
-    const existing = testState.foods.get(foodId);
-    if (!existing || existing.userId !== userId) {
-      throw new Error('Failed to update food last used timestamp');
-    }
-
-    const updated: StoredFood = {
-      ...existing,
-      lastUsedAt,
-      usageCount: existing.usageCount + 1,
-    };
-
-    testState.foods.set(foodId, updated);
+    incrementFoodUsageInState(foodId, userId, lastUsedAt);
+  }),
+  decrementFoodUsage: vi.fn(async (foodId: string, userId: string) => {
+    decrementFoodUsageInState(foodId, userId);
   }),
 }));
 
@@ -326,6 +343,12 @@ vi.mock('../routes/nutrition/store.js', () => ({
         return createdItem;
       });
 
+      items.forEach((item) => {
+        if (item.foodId) {
+          incrementFoodUsageInState(item.foodId, userId);
+        }
+      });
+
       return { meal, items };
     },
   ),
@@ -393,6 +416,8 @@ vi.mock('../routes/nutrition/store.js', () => ({
       return false;
     }
 
+    const deletedItems = [...testState.mealItems.values()].filter((item) => item.mealId === mealId);
+
     testState.meals.delete(mealId);
 
     for (const item of [...testState.mealItems.values()]) {
@@ -400,6 +425,12 @@ vi.mock('../routes/nutrition/store.js', () => ({
         testState.mealItems.delete(item.id);
       }
     }
+
+    deletedItems.forEach((item) => {
+      if (item.foodId) {
+        decrementFoodUsageInState(item.foodId, userId);
+      }
+    });
 
     return true;
   }),
@@ -502,8 +533,14 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
-      const otherUserToken = app.jwt.sign({ sub: 'user-b', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const userToken = app.jwt.sign(
+        { sub: 'user-a', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const otherUserToken = app.jwt.sign(
+        { sub: 'user-b', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const yogurt = await createFoodViaApi(app, userToken, {
         name: 'Greek Yogurt',
@@ -654,7 +691,10 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const userToken = app.jwt.sign(
+        { sub: 'user-a', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const date = '2026-03-10';
 
       const breakfast = await createMealViaApi(app, userToken, date, {
@@ -762,7 +802,10 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const userToken = app.jwt.sign(
+        { sub: 'user-a', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const date = '2026-03-11';
 
       await createMealViaApi(app, userToken, date, {
@@ -850,7 +893,10 @@ describe('foods and nutrition integration', () => {
     const { app } = await createTestApp();
 
     try {
-      const userToken = app.jwt.sign({ sub: 'user-a', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const userToken = app.jwt.sign(
+        { sub: 'user-a', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const eggs = await createFoodViaApi(app, userToken, {
         name: 'Eggs',

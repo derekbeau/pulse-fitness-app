@@ -126,6 +126,7 @@ export const patchMealInputSchema = z
 
 export const patchMealItemInputSchema = z
   .object({
+    foodId: z.string().trim().min(1).nullable().optional(),
     name: requiredText().optional(),
     amount: z.number().positive().finite().optional(),
     unit: requiredText(50).optional(),

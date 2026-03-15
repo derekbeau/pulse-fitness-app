@@ -1,9 +1,14 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { trashListResponseSchema, trashTypeSchema, type TrashListResponse, type TrashType } from '@pulse/shared';
+import {
+  trashListResponseSchema,
+  trashTypeSchema,
+  type TrashListResponse,
+  type TrashType,
+} from '@pulse/shared';
 import { z } from 'zod';
 
-import { foodKeys } from '@/features/foods/api/keys';
-import { habitKeys } from '@/features/habits/api/keys';
+import { foodQueryKeys } from '@/features/foods/api/keys';
+import { habitQueryKeys } from '@/features/habits/api/keys';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import { apiRequest } from '@/lib/api-client';
 
@@ -11,9 +16,14 @@ const mutationResultSchema = z.object({
   success: z.boolean(),
 });
 
-export const trashKeys = {
+export const trashQueryKeys = {
   all: ['trash'] as const,
-  list: () => [...trashKeys.all, 'list'] as const,
+  items: () => ['trash', 'items'] as const,
+};
+
+export const trashKeys = {
+  all: trashQueryKeys.all,
+  list: trashQueryKeys.items,
 };
 
 type TrashMutationInput = {
@@ -32,9 +42,12 @@ async function fetchTrashItems(signal?: AbortSignal): Promise<TrashListResponse>
 
 async function restoreTrashItem(input: TrashMutationInput) {
   const type = trashTypeSchema.parse(input.type);
-  const payload = await apiRequest<{ success: boolean }>(`/api/v1/trash/${type}/${input.id}/restore`, {
-    method: 'POST',
-  });
+  const payload = await apiRequest<{ success: boolean }>(
+    `/api/v1/trash/${type}/${input.id}/restore`,
+    {
+      method: 'POST',
+    },
+  );
 
   return mutationResultSchema.parse(payload);
 }
@@ -50,9 +63,9 @@ async function purgeTrashItem(input: TrashMutationInput) {
 
 async function invalidateRelatedQueries(queryClient: QueryClient) {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: trashKeys.all }),
-    queryClient.invalidateQueries({ queryKey: habitKeys.all }),
-    queryClient.invalidateQueries({ queryKey: foodKeys.all }),
+    queryClient.invalidateQueries({ queryKey: trashQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: habitQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: foodQueryKeys.all }),
     queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
   ]);
 }
@@ -60,7 +73,7 @@ async function invalidateRelatedQueries(queryClient: QueryClient) {
 export function useTrashItems() {
   return useQuery({
     queryFn: ({ signal }) => fetchTrashItems(signal),
-    queryKey: trashKeys.list(),
+    queryKey: trashQueryKeys.items(),
   });
 }
 

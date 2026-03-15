@@ -11,7 +11,6 @@ import { autoCreateIfMissing, resolveByName } from '../agentEnrichment.js';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
-import { trackFoodUsage } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -169,22 +168,6 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         items: mealItems,
       });
 
-      const resolvedFoodIds = itemResults
-        .flatMap((entry) => (entry.kind === 'food' && entry.food ? [entry.food.id] : []))
-        .filter((value, index, values) => values.indexOf(value) === index);
-
-      const usageTrackingResults = await Promise.allSettled(
-        resolvedFoodIds.map((foodId) => trackFoodUsage(foodId, userId)),
-      );
-      usageTrackingResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          request.log.warn(
-            { err: result.reason, foodId: resolvedFoodIds[index], userId },
-            'Failed to track food usage after agent meal creation',
-          );
-        }
-      });
-
       const macros = created.items.reduce(
         (acc, item) => ({
           calories: acc.calories + item.calories,
@@ -244,25 +227,6 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       items: standardBody.data.items,
     });
 
-    const foodIds = [
-      ...new Set(
-        created.items
-          .map((item) => item.foodId)
-          .filter((foodId): foodId is string => typeof foodId === 'string'),
-      ),
-    ];
-    const usageTrackingResults = await Promise.allSettled(
-      foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
-    );
-    usageTrackingResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        request.log.warn(
-          { err: result.reason, foodId: foodIds[index], userId: request.userId },
-          'Failed to track food usage after meal creation',
-        );
-      }
-    });
-
     return reply.code(201).send(buildDataResponse(request, created));
   });
 
@@ -290,39 +254,46 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
     );
   });
 
-  app.patch<{ Params: { id: string; itemId: string } }>('/:id/items/:itemId', async (request, reply) => {
-    const parsedBody = patchMealItemInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item payload');
-    }
+  app.patch<{ Params: { id: string; itemId: string } }>(
+    '/:id/items/:itemId',
+    async (request, reply) => {
+      const parsedBody = patchMealItemInputSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal item payload');
+      }
 
-    const existingMealItem = await findMealItemById(request.userId, request.params.id, request.params.itemId);
-    if (!existingMealItem) {
-      return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
-    }
+      const existingMealItem = await findMealItemById(
+        request.userId,
+        request.params.id,
+        request.params.itemId,
+      );
+      if (!existingMealItem) {
+        return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+      }
 
-    const updatedMealItem = await patchMealItemById(
-      request.userId,
-      request.params.id,
-      request.params.itemId,
-      parsedBody.data,
-    );
-    if (!updatedMealItem) {
-      return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
-    }
+      const updatedMealItem = await patchMealItemById(
+        request.userId,
+        request.params.id,
+        request.params.itemId,
+        parsedBody.data,
+      );
+      if (!updatedMealItem) {
+        return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
+      }
 
-    return reply.send(
-      buildDataResponse(request, updatedMealItem, {
-        endpoint: 'meal.update',
-        mealName: existingMealItem.name,
-        itemCount: 1,
-        mealMacros: {
-          calories: updatedMealItem.calories,
-          protein: updatedMealItem.protein,
-          carbs: updatedMealItem.carbs,
-          fat: updatedMealItem.fat,
-        },
-      }),
-    );
-  });
+      return reply.send(
+        buildDataResponse(request, updatedMealItem, {
+          endpoint: 'meal.update',
+          mealName: existingMealItem.name,
+          itemCount: 1,
+          mealMacros: {
+            calories: updatedMealItem.calories,
+            protein: updatedMealItem.protein,
+            carbs: updatedMealItem.carbs,
+            fat: updatedMealItem.fat,
+          },
+        }),
+      );
+    },
+  );
 };

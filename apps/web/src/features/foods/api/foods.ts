@@ -3,7 +3,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import type { Food, FoodQueryParams, UpdateFoodInput } from '@pulse/shared';
 import { toast } from 'sonner';
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
-import { foodKeys } from './keys';
+import { foodQueryKeys } from './keys';
 
 type FoodListResponse = {
   data: Food[];
@@ -62,7 +62,7 @@ function patchFoodListCache(
   updater: (current: FoodListResponse) => FoodListResponse,
 ) {
   const queries = queryClient.getQueriesData<FoodListResponse>({
-    queryKey: foodKeys.list(),
+    queryKey: foodQueryKeys.foods(),
   });
 
   queries.forEach(([queryKey, value]) => {
@@ -78,7 +78,7 @@ function patchFoodListCache(
 
 export function useFoods(params: FoodQueryParams, options?: UseFoodsOptions) {
   return useQuery({
-    queryKey: foodKeys.list(params),
+    queryKey: foodQueryKeys.foods(params),
     queryFn: ({ signal }) => fetchFoods(params, signal),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,
@@ -96,9 +96,9 @@ export function useUpdateFood() {
         data: current.data.map((food) => (food.id === updatedFood.id ? updatedFood : food)),
       }));
 
-      queryClient.setQueryData(foodKeys.detail(updatedFood.id), updatedFood);
+      queryClient.setQueryData(foodQueryKeys.food(updatedFood.id), updatedFood);
       await queryClient.invalidateQueries({
-        queryKey: foodKeys.list(),
+        queryKey: foodQueryKeys.foods(),
       });
       toast.success('Food updated');
     },
@@ -115,11 +115,11 @@ export function useDeleteFood() {
     },
     onMutate: async (foodId) => {
       await queryClient.cancelQueries({
-        queryKey: foodKeys.list(),
+        queryKey: foodQueryKeys.foods(),
       });
 
       const previousLists = queryClient.getQueriesData<FoodListResponse>({
-        queryKey: foodKeys.list(),
+        queryKey: foodQueryKeys.foods(),
       });
 
       previousLists.forEach(([queryKey, value]) => {
@@ -138,7 +138,7 @@ export function useDeleteFood() {
       });
 
       queryClient.removeQueries({
-        queryKey: foodKeys.detail(foodId),
+        queryKey: foodQueryKeys.food(foodId),
       });
 
       return {
@@ -156,10 +156,10 @@ export function useDeleteFood() {
     onSettled: (_data, _error, foodId) =>
       Promise.all([
         queryClient.invalidateQueries({
-          queryKey: foodKeys.list(),
+          queryKey: foodQueryKeys.foods(),
         }),
         queryClient.invalidateQueries({
-          queryKey: foodKeys.detail(foodId),
+          queryKey: foodQueryKeys.food(foodId),
         }),
       ]),
   });

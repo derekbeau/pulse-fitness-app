@@ -74,6 +74,15 @@ export type NutritionSummaryRecord = {
 };
 
 const WEEK_DAYS = 7;
+type FoodUsageTrackingEffect =
+  | {
+      action: 'increment';
+      foodId: string;
+    }
+  | {
+      action: 'decrement';
+      foodId: string;
+    };
 
 const nutritionLogSelection = {
   id: nutritionLogs.id,
@@ -129,6 +138,8 @@ const nutritionTargetMacroSelection = {
 };
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
+const isTrackedFoodId = (foodId: string | null): foodId is string =>
+  typeof foodId === 'string' && foodId.length > 0;
 
 const clampToUnitRange = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -144,6 +155,50 @@ const getWeekStartMonday = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? -6 : 1 - day;
   return addUtcDays(date, offset);
+};
+
+const logFoodUsageTrackingFailure = (
+  userId: string,
+  effect: FoodUsageTrackingEffect,
+  reason: unknown,
+  context: string,
+) => {
+  console.warn(`Failed to ${effect.action} food usage in meal store during ${context}`, {
+    err: reason,
+    foodId: effect.foodId,
+    userId,
+  });
+};
+
+const applyFoodUsageTrackingEffects = async (
+  userId: string,
+  effects: FoodUsageTrackingEffect[],
+  context: string,
+) => {
+  if (effects.length === 0) {
+    return;
+  }
+
+  try {
+    const { decrementFoodUsage, trackFoodUsage } = await import('../foods/store.js');
+    const results = await Promise.allSettled(
+      effects.map((effect) =>
+        effect.action === 'increment'
+          ? trackFoodUsage(effect.foodId, userId)
+          : decrementFoodUsage(effect.foodId, userId),
+      ),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        logFoodUsageTrackingFailure(userId, effects[index], result.reason, context);
+      }
+    });
+  } catch (error) {
+    effects.forEach((effect) => {
+      logFoodUsageTrackingFailure(userId, effect, error, context);
+    });
+  }
 };
 
 export const calculateNutritionCompleteness = (input: {
@@ -181,7 +236,7 @@ export const createMealForDate = async (
 ): Promise<{ meal: MealRecord; items: MealItemRecord[] }> => {
   const { db } = await import('../../db/index.js');
 
-  return db.transaction((tx) => {
+  const created = db.transaction((tx) => {
     tx.insert(nutritionLogs)
       .values({
         userId,
@@ -235,11 +290,7 @@ export const createMealForDate = async (
       sugar: toNullable(item.sugar),
     }));
 
-    const foodIds = [
-      ...new Set(
-        itemValues.map((item) => item.foodId).filter((foodId): foodId is string => foodId !== null),
-      ),
-    ];
+    const foodIds = [...new Set(itemValues.map((item) => item.foodId).filter(isTrackedFoodId))];
     if (foodIds.length > 0) {
       const ownedFoods = tx
         .select({ id: foods.id })
@@ -260,6 +311,23 @@ export const createMealForDate = async (
 
     return { meal, items };
   });
+
+  await applyFoodUsageTrackingEffects(
+    userId,
+    created.items.flatMap((item) =>
+      isTrackedFoodId(item.foodId)
+        ? [
+            {
+              action: 'increment' as const,
+              foodId: item.foodId,
+            },
+          ]
+        : [],
+    ),
+    'meal creation',
+  );
+
+  return created;
 };
 
 export const getDailyNutritionForDate = async (
@@ -468,7 +536,7 @@ export const deleteMealForDate = async (
 ): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
-  return db.transaction((tx) => {
+  const deleted = db.transaction((tx) => {
     const scopedMeal = tx
       .select({ id: meals.id })
       .from(meals)
@@ -480,14 +548,41 @@ export const deleteMealForDate = async (
       .get();
 
     if (!scopedMeal) {
-      return false;
+      return {
+        deleted: false,
+        foodIds: [] as string[],
+      };
     }
+
+    const existingItems = tx
+      .select({ foodId: mealItems.foodId })
+      .from(mealItems)
+      .where(eq(mealItems.mealId, mealId))
+      .all();
 
     tx.delete(mealItems).where(eq(mealItems.mealId, mealId)).run();
     const result = tx.delete(meals).where(eq(meals.id, mealId)).run();
 
-    return result.changes === 1;
+    return {
+      deleted: result.changes === 1,
+      foodIds: existingItems.map((item) => item.foodId).filter(isTrackedFoodId),
+    };
   });
+
+  if (!deleted.deleted) {
+    return false;
+  }
+
+  await applyFoodUsageTrackingEffects(
+    userId,
+    deleted.foodIds.map((foodId) => ({
+      action: 'decrement' as const,
+      foodId,
+    })),
+    'meal deletion',
+  );
+
+  return true;
 };
 
 export const findMealForDate = async (
@@ -611,50 +706,107 @@ export const patchMealItemById = async (
   const { db } = await import('../../db/index.js');
 
   const itemUpdate: Partial<typeof mealItems.$inferInsert> = {};
-  if (updates.name !== undefined) {
-    itemUpdate.name = updates.name;
-  }
-  if (updates.amount !== undefined) {
-    itemUpdate.amount = updates.amount;
-  }
-  if (updates.unit !== undefined) {
-    itemUpdate.unit = updates.unit;
-  }
-  if (updates.calories !== undefined) {
-    itemUpdate.calories = updates.calories;
-  }
-  if (updates.protein !== undefined) {
-    itemUpdate.protein = updates.protein;
-  }
-  if (updates.carbs !== undefined) {
-    itemUpdate.carbs = updates.carbs;
-  }
-  if (updates.fat !== undefined) {
-    itemUpdate.fat = updates.fat;
-  }
-  if (updates.fiber !== undefined) {
-    itemUpdate.fiber = updates.fiber;
-  }
-  if (updates.sugar !== undefined) {
-    itemUpdate.sugar = updates.sugar;
+  const updated = db.transaction((tx) => {
+    const existingItem = tx
+      .select(mealItemSelection)
+      .from(mealItems)
+      .innerJoin(meals, eq(meals.id, mealItems.mealId))
+      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+      .where(
+        and(
+          eq(mealItems.id, itemId),
+          eq(mealItems.mealId, mealId),
+          eq(nutritionLogs.userId, userId),
+        ),
+      )
+      .limit(1)
+      .get();
+
+    if (!existingItem) {
+      return undefined;
+    }
+
+    if (updates.name !== undefined) {
+      itemUpdate.name = updates.name;
+    }
+    if (updates.amount !== undefined) {
+      itemUpdate.amount = updates.amount;
+    }
+    if (updates.unit !== undefined) {
+      itemUpdate.unit = updates.unit;
+    }
+    if (updates.calories !== undefined) {
+      itemUpdate.calories = updates.calories;
+    }
+    if (updates.protein !== undefined) {
+      itemUpdate.protein = updates.protein;
+    }
+    if (updates.carbs !== undefined) {
+      itemUpdate.carbs = updates.carbs;
+    }
+    if (updates.fat !== undefined) {
+      itemUpdate.fat = updates.fat;
+    }
+    if (updates.fiber !== undefined) {
+      itemUpdate.fiber = updates.fiber;
+    }
+    if (updates.sugar !== undefined) {
+      itemUpdate.sugar = updates.sugar;
+    }
+    if (updates.foodId !== undefined) {
+      const nextFoodId = toNullable(updates.foodId);
+      if (isTrackedFoodId(nextFoodId)) {
+        const ownedFoods = tx
+          .select({ id: foods.id })
+          .from(foods)
+          .where(and(eq(foods.id, nextFoodId), eq(foods.userId, userId)))
+          .all();
+
+        if (ownedFoods.length !== 1) {
+          throw new Error('One or more foodIds do not belong to this user');
+        }
+      }
+      itemUpdate.foodId = nextFoodId;
+    }
+
+    const updatedItem = tx
+      .update(mealItems)
+      .set(itemUpdate)
+      .where(and(eq(mealItems.id, itemId), eq(mealItems.mealId, mealId)))
+      .returning(mealItemSelection)
+      .get();
+
+    if (!updatedItem) {
+      return undefined;
+    }
+
+    return {
+      previousFoodId: existingItem.foodId,
+      updatedItem,
+    };
+  });
+
+  if (!updated) {
+    return undefined;
   }
 
-  const scopedMealIds = db
-    .select({ id: meals.id })
-    .from(meals)
-    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-    .where(eq(nutritionLogs.userId, userId));
+  const effects: FoodUsageTrackingEffect[] = [];
+  if (updated.previousFoodId !== updated.updatedItem.foodId) {
+    if (isTrackedFoodId(updated.previousFoodId)) {
+      effects.push({
+        action: 'decrement',
+        foodId: updated.previousFoodId,
+      });
+    }
+    if (isTrackedFoodId(updated.updatedItem.foodId)) {
+      effects.push({
+        action: 'increment',
+        foodId: updated.updatedItem.foodId,
+      });
+    }
+  }
 
-  return db
-    .update(mealItems)
-    .set(itemUpdate)
-    .where(
-      and(
-        eq(mealItems.id, itemId),
-        eq(mealItems.mealId, mealId),
-        inArray(mealItems.mealId, scopedMealIds),
-      ),
-    )
-    .returning(mealItemSelection)
-    .get();
+  await applyFoodUsageTrackingEffects(userId, effects, 'meal item update');
+
+  return updated.updatedItem;
 };

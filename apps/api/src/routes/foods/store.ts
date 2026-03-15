@@ -417,3 +417,19 @@ export const trackFoodUsage = async (
     throw new Error('Failed to track food usage metrics');
   }
 };
+
+export const decrementFoodUsage = async (foodId: string, userId: string): Promise<void> => {
+  const { db } = await import('../../db/index.js');
+
+  const result = db
+    .update(foods)
+    .set({
+      usageCount: sql`case when usage_count > 0 then usage_count - 1 else 0 end`,
+    })
+    .where(and(eq(foods.id, foodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+    .run();
+
+  if (result.changes !== 1) {
+    throw new Error('Failed to decrement food usage metrics');
+  }
+};

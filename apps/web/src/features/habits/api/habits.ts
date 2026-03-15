@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
 
-import { habitKeys } from './keys';
+import { habitQueryKeys } from './keys';
 
 const resolvedTodayEntrySchema = z.object({
   completed: z.boolean(),
@@ -28,7 +28,7 @@ const habitWithTodayEntrySchema = habitSchema.extend({
 });
 const habitsWithTodayEntrySchema = z.array(habitWithTodayEntrySchema);
 const habitEntriesSchema = z.array(habitEntrySchema);
-const habitEntriesKeyPrefix = [...habitKeys.all, 'entries'] as const;
+const habitEntriesQueryKey = habitQueryKeys.entries();
 const successSchema = z.object({
   success: z.literal(true),
 });
@@ -95,7 +95,7 @@ const getEntriesParamsFromQueryKey = (queryKey: QueryKey): HabitEntriesParams | 
 
 const snapshotHabitEntryQueries = (queryClient: ReturnType<typeof useQueryClient>) =>
   queryClient.getQueriesData<HabitEntry[]>({
-    queryKey: habitEntriesKeyPrefix,
+    queryKey: habitEntriesQueryKey,
   });
 
 const restoreHabitEntryQueries = (
@@ -191,7 +191,7 @@ export function useHabits() {
 
       return habitsWithTodayEntrySchema.parse(habits).filter((habit) => habit.active);
     },
-    queryKey: habitKeys.list(),
+    queryKey: habitQueryKeys.habits(),
   });
 }
 
@@ -208,7 +208,7 @@ export function useHabitEntries(from: string, to: string) {
 
       return habitEntriesSchema.parse(entries);
     },
-    queryKey: habitKeys.entries({ from, to }),
+    queryKey: habitQueryKeys.entries({ from, to }),
   });
 }
 
@@ -226,13 +226,13 @@ export function useCreateHabit() {
       return habitSchema.parse(habit);
     },
     onSuccess: (habit) => {
-      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+      queryClient.setQueryData<Habit[]>(habitQueryKeys.habits(), (currentHabits) =>
         upsertHabit(currentHabits, habit),
       );
       toast.success('Habit created');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
     },
   });
 }
@@ -251,7 +251,7 @@ export function useUpdateHabit() {
       return habitSchema.parse(habit);
     },
     onSuccess: (habit) => {
-      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) => {
+      queryClient.setQueryData<Habit[]>(habitQueryKeys.habits(), (currentHabits) => {
         if (!habit.active) {
           return currentHabits?.filter((item) => item.id !== habit.id);
         }
@@ -261,7 +261,7 @@ export function useUpdateHabit() {
       toast.success('Habit updated');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
     },
   });
 }
@@ -278,13 +278,13 @@ export function useDeleteHabit() {
       return successSchema.parse(response);
     },
     onSuccess: (_response, variables) => {
-      queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+      queryClient.setQueryData<Habit[]>(habitQueryKeys.habits(), (currentHabits) =>
         currentHabits?.filter((habit) => habit.id !== variables.id),
       );
       toast.success('Habit deleted');
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+      await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
     },
   });
 }
@@ -303,10 +303,10 @@ export function useReorderHabits() {
         }).then((response) => successSchema.parse(response));
       },
       onMutate: async (items) => {
-        await queryClient.cancelQueries({ queryKey: habitKeys.list() });
+        await queryClient.cancelQueries({ queryKey: habitQueryKeys.habits() });
 
-        const previousHabits = queryClient.getQueryData<Habit[]>(habitKeys.list());
-        queryClient.setQueryData<Habit[]>(habitKeys.list(), (currentHabits) =>
+        const previousHabits = queryClient.getQueryData<Habit[]>(habitQueryKeys.habits());
+        queryClient.setQueryData<Habit[]>(habitQueryKeys.habits(), (currentHabits) =>
           reorderCachedHabits(currentHabits, items),
         );
 
@@ -317,13 +317,13 @@ export function useReorderHabits() {
           return;
         }
 
-        queryClient.setQueryData(habitKeys.list(), context.previousHabits);
+        queryClient.setQueryData(habitQueryKeys.habits(), context.previousHabits);
       },
       onSuccess: () => {
         toast.success('Habit order updated');
       },
       onSettled: async () => {
-        await queryClient.invalidateQueries({ queryKey: habitKeys.list() });
+        await queryClient.invalidateQueries({ queryKey: habitQueryKeys.habits() });
       },
     },
   );
@@ -347,7 +347,7 @@ export function useToggleHabit() {
       return habitEntrySchema.parse(entry);
     },
     onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey: habitEntriesKeyPrefix });
+      await queryClient.cancelQueries({ queryKey: habitEntriesQueryKey });
 
       const previousEntries = snapshotHabitEntryQueries(queryClient);
       const optimisticEntry: HabitEntry = {
@@ -379,7 +379,7 @@ export function useToggleHabit() {
       applyHabitEntryToCache(queryClient, entry);
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitEntriesKeyPrefix });
+      await queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey });
     },
   });
 }
@@ -401,7 +401,7 @@ export function useUpdateHabitEntry() {
       return habitEntrySchema.parse(entry);
     },
     onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey: habitEntriesKeyPrefix });
+      await queryClient.cancelQueries({ queryKey: habitEntriesQueryKey });
 
       const previousEntries = snapshotHabitEntryQueries(queryClient);
       const existingEntry = findCachedHabitEntry(queryClient, variables.id);
@@ -434,7 +434,7 @@ export function useUpdateHabitEntry() {
       applyHabitEntryToCache(queryClient, entry);
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: habitEntriesKeyPrefix });
+      await queryClient.invalidateQueries({ queryKey: habitEntriesQueryKey });
     },
   });
 }

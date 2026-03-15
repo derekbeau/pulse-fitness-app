@@ -9,10 +9,16 @@ const toWeekStartDateKey = (date: string): string => {
   return formatDateKey(getWeekStart(parsedDate));
 };
 
-export const nutritionKeys = {
+export const nutritionQueryKeys = {
   all: ['nutrition'] as const,
-  daily: (date: string) => [...nutritionKeys.all, 'daily', date] as const,
-  summary: (date: string) => [...nutritionKeys.all, 'summary', date] as const,
-  weekSummary: (date: string) =>
-    [...nutritionKeys.all, 'week-summary', toWeekStartDateKey(date)] as const,
+  day: (date: string) => ['nutrition', 'day', date] as const,
+  summary: (date: string) => ['nutrition', 'summary', date] as const,
+  weekSummary: (date: string) => ['nutrition', 'week-summary', toWeekStartDateKey(date)] as const,
+};
+
+export const nutritionKeys = {
+  all: nutritionQueryKeys.all,
+  daily: nutritionQueryKeys.day,
+  summary: nutritionQueryKeys.summary,
+  weekSummary: nutritionQueryKeys.weekSummary,
 };

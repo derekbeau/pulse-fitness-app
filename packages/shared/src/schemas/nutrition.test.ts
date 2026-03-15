@@ -320,12 +320,14 @@ describe('patchMealItemInputSchema', () => {
 
   it('accepts a valid multi-field patch', () => {
     const payload = patchMealItemInputSchema.parse({
+      foodId: ' food-2 ',
       name: ' Grilled Chicken ',
       calories: 220,
       fiber: null,
     });
 
     expect(payload).toEqual({
+      foodId: 'food-2',
       name: 'Grilled Chicken',
       calories: 220,
       fiber: null,
