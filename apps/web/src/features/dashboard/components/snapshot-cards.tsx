@@ -2,9 +2,9 @@
 import type { DashboardSnapshot, DashboardWorkoutSnapshot } from '@pulse/shared';
 import { Link } from 'react-router';
 
-import { StatCard, type StatTrend } from '@/components/ui/stat-card';
+import { StatCard } from '@/components/ui/stat-card';
 import { accentCardStyles } from '@/lib/accent-card-styles';
-import { formatCalories, formatGrams, formatTrendChange, formatWeight } from '@/lib/format-utils';
+import { formatCalories, formatGrams, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type SnapshotCardsProps = {
@@ -27,25 +27,6 @@ const formatMacroProgressValue = (actual: number, target: number, mode: 'calorie
   }
 
   return `${formatCalories(actual)} / ${formatCalories(target)}`;
-};
-
-export const calculateWeightTrend = (weight: number, weightYesterday: number): StatTrend => {
-  if (weightYesterday <= 0) {
-    return { direction: 'neutral', value: 0 };
-  }
-
-  const change = weight - weightYesterday;
-
-  if (change === 0) {
-    return { direction: 'neutral', value: 0 };
-  }
-
-  const percent = Number(formatTrendChange((Math.abs(change) / weightYesterday) * 100));
-
-  return {
-    direction: change > 0 ? 'up' : 'down',
-    value: percent,
-  };
 };
 
 export const calculateHabitCompletionPercent = (

@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calculateHabitCompletionPercent,
-  calculateWeightTrend,
   getSnapshotValueClassName,
   SnapshotCards,
 } from './snapshot-cards';
@@ -44,22 +43,6 @@ const snapshotFixture: DashboardSnapshot = {
     percentage: 75,
   },
 };
-
-describe('calculateWeightTrend', () => {
-  it('returns neutral when yesterday weight is not positive', () => {
-    expect(calculateWeightTrend(180, 0)).toEqual({ direction: 'neutral', value: 0 });
-    expect(calculateWeightTrend(180, -1)).toEqual({ direction: 'neutral', value: 0 });
-  });
-
-  it('returns neutral when there is no change', () => {
-    expect(calculateWeightTrend(180, 180)).toEqual({ direction: 'neutral', value: 0 });
-  });
-
-  it('returns up or down trend with rounded percent change', () => {
-    expect(calculateWeightTrend(182, 180)).toEqual({ direction: 'up', value: 1.1 });
-    expect(calculateWeightTrend(178, 180)).toEqual({ direction: 'down', value: 1.1 });
-  });
-});
 
 describe('calculateHabitCompletionPercent', () => {
   it('returns 0 when there are no active habits', () => {
