@@ -4,6 +4,7 @@ import {
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
+  sessionCorrectionRequestSchema,
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
@@ -25,6 +26,7 @@ import {
   type WorkoutSessionListItem,
   type WorkoutSessionQueryParams,
   type WorkoutTemplate,
+  type SetCorrection,
   workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
   workoutSessionSchema,
@@ -90,6 +92,10 @@ type SwapSessionExerciseRequest = {
   sessionId: string;
   exerciseId: string;
   newExerciseId: string;
+};
+type CorrectSessionSetsRequest = {
+  sessionId: string;
+  corrections: SetCorrection[];
 };
 type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
@@ -465,6 +471,19 @@ async function swapSessionExercise(input: SwapSessionExerciseRequest) {
   return parsedPayload;
 }
 
+async function correctSessionSets(input: CorrectSessionSetsRequest) {
+  const parsedInput = sessionCorrectionRequestSchema.parse({
+    corrections: input.corrections,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${input.sessionId}/corrections`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
 async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
   const parsedInput = createScheduledWorkoutInputSchema.parse(input);
   const data = await apiRequest<unknown>('/api/v1/scheduled-workouts', {
@@ -811,6 +830,90 @@ export function useSwapSessionExercise() {
           queryKey: workoutQueryKeys.session(variables.sessionId),
         }),
       ]);
+    },
+  });
+}
+
+function applySetCorrectionsToSession(session: WorkoutSession, corrections: SetCorrection[]) {
+  if (corrections.length === 0) {
+    return session;
+  }
+
+  const correctionsBySetId = new Map(corrections.map((correction) => [correction.setId, correction]));
+  const applyCorrection = <T extends Pick<WorkoutSession['sets'][number], 'id' | 'reps' | 'weight'>>(
+    set: T,
+  ): T => {
+    const correction = correctionsBySetId.get(set.id);
+
+    if (!correction) {
+      return set;
+    }
+
+    return {
+      ...set,
+      ...(correction.weight !== undefined ? { weight: correction.weight } : {}),
+      ...(correction.reps !== undefined ? { reps: correction.reps } : {}),
+    };
+  };
+
+  return {
+    ...session,
+    exercises: session.exercises?.map((exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set) => applyCorrection(set)),
+    })),
+    sets: session.sets.map((set) => applyCorrection(set)),
+  };
+}
+
+export function useCorrectSessionSets(sessionId: string) {
+  const queryClient = useQueryClient();
+  const sessionQueryKey = workoutQueryKeys.session(sessionId);
+
+  return useMutation<
+    WorkoutSession,
+    Error,
+    SetCorrection[],
+    {
+      previousSession: WorkoutSession | undefined;
+    }
+  >({
+    mutationFn: (corrections) => correctSessionSets({ sessionId, corrections }),
+    onMutate: async (corrections) => {
+      await queryClient.cancelQueries({
+        queryKey: sessionQueryKey,
+      });
+
+      const previousSession = queryClient.getQueryData<WorkoutSession>(sessionQueryKey);
+
+      if (previousSession) {
+        queryClient.setQueryData<WorkoutSession>(
+          sessionQueryKey,
+          applySetCorrectionsToSession(previousSession, corrections),
+        );
+      }
+
+      return {
+        previousSession,
+      };
+    },
+    onError: (_error, _corrections, context) => {
+      if (context?.previousSession) {
+        queryClient.setQueryData(sessionQueryKey, context.previousSession);
+      }
+    },
+    onSuccess: async (session) => {
+      queryClient.setQueryData(sessionQueryKey, session);
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sessionQueryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.completedSessions(),
+        }),
+      ]);
+      toast.success('Workout corrections saved');
     },
   });
 }
