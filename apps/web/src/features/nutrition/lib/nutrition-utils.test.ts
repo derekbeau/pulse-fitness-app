@@ -14,6 +14,7 @@ describe('macro formatting', () => {
     expect(formatCalories(535)).toBe('535 cal');
     expect(formatGrams(29, { compact: true, suffix: 'P' })).toBe('29P');
     expect(formatGrams(29)).toBe('29g');
+    expect(formatGrams(31.7, { compact: true })).toBe('32g');
   });
 });
 

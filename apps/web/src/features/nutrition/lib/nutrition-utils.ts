@@ -115,7 +115,7 @@ export function formatCalories(value: number, options: CaloriesFormatOptions = {
 }
 
 export function formatGrams(value: number, options: GramsFormatOptions = {}): string {
-  const rounded = formatCaloriesValue(value);
+  const rounded = Math.round(Number.isFinite(value) ? value : 0);
 
   if (options.compact) {
     return `${rounded}${options.suffix ?? 'g'}`;
