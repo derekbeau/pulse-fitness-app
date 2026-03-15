@@ -190,8 +190,13 @@ const applyFoodUsageTrackingEffects = async (
     );
 
     results.forEach((result, index) => {
+      const effect = effects[index];
       if (result.status === 'rejected') {
-        logFoodUsageTrackingFailure(userId, effects[index], result.reason, context);
+        if (!effect) {
+          return;
+        }
+
+        logFoodUsageTrackingFailure(userId, effect, result.reason, context);
       }
     });
   } catch (error) {
@@ -536,7 +541,7 @@ export const deleteMealForDate = async (
 ): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
-  const deleted = db.transaction((tx) => {
+  const deleteResult = db.transaction((tx) => {
     const scopedMeal = tx
       .select({ id: meals.id })
       .from(meals)
@@ -569,13 +574,13 @@ export const deleteMealForDate = async (
     };
   });
 
-  if (!deleted.deleted) {
+  if (!deleteResult.deleted) {
     return false;
   }
 
   await applyFoodUsageTrackingEffects(
     userId,
-    deleted.foodIds.map((foodId) => ({
+    deleteResult.foodIds.map((foodId) => ({
       action: 'decrement' as const,
       foodId,
     })),
@@ -705,8 +710,8 @@ export const patchMealItemById = async (
 ): Promise<MealItemRecord | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  const itemUpdate: Partial<typeof mealItems.$inferInsert> = {};
   const updated = db.transaction((tx) => {
+    const itemUpdate: Partial<typeof mealItems.$inferInsert> = {};
     const existingItem = tx
       .select(mealItemSelection)
       .from(mealItems)

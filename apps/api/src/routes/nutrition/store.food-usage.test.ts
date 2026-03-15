@@ -415,6 +415,44 @@ describe('nutrition store food usage tracking', () => {
     expect(testState.trackFoodUsage).not.toHaveBeenCalled();
   });
 
+  it('does not decrement usage when deleting a meal that does not exist', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForMealDelete>) => unknown) =>
+        callback(
+          createTxForMealDelete({
+            exists: false,
+          }),
+        ),
+    );
+
+    const { deleteMealForDate } = await import('./store.js');
+    const deleted = await deleteMealForDate('user-1', '2026-03-09', 'meal-1');
+
+    expect(deleted).toBe(false);
+    expect(testState.decrementFoodUsage).not.toHaveBeenCalled();
+    expect(testState.trackFoodUsage).not.toHaveBeenCalled();
+  });
+
+  it('decrements only tracked foods when deleting a meal with mixed item types', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForMealDelete>) => unknown) =>
+        callback(
+          createTxForMealDelete({
+            foodIds: ['food-1', null, 'food-2'],
+          }),
+        ),
+    );
+
+    const { deleteMealForDate } = await import('./store.js');
+    const deleted = await deleteMealForDate('user-1', '2026-03-09', 'meal-1');
+
+    expect(deleted).toBe(true);
+    expect(testState.decrementFoodUsage).toHaveBeenCalledTimes(2);
+    expect(testState.decrementFoodUsage).toHaveBeenNthCalledWith(1, 'food-1', 'user-1');
+    expect(testState.decrementFoodUsage).toHaveBeenNthCalledWith(2, 'food-2', 'user-1');
+    expect(testState.trackFoodUsage).not.toHaveBeenCalled();
+  });
+
   it('swaps food usage when updating a meal item food reference', async () => {
     testState.db.transaction.mockImplementation(
       (callback: (tx: ReturnType<typeof createTxForMealItemPatch>) => unknown) =>
@@ -437,6 +475,56 @@ describe('nutrition store food usage tracking', () => {
     });
     expect(testState.decrementFoodUsage).toHaveBeenCalledTimes(1);
     expect(testState.decrementFoodUsage).toHaveBeenCalledWith('food-1', 'user-1');
+    expect(testState.trackFoodUsage).toHaveBeenCalledTimes(1);
+    expect(testState.trackFoodUsage).toHaveBeenCalledWith('food-2', 'user-1');
+  });
+
+  it('decrements usage when clearing a tracked meal item food reference', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForMealItemPatch>) => unknown) =>
+        callback(
+          createTxForMealItemPatch({
+            existingFoodId: 'food-1',
+            updatedFoodId: null,
+          }),
+        ),
+    );
+
+    const { patchMealItemById } = await import('./store.js');
+    const updated = await patchMealItemById('user-1', 'meal-1', 'item-1', {
+      foodId: null,
+    });
+
+    expect(updated).toMatchObject({
+      id: 'item-1',
+      foodId: null,
+    });
+    expect(testState.decrementFoodUsage).toHaveBeenCalledTimes(1);
+    expect(testState.decrementFoodUsage).toHaveBeenCalledWith('food-1', 'user-1');
+    expect(testState.trackFoodUsage).not.toHaveBeenCalled();
+  });
+
+  it('increments usage when attaching a tracked meal item food reference', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForMealItemPatch>) => unknown) =>
+        callback(
+          createTxForMealItemPatch({
+            existingFoodId: null,
+            updatedFoodId: 'food-2',
+          }),
+        ),
+    );
+
+    const { patchMealItemById } = await import('./store.js');
+    const updated = await patchMealItemById('user-1', 'meal-1', 'item-1', {
+      foodId: 'food-2',
+    });
+
+    expect(updated).toMatchObject({
+      id: 'item-1',
+      foodId: 'food-2',
+    });
+    expect(testState.decrementFoodUsage).not.toHaveBeenCalled();
     expect(testState.trackFoodUsage).toHaveBeenCalledTimes(1);
     expect(testState.trackFoodUsage).toHaveBeenCalledWith('food-2', 'user-1');
   });

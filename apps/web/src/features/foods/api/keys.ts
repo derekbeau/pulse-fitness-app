@@ -15,8 +15,8 @@ export const foodQueryKeys = {
   food: (id: string) => ['foods', 'food', id] as const,
   foods: (params?: Partial<FoodQueryParams>) =>
     params
-      ? (['foods', 'foods', normalizeListParams(params)] as const)
-      : (['foods', 'foods'] as const),
+      ? (['foods', 'list', normalizeListParams(params)] as const)
+      : (['foods', 'list'] as const),
 };
 
 export const foodKeys = {
