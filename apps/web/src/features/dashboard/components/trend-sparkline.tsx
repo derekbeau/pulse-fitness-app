@@ -134,11 +134,11 @@ export function TrendSparkline({
   const hasSingleDataPoint = plottedData.length === 1;
 
   return (
-    <div className={cn('flex h-full flex-col gap-4', className)} data-slot="trend-sparkline">
-      <div className="flex items-start justify-between gap-4">
+    <div className={cn('flex h-full flex-col gap-2.5', className)} data-slot="trend-sparkline">
+      <div className="flex items-start justify-between gap-2.5">
         <p
           className={cn(
-            'text-sm font-medium opacity-70 dark:text-muted dark:opacity-100',
+            'text-xs font-medium uppercase tracking-[0.14em] opacity-70 dark:text-muted dark:opacity-100',
             textClass,
           )}
         >
@@ -147,14 +147,17 @@ export function TrendSparkline({
 
         <div className="space-y-1 text-right">
           <p
-            className={cn('text-3xl font-semibold tracking-tight dark:text-foreground', textClass)}
+            className={cn(
+              'text-xl leading-tight font-semibold tracking-tight sm:text-2xl dark:text-foreground',
+              textClass,
+            )}
           >
             {currentValue}
           </p>
           <div
             aria-label={`trend ${direction}`}
             className={cn(
-              'flex items-center justify-end gap-1 text-sm font-medium opacity-80 dark:text-muted dark:opacity-100',
+              'flex items-center justify-end gap-1 text-xs font-medium opacity-80 dark:text-muted dark:opacity-100',
               textClass,
             )}
             data-slot="trend-sparkline-change"
@@ -167,7 +170,7 @@ export function TrendSparkline({
 
       {plottedData.length === 0 ? (
         <div
-          className="flex h-[60px] items-center justify-center rounded-md bg-muted/35"
+          className="flex h-[48px] items-center justify-center rounded-md bg-muted/35"
           data-slot="trend-sparkline-empty"
         >
           <p className="text-sm text-muted">{emptyMessage}</p>
@@ -175,7 +178,7 @@ export function TrendSparkline({
       ) : (
         <div
           aria-label={`${label} sparkline`}
-          className="h-[60px] w-full"
+          className="h-[48px] w-full"
           data-slot="trend-sparkline-chart"
           role="img"
         >
@@ -213,13 +216,13 @@ function TrendMetricCard({
   return (
     <Card
       className={cn(
-        'gap-0 border-transparent py-5 shadow-sm dark:text-foreground',
+        'gap-0 border-transparent py-3 shadow-sm dark:text-foreground',
         textClassName,
         className,
       )}
       data-slot="trend-sparkline-card"
     >
-      <CardContent className="h-full px-5">
+      <CardContent className="h-full px-3">
         <TrendSparkline
           changePercent={changePercent}
           color={color}
@@ -236,19 +239,19 @@ function TrendMetricCard({
 function TrendMetricCardSkeleton() {
   return (
     <Card
-      className="gap-0 border-transparent py-5 shadow-sm"
+      className="gap-0 border-transparent py-3 shadow-sm"
       data-slot="trend-sparkline-card-skeleton"
     >
-      <CardContent className="h-full px-5">
-        <div className="flex h-full flex-col gap-4" data-slot="trend-sparkline-skeleton">
-          <div className="flex items-start justify-between gap-4">
+      <CardContent className="h-full px-3">
+        <div className="flex h-full flex-col gap-2.5" data-slot="trend-sparkline-skeleton">
+          <div className="flex items-start justify-between gap-2.5">
             <div className="h-4 w-28 animate-pulse rounded bg-muted/50" />
             <div className="space-y-2">
-              <div className="ml-auto h-8 w-20 animate-pulse rounded bg-muted/50" />
+              <div className="ml-auto h-6 w-20 animate-pulse rounded bg-muted/50" />
               <div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted/50" />
             </div>
           </div>
-          <div className="h-[60px] w-full animate-pulse rounded bg-muted/50" />
+          <div className="h-[48px] w-full animate-pulse rounded bg-muted/50" />
         </div>
       </CardContent>
     </Card>
@@ -266,7 +269,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   if ((needsWeight && weightTrendQuery.isLoading) || (needsMacros && macroTrendQuery.isLoading)) {
     return (
       <section aria-label="Trend sparklines">
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <TrendMetricCardSkeleton />
           <TrendMetricCardSkeleton />
           <TrendMetricCardSkeleton />
@@ -279,7 +282,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     return (
       <section aria-label="Trend sparklines">
         <Card className="gap-0 border-border/70 py-4 shadow-sm">
-          <CardContent className="px-5">
+          <CardContent className="px-3">
             <p className="text-sm text-muted-foreground">Unable to load trend data.</p>
           </CardContent>
         </Card>
@@ -360,7 +363,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     return (
       <section aria-label="Trend sparklines">
         <Card className="gap-0 border-border/70 py-4 shadow-sm">
-          <CardContent className="px-5">
+          <CardContent className="px-3">
             <p className="text-sm text-muted-foreground">No trend metrics selected.</p>
           </CardContent>
         </Card>
@@ -370,7 +373,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
 
   return (
     <section aria-label="Trend sparklines">
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
         {configs.map((config) => (
           <TrendMetricCard key={config.label} {...config} />
         ))}

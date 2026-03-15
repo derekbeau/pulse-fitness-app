@@ -57,7 +57,7 @@ describe('AppLayout', () => {
     const main = screen.getByRole('main');
 
     expect(main).toHaveClass('pt-4');
-    expect(main).toHaveClass('md:pt-8');
+    expect(main).toHaveClass('md:pt-6');
     expect(main).not.toHaveClass('pt-20');
   });
 });

@@ -83,6 +83,14 @@ describe('HabitFormDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('uses the compact dialog and form spacing classes', () => {
+    render(<HabitFormDialog onOpenChange={vi.fn()} open />);
+
+    expect(screen.getByRole('dialog')).toHaveClass('gap-4', 'p-5');
+    expect(document.querySelector('form')).toHaveClass('space-y-4');
+    expect(document.querySelector('[data-slot="dialog-footer"]')).toHaveClass('pt-1');
+  });
+
   it('uses edit mode defaults and calls update mutation', async () => {
     const onOpenChange = vi.fn();
     const updateMutation = createMutationMock();

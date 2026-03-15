@@ -454,7 +454,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         </div>
       </Card>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {template.sections.map((section) => (
           <details
             className={cn(
@@ -464,8 +464,8 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
             key={section.type}
             open={section.type === 'main'}
           >
-            <summary className="cursor-pointer list-outside px-5 py-4">
-              <div className="flex flex-col gap-2 pr-6 sm:flex-row sm:items-center sm:justify-between">
+            <summary className="cursor-pointer list-outside px-4 py-3">
+              <div className="flex flex-col gap-1.5 pr-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <h2 className="text-lg font-bold tracking-wide text-foreground">
                     {sectionLabels[section.type]}
@@ -480,7 +480,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               </div>
             </summary>
 
-            <div className="space-y-2 border-t border-border/80 px-4 py-4 sm:px-5 sm:py-4">
+            <div className="space-y-1.5 border-t border-border/80 px-3 py-3 sm:px-4 sm:py-3">
               {section.exercises.length === 0 ? (
                 <Card>
                   <CardContent className="py-5">
@@ -584,7 +584,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                       return (
                         <div
                           className={cn(
-                            'relative space-y-2 rounded-2xl border border-border/90 border-l-4 px-3 py-3',
+                            'relative space-y-1.5 rounded-2xl border border-border/90 border-l-4 px-2.5 py-2.5',
                             supersetAccentClass,
                           )}
                           data-testid={`superset-group-${group.groupId}`}
@@ -596,7 +596,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                               {formatSupersetLabel(group.groupId)}
                             </p>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {group.exercises.map((exercise, exerciseIndex) => {
                               const index = group.startIndex + exerciseIndex;
                               return (
@@ -924,19 +924,19 @@ function TemplateExerciseCard({
 
   return (
     <Card
-      className="gap-2 py-0"
+      className="gap-1.5 py-0"
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
     >
-      <CardHeader className="gap-2 py-3">
+      <CardHeader className="gap-1.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-1.5">
             <Button
               aria-label={`Drag handle for ${exercise.exerciseName}`}
-              className="mt-0.5 size-8 touch-none"
+              className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
               size="icon"
               type="button"
               variant="ghost"
@@ -972,6 +972,7 @@ function TemplateExerciseCard({
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label={`Exercise actions for ${exercise.exerciseName}`}
+                className="-mr-1 size-11 min-h-11 min-w-11"
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -995,10 +996,10 @@ function TemplateExerciseCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-2 pb-3">
+      <CardContent className="space-y-1.5 pb-2.5">
         <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
 
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
           <InlineEditField
             ariaLabel={`Sets for ${exercise.exerciseName}`}
             label="Sets"

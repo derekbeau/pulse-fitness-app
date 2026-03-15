@@ -349,6 +349,19 @@ describe('HabitChain', () => {
     expect(firstSquare).toHaveAttribute('title', `${formatDateLabel(date)} — ${statusLabel}`);
   });
 
+  it('keeps each day circle at the minimum touch target size', () => {
+    const habit = getHabitByIndex(0);
+    const { container } = render(
+      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
+    );
+
+    const firstSquare = container.querySelector('[data-slot="habit-chain-day"]');
+    expect(firstSquare).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+
+    const grid = container.querySelector('[data-slot="habit-chain-grid"]');
+    expect(grid).toHaveClass('grid-cols-7', 'gap-1.5', 'sm:grid-cols-10');
+  });
+
   it('includes the status in square aria labels', () => {
     const habit = getHabitByIndex(0);
     const { container } = render(

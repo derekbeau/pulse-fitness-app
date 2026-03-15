@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatCalories,
   formatDisplayServing,
+  formatGrams,
   sortMeals,
   toMealLoggedAtTimestamp,
 } from '@/features/nutrition/lib/nutrition-utils';
+
+describe('macro formatting', () => {
+  it('supports compact nutrition labels without string replacement at call sites', () => {
+    expect(formatCalories(535, { compact: true })).toBe('535cal');
+    expect(formatCalories(535)).toBe('535 cal');
+    expect(formatGrams(29, { compact: true, suffix: 'P' })).toBe('29P');
+    expect(formatGrams(29)).toBe('29g');
+    expect(formatGrams(31.7, { compact: true })).toBe('32g');
+  });
+});
 
 describe('formatDisplayServing', () => {
   it('prefers display quantity and unit when both are present', () => {

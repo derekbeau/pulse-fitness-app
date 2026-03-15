@@ -51,7 +51,7 @@ function CopyableToken({ token }: { token: string }) {
     <div className="space-y-2">
       <Label className="text-sm font-medium text-foreground">Your token</Label>
       <div className="flex items-center gap-2">
-        <code className="flex-1 overflow-x-auto rounded-lg border border-border/80 bg-secondary/50 px-3 py-2 text-xs break-all font-mono text-foreground">
+        <code className="flex-1 overflow-x-auto rounded-lg border border-border/80 bg-secondary/50 px-2.5 py-1.5 text-xs break-all font-mono text-foreground">
           {token}
         </code>
         <Button
@@ -101,7 +101,7 @@ function CreateTokenDialog({
 
   return (
     <Dialog onOpenChange={handleClose} open={open}>
-      <DialogContent>
+      <DialogContent className="gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{revealedToken ? 'Token created' : 'Create agent token'}</DialogTitle>
           <DialogDescription>
@@ -114,7 +114,7 @@ function CreateTokenDialog({
         {revealedToken ? (
           <CopyableToken token={revealedToken} />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-sm font-medium text-foreground" htmlFor="token-name">
               Token name
             </Label>
@@ -132,7 +132,7 @@ function CreateTokenDialog({
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="pt-1">
           {revealedToken ? (
             <Button onClick={() => handleClose(false)} type="button">
               Done
@@ -181,7 +181,7 @@ function RegenerateTokenDialog({
 
   return (
     <Dialog onOpenChange={handleClose} open={open}>
-      <DialogContent>
+      <DialogContent className="gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {revealedToken ? 'Token regenerated' : `Regenerate "${token?.name}"?`}
@@ -195,7 +195,7 @@ function RegenerateTokenDialog({
 
         {revealedToken ? <CopyableToken token={revealedToken} /> : null}
 
-        <DialogFooter>
+        <DialogFooter className="pt-1">
           {revealedToken ? (
             <Button onClick={() => handleClose(false)} type="button">
               Done
@@ -231,7 +231,7 @@ function TokenRow({
   onDelete: (token: AgentTokenListItem) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1">
         <div className="flex items-center gap-2">
           <KeyIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -284,7 +284,7 @@ export function AgentTokensCard() {
   return (
     <>
       <Card className="gap-4 border-border/70 shadow-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-1.5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
               <CardTitle>
@@ -316,7 +316,7 @@ export function AgentTokensCard() {
               ))}
             </div>
           ) : tokens.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 px-4 py-8 text-center">
+            <div className="rounded-xl border border-dashed border-border/80 px-4 py-6 text-center">
               <KeyIcon className="mx-auto size-8 text-muted-foreground/60" />
               <p className="mt-2 text-sm font-medium text-foreground">No agent tokens yet</p>
               <p className="mt-1 text-sm text-muted-foreground">

@@ -24,6 +24,15 @@ type ServingSource = {
   displayUnit?: string | null;
 };
 
+type CaloriesFormatOptions = {
+  compact?: boolean;
+};
+
+type GramsFormatOptions = {
+  compact?: boolean;
+  suffix?: string;
+};
+
 const DEFAULT_TOTALS: MacroTotals = {
   calories: 0,
   protein: 0,
@@ -99,11 +108,19 @@ export function toMealLoggedAtTimestamp(
   return fallbackTimestamp;
 }
 
-export function formatCalories(value: number): string {
-  return `${formatCaloriesValue(value)} cal`;
+export function formatCalories(value: number, options: CaloriesFormatOptions = {}): string {
+  const rounded = formatCaloriesValue(value);
+
+  return options.compact ? `${rounded}cal` : `${rounded} cal`;
 }
 
-export function formatGrams(value: number): string {
+export function formatGrams(value: number, options: GramsFormatOptions = {}): string {
+  const rounded = Math.round(Number.isFinite(value) ? value : 0);
+
+  if (options.compact) {
+    return `${rounded}${options.suffix ?? 'g'}`;
+  }
+
   return formatGramsValue(value);
 }
 

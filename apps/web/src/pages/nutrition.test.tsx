@@ -229,25 +229,19 @@ function createDeferredResponse() {
   return { promise, resolve };
 }
 
-function getMealToggleButton(mealName: string) {
-  const candidateButtons = screen.getAllByRole('button', {
-    name: new RegExp(mealName, 'i'),
+function getMealHeading(mealName: string) {
+  return screen.getByRole('heading', {
+    name: new RegExp(`^${mealName}$`, 'i'),
   });
-  const button = candidateButtons.find((candidate) => candidate.hasAttribute('aria-controls'));
-
-  if (!button) {
-    throw new Error(`Expected a meal toggle button for ${mealName}`);
-  }
-
-  return button;
 }
 
 function expectMealsInDisplayOrder(mealNames: string[]) {
-  const buttons = mealNames.map((mealName) => getMealToggleButton(mealName));
+  const headings = mealNames.map((mealName) => getMealHeading(mealName));
 
-  for (let index = 0; index < buttons.length - 1; index += 1) {
+  for (let index = 0; index < headings.length - 1; index += 1) {
     expect(
-      buttons[index].compareDocumentPosition(buttons[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      headings[index].compareDocumentPosition(headings[index + 1]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   }
 }
@@ -467,7 +461,7 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
-    expect(getMealToggleButton('Breakfast')).toBeInTheDocument();
+    expect(getMealHeading('Breakfast')).toBeInTheDocument();
   });
 
   it('shows a non-blocking fallback message when week summary fails', async () => {
@@ -691,7 +685,7 @@ describe('NutritionPage', () => {
     expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
   });
 
-  it('expands a meal and deletes it via the API mutation', async () => {
+  it('shows grouped food rows and deletes a meal via the API mutation', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -721,9 +715,10 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    fireEvent.click(getMealToggleButton('Breakfast'));
+    expect(getMealHeading('Breakfast')).toBeInTheDocument();
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
+    expect(screen.getByText('210cal · 18P · 1C · 15F')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Breakfast' }));
     const dialog = screen.getByRole('alertdialog');

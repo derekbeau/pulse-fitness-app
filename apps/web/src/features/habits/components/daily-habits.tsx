@@ -282,20 +282,20 @@ function buildDailyHabits(
 
 function DailyHabitsLoadingState() {
   return (
-    <div aria-busy="true" aria-label="Loading daily habits" className="space-y-4">
+    <div aria-busy="true" aria-label="Loading daily habits" className="space-y-3">
       <Card className={accentCardStyles.pink}>
-        <CardHeader className="gap-3">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
           </p>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <Skeleton className="h-8 w-56 rounded-full bg-black/10 dark:bg-secondary" />
             <Skeleton className="h-4 w-full max-w-2xl rounded-full bg-black/10 dark:bg-secondary" />
           </div>
         </CardHeader>
       </Card>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {Array.from({ length: 3 }).map((_, index) => (
           <HabitRowSkeleton key={index} />
         ))}
@@ -314,16 +314,16 @@ type DailyHabitsErrorStateProps = {
 
 function DailyHabitsErrorState({ titleDate, message, onRetry }: DailyHabitsErrorStateProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Card className={accentCardStyles.pink}>
-        <CardHeader className="gap-3">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <CardTitle
               aria-level={2}
-              className="text-3xl font-semibold tracking-tight"
+              className="text-2xl font-semibold tracking-tight sm:text-3xl"
               role="heading"
             >
               {todayFormatter.format(titleDate)}
@@ -336,7 +336,7 @@ function DailyHabitsErrorState({ titleDate, message, onRetry }: DailyHabitsError
       </Card>
 
       <Card className="border-dashed">
-        <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">{message}</p>
           <Button onClick={onRetry} type="button">
             Try again
@@ -456,17 +456,17 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Card className={accentCardStyles.pink}>
-        <CardHeader className="gap-3">
+        <CardHeader className="gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
             Daily habits
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1.5">
               <CardTitle
                 aria-level={2}
-                className="text-3xl font-semibold tracking-tight"
+                className="text-2xl font-semibold tracking-tight sm:text-3xl"
                 role="heading"
               >
                 {todayFormatter.format(activeDate)}
@@ -477,7 +477,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                   : 'Review and log habits for this day to keep your history accurate.'}
               </CardDescription>
             </div>
-            <div className="inline-flex min-h-14 self-start items-center justify-center rounded-full bg-black/10 px-4 py-2 dark:bg-secondary">
+            <div className="inline-flex min-h-11 self-start items-center justify-center rounded-full bg-black/10 px-3.5 py-1.5 dark:bg-secondary">
               <span className="text-center text-sm font-semibold leading-tight dark:text-foreground">
                 {completedCount} of {activeHabits.length} habits complete
               </span>
@@ -488,7 +488,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
 
       {activeHabits.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="py-6">
+          <CardContent className="py-5">
             <p className="text-base font-medium text-foreground">
               No active habits configured yet.
             </p>
@@ -496,7 +496,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
               Add your first habit to start tracking progress.
             </p>
             <Button
-              className="mt-4"
+              className="mt-3"
               onClick={() => {
                 setEditingHabitId(null);
                 setIsFormDialogOpen(true);
@@ -510,7 +510,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3">
+          <div className="grid gap-2.5">
             {dailyHabits.map((habit) => {
               const frequencySummary = getFrequencySummary(habit.sourceHabit);
               const isPaused =
@@ -554,7 +554,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                   )}
                 >
                   {/* Top row: emoji + name + badges + menu */}
-                  <div className="flex items-center gap-3 px-4 pt-4 pb-1 sm:px-5">
+                  <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-1 sm:px-5">
                     <span
                       className={cn(
                         'flex size-10 shrink-0 items-center justify-center rounded-xl text-2xl',
@@ -634,10 +634,10 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                   ) : null}
 
                   {/* Interaction area */}
-                  <div className="px-4 pt-1 pb-4 sm:px-5">
+                  <div className="px-4 pt-0.5 pb-3.5 sm:px-5">
                     {habit.trackingType === 'boolean' ? (
                       <label
-                        className="flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2"
+                        className="flex cursor-pointer items-center gap-3 rounded-lg px-0.5 py-1.5"
                         htmlFor={`habit-${habit.id}`}
                       >
                         <Checkbox
@@ -741,7 +741,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                     )}
 
                     {canResetToAuto ? (
-                      <div className="mt-2">
+                      <div className="mt-1.5">
                         <Button
                           className="h-auto px-0 text-xs"
                           disabled={isSavingValue || isSavingToggle}

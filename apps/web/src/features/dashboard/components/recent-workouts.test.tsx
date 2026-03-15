@@ -101,7 +101,9 @@ describe('RecentWorkouts', () => {
       expect(within(link).getByText(workout.name)).toBeInTheDocument();
       expect(within(link).getByText(`${workout.exerciseCount} exercises`)).toBeInTheDocument();
       expect(
-        within(link).getByText(workout.duration === null ? 'Duration n/a' : `${workout.duration} min`),
+        within(link).getByText(
+          workout.duration === null ? 'Duration n/a' : `${workout.duration} min`,
+        ),
       ).toBeInTheDocument();
     });
   });
@@ -121,13 +123,15 @@ describe('RecentWorkouts', () => {
     const cards = container.querySelectorAll('[data-slot="recent-workout-card"]');
     expect(cards.length).toBe(5);
     cards.forEach((card) => {
-      expect(card).toHaveClass('py-2');
+      expect(card).toHaveClass('py-2.5');
+      expect(card).toHaveClass('px-3');
       expect(card).toHaveClass('overflow-hidden');
     });
 
     const metadataPills = screen.getAllByText('6 exercises');
     metadataPills.forEach((pill) => {
       expect(pill).toHaveClass('rounded-full');
+      expect(pill).toHaveClass('px-2');
       expect(pill.parentElement).toHaveClass('text-xs');
     });
   });
@@ -189,7 +193,9 @@ describe('RecentWorkouts', () => {
       </MemoryRouter>,
     );
 
-    expect(container.querySelectorAll('[data-slot="recent-workout-card-skeleton"]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-slot="recent-workout-card-skeleton"]')).toHaveLength(
+      4,
+    );
   });
 
   it('renders an empty state when there are no completed sessions', () => {
@@ -205,7 +211,10 @@ describe('RecentWorkouts', () => {
     );
 
     expect(screen.getByText('No completed workouts yet')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Start a workout' })).toHaveAttribute('href', '/workouts');
+    expect(screen.getByRole('link', { name: 'Start a workout' })).toHaveAttribute(
+      'href',
+      '/workouts',
+    );
   });
 
   it('renders an error state when recent workouts query fails', () => {

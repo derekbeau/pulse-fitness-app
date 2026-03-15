@@ -89,19 +89,32 @@ const getMacroStat = (snapshot: DashboardSnapshot | undefined, key: MacroKey): M
   };
 };
 
+const formatMacroSummary = (stat: MacroStat, unit: MacroConfig['unit']) => {
+  if (stat.target <= 0) {
+    return 'No target';
+  }
+
+  if (unit === 'kcal') {
+    return `${formatCalories(stat.actual)} / ${formatCalories(stat.target)} kcal`;
+  }
+
+  return `${formatGrams(stat.actual)} / ${formatGrams(stat.target)}`;
+};
+
 export function MacroRings({ snapshot }: MacroRingsProps) {
   const [mode, setMode] = useState<MacroMode>('eaten');
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-2.5">
       <div className="flex items-center justify-end">
         <div
           aria-label="Macro display mode"
-          className="inline-flex rounded-lg border border-border bg-card p-1"
+          className="inline-flex rounded-lg border border-border bg-card p-0.5"
           role="group"
         >
           <Button
             aria-pressed={mode === 'eaten'}
+            className="px-2.5 text-xs"
             onClick={() => {
               setMode('eaten');
             }}
@@ -112,6 +125,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
           </Button>
           <Button
             aria-pressed={mode === 'remaining'}
+            className="px-2.5 text-xs"
             onClick={() => {
               setMode('remaining');
             }}
@@ -123,31 +137,37 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
-          const state = getMacroRingState(
-            getMacroStat(snapshot, macro.key),
-            mode,
-            macro.color,
-            macro.unit,
-          );
+          const stat = getMacroStat(snapshot, macro.key);
+          const state = getMacroRingState(stat, mode, macro.color, macro.unit);
 
           return (
             <div
-              className="flex flex-col items-center gap-2"
+              className="flex min-w-0 items-center gap-2.5 rounded-xl border border-border/70 bg-card/40 px-2.5 py-2"
               data-slot="macro-ring-item"
               key={macro.key}
             >
-              <div className="w-full max-w-[106px] px-1">
+              <div className="w-16 shrink-0">
                 <ProgressRing
                   aria-label={`${macro.label} progress`}
-                  className="h-auto w-full [&_span]:text-[11px] [&_span]:leading-tight [&_span]:text-center"
+                  className="h-auto w-full"
                   color={state.color}
                   label={state.valueLabel}
+                  labelClassName="text-[10px] leading-tight font-semibold"
+                  size={68}
+                  strokeWidth={7}
                   value={state.progress}
                 />
               </div>
-              <p className="text-sm font-medium text-muted">{macro.label}</p>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {macro.label}
+                </p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {formatMacroSummary(stat, macro.unit)}
+                </p>
+              </div>
             </div>
           );
         })}

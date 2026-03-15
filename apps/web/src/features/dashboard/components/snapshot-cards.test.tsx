@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calculateHabitCompletionPercent,
-  calculateWeightTrend,
   getSnapshotValueClassName,
   SnapshotCards,
 } from './snapshot-cards';
@@ -45,22 +44,6 @@ const snapshotFixture: DashboardSnapshot = {
   },
 };
 
-describe('calculateWeightTrend', () => {
-  it('returns neutral when yesterday weight is not positive', () => {
-    expect(calculateWeightTrend(180, 0)).toEqual({ direction: 'neutral', value: 0 });
-    expect(calculateWeightTrend(180, -1)).toEqual({ direction: 'neutral', value: 0 });
-  });
-
-  it('returns neutral when there is no change', () => {
-    expect(calculateWeightTrend(180, 180)).toEqual({ direction: 'neutral', value: 0 });
-  });
-
-  it('returns up or down trend with rounded percent change', () => {
-    expect(calculateWeightTrend(182, 180)).toEqual({ direction: 'up', value: 1.1 });
-    expect(calculateWeightTrend(178, 180)).toEqual({ direction: 'down', value: 1.1 });
-  });
-});
-
 describe('calculateHabitCompletionPercent', () => {
   it('returns 0 when there are no active habits', () => {
     expect(calculateHabitCompletionPercent(0, 0)).toBe(0);
@@ -74,11 +57,11 @@ describe('calculateHabitCompletionPercent', () => {
 
 describe('getSnapshotValueClassName', () => {
   it('returns larger text sizing for shorter values', () => {
-    expect(getSnapshotValueClassName('3/5')).toContain('text-2xl');
+    expect(getSnapshotValueClassName('3/5')).toContain('text-lg');
   });
 
   it('returns compact text sizing for longer values', () => {
-    expect(getSnapshotValueClassName('2,450 / 2,200')).toContain('text-lg');
+    expect(getSnapshotValueClassName('2,450 / 2,200')).toContain('text-sm');
   });
 });
 
@@ -90,11 +73,14 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    const grid = container.querySelector('div.grid.grid-cols-1.sm\\:grid-cols-2');
+    const grid = container.querySelector('div.grid.grid-cols-2.gap-3');
     expect(grid).toBeInTheDocument();
 
     const cards = container.querySelectorAll('[data-slot="stat-card"]');
     expect(cards).toHaveLength(5);
+    cards.forEach((card) => {
+      expect(card).toHaveAttribute('data-density', 'compact');
+    });
 
     expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
@@ -107,7 +93,7 @@ describe('SnapshotCards', () => {
     );
   });
 
-  it('applies accent card backgrounds and neutral trends', () => {
+  it('applies accent card backgrounds and only shows a trend where the compact card meaningfully uses one', () => {
     render(
       <MemoryRouter>
         <SnapshotCards snapshot={snapshotFixture} />
@@ -130,8 +116,13 @@ describe('SnapshotCards', () => {
     expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
     expect(screen.getByText('Habits')).toHaveClass('text-on-mint');
 
-    expect(within(weightCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
-    expect(within(weightCard as HTMLElement).getByText('0%')).toBeInTheDocument();
+    expect(within(weightCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(
+      within(caloriesCard as HTMLElement).queryByLabelText(/trend/i),
+    ).not.toBeInTheDocument();
+    expect(within(proteinCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(within(habitsCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(habitsCard as HTMLElement).getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 
@@ -277,6 +268,6 @@ describe('SnapshotCards', () => {
     );
 
     const caloriesValue = screen.getByText('12450 / 11200');
-    expect(caloriesValue).toHaveClass('text-lg', 'sm:text-xl', 'lg:text-2xl');
+    expect(caloriesValue).toHaveClass('text-sm', 'sm:text-base', 'lg:text-lg');
   });
 });

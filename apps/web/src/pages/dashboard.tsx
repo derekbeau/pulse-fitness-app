@@ -240,7 +240,7 @@ export function DashboardPage() {
     (recentWorkoutsQuery.data?.length ?? 0) === 0;
 
   return (
-    <main className="flex w-full flex-col gap-8 py-6">
+    <main className="flex w-full flex-col gap-6 py-5 sm:gap-7 sm:py-6">
       <header className="animate-fade-in space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
@@ -341,11 +341,11 @@ export function DashboardPage() {
         />
       ) : (
         <div
-          className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(280px,320px)]"
+          className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,248px)_minmax(0,1fr)_minmax(260px,300px)]"
           data-slot="dashboard-layout"
         >
           <div
-            className="order-1 flex min-w-0 flex-col gap-6 md:order-1 xl:order-2"
+            className="order-1 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-1 xl:order-2"
             data-slot="dashboard-main-column"
           >
             {visibleWidgets.includes('calendar') ? (
@@ -365,7 +365,7 @@ export function DashboardPage() {
 
             {visibleWidgets.includes('snapshot-cards') || visibleWidgets.includes('log-weight') ? (
               <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-3 sm:gap-4">
                   {visibleWidgets.includes('snapshot-cards') ? (
                     <DashboardWidgetFrame
                       isEditMode={isEditMode}
@@ -375,10 +375,14 @@ export function DashboardPage() {
                       {snapshotQuery.isLoading ? (
                         <div
                           aria-label="Loading dashboard snapshots"
-                          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
+                          className="grid grid-cols-2 gap-3"
                         >
                           {Array.from({ length: 5 }).map((_, index) => (
-                            <StatCardSkeleton key={index} showTrend={index !== 4} />
+                            <StatCardSkeleton
+                              className={index === 4 ? 'col-span-2' : undefined}
+                              key={index}
+                              showTrend={index !== 4}
+                            />
                           ))}
                         </div>
                       ) : (
@@ -393,34 +397,35 @@ export function DashboardPage() {
                       widgetLabel={DASHBOARD_WIDGET_IDS['log-weight']}
                     >
                       <Card
+                        className="gap-3 py-3 sm:py-3.5"
                         data-qa="dashboard-log-weight-card"
                         data-testid="dashboard-log-weight-card"
                       >
-                        <CardHeader className="space-y-1">
+                        <CardHeader className="gap-1.5 px-3 sm:px-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="space-y-1">
-                              <CardTitle>Body Weight</CardTitle>
-                              <CardDescription>
+                              <CardTitle className="leading-tight">Body Weight</CardTitle>
+                              <CardDescription className="text-xs sm:text-sm">
                                 Track your body weight for the selected day.
                               </CardDescription>
                             </div>
                             <Link
-                              className="text-sm font-medium text-primary hover:underline"
+                              className="text-xs font-medium text-primary hover:underline sm:text-sm"
                               to="/weight/history"
                             >
                               History
                             </Link>
                           </div>
                         </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
+                        <CardContent className="px-3 sm:px-4">
+                          <div className="space-y-2.5">
                             {hasWeightForSelectedDay ? (
-                              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-secondary/30 px-4 py-3">
+                              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-secondary/30 px-3 py-2.5">
                                 <div className="space-y-1">
                                   <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                     Logged
                                   </p>
-                                  <p className="text-2xl font-semibold text-foreground">
+                                  <p className="text-xl font-semibold text-foreground">
                                     {selectedWeight.value.toFixed(1)} lbs
                                   </p>
                                 </div>
@@ -458,7 +463,7 @@ export function DashboardPage() {
 
                             {isWeightEditorOpen ? (
                               <form
-                                className="space-y-3"
+                                className="space-y-2.5"
                                 data-qa="dashboard-log-weight-form"
                                 data-testid="dashboard-log-weight-form"
                                 onSubmit={handleWeightSubmit}
@@ -543,7 +548,7 @@ export function DashboardPage() {
           </div>
 
           <div
-            className="order-2 flex min-w-0 flex-col gap-6 md:order-2 xl:order-1"
+            className="order-2 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-2 xl:order-1"
             data-slot="dashboard-sidebar-column"
           >
             {visibleWidgets.includes('habit-chain') ? (
@@ -610,10 +615,10 @@ export function DashboardPage() {
               {hiddenWidgets.map((widgetId) => (
                 <Card
                   key={widgetId}
-                  className="border-dashed border-border/80 bg-muted/30 py-4"
+                  className="border-dashed border-border/80 bg-muted/30 py-3"
                   data-slot={`dashboard-hidden-widget-${widgetId}`}
                 >
-                  <CardContent className="flex items-center justify-between gap-3">
+                  <CardContent className="flex items-center justify-between gap-3 px-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         {DASHBOARD_WIDGET_IDS[widgetId]}

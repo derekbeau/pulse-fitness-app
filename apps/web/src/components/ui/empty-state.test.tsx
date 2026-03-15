@@ -16,7 +16,11 @@ describe('EmptyState', () => {
 
     expect(screen.getByRole('heading', { name: 'No data yet' })).toBeInTheDocument();
     expect(screen.getByText('Start by adding your first entry.')).toBeInTheDocument();
-    expect(document.querySelector('[data-slot="empty-state"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="empty-state"]')).toHaveClass(
+      'min-h-60',
+      'px-5',
+      'py-9',
+    );
   });
 
   it('renders an action button and calls the click handler', () => {

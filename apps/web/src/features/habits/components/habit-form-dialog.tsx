@@ -153,7 +153,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
       }}
       open={open}
     >
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] gap-4 overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{modeTitle}</DialogTitle>
           <DialogDescription>
@@ -161,7 +161,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
           </DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-2">
             <Label htmlFor="habit-name">Habit name</Label>
             <Input
@@ -205,7 +205,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             />
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Emoji</p>
               <p className="text-sm text-muted">Choose a quick visual cue for the list.</p>
@@ -260,7 +260,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             </select>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="space-y-1">
               <Label htmlFor="habit-frequency">Frequency</Label>
               <p className="text-sm text-muted">Choose how often this habit should be scheduled.</p>
@@ -363,7 +363,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
           </div>
 
           {showTargetFields ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="habit-target">Target</Label>
                 <Controller
@@ -423,7 +423,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
 
           <div
             className={cn(
-              'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-slate-950',
+              'inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-sm font-semibold text-slate-950',
               trackingSurfaceClasses[trackingType],
             )}
           >
@@ -437,7 +437,7 @@ export function HabitFormDialog({ open, onOpenChange, habit }: HabitFormDialogPr
             </p>
           ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="pt-1">
             <Button
               disabled={isSaving}
               onClick={() => onOpenChange(false)}
