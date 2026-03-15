@@ -10,11 +10,17 @@ function normalizeListParams(params?: Partial<FoodQueryParams>) {
   };
 }
 
-export const foodKeys = {
+export const foodQueryKeys = {
   all: ['foods'] as const,
-  list: (params?: Partial<FoodQueryParams>) =>
+  food: (id: string) => ['foods', 'food', id] as const,
+  foods: (params?: Partial<FoodQueryParams>) =>
     params
       ? (['foods', 'list', normalizeListParams(params)] as const)
       : (['foods', 'list'] as const),
-  detail: (id: string) => ['foods', 'detail', id] as const,
+};
+
+export const foodKeys = {
+  all: foodQueryKeys.all,
+  detail: foodQueryKeys.food,
+  list: foodQueryKeys.foods,
 };

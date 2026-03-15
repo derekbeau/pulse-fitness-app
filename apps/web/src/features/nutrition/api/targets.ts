@@ -4,10 +4,12 @@ import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
 
-export const nutritionTargetKeys = {
+export const nutritionTargetQueryKeys = {
   all: ['nutrition-targets'] as const,
-  current: () => [...nutritionTargetKeys.all, 'current'] as const,
+  current: () => ['nutrition-targets', 'current'] as const,
 };
+
+export const nutritionTargetKeys = nutritionTargetQueryKeys;
 
 const fetchCurrentNutritionTarget = () =>
   apiRequest<NutritionTarget | null>('/api/v1/nutrition-targets/current');
@@ -20,7 +22,7 @@ const postNutritionTarget = (input: CreateNutritionTargetInput) =>
 
 export const useNutritionTargets = () =>
   useQuery({
-    queryKey: nutritionTargetKeys.current(),
+    queryKey: nutritionTargetQueryKeys.current(),
     queryFn: fetchCurrentNutritionTarget,
   });
 
@@ -30,7 +32,7 @@ export const useUpdateTargets = () => {
   return useMutation({
     mutationFn: postNutritionTarget,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: nutritionTargetKeys.all });
+      await queryClient.invalidateQueries({ queryKey: nutritionTargetQueryKeys.all });
       toast.success('Nutrition targets updated');
     },
   });

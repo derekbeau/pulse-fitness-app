@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
-import { trackFoodUsage } from '../foods/store.js';
+import {
+  findAgentTokenByHash,
+  findUserAuthById,
+  updateAgentTokenLastUsedAt,
+} from '../../middleware/store.js';
 
 import {
   createMealForDate,
@@ -26,10 +29,6 @@ vi.mock('./store.js', () => ({
   getNutritionWeekSummaryForDate: vi.fn(),
   patchMealById: vi.fn(),
   patchMealItemById: vi.fn(),
-}));
-
-vi.mock('../foods/store.js', () => ({
-  trackFoodUsage: vi.fn(),
 }));
 
 vi.mock('../../middleware/store.js', () => ({
@@ -203,11 +202,9 @@ describe('nutrition routes', () => {
     vi.mocked(getNutritionWeekSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
-    vi.mocked(trackFoodUsage).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
-    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
@@ -216,7 +213,7 @@ describe('nutrition routes', () => {
     delete process.env.JWT_SECRET;
   });
 
-  it('creates a meal for a date and updates referenced food recency', async () => {
+  it('creates a meal for a date', async () => {
     vi.mocked(createMealForDate).mockResolvedValue({
       meal,
       items: mealItems,
@@ -226,7 +223,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/nutrition/2026-03-09/meals',
@@ -294,25 +294,25 @@ describe('nutrition routes', () => {
           },
         ],
       });
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
   });
 
-  it('does not fail meal creation when recency updates fail', async () => {
+  it('returns success when the store creates a meal', async () => {
     vi.mocked(createMealForDate).mockResolvedValue({
       meal,
       items: mealItems,
     });
-    vi.mocked(trackFoodUsage).mockRejectedValueOnce(new Error('transient update failure'));
 
     const app = buildServer();
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/nutrition/2026-03-09/meals',
@@ -341,7 +341,6 @@ describe('nutrition routes', () => {
           items: mealItems,
         },
       });
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
@@ -371,7 +370,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const [foundResponse, emptyResponse] = await Promise.all([
         app.inject({
           method: 'GET',
@@ -429,7 +431,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/nutrition/week-summary?date=2026-03-06T12:00:00.000Z',
@@ -456,7 +461,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
@@ -513,7 +521,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const patchNameResponse = await app.inject({
         method: 'PATCH',
@@ -552,7 +563,9 @@ describe('nutrition routes', () => {
       const wrongUserResponse = await app.inject({
         method: 'PATCH',
         url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
-        headers: createAuthorizationHeader(app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" })),
+        headers: createAuthorizationHeader(
+          app.jwt.sign({ sub: 'user-2', type: 'session', iss: 'pulse-api' }, { expiresIn: '7d' }),
+        ),
         payload: {
           notes: 'wrong user scope',
         },
@@ -642,7 +655,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const patchAmountResponse = await app.inject({
         method: 'PATCH',
@@ -691,7 +707,9 @@ describe('nutrition routes', () => {
       const wrongUserResponse = await app.inject({
         method: 'PATCH',
         url: '/api/v1/nutrition/2026-03-09/meals/meal-1/items/item-1',
-        headers: createAuthorizationHeader(app.jwt.sign({ sub: 'user-2', type: "session", iss: "pulse-api" }, { expiresIn: "7d" })),
+        headers: createAuthorizationHeader(
+          app.jwt.sign({ sub: 'user-2', type: 'session', iss: 'pulse-api' }, { expiresIn: '7d' }),
+        ),
         payload: {
           amount: 8.5,
         },
@@ -818,7 +836,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const [foundResponse, emptyResponse] = await Promise.all([
         app.inject({
@@ -912,7 +933,10 @@ describe('nutrition routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const [
         invalidDateResponse,
         invalidCalendarDateResponse,

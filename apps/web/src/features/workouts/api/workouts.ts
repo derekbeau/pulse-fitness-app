@@ -146,23 +146,64 @@ const workoutSessionResponseSchema = z.object({
 
 type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchema>;
 
+const normalizeExerciseParams = (params: ExerciseQueryParams) => {
+  const parsedParams = exerciseQueryParamsSchema.parse(params);
+
+  return {
+    category: parsedParams.category ?? null,
+    equipment: parsedParams.equipment ?? null,
+    limit: parsedParams.limit,
+    muscleGroup: parsedParams.muscleGroup ?? null,
+    page: parsedParams.page,
+    q: parsedParams.q ?? null,
+  };
+};
+
+const normalizeScheduledWorkoutParams = (params: ScheduledWorkoutQueryParams) => {
+  const parsedParams = scheduledWorkoutQueryParamsSchema.parse(params);
+
+  return {
+    from: parsedParams.from,
+    to: parsedParams.to,
+  };
+};
+
+const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) => {
+  const parsedParams = workoutSessionQueryParamsSchema.parse(params);
+
+  return {
+    from: parsedParams.from ?? null,
+    limit: parsedParams.limit ?? null,
+    status: parsedParams.status?.join('|') ?? null,
+    to: parsedParams.to ?? null,
+  };
+};
+
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
-  completedSessions: () => ['workouts', 'completed-sessions'] as const,
+  completedSessions: () =>
+    ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const,
   exercise: (id: string) => ['workouts', 'exercise', id] as const,
   exercisesRoot: () => ['workouts', 'exercises'] as const,
-  exercises: (params: ExerciseQueryParams) => ['workouts', 'exercises', params] as const,
+  exercises: (params?: ExerciseQueryParams) =>
+    params
+      ? (['workouts', 'exercises', normalizeExerciseParams(params)] as const)
+      : (['workouts', 'exercises'] as const),
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
-  scheduledWorkouts: (params: ScheduledWorkoutQueryParams) =>
-    ['workouts', 'scheduled-workouts', params] as const,
+  scheduledWorkouts: (params?: ScheduledWorkoutQueryParams) =>
+    params
+      ? (['workouts', 'scheduled-workouts', normalizeScheduledWorkoutParams(params)] as const)
+      : (['workouts', 'scheduled-workouts'] as const),
   session: (id: string) => ['workouts', 'session', id] as const,
   sessions: () => ['workouts', 'sessions'] as const,
   sessionsList: (params: WorkoutSessionQueryParams = {}) =>
-    ['workouts', 'sessions', params] as const,
+    ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const,
   templateRoot: () => ['workouts', 'template'] as const,
   template: (id: string) => ['workouts', 'template', id] as const,
   templates: () => ['workouts', 'templates'] as const,
+  workouts: (params: WorkoutSessionQueryParams = {}) =>
+    ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const,
 };
 
 async function getWorkoutTemplates() {
@@ -493,7 +534,7 @@ export function useWorkoutSessions(
   return useQuery<WorkoutSessionListItem[]>({
     enabled: options?.enabled,
     queryFn: ({ signal }) => getWorkoutSessions(params, signal),
-    queryKey: workoutQueryKeys.sessionsList(params),
+    queryKey: workoutQueryKeys.workouts(params),
   });
 }
 
@@ -572,7 +613,7 @@ export function useScheduleWorkout() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
+          queryKey: workoutQueryKeys.scheduledWorkouts(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -591,7 +632,7 @@ export function useRescheduleWorkout() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
+          queryKey: workoutQueryKeys.scheduledWorkouts(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -610,7 +651,7 @@ export function useUnscheduleWorkout() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkoutsAll(),
+          queryKey: workoutQueryKeys.scheduledWorkouts(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
@@ -651,13 +692,13 @@ export function useUpdateExercise() {
           queryKey: workoutQueryKeys.exercise(variables.id),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.exercisesRoot(),
+          queryKey: workoutQueryKeys.exercises(),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.templates(),
         }),
         queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.templateRoot(),
+          queryKey: workoutQueryKeys.templates(),
         }),
       ]);
     },

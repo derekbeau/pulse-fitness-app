@@ -8,7 +8,6 @@ import type { FastifyPluginAsync } from 'fastify';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
-import { trackFoodUsage } from '../foods/store.js';
 
 import {
   createMealForDate,
@@ -34,9 +33,6 @@ const isValidDateParam = (date: string) => {
 };
 const isValidMealIdParam = (mealId: string) => mealId.trim().length > 0;
 const isValidItemIdParam = (itemId: string) => itemId.trim().length > 0;
-const isNonEmptyString = (value: string | null): value is string =>
-  typeof value === 'string' && value.length > 0;
-
 const parseIsoDate = (value: unknown): Date | null => {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return null;
@@ -77,19 +73,6 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const created = await createMealForDate(request.userId, request.params.date, parsedBody.data);
-
-    const foodIds = [...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString))];
-    const usageTrackingResults = await Promise.allSettled(
-      foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
-    );
-    usageTrackingResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        request.log.warn(
-          { err: result.reason, foodId: foodIds[index], userId: request.userId },
-          'Failed to track food usage after meal creation',
-        );
-      }
-    });
 
     const mealMacros = created.items.reduce(
       (totals, item) => ({

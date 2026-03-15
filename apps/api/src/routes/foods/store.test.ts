@@ -388,8 +388,8 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('soft-deletes foods by scope and increments usage on lastUsedAt updates', async () => {
-    const { deleteFood, trackFoodUsage } = await import('./store.js');
+  it('soft-deletes foods by scope and updates usage counters safely', async () => {
+    const { decrementFoodUsage, deleteFood, trackFoodUsage } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
     expect(dbState.updateSets[0]).toEqual({
@@ -409,5 +409,15 @@ describe('foods store', () => {
     const updateWhereText = flattenSql(dbState.updateWhereCalls.at(-1));
     expect(updateWhereText).toContain('id = food-1');
     expect(updateWhereText).toContain('user_id = user-1');
+
+    await decrementFoodUsage('food-1', 'user-1');
+
+    expect(dbState.updateSets.at(-1)).toEqual({
+      usageCount: expect.anything(),
+    });
+    expect(dbState.updateSets.at(-1)).not.toHaveProperty('lastUsedAt');
+    expect(flattenSql((dbState.updateSets.at(-1) as { usageCount: unknown }).usageCount)).toContain(
+      'case when usage_count > 0 then usage_count - 1 else 0 end',
+    );
   });
 });

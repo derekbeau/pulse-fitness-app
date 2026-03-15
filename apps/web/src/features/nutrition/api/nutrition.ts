@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 
 import { apiRequest } from '@/lib/api-client';
 
-import { nutritionKeys } from './keys';
+import { nutritionQueryKeys } from './keys';
 
 export type DeleteMealInput = {
   date: string;
@@ -47,30 +47,30 @@ const deleteMeal = ({ date, mealId }: DeleteMealInput) =>
 
 export const useDailyNutrition = (date: string) =>
   useQuery({
-    queryKey: nutritionKeys.daily(date),
+    queryKey: nutritionQueryKeys.day(date),
     queryFn: ({ signal }) => fetchDailyNutrition(date, signal),
   });
 
 export const useNutritionSummary = (date: string) =>
   useQuery({
-    queryKey: nutritionKeys.summary(date),
+    queryKey: nutritionQueryKeys.summary(date),
     queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
   });
 
 export const useNutritionWeekSummary = (date: string) =>
   useQuery({
-    queryKey: nutritionKeys.weekSummary(date),
+    queryKey: nutritionQueryKeys.weekSummary(date),
     queryFn: ({ signal }) => fetchNutritionWeekSummary(date, signal),
   });
 
 export const prefetchNutritionDay = async (queryClient: QueryClient, date: string) => {
   await Promise.all([
     queryClient.prefetchQuery({
-      queryKey: nutritionKeys.daily(date),
+      queryKey: nutritionQueryKeys.day(date),
       queryFn: ({ signal }) => fetchDailyNutrition(date, signal),
     }),
     queryClient.prefetchQuery({
-      queryKey: nutritionKeys.summary(date),
+      queryKey: nutritionQueryKeys.summary(date),
       queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
     }),
   ]);
@@ -84,13 +84,13 @@ export const useDeleteMeal = () => {
     onSuccess: async (_result, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: nutritionKeys.daily(variables.date),
+          queryKey: nutritionQueryKeys.day(variables.date),
         }),
         queryClient.invalidateQueries({
-          queryKey: nutritionKeys.summary(variables.date),
+          queryKey: nutritionQueryKeys.summary(variables.date),
         }),
         queryClient.invalidateQueries({
-          queryKey: nutritionKeys.weekSummary(variables.date),
+          queryKey: nutritionQueryKeys.weekSummary(variables.date),
         }),
       ]);
       toast.success('Meal deleted');

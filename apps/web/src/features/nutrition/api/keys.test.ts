@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { nutritionKeys } from './keys';
 
 describe('nutritionKeys.weekSummary', () => {
+  it('exposes day and daily accessors for the same cache key', () => {
+    expect(nutritionKeys.day('2026-03-09')).toEqual(['nutrition', 'day', '2026-03-09']);
+    expect(nutritionKeys.daily('2026-03-09')).toEqual(['nutrition', 'day', '2026-03-09']);
+  });
+
   it('normalizes date keys to the Monday for the containing week', () => {
     expect(nutritionKeys.weekSummary('2026-03-03')).toEqual([
       'nutrition',

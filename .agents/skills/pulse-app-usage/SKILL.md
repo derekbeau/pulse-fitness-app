@@ -62,6 +62,7 @@ Use `POST /api/v1/meals` with one of two item modes:
 1. **Saved-food mode (default):**
    - Send `foodName` + `quantity` (+ optional display fields).
    - The API resolves `foodName` to an existing food and snapshots scaled macros.
+   - `usageCount` and `lastUsedAt` are updated automatically by the meal store layer; agents do not need any separate usage-tracking step.
 
 2. **Ad-hoc mode (no foods library write):**
    - Set either `adhoc: true` or `saveToFoods: false`.
