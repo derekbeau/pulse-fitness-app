@@ -1,19 +1,30 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  apiDataResponseSchema,
   createHabitInputSchema,
+  habitSchema,
   reorderHabitsInputSchema,
   updateHabitInputSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { getTodayDate } from '../../lib/date.js';
 import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
-import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
-import { habitEntryNestedRoutes } from '../habit-entries/index.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  idParamsSchema,
+  successFlagSchema,
+} from '../../openapi.js';
 import { ensureStarterHabitsForUser } from '../auth/store.js';
+import { habitEntryNestedRoutes } from '../habit-entries/index.js';
+import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
 
 import {
   createHabit,
@@ -25,9 +36,32 @@ import {
   updateHabit,
 } from './store.js';
 
-const habitParamsSchema = {
-  id: (value: unknown) =>
-    typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined,
+const habitTodayEntrySchema = z.object({
+  completed: z.boolean(),
+  value: z.number().nullable(),
+  isOverride: z.boolean().optional(),
+});
+
+const habitWithTodayEntrySchema = habitSchema.extend({
+  todayEntry: habitTodayEntrySchema.nullable(),
+});
+
+const agentHabitListItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  trackingType: habitSchema.shape.trackingType,
+  todayEntry: habitTodayEntrySchema.nullable(),
+});
+
+const listHabitsResponseSchema = z.union([
+  apiDataResponseSchema(z.array(habitWithTodayEntrySchema)),
+  apiDataResponseSchema(z.array(agentHabitListItemSchema)),
+]);
+
+type UpdateHabitRequest = {
+  body: z.infer<typeof updateHabitInputSchema>;
+  params: z.infer<typeof idParamsSchema>;
+  userId: string;
 };
 
 const sendNotFound = (reply: Parameters<typeof sendError>[0]) =>
@@ -40,164 +74,177 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
   app.register(habitEntryNestedRoutes);
 
-  app.post('/', async (request, reply) => {
-    const parsedBody = createHabitInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const sortOrder = await getNextHabitSortOrder(request.userId);
-    const habit = await createHabit({
-      id: randomUUID(),
-      userId: request.userId,
-      sortOrder,
-      ...parsedBody.data,
-    });
+  typedApp.post(
+    '/',
+    {
+      schema: {
+        body: createHabitInputSchema,
+        response: {
+          201: apiDataResponseSchema(habitSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['habits'],
+        summary: 'Create a habit',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const sortOrder = await getNextHabitSortOrder(request.userId);
+      const habit = await createHabit({
+        id: randomUUID(),
+        userId: request.userId,
+        sortOrder,
+        ...request.body,
+      });
 
-    return reply.code(201).send({
-      data: habit,
-    });
-  });
+      return reply.code(201).send({
+        data: habit,
+      });
+    },
+  );
 
-  app.get('/', async (request, reply) => {
-    if (shouldEnsureStarterHabits()) {
-      await ensureStarterHabitsForUser(request.userId);
-    }
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        response: {
+          200: listHabitsResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['habits'],
+        summary: 'List active habits with today entry state',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (shouldEnsureStarterHabits()) {
+        await ensureStarterHabitsForUser(request.userId);
+      }
 
-    const habits = await listActiveHabits(request.userId);
-    if (habits.length === 0) {
-      return reply.send({ data: [] });
-    }
+      const habits = await listActiveHabits(request.userId);
+      if (habits.length === 0) {
+        return reply.send({ data: [] });
+      }
 
-    const today = getTodayDate();
-    const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
-    const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
-    const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
-      completed: boolean;
-      value?: number;
-    }>>();
+      const today = getTodayDate();
+      const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
+      const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
+      const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
+        completed: boolean;
+        value?: number;
+      }>>();
 
-    const habitsWithResolvedEntries = await Promise.all(
-      habits.map(async (habit) => {
-        const todayEntry = todayEntriesByHabitId.get(habit.id);
-        if (habit.referenceSource == null) {
-          return {
-            ...habit,
-            todayEntry: todayEntry
-              ? {
-                  completed: todayEntry.completed,
-                  value: todayEntry.value,
-                  isOverride: todayEntry.isOverride,
-                }
-              : null,
-          };
-        }
+      const habitsWithResolvedEntries = await Promise.all(
+        habits.map(async (habit) => {
+          const todayEntry = todayEntriesByHabitId.get(habit.id);
+          if (habit.referenceSource == null) {
+            return {
+              ...habit,
+              todayEntry: todayEntry
+                ? {
+                    completed: todayEntry.completed,
+                    value: todayEntry.value,
+                    isOverride: todayEntry.isOverride,
+                  }
+                : null,
+            };
+          }
 
-        if (todayEntry?.isOverride) {
+          if (todayEntry?.isOverride) {
+            return {
+              ...habit,
+              todayEntry: {
+                completed: todayEntry.completed,
+                value: todayEntry.value,
+                isOverride: true,
+              },
+            };
+          }
+
+          const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
+          const existingResolution = resolutionByKey.get(resolutionKey);
+          const resolutionPromise =
+            existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
+          if (!existingResolution) {
+            resolutionByKey.set(resolutionKey, resolutionPromise);
+          }
+
+          const resolved = await resolutionPromise;
           return {
             ...habit,
             todayEntry: {
-              completed: todayEntry.completed,
-              value: todayEntry.value,
-              isOverride: true,
+              completed: resolved.completed,
+              value: resolved.value ?? null,
+              isOverride: false,
             },
           };
-        }
+        }),
+      );
 
-        const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
-        const existingResolution = resolutionByKey.get(resolutionKey);
-        const resolutionPromise =
-          existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
-        if (!existingResolution) {
-          resolutionByKey.set(resolutionKey, resolutionPromise);
-        }
+      return reply.send({
+        data: isAgentRequest(request)
+          ? habitsWithResolvedEntries.map((habit) => ({
+              id: habit.id,
+              name: habit.name,
+              trackingType: habit.trackingType,
+              todayEntry: habit.todayEntry,
+            }))
+          : habitsWithResolvedEntries,
+      });
+    },
+  );
 
-        const resolved = await resolutionPromise;
-        return {
-          ...habit,
-          todayEntry: {
-            completed: resolved.completed,
-            value: resolved.value ?? null,
-            isOverride: false,
-          },
-        };
-      }),
-    );
-
-    return reply.send({
-      data: isAgentRequest(request)
-        ? habitsWithResolvedEntries.map((habit) => ({
-            id: habit.id,
-            name: habit.name,
-            trackingType: habit.trackingType,
-            todayEntry: habit.todayEntry,
-          }))
-        : habitsWithResolvedEntries,
-    });
-  });
-
-  app.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const habitId = habitParamsSchema.id(request.params.id);
-    if (!habitId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
-    }
-
-    const parsedBody = updateHabitInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
-    }
-
-    const existingHabit = await findHabitById(habitId, request.userId);
+  const updateHabitById = async (request: UpdateHabitRequest, reply: FastifyReply) => {
+    const existingHabit = await findHabitById(request.params.id, request.userId);
     if (!existingHabit) {
       return sendNotFound(reply);
     }
 
     const mergedHabitInput = createHabitInputSchema.safeParse({
-      name: parsedBody.data.name === undefined ? existingHabit.name : parsedBody.data.name,
+      name: request.body.name === undefined ? existingHabit.name : request.body.name,
       description:
-        parsedBody.data.description === undefined
+        request.body.description === undefined
           ? existingHabit.description
-          : parsedBody.data.description,
-      emoji: parsedBody.data.emoji === undefined ? existingHabit.emoji : parsedBody.data.emoji,
+          : request.body.description,
+      emoji: request.body.emoji === undefined ? existingHabit.emoji : request.body.emoji,
       trackingType:
-        parsedBody.data.trackingType === undefined
+        request.body.trackingType === undefined
           ? existingHabit.trackingType
-          : parsedBody.data.trackingType,
-      target: parsedBody.data.target === undefined ? existingHabit.target : parsedBody.data.target,
-      unit: parsedBody.data.unit === undefined ? existingHabit.unit : parsedBody.data.unit,
+          : request.body.trackingType,
+      target: request.body.target === undefined ? existingHabit.target : request.body.target,
+      unit: request.body.unit === undefined ? existingHabit.unit : request.body.unit,
       frequency:
-        parsedBody.data.frequency === undefined
-          ? existingHabit.frequency
-          : parsedBody.data.frequency,
+        request.body.frequency === undefined ? existingHabit.frequency : request.body.frequency,
       frequencyTarget:
-        parsedBody.data.frequencyTarget === undefined
+        request.body.frequencyTarget === undefined
           ? existingHabit.frequencyTarget
-          : parsedBody.data.frequencyTarget,
+          : request.body.frequencyTarget,
       scheduledDays:
-        parsedBody.data.scheduledDays === undefined
+        request.body.scheduledDays === undefined
           ? existingHabit.scheduledDays
-          : parsedBody.data.scheduledDays,
+          : request.body.scheduledDays,
       pausedUntil:
-        parsedBody.data.pausedUntil === undefined
-          ? existingHabit.pausedUntil
-          : parsedBody.data.pausedUntil,
+        request.body.pausedUntil === undefined ? existingHabit.pausedUntil : request.body.pausedUntil,
       referenceSource:
-        parsedBody.data.referenceSource === undefined
+        request.body.referenceSource === undefined
           ? existingHabit.referenceSource
-          : parsedBody.data.referenceSource,
+          : request.body.referenceSource,
       referenceConfig:
-        parsedBody.data.referenceConfig === undefined
+        request.body.referenceConfig === undefined
           ? existingHabit.referenceConfig
-          : parsedBody.data.referenceConfig,
+          : request.body.referenceConfig,
     });
 
     if (!mergedHabitInput.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit payload');
     }
 
-    const habit = await updateHabit(habitId, request.userId, {
+    const habit = await updateHabit(request.params.id, request.userId, {
       ...mergedHabitInput.data,
-      ...(parsedBody.data.active === undefined ? {} : { active: parsedBody.data.active }),
+      ...(request.body.active === undefined ? {} : { active: request.body.active }),
     });
     if (!habit) {
       return sendNotFound(reply);
@@ -206,41 +253,85 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({
       data: habit,
     });
-  });
+  };
 
-  app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const habitId = habitParamsSchema.id(request.params.id);
-    if (!habitId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
-    }
-
-    const deleted = await softDeleteHabit(habitId, request.userId);
-    if (!deleted) {
-      return sendNotFound(reply);
-    }
-
-    return reply.send({
-      data: {
-        success: true,
+  typedApp.put(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateHabitInputSchema,
+        response: {
+          200: apiDataResponseSchema(habitSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habits'],
+        summary: 'Update a habit',
+        security: authSecurity,
       },
-    });
-  });
+    },
+    updateHabitById,
+  );
 
-  app.patch('/reorder', async (request, reply) => {
-    const parsedBody = reorderHabitsInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid reorder payload');
-    }
-
-    const reordered = await reorderHabits(request.userId, parsedBody.data.items);
-    if (!reordered) {
-      return sendNotFound(reply);
-    }
-
-    return reply.send({
-      data: {
-        success: true,
+  typedApp.delete(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habits'],
+        summary: 'Delete a habit',
+        security: authSecurity,
       },
-    });
-  });
+    },
+    async (request, reply) => {
+      const deleted = await softDeleteHabit(request.params.id, request.userId);
+      if (!deleted) {
+        return sendNotFound(reply);
+      }
+
+      return reply.send({
+        data: {
+          success: true,
+        },
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/reorder',
+    {
+      schema: {
+        body: reorderHabitsInputSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habits'],
+        summary: 'Reorder habits',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const reordered = await reorderHabits(request.userId, request.body.items);
+      if (!reordered) {
+        return sendNotFound(reply);
+      }
+
+      return reply.send({
+        data: {
+          success: true,
+        },
+      });
+    },
+  );
 };

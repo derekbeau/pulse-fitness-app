@@ -1,9 +1,13 @@
-import { agentContextResponseSchema } from '@pulse/shared';
+import { agentContextResponseSchema, apiDataResponseSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { addUtcDays, getTodayDate } from '../../lib/date.js';
-import { sendError } from '../../lib/reply.js';
 import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
+import {
+  agentTokenSecurity,
+  apiErrorResponseSchema,
+} from '../../openapi.js';
 import {
   findAgentContextUser,
   getAgentContextTodayNutrition,
@@ -17,40 +21,50 @@ export const contextRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
   app.addHook('onRequest', requireAgentOnly);
 
-  app.get('/', async (request, reply) => {
-    const today = getTodayDate();
-    const scheduleEnd = addUtcDays(today, 6);
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =
-      await Promise.all([
-        findAgentContextUser(request.userId),
-        listAgentContextRecentWorkouts(request.userId, 5),
-        getAgentContextTodayNutrition(request.userId, today),
-        getAgentContextWeight(request.userId),
-        listAgentContextHabits(request.userId, today),
-        listAgentContextScheduledWorkouts({
-          userId: request.userId,
-          from: today,
-          to: scheduleEnd,
-        }),
-      ]);
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        response: {
+          200: apiDataResponseSchema(agentContextResponseSchema),
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+        },
+        tags: ['context'],
+        summary: 'Get the agent context payload',
+        security: agentTokenSecurity,
+      },
+    },
+    async (request, reply) => {
+      const today = getTodayDate();
+      const scheduleEnd = addUtcDays(today, 6);
 
-    const payload = {
-      user,
-      recentWorkouts,
-      todayNutrition,
-      weight,
-      habits,
-      scheduledWorkouts,
-    };
-    const parsed = agentContextResponseSchema.safeParse(payload);
-    if (!parsed.success) {
-      request.log.error({ issues: parsed.error.issues }, 'Failed to build agent context payload');
-      return sendError(reply, 500, 'INTERNAL_ERROR', 'Failed to build agent context payload');
-    }
+      const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =
+        await Promise.all([
+          findAgentContextUser(request.userId),
+          listAgentContextRecentWorkouts(request.userId, 5),
+          getAgentContextTodayNutrition(request.userId, today),
+          getAgentContextWeight(request.userId),
+          listAgentContextHabits(request.userId, today),
+          listAgentContextScheduledWorkouts({
+            userId: request.userId,
+            from: today,
+            to: scheduleEnd,
+          }),
+        ]);
 
-    return reply.send({
-      data: parsed.data,
-    });
-  });
+      return reply.send({
+        data: {
+          user,
+          recentWorkouts,
+          todayNutrition,
+          weight,
+          habits,
+          scheduledWorkouts,
+        },
+      });
+    },
+  );
 };

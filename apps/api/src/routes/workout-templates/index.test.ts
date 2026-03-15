@@ -25,6 +25,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 const seedUser = (id: string, username: string) =>
   context.db
     .insert(users)
@@ -1052,12 +1069,7 @@ describe('workout template routes', () => {
     ]);
 
     expect(validationResponse.statusCode).toBe(400);
-    expect(validationResponse.json()).toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid workout template payload',
-      },
-    });
+    expectRequestValidationError(validationResponse, 'POST', '/api/v1/workout-templates');
 
     expect(inaccessibleExerciseResponse.statusCode).toBe(400);
     expect(inaccessibleExerciseResponse.json()).toEqual({

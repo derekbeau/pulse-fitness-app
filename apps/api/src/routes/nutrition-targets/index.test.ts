@@ -22,6 +22,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('nutrition target routes', () => {
   beforeEach(() => {
     vi.mocked(getCurrentNutritionTarget).mockReset();
@@ -112,12 +129,7 @@ describe('nutrition target routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid nutrition target payload',
-        },
-      });
+      expectRequestValidationError(response, 'POST', '/api/v1/nutrition-targets');
       expect(vi.mocked(upsertNutritionTarget)).not.toHaveBeenCalled();
     } finally {
       await app.close();

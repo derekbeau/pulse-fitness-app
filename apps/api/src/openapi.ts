@@ -1,7 +1,7 @@
 import { dateSchema } from '@pulse/shared';
 import { z } from 'zod';
 
-const opaqueIdParamSchema = z
+export const opaqueIdParamSchema = z
   .string()
   .trim()
   .min(1)
@@ -9,6 +9,7 @@ const opaqueIdParamSchema = z
 
 export const authSecurity = [{ bearerAuth: [] }, { agentToken: [] }] as const;
 export const jwtSecurity = [{ bearerAuth: [] }] as const;
+export const agentTokenSecurity = [{ agentToken: [] }] as const;
 
 export const idParamsSchema = z.object({
   id: opaqueIdParamSchema,

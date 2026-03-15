@@ -2,27 +2,36 @@ import { randomUUID } from 'node:crypto';
 
 import {
   agentUpdateHabitEntryInputSchema,
+  apiDataResponseSchema,
   createHabitEntryInputSchema,
   habitEntryQueryParamsSchema,
+  habitEntrySchema,
   updateHabitEntryInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  idParamsSchema,
+} from '../../openapi.js';
 import { findHabitById } from '../habits/store.js';
 
 import {
   findHabitEntryByHabitAndDate,
-  updateHabitEntry,
-  upsertHabitEntry,
   listHabitEntriesByDateRange,
   listHabitEntriesForHabitByDateRange,
+  updateHabitEntry,
+  upsertHabitEntry,
 } from './store.js';
 
-const parseId = (value: unknown) =>
-  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+const habitEntriesResponseSchema = apiDataResponseSchema(z.array(habitEntrySchema));
 
 const sendHabitNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_NOT_FOUND', 'Habit not found');
@@ -31,150 +40,198 @@ const sendHabitEntryNotFound = (reply: Parameters<typeof sendError>[0]) =>
   sendError(reply, 404, 'HABIT_ENTRY_NOT_FOUND', 'Habit entry not found');
 
 export const habitEntryNestedRoutes: FastifyPluginAsync = async (app) => {
-  app.post<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
-    const habitId = parseId(request.params.id);
-    if (!habitId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const parsedBody = createHabitEntryInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry payload');
-    }
+  typedApp.post(
+    '/:id/entries',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: createHabitEntryInputSchema,
+        response: {
+          201: apiDataResponseSchema(habitEntrySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habit-entries'],
+        summary: 'Create or replace a habit entry',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const habit = await findHabitById(request.params.id, request.userId);
+      if (!habit) {
+        return sendHabitNotFound(reply);
+      }
 
-    const habit = await findHabitById(habitId, request.userId);
-    if (!habit) {
-      return sendHabitNotFound(reply);
-    }
+      const entry = await upsertHabitEntry({
+        id: randomUUID(),
+        habitId: request.params.id,
+        userId: request.userId,
+        ...request.body,
+        isOverride: request.body.isOverride,
+      });
 
-    const entry = await upsertHabitEntry({
-      id: randomUUID(),
-      habitId,
-      userId: request.userId,
-      ...parsedBody.data,
-      isOverride: parsedBody.data.isOverride,
-    });
+      return reply.code(201).send(
+        buildDataResponse(request, entry, {
+          endpoint: 'habit-entry.mutation',
+          habit,
+        }),
+      );
+    },
+  );
 
-    return reply.code(201).send(
-      buildDataResponse(request, entry, {
-        endpoint: 'habit-entry.mutation',
-        habit,
-      }),
-    );
-  });
+  typedApp.patch(
+    '/:id/entries',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: agentUpdateHabitEntryInputSchema,
+        response: {
+          200: apiDataResponseSchema(habitEntrySchema),
+          201: apiDataResponseSchema(habitEntrySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habit-entries'],
+        summary: 'Update a habit entry by date for agent workflows',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const habit = await findHabitById(request.params.id, request.userId);
+      if (!habit) {
+        return sendHabitNotFound(reply);
+      }
 
-  app.patch<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
-    const habitId = parseId(request.params.id);
-    if (!habitId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
-    }
+      const existingEntry = await findHabitEntryByHabitAndDate(
+        request.params.id,
+        request.userId,
+        request.body.date,
+      );
+      const entry = await upsertHabitEntry({
+        id: existingEntry?.id ?? randomUUID(),
+        habitId: request.params.id,
+        userId: request.userId,
+        date: request.body.date,
+        completed: request.body.completed ?? existingEntry?.completed ?? false,
+        value: request.body.value ?? existingEntry?.value ?? undefined,
+        isOverride: habit.referenceSource != null,
+      });
 
-    const parsedBody = agentUpdateHabitEntryInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry payload');
-    }
+      return reply.code(existingEntry ? 200 : 201).send(
+        buildDataResponse(request, entry, {
+          endpoint: 'habit-entry.mutation',
+          habit,
+          previousEntry: existingEntry
+            ? {
+                completed: existingEntry.completed,
+                value: existingEntry.value ?? null,
+              }
+            : undefined,
+        }),
+      );
+    },
+  );
 
-    const habit = await findHabitById(habitId, request.userId);
-    if (!habit) {
-      return sendHabitNotFound(reply);
-    }
+  typedApp.get(
+    '/:id/entries',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: habitEntryQueryParamsSchema,
+        response: {
+          200: habitEntriesResponseSchema,
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habit-entries'],
+        summary: 'List entries for a habit',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const habit = await findHabitById(request.params.id, request.userId);
+      if (!habit) {
+        return sendHabitNotFound(reply);
+      }
 
-    const existingEntry = await findHabitEntryByHabitAndDate(
-      habitId,
-      request.userId,
-      parsedBody.data.date,
-    );
-    const entry = await upsertHabitEntry({
-      id: existingEntry?.id ?? randomUUID(),
-      habitId,
-      userId: request.userId,
-      date: parsedBody.data.date,
-      completed: parsedBody.data.completed ?? existingEntry?.completed ?? false,
-      value: parsedBody.data.value ?? existingEntry?.value ?? undefined,
-      isOverride: habit.referenceSource != null,
-    });
+      const entries = await listHabitEntriesForHabitByDateRange(
+        request.params.id,
+        request.userId,
+        request.query.from,
+        request.query.to,
+      );
 
-    return reply.code(existingEntry ? 200 : 201).send(
-      buildDataResponse(request, entry, {
-        endpoint: 'habit-entry.mutation',
-        habit,
-        previousEntry: existingEntry
-          ? {
-              completed: existingEntry.completed,
-              value: existingEntry.value ?? null,
-            }
-          : undefined,
-      }),
-    );
-  });
-
-  app.get<{ Params: { id: string } }>('/:id/entries', async (request, reply) => {
-    const habitId = parseId(request.params.id);
-    if (!habitId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit id');
-    }
-
-    const parsedQuery = habitEntryQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry query params');
-    }
-
-    const habit = await findHabitById(habitId, request.userId);
-    if (!habit) {
-      return sendHabitNotFound(reply);
-    }
-
-    const entries = await listHabitEntriesForHabitByDateRange(
-      habitId,
-      request.userId,
-      parsedQuery.data.from,
-      parsedQuery.data.to,
-    );
-
-    return reply.send({
-      data: entries,
-    });
-  });
+      return reply.send({
+        data: entries,
+      });
+    },
+  );
 };
 
 export const habitEntryCollectionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  app.get('/', async (request, reply) => {
-    const parsedQuery = habitEntryQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry query params');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const entries = await listHabitEntriesByDateRange(
-      request.userId,
-      parsedQuery.data.from,
-      parsedQuery.data.to,
-    );
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        querystring: habitEntryQueryParamsSchema,
+        response: {
+          200: habitEntriesResponseSchema,
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['habit-entries'],
+        summary: 'List habit entries in a date range',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const entries = await listHabitEntriesByDateRange(
+        request.userId,
+        request.query.from,
+        request.query.to,
+      );
 
-    return reply.send({
-      data: entries,
-    });
-  });
+      return reply.send({
+        data: entries,
+      });
+    },
+  );
 
-  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const entryId = parseId(request.params.id);
-    if (!entryId) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry id');
-    }
+  typedApp.patch(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateHabitEntryInputSchema,
+        response: {
+          200: apiDataResponseSchema(habitEntrySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['habit-entries'],
+        summary: 'Update a habit entry',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const entry = await updateHabitEntry(request.params.id, request.userId, request.body);
+      if (!entry) {
+        return sendHabitEntryNotFound(reply);
+      }
 
-    const parsedBody = updateHabitEntryInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid habit entry payload');
-    }
-
-    const entry = await updateHabitEntry(entryId, request.userId, parsedBody.data);
-    if (!entry) {
-      return sendHabitEntryNotFound(reply);
-    }
-
-    return reply.send({
-      data: entry,
-    });
-  });
+      return reply.send({
+        data: entry,
+      });
+    },
+  );
 };

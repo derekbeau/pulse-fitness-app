@@ -37,6 +37,23 @@ const createAgentTokenHeader = (token: string) => ({
   authorization: `AgentToken ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('habit entry routes', () => {
   beforeEach(() => {
     vi.mocked(findHabitById).mockReset();
@@ -591,26 +608,15 @@ describe('habit entry routes', () => {
       ]);
 
       expect(createResponse.statusCode).toBe(400);
-      expect(createResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid habit entry payload',
-        },
-      });
+      expectRequestValidationError(createResponse, 'POST', '/api/v1/habits/habit-1/entries');
       expect(listResponse.statusCode).toBe(400);
-      expect(listResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid habit entry query params',
-        },
-      });
+      expectRequestValidationError(
+        listResponse,
+        'GET',
+        '/api/v1/habit-entries?from=2026-03-08&to=2026-03-07',
+      );
       expect(patchResponse.statusCode).toBe(400);
-      expect(patchResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid habit entry payload',
-        },
-      });
+      expectRequestValidationError(patchResponse, 'PATCH', '/api/v1/habit-entries/entry-1');
       expect(vi.mocked(upsertHabitEntry)).not.toHaveBeenCalled();
       expect(vi.mocked(updateHabitEntry)).not.toHaveBeenCalled();
     } finally {

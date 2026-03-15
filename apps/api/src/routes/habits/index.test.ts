@@ -46,6 +46,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('habit routes', () => {
   beforeEach(() => {
     vi.mocked(createHabit).mockReset();
@@ -871,19 +888,9 @@ describe('habit routes', () => {
       ]);
 
       expect(createResponse.statusCode).toBe(400);
-      expect(createResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid habit payload',
-        },
-      });
+      expectRequestValidationError(createResponse, 'POST', '/api/v1/habits');
       expect(reorderResponse.statusCode).toBe(400);
-      expect(reorderResponse.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid reorder payload',
-        },
-      });
+      expectRequestValidationError(reorderResponse, 'PATCH', '/api/v1/habits/reorder');
     } finally {
       await app.close();
     }

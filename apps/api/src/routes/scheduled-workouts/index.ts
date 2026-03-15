@@ -1,14 +1,26 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  apiDataResponseSchema,
   createScheduledWorkoutInputSchema,
+  scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
+  scheduledWorkoutSchema,
   updateScheduledWorkoutInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
+import {
+  apiErrorResponseSchema,
+  authSecurity,
+  badRequestResponseSchema,
+  idParamsSchema,
+  successFlagSchema,
+} from '../../openapi.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 
 import {
@@ -32,105 +44,156 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
-  app.post('/', async (request, reply) => {
-    const parsedBody = createScheduledWorkoutInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
-    }
+  const typedApp = app.withTypeProvider<ZodTypeProvider>();
 
-    const templateAccessible = await templateBelongsToUser(
-      parsedBody.data.templateId,
-      request.userId,
-    );
-    if (!templateAccessible) {
-      return sendError(
-        reply,
-        404,
-        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-        WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    const scheduledWorkout = await createScheduledWorkout({
-      id: randomUUID(),
-      userId: request.userId,
-      input: parsedBody.data,
-    });
-
-    return reply.code(201).send({
-      data: scheduledWorkout,
-    });
-  });
-
-  app.get('/', async (request, reply) => {
-    const parsedQuery = scheduledWorkoutQueryParamsSchema.safeParse(request.query);
-    if (!parsedQuery.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout query');
-    }
-
-    const scheduledWorkoutItems = await listScheduledWorkouts({
-      userId: request.userId,
-      ...parsedQuery.data,
-    });
-
-    return reply.send({
-      data: scheduledWorkoutItems,
-    });
-  });
-
-  app.patch<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const parsedBody = updateScheduledWorkoutInputSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid scheduled workout payload');
-    }
-
-    const existingScheduledWorkout = await findScheduledWorkoutById(
-      request.params.id,
-      request.userId,
-    );
-    if (!existingScheduledWorkout) {
-      return sendError(
-        reply,
-        404,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    const scheduledWorkout = await updateScheduledWorkout({
-      id: request.params.id,
-      userId: request.userId,
-      changes: parsedBody.data,
-    });
-    if (!scheduledWorkout) {
-      return sendError(
-        reply,
-        404,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({
-      data: scheduledWorkout,
-    });
-  });
-
-  app.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
-    const deleted = await deleteScheduledWorkout(request.params.id, request.userId);
-    if (!deleted) {
-      return sendError(
-        reply,
-        404,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
-        SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
-      );
-    }
-
-    return reply.send({
-      data: {
-        success: true,
+  typedApp.post(
+    '/',
+    {
+      schema: {
+        body: createScheduledWorkoutInputSchema,
+        response: {
+          201: apiDataResponseSchema(scheduledWorkoutSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Create a scheduled workout',
+        security: authSecurity,
       },
-    });
-  });
+    },
+    async (request, reply) => {
+      const templateAccessible = await templateBelongsToUser(request.body.templateId, request.userId);
+      if (!templateAccessible) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
+          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const scheduledWorkout = await createScheduledWorkout({
+        id: randomUUID(),
+        userId: request.userId,
+        input: request.body,
+      });
+
+      return reply.code(201).send({
+        data: scheduledWorkout,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/',
+    {
+      schema: {
+        querystring: scheduledWorkoutQueryParamsSchema,
+        response: {
+          200: apiDataResponseSchema(z.array(scheduledWorkoutListItemSchema)),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'List scheduled workouts',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const scheduledWorkoutItems = await listScheduledWorkouts({
+        userId: request.userId,
+        ...request.query,
+      });
+
+      return reply.send({
+        data: scheduledWorkoutItems,
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateScheduledWorkoutInputSchema,
+        response: {
+          200: apiDataResponseSchema(scheduledWorkoutSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Update a scheduled workout',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const existingScheduledWorkout = await findScheduledWorkoutById(
+        request.params.id,
+        request.userId,
+      );
+      if (!existingScheduledWorkout) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const scheduledWorkout = await updateScheduledWorkout({
+        id: request.params.id,
+        userId: request.userId,
+        changes: request.body,
+      });
+      if (!scheduledWorkout) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: scheduledWorkout,
+      });
+    },
+  );
+
+  typedApp.delete(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(successFlagSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Delete a scheduled workout',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const deleted = await deleteScheduledWorkout(request.params.id, request.userId);
+      if (!deleted) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: {
+          success: true,
+        },
+      });
+    },
+  );
 };

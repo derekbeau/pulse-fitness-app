@@ -20,6 +20,23 @@ const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
 });
 
+const expectRequestValidationError = (
+  response: { json(): unknown },
+  method: string,
+  url: string,
+) => {
+  expect(response.json()).toMatchObject({
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: {
+        method,
+        url,
+      },
+    },
+  });
+};
+
 describe('users routes', () => {
   beforeEach(() => {
     vi.mocked(getUserById).mockReset();
@@ -121,12 +138,7 @@ describe('users routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid user update payload',
-        },
-      });
+      expectRequestValidationError(response, 'PATCH', '/api/v1/users/me');
       expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -147,12 +159,7 @@ describe('users routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid user update payload',
-        },
-      });
+      expectRequestValidationError(response, 'PATCH', '/api/v1/users/me');
       expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
     } finally {
       await app.close();
@@ -173,12 +180,7 @@ describe('users routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json()).toEqual({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid user update payload',
-        },
-      });
+      expectRequestValidationError(response, 'PATCH', '/api/v1/users/me');
       expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
     } finally {
       await app.close();
