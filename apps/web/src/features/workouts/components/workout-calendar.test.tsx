@@ -118,7 +118,13 @@ describe('WorkoutCalendar', () => {
     expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect((await screen.findAllByLabelText('In-progress workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
-    expect(screen.getByText('+2')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toHaveClass('hidden', 'sm:inline-flex');
+    expect(screen.getByRole('button', { name: 'Previous month' })).toHaveClass(
+      'size-11',
+      'min-h-11',
+      'min-w-11',
+    );
+    expect(getCalendarDayTile(sessionDate)).toHaveClass('overflow-hidden');
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
       '/workouts/session/session-1',

@@ -68,6 +68,7 @@ describe('WorkoutList', () => {
     expect(headings).toEqual(['In Progress', 'Scheduled', 'Completed']);
 
     const inProgressSection = getSectionByTitle('In Progress');
+    const scheduledSection = getSectionByTitle('Scheduled');
     expect(within(inProgressSection).getAllByRole('link', { name: 'Resume' }).length).toBeGreaterThan(
       0,
     );
@@ -77,6 +78,11 @@ describe('WorkoutList', () => {
     expect(within(inProgressSection).getAllByRole('button', { name: /Delete/i }).length).toBeGreaterThan(
       0,
     );
+    within(scheduledSection)
+      .getAllByRole('button', { name: 'Reschedule' })
+      .forEach((button) => {
+        expect(button).toHaveClass('hover:text-foreground', 'active:text-foreground');
+      });
   });
 
   it('shows unavailable state for soft-deleted scheduled templates and hides stale start actions', async () => {

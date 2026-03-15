@@ -335,7 +335,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           accentTextClassName="text-blue-900 dark:text-blue-200"
           className="border-blue-200/70 bg-blue-500/10 dark:border-blue-400/30 dark:bg-blue-500/15"
@@ -383,7 +383,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       ) : null}
 
       <Card>
-        <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-foreground">Session comparison</h2>
             <p className="text-sm text-muted">
@@ -413,7 +413,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         />
       ) : null}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground">Section breakdown</h2>
           <p className="text-sm text-muted">Review each phase exactly as it was logged.</p>
@@ -432,7 +432,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               section.exercises.some((exercise) => Boolean(exercise.notes))
             }
           >
-            <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 sm:py-5">
+            <summary className="cursor-pointer list-none px-4 py-3 sm:px-5 sm:py-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
                   <h3 className="text-lg font-semibold text-foreground">
@@ -452,18 +452,18 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               </div>
             </summary>
 
-            <div className="space-y-3 border-t border-border px-4 py-4 sm:px-6 sm:py-5">
+            <div className="space-y-2.5 border-t border-border px-3 py-3 sm:px-5 sm:py-4">
               {section.exercises.map((exercise) => (
                 <Card
                   className={cn(
-                    'gap-4 py-0',
+                    'gap-3 py-0',
                     isEditing &&
                       'border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)]',
                   )}
                   key={`${section.type}-${exercise.exerciseId}`}
                 >
-                  <CardHeader className="gap-3 py-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <CardHeader className="gap-2.5 py-3">
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <CardTitle>{exercise.name}</CardTitle>
@@ -484,7 +484,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
                       <Button
                         aria-label={`Open ${exercise.name} trend chart`}
-                        className="self-start"
+                        className="size-11 min-h-11 min-w-11 self-start"
                         onClick={() => setSelectedExerciseId(exercise.exerciseId)}
                         size="icon-sm"
                         type="button"
@@ -495,9 +495,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4 pb-5">
+                  <CardContent className="space-y-3 pb-3">
                     {isEditing ? (
-                      <div className="space-y-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)] p-3">
+                      <div className="space-y-2.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)] p-2.5">
                         {exercise.sets.map((set) => (
                           <SessionSetEditor
                             draft={setDrafts[set.id] ?? createSessionSetDraft(set)}
@@ -510,10 +510,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         ))}
                       </div>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {exercise.sets.map((set) => (
                           <span
-                            className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
+                            className="inline-flex rounded-full border border-border bg-secondary/55 px-2.5 py-1 text-[13px] text-foreground"
                             key={set.id}
                           >
                             {formatSetLabel(set, exercise.trackingType, weightUnit)}
@@ -533,7 +533,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                     ) : null}
  
                     {exercise.notes ? (
-                      <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
+                      <div className="rounded-2xl border border-border bg-secondary/35 px-3 py-2.5 text-sm text-foreground">
                         <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
                           Exercise notes
                         </p>
@@ -649,7 +649,7 @@ function SessionSetEditor({
   const readOnlySummary = getReadOnlyCorrectionSummary(set, trackingType, weightUnit);
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+    <div className="rounded-2xl border border-border/70 bg-background/70 p-2.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-foreground">{`Set ${set.setNumber}`}</p>
@@ -665,7 +665,7 @@ function SessionSetEditor({
       {fields.length > 0 ? (
         <div
           className={cn(
-            'mt-3 grid gap-3',
+            'mt-2.5 grid gap-2',
             fields.length === 1 ? 'sm:grid-cols-[minmax(0,11rem)]' : 'sm:grid-cols-2',
           )}
         >
@@ -703,10 +703,10 @@ function SessionSetEditor({
           })}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-muted">No editable set values are available for this entry.</p>
+        <p className="mt-2.5 text-sm text-muted">No editable set values are available for this entry.</p>
       )}
 
-      {readOnlySummary ? <p className="mt-3 text-xs text-muted">{readOnlySummary}</p> : null}
+      {readOnlySummary ? <p className="mt-2.5 text-xs text-muted">{readOnlySummary}</p> : null}
     </div>
   );
 }

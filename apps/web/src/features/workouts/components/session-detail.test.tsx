@@ -122,6 +122,9 @@ describe('SessionDetail', () => {
     expect(screen.getByLabelText(/show comparison/i)).toBeInTheDocument();
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole('button', { name: 'Open Incline Dumbbell Press trend chart' }),
+    ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();

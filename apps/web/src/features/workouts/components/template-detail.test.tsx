@@ -184,6 +184,16 @@ describe('WorkoutTemplateDetail', () => {
       .closest('[data-slot="card"]');
 
     expect(inclinePressCard).not.toBeNull();
+    expect(
+      within(inclinePressCard as HTMLElement).getByRole('button', {
+        name: 'Drag handle for Incline Dumbbell Press',
+      }),
+    ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    expect(
+      within(inclinePressCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
     expect(within(inclinePressCard as HTMLElement).getByText('3×8-10')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
     expect(within(inclinePressCard as HTMLElement).getByText(/Rest: 90s/)).toBeInTheDocument();

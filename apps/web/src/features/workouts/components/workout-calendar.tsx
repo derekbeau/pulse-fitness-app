@@ -202,7 +202,7 @@ export function WorkoutCalendar({
 
   return (
     <Card className="gap-0 overflow-hidden">
-      <CardHeader className="gap-4 border-b border-border pb-5">
+      <CardHeader className="gap-4 border-b border-border pb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <CardTitle>Workout Calendar</CardTitle>
@@ -214,6 +214,7 @@ export function WorkoutCalendar({
           <div className="flex items-center gap-2 self-start">
             <Button
               aria-label="Previous month"
+              className="size-11 min-h-11 min-w-11"
               onClick={() => handleMonthChange(-1)}
               size="icon-sm"
               type="button"
@@ -226,6 +227,7 @@ export function WorkoutCalendar({
             </p>
             <Button
               aria-label="Next month"
+              className="size-11 min-h-11 min-w-11"
               onClick={() => handleMonthChange(1)}
               size="icon-sm"
               type="button"
@@ -246,9 +248,9 @@ export function WorkoutCalendar({
         </div>
       </CardHeader>
 
-      <CardContent className="grid gap-6 px-4 py-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:px-6 lg:py-6">
+      <CardContent className="grid gap-4 px-3 py-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:px-6 lg:py-6">
         <section aria-label="Monthly workout calendar" className="space-y-3">
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {DAY_LABELS.map((day) => (
               <p
                 key={day}
@@ -259,7 +261,7 @@ export function WorkoutCalendar({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {calendarDays.map((day) => {
               const dateKey = toDateKey(day);
               const details = getDayDetails(dateKey, lookupContext);
@@ -273,7 +275,7 @@ export function WorkoutCalendar({
                   aria-label={`${fullDateFormatter.format(day)}${isSelected ? ', selected' : ''}`}
                   aria-pressed={isSelected}
                   className={cn(
-                    'flex min-h-14 cursor-pointer flex-col rounded-xl border px-1.5 py-1.5 text-left transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3',
+                    'flex min-h-14 min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border px-1 py-1 text-left transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3',
                     isInMonth
                       ? 'bg-card hover:border-primary/40 hover:bg-secondary/50'
                       : 'bg-secondary/35 opacity-55',
@@ -292,7 +294,7 @@ export function WorkoutCalendar({
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="flex items-start justify-between gap-0.5">
+                  <div className="flex min-w-0 items-start justify-between gap-0.5">
                     <span
                       className={cn(
                         'shrink-0 text-xs font-semibold sm:text-sm',
@@ -302,10 +304,10 @@ export function WorkoutCalendar({
                     >
                       {day.getDate()}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex min-w-0 items-center gap-1">
                       {details.completedSession ? (
                         <Link
-                          className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400"
+                          className="max-w-full rounded-full bg-emerald-500/15 px-1 py-0.5 text-[8px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 sm:px-1.5 sm:text-[9px]"
                           onClick={(event) => event.stopPropagation()}
                           to={
                             buildSessionHref?.(details.completedSession.id, details.completedSession.status) ??
@@ -340,7 +342,7 @@ export function WorkoutCalendar({
                     </p>
                   </div>
 
-                  <div className="mt-auto flex items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
+                  <div className="mt-auto flex min-w-0 items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
                     {getTileIndicators(details.workoutIndicators).map((indicator) => (
                       <span
                         aria-label={`${statusToLabel(indicator.status)} workout`}
@@ -352,7 +354,7 @@ export function WorkoutCalendar({
                       />
                     ))}
                     {details.workoutIndicators.length >= 3 ? (
-                      <span className="rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className="hidden rounded-full border border-slate-500/70 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:inline-flex">
                         +{details.workoutIndicators.length - 2}
                       </span>
                     ) : null}
@@ -370,7 +372,7 @@ export function WorkoutCalendar({
 
         <aside
           className={cn(
-            'order-first flex min-h-0 flex-col gap-4 rounded-3xl border p-5 shadow-sm lg:order-none',
+            'order-first flex min-h-0 flex-col gap-4 rounded-3xl border p-4 shadow-sm lg:order-none lg:p-5',
             accentPanel,
           )}
           id="workout-day-details"
@@ -497,7 +499,7 @@ function DayWorkoutItemCard({
   }
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-secondary/40 p-3">
+    <div className="rounded-2xl border border-border/70 bg-secondary/40 p-2.5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{workout.name}</p>
         <span

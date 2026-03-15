@@ -174,7 +174,7 @@ export function WorkoutList({
         <SectionHeading count={scheduledItems.length} title="Scheduled" />
         {!hasPlannedWorkouts ? (
           <Card className="border-dashed">
-            <CardContent className="space-y-4 py-5">
+            <CardContent className="space-y-3 py-4">
               <div className="space-y-1">
                 <h3 className="text-base font-semibold">No workouts planned</h3>
                 <p className="text-sm text-muted">
@@ -270,13 +270,13 @@ function InProgressWorkoutCard({
   return (
     <Card
       className={cn(
-        'h-full gap-4 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        'h-full gap-2.5 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
         session.cardClass,
       )}
       style={{ borderLeftColor: session.accentColor }}
     >
-      <CardHeader className="gap-3 py-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="gap-2.5 py-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <CardTitle>{session.name}</CardTitle>
             <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
@@ -294,14 +294,14 @@ function InProgressWorkoutCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pb-5">
-        <ul className="flex flex-wrap gap-3 text-sm text-muted">
+      <CardContent className="space-y-3 pb-3">
+        <ul className="flex flex-wrap gap-2 text-sm text-muted">
           {buildStatusStats(session).map((stat) => (
             <WorkoutStat icon={stat.icon} key={`${session.id}-${stat.label}`} label={stat.label} />
           ))}
         </ul>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <Button asChild size="sm">
             <Link to={buildSessionHref(session.id, session.status)}>Resume</Link>
           </Button>
@@ -403,7 +403,7 @@ function ScheduledWorkoutCard({
   return (
     <Card
       className={cn(
-        'gap-4 border-l-4 py-0',
+        'gap-2.5 border-l-4 py-0',
         scheduledWorkout.isUnavailable
           ? 'border-destructive/45 bg-destructive/5'
           : scheduledWorkout.isMissed
@@ -411,8 +411,8 @@ function ScheduledWorkoutCard({
             : 'border-slate-300/70 dark:border-slate-700/70',
       )}
     >
-      <CardHeader className="gap-3 py-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="gap-2.5 py-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <CardTitle>{scheduledWorkout.templateName ?? 'Workout unavailable'}</CardTitle>
             <p className="text-sm text-muted">
@@ -446,8 +446,8 @@ function ScheduledWorkoutCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pb-5">
-        <ul className="flex flex-wrap gap-3 text-sm text-muted">
+      <CardContent className="space-y-3 pb-3">
+        <ul className="flex flex-wrap gap-2 text-sm text-muted">
           <WorkoutStat
             icon={CalendarPlus2}
             label={`Scheduled ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}`}
@@ -461,7 +461,7 @@ function ScheduledWorkoutCard({
           ) : null}
         </ul>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <Button
             disabled={isStartDisabled}
             onClick={() => {
@@ -473,6 +473,7 @@ function ScheduledWorkoutCard({
             Start now
           </Button>
           <Button
+            className="hover:text-foreground active:text-foreground"
             disabled={isMutating || !isTemplateAvailable}
             onClick={() => setIsRescheduleDialogOpen(true)}
             size="sm"
@@ -549,13 +550,13 @@ function WorkoutListCard({
     >
       <Card
         className={cn(
-          'h-full gap-4 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
+          'h-full gap-2.5 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
           session.cardClass,
         )}
         style={{ borderLeftColor: session.accentColor }}
       >
-        <CardHeader className="gap-3 py-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader className="gap-2.5 py-3">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardTitle>{session.name}</CardTitle>
               <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
@@ -573,8 +574,8 @@ function WorkoutListCard({
           </div>
         </CardHeader>
 
-        <CardContent className="pb-5">
-          <ul className="flex flex-wrap gap-3 text-sm text-muted">
+        <CardContent className="pb-3">
+          <ul className="flex flex-wrap gap-2 text-sm text-muted">
             {buildStatusStats(session).map((stat) => (
               <WorkoutStat
                 icon={stat.icon}
@@ -591,7 +592,7 @@ function WorkoutListCard({
 
 function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: string }) {
   return (
-    <li className="inline-flex items-center gap-1.5 rounded-full bg-secondary/55 px-3 py-1.5">
+    <li className="inline-flex items-center gap-1.5 rounded-full bg-secondary/55 px-2.5 py-1">
       <Icon aria-hidden="true" className="size-3.5 text-primary" />
       <span>{label}</span>
     </li>
