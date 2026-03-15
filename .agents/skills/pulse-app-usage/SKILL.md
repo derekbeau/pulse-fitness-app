@@ -5,18 +5,26 @@ description: Pulse app API usage patterns for workout, habit, and nutrition agen
 
 # Pulse App Usage Skill
 
+## Authentication
+
+Agents call the unified `/api/v1/*` API surface with `Authorization: AgentToken <token>`.
+
+- Agent-specific convenience features such as name resolution, auto-create behavior, and other workflow shortcuts activate automatically on `/api/v1/*` when the request uses AgentToken auth.
+- Responses for AgentToken callers can include an optional `agent` field with hints, suggested actions, and related state to help drive the next step.
+- Sensitive routes such as auth management and agent token CRUD remain JWT-only.
+
 ## Workout Workflow
 
 Use this flow when an agent creates exercises/templates and then logs workout sessions.
 
-1. Search first: call `GET /api/agent/exercises/search?q=<name>&limit=<n>`.
-2. Create with dedup guard: call `POST /api/agent/exercises`.
+1. Search first: call `GET /api/v1/exercises?q=<name>&limit=<n>`.
+2. Create with dedup guard: call `POST /api/v1/exercises`.
 3. If the response is `{ "data": { "created": false, "candidates": [...] } }`, inspect candidates and only retry with `force: true` when a true new exercise is required.
-4. Create template with `POST /api/agent/workout-templates`.
-5. Schedule the template on calendar date(s) with `POST /api/agent/scheduled-workouts`.
-6. Review upcoming scheduled workouts via `GET /api/agent/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`.
+4. Create template with `POST /api/v1/workout-templates`.
+5. Schedule the template on calendar date(s) with `POST /api/v1/scheduled-workouts`.
+6. Review upcoming scheduled workouts via `GET /api/v1/scheduled-workouts?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`.
 7. Read `data.newExercises` from template creation response.
-8. For each new exercise id in `newExercises`, call `PATCH /api/agent/exercises/:id` to enrich:
+8. For each new exercise id in `newExercises`, call `PATCH /api/v1/exercises/:id` to enrich:
    - `muscleGroups`
    - `equipment`
    - `category`
@@ -24,8 +32,8 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - `instructions`
    - `formCues`
    - `tags`
-9. Start session via `POST /api/agent/workout-sessions`.
-10. During the session, use `PATCH /api/agent/workout-sessions/:id` for:
+9. Start session via `POST /api/v1/workout-sessions`.
+10. During the session, use `PATCH /api/v1/workout-sessions/:id` for:
    - set logs: `sets: [{ exerciseName, setNumber, weight, reps }]`
    - add exercises: `addExercises: [{ name, sets, reps, section }]`
    - remove unstarted exercises: `removeExercises: [exerciseId]`
@@ -36,7 +44,7 @@ Use this flow when an agent creates exercises/templates and then logs workout se
 
 Use referential habits when completion should be inferred from other tracked data.
 
-1. Create a habit with `POST /api/agent/habits`.
+1. Create a habit with `POST /api/v1/habits`.
 2. For referential habits, include:
    - `referenceSource`: `weight | nutrition_daily | nutrition_meal | workout`
    - `referenceConfig`:
@@ -45,11 +53,11 @@ Use referential habits when completion should be inferred from other tracked dat
      - `nutrition_meal`: `{ "mealType": string, "field": "protein|calories|carbs|fat", "op": "gte|lte|eq", "value": number }`
      - `workout`: `{ "condition": "session_completed_today" }`
 3. Read habits with `GET /api/v1/habits`; referential habits auto-resolve completion for today.
-4. Manually override a referential habit with `PATCH /api/agent/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.
+4. Manually override a referential habit with `PATCH /api/v1/habits/:id/entries`; override entries are marked with `isOverride: true` and take precedence over resolver output.
 
 ## Nutrition (Meal Logging)
 
-Use `POST /api/agent/meals` with one of two item modes:
+Use `POST /api/v1/meals` with one of two item modes:
 
 1. **Saved-food mode (default):**
    - Send `foodName` + `quantity` (+ optional display fields).
