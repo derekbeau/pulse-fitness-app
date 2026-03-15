@@ -117,6 +117,30 @@ vi.mock('../routes/agent-tokens/store.js', () => ({
       return { id, name };
     },
   ),
+  regenerateAgentToken: vi.fn(async (id: string, userId: string, newTokenHash: string) => {
+    const token = testState.agentTokens.get(id);
+    if (!token || token.userId !== userId) {
+      return false;
+    }
+
+    const now = Date.now();
+    const rotatedLifetime =
+      typeof token.expiresAt === 'number' && typeof token.lastRotatedAt === 'number'
+        ? token.expiresAt - token.lastRotatedAt
+        : null;
+
+    token.tokenHash = newTokenHash;
+    token.lastUsedAt = null;
+    token.lastRotatedAt = now;
+    token.expiresAt =
+      token.expiresAt === null
+        ? null
+        : rotatedLifetime !== null && rotatedLifetime > 0
+          ? now + rotatedLifetime
+          : token.expiresAt;
+
+    return true;
+  }),
   listAgentTokens: vi.fn(async (userId: string) =>
     [...testState.agentTokens.values()]
       .filter((token) => token.userId === userId)
@@ -782,6 +806,62 @@ describe('auth integration', () => {
           userId: authData.user.id,
         },
       });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('extends expiring agent tokens from the new rotation time', async () => {
+    const { app } = await createTestApp();
+
+    try {
+      const authData = await registerAndLogin(app);
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens',
+        headers: createAuthorizationHeader(authData.token),
+        payload: {
+          name: 'Meal logger',
+        },
+      });
+
+      const createdPayload = createResponse.json() as {
+        data: {
+          id: string;
+          token: string;
+        };
+      };
+
+      const storedToken = testState.agentTokens.get(createdPayload.data.id);
+      expect(storedToken).toBeDefined();
+      if (!storedToken) {
+        throw new Error('Expected created agent token to be stored');
+      }
+
+      const originalLifetime = 60 * 60 * 1000;
+      const baseTime = Date.now();
+      storedToken.lastRotatedAt = baseTime - 60_000;
+      storedToken.expiresAt = storedToken.lastRotatedAt + originalLifetime;
+      const previousTokenHash = storedToken.tokenHash;
+
+      const rotationTime = baseTime + 120_000;
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(rotationTime);
+
+      try {
+        const regenerateResponse = await app.inject({
+          method: 'POST',
+          url: `/api/v1/agent-tokens/${storedToken.id}/regenerate`,
+          headers: createAuthorizationHeader(authData.token),
+        });
+
+        expect(regenerateResponse.statusCode).toBe(200);
+      } finally {
+        dateNowSpy.mockRestore();
+      }
+
+      expect(storedToken.tokenHash).not.toBe(previousTokenHash);
+      expect(storedToken.lastRotatedAt).toBe(rotationTime);
+      expect(storedToken.expiresAt).toBe(rotationTime + originalLifetime);
     } finally {
       await app.close();
     }

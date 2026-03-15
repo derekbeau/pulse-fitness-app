@@ -72,10 +72,39 @@ export const regenerateAgentToken = async (
   newTokenHash: string,
 ): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
+  const existingToken = db
+    .select({
+      expiresAt: agentTokens.expiresAt,
+      lastRotatedAt: agentTokens.lastRotatedAt,
+    })
+    .from(agentTokens)
+    .where(and(eq(agentTokens.id, id), eq(agentTokens.userId, userId)))
+    .get();
+
+  if (!existingToken) {
+    return false;
+  }
+
+  const now = Date.now();
+  const rotatedLifetime =
+    typeof existingToken.expiresAt === 'number' && typeof existingToken.lastRotatedAt === 'number'
+      ? existingToken.expiresAt - existingToken.lastRotatedAt
+      : null;
+  const nextExpiresAt =
+    existingToken.expiresAt === null
+      ? null
+      : rotatedLifetime !== null && rotatedLifetime > 0
+        ? now + rotatedLifetime
+        : existingToken.expiresAt;
 
   const result = db
     .update(agentTokens)
-    .set({ tokenHash: newTokenHash, lastUsedAt: null, lastRotatedAt: Date.now() })
+    .set({
+      tokenHash: newTokenHash,
+      expiresAt: nextExpiresAt,
+      lastUsedAt: null,
+      lastRotatedAt: now,
+    })
     .where(and(eq(agentTokens.id, id), eq(agentTokens.userId, userId)))
     .run();
 

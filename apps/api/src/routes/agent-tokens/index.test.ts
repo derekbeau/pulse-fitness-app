@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
-import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
+import { createAgentToken, deleteAgentToken, listAgentTokens, regenerateAgentToken } from './store.js';
 
 vi.mock('./store.js', () => ({
   createAgentToken: vi.fn(),
   deleteAgentToken: vi.fn(),
   listAgentTokens: vi.fn(),
+  regenerateAgentToken: vi.fn(),
 }));
 
 vi.mock('../../middleware/store.js', () => ({
@@ -27,6 +28,7 @@ describe('agent token routes', () => {
     vi.mocked(createAgentToken).mockReset();
     vi.mocked(deleteAgentToken).mockReset();
     vi.mocked(listAgentTokens).mockReset();
+    vi.mocked(regenerateAgentToken).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
@@ -223,6 +225,65 @@ describe('agent token routes', () => {
         ],
       });
       expect(vi.mocked(listAgentTokens)).toHaveBeenCalledWith('user-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('regenerates a token within the authenticated user scope', async () => {
+    vi.mocked(regenerateAgentToken).mockResolvedValue(true);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens/token-1/regenerate',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const payload = response.json() as { data: { token: string } };
+      expect(payload.data.token).toHaveLength(64);
+      expect(vi.mocked(regenerateAgentToken)).toHaveBeenCalledWith(
+        'token-1',
+        'user-1',
+        createHash('sha256').update(payload.data.token).digest('hex'),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns not found when regenerating a token outside the user scope', async () => {
+    vi.mocked(regenerateAgentToken).mockResolvedValue(false);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/agent-tokens/token-1/regenerate',
+        headers: createAuthorizationHeader(authToken),
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'AGENT_TOKEN_NOT_FOUND',
+          message: 'Agent token not found',
+        },
+      });
     } finally {
       await app.close();
     }

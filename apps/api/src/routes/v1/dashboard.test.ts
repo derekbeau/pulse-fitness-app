@@ -481,7 +481,7 @@ describe('dashboard routes', () => {
       expect(invalidDateResponse.json()).toEqual({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard snapshot date',
+          message: 'Invalid dashboard snapshot query',
         },
       });
       expect(vi.mocked(getDashboardSnapshot)).not.toHaveBeenCalled();
@@ -527,7 +527,7 @@ describe('dashboard routes', () => {
       expect(invalidCalendarDateResponse.json()).toEqual({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Invalid dashboard trend date range',
+          message: 'Invalid dashboard trend query',
         },
       });
 

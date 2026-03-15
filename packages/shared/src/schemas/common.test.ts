@@ -5,7 +5,16 @@ import {
   agentEnrichmentSchema,
   apiDataResponseSchema,
   apiPaginatedResponseSchema,
+  dateSchema,
 } from './common';
+
+describe('dateSchema', () => {
+  it('accepts valid calendar dates and rejects impossible ones', () => {
+    expect(dateSchema.parse('2026-03-09')).toBe('2026-03-09');
+    expect(() => dateSchema.parse('2026-02-30')).toThrow();
+    expect(() => dateSchema.parse('2026-3-9')).toThrow();
+  });
+});
 
 describe('agentEnrichmentSchema', () => {
   it('parses optional hint, action, and related state fields', () => {

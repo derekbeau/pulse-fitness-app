@@ -135,8 +135,11 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<AuthContext | 
 
   try {
     await updateAgentTokenLastUsedAt(agentToken.id);
-  } catch {
-    // Best-effort tracking: auth should still succeed if the write fails.
+  } catch (error) {
+    request.log.warn(
+      { err: error, agentTokenId: agentToken.id, userId: verifiedUserId },
+      'Failed to update agent token last used timestamp',
+    );
   }
 
   return {
@@ -152,6 +155,9 @@ const sendUnauthorized = (reply: FastifyReply) =>
 const sendForbidden = (reply: FastifyReply) =>
   sendError(reply, 403, 'FORBIDDEN', 'JWT authentication required');
 
+const sendAgentTokenForbidden = (reply: FastifyReply) =>
+  sendError(reply, 403, 'FORBIDDEN', 'Agent token authentication required');
+
 export const requireAuth: onRequestHookHandler = async (request, reply) => {
   const context = (await verifyJwt(request)) ?? (await verifyAgentToken(request));
   if (context) {
@@ -163,11 +169,27 @@ export const requireAuth: onRequestHookHandler = async (request, reply) => {
 };
 
 export const requireJwtOnly: onRequestHookHandler = async (request, reply) => {
+  if (request.authType === undefined) {
+    return sendUnauthorized(reply);
+  }
+
   if (request.authType === 'jwt') {
     return;
   }
 
   return sendForbidden(reply);
+};
+
+export const requireAgentOnly: onRequestHookHandler = async (request, reply) => {
+  if (request.authType === undefined) {
+    return sendUnauthorized(reply);
+  }
+
+  if (request.authType === 'agent-token') {
+    return;
+  }
+
+  return sendAgentTokenForbidden(reply);
 };
 
 export const isAgentRequest = (request: FastifyRequest) => request.authType === 'agent-token';

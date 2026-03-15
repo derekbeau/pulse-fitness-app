@@ -25,6 +25,7 @@ import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
 import {
+  applyExerciseNotesToSets,
   buildExerciseSectionOrder,
   buildInitialSessionSets,
   reorderSessionSetsByExercise,
@@ -144,50 +145,6 @@ const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
   const preview = invalidExerciseIds.slice(0, 3).join(', ');
   const suffix = invalidExerciseIds.length > 3 ? ', ...' : '';
   return `${INVALID_SESSION_EXERCISE_RESPONSE.message}: ${preview}${suffix}`;
-};
-
-const applyExerciseNotesToSets = ({
-  sets,
-  exerciseNotes,
-}: {
-  sets: SessionSetInput[];
-  exerciseNotes: Record<string, string | null>;
-}) => {
-  const firstSetIndexByExerciseId = new Map<string, number>();
-
-  sets.forEach((set, index) => {
-    const existingIndex = firstSetIndexByExerciseId.get(set.exerciseId);
-    if (existingIndex === undefined) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
-      return;
-    }
-
-    const existingSet = sets[existingIndex];
-    if (!existingSet) {
-      return;
-    }
-
-    if (set.setNumber < existingSet.setNumber) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
-    }
-  });
-
-  return sets.map((set, index) => {
-    const nextExerciseNote = exerciseNotes[set.exerciseId];
-
-    if (
-      firstSetIndexByExerciseId.get(set.exerciseId) !== index ||
-      !Object.hasOwn(exerciseNotes, set.exerciseId) ||
-      nextExerciseNote === null
-    ) {
-      return set;
-    }
-
-    return {
-      ...set,
-      notes: nextExerciseNote,
-    };
-  });
 };
 
 const ensureOwnedSession = async ({

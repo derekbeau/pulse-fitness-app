@@ -151,6 +151,50 @@ describe('meal routes', () => {
     }
   });
 
+  it('rejects impossible calendar dates via shared schema validation', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          date: '2026-02-30',
+          name: 'Lunch',
+          items: [
+            {
+              foodId: 'food-1',
+              name: 'Chicken',
+              amount: 1,
+              unit: 'serving',
+              calories: 300,
+              protein: 40,
+              carbs: 0,
+              fat: 10,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid meal payload',
+        },
+      });
+      expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it('creates an agent meal via AgentToken with food resolution and auto-create', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
@@ -320,6 +364,7 @@ describe('meal routes', () => {
           fat: 8,
         }),
       );
+      expect(vi.mocked(findFoodByName)).toHaveBeenCalledTimes(2);
       expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();

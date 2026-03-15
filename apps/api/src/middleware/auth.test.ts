@@ -5,7 +5,7 @@ import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SESSION_JWT_ISSUER, SESSION_JWT_TYPE, issueSessionJwt } from '../lib/session-jwt.js';
-import { isAgentRequest, requireAuth, requireJwtOnly } from './auth.js';
+import { isAgentRequest, requireAgentOnly, requireAuth, requireJwtOnly } from './auth.js';
 import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from './store.js';
 
 vi.mock('./store.js', () => ({
@@ -47,6 +47,40 @@ const buildTestApp = async () => {
         authType: request.authType,
         userId: request.userId,
       },
+    }),
+  );
+
+  app.get(
+    '/agent-only',
+    {
+      onRequest: [requireAuth, requireAgentOnly],
+    },
+    async (request) => ({
+      data: {
+        agentTokenId: request.agentTokenId ?? null,
+        authType: request.authType,
+        userId: request.userId,
+      },
+    }),
+  );
+
+  app.get(
+    '/jwt-only-direct',
+    {
+      onRequest: requireJwtOnly,
+    },
+    async () => ({
+      data: { ok: true },
+    }),
+  );
+
+  app.get(
+    '/agent-only-direct',
+    {
+      onRequest: requireAgentOnly,
+    },
+    async () => ({
+      data: { ok: true },
     }),
   );
 
@@ -289,6 +323,104 @@ describe('auth middleware', () => {
           agentTokenId: null,
           authType: 'jwt',
           userId: 'user-jwt-1',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects unauthenticated requests when requireJwtOnly is registered without requireAuth', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/jwt-only-direct',
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows agent tokens through requireAgentOnly', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-agent-1',
+      expiresAt: null,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          agentTokenId: 'agent-token-1',
+          authType: 'agent-token',
+          userId: 'user-agent-1',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects JWTs for requireAgentOnly', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const jwt = issueSessionJwt(app, 'user-jwt-1');
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only',
+        headers: {
+          authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Agent token authentication required',
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects unauthenticated requests when requireAgentOnly is registered without requireAuth', async () => {
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/agent-only-direct',
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
         },
       });
     } finally {

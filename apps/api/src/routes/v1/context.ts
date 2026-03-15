@@ -3,7 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { addUtcDays, getTodayDate } from '../../lib/date.js';
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
 import {
   findAgentContextUser,
   getAgentContextTodayNutrition,
@@ -15,12 +15,9 @@ import {
 
 export const contextRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireAgentOnly);
 
   app.get('/', async (request, reply) => {
-    if (!isAgentRequest(request)) {
-      return sendError(reply, 403, 'FORBIDDEN', 'Context is only available for agent tokens');
-    }
-
     const today = getTodayDate();
     const scheduleEnd = addUtcDays(today, 6);
 

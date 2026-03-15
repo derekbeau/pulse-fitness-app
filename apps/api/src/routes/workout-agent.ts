@@ -6,7 +6,7 @@ import type {
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
 
-import { autoCreateIfMissing, resolveByName } from './agentEnrichment.js';
+import { autoCreateIfMissing } from './agentEnrichment.js';
 import { updateOwnedExercise } from './exercises/store.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
@@ -73,32 +73,7 @@ export const resolveExerciseIdByName = async ({
   templateCues: string[];
 }> => {
   const classifiedCues = classifyCues({ cues, formCues });
-  const existingExercise = await resolveByName('exercise', name, userId);
-
-  if (existingExercise) {
-    if (existingExercise.userId === userId && classifiedCues.durable.length > 0) {
-      const mergedFormCues = dedupeStrings([
-        ...(existingExercise.formCues ?? []),
-        ...classifiedCues.durable,
-      ]);
-
-      if (mergedFormCues.length !== (existingExercise.formCues ?? []).length) {
-        await updateOwnedExercise({
-          id: existingExercise.id,
-          userId,
-          changes: { formCues: mergedFormCues },
-        });
-      }
-    }
-
-    return {
-      exerciseId: existingExercise.id,
-      newExercise: null,
-      templateCues: classifiedCues.situational,
-    };
-  }
-
-  const createdExercise = await autoCreateIfMissing(
+  const resolvedExercise = await autoCreateIfMissing(
     'exercise',
     {
       name,
@@ -113,13 +88,36 @@ export const resolveExerciseIdByName = async ({
     userId,
   );
 
+  if (!resolvedExercise.created) {
+    if (resolvedExercise.entity.userId === userId && classifiedCues.durable.length > 0) {
+      const mergedFormCues = dedupeStrings([
+        ...(resolvedExercise.entity.formCues ?? []),
+        ...classifiedCues.durable,
+      ]);
+
+      if (mergedFormCues.length !== (resolvedExercise.entity.formCues ?? []).length) {
+        await updateOwnedExercise({
+          id: resolvedExercise.entity.id,
+          userId,
+          changes: { formCues: mergedFormCues },
+        });
+      }
+    }
+
+    return {
+      exerciseId: resolvedExercise.entity.id,
+      newExercise: null,
+      templateCues: classifiedCues.situational,
+    };
+  }
+
   return {
-    exerciseId: createdExercise.entity.id,
+    exerciseId: resolvedExercise.entity.id,
     templateCues: classifiedCues.situational,
     newExercise: {
-      id: createdExercise.entity.id,
-      name: createdExercise.entity.name,
-      possibleDuplicates: createdExercise.possibleDuplicates.map((candidate) => candidate.id),
+      id: resolvedExercise.entity.id,
+      name: resolvedExercise.entity.name,
+      possibleDuplicates: resolvedExercise.possibleDuplicates.map((candidate) => candidate.id),
     },
   };
 };
@@ -161,21 +159,31 @@ export const buildTemplateSections = async ({
   groupedByType.set('cooldown', []);
   const newExercises: AgentTemplateNewExercise[] = [];
 
-  for (const section of sections) {
-    const sectionType = inferSectionType(section.name);
-    const existingExercises = groupedByType.get(sectionType);
+  const resolvedSections = await Promise.all(
+    sections.map(async (section) => ({
+      sectionType: inferSectionType(section.name),
+      exercises: await Promise.all(
+        section.exercises.map(async (exercise) => ({
+          exercise,
+          resolvedExercise: await resolveExerciseIdByName({
+            name: exercise.name,
+            userId,
+            tags: exercise.tags,
+            cues: exercise.cues,
+            formCues: exercise.formCues,
+          }),
+        })),
+      ),
+    })),
+  );
+
+  for (const section of resolvedSections) {
+    const existingExercises = groupedByType.get(section.sectionType);
     if (!existingExercises) {
       continue;
     }
 
-    for (const exercise of section.exercises) {
-      const resolvedExercise = await resolveExerciseIdByName({
-        name: exercise.name,
-        userId,
-        tags: exercise.tags,
-        cues: exercise.cues,
-        formCues: exercise.formCues,
-      });
+    for (const { exercise, resolvedExercise } of section.exercises) {
       if (resolvedExercise.newExercise) {
         newExercises.push(resolvedExercise.newExercise);
       }
@@ -257,6 +265,7 @@ export const buildInitialSessionSets = (
 
   return sets;
 };
+
 
 export const buildExerciseSectionOrder = (
   sets: CreateWorkoutSessionInput['sets'],

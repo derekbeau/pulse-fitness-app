@@ -4,18 +4,9 @@ export const SESSION_JWT_TYPE = 'session' as const;
 export const SESSION_JWT_ISSUER = 'pulse-api' as const;
 export const SESSION_JWT_EXPIRES_IN = '7d';
 
-type SessionJwtOverrides = Partial<{
+type SessionJwtIssueOptions = Partial<{
   expiresIn: string | number;
-  iss: string;
-  sub: string;
-  type: string;
 }>;
-
-type SessionJwtPayloadInput = {
-  sub: string;
-  type?: string;
-  iss?: string;
-};
 
 export type SessionJwtPayload = {
   sub: string;
@@ -25,20 +16,17 @@ export type SessionJwtPayload = {
   exp: number;
 };
 
-export const buildSessionJwtPayload = (
-  userId: string,
-  overrides?: Pick<SessionJwtPayloadInput, 'type' | 'iss'>,
-): SessionJwtPayloadInput => ({
+const buildSessionJwtPayload = (userId: string) => ({
   sub: userId,
-  type: overrides?.type ?? SESSION_JWT_TYPE,
-  iss: overrides?.iss ?? SESSION_JWT_ISSUER,
+  type: SESSION_JWT_TYPE,
+  iss: SESSION_JWT_ISSUER,
 });
 
 export const issueSessionJwt = (
   app: FastifyInstance,
   userId: string,
-  overrides?: SessionJwtOverrides,
+  options?: SessionJwtIssueOptions,
 ) =>
-  app.jwt.sign(buildSessionJwtPayload(userId, overrides), {
-    expiresIn: overrides?.expiresIn ?? SESSION_JWT_EXPIRES_IN,
+  app.jwt.sign(buildSessionJwtPayload(userId), {
+    expiresIn: options?.expiresIn ?? SESSION_JWT_EXPIRES_IN,
   });

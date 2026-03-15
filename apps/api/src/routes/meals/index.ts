@@ -1,7 +1,7 @@
 import {
   agentCreateMealInputSchema,
   type AgentMealItemInput,
-  createMealInputSchema,
+  createMealForDateInputSchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
 } from '@pulse/shared';
@@ -22,11 +22,6 @@ import {
 
 const MAX_MEAL_SUMMARY_LENGTH = 500;
 const SUMMARY_ELLIPSIS = '...';
-
-const isValidDate = (date: string) => {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(date);
-};
 
 const buildMealSummary = (names: string[], maxLength: number) => {
   let summary = '';
@@ -83,7 +78,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
   app.post('/', async (request, reply) => {
     if (isAgentRequest(request)) {
       const parsedBody = agentCreateMealInputSchema.safeParse(request.body);
-      if (!parsedBody.success || !isValidDate(parsedBody.data.date)) {
+      if (!parsedBody.success) {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
       }
 
@@ -94,11 +89,6 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         items.map(async (item) => {
           if (isAdhocMealItem(item)) {
             return { kind: 'adhoc' as const, item };
-          }
-
-          const resolved = await resolveByName('food', item.foodName, userId);
-          if (resolved) {
-            return { kind: 'food' as const, item, food: resolved };
           }
 
           if (hasInlineMacros(item)) {
@@ -117,7 +107,8 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
             return { kind: 'food' as const, item, food: created.entity };
           }
 
-          return { kind: 'food' as const, item, food: undefined };
+          const resolved = await resolveByName('food', item.foodName, userId);
+          return { kind: 'food' as const, item, food: resolved };
         }),
       );
 
@@ -239,20 +230,11 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    if (
-      typeof request.body !== 'object' ||
-      request.body === null ||
-      !('date' in request.body) ||
-      typeof request.body.date !== 'string' ||
-      !isValidDate(request.body.date)
-    ) {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
-    }
-    const standardBody = createMealInputSchema.safeParse(request.body);
+    const standardBody = createMealForDateInputSchema.safeParse(request.body);
     if (!standardBody.success) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
     }
-    const date = request.body.date;
+    const { date } = standardBody.data;
 
     const created = await createMealForDate(request.userId, date, {
       name: standardBody.data.name,

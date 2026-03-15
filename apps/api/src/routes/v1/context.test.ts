@@ -119,7 +119,7 @@ describe('v1 context routes', () => {
       expect(response.json()).toEqual({
         error: {
           code: 'FORBIDDEN',
-          message: 'Context is only available for agent tokens',
+          message: 'Agent token authentication required',
         },
       });
     } finally {
