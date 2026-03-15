@@ -39,6 +39,7 @@ Use this flow when an agent creates exercises/templates and then logs workout se
    - remove unstarted exercises: `removeExercises: [exerciseId]`
    - reorder exercises: `reorderExercises: [exerciseId, ...]`
 11. Do not remove exercises that already have completed sets (`409 WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS`).
+12. To correct mistakes in a completed session, use `PATCH /api/v1/workout-sessions/:id/corrections` with an array of set corrections.
 
 ## Habits
 
@@ -86,6 +87,9 @@ Decision heuristic:
   - `paused -> in-progress`: appends a new open `timeSegments` entry.
   - `in-progress|paused -> cancelled`: closes any open segment and keeps the session row for history.
   - `in-progress|paused -> completed`: closes the final segment and computes duration from summed segment time.
+  - Completed sessions support set corrections via `PATCH /api/v1/workout-sessions/:id/corrections` with `{ corrections: [{ setId, weight?, reps?, rpe? }] }`.
+  - The correction endpoint only works on completed sessions (`409` on other statuses).
+  - Corrections do not change session status, `completedAt`, or duration.
   - Manual correction is supported via `PATCH /api/v1/workout-sessions/:id/time-segments` with full segment array replacement.
 - Form-cue routing for agent template create/update:
   - `formCues` are durable and persist to `exercises.formCues`.

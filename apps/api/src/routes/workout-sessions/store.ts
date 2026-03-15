@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
   CreateWorkoutSessionInput,
   ExerciseTrackingType,
   SaveWorkoutSessionAsTemplateInput,
+  SetCorrection,
   SessionSet,
   UpdateSetInput,
   WorkoutSession,
@@ -388,6 +389,36 @@ export class SessionSetNotFoundError extends Error {
   }
 }
 
+export class WorkoutSessionNotFoundError extends Error {
+  readonly sessionId: string;
+
+  constructor(sessionId: string) {
+    super(`Workout session ${sessionId} not found`);
+    this.name = 'WorkoutSessionNotFoundError';
+    this.sessionId = sessionId;
+  }
+}
+
+export class WorkoutSessionNotCompletedError extends Error {
+  readonly sessionId: string;
+
+  constructor(sessionId: string) {
+    super(`Workout session ${sessionId} is not completed`);
+    this.name = 'WorkoutSessionNotCompletedError';
+    this.sessionId = sessionId;
+  }
+}
+
+export class InvalidSessionCorrectionSetError extends Error {
+  readonly setId: string;
+
+  constructor(setId: string) {
+    super(`Session set ${setId} does not belong to the workout session`);
+    this.name = 'InvalidSessionCorrectionSetError';
+    this.setId = setId;
+  }
+}
+
 export const findWorkoutSessionAccess = async (
   id: string,
   userId: string,
@@ -515,6 +546,178 @@ export const listSessionSetGroups = async (sessionId: string): Promise<SessionSe
     .all();
 
   return buildSessionSetGroups(sets);
+};
+
+export const applySessionCorrections = async ({
+  sessionId,
+  userId,
+  corrections,
+}: {
+  sessionId: string;
+  userId: string;
+  corrections: SetCorrection[];
+}): Promise<WorkoutSession> => {
+  const { db } = await import('../../db/index.js');
+
+  db.transaction((tx) => {
+    const session = tx
+      .select(workoutSessionAccessSelection)
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
+      .limit(1)
+      .get();
+
+    if (!session) {
+      throw new WorkoutSessionNotFoundError(sessionId);
+    }
+
+    if (session.status !== 'completed') {
+      throw new WorkoutSessionNotCompletedError(sessionId);
+    }
+
+    const uniqueSetIds = [...new Set(corrections.map((correction) => correction.setId))];
+    const persistedSetIds =
+      uniqueSetIds.length === 0
+        ? []
+        : tx
+            .select({ id: sessionSets.id })
+            .from(sessionSets)
+            .where(and(eq(sessionSets.sessionId, sessionId), inArray(sessionSets.id, uniqueSetIds)))
+            .all()
+            .map((set) => set.id);
+    const persistedSetIdSet = new Set(persistedSetIds);
+
+    for (const setId of uniqueSetIds) {
+      if (!persistedSetIdSet.has(setId)) {
+        throw new InvalidSessionCorrectionSetError(setId);
+      }
+    }
+
+    const persistedCorrectionsBySetId = new Map<
+      string,
+      {
+        setId: string;
+        weight?: number;
+        reps?: number;
+      }
+    >();
+
+    for (const correction of corrections) {
+      // The correction payload reserves `rpe` for future set-level support.
+      // The current session_sets table only persists weight/reps, so update the fields we can store.
+      const persistedCorrection = persistedCorrectionsBySetId.get(correction.setId) ?? {
+        setId: correction.setId,
+      };
+
+      if (correction.weight !== undefined) {
+        persistedCorrection.weight = correction.weight;
+      }
+
+      if (correction.reps !== undefined) {
+        persistedCorrection.reps = correction.reps;
+      }
+
+      persistedCorrectionsBySetId.set(correction.setId, persistedCorrection);
+    }
+
+    const correctionsByPersistedFields = new Map<
+      string,
+      Array<{
+        setId: string;
+        weight?: number;
+        reps?: number;
+      }>
+    >();
+
+    for (const correction of persistedCorrectionsBySetId.values()) {
+      const persistedFieldKey = [
+        correction.weight !== undefined ? 'weight' : null,
+        correction.reps !== undefined ? 'reps' : null,
+      ]
+        .filter((field): field is 'weight' | 'reps' => field !== null)
+        .join(',');
+
+      if (!persistedFieldKey) {
+        continue;
+      }
+
+      const groupedCorrections = correctionsByPersistedFields.get(persistedFieldKey) ?? [];
+      groupedCorrections.push(correction);
+      correctionsByPersistedFields.set(persistedFieldKey, groupedCorrections);
+    }
+
+    for (const [persistedFieldKey, groupedCorrections] of correctionsByPersistedFields.entries()) {
+      const updatePayload: Partial<Record<'weight' | 'reps', SQL<number>>> = {};
+      const groupedSetIds = groupedCorrections.map((correction) => correction.setId);
+
+      if (persistedFieldKey.includes('weight')) {
+        const weightCorrections = groupedCorrections.filter(
+          (
+            correction,
+          ): correction is {
+            setId: string;
+            weight: number;
+            reps?: number;
+          } => correction.weight !== undefined,
+        );
+        const weightCases = sql.join(
+          weightCorrections.map(
+            (correction) => sql`when ${sessionSets.id} = ${correction.setId} then ${correction.weight}`,
+          ),
+          sql.raw(' '),
+        );
+        updatePayload.weight = sql<number>`case ${weightCases} else ${sessionSets.weight} end`;
+      }
+
+      if (persistedFieldKey.includes('reps')) {
+        const repsCorrections = groupedCorrections.filter(
+          (
+            correction,
+          ): correction is {
+            setId: string;
+            weight?: number;
+            reps: number;
+          } => correction.reps !== undefined,
+        );
+        const repsCases = sql.join(
+          repsCorrections.map(
+            (correction) => sql`when ${sessionSets.id} = ${correction.setId} then ${correction.reps}`,
+          ),
+          sql.raw(' '),
+        );
+        updatePayload.reps = sql<number>`case ${repsCases} else ${sessionSets.reps} end`;
+      }
+
+      tx.update(sessionSets)
+        .set(updatePayload)
+        .where(and(eq(sessionSets.sessionId, sessionId), inArray(sessionSets.id, groupedSetIds)))
+        .run();
+    }
+
+    tx.update(workoutSessions)
+      .set({ updatedAt: Date.now() })
+      .where(
+        and(
+          eq(workoutSessions.id, sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
+      .run();
+  });
+
+  const session = await findWorkoutSessionById(sessionId, userId);
+  if (!session) {
+    throw new Error('Corrected workout session could not be loaded');
+  }
+
+  return session;
 };
 
 export const batchUpsertSessionSets = async ({

@@ -57,6 +57,24 @@ describe('query-client', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('Network error. Check your connection.');
   });
 
+  it('skips the global mutation toast when the mutation handles its own error feedback', () => {
+    const mutationOnError = createAppQueryClient().getMutationCache().config.onError;
+
+    mutationOnError?.(
+      new ApiError(400, 'Bad Request', 'VALIDATION_ERROR'),
+      {} as never,
+      undefined,
+      {
+        meta: {
+          suppressGlobalErrorToast: true,
+        },
+      } as never,
+      {} as never,
+    );
+
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
   it('logs out and redirects to /login on unauthorized errors', () => {
     const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');

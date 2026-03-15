@@ -6,6 +6,7 @@ import {
   batchUpsertSetsSchema,
   createSetSchema,
   reorderWorkoutSessionExercisesInputSchema,
+  sessionCorrectionRequestSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   swapWorkoutSessionExerciseInputSchema,
   createWorkoutSessionInputSchema,
@@ -33,6 +34,7 @@ import {
 } from '../workout-agent.js';
 
 import {
+  applySessionCorrections,
   batchUpsertSessionSets,
   createSessionSet,
   createWorkoutSession,
@@ -40,6 +42,7 @@ import {
   findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
   findWorkoutSessionById,
+  InvalidSessionCorrectionSetError,
   listSessionSetGroups,
   reorderWorkoutSessionExercises,
   SessionSetNotFoundError,
@@ -48,6 +51,8 @@ import {
   swapWorkoutSessionExercise,
   updateSessionSet,
   updateWorkoutSession,
+  WorkoutSessionNotCompletedError,
+  WorkoutSessionNotFoundError,
 } from './store.js';
 import { calculateActiveDuration, closeOpenTimeSegment, openTimeSegment } from './time-segments.js';
 
@@ -74,6 +79,11 @@ const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
 const WORKOUT_SESSION_NOT_COMPLETED_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_COMPLETED',
   message: 'Workout session must be completed before saving as template',
+} as const;
+
+const WORKOUT_SESSION_CORRECTION_NOT_COMPLETED_RESPONSE = {
+  code: 'WORKOUT_SESSION_NOT_COMPLETED',
+  message: 'Workout session must be completed before applying corrections',
 } as const;
 
 const WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE = {
@@ -104,6 +114,16 @@ const WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE = {
 const SESSION_SET_NOT_FOUND_RESPONSE = {
   code: 'SESSION_SET_NOT_FOUND',
   message: 'Session set not found',
+} as const;
+
+const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
+  code: 'INVALID_SESSION_CORRECTION_SET',
+  message: 'One or more corrections reference sets outside the workout session',
+} as const;
+
+const UNSUPPORTED_SESSION_CORRECTION_RESPONSE = {
+  code: 'INVALID_SESSION_CORRECTION',
+  message: 'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
 } as const;
 
 const toCreateWorkoutSessionInput = (
@@ -425,6 +445,69 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: set,
       });
+    },
+  );
+
+  app.patch<{ Params: { sessionId: string } }>(
+    '/:sessionId/corrections',
+    async (request, reply) => {
+      const parsedBody = sessionCorrectionRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const unsupportedCorrection = parsedBody.data.corrections.find(
+        (correction) => correction.weight === undefined && correction.reps === undefined,
+      );
+      if (unsupportedCorrection) {
+        return sendError(
+          reply,
+          400,
+          UNSUPPORTED_SESSION_CORRECTION_RESPONSE.code,
+          `${UNSUPPORTED_SESSION_CORRECTION_RESPONSE.message}: ${unsupportedCorrection.setId}`,
+        );
+      }
+
+      try {
+        const session = await applySessionCorrections({
+          sessionId: request.params.sessionId,
+          userId: request.userId,
+          corrections: parsedBody.data.corrections,
+        });
+
+        return reply.send({
+          data: session,
+        });
+      } catch (error) {
+        if (error instanceof WorkoutSessionNotFoundError) {
+          return sendError(
+            reply,
+            404,
+            WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+            WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+          );
+        }
+
+        if (error instanceof WorkoutSessionNotCompletedError) {
+          return sendError(
+            reply,
+            409,
+            WORKOUT_SESSION_CORRECTION_NOT_COMPLETED_RESPONSE.code,
+            WORKOUT_SESSION_CORRECTION_NOT_COMPLETED_RESPONSE.message,
+          );
+        }
+
+        if (error instanceof InvalidSessionCorrectionSetError) {
+          return sendError(
+            reply,
+            400,
+            INVALID_SESSION_CORRECTION_SET_RESPONSE.code,
+            `${INVALID_SESSION_CORRECTION_SET_RESPONSE.message}: ${error.setId}`,
+          );
+        }
+
+        throw error;
+      }
     },
   );
 

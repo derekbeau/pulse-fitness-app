@@ -388,6 +388,24 @@ export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
   timeSegments: validatedTimeSegmentsSchema,
 });
 
+export const setCorrectionSchema = z
+  .object({
+    setId: requiredStringSchema,
+    weight: z.number().min(0).optional(),
+    reps: z.number().int().min(0).optional(),
+    rpe: z.number().min(0).max(10).optional(),
+  })
+  .refine(
+    (value) => value.weight !== undefined || value.reps !== undefined || value.rpe !== undefined,
+    {
+      message: 'At least one correction field must be provided',
+    },
+  );
+
+export const sessionCorrectionRequestSchema = z.object({
+  corrections: z.array(setCorrectionSchema).min(1).max(500),
+});
+
 export const reorderWorkoutSessionExercisesInputSchema = z.object({
   section: workoutTemplateSectionTypeSchema,
   exerciseIds: z.array(requiredStringSchema).max(100),
@@ -440,6 +458,8 @@ export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInput
 export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
   typeof updateWorkoutSessionTimeSegmentsInputSchema
 >;
+export type SetCorrection = z.infer<typeof setCorrectionSchema>;
+export type SessionCorrectionRequest = z.infer<typeof sessionCorrectionRequestSchema>;
 export type ReorderWorkoutSessionExercisesInput = z.infer<
   typeof reorderWorkoutSessionExercisesInputSchema
 >;

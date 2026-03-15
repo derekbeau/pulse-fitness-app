@@ -31,13 +31,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { formatServing, formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
-import { useCompletedSessions, useWorkoutSession, useWorkoutTemplate } from '../api/workouts';
+import {
+  useCompletedSessions,
+  useCorrectSessionSets,
+  useWorkoutSession,
+  useWorkoutTemplate,
+} from '../api/workouts';
 import {
   getDistanceUnit,
   getSetDistance,
@@ -70,6 +76,21 @@ type SessionDetailSection = {
   exercises: SessionDetailExercise[];
   subtitle: string;
   type: SessionDetailSectionType;
+};
+
+type SessionSetDraft = {
+  reps: string;
+  weight: string;
+};
+
+type SessionSetDraftKey = keyof SessionSetDraft;
+
+type SessionSetEditorField = {
+  inputMode: 'decimal' | 'numeric';
+  key: SessionSetDraftKey;
+  label: string;
+  step: string;
+  suffix?: string;
 };
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -112,10 +133,13 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [setDrafts, setSetDrafts] = useState<Record<string, SessionSetDraft>>({});
   const [searchParams] = useSearchParams();
   const sessionQuery = useWorkoutSession(sessionId);
   const completedSessionsQuery = useCompletedSessions();
   const session = sessionQuery.data;
+  const correctSessionSetsMutation = useCorrectSessionSets(sessionId);
   const templateQuery = useWorkoutTemplate(session?.templateId ?? '');
   const template = templateQuery.data;
   const viewParam = searchParams.get('view');
@@ -180,6 +204,38 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         })
       : [];
 
+  const startEditing = () => {
+    setSetDrafts(buildSessionSetDrafts(session.sets));
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setSetDrafts({});
+  };
+
+  const updateSetDraft = (set: SessionSet, key: SessionSetDraftKey, value: string) => {
+    setSetDrafts((current) => ({
+      ...current,
+      [set.id]: {
+        ...(current[set.id] ?? createSessionSetDraft(set)),
+        [key]: value,
+      },
+    }));
+  };
+
+  const saveCorrections = async () => {
+    const corrections = buildChangedSetCorrections(session.sets, setDrafts);
+
+    if (corrections.length === 0) {
+      cancelEditing();
+      return;
+    }
+
+    await correctSessionSetsMutation.mutateAsync(corrections);
+    cancelEditing();
+  };
+
   return (
     <section className="space-y-6">
       <Button asChild className="gap-2" size="sm" variant="ghost">
@@ -190,7 +246,12 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       </Button>
 
       <Card className="gap-0 overflow-hidden border-transparent bg-card/80 py-0">
-        <div className="space-y-4 bg-[var(--color-accent-mint)] px-6 py-6 text-on-mint dark:border-b dark:border-border dark:bg-card dark:text-foreground">
+        <div
+          className={cn(
+            'space-y-4 bg-[var(--color-accent-mint)] px-6 py-6 text-on-mint dark:border-b dark:border-border dark:bg-card dark:text-foreground',
+            isEditing && 'bg-[color-mix(in_srgb,var(--color-accent-mint)_72%,white)]',
+          )}
+        >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -216,22 +277,63 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               </p>
             </div>
 
-            {template?.tags?.length ? (
-              <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
-                {template.tags.map((tag) => (
-                  <Badge
-                    className="border-white/45 bg-white/55 dark:border-border dark:bg-secondary"
-                    key={tag}
-                    variant="outline"
-                  >
-                    {formatLabel(tag)}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
+            <div className="flex flex-col gap-3 lg:items-end">
+              {session.status === 'completed' ? (
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        disabled={correctSessionSetsMutation.isPending}
+                        onClick={cancelEditing}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={correctSessionSetsMutation.isPending}
+                        onClick={() => {
+                          void saveCorrections();
+                        }}
+                        size="sm"
+                        type="button"
+                      >
+                        {correctSessionSetsMutation.isPending ? 'Saving…' : 'Save'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={startEditing} size="sm" type="button" variant="secondary">
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+
+              {template?.tags?.length ? (
+                <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+                  {template.tags.map((tag) => (
+                    <Badge
+                      className="border-white/45 bg-white/55 dark:border-border dark:bg-secondary"
+                      key={tag}
+                      variant="outline"
+                    >
+                      {formatLabel(tag)}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </Card>
+
+      {isEditing ? (
+        <div className="rounded-3xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_18%,transparent)] px-4 py-3 text-sm text-foreground shadow-sm">
+          Adjust set values inline, then save the receipt. Weight plus rep or time values are
+          supported here today.
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -352,7 +454,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
             <div className="space-y-3 border-t border-border px-4 py-4 sm:px-6 sm:py-5">
               {section.exercises.map((exercise) => (
-                <Card className="gap-4 py-0" key={`${section.type}-${exercise.exerciseId}`}>
+                <Card
+                  className={cn(
+                    'gap-4 py-0',
+                    isEditing &&
+                      'border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)]',
+                  )}
+                  key={`${section.type}-${exercise.exerciseId}`}
+                >
                   <CardHeader className="gap-3 py-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
@@ -387,17 +496,32 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                   </CardHeader>
 
                   <CardContent className="space-y-4 pb-5">
-                    <div className="flex flex-wrap gap-2">
-                      {exercise.sets.map((set) => (
-                        <span
-                          className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
-                          key={set.id}
-                        >
-                          {formatSetLabel(set, exercise.trackingType, weightUnit)}
-                        </span>
-                      ))}
-                    </div>
-
+                    {isEditing ? (
+                      <div className="space-y-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)] p-3">
+                        {exercise.sets.map((set) => (
+                          <SessionSetEditor
+                            draft={setDrafts[set.id] ?? createSessionSetDraft(set)}
+                            key={set.id}
+                            onChange={(key, value) => updateSetDraft(set, key, value)}
+                            set={set}
+                            trackingType={exercise.trackingType}
+                            weightUnit={weightUnit}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {exercise.sets.map((set) => (
+                          <span
+                            className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-sm text-foreground"
+                            key={set.id}
+                          >
+                            {formatSetLabel(set, exercise.trackingType, weightUnit)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+ 
                     {showComparison ? (
                       <SessionExerciseComparison
                         currentSession={session}
@@ -407,7 +531,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         weightUnit={weightUnit}
                       />
                     ) : null}
-
+ 
                     {exercise.notes ? (
                       <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm text-foreground">
                         <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
@@ -506,6 +630,193 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       </Dialog>
     </section>
   );
+}
+
+function SessionSetEditor({
+  draft,
+  onChange,
+  set,
+  trackingType,
+  weightUnit,
+}: {
+  draft: SessionSetDraft;
+  onChange: (key: SessionSetDraftKey, value: string) => void;
+  set: SessionSet;
+  trackingType: ExerciseTrackingType;
+  weightUnit: WeightUnit;
+}) {
+  const fields = getSessionSetEditorFields(trackingType, weightUnit);
+  const readOnlySummary = getReadOnlyCorrectionSummary(set, trackingType, weightUnit);
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">{`Set ${set.setNumber}`}</p>
+          <p className="text-xs text-muted">{formatSetLabel(set, trackingType, weightUnit)}</p>
+        </div>
+        {set.skipped ? (
+          <Badge className="border-border bg-secondary/70" variant="outline">
+            Skipped
+          </Badge>
+        ) : null}
+      </div>
+
+      {fields.length > 0 ? (
+        <div
+          className={cn(
+            'mt-3 grid gap-3',
+            fields.length === 1 ? 'sm:grid-cols-[minmax(0,11rem)]' : 'sm:grid-cols-2',
+          )}
+        >
+          {fields.map((field) => {
+            const inputId = `${set.id}-${field.key}`;
+
+            return (
+              <div className="space-y-2" key={field.key}>
+                <Label
+                  className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
+                  htmlFor={inputId}
+                >
+                  {field.label}
+                </Label>
+                <div className="relative">
+                  <Input
+                    aria-label={`${field.label} for set ${set.setNumber}`}
+                    className={cn('h-10 pr-10', field.suffix ? 'pr-12' : '')}
+                    id={inputId}
+                    inputMode={field.inputMode}
+                    min={0}
+                    onChange={(event) => onChange(field.key, event.currentTarget.value)}
+                    step={field.step}
+                    type="number"
+                    value={draft[field.key]}
+                  />
+                  {field.suffix ? (
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] font-semibold uppercase text-muted">
+                      {field.suffix}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted">No editable set values are available for this entry.</p>
+      )}
+
+      {readOnlySummary ? <p className="mt-3 text-xs text-muted">{readOnlySummary}</p> : null}
+    </div>
+  );
+}
+
+function buildSessionSetDrafts(sets: SessionSet[]) {
+  return Object.fromEntries(sets.map((set) => [set.id, createSessionSetDraft(set)]));
+}
+
+function createSessionSetDraft(set: SessionSet): SessionSetDraft {
+  return {
+    reps: set.reps != null ? `${set.reps}` : '',
+    weight: set.weight != null ? `${set.weight}` : '',
+  };
+}
+
+function buildChangedSetCorrections(
+  sets: SessionSet[],
+  drafts: Record<string, SessionSetDraft>,
+): { setId: string; reps?: number; weight?: number }[] {
+  return sets.flatMap((set) => {
+    const draft = drafts[set.id];
+
+    if (!draft) {
+      return [];
+    }
+
+    const nextWeight = resolveCorrectionMetric(draft.weight, set.weight);
+    const nextReps = resolveCorrectionMetric(draft.reps, set.reps);
+    const correction = {
+      setId: set.id,
+      ...(nextWeight !== set.weight && nextWeight !== null ? { weight: nextWeight } : {}),
+      ...(nextReps !== set.reps && nextReps !== null ? { reps: nextReps } : {}),
+    };
+
+    return Object.keys(correction).length > 1 ? [correction] : [];
+  });
+}
+
+function resolveCorrectionMetric(value: string, fallback: number | null) {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    return fallback;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
+}
+
+function getSessionSetEditorFields(
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+): SessionSetEditorField[] {
+  const weightField: SessionSetEditorField = {
+    inputMode: 'decimal',
+    key: 'weight',
+    label: 'Weight',
+    step: '0.5',
+    suffix: weightUnit,
+  };
+
+  const repsField: SessionSetEditorField = {
+    inputMode: 'numeric',
+    key: 'reps',
+    label: 'Reps',
+    step: '1',
+  };
+
+  const secondsField: SessionSetEditorField = {
+    inputMode: 'numeric',
+    key: 'reps', // seconds are stored in the reps column for time-based tracking types
+    label: 'Seconds',
+    step: '1',
+    suffix: 'sec',
+  };
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return [weightField, repsField];
+    case 'weight_seconds':
+      return [weightField, secondsField];
+    case 'bodyweight_reps':
+    case 'reps_only':
+    case 'reps_seconds':
+      return [repsField];
+    case 'seconds_only':
+    case 'cardio':
+      return [secondsField];
+    case 'distance':
+    default:
+      return [];
+  }
+}
+
+function getReadOnlyCorrectionSummary(
+  set: SessionSet,
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+) {
+  const distance = getSetDistance(set);
+
+  if ((trackingType === 'cardio' || trackingType === 'distance') && distance != null) {
+    return `Logged distance remains ${formatNumber(distance)} ${getDistanceUnit(weightUnit)}.`;
+  }
+
+  if (trackingType === 'reps_seconds') {
+    return 'Time corrections are not persisted separately yet, so only reps can be adjusted here.';
+  }
+
+  return null;
 }
 
 function buildSections(

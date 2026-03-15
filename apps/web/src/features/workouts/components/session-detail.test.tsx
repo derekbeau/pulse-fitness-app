@@ -324,6 +324,124 @@ describe('SessionDetail', () => {
     expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
   });
 
+  it('supports inline correction editing and only submits changed values', async () => {
+    const currentSession = createSession({
+      id: 'session-correction-save',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-correction-1',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          reps: 10,
+          weight: 50,
+          section: 'main',
+        }),
+      ],
+    });
+    const correctedSession = createSession({
+      ...currentSession,
+      sets: [
+        createSet({
+          id: 'set-correction-1',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          reps: 10,
+          weight: 55,
+          section: 'main',
+        }),
+      ],
+    });
+    let capturedCorrectionPayload: unknown = null;
+
+    mockSessionDetailRequests({
+      correctedSession,
+      onCorrectionRequest: (payload) => {
+        capturedCorrectionPayload = payload;
+      },
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText(/adjust set values inline/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Weight for set 1'), {
+      target: { value: '55' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      await screen.findByText('Set 1: 55.0 lbs × 10 reps', { selector: 'span' }),
+    ).toBeInTheDocument();
+    expect(capturedCorrectionPayload).toEqual({
+      corrections: [
+        {
+          setId: 'set-correction-1',
+          weight: 55,
+        },
+      ],
+    });
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('cancels inline correction editing without calling the correction endpoint', async () => {
+    const currentSession = createSession({
+      id: 'session-correction-cancel',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-correction-cancel-1',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          reps: 10,
+          weight: 50,
+          section: 'main',
+        }),
+      ],
+    });
+    let correctionCalls = 0;
+
+    mockSessionDetailRequests({
+      onCorrectionRequest: () => {
+        correctionCalls += 1;
+      },
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Weight for set 1'), {
+      target: { value: '55' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Set 1: 50.0 lbs × 10 reps', { selector: 'span' })).toBeInTheDocument();
+    expect(correctionCalls).toBe(0);
+  });
+
   it('keeps sections with exercise notes expanded by default', async () => {
     const currentSession = createSession({
       id: 'session-notes-visible',
@@ -374,6 +492,8 @@ function renderSessionDetail(sessionId: string) {
 }
 
 function mockSessionDetailRequests({
+  correctedSession = null,
+  onCorrectionRequest,
   sessionId,
   session = null,
   sessionStatus = 200,
@@ -381,6 +501,8 @@ function mockSessionDetailRequests({
   sessions,
   templateName = 'Upper Push',
 }: {
+  correctedSession?: WorkoutSession | null;
+  onCorrectionRequest?: (payload: unknown) => void;
   sessionId: string;
   session?: WorkoutSession | null;
   sessionStatus?: number;
@@ -388,15 +510,27 @@ function mockSessionDetailRequests({
   sessions: WorkoutSessionListItem[];
   templateName?: string;
 }) {
-  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+  let activeSession = session;
+
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input);
+    const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
 
     if (url.includes('/api/v1/workout-sessions?status=completed')) {
       return Promise.resolve(jsonResponse({ data: sessions }));
     }
 
+    if (method === 'PATCH' && url.includes(`/api/v1/workout-sessions/${sessionId}/corrections`)) {
+      const body =
+        typeof init?.body === 'string' && init.body.length > 0 ? JSON.parse(init.body) : null;
+      onCorrectionRequest?.(body);
+      activeSession = correctedSession ?? session;
+
+      return Promise.resolve(jsonResponse({ data: activeSession }));
+    }
+
     if (url.includes(`/api/v1/workout-sessions/${sessionId}`)) {
-      if (sessionStatus !== 200 || session == null) {
+      if (sessionStatus !== 200 || activeSession == null) {
         return Promise.resolve(
           jsonResponse(
             {
@@ -410,7 +544,7 @@ function mockSessionDetailRequests({
         );
       }
 
-      return Promise.resolve(jsonResponse({ data: session }));
+      return Promise.resolve(jsonResponse({ data: activeSession }));
     }
 
     if (previousSession && url.includes(`/api/v1/workout-sessions/${previousSession.id}`)) {
