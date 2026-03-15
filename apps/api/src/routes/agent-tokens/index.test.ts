@@ -3,12 +3,19 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 import { createAgentToken, deleteAgentToken, listAgentTokens } from './store.js';
 
 vi.mock('./store.js', () => ({
   createAgentToken: vi.fn(),
   deleteAgentToken: vi.fn(),
   listAgentTokens: vi.fn(),
+}));
+
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -20,6 +27,9 @@ describe('agent token routes', () => {
     vi.mocked(createAgentToken).mockReset();
     vi.mocked(deleteAgentToken).mockReset();
     vi.mocked(listAgentTokens).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-agent-token-secret';
   });
 
@@ -130,6 +140,37 @@ describe('agent token routes', () => {
           },
         });
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects valid agent tokens with 403 because agent token management is JWT-only', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/agent-tokens',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'JWT authentication required',
+        },
+      });
+      expect(vi.mocked(listAgentTokens)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

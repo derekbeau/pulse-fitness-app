@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 
 import { getUserById, updateUser } from './store.js';
 
 vi.mock('./store.js', () => ({
   getUserById: vi.fn(),
   updateUser: vi.fn(),
+}));
+
+vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
+  findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string) => ({
@@ -17,6 +24,9 @@ describe('users routes', () => {
   beforeEach(() => {
     vi.mocked(getUserById).mockReset();
     vi.mocked(updateUser).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-users-routes-secret';
   });
 
@@ -245,6 +255,37 @@ describe('users routes', () => {
       }
       expect(vi.mocked(getUserById)).not.toHaveBeenCalled();
       expect(vi.mocked(updateUser)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects valid agent tokens with 403 because profile routes are JWT-only', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/users/me',
+        headers: {
+          authorization: 'AgentToken plain-agent-token',
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'JWT authentication required',
+        },
+      });
+      expect(vi.mocked(getUserById)).not.toHaveBeenCalled();
     } finally {
       await app.close();
     }

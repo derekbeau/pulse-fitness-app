@@ -3,8 +3,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createAgentTokenInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
-import { requireUserAuth } from '../../middleware/auth.js';
 import { sendError } from '../../lib/reply.js';
+import { requireAuth, requireJwtOnly } from '../../middleware/auth.js';
 
 import {
   createAgentToken,
@@ -16,7 +16,8 @@ import {
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 export const agentTokenRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireJwtOnly);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createAgentTokenInputSchema.safeParse(request.body);

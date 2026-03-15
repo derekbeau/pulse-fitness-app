@@ -17,7 +17,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
@@ -235,7 +235,7 @@ const nowIsoString = () => new Date().toISOString();
 const toIsoString = (value: number) => new Date(value).toISOString();
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   app.post('/', async (request, reply) => {
     const parsedBody = createWorkoutSessionInputSchema.safeParse(request.body);

@@ -9,7 +9,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 import {
   allRelatedExercisesOwned,
@@ -73,8 +73,7 @@ const ensureOwnedMutableExercise = async ({
 };
 
 export const exerciseRoutes: FastifyPluginAsync = async (app) => {
-  // All /api/v1 workout routes are user-session only; agent tokens are reserved for /api/agent.
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   const updateExerciseHandler = async (
     request: {

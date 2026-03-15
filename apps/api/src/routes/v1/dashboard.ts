@@ -7,7 +7,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 import {
   getDashboardConfig,
@@ -71,7 +71,7 @@ const handleTrendRoute =
   };
 
 export const dashboardRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   app.get('/snapshot', async (request, reply) => {
     const parsedQuery = dashboardSnapshotQuerySchema.safeParse(request.query);

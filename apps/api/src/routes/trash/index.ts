@@ -15,7 +15,7 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 const TRASH_ITEM_NOT_FOUND_RESPONSE = {
   code: 'TRASH_ITEM_NOT_FOUND',
@@ -246,7 +246,9 @@ const purgeTrashItem = async ({
         const target = tx
           .select({ id: exercises.id })
           .from(exercises)
-          .where(and(eq(exercises.id, id), eq(exercises.userId, userId), isNotNull(exercises.deletedAt)))
+          .where(
+            and(eq(exercises.id, id), eq(exercises.userId, userId), isNotNull(exercises.deletedAt)),
+          )
           .limit(1)
           .get();
 
@@ -361,7 +363,7 @@ const purgeTrashItem = async ({
 };
 
 export const trashRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
 
   app.get('/', async (request, reply) => {
     const trash = await listTrash(request.userId);

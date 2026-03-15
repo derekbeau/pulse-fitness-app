@@ -2,12 +2,13 @@ import { updateUserInputSchema } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { sendError } from '../../lib/reply.js';
-import { requireUserAuth } from '../../middleware/auth.js';
+import { requireAuth, requireJwtOnly } from '../../middleware/auth.js';
 
 import { getUserById, updateUser } from './store.js';
 
 export const usersRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', requireUserAuth);
+  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireJwtOnly);
 
   app.get('/me', async (request, reply) => {
     const user = await getUserById(request.userId);

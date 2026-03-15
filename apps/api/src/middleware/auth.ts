@@ -12,6 +12,17 @@ type SessionJwtPayload = {
   userId: string;
 };
 
+type AuthContext =
+  | {
+      authType: 'jwt';
+      userId: string;
+    }
+  | {
+      authType: 'agent-token';
+      agentTokenId: string;
+      userId: string;
+    };
+
 const getAuthorizationHeader = (request: FastifyRequest): string | undefined => {
   const { authorization } = request.headers;
 
@@ -35,9 +46,12 @@ const extractAuthorizationToken = (
   return token && token.length > 0 ? token : undefined;
 };
 
-const setRequestUserId = (request: FastifyRequest, userId: string) => {
-  request.userId = userId;
-  return userId;
+const setRequestAuthContext = (request: FastifyRequest, context: AuthContext) => {
+  request.authType = context.authType;
+  request.userId = context.userId;
+  request.agentTokenId = context.authType === 'agent-token' ? context.agentTokenId : undefined;
+
+  return context.userId;
 };
 
 const shouldVerifyUserExists = () => process.env.NODE_ENV !== 'test';
@@ -55,7 +69,7 @@ const resolveVerifiedUserId = async (userId: string): Promise<string | undefined
   return user.id;
 };
 
-const verifyJwt = async (request: FastifyRequest): Promise<string | undefined> => {
+const verifyJwt = async (request: FastifyRequest): Promise<AuthContext | undefined> => {
   if (!extractAuthorizationToken(request, 'Bearer')) {
     return undefined;
   }
@@ -72,13 +86,16 @@ const verifyJwt = async (request: FastifyRequest): Promise<string | undefined> =
       return undefined;
     }
 
-    return setRequestUserId(request, verifiedUserId);
+    return {
+      authType: 'jwt',
+      userId: verifiedUserId,
+    };
   } catch {
     return undefined;
   }
 };
 
-const verifyAgentToken = async (request: FastifyRequest): Promise<string | undefined> => {
+const verifyAgentToken = async (request: FastifyRequest): Promise<AuthContext | undefined> => {
   const token = extractAuthorizationToken(request, 'AgentToken');
   if (!token) {
     return undefined;
@@ -90,35 +107,46 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<string | undef
     return undefined;
   }
 
+  const verifiedUserId = await resolveVerifiedUserId(agentToken.userId);
+  if (!verifiedUserId) {
+    return undefined;
+  }
+
   try {
     await updateAgentTokenLastUsedAt(agentToken.id);
   } catch {
     // Best-effort tracking: auth should still succeed if the write fails.
   }
 
-  const verifiedUserId = await resolveVerifiedUserId(agentToken.userId);
-  if (!verifiedUserId) {
-    return undefined;
-  }
-
-  return setRequestUserId(request, verifiedUserId);
+  return {
+    authType: 'agent-token',
+    agentTokenId: agentToken.id,
+    userId: verifiedUserId,
+  };
 };
 
 const sendUnauthorized = (reply: FastifyReply) =>
   sendError(reply, 401, 'UNAUTHORIZED', 'Authentication required');
 
+const sendForbidden = (reply: FastifyReply) =>
+  sendError(reply, 403, 'FORBIDDEN', 'JWT authentication required');
+
 export const requireAuth: onRequestHookHandler = async (request, reply) => {
-  if ((await verifyJwt(request)) || (await verifyAgentToken(request))) {
+  const context = (await verifyJwt(request)) ?? (await verifyAgentToken(request));
+  if (context) {
+    setRequestAuthContext(request, context);
     return;
   }
 
   return sendUnauthorized(reply);
 };
 
-export const requireUserAuth: onRequestHookHandler = async (request, reply) => {
-  if (await verifyJwt(request)) {
+export const requireJwtOnly: onRequestHookHandler = async (request, reply) => {
+  if (request.authType === 'jwt') {
     return;
   }
 
-  return sendUnauthorized(reply);
+  return sendForbidden(reply);
 };
+
+export const isAgentRequest = (request: FastifyRequest) => request.authType === 'agent-token';
