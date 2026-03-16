@@ -172,7 +172,7 @@ describe('HabitDayModal', () => {
     });
   });
 
-  it('shows a read-only message for unscheduled days without entries', () => {
+  it('shows status info and edit form for unscheduled past days', () => {
     const mutation = createMutationMock();
     mockedUseUpdateHabitEntry.mockReturnValue(
       mutation as unknown as ReturnType<typeof useUpdateHabitEntry>,
@@ -184,8 +184,8 @@ describe('HabitDayModal', () => {
     });
 
     expect(
-      screen.getByText('This habit was not scheduled for this day, so there is nothing to log here.'),
+      screen.getByText('This habit was not scheduled for this day. You can still log a retroactive entry below.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
 });

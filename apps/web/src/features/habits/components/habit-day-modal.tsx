@@ -132,7 +132,7 @@ function getStatusCopy({
 
   if (!isScheduled && !entry) {
     return {
-      description: 'This habit was not scheduled for this day, so there is nothing to log here.',
+      description: 'This habit was not scheduled for this day. You can still log a retroactive entry below.',
       title: 'Not scheduled',
     };
   }
@@ -182,7 +182,7 @@ export function HabitDayModal({
   const minutesInputId = useId();
   const todayKey = useMemo(() => toDateKey(getToday()), []);
   const isFutureDate = date > todayKey;
-  const isReadOnly = isFutureDate || (!isScheduled && entry === null);
+  const isReadOnly = isFutureDate;
   const isReferential = habit.referenceSource !== null && habit.referenceSource !== undefined;
   const [booleanValue, setBooleanValue] = useState(entry?.completed ?? false);
   const [numericValue, setNumericValue] = useState(
