@@ -1,4 +1,5 @@
-import { Trash2 } from 'lucide-react';
+import { useId, useState } from 'react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,62 +39,89 @@ type MealCardProps = {
 const CARD_HORIZONTAL_PADDING = 'px-4 sm:px-5';
 
 export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const contentId = useId();
   const totals = calculateMacroTotals(meal.items);
   const formattedTime = formatMealTime(meal.time);
   const canDelete = typeof onDelete === 'function';
-  const mealMetadata = [formattedTime, formatFoodCount(meal.items.length)].filter(Boolean).join(' · ');
 
   return (
     <Card className="gap-0 overflow-hidden rounded-xl border-border/70 bg-[var(--color-card)] py-0 shadow-none">
-      <div className={cn('flex min-h-11 items-start gap-2 py-2.5', CARD_HORIZONTAL_PADDING)}>
+      <button
+        aria-controls={contentId}
+        aria-expanded={isExpanded}
+        className={cn(
+          'flex w-full cursor-pointer items-center gap-2 py-3 text-left transition-colors hover:bg-secondary/30',
+          CARD_HORIZONTAL_PADDING,
+        )}
+        onClick={() => setIsExpanded((prev) => !prev)}
+        type="button"
+      >
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <h2 className="text-base font-semibold text-foreground sm:text-[17px]">{meal.name}</h2>
-            <p className="text-[11px] font-medium tracking-tight text-muted sm:text-xs">
-              {formatMacroSummary(totals)}
-            </p>
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-sm font-semibold text-foreground">{meal.name}</h2>
+            <span className="shrink-0 text-[11px] text-muted">{formattedTime}</span>
           </div>
-          <p className="mt-0.5 text-[11px] text-muted sm:text-xs">{mealMetadata}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {formatMacroSummary(totals)}
+            {' · '}
+            {formatFoodCount(meal.items.length)}
+          </p>
         </div>
 
-        {canDelete ? (
-          <Button
-            aria-label={`Delete ${meal.name}`}
-            className="shrink-0 px-2.5 text-muted hover:text-foreground"
-            disabled={isDeleting}
-            onClick={() => onDelete(meal.id)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        ) : null}
-      </div>
-
-      {meal.items.length > 0 ? (
-        <ul className="border-t border-border/70 bg-secondary/10">
-          {meal.items.map((item, index) => (
-            <li
-              key={item.id}
-              className={cn(
-                CARD_HORIZONTAL_PADDING,
-                'min-h-11 py-2',
-                index > 0 && 'border-t border-border/60',
-                index % 2 === 1 && 'bg-secondary/15',
-              )}
+        <div className="flex shrink-0 items-center gap-1">
+          {canDelete ? (
+            <Button
+              aria-label={`Delete ${meal.name}`}
+              className="shrink-0 px-2.5 text-muted hover:text-foreground"
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(meal.id);
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
             >
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-medium text-foreground">{item.name}</p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-muted sm:text-xs">
-                  <span>{formatDisplayServing(item)}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatMacroSummary(item)}</span>
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
+              <Trash2 className="size-4" />
+            </Button>
+          ) : null}
+          <ChevronDown
+            aria-hidden="true"
+            className={cn(
+              'size-4 text-muted transition-transform duration-200',
+              isExpanded && 'rotate-180',
+            )}
+          />
+        </div>
+      </button>
+
+      {isExpanded ? (
+        <div
+          className={cn('border-t border-border/80 py-2', CARD_HORIZONTAL_PADDING)}
+          id={contentId}
+        >
+          <ul className="divide-y divide-border/60">
+            {meal.items.map((item) => (
+              <li key={item.id} className="py-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 truncate text-sm font-medium text-foreground">
+                    {item.name}
+                  </p>
+                  <span className="shrink-0 text-xs text-muted">{formatDisplayServing(item)}</span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                  <span className="font-semibold text-foreground">
+                    {formatCalories(item.calories, { compact: true })}
+                  </span>
+                  <span>{formatGrams(item.protein, { compact: true, suffix: 'P' })}</span>
+                  <span>{formatGrams(item.carbs, { compact: true, suffix: 'C' })}</span>
+                  <span>{formatGrams(item.fat, { compact: true, suffix: 'F' })}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </Card>
   );

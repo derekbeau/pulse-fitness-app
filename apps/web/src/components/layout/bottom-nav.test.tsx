@@ -81,7 +81,11 @@ describe('BottomNav', () => {
     renderBottomNav('/');
 
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
-    expect(nav).toHaveClass('grid-cols-5', 'items-stretch', 'pb-[calc(env(safe-area-inset-bottom)+0.5rem)]');
+    expect(nav).toHaveClass(
+      'grid-cols-5',
+      'items-stretch',
+      'pb-[calc(env(safe-area-inset-bottom)+0.5rem)]',
+    );
 
     const moreButton = screen.getByRole('button', { name: 'More' });
     expect(moreButton).toHaveClass('cursor-pointer');
@@ -108,7 +112,7 @@ describe('BottomNav', () => {
 
     const moreButton = screen.getByRole('button', { name: 'More' });
 
-    expect(moreButton).toHaveClass('bg-primary');
+    expect(moreButton).toHaveClass('bg-primary/15');
 
     fireEvent.click(moreButton);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Profile' }));

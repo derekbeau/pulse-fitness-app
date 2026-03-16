@@ -180,7 +180,7 @@ describe('DailyHabits', () => {
 
     expect(menuButtons).toHaveLength(3);
     menuButtons.forEach((button) => {
-      expect(button).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+      expect(button).toHaveClass('size-11');
     });
   });
 
@@ -236,7 +236,9 @@ describe('DailyHabits', () => {
 
   it('shows referential auto-managed state and creates manual override on toggle', () => {
     const toggleMutation = createMutationMock();
-    mockedUseToggleHabit.mockReturnValue(toggleMutation as unknown as ReturnType<typeof useToggleHabit>);
+    mockedUseToggleHabit.mockReturnValue(
+      toggleMutation as unknown as ReturnType<typeof useToggleHabit>,
+    );
     mockedUseHabits.mockReturnValue({
       data: [
         {

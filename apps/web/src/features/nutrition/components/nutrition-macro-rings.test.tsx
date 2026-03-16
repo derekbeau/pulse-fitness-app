@@ -14,7 +14,10 @@ describe('NutritionMacroRings', () => {
 
     expect(screen.getByRole('heading', { name: 'Macro progress' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Eaten' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     expect(screen.getAllByRole('progressbar')).toHaveLength(4);
     expect(screen.getByText('1850 cal')).toBeInTheDocument();
     expect(screen.getByText('160g')).toBeInTheDocument();
@@ -32,7 +35,10 @@ describe('NutritionMacroRings', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
-    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Remaining' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByRole('button', { name: 'Eaten' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('350 cal')).toBeInTheDocument();
     expect(screen.getByText('20g')).toBeInTheDocument();
@@ -61,7 +67,9 @@ describe('NutritionMacroRings', () => {
     expect(within(proteinCard).getByText('+12g')).toBeInTheDocument();
     expect(within(proteinCard).getByText('over')).toBeInTheDocument();
 
-    const proteinRing = within(proteinCard).getByRole('progressbar', { name: 'Protein eaten progress' });
+    const proteinRing = within(proteinCard).getByRole('progressbar', {
+      name: 'Protein eaten progress',
+    });
     expect(proteinRing).toHaveAttribute('aria-valuenow', '100');
 
     const indicator = proteinCard.querySelector('[data-slot="progress-ring-indicator"]');
@@ -82,7 +90,7 @@ describe('NutritionMacroRings', () => {
     const progressRings = screen.getAllByRole('progressbar');
 
     for (const ring of progressRings) {
-      expect(ring).toHaveClass('w-[90px]', 'sm:w-[104px]', 'md:w-[116px]');
+      expect(ring).toHaveClass('w-[72px]', 'sm:w-[88px]', 'md:w-[100px]');
     }
   });
 });

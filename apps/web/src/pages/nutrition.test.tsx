@@ -413,7 +413,6 @@ describe('NutritionPage', () => {
     const dailyTotals = screen.getByLabelText('Daily macro totals');
 
     expect(screen.getByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
     expect(screen.getByText('Friday, Mar 6')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to next day' })).toBeDisabled();
@@ -723,9 +722,15 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     expect(getMealHeading('Breakfast')).toBeInTheDocument();
+
+    const breakfastHeading = getMealHeading('Breakfast');
+    const expandButton = breakfastHeading.closest('button[aria-expanded]');
+    if (!expandButton) throw new Error('Expected expand button for Breakfast meal');
+    fireEvent.click(expandButton);
+
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
-    expect(screen.getByText('210cal · 18P · 1C · 15F')).toBeInTheDocument();
+    expect(screen.getByText('210cal')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Breakfast' }));
     const dialog = screen.getByRole('alertdialog');

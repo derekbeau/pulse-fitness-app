@@ -115,15 +115,10 @@ describe('WorkoutCalendar', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
     expect((await screen.findAllByLabelText('In-progress workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
     expect(screen.getByText('+2')).toHaveClass('hidden', 'sm:inline-flex');
-    expect(screen.getByRole('button', { name: 'Previous month' })).toHaveClass(
-      'size-11',
-      'min-h-11',
-      'min-w-11',
-    );
+    expect(screen.getByRole('button', { name: 'Previous month' })).toHaveClass('size-8');
     expect(getCalendarDayTile(sessionDate)).toHaveClass('overflow-hidden');
     expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
       'href',
@@ -248,9 +243,10 @@ describe('WorkoutCalendar', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Workout Calendar')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'No workouts on this day' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Schedule a workout' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('No workouts scheduled. Tap a day to view details.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '+ Schedule' })).toBeInTheDocument();
   });
 
   it('updates selected-day details when a calendar day is tapped', async () => {
@@ -307,7 +303,7 @@ describe('WorkoutCalendar', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText('Workout Calendar');
+    await screen.findByText('No workouts scheduled. Tap a day to view details.');
     fireEvent.click(getCalendarDayTile(targetDate));
 
     const detailsPanel = document.getElementById('workout-day-details');
@@ -335,7 +331,7 @@ describe('WorkoutCalendar', () => {
         <WorkoutCalendar />
       </MemoryRouter>,
     );
-    await screen.findByText('Workout Calendar');
+    await screen.findByText('No workouts scheduled. Tap a day to view details.');
 
     const today = new Date();
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);

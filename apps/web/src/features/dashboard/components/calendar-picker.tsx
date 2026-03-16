@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { addDays, formatDateKey, getToday, getWeekStart, isSameDay, normalizeDate } from '@/lib/date';
+import {
+  addDays,
+  formatDateKey,
+  getToday,
+  getWeekStart,
+  isSameDay,
+  normalizeDate,
+} from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 export type DayActivity = {
@@ -33,7 +40,12 @@ const ariaDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, className }: CalendarPickerProps) {
+export function CalendarPicker({
+  selectedDate,
+  onDateSelect,
+  getDayActivity,
+  className,
+}: CalendarPickerProps) {
   const today = useMemo(() => getToday(), []);
   const normalizedSelectedDate = selectedDate ? normalizeDate(selectedDate) : undefined;
   const [internalSelectedDate, setInternalSelectedDate] = useState<Date>(
@@ -59,7 +71,10 @@ export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, cla
   return (
     <section
       aria-label="Calendar day picker"
-      className={cn('w-full space-y-3 rounded-xl border border-border bg-card p-3 sm:p-4', className)}
+      className={cn(
+        'w-full space-y-3 rounded-xl border border-border bg-card p-3 sm:p-4',
+        className,
+      )}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-semibold text-foreground sm:text-lg">{monthYearLabel}</p>
@@ -112,7 +127,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, cla
               className={cn(
                 'flex min-w-0 flex-1 cursor-pointer flex-col items-center rounded-lg border px-1 py-2 transition-colors sm:px-2 sm:py-2.5',
                 isSelected
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-accent)]'
+                  ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-transparent text-foreground hover:border-border hover:bg-secondary/50',
                 isFuture && 'opacity-45',
               )}
@@ -134,25 +149,29 @@ export function CalendarPicker({ selectedDate, onDateSelect, getDayActivity, cla
               }}
               type="button"
             >
-              <span className="text-[11px] font-medium text-current sm:text-xs">{DAY_NAMES[index]}</span>
+              <span className="text-[11px] font-medium text-current sm:text-xs">
+                {DAY_NAMES[index]}
+              </span>
               <span className="text-base font-semibold leading-tight text-current sm:text-lg">
                 {day.getDate()}
               </span>
-              <span
-                className={cn(
-                  'mt-1 size-1.5 rounded-full',
-                  hasActivity ? 'visible' : 'invisible',
-                  isSelected
-                    ? 'bg-[var(--color-on-accent)]'
-                    : activity.hasWorkout && activity.hasMeals
-                      ? 'bg-[var(--color-primary)]'
-                      : activity.hasWorkout
-                        ? 'bg-[var(--color-accent-mint)]'
-                        : 'bg-[var(--color-accent-pink)]',
-                )}
-                data-has-activity={hasActivity ? 'true' : 'false'}
-                data-slot="calendar-activity-dot"
-              />
+              {getDayActivity ? (
+                <span
+                  className={cn(
+                    'mt-1 size-1.5 rounded-full',
+                    hasActivity ? 'visible' : 'invisible',
+                    isSelected
+                      ? 'bg-primary-foreground'
+                      : activity.hasWorkout && activity.hasMeals
+                        ? 'bg-primary'
+                        : activity.hasWorkout
+                          ? 'bg-[var(--color-accent-mint)]'
+                          : 'bg-[var(--color-accent-pink)]',
+                  )}
+                  data-has-activity={hasActivity ? 'true' : 'false'}
+                  data-slot="calendar-activity-dot"
+                />
+              ) : null}
             </button>
           );
         })}

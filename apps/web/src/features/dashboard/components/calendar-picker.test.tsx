@@ -11,7 +11,9 @@ const formatDate = (date: Date): string => {
 };
 
 const getDayButton = (date: string): HTMLElement => {
-  const button = document.querySelector<HTMLElement>(`[data-slot="calendar-day"][data-date="${date}"]`);
+  const button = document.querySelector<HTMLElement>(
+    `[data-slot="calendar-day"][data-date="${date}"]`,
+  );
 
   if (!button) {
     throw new Error(`Expected day button for date ${date}.`);
@@ -53,8 +55,8 @@ describe('CalendarPicker', () => {
     const saturdayButton = getDayButton('2026-03-07');
     const sundayButton = getDayButton('2026-03-08');
 
-    expect(todayButton).toHaveClass('bg-[var(--color-primary)]');
-    expect(todayButton).toHaveClass('text-[var(--color-on-accent)]');
+    expect(todayButton).toHaveClass('bg-primary');
+    expect(todayButton).toHaveClass('text-primary-foreground');
     expect(todayButton).toHaveAttribute('data-today', 'true');
     expect(todayButton).toHaveAttribute('data-selected', 'true');
     expect(saturdayButton).toHaveClass('opacity-45');
@@ -99,11 +101,11 @@ describe('CalendarPicker', () => {
 
     expect(onDateSelect).toHaveBeenCalledTimes(1);
     expect(formatDate(onDateSelect.mock.calls[0]?.[0] as Date)).toBe('2026-03-04');
-    expect(selectedDay).toHaveClass('bg-[var(--color-primary)]');
-    expect(selectedDay).toHaveClass('text-[var(--color-on-accent)]');
+    expect(selectedDay).toHaveClass('bg-primary');
+    expect(selectedDay).toHaveClass('text-primary-foreground');
     expect(selectedDay).toHaveAttribute('data-selected', 'true');
     expect(todayButton).toHaveAttribute('data-selected', 'false');
-    expect(todayButton).not.toHaveClass('bg-[var(--color-primary)]');
+    expect(todayButton).not.toHaveClass('bg-primary');
     expect(todayButton).not.toHaveClass('ring-2');
   });
 
@@ -114,7 +116,7 @@ describe('CalendarPicker', () => {
     const todayButton = getDayButton('2026-03-06');
     expect(selectedDay).toHaveAttribute('data-selected', 'true');
     expect(todayButton).toHaveAttribute('data-selected', 'false');
-    expect(todayButton).not.toHaveClass('bg-[var(--color-primary)]');
+    expect(todayButton).not.toHaveClass('bg-primary');
 
     const calendar = screen.getByLabelText('Calendar day picker');
     expect(calendar).toHaveClass('w-full');

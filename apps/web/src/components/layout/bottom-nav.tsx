@@ -52,7 +52,7 @@ export function BottomNav() {
   }, [menuOpen]);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border/60 bg-card/90 backdrop-blur-xl md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border/40 bg-background/70 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.08)] backdrop-blur-2xl backdrop-saturate-150 md:hidden">
       <nav
         aria-label="Mobile navigation"
         className="pointer-events-auto mx-auto grid w-full max-w-screen-sm grid-cols-5 items-stretch gap-2 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
@@ -65,10 +65,10 @@ export function BottomNav() {
               key={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-[44px] cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
+                  'flex min-h-[44px] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[0.65rem] font-medium leading-tight transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
-                    : 'text-muted hover:bg-secondary hover:text-foreground',
+                    ? 'bg-primary/15 text-primary shadow-[0_0_12px_-2px] shadow-primary/20 ring-1 ring-primary/20'
+                    : 'text-muted-foreground/70 hover:text-foreground',
                 )
               }
               end={item.end}
@@ -85,10 +85,10 @@ export function BottomNav() {
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              'flex min-h-[44px] w-full cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1 text-[0.7rem] font-medium leading-tight transition-all duration-200',
+              'flex min-h-[44px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[0.65rem] font-medium leading-tight transition-all duration-200',
               isMoreActive
-                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25'
-                : 'text-muted hover:bg-secondary hover:text-foreground',
+                ? 'bg-primary/15 text-primary shadow-[0_0_12px_-2px] shadow-primary/20 ring-1 ring-primary/20'
+                : 'text-muted-foreground/70 hover:text-foreground',
             )}
             onClick={() => setMenuOpen((previousValue) => !previousValue)}
             type="button"
@@ -107,8 +107,8 @@ export function BottomNav() {
                 return (
                   <NavLink
                     key={item.to}
-                  className={({ isActive }) =>
-                    cn(
+                    className={({ isActive }) =>
+                      cn(
                         'flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
                           ? 'bg-primary text-primary-foreground'

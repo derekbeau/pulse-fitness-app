@@ -49,35 +49,37 @@ const breakfastMeal = {
 };
 
 describe('MealCard', () => {
-  it('renders a compact meal header with visible food rows by default', () => {
+  it('renders a compact meal header collapsed by default and expands on click', () => {
     render(<MealCard meal={breakfastMeal} />);
 
-    expect(screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein')).not.toBeInTheDocument();
-    expect(screen.getByText('535cal · 29P · 72C · 17F')).toBeInTheDocument();
-    expect(screen.getByText('7:20 AM · 3 foods')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/535cal · 29P · 72C · 17F/)).toBeInTheDocument();
+    expect(screen.getByText('3 foods', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('7:20 AM')).toBeInTheDocument();
+    expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Breakfast/i }));
+
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
-    expect(screen.getByText('210cal · 18P · 1C · 15F')).toBeInTheDocument();
+    expect(screen.getByText('210cal')).toBeInTheDocument();
     expect(screen.getByText('5.5 oz')).toBeInTheDocument();
-    expect(screen.getByText('220cal · 10P · 44C · 2F')).toBeInTheDocument();
   });
 
-  it('uses compact row styling while keeping meal headers and rows at a 44px touch target', () => {
+  it('uses compact row styling with truncated item names after expanding', () => {
     render(<MealCard meal={breakfastMeal} />);
 
-    const mealCard = screen.getByRole('heading', { name: 'Breakfast' }).closest('[data-slot="card"]');
-    const mealHeader = mealCard?.firstElementChild;
-    const firstRow = screen.getByText('Large Eggs').closest('li');
+    fireEvent.click(screen.getByRole('button', { name: /Breakfast/i }));
 
-    expect(mealHeader).toHaveClass('min-h-11');
-    expect(firstRow).toHaveClass('min-h-11');
     expect(screen.getByText('Large Eggs')).toHaveClass('truncate');
   });
 
   it('shows fallback time copy when meal time is not set', () => {
     render(<MealCard meal={{ ...breakfastMeal, time: null }} />);
 
-    expect(screen.getByText('Time not set · 3 foods')).toBeInTheDocument();
+    expect(screen.getByText('Time not set')).toBeInTheDocument();
   });
 
   it('calls onDelete with the meal id when delete is clicked', () => {

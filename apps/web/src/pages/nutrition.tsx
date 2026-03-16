@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 
-import { BackLink } from '@/components/layout/back-link';
 import { MealCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -141,7 +140,6 @@ export function NutritionPage() {
 
   return (
     <section className="space-y-4 sm:space-y-5">
-      <BackLink label="Back to Dashboard" to="/" />
       <header className="space-y-1.5">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>

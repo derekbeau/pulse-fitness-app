@@ -231,17 +231,16 @@ describe('DailyHabits', () => {
     expect(screen.getByText('🧘')).toBeInTheDocument();
     expect(screen.getByText('💧')).toBeInTheDocument();
     expect(screen.getByText('😴')).toBeInTheDocument();
-    expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+    expect(screen.getByText('0 of 3 complete')).toBeInTheDocument();
   });
 
   it('keeps the completion badge centered classes', () => {
     render(<DailyHabits />);
 
-    expect(screen.getByText('0 of 3 habits complete')).toBeInTheDocument();
+    expect(screen.getByText('0 of 3 complete')).toBeInTheDocument();
 
-    const badge = screen.getByText('0 of 3 habits complete').closest('div');
+    const badge = screen.getByText('0/3').closest('div');
     expect(badge).toHaveClass('items-center', 'justify-center');
-    expect(screen.getByText('0 of 3 habits complete')).toHaveClass('text-center', 'leading-tight');
   });
 
   it('toggles boolean habits through the upsert mutation', () => {

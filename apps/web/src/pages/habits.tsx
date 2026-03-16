@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
-import { BackLink } from '@/components/layout/back-link';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { DailyHabits, HabitHistory } from '@/features/habits';
@@ -84,7 +83,6 @@ export function HabitsPage() {
 
   return (
     <section className="space-y-3">
-      <BackLink label="Back to Dashboard" to="/" />
       <div className="flex items-center gap-1.5">
         <h1 className="text-3xl font-semibold text-primary">Habits</h1>
         <HelpIcon title="Habits help">

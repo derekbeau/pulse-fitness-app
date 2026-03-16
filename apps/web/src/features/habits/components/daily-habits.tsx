@@ -254,11 +254,14 @@ function buildDailyHabits(
       habit.todayEntry !== undefined &&
       habit.todayEntry !== null &&
       (entry?.isOverride ?? false) !== true;
-    const effectiveBooleanValue =
-      useTodayEntry ? habit.todayEntry?.completed : (entry?.completed ?? false);
+    const effectiveBooleanValue = useTodayEntry
+      ? habit.todayEntry?.completed
+      : (entry?.completed ?? false);
     const effectiveNumericValue = useTodayEntry ? habit.todayEntry?.value : (entry?.value ?? null);
     const todayValue: HabitValue =
-      habit.trackingType === 'boolean' ? (effectiveBooleanValue ?? false) : (effectiveNumericValue ?? null);
+      habit.trackingType === 'boolean'
+        ? (effectiveBooleanValue ?? false)
+        : (effectiveNumericValue ?? null);
 
     return {
       id: habit.id,
@@ -269,7 +272,8 @@ function buildDailyHabits(
       unit: habit.unit,
       sourceHabit: habit,
       entryId: entry?.id ?? null,
-      isOverride: entry?.isOverride === true || (useTodayEntry && habit.todayEntry?.isOverride === true),
+      isOverride:
+        entry?.isOverride === true || (useTodayEntry && habit.todayEntry?.isOverride === true),
       isReferential,
       todayValue,
       autoText:
@@ -457,34 +461,21 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
 
   return (
     <div className="space-y-3">
-      <Card className={accentCardStyles.pink}>
-        <CardHeader className="gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70 dark:text-muted dark:opacity-100">
-            Daily habits
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            {todayFormatter.format(activeDate)}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {completedCount} of {activeHabits.length} complete
           </p>
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1.5">
-              <CardTitle
-                aria-level={2}
-                className="text-2xl font-semibold tracking-tight sm:text-3xl"
-                role="heading"
-              >
-                {todayFormatter.format(activeDate)}
-              </CardTitle>
-              <CardDescription className="max-w-2xl text-sm opacity-70 dark:text-muted dark:opacity-100">
-                {isSelectedDateToday
-                  ? "Log today's routines, keep your streak alive, and spot what still needs attention before the day ends."
-                  : 'Review and log habits for this day to keep your history accurate.'}
-              </CardDescription>
-            </div>
-            <div className="inline-flex min-h-11 self-start items-center justify-center rounded-full bg-black/10 px-3.5 py-1.5 dark:bg-secondary">
-              <span className="text-center text-sm font-semibold leading-tight dark:text-foreground">
-                {completedCount} of {activeHabits.length} habits complete
-              </span>
-            </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+            {completedCount}/{activeHabits.length}
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+      </div>
 
       {activeHabits.length === 0 ? (
         <Card className="border-dashed">

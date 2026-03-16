@@ -281,13 +281,11 @@ describe('WorkoutsPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Workouts' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('button', { name: 'Calendar' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     expect(await screen.findByTestId('location-search')).toHaveTextContent('?view=calendar');
-    expect(screen.getByText('Workout Calendar')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
 
@@ -296,7 +294,6 @@ describe('WorkoutsPage', () => {
     expect(
       await screen.findByRole('heading', { level: 2, name: 'In Progress' }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Workout Calendar')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
 

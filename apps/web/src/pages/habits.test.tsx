@@ -67,7 +67,6 @@ describe('HabitsPage', () => {
     );
 
     expect(await screen.findByText('No active habits configured yet.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     fireEvent.click(screen.getByRole('button', { name: 'Add Habit' }));
 
     expect(await screen.findByRole('heading', { name: 'Add habit' })).toBeInTheDocument();
@@ -98,7 +97,7 @@ describe('HabitsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Daily habits')).toBeInTheDocument();
+    expect(await screen.findByRole('checkbox', { name: 'Hydrate' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'No habits configured' })).not.toBeInTheDocument();
   });
 

@@ -37,18 +37,15 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
   const [view, setView] = useState<MacroView>('eaten');
 
   return (
-    <section aria-labelledby="nutrition-macro-rings-heading" className="space-y-4">
-      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
-        <div className="space-y-1">
-          <h2 id="nutrition-macro-rings-heading" className="text-lg font-semibold text-foreground">
-            Macro progress
-          </h2>
-          <p className="text-sm text-muted">Switch between intake and what is left for the day.</p>
-        </div>
+    <section aria-labelledby="nutrition-macro-rings-heading" className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="nutrition-macro-rings-heading" className="text-base font-semibold text-foreground">
+          Macro progress
+        </h2>
 
         <div
           aria-label="Macro progress view"
-          className="inline-flex rounded-full border border-border/70 bg-card/80 p-1 shadow-sm"
+          className="inline-flex rounded-full border border-border/70 bg-card/80 p-0.5 shadow-sm"
           role="group"
         >
           <ToggleButton
@@ -64,7 +61,7 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
         {MACRO_RING_CONFIG.map((macro) => {
           const actual = actuals[macro.key];
           const target = targets[macro.key];
@@ -83,7 +80,7 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
           return (
             <article
               key={macro.key}
-              className="flex flex-col items-center justify-center rounded-2xl border border-border/70 bg-card/90 px-4 py-5 text-center shadow-sm"
+              className="flex flex-col items-center justify-center rounded-xl border border-border/70 bg-card/90 px-3 py-3 text-center shadow-sm"
             >
               <ProgressRing
                 aria-label={`${macro.label} ${view} progress`}
@@ -96,13 +93,17 @@ export function NutritionMacroRings({ actuals, targets }: NutritionMacroRingsPro
                   />
                 }
                 labelClassName="leading-none"
-                className="w-[90px] sm:w-[104px] md:w-[116px]"
-                size={116}
-                strokeWidth={10}
+                className="w-[72px] sm:w-[88px] md:w-[100px]"
+                size={100}
+                strokeWidth={8}
                 value={progress}
               />
-              <h3 className="mt-4 text-sm font-semibold text-foreground">{macro.label}</h3>
-              <p className="mt-1 text-xs text-muted">Target {formatValue(target, macro.unit)}</p>
+              <h3 className="mt-2 text-xs font-semibold text-foreground sm:text-sm">
+                {macro.label}
+              </h3>
+              <p className="mt-0.5 text-[10px] text-muted sm:text-xs">
+                Target {formatValue(target, macro.unit)}
+              </p>
             </article>
           );
         })}
@@ -122,7 +123,7 @@ function ToggleButton({ isActive, label, onClick }: ToggleButtonProps) {
     <button
       aria-pressed={isActive}
       className={cn(
-        'min-h-[44px] min-w-[44px] cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4',
+        'min-h-[32px] min-w-[32px] cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3',
         isActive
           ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted hover:text-foreground',

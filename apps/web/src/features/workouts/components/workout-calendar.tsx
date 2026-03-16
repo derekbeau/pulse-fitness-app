@@ -8,7 +8,7 @@ import type {
 import { Link, useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   addDays,
@@ -19,7 +19,11 @@ import {
 } from '@/lib/date-utils';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
-import { useDeleteSession, useStartSession, useUpdateSessionStatus } from '@/hooks/use-workout-session';
+import {
+  useDeleteSession,
+  useStartSession,
+  useUpdateSessionStatus,
+} from '@/hooks/use-workout-session';
 import {
   useScheduledWorkouts,
   useUnscheduleWorkout,
@@ -40,6 +44,11 @@ const fullDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
   day: 'numeric',
   year: 'numeric',
+});
+const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
 });
 type WorkoutCalendarProps = {
   buildDayHref?: (date: string) => string;
@@ -125,21 +134,18 @@ export function WorkoutCalendar({
       ),
     [activeSessions, dateRange.from, dateRange.to],
   );
-  const completedSessionByDate = useMemo(
-    () => {
-      const grouped = new Map<string, WorkoutSessionListItem[]>();
-      for (const session of activeCompletedSessions
-        .slice()
-        .sort((left, right) => right.startedAt - left.startedAt)) {
-        const sessionsForDate = grouped.get(session.date) ?? [];
-        sessionsForDate.push(session);
-        grouped.set(session.date, sessionsForDate);
-      }
+  const completedSessionByDate = useMemo(() => {
+    const grouped = new Map<string, WorkoutSessionListItem[]>();
+    for (const session of activeCompletedSessions
+      .slice()
+      .sort((left, right) => right.startedAt - left.startedAt)) {
+      const sessionsForDate = grouped.get(session.date) ?? [];
+      sessionsForDate.push(session);
+      grouped.set(session.date, sessionsForDate);
+    }
 
-      return grouped;
-    },
-    [activeCompletedSessions],
-  );
+    return grouped;
+  }, [activeCompletedSessions]);
   const scheduledByDate = useMemo(() => {
     const grouped = new Map<string, ScheduledWorkoutListItem[]>();
     for (const scheduledWorkout of scheduledQuery.data ?? []) {
@@ -202,53 +208,38 @@ export function WorkoutCalendar({
 
   return (
     <Card className="gap-0 overflow-hidden">
-      <CardHeader className="gap-4 border-b border-border pb-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Workout Calendar</CardTitle>
-            <p className="text-sm text-muted">
-              Track completed sessions and scheduled workouts in one monthly view.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start">
-            <Button
-              aria-label="Previous month"
-              className="size-11 min-h-11 min-w-11"
-              onClick={() => handleMonthChange(-1)}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <ChevronLeft aria-hidden="true" />
-            </Button>
-            <p className="min-w-40 text-center text-sm font-semibold text-foreground">
-              {monthFormatter.format(visibleMonth)}
-            </p>
-            <Button
-              aria-label="Next month"
-              className="size-11 min-h-11 min-w-11"
-              onClick={() => handleMonthChange(1)}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </div>
+      <CardHeader className="gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            aria-label="Previous month"
+            onClick={() => handleMonthChange(-1)}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronLeft aria-hidden="true" />
+          </Button>
+          <p className="min-w-28 text-center text-sm font-semibold text-foreground">
+            {monthFormatter.format(visibleMonth)}
+          </p>
+          <Button
+            aria-label="Next month"
+            onClick={() => handleMonthChange(1)}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronRight aria-hidden="true" />
+          </Button>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-          <LegendDot className="bg-emerald-500" label="Completed" />
-          <LegendDot className="border border-slate-500 bg-transparent" label="Scheduled" />
-          <LegendDot className="bg-orange-500" label="In progress" />
-          <span className="rounded-full border border-primary/30 px-2 py-1 text-foreground">
-            Today
-          </span>
+        <div className="flex items-center justify-center gap-3 text-[10px] text-muted sm:text-[11px]">
+          <LegendDot className="bg-emerald-500" label="Done" />
+          <LegendDot className="border border-slate-500 bg-transparent" label="Planned" />
+          <LegendDot className="bg-orange-500" label="Active" />
         </div>
       </CardHeader>
 
-      <CardContent className="grid gap-4 px-3 py-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:px-6 lg:py-6">
+      <CardContent className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:gap-6 lg:px-6 lg:py-6">
         <section aria-label="Monthly workout calendar" className="space-y-3">
           <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {DAY_LABELS.map((day) => (
@@ -310,8 +301,10 @@ export function WorkoutCalendar({
                           className="max-w-full rounded-full bg-emerald-500/15 px-1 py-0.5 text-[8px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 sm:px-1.5 sm:text-[9px]"
                           onClick={(event) => event.stopPropagation()}
                           to={
-                            buildSessionHref?.(details.completedSession.id, details.completedSession.status) ??
-                            `/workouts/session/${details.completedSession.id}`
+                            buildSessionHref?.(
+                              details.completedSession.id,
+                              details.completedSession.status,
+                            ) ?? `/workouts/session/${details.completedSession.id}`
                           }
                         >
                           Done
@@ -372,35 +365,22 @@ export function WorkoutCalendar({
 
         <aside
           className={cn(
-            'order-first flex min-h-0 flex-col gap-4 rounded-3xl border p-4 shadow-sm lg:order-none lg:p-5',
+            'order-first flex min-h-0 flex-col gap-3 rounded-2xl border p-3 shadow-sm lg:order-none lg:rounded-3xl lg:p-5',
             accentPanel,
           )}
           id="workout-day-details"
         >
-          <div className="space-y-2">
-            <p
-              className={cn(
-                'text-xs font-semibold uppercase tracking-[0.2em]',
-                hasWorkout ? 'opacity-70 dark:text-muted dark:opacity-100' : 'text-muted',
-              )}
-            >
-              Selected day
-            </p>
-            <h3 className="text-2xl font-semibold">{fullDateFormatter.format(selectedDay.date)}</h3>
-            <p
-              className={cn(
-                'text-sm',
-                hasWorkout ? 'opacity-80 dark:text-muted dark:opacity-100' : 'text-muted',
-              )}
-            >
-              {hasWorkout
-                ? `${selectedDay.workouts.length} workout${selectedDay.workouts.length === 1 ? '' : 's'} on this day`
-                : 'No workouts on this day yet.'}
-            </p>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold">{shortDateFormatter.format(selectedDay.date)}</h3>
+            {!hasWorkout ? (
+              <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                <Link to={scheduleDayHref}>+ Schedule</Link>
+              </Button>
+            ) : null}
           </div>
 
           {selectedDay.workouts.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {selectedDay.workouts.map((workout) => (
                 <DayWorkoutItemCard
                   buildSessionHref={buildSessionHref}
@@ -412,15 +392,7 @@ export function WorkoutCalendar({
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border bg-secondary/35 p-4">
-              <h4 className="text-base font-semibold text-foreground">No workouts on this day</h4>
-              <p className="mt-1 text-sm text-muted">
-                Schedule a workout to plan this day from your templates.
-              </p>
-              <Button asChild className="mt-4" size="sm">
-                <Link to={scheduleDayHref}>Schedule a workout</Link>
-              </Button>
-            </div>
+            <p className="text-xs text-muted">No workouts scheduled. Tap a day to view details.</p>
           )}
         </aside>
       </CardContent>
@@ -480,7 +452,9 @@ function DayWorkoutItemCard({
     const pendingMutations: Array<Promise<unknown>> = [];
 
     if (workout.scheduledWorkout) {
-      pendingMutations.push(unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id }));
+      pendingMutations.push(
+        unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id }),
+      );
     }
 
     if (workout.session) {
@@ -581,7 +555,8 @@ function DayWorkoutItemCard({
           disabled={isMutating}
           onClick={() =>
             confirm({
-              title: workout.status === 'scheduled' ? 'Delete scheduled workout?' : 'Delete workout?',
+              title:
+                workout.status === 'scheduled' ? 'Delete scheduled workout?' : 'Delete workout?',
               description:
                 workout.status === 'scheduled'
                   ? `This will remove "${workout.name}" from ${fullDateFormatter.format(parseDateKey(dateKey))}.`
@@ -646,8 +621,8 @@ function getDaySubtitle(day: DayDetails) {
 
 function LegendDot({ className, label }: { className: string; label: string }) {
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className={cn('size-2.5 rounded-full', className)} aria-hidden="true" />
+    <span className="inline-flex items-center gap-1 sm:gap-1.5">
+      <span className={cn('size-2 rounded-full sm:size-2.5', className)} aria-hidden="true" />
       <span>{label}</span>
     </span>
   );
@@ -664,7 +639,8 @@ function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
     inProgressSessions,
     sessionById: context.sessionById,
   });
-  const completedSession = workouts.find((workout) => workout.status === 'completed')?.session ?? null;
+  const completedSession =
+    workouts.find((workout) => workout.status === 'completed')?.session ?? null;
   const workoutIndicators = buildWorkoutIndicators(workouts);
 
   const hasCompleted = workouts.some((workout) => workout.status === 'completed');
@@ -726,7 +702,10 @@ function buildDayWorkouts({
       continue;
     }
 
-    if (linkedSession && (linkedSession.status === 'in-progress' || linkedSession.status === 'paused')) {
+    if (
+      linkedSession &&
+      (linkedSession.status === 'in-progress' || linkedSession.status === 'paused')
+    ) {
       workouts.push({
         id: `scheduled-${scheduledWorkout.id}`,
         isUnavailable: false,
@@ -808,7 +787,11 @@ function getDefaultSelectedDateKey(
     return todayKey;
   }
 
-  const monthActivity = [...completedByDate.keys(), ...inProgressByDate.keys(), ...scheduledByDate.keys()]
+  const monthActivity = [
+    ...completedByDate.keys(),
+    ...inProgressByDate.keys(),
+    ...scheduledByDate.keys(),
+  ]
     .map((dateKey) => parseDateKey(dateKey))
     .filter((date) => isSameMonth(date, month))
     .sort((left, right) => left.getTime() - right.getTime());
@@ -870,15 +853,17 @@ function workoutPriority(status: DayWorkoutStatus) {
 
 function buildWorkoutIndicators(workouts: DayWorkout[]): WorkoutIndicator[] {
   return workouts
-    .map((workout): WorkoutIndicator => ({
-      id: workout.id,
-      status:
-        workout.status === 'scheduled'
-          ? workout.isUnavailable
-            ? 'unavailable'
-            : 'scheduled'
-          : workout.status,
-    }))
+    .map(
+      (workout): WorkoutIndicator => ({
+        id: workout.id,
+        status:
+          workout.status === 'scheduled'
+            ? workout.isUnavailable
+              ? 'unavailable'
+              : 'scheduled'
+            : workout.status,
+      }),
+    )
     .sort((left, right) => indicatorPriority(left.status) - indicatorPriority(right.status));
 }
 
