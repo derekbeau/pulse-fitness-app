@@ -50,7 +50,7 @@ describe('unified API documentation', () => {
 
     expect(skillDoc).not.toContain('/api/agent/');
     expect(skillDoc).toContain('Authorization: AgentToken <token>');
-    expect(skillDoc).toContain('GET /api/v1/exercises?q=<name>&limit=<n>');
+    expect(skillDoc).toContain('GET /api/v1/exercises/?q=<term>');
     expect(skillDoc).toContain('POST /api/v1/workout-templates');
     expect(skillDoc).toContain('PATCH /api/v1/habits/:id/entries');
     expect(skillDoc).toContain('POST /api/v1/meals');
