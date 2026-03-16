@@ -454,7 +454,8 @@ describe('HabitChain', () => {
     });
 
     const firstSquare = container.querySelector('[data-slot="habit-chain-day"]');
-    expect(firstSquare).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    // Mobile: size-8 prevents grid cell overflow on narrow screens; sm+: size-11 for full 44px touch target
+    expect(firstSquare).toHaveClass('size-8', 'min-h-8', 'min-w-8', 'sm:size-11', 'sm:min-h-11', 'sm:min-w-11');
 
     const grid = container.querySelector('[data-slot="habit-chain-grid"]');
     expect(grid).toHaveClass('grid-cols-7', 'gap-1.5', 'sm:grid-cols-10');

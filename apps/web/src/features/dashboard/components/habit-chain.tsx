@@ -245,7 +245,7 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
                             <button
                               aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
                               className={cn(
-                                'relative z-20 size-11 min-h-11 min-w-11 justify-self-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
+                                'relative z-20 size-8 min-h-8 min-w-8 justify-self-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55 sm:size-11 sm:min-h-11 sm:min-w-11',
                                 statusClass,
                                 isSelectedDay
                                   ? 'border-[var(--color-primary)]'
