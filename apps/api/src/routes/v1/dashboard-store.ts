@@ -12,7 +12,7 @@ import type {
   DashboardWeightTrendPoint,
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
-import { dashboardConfigSchema } from '@pulse/shared';
+import { computeEWMA, dashboardConfigSchema } from '@pulse/shared';
 
 import { db } from '../../db/index.js';
 import {
@@ -131,6 +131,7 @@ const toWeightSnapshot = (
     value: number;
     date: string;
   } | null,
+  trendValue: number | null,
 ): DashboardWeightSnapshot | null => {
   if (!value) {
     return null;
@@ -138,6 +139,7 @@ const toWeightSnapshot = (
 
   return {
     value: Number(value.value),
+    trendValue,
     date: value.date,
     unit: DEFAULT_WEIGHT_UNIT,
   };
@@ -389,6 +391,28 @@ export const getDashboardSnapshot = async (
       .limit(1)
       .get() ?? null;
 
+  // Compute EWMA trend weight from recent entries (up to 60 days)
+  let trendWeight: number | null = null;
+  if (weight) {
+    const recentWeights = db
+      .select({ date: bodyWeight.date, weight: bodyWeight.weight })
+      .from(bodyWeight)
+      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
+      .orderBy(asc(bodyWeight.date))
+      .all()
+      .slice(-60);
+
+    if (recentWeights.length > 0) {
+      const ewmaResults = computeEWMA(
+        recentWeights.map((w) => ({ date: w.date, weight: Number(w.weight) })),
+      );
+      const lastResult = ewmaResults[ewmaResults.length - 1];
+      if (lastResult) {
+        trendWeight = Math.round(lastResult.trend * 10) / 10;
+      }
+    }
+  }
+
   const macrosActual =
     db
       .select(macroActualSelection)
@@ -461,7 +485,7 @@ export const getDashboardSnapshot = async (
 
   return {
     date,
-    weight: toWeightSnapshot(weight),
+    weight: toWeightSnapshot(weight, trendWeight),
     macros: {
       actual: toMacroTotals(macrosActual),
       target: toMacroTotals(macrosTarget),

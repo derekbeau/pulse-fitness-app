@@ -280,6 +280,7 @@ describe('weight api hooks', () => {
             date: '2026-03-07',
             unit: 'lb',
             value: 180.8,
+            trendValue: null,
           },
         }),
       );
@@ -354,7 +355,10 @@ describe('weight api hooks', () => {
     ];
 
     queryClient.setQueryData(weightQueryKeys.latest(), initialTrend[0]);
-    queryClient.setQueryData(weightQueryKeys.trend({ from: '2026-03-01', to: '2026-03-07' }), initialTrend);
+    queryClient.setQueryData(
+      weightQueryKeys.trend({ from: '2026-03-01', to: '2026-03-07' }),
+      initialTrend,
+    );
     queryClient.setQueryData(dashboardSnapshotQueryKeys.detail('2026-03-07'), {
       date: '2026-03-07',
       weight: null,

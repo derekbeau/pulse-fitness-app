@@ -15,6 +15,7 @@ const snapshotFixture: DashboardSnapshot = {
     date: '2026-03-06',
     unit: 'lb',
     value: 181.4,
+    trendValue: null,
   },
   macros: {
     actual: {
@@ -116,7 +117,7 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    const weightCard = screen.getByText('Body Weight').closest('[data-slot="stat-card"]');
+    const weightCard = screen.getByText('Trend Weight').closest('[data-slot="stat-card"]');
     const caloriesCard = screen.getByText('Calories').closest('[data-slot="stat-card"]');
     const proteinCard = screen.getByText('Protein').closest('[data-slot="stat-card"]');
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
@@ -127,14 +128,16 @@ describe('SnapshotCards', () => {
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(habitsCard).toHaveClass('bg-[var(--color-accent-mint)]');
     expect(workoutCard).toHaveClass('bg-secondary');
-    expect(screen.getByText('Body Weight')).toHaveClass('text-on-cream');
+    expect(screen.getByText('Trend Weight')).toHaveClass('text-on-cream');
     expect(screen.getByText('Calories')).toHaveClass('text-on-pink');
     expect(screen.getByText('Protein')).toHaveClass('text-on-mint');
     expect(screen.getByText('Habits')).toHaveClass('text-on-mint');
 
     expect(within(weightCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
-    expect(within(caloriesCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
-    expect(within(proteinCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
+    expect(within(caloriesCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(caloriesCard as HTMLElement).getByText('83%')).toBeInTheDocument();
+    expect(within(proteinCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
+    expect(within(proteinCard as HTMLElement).getByText('89%')).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
@@ -181,7 +184,7 @@ describe('SnapshotCards', () => {
     );
 
     const weightCard = screen
-      .getByText('Body Weight')
+      .getByText('Trend Weight')
       .closest('[data-slot="stat-card"]') as HTMLElement;
     const caloriesCard = screen
       .getByText('Calories')

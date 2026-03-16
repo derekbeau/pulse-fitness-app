@@ -82,7 +82,11 @@ export function StatCard({
     <Card
       data-density={density}
       data-slot="stat-card"
-      className={cn(isCompact ? 'gap-2.5 py-2.5' : 'gap-3 py-4 sm:gap-4 sm:py-5', className)}
+      className={cn(
+        'relative',
+        isCompact ? 'gap-2.5 py-2.5' : 'gap-3 py-4 sm:gap-4 sm:py-5',
+        className,
+      )}
       {...props}
     >
       <CardHeader
@@ -116,22 +120,21 @@ export function StatCard({
         >
           {value}
         </p>
-        {trend && trendStyle && TrendIcon ? (
-          <div
-            aria-label={`trend ${trend.direction}`}
-            data-slot="stat-card-trend"
-            className={cn(
-              isCompact
-                ? 'flex items-center gap-1.5 text-xs font-medium'
-                : 'flex items-center gap-2 text-sm font-medium',
-              trendClassName,
-            )}
-          >
-            <TrendIcon className={cn(isCompact ? 'size-3.5' : 'size-4')} />
-            <span>{formattedTrend}</span>
-          </div>
-        ) : null}
       </CardContent>
+      {trend && trendStyle && TrendIcon ? (
+        <div
+          aria-label={`trend ${trend.direction}`}
+          data-slot="stat-card-trend"
+          className={cn(
+            'absolute right-3 bottom-2.5 flex items-center gap-1',
+            isCompact ? 'text-[11px] font-medium' : 'text-xs font-medium',
+            trendClassName,
+          )}
+        >
+          {trend.direction !== 'neutral' ? <TrendIcon className="size-3" /> : null}
+          <span>{formattedTrend}</span>
+        </div>
+      ) : null}
     </Card>
   );
 }

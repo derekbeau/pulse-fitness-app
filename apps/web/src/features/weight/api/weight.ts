@@ -56,8 +56,13 @@ export const weightQueryKeys = {
   trendRoot: () => ['weight', 'list'] as const,
   trend: ({ from, to }: Pick<WeightListFilters, 'from' | 'to'> = {}) =>
     ['weight', 'list', normalizeWeightListFilters({ from, to })] as const,
-  page: ({ days, from, limit, page, to }: Required<Pick<WeightListFilters, 'limit' | 'page'>> &
-    WeightListFilters) =>
+  page: ({
+    days,
+    from,
+    limit,
+    page,
+    to,
+  }: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters) =>
     ['weight', 'list', normalizeWeightListFilters({ days, from, limit, page, to })] as const,
 };
 
@@ -96,8 +101,9 @@ const fetchLatestWeight = () => apiRequest<BodyWeightEntry | null>('/api/v1/weig
 const fetchWeightEntries = (filters: WeightListFilters) =>
   apiRequest<BodyWeightEntry[]>(buildWeightEntriesPath(filters));
 
-const fetchPaginatedWeightEntries = (filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> &
-  WeightListFilters) =>
+const fetchPaginatedWeightEntries = (
+  filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters,
+) =>
   apiRequestWithMeta<BodyWeightEntry[], PaginatedWeightListMeta>(buildWeightEntriesPath(filters));
 
 const postWeightEntry = (input: CreateWeightInput) =>
@@ -211,7 +217,7 @@ const isWeightEntryMoreRecent = (
 const applyWeightEntryToLatestCache = (
   current: BodyWeightEntry | null | undefined,
   nextEntry: BodyWeightEntry,
-) => (isWeightEntryMoreRecent(nextEntry, current) ? nextEntry : current ?? null);
+) => (isWeightEntryMoreRecent(nextEntry, current) ? nextEntry : (current ?? null));
 
 const applyWeightEntryToDashboardSnapshot = (
   snapshot: DashboardSnapshot | undefined,
@@ -227,6 +233,7 @@ const applyWeightEntryToDashboardSnapshot = (
       date: nextEntry.date,
       unit: 'lb' as const,
       value: nextEntry.weight,
+      trendValue: snapshot.weight?.trendValue ?? null,
     },
   };
 };
@@ -283,7 +290,8 @@ const isWeightListCache = (
   hasQueryKeyPrefix(queryKey, weightQueryKeys.listRoot()) &&
   (cache === undefined ||
     (Array.isArray(cache) &&
-      (cache.length === 0 || (typeof cache[0] === 'object' && cache[0] !== null && 'createdAt' in cache[0]))));
+      (cache.length === 0 ||
+        (typeof cache[0] === 'object' && cache[0] !== null && 'createdAt' in cache[0]))));
 
 const isDashboardSnapshotCache = (
   cache: LogWeightCache | undefined,
@@ -304,7 +312,8 @@ const isDashboardWeightTrendCache = (
   hasQueryKeyPrefix(queryKey, dashboardWeightTrendQueryKeys.all) &&
   (cache === undefined ||
     (Array.isArray(cache) &&
-      (cache.length === 0 || (typeof cache[0] === 'object' && cache[0] !== null && 'value' in cache[0]))));
+      (cache.length === 0 ||
+        (typeof cache[0] === 'object' && cache[0] !== null && 'value' in cache[0]))));
 
 const updateLogWeightCache = (
   current: LogWeightCache | undefined,
@@ -350,8 +359,7 @@ export const usePaginatedWeightEntries = (
     queryFn: () => fetchPaginatedWeightEntries(filters),
   });
 
-export const useWeightTrend = (from?: string, to?: string) =>
-  useWeightEntries({ from, to });
+export const useWeightTrend = (from?: string, to?: string) => useWeightEntries({ from, to });
 
 export const useLogWeight = () => {
   return createOptimisticMutation<
@@ -381,7 +389,8 @@ export const useLogWeight = () => {
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
     ],
-    reconcile: (current, entry, _variables, context) => updateLogWeightCache(current, entry, context.queryKey),
+    reconcile: (current, entry, _variables, context) =>
+      updateLogWeightCache(current, entry, context.queryKey),
     updater: (current, _variables, context) =>
       updateLogWeightCache(current, context.meta.optimisticEntry, context.queryKey),
   });

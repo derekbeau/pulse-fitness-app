@@ -54,7 +54,8 @@ const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
     return 'Log weight';
   }
 
-  return formatWeight(snapshot.weight.value, 'lbs');
+  const displayValue = snapshot.weight.trendValue ?? snapshot.weight.value;
+  return formatWeight(displayValue, 'lbs');
 };
 
 const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {
@@ -118,6 +119,14 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   const habitCompletionPercent = snapshot
     ? calculateHabitCompletionPercent(snapshot.habits.completed, snapshot.habits.total)
     : 0;
+  const caloriesPercent =
+    snapshot && hasCaloriesTarget
+      ? Math.round((snapshot.macros.actual.calories / snapshot.macros.target.calories) * 100)
+      : 0;
+  const proteinPercent =
+    snapshot && hasProteinTarget
+      ? Math.round((snapshot.macros.actual.protein / snapshot.macros.target.protein) * 100)
+      : 0;
 
   const weightValue = formatWeightValue(snapshot);
   const caloriesValueText = snapshot
@@ -233,7 +242,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
           )}
           density="compact"
           data-stagger="0"
-          label="Body Weight"
+          label="Trend Weight"
           value={weightValue}
           valueClassName={getSnapshotValueClassName(weightValue)}
           valueTitle={weightValue}
@@ -257,6 +266,11 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
           density="compact"
           data-stagger="1"
           label="Calories"
+          trend={
+            snapshot && hasCaloriesTarget
+              ? { direction: 'neutral', value: caloriesPercent }
+              : undefined
+          }
           value={caloriesValue}
           valueClassName={getSnapshotValueClassName(caloriesValueText)}
           valueTitle={hasCaloriesTarget ? caloriesValueText : undefined}
@@ -280,6 +294,11 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
           density="compact"
           data-stagger="2"
           label="Protein"
+          trend={
+            snapshot && hasProteinTarget
+              ? { direction: 'neutral', value: proteinPercent }
+              : undefined
+          }
           value={proteinValue}
           valueClassName={getSnapshotValueClassName(proteinValueText)}
           valueTitle={hasProteinTarget ? proteinValueText : undefined}

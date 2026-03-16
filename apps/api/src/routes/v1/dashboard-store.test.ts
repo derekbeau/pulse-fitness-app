@@ -91,6 +91,7 @@ describe('dashboard store', () => {
       },
     );
     testState.selectAllResults.push(
+      [{ date: '2026-03-08', weight: 178.4 }],
       [
         {
           scheduledWorkoutId: 'scheduled-upper-push-a',
@@ -116,6 +117,7 @@ describe('dashboard store', () => {
       date: '2026-03-09',
       weight: {
         value: 178.4,
+        trendValue: 178.4,
         date: '2026-03-08',
         unit: 'lb',
       },
@@ -146,7 +148,7 @@ describe('dashboard store', () => {
         percentage: 66.7,
       },
     });
-    expect(testState.select).toHaveBeenCalledTimes(6);
+    expect(testState.select).toHaveBeenCalledTimes(7);
   });
 
   it('returns null sections and zeroed values when no data exists for the date', async () => {

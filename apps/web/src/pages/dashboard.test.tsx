@@ -106,6 +106,7 @@ const snapshotForToday: DashboardSnapshot = {
     date: '2026-03-06',
     unit: 'lb',
     value: 181.4,
+    trendValue: null,
   },
   macros: {
     actual: {
@@ -372,6 +373,7 @@ describe('DashboardPage', () => {
             date: nextDate,
             unit: 'lb',
             value: nextWeight,
+            trendValue: null,
           },
         };
 
@@ -438,8 +440,8 @@ describe('DashboardPage', () => {
     );
 
     const bodyWeightCard = screen
-      .getAllByText('Body Weight')[0]
-      ?.closest('[data-slot="stat-card"]');
+      .getAllByText('Trend Weight')[0]
+      .closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     expect(
       within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
@@ -639,7 +641,7 @@ describe('DashboardPage', () => {
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
-    expect(screen.getAllByText('Body Weight')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Trend Weight')[0]).toBeInTheDocument();
   });
 
   it('updates snapshot and habit chain windows when a new calendar day is selected', async () => {
@@ -655,8 +657,8 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     const bodyWeightCard = screen
-      .getAllByText('Body Weight')[0]
-      ?.closest('[data-slot="stat-card"]');
+      .getAllByText('Trend Weight')[0]
+      .closest('[data-slot="stat-card"]');
     const habitsCard = screen.getByText('Habits').closest('[data-slot="stat-card"]');
 
     expect(bodyWeightCard).toBeInTheDocument();
@@ -675,8 +677,8 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     const refreshedBodyWeightCard = screen
-      .getAllByText('Body Weight')[0]
-      ?.closest('[data-slot="stat-card"]') as HTMLElement;
+      .getAllByText('Trend Weight')[0]
+      .closest('[data-slot="stat-card"]') as HTMLElement;
     const refreshedHabitsCard = screen
       .getByText('Habits')
       .closest('[data-slot="stat-card"]') as HTMLElement;
@@ -726,7 +728,7 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     const initialBodyWeightCard = screen
-      .getAllByText('Body Weight')[0]
+      .getAllByText('Trend Weight')[0]
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
     expect(within(initialBodyWeightCard).getByText(formatWeight(181.4))).toBeInTheDocument();
@@ -740,7 +742,7 @@ describe('DashboardPage', () => {
 
     expect(screen.queryByLabelText('Weight (lbs)')).not.toBeInTheDocument();
     const refreshedBodyWeightCard = screen
-      .getAllByText('Body Weight')[0]
+      .getAllByText('Trend Weight')[0]
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
     expect(within(refreshedBodyWeightCard).getByText('175.5 lbs')).toBeInTheDocument();

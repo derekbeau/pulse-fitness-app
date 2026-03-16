@@ -75,6 +75,7 @@ describe('dashboardSnapshotSchema', () => {
       date: '2026-03-09',
       weight: {
         value: 178.4,
+        trendValue: 178.4,
         date: '2026-03-08',
         unit: 'lb',
       },

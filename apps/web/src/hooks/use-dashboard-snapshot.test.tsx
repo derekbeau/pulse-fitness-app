@@ -22,6 +22,7 @@ const snapshotFixture: DashboardSnapshot = {
     date: '2026-03-06',
     unit: 'lb',
     value: 181.4,
+    trendValue: null,
   },
   macros: {
     actual: {

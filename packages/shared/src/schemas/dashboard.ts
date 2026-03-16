@@ -42,6 +42,7 @@ export const dashboardTrendQuerySchema = z
 
 export const dashboardWeightSnapshotSchema = z.object({
   value: z.number().positive().finite(),
+  trendValue: z.number().positive().finite().nullable(),
   date: dateSchema,
   unit: z.literal('lb'),
 });
