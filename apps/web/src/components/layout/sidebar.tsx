@@ -63,7 +63,14 @@ export function Sidebar() {
     >
       <TooltipProvider delayDuration={0}>
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-border/40 px-4 py-6">
+          <div
+            className={cn(
+              'border-b border-border/40',
+              collapsed
+                ? 'flex flex-col items-center gap-1 px-2 py-4'
+                : 'flex items-center justify-between px-4 py-6',
+            )}
+          >
             {collapsed ? (
               <p className="w-full text-center text-2xl font-extrabold tracking-tight text-primary font-display">
                 P
@@ -147,7 +154,7 @@ export function Sidebar() {
           <div
             className={cn(
               'border-t border-border/40 py-4',
-              collapsed ? 'flex items-center justify-center px-2' : 'space-y-3 px-3',
+              collapsed ? 'flex flex-col items-center gap-1 px-2' : 'space-y-3 px-3',
             )}
           >
             {collapsed ? (
