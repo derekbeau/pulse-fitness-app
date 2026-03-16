@@ -36,7 +36,7 @@ describe('WorkoutList', () => {
     const scheduledWorkouts = [
       createScheduledWorkout({
         id: 'schedule-upcoming',
-        date: '2026-03-15',
+        date: '2099-03-15',
         templateId: 'template-push',
         templateName: 'Upper Push',
         templateTrackingTypes: ['bodyweight_reps', 'seconds_only'],
@@ -69,15 +69,15 @@ describe('WorkoutList', () => {
 
     const inProgressSection = getSectionByTitle('In Progress');
     const scheduledSection = getSectionByTitle('Scheduled');
-    expect(within(inProgressSection).getAllByRole('link', { name: 'Resume' }).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      within(inProgressSection).getAllByRole('link', { name: 'Resume' }).length,
+    ).toBeGreaterThan(0);
     expect(
       within(inProgressSection).getAllByRole('button', { name: /Cancel/i }).length,
     ).toBeGreaterThan(0);
-    expect(within(inProgressSection).getAllByRole('button', { name: /Delete/i }).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      within(inProgressSection).getAllByRole('button', { name: /Delete/i }).length,
+    ).toBeGreaterThan(0);
     within(scheduledSection)
       .getAllByRole('button', { name: 'Reschedule' })
       .forEach((button) => {
@@ -148,7 +148,9 @@ describe('WorkoutList', () => {
   it('shows an empty state when no workout sessions or schedules are returned', async () => {
     renderWorkoutList([], []);
 
-    expect(await screen.findByText('No workouts yet. Plan one to get started.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No workouts yet. Plan one to get started.'),
+    ).toBeInTheDocument();
   });
 
   it('does not render completed linked scheduled workouts in scheduled section', async () => {

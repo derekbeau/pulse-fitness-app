@@ -3,10 +3,17 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/store/auth-store';
+import { useUser } from '@/hooks/use-user';
 
 vi.mock('@/store/auth-store', () => ({
   useAuthStore: vi.fn(),
 }));
+
+vi.mock('@/hooks/use-user', () => ({
+  useUser: vi.fn(),
+}));
+
+const mockedUseUser = vi.mocked(useUser);
 
 type MockAuthStore = {
   login: ReturnType<typeof vi.fn>;
@@ -64,6 +71,11 @@ function renderProtectedRoute(store = createAuthStore()) {
 describe('ProtectedRoute', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedUseUser.mockReturnValue({
+      data: { id: 'user-1', username: 'test', name: 'Test' },
+      isError: false,
+      isPending: false,
+    } as ReturnType<typeof useUser>);
   });
 
   it('renders children when authenticated', () => {

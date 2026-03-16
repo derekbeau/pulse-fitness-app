@@ -180,6 +180,20 @@ describe('App', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
+      if (url.pathname === '/api/v1/users/me') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'derek',
+              name: 'Derek',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/workout-templates/upper-push') {
         return Promise.resolve(jsonResponse(workoutTemplatePayload));
       }
@@ -265,9 +279,11 @@ describe('App', () => {
     },
   );
 
-  it('renders navigation links for all app routes', () => {
+  it('renders navigation links for all app routes', async () => {
     setAuthenticatedState();
     renderApp();
+
+    await screen.findAllByRole('link', { name: /^Dashboard$/i });
 
     navRoutes.forEach(({ heading, path }) => {
       const links = screen.getAllByRole('link', {

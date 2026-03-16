@@ -103,6 +103,8 @@ describe('HabitsPage', () => {
   });
 
   it('lets users pick a past day and loads that day entries', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-03-11T12:00:00'));
     const today = new Date();
     const yesterday = addDays(today, -1);
     const selectedDayKey = toDateKey(yesterday);
