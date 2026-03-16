@@ -243,7 +243,7 @@ export function DashboardPage() {
     (recentWorkoutsQuery.data?.length ?? 0) === 0;
 
   return (
-    <main className="flex w-full flex-col gap-6 py-5 sm:gap-7 sm:py-6">
+    <main className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6">
       <header className="animate-fade-in space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
@@ -360,11 +360,11 @@ export function DashboardPage() {
         />
       ) : (
         <div
-          className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,248px)_minmax(0,1fr)_minmax(260px,300px)]"
+          className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2"
           data-slot="dashboard-layout"
         >
           <div
-            className="order-1 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-1 xl:order-2"
+            className="order-1 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-1"
             data-slot="dashboard-main-column"
           >
             {visibleWidgets.includes('snapshot-cards') || visibleWidgets.includes('log-weight') ? (
@@ -553,7 +553,7 @@ export function DashboardPage() {
           </div>
 
           <div
-            className="order-2 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-2 xl:order-1"
+            className="order-2 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-2"
             data-slot="dashboard-sidebar-column"
           >
             {visibleWidgets.includes('habit-chain') ? (
@@ -586,7 +586,7 @@ export function DashboardPage() {
 
           {visibleWidgets.includes('recent-workouts') ? (
             <DashboardWidgetFrame
-              className="order-3 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-3"
+              className="order-3 min-w-0 md:col-span-2"
               dataSlot="dashboard-recent-workouts-column"
               isEditMode={isEditMode}
               onHide={() => hideWidget('recent-workouts')}
@@ -598,7 +598,7 @@ export function DashboardPage() {
 
           {showWeightTrendChart ? (
             <DashboardWidgetFrame
-              className="order-4 min-w-0 md:col-span-2 xl:col-span-3"
+              className="order-4 min-w-0 md:col-span-2"
               dataSlot="dashboard-weight-trend-row"
               isEditMode={isEditMode}
               onHide={() => hideWidget('weight-trend')}
@@ -616,7 +616,7 @@ export function DashboardPage() {
           {hiddenWidgets.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hidden widgets.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {hiddenWidgets.map((widgetId) => (
                 <Card
                   key={widgetId}

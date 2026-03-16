@@ -17,7 +17,7 @@ export function AppLayout({ children }: PropsWithChildren) {
     <div className="min-h-screen overflow-x-clip bg-background text-foreground">
       <PullToRefresh onRefresh={handleRefresh} />
       <ActiveSessionResumeGate />
-      <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl">
+      <div className="flex min-h-screen w-full max-w-screen-2xl">
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">
           {content}

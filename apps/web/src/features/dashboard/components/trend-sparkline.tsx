@@ -283,7 +283,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   if ((needsWeight && weightTrendQuery.isLoading) || (needsMacros && macroTrendQuery.isLoading)) {
     return (
       <section aria-label="Trend sparklines">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TrendMetricCardSkeleton />
           <TrendMetricCardSkeleton />
           <TrendMetricCardSkeleton />
@@ -390,7 +390,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
 
   return (
     <section aria-label="Trend sparklines">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {configs.map((config) => (
           <TrendMetricCard key={config.label} {...config} />
         ))}

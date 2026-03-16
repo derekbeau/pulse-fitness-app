@@ -188,7 +188,7 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
 
   return (
     <>
-      <section aria-label="Habit chains" className="grid grid-cols-2 gap-2.5 xl:grid-cols-1">
+      <section aria-label="Habit chains" className="grid grid-cols-2 gap-2.5">
         <TooltipProvider>
           {visibleHabits.map((habit) => (
             <Card
@@ -213,7 +213,7 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
                 </Link>
 
                 <div
-                  className="grid grid-cols-6 gap-1 sm:grid-cols-10 xl:grid-cols-6"
+                  className="grid grid-cols-6 gap-1 sm:grid-cols-10"
                   data-slot="habit-chain-grid"
                 >
                   {habit.entries.map((entry) => (
