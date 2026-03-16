@@ -2,14 +2,11 @@
 import type { DashboardSnapshot } from '@pulse/shared';
 import { useState } from 'react';
 
+import { Link } from 'react-router';
+
 import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ui/progress-ring';
-import {
-  DashboardDrilldownLink,
-  dashboardDrilldownCardClassName,
-} from '@/features/dashboard/components/dashboard-drilldown-link';
 import { formatCalories, formatGrams } from '@/lib/format-utils';
-import { cn } from '@/lib/utils';
 
 type MacroRingsProps = {
   snapshot?: DashboardSnapshot;
@@ -69,9 +66,9 @@ export const getMacroRingState = (
       color: isOverTarget ? OVER_TARGET_COLOR : baseColor,
       progress: 100 - ratioPercent,
       valueLabel: isOverTarget
-        ? `+${unit === 'kcal' ? formatCalories(Math.abs(remaining), 'kcal') : formatGrams(Math.abs(remaining))} over`
+        ? `+${unit === 'kcal' ? formatCalories(Math.abs(remaining)) : formatGrams(Math.abs(remaining))} over`
         : unit === 'kcal'
-          ? formatCalories(remaining, 'kcal')
+          ? formatCalories(remaining)
           : formatGrams(remaining),
     };
   }
@@ -79,7 +76,7 @@ export const getMacroRingState = (
   return {
     color: isOverTarget ? OVER_TARGET_COLOR : baseColor,
     progress: ratioPercent,
-    valueLabel: unit === 'kcal' ? formatCalories(stat.actual, 'kcal') : formatGrams(stat.actual),
+    valueLabel: unit === 'kcal' ? formatCalories(stat.actual) : formatGrams(stat.actual),
   };
 };
 
@@ -119,7 +116,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         >
           <Button
             aria-pressed={mode === 'eaten'}
-            className="px-2.5 text-xs"
+            className="h-7 px-2.5 py-0.5 text-xs"
             onClick={() => {
               setMode('eaten');
             }}
@@ -130,7 +127,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
           </Button>
           <Button
             aria-pressed={mode === 'remaining'}
-            className="px-2.5 text-xs"
+            className="h-7 px-2.5 py-0.5 text-xs"
             onClick={() => {
               setMode('remaining');
             }}
@@ -142,48 +139,42 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-2">
         {MACRO_CONFIGS.map((macro) => {
           const stat = getMacroStat(snapshot, macro.key);
           const state = getMacroRingState(stat, mode, macro.color, macro.unit);
 
           return (
-            <DashboardDrilldownLink
-              indicatorClassName="top-2 right-2 bottom-auto px-1.5 py-0.5"
-              indicatorLabel=""
+            <Link
+              aria-label={`View nutrition details for ${macro.label}`}
+              className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               key={macro.key}
               to="/nutrition"
-              viewLabel={`View nutrition details for ${macro.label}`}
             >
               <div
-                className={cn(
-                  'flex min-w-0 items-center gap-2.5 rounded-xl border border-border/70 bg-card/40 px-2.5 py-2',
-                  dashboardDrilldownCardClassName,
-                )}
+                className="flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/40 px-1.5 py-2 transition-colors group-hover:border-primary/35 group-hover:bg-card/60 lg:gap-1.5 lg:px-2.5 lg:py-3"
                 data-slot="macro-ring-item"
               >
-                <div className="w-16 shrink-0">
+                <div className="w-12 lg:w-16">
                   <ProgressRing
                     aria-label={`${macro.label} progress`}
                     className="h-auto w-full"
                     color={state.color}
                     label={state.valueLabel}
-                    labelClassName="text-[10px] leading-tight font-semibold"
+                    labelClassName="text-[9px] lg:text-[10px] leading-tight font-semibold"
                     size={68}
                     strokeWidth={7}
                     value={state.progress}
                   />
                 </div>
-                <div className="min-w-0 space-y-0.5 pr-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {macro.label}
-                  </p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {formatMacroSummary(stat, macro.unit)}
-                  </p>
-                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:text-[11px]">
+                  {macro.label}
+                </p>
+                <p className="hidden truncate text-[11px] text-muted-foreground lg:block">
+                  {formatMacroSummary(stat, macro.unit)}
+                </p>
               </div>
-            </DashboardDrilldownLink>
+            </Link>
           );
         })}
       </div>
