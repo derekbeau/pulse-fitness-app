@@ -3,6 +3,10 @@ import { Line, LineChart, ResponsiveContainer } from 'recharts';
 import type { DashboardTrendMetric } from '@pulse/shared';
 
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DashboardDrilldownLink,
+  dashboardDrilldownCardClassName,
+} from '@/features/dashboard/components/dashboard-drilldown-link';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { accentCardStyles } from '@/lib/accent-card-styles';
@@ -20,6 +24,7 @@ type TrendMetricCardProps = {
   changePercent: number;
   color: string;
   data: TrendSparklineRealDatum[];
+  to: string;
   className?: string;
   textClassName?: string;
 };
@@ -210,29 +215,38 @@ function TrendMetricCard({
   changePercent,
   color,
   data,
+  to,
   className,
   textClassName,
 }: TrendMetricCardProps) {
   return (
-    <Card
-      className={cn(
-        'gap-0 border-transparent py-3 shadow-sm dark:text-foreground',
-        textClassName,
-        className,
-      )}
-      data-slot="trend-sparkline-card"
+    <DashboardDrilldownLink
+      indicatorClassName="right-2.5 bottom-2.5 px-1.5 py-0.5"
+      indicatorLabel=""
+      to={to}
+      viewLabel={`View ${label.toLowerCase()} details`}
     >
-      <CardContent className="h-full px-3">
-        <TrendSparkline
-          changePercent={changePercent}
-          color={color}
-          currentValue={currentValue}
-          data={data}
-          label={label}
-          textClassName={textClassName}
-        />
-      </CardContent>
-    </Card>
+      <Card
+        className={cn(
+          'gap-0 border-transparent py-3 shadow-sm dark:text-foreground',
+          dashboardDrilldownCardClassName,
+          textClassName,
+          className,
+        )}
+        data-slot="trend-sparkline-card"
+      >
+        <CardContent className="h-full px-3 pr-8">
+          <TrendSparkline
+            changePercent={changePercent}
+            color={color}
+            currentValue={currentValue}
+            data={data}
+            label={label}
+            textClassName={textClassName}
+          />
+        </CardContent>
+      </Card>
+    </DashboardDrilldownLink>
   );
 }
 
@@ -315,6 +329,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
+      to: '/weight/history',
       currentValue: hasSelectedWeightValue ? formatWeight(selectedWeightValue, 'lbs') : '--',
       changePercent:
         weightSeries.length > 1
@@ -327,6 +342,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     calories: {
       label: 'Calorie Trend',
+      to: '/nutrition',
       currentValue: hasSelectedCalorieValue ? `${formatCalories(selectedCalorieValue)} kcal` : '--',
       changePercent:
         calorieSeries.length > 1
@@ -342,6 +358,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     protein: {
       label: 'Protein Trend',
+      to: '/nutrition',
       currentValue: hasSelectedProteinValue ? formatGrams(selectedProteinValue) : '--',
       changePercent:
         proteinSeries.length > 1

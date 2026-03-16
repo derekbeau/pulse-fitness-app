@@ -1,6 +1,6 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
+import { ChevronRight, EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -397,7 +397,7 @@ export function DashboardPage() {
                       widgetLabel={DASHBOARD_WIDGET_IDS['log-weight']}
                     >
                       <Card
-                        className="gap-3 py-3 sm:py-3.5"
+                        className="gap-3 py-3 transition-[box-shadow,border-color,background-color] duration-200 hover:border-primary/35 hover:bg-card/80 hover:shadow-md focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 sm:py-3.5"
                         data-qa="dashboard-log-weight-card"
                         data-testid="dashboard-log-weight-card"
                       >
@@ -410,10 +410,11 @@ export function DashboardPage() {
                               </CardDescription>
                             </div>
                             <Link
-                              className="text-xs font-medium text-primary hover:underline sm:text-sm"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-sm"
                               to="/weight/history"
                             >
-                              History
+                              <span>View history</span>
+                              <ChevronRight className="size-3.5" />
                             </Link>
                           </div>
                         </CardHeader>

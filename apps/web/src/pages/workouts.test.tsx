@@ -281,6 +281,7 @@ describe('WorkoutsPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Workouts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('button', { name: 'Calendar' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -336,17 +337,27 @@ describe('WorkoutsPage', () => {
       'aria-pressed',
       'true',
     );
-    const detailsLink = (await screen.findAllByRole('link')).find(
-      (link) => link.getAttribute('href') === '/workouts/session/session-1?view=list',
-    );
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole('link')
+          .some((link) => link.getAttribute('href') === '/workouts/session/session-1?view=list'),
+      ).toBe(true);
+    });
+
+    const detailsLink = screen
+      .getAllByRole('link')
+      .find((link) => link.getAttribute('href') === '/workouts/session/session-1?view=list');
     if (!detailsLink) {
       throw new Error('Expected session detail link with view=list query param');
     }
     expect(detailsLink).toHaveAttribute('href', '/workouts/session/session-1?view=list');
 
-    const activeSessionLink = (await screen.findAllByRole('link')).find(
-      (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-2',
-    );
+    const activeSessionLink = screen
+      .getAllByRole('link')
+      .find(
+        (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-2',
+      );
     if (!activeSessionLink) {
       throw new Error('Expected in-progress session link to the active workout route');
     }
@@ -355,9 +366,11 @@ describe('WorkoutsPage', () => {
       '/workouts/active?view=list&sessionId=session-2',
     );
 
-    const pausedSessionLink = (await screen.findAllByRole('link')).find(
-      (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-4',
-    );
+    const pausedSessionLink = screen
+      .getAllByRole('link')
+      .find(
+        (link) => link.getAttribute('href') === '/workouts/active?view=list&sessionId=session-4',
+      );
     if (!pausedSessionLink) {
       throw new Error('Expected paused session link to the active workout route');
     }

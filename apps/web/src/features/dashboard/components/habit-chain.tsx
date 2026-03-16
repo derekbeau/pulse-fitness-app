@@ -7,6 +7,10 @@ import { Flame } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DashboardDrilldownLink,
+  dashboardDrilldownCardClassName,
+} from '@/features/dashboard/components/dashboard-drilldown-link';
 import { addDays, formatDateKey, getToday, toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
@@ -146,68 +150,77 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
     <section aria-label="Habit chains" className="space-y-2.5">
       <TooltipProvider>
         {visibleHabits.map((habit) => (
-          <Card className="gap-2 px-3 py-2.5" key={habit.id}>
-            <CardContent className="space-y-2 px-0">
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-sm leading-tight font-semibold text-foreground">
-                  {habit.name}
-                </h2>
-                <p
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-foreground sm:text-sm"
-                  data-slot="habit-chain-streak"
+          <DashboardDrilldownLink
+            indicatorClassName="right-3 bottom-3"
+            key={habit.id}
+            to="/habits"
+            viewLabel={`View ${habit.name} habit details`}
+          >
+            <Card className={cn('gap-2 px-3 py-2.5', dashboardDrilldownCardClassName)}>
+              <CardContent className="space-y-2 px-0">
+                <div className="flex items-start justify-between gap-3 pr-14">
+                  <h2 className="text-sm leading-tight font-semibold text-foreground">
+                    {habit.name}
+                  </h2>
+                  <p
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-foreground sm:text-sm"
+                    data-slot="habit-chain-streak"
+                  >
+                    <Flame aria-hidden className="size-3.5 text-[var(--color-accent-pink)]" />
+                    <span className="text-sm leading-none sm:text-base">{`${habit.currentStreak} day streak`}</span>
+                  </p>
+                </div>
+
+                <div
+                  className="grid grid-cols-7 gap-1.5 pr-14 sm:grid-cols-10"
+                  data-slot="habit-chain-grid"
                 >
-                  <Flame aria-hidden className="size-3.5 text-[var(--color-accent-pink)]" />
-                  <span className="text-sm leading-none sm:text-base">{`${habit.currentStreak} day streak`}</span>
-                </p>
-              </div>
+                  {habit.entries.map((entry) => {
+                    const isSelectedDay = entry.date === selectedDateKey;
+                    const statusLabel =
+                      entry.status === 'completed'
+                        ? 'Completed'
+                        : entry.status === 'missed'
+                          ? 'Missed'
+                          : 'Not scheduled';
+                    const statusClass =
+                      entry.status === 'completed'
+                        ? 'bg-[var(--color-accent-mint)]'
+                        : entry.status === 'missed'
+                          ? 'bg-red-400/70 dark:bg-red-500/50'
+                          : 'bg-[var(--color-muted)]/40';
 
-              <div
-                className="grid grid-cols-7 gap-1.5 sm:grid-cols-10"
-                data-slot="habit-chain-grid"
-              >
-                {habit.entries.map((entry) => {
-                  const isSelectedDay = entry.date === selectedDateKey;
-                  const statusLabel =
-                    entry.status === 'completed'
-                      ? 'Completed'
-                      : entry.status === 'missed'
-                        ? 'Missed'
-                        : 'Not scheduled';
-                  const statusClass =
-                    entry.status === 'completed'
-                      ? 'bg-[var(--color-accent-mint)]'
-                      : entry.status === 'missed'
-                        ? 'bg-red-400/70 dark:bg-red-500/50'
-                        : 'bg-[var(--color-muted)]/40';
-
-                  return (
-                    <Tooltip key={`${habit.id}-${entry.date}`}>
-                      <TooltipTrigger asChild>
-                        <button
-                          aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
-                          className={cn(
-                            'size-11 min-h-11 min-w-11 justify-self-center rounded-full border transition-colors',
-                            statusClass,
-                            isSelectedDay ? 'border-[var(--color-primary)]' : 'border-transparent',
-                          )}
-                          data-date={entry.date}
-                          data-status={entry.status}
-                          data-slot="habit-chain-day"
-                          data-today={isSelectedDay ? 'true' : 'false'}
-                          title={`${formatDateLabel(entry.date)} — ${statusLabel}`}
-                          type="button"
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={6}>
-                        <p>{formatDateLabel(entry.date)}</p>
-                        <p className="text-xs text-muted-foreground">{statusLabel}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    return (
+                      <Tooltip key={`${habit.id}-${entry.date}`}>
+                        <TooltipTrigger asChild>
+                          <button
+                            aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
+                            className={cn(
+                              'relative z-20 size-11 min-h-11 min-w-11 justify-self-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                              statusClass,
+                              isSelectedDay
+                                ? 'border-[var(--color-primary)]'
+                                : 'border-transparent',
+                            )}
+                            data-date={entry.date}
+                            data-status={entry.status}
+                            data-slot="habit-chain-day"
+                            data-today={isSelectedDay ? 'true' : 'false'}
+                            title={`${formatDateLabel(entry.date)} — ${statusLabel}`}
+                            type="button"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6}>
+                          <p>{formatDateLabel(entry.date)}</p>
+                          <p className="text-xs text-muted-foreground">{statusLabel}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </DashboardDrilldownLink>
         ))}
       </TooltipProvider>
     </section>

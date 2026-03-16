@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BodyWeightEntry } from '@pulse/shared';
 import { computeEWMA, computeWeightInsights } from '@pulse/shared';
+import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import {
   CartesianGrid,
@@ -158,7 +159,7 @@ export function WeightTrendChart() {
   return (
     <Card
       aria-labelledby="weight-trend-chart-heading"
-      className="gap-3 py-3 sm:py-4"
+      className="gap-3 py-3 transition-[box-shadow,border-color,background-color] duration-200 hover:border-primary/35 hover:bg-card/80 hover:shadow-md focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 sm:py-4"
       data-slot="weight-trend-chart"
     >
       <CardHeader className="gap-2.5 border-b border-border/70 px-3 pb-3 sm:px-4">
@@ -175,10 +176,11 @@ export function WeightTrendChart() {
             Scale weight with EWMA smoothing.
           </p>
           <Link
-            className="text-xs font-medium text-primary hover:underline sm:text-sm"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-sm"
             to="/weight/history"
           >
-            View history
+            <span>View history</span>
+            <ChevronRight className="size-3.5" />
           </Link>
         </div>
 

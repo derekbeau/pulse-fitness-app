@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
+import type { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NutritionPage } from '@/pages/nutrition';
@@ -219,6 +221,18 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
   return { fetchMock };
 }
 
+function renderNutritionPage() {
+  const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
+
+  return render(<NutritionPage />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>
+        <QueryClientWrapper>{children}</QueryClientWrapper>
+      </MemoryRouter>
+    ),
+  });
+}
+
 function createDeferredResponse() {
   let resolve: (value: Response) => void = () => {};
 
@@ -391,8 +405,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
@@ -400,6 +413,7 @@ describe('NutritionPage', () => {
     const dailyTotals = screen.getByLabelText('Daily macro totals');
 
     expect(screen.getByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
     expect(screen.getByText('Friday, Mar 6')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to next day' })).toBeDisabled();
@@ -445,16 +459,16 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
     const strip = screen.getByRole('list', { name: 'Nutrition week summary' });
     const dateNavPreviousButton = screen.getByRole('button', { name: 'Go to previous day' });
-    expect(strip.compareDocumentPosition(dateNavPreviousButton) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .toBeTruthy();
+    expect(
+      strip.compareDocumentPosition(dateNavPreviousButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
@@ -492,8 +506,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
@@ -512,8 +525,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
@@ -540,8 +552,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
@@ -587,8 +598,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
     await vi.runAllTimersAsync();
@@ -622,8 +632,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
     await vi.runAllTimersAsync();
@@ -664,8 +673,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
     await vi.runAllTimersAsync();
@@ -708,8 +716,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
     await vi.runAllTimersAsync();
@@ -775,8 +782,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
@@ -794,8 +800,7 @@ describe('NutritionPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { wrapper } = createQueryClientWrapper();
-    render(<NutritionPage />, { wrapper });
+    renderNutritionPage();
 
     await vi.runAllTimersAsync();
     await Promise.resolve();

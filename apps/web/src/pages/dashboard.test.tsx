@@ -463,9 +463,18 @@ describe('DashboardPage', () => {
     expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'View history' })).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'View weight history' })).toHaveAttribute(
       'href',
       '/weight/history',
+    );
+    expect(screen.getByRole('link', { name: 'View nutrition details' })).toHaveAttribute(
+      'href',
+      '/nutrition',
+    );
+    expect(screen.getByRole('link', { name: 'View habits details' })).toHaveAttribute(
+      'href',
+      '/habits',
     );
     expect(screen.queryByTestId('dashboard-log-weight-form')).not.toBeInTheDocument();
 

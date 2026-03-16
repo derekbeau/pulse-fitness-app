@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-sparklines';
@@ -150,7 +151,11 @@ describe('TrendSparklines', () => {
       isLoading: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    const { container } = render(<TrendSparklines endDate="2026-03-07" />);
+    const { container } = render(
+      <MemoryRouter>
+        <TrendSparklines endDate="2026-03-07" />
+      </MemoryRouter>,
+    );
 
     const cards = container.querySelectorAll('[data-slot="trend-sparkline-card"]');
     expect(cards).toHaveLength(3);
@@ -158,6 +163,18 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View weight trend details' })).toHaveAttribute(
+      'href',
+      '/weight/history',
+    );
+    expect(screen.getByRole('link', { name: 'View calorie trend details' })).toHaveAttribute(
+      'href',
+      '/nutrition',
+    );
+    expect(screen.getByRole('link', { name: 'View protein trend details' })).toHaveAttribute(
+      'href',
+      '/nutrition',
+    );
     expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
     expect(screen.getByText('2050 kcal')).toBeInTheDocument();
     expect(screen.getByText('170g')).toBeInTheDocument();
@@ -203,7 +220,11 @@ describe('TrendSparklines', () => {
       isLoading: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    const { container } = render(<TrendSparklines />);
+    const { container } = render(
+      <MemoryRouter>
+        <TrendSparklines />
+      </MemoryRouter>,
+    );
 
     expect(container.querySelectorAll('[data-slot="trend-sparkline-card-skeleton"]')).toHaveLength(
       3,
@@ -221,7 +242,11 @@ describe('TrendSparklines', () => {
       isLoading: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    const { container } = render(<TrendSparklines endDate="2026-03-07" metrics={['protein']} />);
+    const { container } = render(
+      <MemoryRouter>
+        <TrendSparklines endDate="2026-03-07" metrics={['protein']} />
+      </MemoryRouter>,
+    );
 
     const cards = container.querySelectorAll('[data-slot="trend-sparkline-card"]');
     expect(cards).toHaveLength(1);
@@ -246,7 +271,11 @@ describe('TrendSparklines', () => {
       isLoading: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    render(<TrendSparklines metrics={[]} />);
+    render(
+      <MemoryRouter>
+        <TrendSparklines metrics={[]} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText('No trend metrics selected.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
@@ -270,7 +299,11 @@ describe('TrendSparklines', () => {
       isError: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    render(<TrendSparklines metrics={['weight']} />);
+    render(
+      <MemoryRouter>
+        <TrendSparklines metrics={['weight']} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText('Unable to load trend data.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
@@ -303,7 +336,11 @@ describe('TrendSparklines', () => {
       isError: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    render(<TrendSparklines endDate="2026-03-07" />);
+    render(
+      <MemoryRouter>
+        <TrendSparklines endDate="2026-03-07" />
+      </MemoryRouter>,
+    );
 
     const calorieCard = screen
       .getByText('Calorie Trend')
@@ -338,7 +375,11 @@ describe('TrendSparklines', () => {
       isError: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    render(<TrendSparklines endDate="2026-03-06" />);
+    render(
+      <MemoryRouter>
+        <TrendSparklines endDate="2026-03-06" />
+      </MemoryRouter>,
+    );
 
     const weightCard = screen
       .getByText('Weight Trend')
@@ -375,7 +416,11 @@ describe('TrendSparklines', () => {
       isError: false,
     } as ReturnType<typeof useMacroTrend>);
 
-    render(<TrendSparklines endDate="2026-03-07" metrics={['calories']} />);
+    render(
+      <MemoryRouter>
+        <TrendSparklines endDate="2026-03-07" metrics={['calories']} />
+      </MemoryRouter>,
+    );
 
     const calorieCard = screen
       .getByText('Calorie Trend')

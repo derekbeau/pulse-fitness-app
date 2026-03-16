@@ -67,6 +67,7 @@ describe('HabitsPage', () => {
     );
 
     expect(await screen.findByText('No active habits configured yet.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
     fireEvent.click(screen.getByRole('button', { name: 'Add Habit' }));
 
     expect(await screen.findByRole('heading', { name: 'Add habit' })).toBeInTheDocument();

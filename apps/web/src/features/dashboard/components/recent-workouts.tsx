@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
@@ -106,12 +107,20 @@ export function RecentWorkouts() {
                         </span>
                       </div>
 
-                      <div className="flex min-w-0 flex-wrap gap-1.5 text-xs text-foreground">
-                        <span className="rounded-full bg-secondary px-2 py-0.5">
-                          {`${workout.exerciseCount} exercises`}
-                        </span>
-                        <span className="rounded-full bg-secondary px-2 py-0.5">
-                          {workout.duration === null ? 'Duration n/a' : `${workout.duration} min`}
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap gap-1.5 text-xs text-foreground">
+                          <span className="rounded-full bg-secondary px-2 py-0.5">
+                            {`${workout.exerciseCount} exercises`}
+                          </span>
+                          <span className="rounded-full bg-secondary px-2 py-0.5">
+                            {workout.duration === null ? 'Duration n/a' : `${workout.duration} min`}
+                          </span>
+                        </div>
+                        <span
+                          aria-hidden="true"
+                          className="inline-flex shrink-0 items-center text-muted-foreground"
+                        >
+                          <ChevronRight className="size-4" />
                         </span>
                       </div>
                     </div>

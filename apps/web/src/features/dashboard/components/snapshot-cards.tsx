@@ -3,6 +3,11 @@ import type { DashboardSnapshot, DashboardWorkoutSnapshot } from '@pulse/shared'
 import { Link } from 'react-router';
 
 import { StatCard } from '@/components/ui/stat-card';
+import {
+  DashboardDrilldownIndicator,
+  DashboardDrilldownLink,
+  dashboardDrilldownCardClassName,
+} from '@/features/dashboard/components/dashboard-drilldown-link';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { formatCalories, formatGrams, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
@@ -130,7 +135,11 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       : [
           <span key="text">No targets set</span>,
           ' ',
-          <Link key="link" className="font-semibold underline underline-offset-2" to="/settings">
+          <Link
+            key="link"
+            className="relative z-20 font-semibold underline underline-offset-2"
+            to="/settings"
+          >
             Settings
           </Link>,
         ]
@@ -151,7 +160,11 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       : [
           <span key="text">No targets set</span>,
           ' ',
-          <Link key="link" className="font-semibold underline underline-offset-2" to="/settings">
+          <Link
+            key="link"
+            className="relative z-20 font-semibold underline underline-offset-2"
+            to="/settings"
+          >
             Settings
           </Link>,
         ]
@@ -175,9 +188,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
     <StatCard
       className={cn(
         'col-span-2 border-primary/20 bg-secondary',
-        workoutHref
-          ? 'cursor-pointer transition-colors hover:border-primary/40 hover:bg-secondary/80'
-          : undefined,
+        workoutHref ? dashboardDrilldownCardClassName : undefined,
       )}
       density="compact"
       data-stagger="4"
@@ -206,74 +217,111 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      <StatCard
-        accentTextClassName={
-          snapshot && !hasWeight ? notConfiguredAccentTextClassName : 'text-on-cream'
-        }
-        className={snapshot && !hasWeight ? notConfiguredCardClassName : accentCardStyles.cream}
-        density="compact"
-        data-stagger="0"
-        label="Body Weight"
-        value={weightValue}
-        valueClassName={getSnapshotValueClassName(weightValue)}
-        valueTitle={weightValue}
-      />
+      <DashboardDrilldownLink
+        indicatorClassName="top-2.5 right-2.5 bottom-auto px-1.5 py-0.5"
+        indicatorLabel=""
+        to="/weight/history"
+        viewLabel="View weight history"
+      >
+        <StatCard
+          accentTextClassName={
+            snapshot && !hasWeight ? notConfiguredAccentTextClassName : 'text-on-cream'
+          }
+          className={cn(
+            snapshot && !hasWeight ? notConfiguredCardClassName : accentCardStyles.cream,
+            dashboardDrilldownCardClassName,
+          )}
+          density="compact"
+          data-stagger="0"
+          label="Body Weight"
+          value={weightValue}
+          valueClassName={getSnapshotValueClassName(weightValue)}
+          valueTitle={weightValue}
+        />
+      </DashboardDrilldownLink>
 
-      <StatCard
-        accentTextClassName={
-          snapshot && !hasCaloriesTarget ? notConfiguredAccentTextClassName : 'text-on-pink'
-        }
-        className={
-          snapshot && !hasCaloriesTarget ? notConfiguredCardClassName : accentCardStyles.pink
-        }
-        density="compact"
-        data-stagger="1"
-        label="Calories"
-        value={caloriesValue}
-        valueClassName={getSnapshotValueClassName(caloriesValueText)}
-        valueTitle={hasCaloriesTarget ? caloriesValueText : undefined}
-      />
+      <DashboardDrilldownLink
+        indicatorClassName="top-2.5 right-2.5 bottom-auto px-1.5 py-0.5"
+        indicatorLabel=""
+        to="/nutrition"
+        viewLabel="View nutrition details"
+      >
+        <StatCard
+          accentTextClassName={
+            snapshot && !hasCaloriesTarget ? notConfiguredAccentTextClassName : 'text-on-pink'
+          }
+          className={cn(
+            snapshot && !hasCaloriesTarget ? notConfiguredCardClassName : accentCardStyles.pink,
+            dashboardDrilldownCardClassName,
+          )}
+          density="compact"
+          data-stagger="1"
+          label="Calories"
+          value={caloriesValue}
+          valueClassName={getSnapshotValueClassName(caloriesValueText)}
+          valueTitle={hasCaloriesTarget ? caloriesValueText : undefined}
+        />
+      </DashboardDrilldownLink>
 
-      <StatCard
-        accentTextClassName={
-          snapshot && !hasProteinTarget ? notConfiguredAccentTextClassName : 'text-on-mint'
-        }
-        className={
-          snapshot && !hasProteinTarget ? notConfiguredCardClassName : accentCardStyles.mint
-        }
-        density="compact"
-        data-stagger="2"
-        label="Protein"
-        value={proteinValue}
-        valueClassName={getSnapshotValueClassName(proteinValueText)}
-        valueTitle={hasProteinTarget ? proteinValueText : undefined}
-      />
+      <DashboardDrilldownLink
+        indicatorClassName="top-2.5 right-2.5 bottom-auto px-1.5 py-0.5"
+        indicatorLabel=""
+        to="/nutrition"
+        viewLabel="View protein details"
+      >
+        <StatCard
+          accentTextClassName={
+            snapshot && !hasProteinTarget ? notConfiguredAccentTextClassName : 'text-on-mint'
+          }
+          className={cn(
+            snapshot && !hasProteinTarget ? notConfiguredCardClassName : accentCardStyles.mint,
+            dashboardDrilldownCardClassName,
+          )}
+          density="compact"
+          data-stagger="2"
+          label="Protein"
+          value={proteinValue}
+          valueClassName={getSnapshotValueClassName(proteinValueText)}
+          valueTitle={hasProteinTarget ? proteinValueText : undefined}
+        />
+      </DashboardDrilldownLink>
 
-      <StatCard
-        accentTextClassName={
-          snapshot && !hasHabits ? notConfiguredAccentTextClassName : 'text-on-mint'
-        }
-        className={snapshot && !hasHabits ? notConfiguredCardClassName : accentCardStyles.mint}
-        density="compact"
-        data-stagger="3"
-        label="Habits"
-        trend={
-          snapshot && hasHabits
-            ? { direction: 'neutral', value: habitCompletionPercent }
-            : undefined
-        }
-        value={habitsValueText}
-        valueClassName={getSnapshotValueClassName(habitsValueText)}
-        valueTitle={habitsValueText}
-      />
+      <DashboardDrilldownLink
+        indicatorClassName="top-2.5 right-2.5 bottom-auto px-1.5 py-0.5"
+        indicatorLabel=""
+        to="/habits"
+        viewLabel="View habits details"
+      >
+        <StatCard
+          accentTextClassName={
+            snapshot && !hasHabits ? notConfiguredAccentTextClassName : 'text-on-mint'
+          }
+          className={cn(
+            snapshot && !hasHabits ? notConfiguredCardClassName : accentCardStyles.mint,
+            dashboardDrilldownCardClassName,
+          )}
+          density="compact"
+          data-stagger="3"
+          label="Habits"
+          trend={
+            snapshot && hasHabits
+              ? { direction: 'neutral', value: habitCompletionPercent }
+              : undefined
+          }
+          value={habitsValueText}
+          valueClassName={getSnapshotValueClassName(habitsValueText)}
+          valueTitle={habitsValueText}
+        />
+      </DashboardDrilldownLink>
 
       {workoutHref ? (
         <Link
           aria-label={`Open today's workout: ${snapshot?.workout?.name ?? 'workout'}`}
-          className="col-span-2 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="group/drilldown relative col-span-2 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           to={workoutHref}
         >
           {workoutCard}
+          <DashboardDrilldownIndicator className="right-2.5 bottom-2.5 px-1.5 py-0.5" label="" />
         </Link>
       ) : (
         workoutCard
