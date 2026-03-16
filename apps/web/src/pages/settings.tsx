@@ -108,7 +108,6 @@ const DASHBOARD_WIDGET_DESCRIPTIONS: Record<keyof typeof DASHBOARD_WIDGET_IDS, s
   'habit-chain': 'Streak chains for habits selected in this settings page.',
   'trend-sparklines': 'Compact trend charts for your chosen dashboard metrics.',
   'recent-workouts': 'Latest workout sessions with completion status and duration.',
-  calendar: 'Date picker for navigating historical dashboard data.',
   'log-weight': 'Quick form to log body weight for the selected date.',
   'weight-trend': 'Detailed chart with raw scale and smoothed trend lines.',
 };

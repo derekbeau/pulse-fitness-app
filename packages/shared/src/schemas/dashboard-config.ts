@@ -10,7 +10,6 @@ export const DASHBOARD_WIDGET_IDS = {
   'habit-chain': 'Habit Streaks',
   'trend-sparklines': 'Trend Charts',
   'recent-workouts': 'Recent Workouts',
-  calendar: 'Date Picker',
   'log-weight': 'Log Weight',
   'weight-trend': 'Weight Trend',
 } as const;

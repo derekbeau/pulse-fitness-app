@@ -1,6 +1,6 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
+import { Calendar, ChevronRight, EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Toggle } from '@/components/ui/toggle';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
@@ -108,6 +109,7 @@ export function DashboardPage() {
   const [weightInput, setWeightInput] = useState('');
   const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
   const [isWeightEditorOpen, setIsWeightEditorOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
   const [widgetVisibilityMessage, setWidgetVisibilityMessage] = useState('');
@@ -153,6 +155,7 @@ export function DashboardPage() {
     setWeightInput('');
     setWeightStatus(null);
     setSelectedDate(nextDate);
+    setIsCalendarOpen(false);
   }
 
   function hideWidget(widgetId: DashboardWidgetId) {
@@ -330,7 +333,23 @@ export function DashboardPage() {
             {widgetVisibilityMessage || 'Hide or restore widgets, then save changes.'}
           </p>
         ) : null}
-        <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button aria-label="Change date" size="icon-sm" type="button" variant="ghost">
+                <Calendar className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+              <CalendarPicker
+                className="border-0"
+                onDateSelect={handleSelectedDateChange}
+                selectedDate={selectedDate}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </header>
 
       {shouldShowEmptyState ? (
@@ -348,21 +367,6 @@ export function DashboardPage() {
             className="order-1 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-1 xl:order-2"
             data-slot="dashboard-main-column"
           >
-            {visibleWidgets.includes('calendar') ? (
-              <DashboardWidgetFrame
-                className="order-1 md:order-3"
-                dataSlot="dashboard-calendar-panel"
-                isEditMode={isEditMode}
-                onHide={() => hideWidget('calendar')}
-                widgetLabel={DASHBOARD_WIDGET_IDS.calendar}
-              >
-                <CalendarPicker
-                  onDateSelect={handleSelectedDateChange}
-                  selectedDate={selectedDate}
-                />
-              </DashboardWidgetFrame>
-            ) : null}
-
             {visibleWidgets.includes('snapshot-cards') || visibleWidgets.includes('log-weight') ? (
               <div className="order-2 md:order-1" data-slot="dashboard-snapshot-panel">
                 <div className="flex flex-col gap-3 sm:gap-4">
