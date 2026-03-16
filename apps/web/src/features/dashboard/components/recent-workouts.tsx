@@ -64,7 +64,11 @@ export function RecentWorkouts() {
             Recent Workouts
           </h2>
         </CardTitle>
-        <DashboardCardHeaderLink ariaLabel="View all workouts" label="All" to="/workouts" />
+        <DashboardCardHeaderLink
+          ariaLabel="View all workouts"
+          label="All"
+          to="/workouts?view=list"
+        />
       </CardHeader>
 
       <CardContent className="overflow-hidden px-3 sm:px-4">
@@ -73,7 +77,7 @@ export function RecentWorkouts() {
         ) : recentWorkoutsQuery.isError ? (
           <p className="text-sm text-muted-foreground">Unable to load recent workouts.</p>
         ) : recentWorkoutsQuery.data && recentWorkoutsQuery.data.length > 0 ? (
-          <ul className="grid gap-2.5">
+          <ul className="grid gap-2.5 py-0.5">
             {recentWorkoutsQuery.data.map((workout) => (
               <li className="min-w-0" key={workout.id}>
                 <Link
