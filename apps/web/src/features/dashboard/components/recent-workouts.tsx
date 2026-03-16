@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { formatRelativeWorkoutDate } from '@/features/dashboard/lib/recent-workouts';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { parseDateInput } from '@/lib/date';
@@ -63,14 +64,7 @@ export function RecentWorkouts() {
             Recent Workouts
           </h2>
         </CardTitle>
-        <Button
-          asChild
-          className="h-auto px-0 py-0 text-muted-foreground hover:text-foreground"
-          size="sm"
-          variant="link"
-        >
-          <Link to="/workouts">View all</Link>
-        </Button>
+        <DashboardCardHeaderLink ariaLabel="View all workouts" label="All" to="/workouts" />
       </CardHeader>
 
       <CardContent className="overflow-hidden px-3 sm:px-4">

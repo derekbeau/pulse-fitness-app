@@ -128,7 +128,7 @@ describe('WeightTrendChart', () => {
       expect.objectContaining({ method: 'GET' }),
     );
     expect(screen.getByRole('heading', { name: 'Weight Trend' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View history' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'View weight history' })).toHaveAttribute(
       'href',
       '/weight/history',
     );

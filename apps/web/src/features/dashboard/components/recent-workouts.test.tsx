@@ -88,7 +88,10 @@ describe('RecentWorkouts', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/workouts');
+    expect(screen.getByRole('link', { name: 'View all workouts' })).toHaveAttribute(
+      'href',
+      '/workouts',
+    );
     expect(screen.queryByText('Your last five sessions at a glance.')).not.toBeInTheDocument();
 
     const workoutLinks = screen.getAllByRole('link', { name: /^Open / });

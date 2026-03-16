@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BodyWeightEntry } from '@pulse/shared';
 import { computeEWMA, computeWeightInsights } from '@pulse/shared';
-import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
+
+import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import {
   CartesianGrid,
   Line,
@@ -163,25 +164,25 @@ export function WeightTrendChart() {
       data-slot="weight-trend-chart"
     >
       <CardHeader className="gap-2.5 border-b border-border/70 px-3 pb-3 sm:px-4">
-        <div className="space-y-1">
-          <CardTitle>
-            <h2
-              className="text-lg leading-tight font-semibold text-foreground md:text-xl"
-              id="weight-trend-chart-heading"
-            >
-              Weight Trend
-            </h2>
-          </CardTitle>
-          <p className="text-xs text-muted-foreground sm:text-sm">
-            Scale weight with EWMA smoothing.
-          </p>
-          <Link
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-sm"
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>
+              <h2
+                className="text-lg leading-tight font-semibold text-foreground md:text-xl"
+                id="weight-trend-chart-heading"
+              >
+                Weight Trend
+              </h2>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              Scale weight with EWMA smoothing.
+            </p>
+          </div>
+          <DashboardCardHeaderLink
+            ariaLabel="View weight history"
+            label="History"
             to="/weight/history"
-          >
-            <span>View history</span>
-            <ChevronRight className="size-3.5" />
-          </Link>
+          />
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">

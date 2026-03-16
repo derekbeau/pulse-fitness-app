@@ -37,6 +37,32 @@ export function DashboardDrilldownIndicator({
   );
 }
 
+export function DashboardCardHeaderLink({
+  to,
+  label = 'View',
+  ariaLabel,
+  className,
+}: {
+  to: string;
+  label?: string;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      aria-label={ariaLabel}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center gap-1 rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-[11px] leading-none font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:border-primary/35 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        className,
+      )}
+      to={to}
+    >
+      {label ? <span>{label}</span> : null}
+      <ChevronRight className="size-3 -mr-0.5" />
+    </Link>
+  );
+}
+
 export function DashboardDrilldownLink({
   children,
   className,

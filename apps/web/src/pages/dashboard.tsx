@@ -1,8 +1,7 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, ChevronRight, EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
+import { Calendar, EyeOff, LayoutDashboard, Pencil, Plus } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Toggle } from '@/components/ui/toggle';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
+import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
@@ -413,13 +413,11 @@ export function DashboardPage() {
                                 Track your body weight for the selected day.
                               </CardDescription>
                             </div>
-                            <Link
-                              className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-sm"
+                            <DashboardCardHeaderLink
+                              ariaLabel="View weight history"
+                              label="History"
                               to="/weight/history"
-                            >
-                              <span>View history</span>
-                              <ChevronRight className="size-3.5" />
-                            </Link>
+                            />
                           </div>
                         </CardHeader>
                         <CardContent className="px-3 sm:px-4">
