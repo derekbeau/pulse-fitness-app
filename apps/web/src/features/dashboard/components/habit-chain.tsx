@@ -5,13 +5,12 @@ import {
 } from '@pulse/shared';
 import { useState } from 'react';
 import { Flame } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  DashboardDrilldownLink,
-  dashboardDrilldownCardClassName,
-} from '@/features/dashboard/components/dashboard-drilldown-link';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { dashboardDrilldownCardClassName } from '@/features/dashboard/components/dashboard-drilldown-link';
+import { HabitChainDot, type HabitDotEntry } from '@/features/habits/components/habit-chain-dot';
 import { HabitDayModal } from '@/features/habits/components/habit-day-modal';
 import { addDays, formatDateKey, getToday, toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
@@ -23,17 +22,9 @@ type HabitChainProps = {
   endDate?: string;
 };
 
-type HabitChainEntry = {
-  date: string;
-  entry: HabitEntryRecord | null;
-  isFutureDate: boolean;
-  isScheduled: boolean;
-  status: 'completed' | 'missed' | 'not_scheduled';
-};
-
 type HabitChainHabit = {
   currentStreak: number;
-  entries: HabitChainEntry[];
+  entries: HabitDotEntry[];
   habit: HabitRecord;
   id: string;
   name: string;
@@ -41,17 +32,7 @@ type HabitChainHabit = {
 
 const DAYS_TO_DISPLAY = 30;
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-});
-
-const formatDateLabel = (date: string): string => {
-  return dateFormatter.format(new Date(`${date}T00:00:00`));
-};
-
-const getCurrentStreak = (entries: HabitChainEntry[]) => {
+const getCurrentStreak = (entries: HabitDotEntry[]) => {
   let streak = 0;
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
@@ -82,6 +63,15 @@ const getVisibleHabits = (habits: HabitChainHabit[], habitIds?: string[]) => {
   return habits.filter((habit) => allowedIds.has(habit.id));
 };
 
+function getCompletionPercent(habit: HabitRecord, entry: HabitEntryRecord | null): number {
+  if (habit.trackingType === 'boolean') {
+    return entry?.completed === true ? 100 : 0;
+  }
+  if (habit.target == null || habit.target <= 0) return 0;
+  if (typeof entry?.value !== 'number') return 0;
+  return Math.min((entry.value / habit.target) * 100, 100);
+}
+
 const buildHabitChainHabits = (
   habits: HabitRecord[],
   entries: HabitEntryRecord[],
@@ -108,11 +98,10 @@ const buildHabitChainHabits = (
   );
 
   return habits.map((habit) => {
-    const entriesByDate =
-      entriesByHabitByDate.get(habit.id) ?? new Map<string, HabitEntryRecord>();
+    const entriesByDate = entriesByHabitByDate.get(habit.id) ?? new Map<string, HabitEntryRecord>();
     const entriesForHabit = entriesByHabit.get(habit.id) ?? [];
     const createdAtDateKey = toDateKey(new Date(habit.createdAt));
-    const chainEntries = dates.map((date) => {
+    const chainEntries: HabitDotEntry[] = dates.map((date) => {
       const isFutureDate = date > todayKey;
       const existingEntry = entriesByDate.get(date) ?? null;
 
@@ -123,6 +112,7 @@ const buildHabitChainHabits = (
           isFutureDate,
           isScheduled: false,
           status: 'not_scheduled' as const,
+          completionPercent: 0,
         };
       }
 
@@ -135,6 +125,7 @@ const buildHabitChainHabits = (
           isFutureDate: false,
           isScheduled,
           status: 'not_scheduled' as const,
+          completionPercent: 0,
         };
       }
 
@@ -145,6 +136,7 @@ const buildHabitChainHabits = (
           isFutureDate: false,
           isScheduled,
           status: 'completed' as const,
+          completionPercent: getCompletionPercent(habit, existingEntry),
         };
       }
 
@@ -157,6 +149,7 @@ const buildHabitChainHabits = (
           // Scheduled-but-unlogged today stays neutral so the chain does not penalize the user
           // before the day is over. Consumers can inspect isScheduled/isFutureDate for detail.
           status: 'not_scheduled' as const,
+          completionPercent: getCompletionPercent(habit, existingEntry),
         };
       }
 
@@ -166,6 +159,7 @@ const buildHabitChainHabits = (
         isFutureDate: false,
         isScheduled,
         status: 'missed' as const,
+        completionPercent: getCompletionPercent(habit, existingEntry),
       };
     });
 
@@ -181,7 +175,7 @@ const buildHabitChainHabits = (
 
 export function HabitChain({ habitIds, habits = [], entries = [], endDate }: HabitChainProps) {
   const [selectedDay, setSelectedDay] = useState<{
-    entry: HabitChainEntry;
+    entry: HabitDotEntry;
     habit: HabitRecord;
   } | null>(null);
   const selectedDateKey = endDate ?? formatDateKey(getToday());
@@ -194,91 +188,49 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
 
   return (
     <>
-      <section aria-label="Habit chains" className="space-y-2.5">
+      <section aria-label="Habit chains" className="grid grid-cols-2 gap-2.5 xl:grid-cols-1">
         <TooltipProvider>
           {visibleHabits.map((habit) => (
-            <DashboardDrilldownLink
-              indicatorClassName="right-3 bottom-3"
+            <Card
+              className={cn('gap-2 px-3 py-2.5', dashboardDrilldownCardClassName)}
               key={habit.id}
-              to="/habits"
-              viewLabel={`View ${habit.name} habit details`}
             >
-              <Card className={cn('gap-2 px-3 py-2.5', dashboardDrilldownCardClassName)}>
-                <CardContent className="space-y-2 px-0">
-                  <div className="flex items-start justify-between gap-3 pr-14">
-                    <h2 className="text-sm leading-tight font-semibold text-foreground">
-                      {habit.name}
-                    </h2>
-                    <p
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-foreground sm:text-sm"
-                      data-slot="habit-chain-streak"
-                    >
-                      <Flame aria-hidden className="size-3.5 text-[var(--color-accent-pink)]" />
-                      <span className="text-sm leading-none sm:text-base">{`${habit.currentStreak} day streak`}</span>
-                    </p>
-                  </div>
-
-                  <div
-                    className="grid grid-cols-7 gap-1.5 pr-14 sm:grid-cols-10"
-                    data-slot="habit-chain-grid"
+              <CardContent className="space-y-2 px-0">
+                <Link
+                  className="space-y-0.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  to="/habits"
+                >
+                  <h2 className="text-sm leading-tight font-semibold text-foreground">
+                    {habit.name}
+                  </h2>
+                  <p
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground"
+                    data-slot="habit-chain-streak"
                   >
-                    {habit.entries.map((entry) => {
-                      const isSelectedDay = entry.date === selectedDateKey;
-                      const statusLabel =
-                        entry.status === 'completed'
-                          ? 'Completed'
-                          : entry.status === 'missed'
-                            ? 'Missed'
-                            : entry.isFutureDate
-                              ? 'Future'
-                              : entry.isScheduled
-                                ? 'Not tracked'
-                                : 'Not scheduled';
-                      const statusClass =
-                        entry.status === 'completed'
-                          ? 'bg-[var(--color-accent-mint)]'
-                          : entry.status === 'missed'
-                            ? 'bg-red-400/70 dark:bg-red-500/50'
-                            : 'bg-[var(--color-muted)]/40';
+                    <Flame aria-hidden className="size-3 text-[var(--color-accent-pink)]" />
+                    <span>{`${habit.currentStreak} day streak`}</span>
+                  </p>
+                </Link>
 
-                      return (
-                        <Tooltip key={`${habit.id}-${entry.date}`}>
-                          <TooltipTrigger asChild>
-                            <button
-                              aria-label={`${habit.name} ${entry.date} ${statusLabel}`}
-                              className={cn(
-                                'relative z-20 size-8 min-h-8 min-w-8 justify-self-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55 sm:size-11 sm:min-h-11 sm:min-w-11',
-                                statusClass,
-                                isSelectedDay
-                                  ? 'border-[var(--color-primary)]'
-                                  : 'border-transparent',
-                              )}
-                              data-date={entry.date}
-                              data-status={entry.status}
-                              data-slot="habit-chain-day"
-                              data-today={isSelectedDay ? 'true' : 'false'}
-                              disabled={entry.isFutureDate}
-                              onClick={() => {
-                                setSelectedDay({
-                                  entry,
-                                  habit: habit.habit,
-                                });
-                              }}
-                              title={`${formatDateLabel(entry.date)} — ${statusLabel}`}
-                              type="button"
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" sideOffset={6}>
-                            <p>{formatDateLabel(entry.date)}</p>
-                            <p className="text-xs text-muted-foreground">{statusLabel}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </DashboardDrilldownLink>
+                <div
+                  className="grid grid-cols-6 gap-1 sm:grid-cols-10 xl:grid-cols-6"
+                  data-slot="habit-chain-grid"
+                >
+                  {habit.entries.map((entry) => (
+                    <HabitChainDot
+                      entry={entry}
+                      habit={habit.habit}
+                      highlighted={entry.date === selectedDateKey}
+                      includeYear
+                      key={`${habit.id}-${entry.date}`}
+                      onClick={() => {
+                        setSelectedDay({ entry, habit: habit.habit });
+                      }}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </TooltipProvider>
       </section>

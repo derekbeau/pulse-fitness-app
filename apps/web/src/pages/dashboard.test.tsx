@@ -689,7 +689,7 @@ describe('DashboardPage', () => {
 
     const updatedSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(updatedSquares[29]).toHaveAttribute('data-date', '2026-03-04');
-    expect(updatedSquares[29]).toHaveAttribute('data-today', 'true');
+    expect(updatedSquares[29]).toHaveClass('border-[var(--color-primary)]');
     expect(
       mockFetch.mock.calls.some((call) => {
         const rawInput = call[0];

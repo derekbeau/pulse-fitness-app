@@ -4,6 +4,7 @@ import {
   ArrowUp,
   CalendarCheck,
   CalendarX,
+  LayoutDashboard,
   MoreVertical,
   Pause,
   PencilLine,
@@ -31,12 +32,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  useDeleteHabit,
-  useReorderHabits,
-  useUpdateHabit,
-} from '@/features/habits/api/habits';
+import { useDeleteHabit, useReorderHabits, useUpdateHabit } from '@/features/habits/api/habits';
 import { INDEFINITE_PAUSE_DATE } from '@/features/habits/lib/habit-constants';
+import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { addDays, getToday, toDateKey } from '@/lib/date';
 
 type HabitCardMenuProps = {
@@ -65,6 +63,10 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
   const updateHabitMutation = useUpdateHabit();
   const deleteHabitMutation = useDeleteHabit();
   const reorderHabitsMutation = useReorderHabits();
+  const dashboardConfigQuery = useDashboardConfig();
+  const saveDashboardConfig = useSaveDashboardConfig();
+
+  const isOnDashboard = dashboardConfigQuery.data?.habitChainIds.includes(habit.id) ?? false;
 
   const currentIndex = habits.findIndex((item) => item.id === habit.id);
   const canMoveUp = currentIndex > 0;
@@ -76,6 +78,17 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
       reorderHabitsMutation.isPending,
     [deleteHabitMutation.isPending, reorderHabitsMutation.isPending, updateHabitMutation.isPending],
   );
+
+  function handleToggleDashboard() {
+    const config = dashboardConfigQuery.data;
+    if (!config) return;
+
+    const nextIds = isOnDashboard
+      ? config.habitChainIds.filter((id) => id !== habit.id)
+      : Array.from(new Set([...config.habitChainIds, habit.id]));
+
+    saveDashboardConfig.mutate({ ...config, habitChainIds: nextIds });
+  }
 
   async function handleMove(direction: 'up' | 'down') {
     if (currentIndex === -1) {
@@ -177,6 +190,12 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
             <PencilLine />
             Edit
           </DropdownMenuItem>
+          {dashboardConfigQuery.data ? (
+            <DropdownMenuItem onClick={handleToggleDashboard}>
+              <LayoutDashboard />
+              {isOnDashboard ? 'Remove from dashboard' : 'Show on dashboard'}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={() => void handleToggleActive()}>
             {habit.active ? <Pause /> : <Play />}
             {habit.active ? 'Deactivate' : 'Activate'}

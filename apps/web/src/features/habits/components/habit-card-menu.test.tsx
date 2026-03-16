@@ -41,6 +41,18 @@ vi.mock('@/features/habits/api/habits', () => ({
   useUpdateHabit: vi.fn(),
 }));
 
+vi.mock('@/hooks/use-dashboard-config', () => ({
+  useDashboardConfig: vi.fn(() => ({
+    data: { habitChainIds: [], trendMetrics: [], visibleWidgets: [] },
+    isLoading: false,
+    isError: false,
+  })),
+  useSaveDashboardConfig: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}));
+
 const mockedUseDeleteHabit = vi.mocked(useDeleteHabit);
 const mockedUseReorderHabits = vi.mocked(useReorderHabits);
 const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
