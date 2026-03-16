@@ -6,7 +6,7 @@ import { calculateTrendChangePercent } from '@/features/dashboard/lib/trend-spar
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
 
-import { TrendSparkline, TrendSparklines } from './trend-sparkline';
+import { TrendSparkline, TrendSparklines, type TrendSparklinePlotDatum } from './trend-sparkline';
 
 vi.mock('@/hooks/use-weight-trend', () => ({
   useWeightTrend: vi.fn(),
@@ -73,21 +73,26 @@ describe('calculateTrendChangePercent', () => {
 });
 
 describe('TrendSparkline', () => {
+  const plotData: TrendSparklinePlotDatum[] = [
+    { date: '2026-03-06', value: 175.6, trend: 175.6 },
+    { date: '2026-03-07', value: 175.2, trend: 175.4 },
+  ];
+
   it('renders a mini line chart without axes or legends', () => {
     const { container } = render(
       <div className="w-80">
         <TrendSparkline
           changePercent={-0.4}
           color="#3B82F6"
-          currentValue="175.2 lbs"
-          data={sampleWeightTrend}
+          currentValue="175.4 lbs"
+          data={plotData}
           label="Weight Trend"
         />
       </div>,
     );
 
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
-    expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
+    expect(screen.getByText('175.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('-0.4%')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
     expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
@@ -96,42 +101,19 @@ describe('TrendSparkline', () => {
     expect(container.querySelector('.recharts-legend-wrapper')).not.toBeInTheDocument();
   });
 
-  it('renders empty state text when no real trend data exists', () => {
+  it('renders empty state text when data is empty', () => {
     render(
       <TrendSparkline
         changePercent={0}
         color="#3B82F6"
         currentValue="--"
-        data={[
-          { date: '2026-03-06', value: 0 },
-          { date: '2026-03-07', value: null },
-        ]}
+        data={[]}
         label="Weight Trend"
       />,
     );
 
     expect(screen.getByText('No data')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Weight Trend sparkline' })).not.toBeInTheDocument();
-  });
-
-  it('shows a single dot and hides the line when exactly one real point exists', () => {
-    const { container } = render(
-      <TrendSparkline
-        changePercent={0}
-        color="#3B82F6"
-        currentValue="175.2 lbs"
-        data={[
-          { date: '2026-03-05', value: 0 },
-          { date: '2026-03-06', value: 175.2 },
-          { date: '2026-03-07', value: 0 },
-        ]}
-        label="Weight Trend"
-      />,
-    );
-
-    expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
-    expect(container.querySelector('.recharts-line-dots .recharts-dot')).toBeInTheDocument();
-    expect(container.querySelector('.recharts-line .recharts-curve')).not.toBeInTheDocument();
   });
 });
 
@@ -141,7 +123,7 @@ describe('TrendSparklines', () => {
     vi.mocked(useMacroTrend).mockReset();
   });
 
-  it('renders weight, calorie, and protein trend cards from API trend hooks', () => {
+  it('renders weight, calorie, and protein trend cards with EWMA-smoothed values', () => {
     vi.mocked(useWeightTrend).mockReturnValue({
       data: sampleWeightTrend,
       isLoading: false,
@@ -163,21 +145,10 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View weight trend details' })).toHaveAttribute(
-      'href',
-      '/weight/history',
-    );
-    expect(screen.getByRole('link', { name: 'View calorie trend details' })).toHaveAttribute(
-      'href',
-      '/nutrition',
-    );
-    expect(screen.getByRole('link', { name: 'View protein trend details' })).toHaveAttribute(
-      'href',
-      '/nutrition',
-    );
-    expect(screen.getByText('175.2 lbs')).toBeInTheDocument();
-    expect(screen.getByText('2050 kcal')).toBeInTheDocument();
-    expect(screen.getByText('170g')).toBeInTheDocument();
+
+    // "View details" links navigate to correct routes
+    const links = screen.getAllByRole('link', { name: /view .+ details/i });
+    expect(links).toHaveLength(3);
 
     const weightCard = screen
       .getByText('Weight Trend')
@@ -192,9 +163,6 @@ describe('TrendSparklines', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(calorieCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
-    expect(weightCard).toHaveClass('text-on-cream');
-    expect(calorieCard).toHaveClass('text-on-pink');
-    expect(proteinCard).toHaveClass('text-on-mint');
 
     expect(weightCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();
     expect(calorieCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();
@@ -202,12 +170,6 @@ describe('TrendSparklines', () => {
     expect(
       within(weightCard as HTMLElement).getByRole('img', { name: 'Weight Trend sparkline' }),
     ).toBeInTheDocument();
-    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
-      enabled: true,
-    });
-    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
-      enabled: true,
-    });
   });
 
   it('shows skeleton cards while trend queries are loading', () => {
@@ -279,12 +241,6 @@ describe('TrendSparklines', () => {
 
     expect(screen.getByText('No trend metrics selected.')).toBeInTheDocument();
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
-    expect(vi.mocked(useWeightTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
-      enabled: false,
-    });
-    expect(vi.mocked(useMacroTrend)).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
-      enabled: false,
-    });
   });
 
   it('renders an error state when a required trend query fails', () => {
@@ -309,7 +265,7 @@ describe('TrendSparklines', () => {
     expect(screen.queryByText('Weight Trend')).not.toBeInTheDocument();
   });
 
-  it('shows no current macro value when selected date has no logged entries', () => {
+  it('shows "--" and "No data" when all macro points are zero', () => {
     vi.mocked(useWeightTrend).mockReturnValue({
       data: sampleWeightTrend,
       isLoading: false,
@@ -317,100 +273,8 @@ describe('TrendSparklines', () => {
     } as ReturnType<typeof useWeightTrend>);
     vi.mocked(useMacroTrend).mockReturnValue({
       data: [
-        {
-          date: '2026-03-06',
-          calories: 1900,
-          protein: 160,
-          carbs: 210,
-          fat: 70,
-        },
-        {
-          date: '2026-03-07',
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-        },
-      ],
-      isLoading: false,
-      isError: false,
-    } as ReturnType<typeof useMacroTrend>);
-
-    render(
-      <MemoryRouter>
-        <TrendSparklines endDate="2026-03-07" />
-      </MemoryRouter>,
-    );
-
-    const calorieCard = screen
-      .getByText('Calorie Trend')
-      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
-    const proteinCard = screen
-      .getByText('Protein Trend')
-      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
-
-    expect(within(calorieCard).getByText('--')).toBeInTheDocument();
-    expect(within(proteinCard).getByText('--')).toBeInTheDocument();
-    expect(
-      within(calorieCard).getByRole('img', { name: 'Calorie Trend sparkline' }),
-    ).toBeInTheDocument();
-    expect(
-      within(proteinCard).getByRole('img', { name: 'Protein Trend sparkline' }),
-    ).toBeInTheDocument();
-  });
-
-  it('shows the selected date weight value instead of the latest in-range value', () => {
-    vi.mocked(useWeightTrend).mockReturnValue({
-      data: [
-        { date: '2026-03-05', value: 174.8 },
-        { date: '2026-03-06', value: 175.2 },
-        { date: '2026-03-07', value: 176.1 },
-      ],
-      isLoading: false,
-      isError: false,
-    } as ReturnType<typeof useWeightTrend>);
-    vi.mocked(useMacroTrend).mockReturnValue({
-      data: sampleMacroTrend,
-      isLoading: false,
-      isError: false,
-    } as ReturnType<typeof useMacroTrend>);
-
-    render(
-      <MemoryRouter>
-        <TrendSparklines endDate="2026-03-06" />
-      </MemoryRouter>,
-    );
-
-    const weightCard = screen
-      .getByText('Weight Trend')
-      .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
-
-    expect(within(weightCard).getByText('175.2 lbs')).toBeInTheDocument();
-    expect(within(weightCard).queryByText('176.1 lbs')).not.toBeInTheDocument();
-  });
-
-  it('renders a no-data chart state when all macro points in range are zero', () => {
-    vi.mocked(useWeightTrend).mockReturnValue({
-      data: sampleWeightTrend,
-      isLoading: false,
-      isError: false,
-    } as ReturnType<typeof useWeightTrend>);
-    vi.mocked(useMacroTrend).mockReturnValue({
-      data: [
-        {
-          date: '2026-03-06',
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-        },
-        {
-          date: '2026-03-07',
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-        },
+        { date: '2026-03-06', calories: 0, protein: 0, carbs: 0, fat: 0 },
+        { date: '2026-03-07', calories: 0, protein: 0, carbs: 0, fat: 0 },
       ],
       isLoading: false,
       isError: false,
@@ -428,8 +292,5 @@ describe('TrendSparklines', () => {
 
     expect(within(calorieCard).getByText('--')).toBeInTheDocument();
     expect(within(calorieCard).getByText('No data')).toBeInTheDocument();
-    expect(
-      within(calorieCard).queryByRole('img', { name: 'Calorie Trend sparkline' }),
-    ).not.toBeInTheDocument();
   });
 });

@@ -1,12 +1,9 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { Line, LineChart, ResponsiveContainer } from 'recharts';
-import type { DashboardTrendMetric } from '@pulse/shared';
+import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Link } from 'react-router';
+import { computeEWMA, type DashboardTrendMetric } from '@pulse/shared';
 
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  DashboardDrilldownLink,
-  dashboardDrilldownCardClassName,
-} from '@/features/dashboard/components/dashboard-drilldown-link';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { accentCardStyles } from '@/lib/accent-card-styles';
@@ -20,13 +17,15 @@ type ChangeDirection = 'up' | 'down' | 'neutral';
 
 type TrendMetricCardProps = {
   label: string;
+  subtitle?: string;
   currentValue: string;
   changePercent: number;
   color: string;
-  data: TrendSparklineRealDatum[];
+  data: TrendSparklinePlotDatum[];
   to: string;
   className?: string;
   textClassName?: string;
+  formatTooltip?: (value: number) => string;
 };
 
 export type TrendSparklineDatum = {
@@ -34,15 +33,23 @@ export type TrendSparklineDatum = {
   value: number | null;
 };
 
+export type TrendSparklinePlotDatum = {
+  date: string;
+  value: number;
+  trend: number;
+};
+
 export type TrendSparklineProps = {
-  data: TrendSparklineDatum[];
+  data: TrendSparklinePlotDatum[];
   color: string;
   label: string;
+  subtitle?: string;
   currentValue: number | string;
   changePercent: number;
   className?: string;
   textClassName?: string;
   emptyMessage?: string;
+  formatTooltip?: (value: number) => string;
 };
 
 export type TrendSparklinesProps = {
@@ -73,21 +80,24 @@ const toMetricSeries = <TEntry extends { date: string }>(
   }));
 };
 
-const isTrendValuePresent = (value: number | null | undefined): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0;
-
 const filterSeriesWithData = (series: TrendSparklineDatum[]): TrendSparklineRealDatum[] =>
-  series.filter((entry): entry is TrendSparklineRealDatum => isTrendValuePresent(entry.value));
+  series.filter(
+    (entry): entry is TrendSparklineRealDatum =>
+      typeof entry.value === 'number' && Number.isFinite(entry.value) && entry.value > 0,
+  );
 
-const getValueForDate = (series: TrendSparklineDatum[], date: string): number | null | undefined =>
-  series.find((entry) => entry.date === date)?.value;
-
-const getLatestValue = (series: TrendSparklineRealDatum[], fallback: number): number => {
-  return series.at(-1)?.value ?? fallback;
+const buildPlotSeries = (series: TrendSparklineRealDatum[]): TrendSparklinePlotDatum[] => {
+  if (series.length === 0) return [];
+  const ewma = computeEWMA(series.map((entry) => ({ date: entry.date, weight: entry.value })));
+  return ewma.map((entry) => ({ date: entry.date, value: entry.scale, trend: entry.trend }));
 };
 
-const getPreviousValue = (series: TrendSparklineRealDatum[], fallback: number): number => {
-  return series.at(-2)?.value ?? fallback;
+const getLatestTrend = (series: TrendSparklinePlotDatum[], fallback: number): number => {
+  return series.at(-1)?.trend ?? fallback;
+};
+
+const getPreviousTrend = (series: TrendSparklinePlotDatum[], fallback: number): number => {
+  return series.at(-2)?.trend ?? fallback;
 };
 
 const formatChangePercent = (changePercent: number): string => {
@@ -126,34 +136,43 @@ export function TrendSparkline({
   data,
   color,
   label,
+  subtitle,
   currentValue,
   changePercent,
   className,
   textClassName,
   emptyMessage = 'No data',
+  formatTooltip,
 }: TrendSparklineProps) {
   const direction = getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
   const textClass = textClassName ?? 'text-on-accent';
-  const plottedData = filterSeriesWithData(data);
+  const plottedData = data;
   const hasSingleDataPoint = plottedData.length === 1;
 
   return (
     <div className={cn('flex h-full flex-col gap-2.5', className)} data-slot="trend-sparkline">
       <div className="flex items-start justify-between gap-2.5">
-        <p
-          className={cn(
-            'text-xs font-medium uppercase tracking-[0.14em] opacity-70 dark:text-muted dark:opacity-100',
-            textClass,
-          )}
-        >
-          {label}
-        </p>
+        <div>
+          <p
+            className={cn(
+              'text-xs font-medium uppercase tracking-[0.14em] opacity-70 dark:text-muted dark:opacity-100',
+              textClass,
+            )}
+          >
+            {label}
+          </p>
+          {subtitle ? (
+            <p className={cn('text-[10px] opacity-50 dark:text-muted dark:opacity-70', textClass)}>
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
 
         <div className="space-y-1 text-right">
           <p
             className={cn(
-              'text-xl leading-tight font-semibold tracking-tight sm:text-2xl dark:text-foreground',
+              'text-xl leading-tight font-semibold tracking-tight whitespace-nowrap sm:text-2xl dark:text-foreground',
               textClass,
             )}
           >
@@ -189,7 +208,29 @@ export function TrendSparkline({
         >
           <ResponsiveContainer height="100%" width="100%">
             <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.[0]) return null;
+                  const entry = payload[0].payload as TrendSparklinePlotDatum;
+                  const fmt = formatTooltip ?? ((v: number) => String(Math.round(v)));
+                  return (
+                    <div className="rounded-md border border-border/70 bg-background/95 px-2 py-1 text-xs shadow-sm backdrop-blur-sm">
+                      <p className="font-medium">{fmt(entry.value)}</p>
+                      <p className="text-muted-foreground/70">{fmt(entry.trend)} trend</p>
+                      <p className="text-muted-foreground">{entry.date}</p>
+                    </div>
+                  );
+                }}
+                cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
+                isAnimationActive={false}
+              />
               <Line
+                activeDot={{
+                  fill: color,
+                  r: 3,
+                  stroke: 'var(--color-background)',
+                  strokeWidth: 1.5,
+                }}
                 dataKey="value"
                 dot={
                   hasSingleDataPoint ? { fill: color, r: 4, stroke: color, strokeWidth: 0 } : false
@@ -198,7 +239,19 @@ export function TrendSparkline({
                 stroke={color}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={hasSingleDataPoint ? 0 : 3}
+                strokeOpacity={0.4}
+                strokeWidth={hasSingleDataPoint ? 0 : 1.5}
+                type="monotone"
+              />
+              <Line
+                activeDot={false}
+                dataKey="trend"
+                dot={false}
+                isAnimationActive={false}
+                stroke={color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
                 type="monotone"
               />
             </LineChart>
@@ -211,6 +264,7 @@ export function TrendSparkline({
 
 function TrendMetricCard({
   label,
+  subtitle,
   currentValue,
   changePercent,
   color,
@@ -218,35 +272,37 @@ function TrendMetricCard({
   to,
   className,
   textClassName,
+  formatTooltip,
 }: TrendMetricCardProps) {
   return (
-    <DashboardDrilldownLink
-      indicatorClassName="right-2.5 bottom-2.5 px-1.5 py-0.5"
-      indicatorLabel=""
-      to={to}
-      viewLabel={`View ${label.toLowerCase()} details`}
+    <Card
+      className={cn(
+        'h-full gap-0 border-transparent py-3 shadow-sm dark:text-foreground',
+        textClassName,
+        className,
+      )}
+      data-slot="trend-sparkline-card"
     >
-      <Card
-        className={cn(
-          'gap-0 border-transparent py-3 shadow-sm dark:text-foreground',
-          dashboardDrilldownCardClassName,
-          textClassName,
-          className,
-        )}
-        data-slot="trend-sparkline-card"
+      <CardContent className="h-full px-3">
+        <TrendSparkline
+          changePercent={changePercent}
+          color={color}
+          currentValue={currentValue}
+          data={data}
+          formatTooltip={formatTooltip}
+          label={label}
+          subtitle={subtitle}
+          textClassName={textClassName}
+        />
+      </CardContent>
+      <Link
+        aria-label={`View ${label.toLowerCase()} details`}
+        className="block px-3 pb-1 pt-1 text-right text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        to={to}
       >
-        <CardContent className="h-full px-3 pr-8">
-          <TrendSparkline
-            changePercent={changePercent}
-            color={color}
-            currentValue={currentValue}
-            data={data}
-            label={label}
-            textClassName={textClassName}
-          />
-        </CardContent>
-      </Card>
-    </DashboardDrilldownLink>
+        View details
+      </Link>
+    </Card>
   );
 }
 
@@ -313,64 +369,64 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const proteinSeriesRaw = needsMacros
     ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein)
     : [];
-  const calorieSeries = filterSeriesWithData(calorieSeriesRaw);
-  const proteinSeries = filterSeriesWithData(proteinSeriesRaw);
-  const weightSeries = filterSeriesWithData(weightSeriesRaw);
-  const latestWeight = getLatestValue(weightSeries, 0);
-  const latestCalories = getLatestValue(calorieSeries, 0);
-  const latestProtein = getLatestValue(proteinSeries, 0);
-  const selectedCalorieValue = getValueForDate(calorieSeriesRaw, range.to);
-  const selectedProteinValue = getValueForDate(proteinSeriesRaw, range.to);
-  const selectedWeightValue = getValueForDate(weightSeriesRaw, range.to);
-  const hasSelectedCalorieValue = isTrendValuePresent(selectedCalorieValue);
-  const hasSelectedProteinValue = isTrendValuePresent(selectedProteinValue);
-  const hasSelectedWeightValue = isTrendValuePresent(selectedWeightValue);
-
+  const weightSeries = buildPlotSeries(filterSeriesWithData(weightSeriesRaw));
+  const calorieSeries = buildPlotSeries(filterSeriesWithData(calorieSeriesRaw));
+  const proteinSeries = buildPlotSeries(filterSeriesWithData(proteinSeriesRaw));
+  const latestWeight = getLatestTrend(weightSeries, 0);
+  const latestCalories = getLatestTrend(calorieSeries, 0);
+  const latestProtein = getLatestTrend(proteinSeries, 0);
+  const lookbackLabel = `${TREND_DAYS}d avg`;
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
+      subtitle: lookbackLabel,
       to: '/weight/history',
-      currentValue: hasSelectedWeightValue ? formatWeight(selectedWeightValue, 'lbs') : '--',
+      currentValue: weightSeries.length > 0 ? formatWeight(latestWeight, 'lbs') : '--',
       changePercent:
         weightSeries.length > 1
-          ? calculateTrendChangePercent(latestWeight, getPreviousValue(weightSeries, latestWeight))
+          ? calculateTrendChangePercent(latestWeight, getPreviousTrend(weightSeries, latestWeight))
           : 0,
       color: 'var(--color-on-cream)',
       data: weightSeries,
       className: accentCardStyles.cream,
       textClassName: 'text-on-cream',
+      formatTooltip: (v: number) => formatWeight(v, 'lbs'),
     },
     calories: {
       label: 'Calorie Trend',
+      subtitle: lookbackLabel,
       to: '/nutrition',
-      currentValue: hasSelectedCalorieValue ? `${formatCalories(selectedCalorieValue)} kcal` : '--',
+      currentValue: calorieSeries.length > 0 ? `${formatCalories(latestCalories)} kcal` : '--',
       changePercent:
         calorieSeries.length > 1
           ? calculateTrendChangePercent(
               latestCalories,
-              getPreviousValue(calorieSeries, latestCalories),
+              getPreviousTrend(calorieSeries, latestCalories),
             )
           : 0,
       color: 'var(--color-on-pink)',
       data: calorieSeries,
       className: accentCardStyles.pink,
       textClassName: 'text-on-pink',
+      formatTooltip: (v: number) => `${formatCalories(v)} kcal`,
     },
     protein: {
       label: 'Protein Trend',
+      subtitle: lookbackLabel,
       to: '/nutrition',
-      currentValue: hasSelectedProteinValue ? formatGrams(selectedProteinValue) : '--',
+      currentValue: proteinSeries.length > 0 ? formatGrams(latestProtein) : '--',
       changePercent:
         proteinSeries.length > 1
           ? calculateTrendChangePercent(
               latestProtein,
-              getPreviousValue(proteinSeries, latestProtein),
+              getPreviousTrend(proteinSeries, latestProtein),
             )
           : 0,
       color: 'var(--color-on-mint)',
       data: proteinSeries,
       className: accentCardStyles.mint,
       textClassName: 'text-on-mint',
+      formatTooltip: (v: number) => formatGrams(v),
     },
   } satisfies Record<DashboardTrendMetric, TrendMetricCardProps>;
 
