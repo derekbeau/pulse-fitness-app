@@ -51,6 +51,8 @@ export const weightQueryKeys = {
   listRoot: () => ['weight', 'list'] as const,
   list: (filters: WeightListFilters = {}) =>
     ['weight', 'list', normalizeWeightListFilters(filters)] as const,
+  // trendRoot intentionally aliases listRoot because trend data is fetched from the same
+  // /weight endpoint and lives under the same list cache hierarchy.
   trendRoot: () => ['weight', 'list'] as const,
   trend: ({ from, to }: Pick<WeightListFilters, 'from' | 'to'> = {}) =>
     ['weight', 'list', normalizeWeightListFilters({ from, to })] as const,

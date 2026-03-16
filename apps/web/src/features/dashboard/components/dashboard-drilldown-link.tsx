@@ -52,9 +52,7 @@ export function DashboardDrilldownLink({
         aria-label={viewLabel}
         className="absolute inset-0 z-10 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         to={to}
-      >
-        <span className="sr-only">{viewLabel}</span>
-      </Link>
+      />
       <DashboardDrilldownIndicator className={indicatorClassName} label={indicatorLabel} />
     </div>
   );

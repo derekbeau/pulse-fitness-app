@@ -195,6 +195,8 @@ export function WeightHistory() {
         try {
           await deleteWeightMutation.mutateAsync(entry.id);
         } catch {
+          // The mutation hook owns user-facing error handling; this avoids an unhandled rejection
+          // from the confirmation dialog callback.
           return;
         }
       },
@@ -218,6 +220,7 @@ export function WeightHistory() {
       });
       stopEditing();
     } catch {
+      // The mutation hook already reports errors via toast state.
       return;
     }
   }

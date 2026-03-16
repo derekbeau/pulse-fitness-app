@@ -203,7 +203,11 @@ export function HabitDayModal({
 
     if (habit.trackingType === 'numeric') {
       const parsedValue = Number(numericValue);
-      if (numericValue.trim().length === 0 || !Number.isFinite(parsedValue)) {
+      if (
+        numericValue.trim().length === 0 ||
+        !Number.isFinite(parsedValue) ||
+        parsedValue < 0
+      ) {
         return;
       }
 
@@ -239,7 +243,9 @@ export function HabitDayModal({
 
   const isNumericSaveDisabled =
     habit.trackingType === 'numeric' &&
-    (numericValue.trim().length === 0 || !Number.isFinite(Number(numericValue)));
+    (numericValue.trim().length === 0 ||
+      !Number.isFinite(Number(numericValue)) ||
+      Number(numericValue) < 0);
   const savedDurationValue = getSavedDurationValue(durationValue, habit.unit);
   const isTimeSaveDisabled =
     habit.trackingType === 'time' &&
@@ -317,6 +323,7 @@ export function HabitDayModal({
                   <Input
                     id={numberInputId}
                     inputMode="decimal"
+                    min="0"
                     onChange={(event) => setNumericValue(event.target.value)}
                     placeholder={habit.target != null ? `Target: ${formatServing(habit.target)}` : 'Enter value'}
                     step="0.1"

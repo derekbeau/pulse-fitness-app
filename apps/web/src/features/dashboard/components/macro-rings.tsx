@@ -119,7 +119,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         >
           <Button
             aria-pressed={mode === 'eaten'}
-            className="relative z-20 px-2.5 text-xs"
+            className="px-2.5 text-xs"
             onClick={() => {
               setMode('eaten');
             }}
@@ -130,7 +130,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
           </Button>
           <Button
             aria-pressed={mode === 'remaining'}
-            className="relative z-20 px-2.5 text-xs"
+            className="px-2.5 text-xs"
             onClick={() => {
               setMode('remaining');
             }}

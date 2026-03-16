@@ -130,6 +130,33 @@ describe('HabitDayModal', () => {
     });
   });
 
+  it('does not allow negative numeric values', () => {
+    const mutation = createMutationMock();
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      mutation as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+    const habit: Habit = {
+      ...baseHabit,
+      name: 'Water',
+      trackingType: 'numeric',
+      target: 8,
+      unit: 'glasses',
+    };
+
+    renderHabitDayModal({
+      habit,
+      status: 'missed',
+    });
+
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Water (glasses)'), {
+      target: { value: '-5' },
+    });
+
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(mutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('renders duration inputs for time habits and converts them to stored hours', async () => {
     const mutation = createMutationMock();
     mockedUseUpdateHabitEntry.mockReturnValue(

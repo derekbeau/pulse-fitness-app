@@ -154,6 +154,8 @@ const buildHabitChainHabits = (
           entry: existingEntry,
           isFutureDate: false,
           isScheduled,
+          // Scheduled-but-unlogged today stays neutral so the chain does not penalize the user
+          // before the day is over. Consumers can inspect isScheduled/isFutureDate for detail.
           status: 'not_scheduled' as const,
         };
       }
