@@ -11,12 +11,16 @@ import { toast } from 'sonner';
 
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
+import { addDays, formatUtcDateKey, parseDateInput } from '@/lib/date';
 import { createOptimisticMutation } from '@/lib/optimistic';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
-type WeightTrendFilters = {
+type WeightListFilters = {
+  days?: number;
   from?: string;
+  limit?: number;
+  page?: number;
   to?: string;
 };
 
@@ -27,26 +31,55 @@ type LogWeightCache =
   | DashboardSnapshot
   | DashboardWeightTrendPoint[];
 
-const normalizeWeightTrendFilters = ({ from, to }: WeightTrendFilters = {}) => ({
+type PaginatedWeightListMeta = {
+  limit: number;
+  page: number;
+  total: number;
+};
+
+const normalizeWeightListFilters = ({ days, from, limit, page, to }: WeightListFilters = {}) => ({
+  days: days ?? null,
   from: from ?? null,
+  limit: limit ?? null,
+  page: page ?? null,
   to: to ?? null,
 });
 
 export const weightQueryKeys = {
   all: ['weight'] as const,
   latest: () => ['weight', 'latest'] as const,
-  trendRoot: () => ['weight', 'trend'] as const,
-  trend: ({ from, to }: WeightTrendFilters = {}) =>
-    ['weight', 'trend', normalizeWeightTrendFilters({ from, to })] as const,
+  listRoot: () => ['weight', 'list'] as const,
+  list: (filters: WeightListFilters = {}) =>
+    ['weight', 'list', normalizeWeightListFilters(filters)] as const,
+  // trendRoot intentionally aliases listRoot because trend data is fetched from the same
+  // /weight endpoint and lives under the same list cache hierarchy.
+  trendRoot: () => ['weight', 'list'] as const,
+  trend: ({ from, to }: Pick<WeightListFilters, 'from' | 'to'> = {}) =>
+    ['weight', 'list', normalizeWeightListFilters({ from, to })] as const,
+  page: ({ days, from, limit, page, to }: Required<Pick<WeightListFilters, 'limit' | 'page'>> &
+    WeightListFilters) =>
+    ['weight', 'list', normalizeWeightListFilters({ days, from, limit, page, to })] as const,
 };
 
 export const weightKeys = weightQueryKeys;
 
-const buildWeightTrendPath = ({ from, to }: WeightTrendFilters = {}) => {
+const buildWeightEntriesPath = ({ days, from, limit, page, to }: WeightListFilters = {}) => {
   const searchParams = new URLSearchParams();
+
+  if (days !== undefined) {
+    searchParams.set('days', String(days));
+  }
 
   if (from) {
     searchParams.set('from', from);
+  }
+
+  if (page !== undefined) {
+    searchParams.set('page', String(page));
+  }
+
+  if (limit !== undefined) {
+    searchParams.set('limit', String(limit));
   }
 
   if (to) {
@@ -60,8 +93,12 @@ const buildWeightTrendPath = ({ from, to }: WeightTrendFilters = {}) => {
 
 const fetchLatestWeight = () => apiRequest<BodyWeightEntry | null>('/api/v1/weight/latest');
 
-const fetchWeightTrend = (filters: WeightTrendFilters) =>
-  apiRequest<BodyWeightEntry[]>(buildWeightTrendPath(filters));
+const fetchWeightEntries = (filters: WeightListFilters) =>
+  apiRequest<BodyWeightEntry[]>(buildWeightEntriesPath(filters));
+
+const fetchPaginatedWeightEntries = (filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> &
+  WeightListFilters) =>
+  apiRequestWithMeta<BodyWeightEntry[], PaginatedWeightListMeta>(buildWeightEntriesPath(filters));
 
 const postWeightEntry = (input: CreateWeightInput) =>
   apiRequest<BodyWeightEntry>('/api/v1/weight', {
@@ -103,30 +140,53 @@ const upsertWeightEntry = (entries: BodyWeightEntry[] | undefined, nextEntry: Bo
   return nextEntries.sort(compareWeightEntries);
 };
 
-const getWeightTrendFiltersFromQueryKey = (queryKey: QueryKey) => {
+const getWeightListFiltersFromQueryKey = (queryKey: QueryKey) => {
   const maybeFilters = queryKey[2];
 
   if (
     typeof maybeFilters === 'object' &&
     maybeFilters !== null &&
+    'days' in maybeFilters &&
     'from' in maybeFilters &&
+    'limit' in maybeFilters &&
+    'page' in maybeFilters &&
     'to' in maybeFilters
   ) {
-    return maybeFilters as { from: string | null; to: string | null };
+    return maybeFilters as {
+      days: number | null;
+      from: string | null;
+      limit: number | null;
+      page: number | null;
+      to: string | null;
+    };
   }
 
   return null;
 };
 
-const applyWeightEntryToTrendCache = (
+const applyWeightEntryToListCache = (
   entries: BodyWeightEntry[] | undefined,
   nextEntry: BodyWeightEntry,
   queryKey: QueryKey,
 ) => {
-  const filters = getWeightTrendFiltersFromQueryKey(queryKey);
+  const filters = getWeightListFiltersFromQueryKey(queryKey);
 
   if (filters) {
-    if ((filters.from && nextEntry.date < filters.from) || (filters.to && nextEntry.date > filters.to)) {
+    if (filters.page !== null || filters.limit !== null) {
+      return entries;
+    }
+
+    const resolvedTo = filters.to ?? formatUtcDateKey(new Date());
+    const resolvedFrom =
+      filters.from ??
+      (filters.days !== null
+        ? formatUtcDateKey(addDays(parseDateInput(`${resolvedTo}T00:00:00`), -(filters.days - 1)))
+        : null);
+
+    if (
+      (resolvedFrom && nextEntry.date < resolvedFrom) ||
+      (resolvedTo && nextEntry.date > resolvedTo)
+    ) {
       return entries;
     }
   }
@@ -216,11 +276,11 @@ const isLatestWeightCache = (
     cache === null ||
     (typeof cache === 'object' && !Array.isArray(cache) && 'createdAt' in cache));
 
-const isWeightTrendCache = (
+const isWeightListCache = (
   cache: LogWeightCache | undefined,
   queryKey: QueryKey,
 ): cache is BodyWeightEntry[] | undefined =>
-  hasQueryKeyPrefix(queryKey, weightQueryKeys.trendRoot()) &&
+  hasQueryKeyPrefix(queryKey, weightQueryKeys.listRoot()) &&
   (cache === undefined ||
     (Array.isArray(cache) &&
       (cache.length === 0 || (typeof cache[0] === 'object' && cache[0] !== null && 'createdAt' in cache[0]))));
@@ -255,8 +315,8 @@ const updateLogWeightCache = (
     return applyWeightEntryToLatestCache(current, nextEntry);
   }
 
-  if (isWeightTrendCache(current, queryKey)) {
-    return applyWeightEntryToTrendCache(current, nextEntry, queryKey);
+  if (isWeightListCache(current, queryKey)) {
+    return applyWeightEntryToListCache(current, nextEntry, queryKey);
   }
 
   if (isDashboardSnapshotCache(current, queryKey)) {
@@ -276,11 +336,22 @@ export const useLatestWeight = () =>
     queryFn: fetchLatestWeight,
   });
 
-export const useWeightTrend = (from?: string, to?: string) =>
+export const useWeightEntries = (filters: WeightListFilters = {}) =>
   useQuery({
-    queryKey: weightQueryKeys.trend({ from, to }),
-    queryFn: () => fetchWeightTrend({ from, to }),
+    queryKey: weightQueryKeys.list(filters),
+    queryFn: () => fetchWeightEntries(filters),
   });
+
+export const usePaginatedWeightEntries = (
+  filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters,
+) =>
+  useQuery({
+    queryKey: weightQueryKeys.page(filters),
+    queryFn: () => fetchPaginatedWeightEntries(filters),
+  });
+
+export const useWeightTrend = (from?: string, to?: string) =>
+  useWeightEntries({ from, to });
 
 export const useLogWeight = () => {
   return createOptimisticMutation<

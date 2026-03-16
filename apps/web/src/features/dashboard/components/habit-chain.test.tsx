@@ -1,10 +1,27 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useUpdateHabitEntry } from '@/features/habits/api/habits';
 import { mockHabits } from '@/lib/mock-data/dashboard';
 
 import { HabitChain } from './habit-chain';
+
+vi.mock('@/features/habits/api/habits', () => ({
+  useUpdateHabitEntry: vi.fn(),
+}));
+
+const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
+
+type HabitChainProps = Parameters<typeof HabitChain>[0];
+
+function createMutationMock() {
+  return {
+    isPending: false,
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+  };
+}
 
 const formatDateLabel = (date: string): string => {
   return new Intl.DateTimeFormat('en-US', {
@@ -55,13 +72,22 @@ const habitEntryRecords: HabitEntry[] = mockHabits.flatMap((habit, habitIndex) =
   })),
 );
 
+function renderHabitChain(props: HabitChainProps = {}) {
+  return render(
+    <MemoryRouter>
+      <HabitChain {...props} />
+    </MemoryRouter>,
+  );
+}
+
 describe('HabitChain', () => {
   afterEach(() => {
     vi.useRealTimers();
+    mockedUseUpdateHabitEntry.mockReset();
   });
 
   it('renders an empty state when no habits are provided', () => {
-    const { container } = render(<HabitChain />);
+    const { container } = renderHabitChain();
 
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
     const allSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
@@ -69,7 +95,7 @@ describe('HabitChain', () => {
   });
 
   it('renders all habits with 30 day squares each when API data is provided', () => {
-    const { container } = render(<HabitChain habits={habitRecords} entries={habitEntryRecords} />);
+    const { container } = renderHabitChain({ habits: habitRecords, entries: habitEntryRecords });
 
     mockHabits.forEach((habit) => {
       expect(screen.getByRole('heading', { name: habit.name })).toBeInTheDocument();
@@ -77,6 +103,9 @@ describe('HabitChain', () => {
 
     const streakLabels = screen.getAllByText(/\d+ day streak/);
     expect(streakLabels).toHaveLength(mockHabits.length);
+    expect(screen.getAllByRole('link', { name: /view .* habit details/i })).toHaveLength(
+      mockHabits.length,
+    );
 
     const allSquares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(allSquares).toHaveLength(mockHabits.length * 30);
@@ -84,9 +113,11 @@ describe('HabitChain', () => {
 
   it('renders squares in oldest-to-newest order and highlights today', () => {
     const habit = getHabitByIndex(0);
-    const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
-    );
+    const { container } = renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const squares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     const firstEntry = habit.entries[0];
@@ -115,14 +146,12 @@ describe('HabitChain', () => {
       throw new Error('Expected a valid end date in mock habit entries.');
     }
 
-    const { container } = render(
-      <HabitChain
-        endDate={endDate}
-        entries={habitEntryRecords}
-        habitIds={[habit.id]}
-        habits={habitRecords}
-      />,
-    );
+    const { container } = renderHabitChain({
+      endDate,
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const squares = container.querySelectorAll('[data-slot="habit-chain-day"]');
     expect(squares).toHaveLength(30);
@@ -169,14 +198,12 @@ describe('HabitChain', () => {
       },
     ];
 
-    const { container } = render(
-      <HabitChain
-        endDate="2026-03-11"
-        entries={chainEntries}
-        habitIds={[habit.id]}
-        habits={[habit]}
-      />,
-    );
+    const { container } = renderHabitChain({
+      endDate: '2026-03-11',
+      entries: chainEntries,
+      habitIds: [habit.id],
+      habits: [habit],
+    });
 
     const completedSquare = container.querySelector(
       '[data-slot="habit-chain-day"][data-date="2026-03-09"]',
@@ -219,9 +246,12 @@ describe('HabitChain', () => {
       updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
     };
 
-    const { container } = render(
-      <HabitChain endDate="2026-03-10" entries={[]} habitIds={[habit.id]} habits={[habit]} />,
-    );
+    const { container } = renderHabitChain({
+      endDate: '2026-03-10',
+      entries: [],
+      habitIds: [habit.id],
+      habits: [habit],
+    });
 
     const todaySquare = container.querySelector(
       '[data-slot="habit-chain-day"][data-date="2026-03-10"]',
@@ -234,16 +264,17 @@ describe('HabitChain', () => {
   it('shows future days as not scheduled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
 
     const habit = getHabitByIndex(0);
-    const { container } = render(
-      <HabitChain
-        endDate="2026-03-11"
-        entries={habitEntryRecords}
-        habitIds={[habit.id]}
-        habits={habitRecords}
-      />,
-    );
+    const { container } = renderHabitChain({
+      endDate: '2026-03-11',
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const futureSquare = container.querySelector(
       '[data-slot="habit-chain-day"][data-date="2026-03-11"]',
@@ -251,6 +282,64 @@ describe('HabitChain', () => {
 
     expect(futureSquare).toHaveAttribute('data-status', 'not_scheduled');
     expect(futureSquare).toHaveClass('bg-[var(--color-muted)]/40');
+    expect(futureSquare).toBeDisabled();
+  });
+
+  it('opens the day detail modal when a habit circle is clicked', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+
+    const habit: Habit = {
+      id: 'habit-modal',
+      userId: 'user-1',
+      name: 'Meditate',
+      description: null,
+      emoji: null,
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      referenceSource: null,
+      referenceConfig: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+    const entries: HabitEntry[] = [
+      {
+        id: 'entry-modal',
+        habitId: habit.id,
+        userId: 'user-1',
+        date: '2026-03-09',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-09T12:00:00Z').getTime(),
+      },
+    ];
+
+    renderHabitChain({
+      endDate: '2026-03-10',
+      entries,
+      habitIds: [habit.id],
+      habits: [habit],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Meditate 2026-03-09 Completed' }),
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('Meditate')).toBeInTheDocument();
+    expect(within(dialog).getByText('March 9, 2026')).toBeInTheDocument();
+    expect(within(dialog).getByText('Status')).toBeInTheDocument();
   });
 
   it('counts streak across not scheduled gaps and breaks on missed days', () => {
@@ -305,9 +394,12 @@ describe('HabitChain', () => {
       },
     ];
 
-    render(
-      <HabitChain endDate="2026-03-13" entries={entries} habitIds={[habit.id]} habits={[habit]} />,
-    );
+    renderHabitChain({
+      endDate: '2026-03-13',
+      entries,
+      habitIds: [habit.id],
+      habits: [habit],
+    });
 
     expect(screen.getByText('3 day streak')).toBeInTheDocument();
   });
@@ -315,9 +407,11 @@ describe('HabitChain', () => {
   it('filters habits with habitIds', () => {
     const selectedHabits = [getHabitByIndex(1), getHabitByIndex(3)];
     const selectedHabitIds = selectedHabits.map((habit) => habit.id);
-    const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={selectedHabitIds} habits={habitRecords} />,
-    );
+    const { container } = renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: selectedHabitIds,
+      habits: habitRecords,
+    });
 
     expect(screen.getByRole('heading', { name: selectedHabits[0].name })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: selectedHabits[1].name })).toBeInTheDocument();
@@ -331,9 +425,11 @@ describe('HabitChain', () => {
 
   it('assigns a date tooltip label to each day square', () => {
     const habit = getHabitByIndex(0);
-    const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
-    );
+    const { container } = renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const firstSquare = container.querySelector('[data-slot="habit-chain-day"]');
     const date = firstSquare?.getAttribute('data-date');
@@ -351,12 +447,15 @@ describe('HabitChain', () => {
 
   it('keeps each day circle at the minimum touch target size', () => {
     const habit = getHabitByIndex(0);
-    const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
-    );
+    const { container } = renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const firstSquare = container.querySelector('[data-slot="habit-chain-day"]');
-    expect(firstSquare).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    // Mobile: size-8 prevents grid cell overflow on narrow screens; sm+: size-11 for full 44px touch target
+    expect(firstSquare).toHaveClass('size-8', 'min-h-8', 'min-w-8', 'sm:size-11', 'sm:min-h-11', 'sm:min-w-11');
 
     const grid = container.querySelector('[data-slot="habit-chain-grid"]');
     expect(grid).toHaveClass('grid-cols-7', 'gap-1.5', 'sm:grid-cols-10');
@@ -364,9 +463,11 @@ describe('HabitChain', () => {
 
   it('includes the status in square aria labels', () => {
     const habit = getHabitByIndex(0);
-    const { container } = render(
-      <HabitChain entries={habitEntryRecords} habitIds={[habit.id]} habits={habitRecords} />,
-    );
+    const { container } = renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: [habit.id],
+      habits: habitRecords,
+    });
 
     const square = container.querySelector(
       '[data-slot="habit-chain-day"][data-status="completed"]',
@@ -375,19 +476,17 @@ describe('HabitChain', () => {
   });
 
   it('renders an empty state when no habits match the filter', () => {
-    render(
-      <HabitChain
-        entries={habitEntryRecords}
-        habitIds={['habit-does-not-exist']}
-        habits={habitRecords}
-      />,
-    );
+    renderHabitChain({
+      entries: habitEntryRecords,
+      habitIds: ['habit-does-not-exist'],
+      habits: habitRecords,
+    });
 
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
 
   it('renders an empty state when an explicit empty filter is provided', () => {
-    render(<HabitChain entries={habitEntryRecords} habitIds={[]} habits={habitRecords} />);
+    renderHabitChain({ entries: habitEntryRecords, habitIds: [], habits: habitRecords });
 
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });

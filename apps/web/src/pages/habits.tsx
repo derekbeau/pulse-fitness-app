@@ -1,11 +1,22 @@
 import { useMemo, useState } from 'react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
+import { BackLink } from '@/components/layout/back-link';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { DailyHabits, HabitHistory } from '@/features/habits';
-import { WeeklyHabitDatePicker, type DayCompletion } from '@/features/habits/components/weekly-habit-date-picker';
-import { addDays, formatDateKey, getToday, getWeekStart, normalizeDate, toDateKey } from '@/lib/date';
+import {
+  WeeklyHabitDatePicker,
+  type DayCompletion,
+} from '@/features/habits/components/weekly-habit-date-picker';
+import {
+  addDays,
+  formatDateKey,
+  getToday,
+  getWeekStart,
+  normalizeDate,
+  toDateKey,
+} from '@/lib/date';
 
 function getHabitEntryCompleted(habit: Habit, entry: HabitEntry | undefined) {
   if (!entry) {
@@ -33,7 +44,9 @@ function buildWeekCompletionByDate(habits: Habit[], entries: HabitEntry[], weekS
     const day = addDays(weekStart, dayOffset);
     const dayKey = formatDateKey(day);
     const dayEntries = entriesByDate.get(dayKey);
-    const completedCount = habits.filter((habit) => getHabitEntryCompleted(habit, dayEntries?.get(habit.id))).length;
+    const completedCount = habits.filter((habit) =>
+      getHabitEntryCompleted(habit, dayEntries?.get(habit.id)),
+    ).length;
 
     completionByDate[dayKey] = {
       completedCount,
@@ -71,6 +84,7 @@ export function HabitsPage() {
 
   return (
     <section className="space-y-3">
+      <BackLink label="Back to Dashboard" to="/" />
       <div className="flex items-center gap-1.5">
         <h1 className="text-3xl font-semibold text-primary">Habits</h1>
         <HelpIcon title="Habits help">
@@ -81,8 +95,12 @@ export function HabitsPage() {
             <li>Boolean: mark done or not done for the day.</li>
             <li>Numeric: log a value and compare it against your target.</li>
             <li>Time-based: track duration-style habits over time.</li>
-            <li>Streaks power the dashboard&apos;s don&apos;t break the chain view for consistency.</li>
-            <li>Create, edit, reorder, or archive/delete habits from the habits controls and menus.</li>
+            <li>
+              Streaks power the dashboard&apos;s don&apos;t break the chain view for consistency.
+            </li>
+            <li>
+              Create, edit, reorder, or archive/delete habits from the habits controls and menus.
+            </li>
             <li>Your AI agent can also log or update habit entries for you.</li>
           </ul>
         </HelpIcon>

@@ -10,6 +10,8 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
   useDeleteWeight,
+  usePaginatedWeightEntries,
+  useWeightEntries,
   useLatestWeight,
   useLogWeight,
   useUpdateWeight,
@@ -124,6 +126,78 @@ describe('weight api hooks', () => {
       '/api/v1/weight?from=2026-03-01&to=2026-03-07',
       expect.any(Object),
     );
+  });
+
+  it('loads weight entries with general list filters', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse([
+        {
+          id: 'weight-1',
+          date: '2026-03-07',
+          weight: 181.4,
+          notes: null,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useWeightEntries({ days: 30 }), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?days=30', expect.any(Object));
+  });
+
+  it('loads paginated weight entries when page params are supplied', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'weight-1',
+              date: '2026-03-07',
+              weight: 181.4,
+              notes: null,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+          meta: {
+            page: 2,
+            limit: 10,
+            total: 11,
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          status: 200,
+        },
+      ),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => usePaginatedWeightEntries({ page: 2, limit: 10 }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(result.current.data?.data).toHaveLength(1);
+    expect(result.current.data?.meta).toEqual({
+      page: 2,
+      limit: 10,
+      total: 11,
+    });
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?page=2&limit=10', expect.any(Object));
   });
 
   it('optimistically logs a weight entry, updates dashboard caches, and invalidates weight queries', async () => {

@@ -87,6 +87,22 @@ describe('SnapshotCards', () => {
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View weight history' })).toHaveAttribute(
+      'href',
+      '/weight/history',
+    );
+    expect(screen.getByRole('link', { name: 'View nutrition details' })).toHaveAttribute(
+      'href',
+      '/nutrition',
+    );
+    expect(screen.getByRole('link', { name: 'View protein details' })).toHaveAttribute(
+      'href',
+      '/nutrition',
+    );
+    expect(screen.getByRole('link', { name: 'View habits details' })).toHaveAttribute(
+      'href',
+      '/habits',
+    );
     expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
       'href',
       '/workouts/sessions/session-upper-push-a/summary',
@@ -117,9 +133,7 @@ describe('SnapshotCards', () => {
     expect(screen.getByText('Habits')).toHaveClass('text-on-mint');
 
     expect(within(weightCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
-    expect(
-      within(caloriesCard as HTMLElement).queryByLabelText(/trend/i),
-    ).not.toBeInTheDocument();
+    expect(within(caloriesCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(proteinCard as HTMLElement).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByText('75%')).toBeInTheDocument();

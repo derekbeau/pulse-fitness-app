@@ -1,5 +1,6 @@
 import type { DashboardSnapshot } from '@pulse/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { getMacroRingState, MacroRings } from './macro-rings';
@@ -76,7 +77,11 @@ describe('getMacroRingState', () => {
 
 describe('MacroRings', () => {
   it('renders four macro rings with distinct colors and eaten values', () => {
-    const { container } = render(<MacroRings snapshot={snapshotFixture} />);
+    const { container } = render(
+      <MemoryRouter>
+        <MacroRings snapshot={snapshotFixture} />
+      </MemoryRouter>,
+    );
 
     const grid = container.querySelector('div.grid.grid-cols-2.gap-2\\.5.lg\\:grid-cols-4');
     expect(grid).toBeInTheDocument();
@@ -93,6 +98,7 @@ describe('MacroRings', () => {
     expect(screen.getByText('65g')).toBeInTheDocument();
     expect(screen.getByText('1850 / 2200 kcal')).toBeInTheDocument();
     expect(screen.getByText('145g / 180g')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /view nutrition details for/i })).toHaveLength(4);
 
     const caloriesRingIndicator = getMacroItem('Calories').querySelector(
       '[data-slot="progress-ring-indicator"]',
@@ -114,7 +120,11 @@ describe('MacroRings', () => {
   });
 
   it('shows zeroed values when snapshot data is unavailable', () => {
-    render(<MacroRings />);
+    render(
+      <MemoryRouter>
+        <MacroRings />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText('0 kcal')).toBeInTheDocument();
     expect(screen.getAllByText('0g')).toHaveLength(3);
@@ -122,7 +132,11 @@ describe('MacroRings', () => {
   });
 
   it('toggles to remaining mode and shows inverse progress labels', () => {
-    render(<MacroRings snapshot={snapshotFixture} />);
+    render(
+      <MemoryRouter>
+        <MacroRings snapshot={snapshotFixture} />
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
@@ -143,18 +157,20 @@ describe('MacroRings', () => {
 
   it('turns over-target macros red and shows overage text in remaining mode', () => {
     render(
-      <MacroRings
-        snapshot={{
-          ...snapshotFixture,
-          macros: {
-            ...snapshotFixture.macros,
-            actual: {
-              ...snapshotFixture.macros.actual,
-              protein: 200,
+      <MemoryRouter>
+        <MacroRings
+          snapshot={{
+            ...snapshotFixture,
+            macros: {
+              ...snapshotFixture.macros,
+              actual: {
+                ...snapshotFixture.macros.actual,
+                protein: 200,
+              },
             },
-          },
-        }}
-      />,
+          }}
+        />
+      </MemoryRouter>,
     );
 
     const proteinItem = getMacroItem('Protein');
