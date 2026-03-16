@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "db:migrate": "NODE_OPTIONS='--require tsx/cjs' drizzle-kit generate && drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@fastify/jwt": "^10.0.0",
