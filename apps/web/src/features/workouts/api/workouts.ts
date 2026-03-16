@@ -1,4 +1,10 @@
-import { type QueryClient, type QueryKey, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type QueryClient,
+  type QueryKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   createScheduledWorkoutInputSchema,
   createWorkoutSessionInputSchema,
@@ -219,6 +225,7 @@ export const workoutQueryKeys = {
   exerciseList: exercisesKey,
   exerciseFilters: () => ['workouts', 'exercise-filters'] as const,
   scheduledWorkoutsAll: () => ['workouts', 'scheduled-workouts'] as const,
+  scheduledWorkout: (id: string) => ['workouts', 'scheduled-workout', id] as const,
   scheduledWorkouts: scheduledWorkoutsKey,
   scheduledWorkoutList: scheduledWorkoutsKey,
   scheduledWorkoutListRoot: () => ['workouts', 'scheduled-workouts'] as const,
@@ -264,8 +271,9 @@ const reorderTemplateExercisesInTemplate = (
         ...section,
         exercises: request.exerciseIds
           .map((exerciseId) => exerciseById.get(exerciseId))
-          .filter((exercise): exercise is WorkoutTemplate['sections'][number]['exercises'][number] =>
-            exercise !== undefined,
+          .filter(
+            (exercise): exercise is WorkoutTemplate['sections'][number]['exercises'][number] =>
+              exercise !== undefined,
           ),
       };
     }),
@@ -433,9 +441,7 @@ const updateScheduledWorkoutInList = (
   const range = getScheduledWorkoutRangeFromKey(queryKey);
   const nextItems = current
     .map((item) => (item.id === request.id ? { ...item, date: request.date } : item))
-    .filter((item) =>
-      range ? item.date >= range.from && item.date <= range.to : true,
-    );
+    .filter((item) => (range ? item.date >= range.from && item.date <= range.to : true));
 
   return nextItems.sort((left, right) => left.date.localeCompare(right.date));
 };
@@ -462,6 +468,24 @@ async function getCompletedSessions(signal?: AbortSignal) {
     signal,
   });
   const payload = sessionListResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
+const scheduledWorkoutDetailResponseSchema = z.object({
+  data: scheduledWorkoutSchema.extend({
+    template: workoutTemplateSchema.nullable(),
+  }),
+}) as unknown as z.ZodType<{
+  data: ScheduledWorkout & { template: WorkoutTemplate | null };
+}>;
+
+async function getScheduledWorkoutDetail(id: string, signal?: AbortSignal) {
+  const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${id}`, {
+    method: 'GET',
+    signal,
+  });
+  const payload = scheduledWorkoutDetailResponseSchema.parse({ data });
 
   return payload.data;
 }
@@ -708,10 +732,13 @@ async function correctSessionSets(input: CorrectSessionSetsRequest) {
   const parsedInput = sessionCorrectionRequestSchema.parse({
     corrections: input.corrections,
   });
-  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${input.sessionId}/corrections`, {
-    body: JSON.stringify(parsedInput),
-    method: 'PATCH',
-  });
+  const data = await apiRequest<unknown>(
+    `/api/v1/workout-sessions/${input.sessionId}/corrections`,
+    {
+      body: JSON.stringify(parsedInput),
+      method: 'PATCH',
+    },
+  );
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
@@ -776,6 +803,16 @@ export function useScheduledWorkouts(
     enabled: options?.enabled,
     queryFn: ({ signal }) => getScheduledWorkouts(params, signal),
     queryKey: workoutQueryKeys.scheduledWorkoutList(params),
+  });
+}
+
+export type ScheduledWorkoutDetail = ScheduledWorkout & { template: WorkoutTemplate | null };
+
+export function useScheduledWorkoutDetail(id: string, options?: { enabled?: boolean }) {
+  return useQuery<ScheduledWorkoutDetail>({
+    enabled: (options?.enabled ?? true) && id.trim().length > 0,
+    queryFn: ({ signal }) => getScheduledWorkoutDetail(id, signal),
+    queryKey: workoutQueryKeys.scheduledWorkout(id),
   });
 }
 
@@ -848,7 +885,13 @@ export function useStartWorkoutSession() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
         }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(
+          queryClient,
+          crossFeatureInvalidationMap.activeWorkoutSessionMutation(),
+        ),
       ]);
       toast.success('Workout started');
     },
@@ -881,7 +924,11 @@ export function useScheduleWorkout() {
 }
 
 export function useRescheduleWorkout() {
-  return createOptimisticMutation<ScheduledWorkoutListItem[], ScheduledWorkout, UpdateScheduledWorkoutRequest>({
+  return createOptimisticMutation<
+    ScheduledWorkoutListItem[],
+    ScheduledWorkout,
+    UpdateScheduledWorkoutRequest
+  >({
     mutationFn: updateScheduledWorkout,
     invalidateKeys: () => [
       workoutQueryKeys.scheduledWorkoutListRoot(),
@@ -1049,7 +1096,11 @@ export function useDeleteTemplate() {
 }
 
 export function useReorderTemplateExercises() {
-  return createOptimisticMutation<RenameTemplateCache, WorkoutTemplate, ReorderTemplateExercisesRequest>({
+  return createOptimisticMutation<
+    RenameTemplateCache,
+    WorkoutTemplate,
+    ReorderTemplateExercisesRequest
+  >({
     mutationFn: reorderTemplateExercises,
     invalidateKeys: (params) => [
       workoutQueryKeys.templateList(),
@@ -1067,9 +1118,9 @@ export function useReorderTemplateExercises() {
       reorderTemplateExercisesInCache(current, {
         ...variables,
         exerciseIds:
-          template.sections.find((section) => section.type === variables.section)?.exercises.map(
-            (exercise) => exercise.id,
-          ) ?? variables.exerciseIds,
+          template.sections
+            .find((section) => section.type === variables.section)
+            ?.exercises.map((exercise) => exercise.id) ?? variables.exerciseIds,
       }),
     updater: (current, variables) => reorderTemplateExercisesInCache(current, variables),
   });
@@ -1122,8 +1173,12 @@ function applySetCorrectionsToSession(session: WorkoutSession, corrections: SetC
     return session;
   }
 
-  const correctionsBySetId = new Map(corrections.map((correction) => [correction.setId, correction]));
-  const applyCorrection = <T extends Pick<WorkoutSession['sets'][number], 'id' | 'reps' | 'weight'>>(
+  const correctionsBySetId = new Map(
+    corrections.map((correction) => [correction.setId, correction]),
+  );
+  const applyCorrection = <
+    T extends Pick<WorkoutSession['sets'][number], 'id' | 'reps' | 'weight'>,
+  >(
     set: T,
   ): T => {
     const correction = correctionsBySetId.get(set.id);

@@ -1788,67 +1788,67 @@ describe('workout session routes', () => {
       emptyCorrectionsResponse,
       unsupportedCorrectionResponse,
     ] = await Promise.all([
-        context.app.inject({
-          method: 'PATCH',
-          url: '/api/v1/workout-sessions/session-in-progress/corrections',
-          headers: createAuthorizationHeader(authToken),
-          payload: {
-            corrections: [
-              {
-                setId: 'set-2',
-                reps: 9,
-              },
-            ],
-          },
-        }),
-        context.app.inject({
-          method: 'PATCH',
-          url: '/api/v1/workout-sessions/other-user-session/corrections',
-          headers: createAuthorizationHeader(authToken),
-          payload: {
-            corrections: [
-              {
-                setId: 'other-user-set',
-                weight: 140,
-              },
-            ],
-          },
-        }),
-        context.app.inject({
-          method: 'PATCH',
-          url: '/api/v1/workout-sessions/session-completed/corrections',
-          headers: createAuthorizationHeader(authToken),
-          payload: {
-            corrections: [
-              {
-                setId: 'missing-set',
-                reps: 10,
-              },
-            ],
-          },
-        }),
-        context.app.inject({
-          method: 'PATCH',
-          url: '/api/v1/workout-sessions/session-completed/corrections',
-          headers: createAuthorizationHeader(authToken),
-          payload: {
-            corrections: [],
-          },
-        }),
-        context.app.inject({
-          method: 'PATCH',
-          url: '/api/v1/workout-sessions/session-completed/corrections',
-          headers: createAuthorizationHeader(authToken),
-          payload: {
-            corrections: [
-              {
-                setId: 'set-1',
-                rpe: 8,
-              },
-            ],
-          },
-        }),
-      ]);
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-in-progress/corrections',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          corrections: [
+            {
+              setId: 'set-2',
+              reps: 9,
+            },
+          ],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/other-user-session/corrections',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          corrections: [
+            {
+              setId: 'other-user-set',
+              weight: 140,
+            },
+          ],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-completed/corrections',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          corrections: [
+            {
+              setId: 'missing-set',
+              reps: 10,
+            },
+          ],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-completed/corrections',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          corrections: [],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-completed/corrections',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          corrections: [
+            {
+              setId: 'set-1',
+              rpe: 8,
+            },
+          ],
+        },
+      }),
+    ]);
 
     expect(inProgressResponse.statusCode).toBe(409);
     expect(inProgressResponse.json()).toEqual({
@@ -3284,13 +3284,14 @@ describe('workout session routes', () => {
     expect(context.db.select().from(sessionSets).all()).toEqual([
       expect.objectContaining({ id: 'set-1', sessionId: 'session-1' }),
     ]);
+    // Deleting a session also deletes any linked scheduled workout
     expect(
       context.db
         .select({ sessionId: scheduledWorkouts.sessionId })
         .from(scheduledWorkouts)
         .where(eq(scheduledWorkouts.id, 'schedule-1'))
         .get(),
-    ).toEqual({ sessionId: 'session-1' });
+    ).toBeUndefined();
 
     const getDeletedResponse = await context.app.inject({
       method: 'GET',
@@ -3520,7 +3521,11 @@ describe('workout session routes', () => {
     });
 
     expect(invalidUpdateResponse.statusCode).toBe(400);
-    expectRequestValidationError(invalidUpdateResponse, 'PUT', '/api/v1/workout-sessions/session-1');
+    expectRequestValidationError(
+      invalidUpdateResponse,
+      'PUT',
+      '/api/v1/workout-sessions/session-1',
+    );
   });
 
   it('creates agent-style sessions at /api/v1/workout-sessions with AgentToken auth', async () => {

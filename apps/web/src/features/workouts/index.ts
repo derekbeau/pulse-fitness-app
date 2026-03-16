@@ -7,6 +7,7 @@ export { SessionContext } from './components/session-context';
 export { SessionSummary } from './components/session-summary';
 export { SupplementalMenu } from './components/supplemental-menu';
 export { TemplateBrowser } from './components/template-browser';
+export { ScheduledWorkoutDetail } from './components/scheduled-workout-detail';
 export { WorkoutCalendar } from './components/workout-calendar';
 export { WorkoutList } from './components/workout-list';
 export { WorkoutTemplateDetail } from './components/template-detail';

@@ -70,6 +70,7 @@ import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
+  useCancelAndRevertSession,
   useUpdateSessionStatus,
   useUpdateSessionStartTime,
   useUpdateSessionTimeSegments,
@@ -168,6 +169,7 @@ export function ActiveWorkoutPage() {
   const updateSetMutation = useUpdateSet(sessionId);
   const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
   const updateSessionStatusMutation = useUpdateSessionStatus(sessionId);
+  const cancelAndRevertSessionMutation = useCancelAndRevertSession(sessionId);
   const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
   const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
@@ -616,9 +618,11 @@ export function ActiveWorkoutPage() {
                   <DropdownMenuItem
                     onClick={() =>
                       confirm({
-                        title: 'Cancel workout session?',
-                        description: `This will mark "${session.workoutName}" as cancelled and keep it in your history.`,
+                        title: 'Cancel workout?',
+                        description:
+                          'This will cancel the workout and discard all progress. If started from a scheduled workout, it will return to your schedule.',
                         confirmLabel: 'Cancel workout',
+                        cancelLabel: 'Keep going',
                         variant: 'destructive',
                         onConfirm: confirmCancelWorkout,
                       })
@@ -725,7 +729,10 @@ export function ActiveWorkoutPage() {
 
               void Promise.all([
                 queryClient.invalidateQueries({ queryKey: workoutQueryKeys.all }),
-                invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
+                invalidateQueryKeys(
+                  queryClient,
+                  crossFeatureInvalidationMap.workoutSessionChange(),
+                ),
               ]);
 
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
@@ -1256,21 +1263,16 @@ export function ActiveWorkoutPage() {
     }
 
     setSessionError(null);
-    updateSessionStatusMutation.mutate(
-      {
-        status: 'cancelled',
+    cancelAndRevertSessionMutation.mutate(undefined, {
+      onError: () => {
+        setSessionError('Unable to cancel workout. Try again.');
       },
-      {
-        onError: () => {
-          setSessionError('Unable to cancel workout. Try again.');
-        },
-        onSuccess: () => {
-          clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
-          clearStoredActiveWorkoutSessionId();
-          navigate('/workouts', { replace: true });
-        },
+      onSuccess: () => {
+        clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+        clearStoredActiveWorkoutSessionId();
+        navigate('/workouts', { replace: true });
       },
-    );
+    });
   }
 
   function openEditTimeDialog() {

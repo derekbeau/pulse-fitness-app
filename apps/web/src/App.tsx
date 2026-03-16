@@ -111,6 +111,11 @@ const WeightHistoryPage = lazy(async () => {
   return { default: module.WeightHistoryPage };
 });
 
+const ScheduledWorkoutDetailPage = lazy(async () => {
+  const module = await import('./pages/scheduled-workout-detail');
+  return { default: module.ScheduledWorkoutDetailPage };
+});
+
 const WorkoutSessionDetailPage = lazy(async () => {
   const module = await import('./pages/workout-session-detail');
   return { default: module.WorkoutSessionDetailPage };
@@ -152,6 +157,10 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<DesignSystemPage />)} path="design-system" />
         <Route element={renderWithPageFallback(<WorkoutsPage />)} path="workouts" />
         <Route element={renderWithPageFallback(<ActiveWorkoutPage />)} path="workouts/active" />
+        <Route
+          element={renderWithPageFallback(<ScheduledWorkoutDetailPage />)}
+          path="workouts/scheduled/:id"
+        />
         <Route
           element={renderWithPageFallback(<WorkoutSessionDetailPage />)}
           path="workouts/session/:sessionId"

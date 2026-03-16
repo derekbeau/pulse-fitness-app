@@ -37,9 +37,9 @@ import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
+  useCancelAndRevertSession,
   useDeleteSession,
   useStartSession,
-  useUpdateSessionStatus,
 } from '@/hooks/use-workout-session';
 import { formatTrackingTypeSummary } from '../lib/tracking';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -255,12 +255,12 @@ function InProgressWorkoutCard({
   session: WorkoutListViewItem;
 }) {
   const { confirm, dialog } = useConfirmation();
-  const updateSessionStatusMutation = useUpdateSessionStatus(session.id);
+  const cancelSessionMutation = useCancelAndRevertSession(session.id);
   const deleteSessionMutation = useDeleteSession(session.id);
-  const isMutating = updateSessionStatusMutation.isPending || deleteSessionMutation.isPending;
+  const isMutating = cancelSessionMutation.isPending || deleteSessionMutation.isPending;
 
   async function handleCancel() {
-    await updateSessionStatusMutation.mutateAsync({ status: 'cancelled' });
+    await cancelSessionMutation.mutateAsync();
   }
 
   async function handleDelete() {
@@ -310,8 +310,10 @@ function InProgressWorkoutCard({
             onClick={() =>
               confirm({
                 title: 'Cancel workout?',
-                description: `This will mark "${session.name}" as cancelled.`,
+                description:
+                  'This will cancel the workout and discard all progress. If started from a scheduled workout, it will return to your schedule.',
                 confirmLabel: 'Cancel workout',
+                cancelLabel: 'Keep going',
                 onConfirm: handleCancel,
               })
             }
@@ -327,7 +329,8 @@ function InProgressWorkoutCard({
             onClick={() =>
               confirm({
                 title: 'Delete workout?',
-                description: `This will permanently delete "${session.name}".`,
+                description:
+                  'This workout will be moved to trash and can be recovered from there. Your template and exercises are not affected.',
                 confirmLabel: 'Delete workout',
                 variant: 'destructive',
                 onConfirm: handleDelete,
@@ -359,6 +362,7 @@ function ScheduledWorkoutCard({
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const startSessionMutation = useStartSession();
+  const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const templateId = scheduledWorkout.templateId ?? '';
   const templateQuery = useWorkoutTemplate(templateId);
 
@@ -380,7 +384,7 @@ function ScheduledWorkoutCard({
     });
   }
 
-  async function handleStartNow() {
+  async function doStart() {
     if (!templateQuery.data || !scheduledWorkout.templateId || !scheduledWorkout.templateName) {
       return;
     }
@@ -394,6 +398,38 @@ function ScheduledWorkoutCard({
       templateId: scheduledWorkout.templateId,
     });
     navigate(`/workouts/active?template=${scheduledWorkout.templateId}&sessionId=${session.id}`);
+  }
+
+  function handleStartNow() {
+    const todayKey = toDateKey(new Date());
+    const activeSessions = activeSessionsQuery.data ?? [];
+
+    if (scheduledWorkout.date !== todayKey) {
+      confirm({
+        title: 'Start workout early?',
+        description: `This workout is scheduled for ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}. Starting now will begin it today instead.`,
+        confirmLabel: 'Start now',
+        onConfirm: () => {
+          void doStart();
+        },
+      });
+      return;
+    }
+
+    if (activeSessions.length > 0) {
+      confirm({
+        title: 'You already have an active workout',
+        description: `You have ${activeSessions.length === 1 ? 'a workout' : `${activeSessions.length} workouts`} in progress. Starting another will create an additional session for today.`,
+        confirmLabel: 'Start anyway',
+        cancelLabel: 'Go back',
+        onConfirm: () => {
+          void doStart();
+        },
+      });
+      return;
+    }
+
+    void doStart();
   }
 
   async function handleRemove() {
@@ -414,7 +450,15 @@ function ScheduledWorkoutCard({
       <CardHeader className="gap-2.5 py-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle>{scheduledWorkout.templateName ?? 'Workout unavailable'}</CardTitle>
+            <CardTitle>
+              {scheduledWorkout.templateId && !scheduledWorkout.isUnavailable ? (
+                <Link className="hover:underline" to={`/workouts/scheduled/${scheduledWorkout.id}`}>
+                  {scheduledWorkout.templateName ?? 'Workout unavailable'}
+                </Link>
+              ) : (
+                (scheduledWorkout.templateName ?? 'Workout unavailable')
+              )}
+            </CardTitle>
             <p className="text-sm text-muted">
               {sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}
             </p>
@@ -470,7 +514,7 @@ function ScheduledWorkoutCard({
             size="sm"
             type="button"
           >
-            Start now
+            Start
           </Button>
           <Button
             className="hover:text-foreground active:text-foreground"
@@ -481,23 +525,6 @@ function ScheduledWorkoutCard({
             variant="outline"
           >
             Reschedule
-          </Button>
-          <Button
-            disabled={isMutating}
-            onClick={() =>
-              confirm({
-                title: 'Delete scheduled workout?',
-                description: `This will remove "${scheduledWorkout.templateName ?? 'this workout'}" from ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}.`,
-                confirmLabel: 'Delete workout',
-                variant: 'destructive',
-                onConfirm: handleRemove,
-              })
-            }
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Remove from schedule
           </Button>
           {!isTemplateAvailable && scheduledWorkout.templateId ? (
             <Button asChild size="sm" variant="secondary">
@@ -513,6 +540,7 @@ function ScheduledWorkoutCard({
         initialDate={scheduledWorkout.date}
         isPending={rescheduleWorkoutMutation.isPending}
         onOpenChange={setIsRescheduleDialogOpen}
+        onRemove={handleRemove}
         onSubmitDate={handleReschedule}
         open={isRescheduleDialogOpen}
         disallowDateKey={scheduledWorkout.date}

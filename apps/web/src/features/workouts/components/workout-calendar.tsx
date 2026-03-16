@@ -20,16 +20,18 @@ import {
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 import {
+  useCancelAndRevertSession,
   useDeleteSession,
   useStartSession,
-  useUpdateSessionStatus,
 } from '@/hooks/use-workout-session';
 import {
+  useRescheduleWorkout,
   useScheduledWorkouts,
   useUnscheduleWorkout,
   useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
+import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
@@ -413,21 +415,25 @@ function DayWorkoutItemCard({
 }) {
   const navigate = useNavigate();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
+  const rescheduleWorkoutMutation = useRescheduleWorkout();
   const startSessionMutation = useStartSession();
   const deleteSessionMutation = useDeleteSession(workout.session?.id ?? null);
-  const updateSessionStatusMutation = useUpdateSessionStatus(workout.session?.id ?? null);
+  const cancelSessionMutation = useCancelAndRevertSession(workout.session?.id ?? null);
+  const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const templateId = workout.templateId ?? '';
   const shouldFetchTemplate = workout.status === 'scheduled' && templateId.trim().length > 0;
   const templateQuery = useWorkoutTemplate(templateId, { enabled: shouldFetchTemplate });
   const { confirm, dialog } = useConfirmation();
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const canStart = workout.status === 'scheduled' && !workout.isUnavailable;
   const isMutating =
     unscheduleWorkoutMutation.isPending ||
+    rescheduleWorkoutMutation.isPending ||
     startSessionMutation.isPending ||
     deleteSessionMutation.isPending ||
-    updateSessionStatusMutation.isPending;
+    cancelSessionMutation.isPending;
 
-  async function handleStart() {
+  async function doStart() {
     if (!workout.scheduledWorkout || !workout.templateId || !templateQuery.data) {
       return;
     }
@@ -443,39 +449,85 @@ function DayWorkoutItemCard({
     navigate(`/workouts/active?template=${workout.templateId}&sessionId=${session.id}`);
   }
 
+  function handleStart() {
+    const todayKey = toDateKey(new Date());
+    const activeSessions = activeSessionsQuery.data ?? [];
+
+    if (workout.scheduledWorkout && dateKey !== todayKey) {
+      confirm({
+        title: 'Start workout early?',
+        description: `This workout is scheduled for ${shortDateFormatter.format(parseDateKey(dateKey))}. Starting now will begin it today instead.`,
+        confirmLabel: 'Start now',
+        onConfirm: () => {
+          void doStart();
+        },
+      });
+      return;
+    }
+
+    if (activeSessions.length > 0) {
+      confirm({
+        title: 'You already have an active workout',
+        description: `You have ${activeSessions.length === 1 ? 'a workout' : `${activeSessions.length} workouts`} in progress. Starting another will create an additional session for today.`,
+        confirmLabel: 'Start anyway',
+        cancelLabel: 'Go back',
+        onConfirm: () => {
+          void doStart();
+        },
+      });
+      return;
+    }
+
+    void doStart();
+  }
+
   async function handleDelete() {
     if (workout.status === 'scheduled' && workout.scheduledWorkout) {
       await unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id });
       return;
     }
 
-    const pendingMutations: Array<Promise<unknown>> = [];
-
-    if (workout.scheduledWorkout) {
-      pendingMutations.push(
-        unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id }),
-      );
-    }
-
     if (workout.session) {
-      pendingMutations.push(deleteSessionMutation.mutateAsync());
+      await deleteSessionMutation.mutateAsync();
     }
-
-    if (pendingMutations.length === 0) {
-      return;
-    }
-
-    await Promise.all(pendingMutations);
   }
 
   async function handleCancel() {
-    await updateSessionStatusMutation.mutateAsync({ status: 'cancelled' });
+    await cancelSessionMutation.mutateAsync();
+  }
+
+  async function handleReschedule(requestedDate: string) {
+    if (!workout.scheduledWorkout) {
+      return;
+    }
+    await rescheduleWorkoutMutation.mutateAsync({
+      date: requestedDate,
+      id: workout.scheduledWorkout.id,
+    });
+  }
+
+  async function handleRemoveFromSchedule() {
+    if (!workout.scheduledWorkout) {
+      return;
+    }
+    await unscheduleWorkoutMutation.mutateAsync({ id: workout.scheduledWorkout.id });
   }
 
   return (
     <div className="rounded-2xl border border-border/70 bg-secondary/40 p-2.5">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{workout.name}</p>
+        <p className="text-sm font-medium text-foreground">
+          {workout.status === 'scheduled' && workout.scheduledWorkout && !workout.isUnavailable ? (
+            <Link
+              className="hover:underline"
+              to={`/workouts/scheduled/${workout.scheduledWorkout.id}`}
+            >
+              {workout.name}
+            </Link>
+          ) : (
+            workout.name
+          )}
+        </p>
         <span
           className={cn(
             'inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]',
@@ -532,52 +584,101 @@ function DayWorkoutItemCard({
           </Button>
         ) : null}
 
-        {workout.status === 'in-progress' ? (
+        {workout.status === 'scheduled' && workout.scheduledWorkout ? (
           <Button
-            disabled={isMutating}
-            onClick={() =>
-              confirm({
-                title: 'Cancel workout?',
-                description: `This will mark "${workout.name}" as cancelled.`,
-                confirmLabel: 'Cancel workout',
-                onConfirm: handleCancel,
-              })
-            }
+            disabled={isMutating || !workout.templateId}
+            onClick={() => setIsRescheduleDialogOpen(true)}
             size="sm"
             type="button"
             variant="outline"
           >
-            Cancel
+            Reschedule
           </Button>
         ) : null}
 
-        <Button
-          disabled={isMutating}
-          onClick={() =>
-            confirm({
-              title:
-                workout.status === 'scheduled' ? 'Delete scheduled workout?' : 'Delete workout?',
-              description:
-                workout.status === 'scheduled'
-                  ? `This will remove "${workout.name}" from ${fullDateFormatter.format(parseDateKey(dateKey))}.`
-                  : `This will delete "${workout.name}".`,
-              confirmLabel: 'Delete workout',
-              variant: 'destructive',
-              onConfirm: handleDelete,
-            })
-          }
-          size="sm"
-          type="button"
-          variant={workout.status === 'scheduled' ? 'outline' : 'ghost'}
-        >
-          Delete
-        </Button>
+        {workout.status === 'in-progress' ? (
+          <>
+            <Button
+              disabled={isMutating}
+              onClick={() =>
+                confirm({
+                  title: 'Cancel workout?',
+                  description:
+                    'This will cancel the workout and discard all progress. If started from a scheduled workout, it will return to your schedule.',
+                  confirmLabel: 'Cancel workout',
+                  cancelLabel: 'Keep going',
+                  onConfirm: handleCancel,
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isMutating}
+              onClick={() =>
+                confirm({
+                  title: 'Delete workout?',
+                  description:
+                    'This workout will be moved to trash and can be recovered from there. Your template and exercises are not affected.',
+                  confirmLabel: 'Delete workout',
+                  variant: 'destructive',
+                  onConfirm: handleDelete,
+                })
+              }
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Delete
+            </Button>
+          </>
+        ) : null}
+
+        {workout.status === 'completed' ? (
+          <Button
+            disabled={isMutating}
+            onClick={() =>
+              confirm({
+                title: 'Delete workout?',
+                description:
+                  'This workout will be moved to trash and can be recovered from there. Your template and exercises are not affected.',
+                confirmLabel: 'Delete workout',
+                variant: 'destructive',
+                onConfirm: handleDelete,
+              })
+            }
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Delete
+          </Button>
+        ) : null}
+
         {workout.status === 'scheduled' && workout.templateId && workout.isUnavailable ? (
           <Button asChild size="sm" variant="secondary">
             <Link to={buildTemplateHref(workout.templateId)}>View template</Link>
           </Button>
         ) : null}
       </div>
+      {workout.scheduledWorkout && isRescheduleDialogOpen ? (
+        <ScheduleWorkoutDialog
+          description={`Move ${workout.name} to a new date.`}
+          initialDate={dateKey}
+          isPending={rescheduleWorkoutMutation.isPending}
+          onOpenChange={setIsRescheduleDialogOpen}
+          onRemove={handleRemoveFromSchedule}
+          onSubmitDate={handleReschedule}
+          open={isRescheduleDialogOpen}
+          disallowDateKey={dateKey}
+          disallowDateMessage="Pick a different date to reschedule."
+          submitLabel="Save"
+          title="Reschedule workout"
+        />
+      ) : null}
       {dialog}
     </div>
   );

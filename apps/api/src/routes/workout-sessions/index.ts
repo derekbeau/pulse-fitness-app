@@ -38,7 +38,12 @@ import {
   successFlagSchema,
 } from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
-import { linkTodayScheduledWorkoutToSession } from '../scheduled-workouts/store.js';
+import {
+  deleteScheduledWorkout,
+  findScheduledWorkoutBySessionId,
+  linkTodayScheduledWorkoutToSession,
+  unlinkScheduledWorkoutSession,
+} from '../scheduled-workouts/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
   applyExerciseNotesToSets,
@@ -57,6 +62,7 @@ import {
   findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
   findWorkoutSessionById,
+  hardDeleteWorkoutSession,
   InvalidSessionCorrectionSetError,
   listSessionSetGroups,
   listWorkoutSessions,
@@ -185,7 +191,8 @@ const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
 
 const UNSUPPORTED_SESSION_CORRECTION_RESPONSE = {
   code: 'INVALID_SESSION_CORRECTION',
-  message: 'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
+  message:
+    'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
 } as const;
 
 const toCreateWorkoutSessionInput = (
@@ -1581,6 +1588,68 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     updateSessionById,
   );
 
+  const cancelSessionResponseSchema = z.object({
+    revertedToSchedule: z.boolean(),
+  });
+
+  typedApp.post(
+    '/:id/cancel',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(cancelSessionResponseSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Cancel a workout session, reverting to scheduled if applicable',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await findWorkoutSessionAccess(request.params.id, request.userId);
+      if (!session) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (session.status !== 'in-progress' && session.status !== 'paused') {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_NOT_ACTIVE_RESPONSE.code,
+          'Only in-progress or paused sessions can be cancelled',
+        );
+      }
+
+      const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(
+        request.params.id,
+        request.userId,
+      );
+
+      if (linkedScheduledWorkout) {
+        await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, request.userId);
+        await hardDeleteWorkoutSession(request.params.id, request.userId);
+
+        return reply.send({
+          data: { revertedToSchedule: true },
+        });
+      }
+
+      await deleteWorkoutSession(request.params.id, request.userId);
+
+      return reply.send({
+        data: { revertedToSchedule: false },
+      });
+    },
+  );
+
   typedApp.delete(
     '/:id',
     {
@@ -1598,6 +1667,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
+      const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(
+        request.params.id,
+        request.userId,
+      );
+      if (linkedScheduledWorkout) {
+        await deleteScheduledWorkout(linkedScheduledWorkout.id, request.userId);
+      }
+
       const deleted = await deleteWorkoutSession(request.params.id, request.userId);
       if (!deleted) {
         return sendError(

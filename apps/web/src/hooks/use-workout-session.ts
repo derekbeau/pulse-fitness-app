@@ -112,6 +112,16 @@ async function reorderSessionExercises(sessionId: string, input: ReorderSessionE
   return payload.data;
 }
 
+type CancelSessionResult = {
+  revertedToSchedule: boolean;
+};
+
+async function cancelSession(sessionId: string) {
+  return await apiRequest<CancelSessionResult>(`/api/v1/workout-sessions/${sessionId}/cancel`, {
+    method: 'POST',
+  });
+}
+
 async function deleteSession(sessionId: string) {
   return await apiRequest<DeleteSessionResult>(`/api/v1/workout-sessions/${sessionId}`, {
     method: 'DELETE',
@@ -207,7 +217,13 @@ export function useStartSession() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(session.id),
         }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(
+          queryClient,
+          crossFeatureInvalidationMap.activeWorkoutSessionMutation(),
+        ),
       ]);
       toast.success('Workout started');
     },
@@ -290,6 +306,46 @@ export function useReorderSessionExercises(sessionId: string | null | undefined)
   });
 }
 
+export function useCancelAndRevertSession(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<CancelSessionResult, Error>({
+    mutationFn: async () => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to cancel workout session');
+      }
+
+      return cancelSession(normalizedSessionId);
+    },
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(normalizedSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
+      ]);
+      toast.success(
+        result.revertedToSchedule
+          ? 'Workout cancelled and returned to schedule'
+          : 'Workout cancelled',
+      );
+    },
+  });
+}
+
 export function useDeleteSession(sessionId: string | null | undefined) {
   const queryClient = useQueryClient();
   const normalizedSessionId = sessionId?.trim() ?? '';
@@ -315,6 +371,9 @@ export function useDeleteSession(sessionId: string | null | undefined) {
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(normalizedSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
         }),
         invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.workoutSessionChange()),
       ]);

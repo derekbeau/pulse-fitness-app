@@ -57,7 +57,7 @@ describe('WorkoutList', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Completed' })).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
     expect(screen.getByText('Bodyweight reps • Time only')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Start now' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Start' }).length).toBeGreaterThan(0);
     expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Paused').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
@@ -113,12 +113,14 @@ describe('WorkoutList', () => {
 
     renderWorkoutList(sessions, scheduledWorkouts);
 
-    expect(await screen.findByRole('link', { name: /visible workout/i })).toBeInTheDocument();
+    expect(
+      (await screen.findAllByRole('link', { name: /visible workout/i })).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('Workout unavailable')).toBeInTheDocument();
     const unavailableCard = screen.getByText('Workout unavailable').closest('[data-slot="card"]');
     expect(unavailableCard).not.toBeNull();
     expect(
-      within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start now' }),
+      within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start' }),
     ).toBeDisabled();
   });
 
@@ -189,7 +191,7 @@ describe('WorkoutList', () => {
     expect(
       within(scheduledSection).queryByText('Completed Linked Session'),
     ).not.toBeInTheDocument();
-    expect(within(scheduledSection).getAllByRole('button', { name: 'Start now' })).toHaveLength(1);
+    expect(within(scheduledSection).getAllByRole('button', { name: 'Start' })).toHaveLength(1);
   });
 
   it('does not render in-progress linked scheduled workouts in scheduled section', async () => {

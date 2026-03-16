@@ -668,7 +668,8 @@ export const applySessionCorrections = async ({
         );
         const weightCases = sql.join(
           weightCorrections.map(
-            (correction) => sql`when ${sessionSets.id} = ${correction.setId} then ${correction.weight}`,
+            (correction) =>
+              sql`when ${sessionSets.id} = ${correction.setId} then ${correction.weight}`,
           ),
           sql.raw(' '),
         );
@@ -687,7 +688,8 @@ export const applySessionCorrections = async ({
         );
         const repsCases = sql.join(
           repsCorrections.map(
-            (correction) => sql`when ${sessionSets.id} = ${correction.setId} then ${correction.reps}`,
+            (correction) =>
+              sql`when ${sessionSets.id} = ${correction.setId} then ${correction.reps}`,
           ),
           sql.raw(' '),
         );
@@ -1045,6 +1047,20 @@ export const deleteWorkoutSession = async (id: string, userId: string): Promise<
       ),
     )
     .run();
+
+  return result.changes === 1;
+};
+
+export const hardDeleteWorkoutSession = async (id: string, userId: string): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const result = db.transaction((tx) => {
+    tx.delete(sessionSets).where(eq(sessionSets.sessionId, id)).run();
+    return tx
+      .delete(workoutSessions)
+      .where(and(eq(workoutSessions.id, id), eq(workoutSessions.userId, userId)))
+      .run();
+  });
 
   return result.changes === 1;
 };

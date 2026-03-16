@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ChevronDown,
@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
+import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
+import { toDateKey } from '@/lib/date-utils';
 import { formatServing, formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
@@ -42,8 +45,10 @@ import {
   useCompletedSessions,
   useCorrectSessionSets,
   useWorkoutSession,
+  useWorkoutSessions,
   useWorkoutTemplate,
 } from '../api/workouts';
+import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
   getDistanceUnit,
   getSetDistance,
@@ -136,10 +141,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [setDrafts, setSetDrafts] = useState<Record<string, SessionSetDraft>>({});
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { confirm, dialog: confirmDialog } = useConfirmation();
   const sessionQuery = useWorkoutSession(sessionId);
   const completedSessionsQuery = useCompletedSessions();
+  const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const session = sessionQuery.data;
   const correctSessionSetsMutation = useCorrectSessionSets(sessionId);
+  const startSessionMutation = useStartSession();
   const templateQuery = useWorkoutTemplate(session?.templateId ?? '');
   const template = templateQuery.data;
   const viewParam = searchParams.get('view');
@@ -521,7 +530,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         ))}
                       </div>
                     )}
- 
+
                     {showComparison ? (
                       <SessionExerciseComparison
                         currentSession={session}
@@ -531,7 +540,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         weightUnit={weightUnit}
                       />
                     ) : null}
- 
+
                     {exercise.notes ? (
                       <div className="rounded-2xl border border-border bg-secondary/35 px-3 py-2.5 text-sm text-foreground">
                         <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
@@ -597,9 +606,15 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </CardContent>
       </Card>
 
-      {session.templateId ? (
-        <Button asChild className="w-full sm:w-auto" size="lg">
-          <Link to={`/workouts/active?template=${session.templateId}`}>Repeat Workout</Link>
+      {session.templateId && template ? (
+        <Button
+          className="w-full sm:w-auto"
+          disabled={startSessionMutation.isPending}
+          onClick={() => handleRepeatWorkout()}
+          size="lg"
+          type="button"
+        >
+          Repeat Workout
         </Button>
       ) : null}
 
@@ -628,8 +643,52 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           ) : null}
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </section>
   );
+
+  async function doRepeatStart() {
+    if (!session?.templateId || !template) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const createdSession = await startSessionMutation.mutateAsync({
+      date: toDateKey(new Date(startedAt)),
+      name: template.name,
+      sets: buildInitialSessionSets(template),
+      startedAt,
+      templateId: session.templateId,
+    });
+    navigate(`/workouts/active?template=${session.templateId}&sessionId=${createdSession.id}`);
+  }
+
+  function handleRepeatWorkout() {
+    if (!session?.templateId || !template) {
+      return;
+    }
+
+    const activeSessions = activeSessionsQuery.data ?? [];
+    if (activeSessions.length > 0) {
+      const activeNames = activeSessions
+        .map((s) => s.templateName ?? s.name)
+        .slice(0, 2)
+        .join(', ');
+      const suffix = activeSessions.length > 2 ? `, and ${activeSessions.length - 2} more` : '';
+      confirm({
+        title: 'You already have an active workout',
+        description: `${activeNames}${suffix} ${activeSessions.length === 1 ? 'is' : 'are'} currently in progress. Starting a new workout will create an additional session for today.`,
+        confirmLabel: 'Start anyway',
+        cancelLabel: 'Go back',
+        onConfirm: () => {
+          void doRepeatStart();
+        },
+      });
+      return;
+    }
+
+    void doRepeatStart();
+  }
 }
 
 function SessionSetEditor({
@@ -703,7 +762,9 @@ function SessionSetEditor({
           })}
         </div>
       ) : (
-        <p className="mt-2.5 text-sm text-muted">No editable set values are available for this entry.</p>
+        <p className="mt-2.5 text-sm text-muted">
+          No editable set values are available for this entry.
+        </p>
       )}
 
       {readOnlySummary ? <p className="mt-2.5 text-xs text-muted">{readOnlySummary}</p> : null}

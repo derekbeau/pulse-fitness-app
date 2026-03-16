@@ -219,7 +219,8 @@ describe('WorkoutCalendar', () => {
     expect(screen.getByRole('link', { name: 'Resume' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View details' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Reschedule' })).toHaveLength(1);
   });
 
   it('shows empty selected-day state with a schedule CTA', async () => {

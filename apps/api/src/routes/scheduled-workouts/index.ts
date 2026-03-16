@@ -7,6 +7,7 @@ import {
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
   updateScheduledWorkoutInputSchema,
+  workoutTemplateSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -22,6 +23,8 @@ import {
   successFlagSchema,
 } from '../../openapi.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
+
+import { findWorkoutTemplateById } from '../workout-templates/store.js';
 
 import {
   createScheduledWorkout,
@@ -63,7 +66,10 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const templateAccessible = await templateBelongsToUser(request.body.templateId, request.userId);
+      const templateAccessible = await templateBelongsToUser(
+        request.body.templateId,
+        request.userId,
+      );
       if (!templateAccessible) {
         return sendError(
           reply,
@@ -108,6 +114,49 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.send({
         data: scheduledWorkoutItems,
+      });
+    },
+  );
+
+  const scheduledWorkoutDetailSchema = scheduledWorkoutSchema.extend({
+    template: workoutTemplateSchema.nullable(),
+  });
+
+  typedApp.get(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(scheduledWorkoutDetailSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Get a scheduled workout with template details',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const scheduledWorkout = await findScheduledWorkoutById(request.params.id, request.userId);
+      if (!scheduledWorkout) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const template = scheduledWorkout.templateId
+        ? ((await findWorkoutTemplateById(scheduledWorkout.templateId, request.userId)) ?? null)
+        : null;
+
+      return reply.send({
+        data: {
+          ...scheduledWorkout,
+          template,
+        },
       });
     },
   );

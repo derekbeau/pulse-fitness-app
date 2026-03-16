@@ -92,6 +92,7 @@ export const listScheduledWorkouts = async ({
         eq(scheduledWorkouts.userId, userId),
         gte(scheduledWorkouts.date, from),
         lte(scheduledWorkouts.date, to),
+        isNull(scheduledWorkouts.sessionId),
       ),
     )
     .orderBy(asc(scheduledWorkouts.date), asc(scheduledWorkouts.createdAt))
@@ -198,6 +199,35 @@ export const deleteScheduledWorkout = async (id: string, userId: string): Promis
 
   const result = db
     .delete(scheduledWorkouts)
+    .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
+    .run();
+
+  return result.changes === 1;
+};
+
+export const findScheduledWorkoutBySessionId = async (
+  sessionId: string,
+  userId: string,
+): Promise<ScheduledWorkout | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(scheduledWorkoutSelection)
+    .from(scheduledWorkouts)
+    .where(and(eq(scheduledWorkouts.sessionId, sessionId), eq(scheduledWorkouts.userId, userId)))
+    .limit(1)
+    .get();
+};
+
+export const unlinkScheduledWorkoutSession = async (
+  id: string,
+  userId: string,
+): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const result = db
+    .update(scheduledWorkouts)
+    .set({ sessionId: null })
     .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
     .run();
 

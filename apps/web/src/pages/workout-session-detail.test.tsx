@@ -214,11 +214,11 @@ describe('WorkoutSessionDetailPage', () => {
     expect(screen.getByText(currentSession.notes ?? '')).toBeInTheDocument();
   });
 
-  it('renders Repeat Workout button with correct link', async () => {
+  it('renders Repeat Workout button', async () => {
     renderWithRoute(currentSession.id);
 
-    const repeatButton = await screen.findByRole('link', { name: /repeat workout/i });
-    expect(repeatButton).toHaveAttribute('href', '/workouts/active?template=template-upper-push');
+    const repeatButton = await screen.findByRole('button', { name: /repeat workout/i });
+    expect(repeatButton).toBeInTheDocument();
   });
 });
 
