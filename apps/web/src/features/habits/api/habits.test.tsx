@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 import { type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
@@ -19,8 +20,20 @@ import {
 } from './habits';
 import { habitQueryKeys } from './keys';
 
+const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
 vi.mock('@/lib/api-client', () => ({
   apiRequest: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastErrorMock,
+    success: toastSuccessMock,
+  },
 }));
 
 const mockedApiRequest = vi.mocked(apiRequest);
@@ -61,6 +74,8 @@ function createWrapper(queryClient: QueryClient) {
 
 afterEach(() => {
   mockedApiRequest.mockReset();
+  vi.mocked(toast.error).mockClear();
+  vi.mocked(toast.success).mockClear();
 });
 
 describe('habit api hooks', () => {
@@ -299,6 +314,60 @@ describe('habit api hooks', () => {
       expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual([updatedEntry]);
       expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([updatedEntry]);
     });
+  });
+
+  it('creates a missing habit entry through the shared update hook and shows configured toasts', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const queryKey = habitQueryKeys.entryList({ from: '2026-03-09', to: '2026-03-09' });
+    const chainQueryKey = habitChainQueryKeys.range('2026-02-08', '2026-03-09');
+    const createdEntry: HabitEntry = {
+      id: 'entry-created',
+      habitId: 'habit-5',
+      userId: 'user-1',
+      date: '2026-03-09',
+      completed: true,
+      value: 8,
+      createdAt: 5,
+    };
+
+    queryClient.setQueryData(queryKey, []);
+    queryClient.setQueryData(chainQueryKey, []);
+    mockedApiRequest.mockResolvedValueOnce(createdEntry);
+
+    const { result } = renderHook(
+      () =>
+        useUpdateHabitEntry({
+          errorMessage: 'Could not save habit entry',
+          successMessage: 'Saved from modal',
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        habitId: 'habit-5',
+        date: '2026-03-09',
+        completed: true,
+        value: 8,
+      });
+    });
+
+    expect(mockedApiRequest).toHaveBeenCalledWith(
+      '/api/v1/habits/habit-5/entries',
+      expect.objectContaining({
+        body: {
+          completed: true,
+          date: '2026-03-09',
+          value: 8,
+        },
+        method: 'POST',
+      }),
+    );
+    expect(queryClient.getQueryData<HabitEntry[]>(queryKey)).toEqual([createdEntry]);
+    expect(queryClient.getQueryData<HabitEntry[]>(chainQueryKey)).toEqual([createdEntry]);
+    expect(toast.success).toHaveBeenCalledWith('Saved from modal');
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('invalidates dashboard snapshot and chain queries after a toggle succeeds', async () => {

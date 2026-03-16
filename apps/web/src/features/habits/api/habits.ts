@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import {
+  createHabitEntryInputSchema,
   createHabitInputSchema,
   habitEntrySchema,
   habitSchema,
+  updateHabitEntryInputSchema,
   reorderHabitsInputSchema,
   updateHabitInputSchema,
   type CreateHabitInput,
@@ -51,12 +53,17 @@ type ToggleHabitVariables = {
 };
 
 type UpdateHabitEntryVariables = {
-  id: string;
+  id?: string | null;
   habitId: string;
   date: string;
   completed?: boolean;
   value?: number;
   isOverride?: boolean;
+};
+
+type UseUpdateHabitEntryOptions = {
+  errorMessage?: string;
+  successMessage?: string;
 };
 
 type ReorderMutationContext = {
@@ -143,7 +150,7 @@ const applyHabitEntryToCache = (
 
 const findCachedHabitEntry = (
   queryClient: ReturnType<typeof useQueryClient>,
-  entryId: string,
+  variables: Pick<UpdateHabitEntryVariables, 'date' | 'habitId' | 'id'>,
 ): HabitEntry | undefined => {
   const snapshots = [
     ...queryClient.getQueriesData<HabitEntry[]>({
@@ -155,7 +162,13 @@ const findCachedHabitEntry = (
   ];
 
   for (const [, entries] of snapshots) {
-    const match = entries?.find((entry) => entry.id === entryId);
+    const match = entries?.find((entry) => {
+      if (variables.id && entry.id === variables.id) {
+        return true;
+      }
+
+      return entry.habitId === variables.habitId && entry.date === variables.date;
+    });
     if (match) {
       return match;
     }
@@ -390,30 +403,40 @@ export function useToggleHabit() {
   });
 }
 
-export function useUpdateHabitEntry() {
+export function useUpdateHabitEntry(options: UseUpdateHabitEntryOptions = {}) {
   return createOptimisticMutation<
     HabitEntry[],
     HabitEntry,
     UpdateHabitEntryVariables,
     { optimisticEntry: HabitEntry }
   >({
-    mutationFn: async ({ id, completed, value, isOverride }) => {
-      const entry = await apiRequest<HabitEntry>(`/api/v1/habit-entries/${id}`, {
-        body: {
-          ...(completed === undefined ? {} : { completed }),
-          ...(value === undefined ? {} : { value }),
-          ...(isOverride === undefined ? {} : { isOverride }),
-        },
-        method: 'PATCH',
-      });
+    mutationFn: async ({ id, habitId, date, completed, value, isOverride }) => {
+      const entry = id
+        ? await apiRequest<HabitEntry>(`/api/v1/habit-entries/${id}`, {
+            body: updateHabitEntryInputSchema.parse({
+              ...(completed === undefined ? {} : { completed }),
+              ...(value === undefined ? {} : { value }),
+              ...(isOverride === undefined ? {} : { isOverride }),
+            }),
+            method: 'PATCH',
+          })
+        : await apiRequest<HabitEntry>(`/api/v1/habits/${habitId}/entries`, {
+            body: createHabitEntryInputSchema.parse({
+              completed: completed ?? false,
+              date,
+              ...(value === undefined ? {} : { value }),
+              ...(isOverride === undefined ? {} : { isOverride }),
+            }),
+            method: 'POST',
+          });
 
       return habitEntrySchema.parse(entry);
     },
     getMeta: (variables, queryClient) => {
-      const existingEntry = findCachedHabitEntry(queryClient, variables.id);
+      const existingEntry = findCachedHabitEntry(queryClient, variables);
       return {
         optimisticEntry: {
-          id: variables.id,
+          id: variables.id ?? `optimistic-${variables.habitId}-${variables.date}`,
           habitId: variables.habitId,
           userId: existingEntry?.userId ?? 'optimistic',
           date: variables.date,
@@ -434,5 +457,15 @@ export function useUpdateHabitEntry() {
       applyHabitEntryToCache(current, entry, context.queryKey),
     updater: (current, _variables, context) =>
       applyHabitEntryToCache(current, context.meta.optimisticEntry, context.queryKey),
+    onError: () => {
+      if (options.errorMessage) {
+        toast.error(options.errorMessage);
+      }
+    },
+    onSuccess: () => {
+      if (options.successMessage) {
+        toast.success(options.successMessage);
+      }
+    },
   });
 }

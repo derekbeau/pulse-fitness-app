@@ -1,13 +1,27 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useUpdateHabitEntry } from '@/features/habits/api/habits';
 import { mockHabits } from '@/lib/mock-data/dashboard';
 
 import { HabitChain } from './habit-chain';
 
+vi.mock('@/features/habits/api/habits', () => ({
+  useUpdateHabitEntry: vi.fn(),
+}));
+
+const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
+
 type HabitChainProps = Parameters<typeof HabitChain>[0];
+
+function createMutationMock() {
+  return {
+    isPending: false,
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+  };
+}
 
 const formatDateLabel = (date: string): string => {
   return new Intl.DateTimeFormat('en-US', {
@@ -69,6 +83,7 @@ function renderHabitChain(props: HabitChainProps = {}) {
 describe('HabitChain', () => {
   afterEach(() => {
     vi.useRealTimers();
+    mockedUseUpdateHabitEntry.mockReset();
   });
 
   it('renders an empty state when no habits are provided', () => {
@@ -249,6 +264,9 @@ describe('HabitChain', () => {
   it('shows future days as not scheduled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
 
     const habit = getHabitByIndex(0);
     const { container } = renderHabitChain({
@@ -264,6 +282,64 @@ describe('HabitChain', () => {
 
     expect(futureSquare).toHaveAttribute('data-status', 'not_scheduled');
     expect(futureSquare).toHaveClass('bg-[var(--color-muted)]/40');
+    expect(futureSquare).toBeDisabled();
+  });
+
+  it('opens the day detail modal when a habit circle is clicked', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      createMutationMock() as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+
+    const habit: Habit = {
+      id: 'habit-modal',
+      userId: 'user-1',
+      name: 'Meditate',
+      description: null,
+      emoji: null,
+      trackingType: 'boolean',
+      target: null,
+      unit: null,
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      referenceSource: null,
+      referenceConfig: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+    const entries: HabitEntry[] = [
+      {
+        id: 'entry-modal',
+        habitId: habit.id,
+        userId: 'user-1',
+        date: '2026-03-09',
+        completed: true,
+        value: null,
+        createdAt: new Date('2026-03-09T12:00:00Z').getTime(),
+      },
+    ];
+
+    renderHabitChain({
+      endDate: '2026-03-10',
+      entries,
+      habitIds: [habit.id],
+      habits: [habit],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Meditate 2026-03-09 Completed' }),
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('Meditate')).toBeInTheDocument();
+    expect(within(dialog).getByText('March 9, 2026')).toBeInTheDocument();
+    expect(within(dialog).getByText('Status')).toBeInTheDocument();
   });
 
   it('counts streak across not scheduled gaps and breaks on missed days', () => {
