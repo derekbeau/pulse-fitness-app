@@ -79,6 +79,7 @@ pnpm format     # Format with Prettier
 - API documentation available at `/api/docs` (Swagger UI) and `/api/docs/json` (OpenAPI 3.1 spec).
 - Agent-specific conveniences such as name resolution, auto-create behavior, and enriched hints activate automatically for AgentToken callers on `/api/v1/*`.
 - Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
+- Meal summaries can be explicitly updated via meal PATCH routes (`PATCH /api/v1/meals/:id` and `PATCH /api/v1/nutrition/:date/meals/:mealId`) by sending `summary` as text or `null`.
 
 ### Response Format
 

@@ -294,6 +294,22 @@ describe('patchMealInputSchema', () => {
     });
   });
 
+  it('accepts summary updates as trimmed text or null', () => {
+    const textPayload = patchMealInputSchema.parse({
+      summary: '  Applesauce Pancakes + Eggs  ',
+    });
+    const nullPayload = patchMealInputSchema.parse({
+      summary: null,
+    });
+
+    expect(textPayload).toEqual({
+      summary: 'Applesauce Pancakes + Eggs',
+    });
+    expect(nullPayload).toEqual({
+      summary: null,
+    });
+  });
+
   it('rejects an empty patch payload', () => {
     expect(() => patchMealInputSchema.parse({})).toThrow();
   });
@@ -302,6 +318,11 @@ describe('patchMealInputSchema', () => {
     expect(() =>
       patchMealInputSchema.parse({
         name: 'x'.repeat(121),
+      }),
+    ).toThrow();
+    expect(() =>
+      patchMealInputSchema.parse({
+        summary: 'x'.repeat(501),
       }),
     ).toThrow();
   });

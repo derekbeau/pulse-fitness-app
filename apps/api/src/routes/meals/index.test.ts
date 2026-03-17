@@ -226,6 +226,80 @@ describe('meal routes', () => {
     }
   });
 
+  it('patches meal summary via /api/v1/meals/:id', async () => {
+    const existingMeal = {
+      id: 'meal-1',
+      nutritionLogId: 'log-1',
+      name: 'Lunch',
+      summary: 'Chicken and rice',
+      time: '12:30',
+      notes: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const updatedMeal = {
+      ...existingMeal,
+      summary: 'Applesauce Pancakes + Eggs',
+      updatedAt: 2,
+    };
+
+    vi.mocked(findMealById).mockResolvedValue(existingMeal);
+    vi.mocked(patchMealById).mockResolvedValue(updatedMeal);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+
+      const patchSummaryResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/meals/meal-1',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          summary: '  Applesauce Pancakes + Eggs  ',
+        },
+      });
+      const clearSummaryResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/meals/meal-1',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          summary: null,
+        },
+      });
+      const emptyPayloadResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/meals/meal-1',
+        headers: createAuthorizationHeader(token),
+        payload: {},
+      });
+
+      expect(patchSummaryResponse.statusCode).toBe(200);
+      expect(clearSummaryResponse.statusCode).toBe(200);
+      expect(emptyPayloadResponse.statusCode).toBe(400);
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(1, 'user-1', 'meal-1', {
+        summary: 'Applesauce Pancakes + Eggs',
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(2, 'user-1', 'meal-1', {
+        summary: null,
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenCalledTimes(2);
+      expect(emptyPayloadResponse.json()).toMatchObject({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+        },
+      });
+      expect(vi.mocked(findMealById)).toHaveBeenCalledTimes(2);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('creates an agent meal via AgentToken with food resolution and auto-create', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',

@@ -117,6 +117,7 @@ export const createMealForDateInputSchema = createMealInputSchema.extend({
 export const patchMealInputSchema = z
   .object({
     name: requiredText(120).optional(),
+    summary: z.string().trim().max(500).nullable().optional(),
     time: mealTimeSchema.nullable().optional(),
     notes: z.string().trim().max(2_000).nullable().optional(),
   })

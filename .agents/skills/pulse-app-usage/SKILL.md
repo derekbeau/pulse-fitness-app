@@ -16,8 +16,11 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 1. Load your agent token from `.env` at the project root (`AGENT_TOKEN_CLAUDE_CODE`).
 2. API base URL: `http://meridian.tail408570.ts.net:8147`
 3. Auth header: `Authorization: AgentToken <token>`
-4. OpenAPI spec: `GET /api/docs/json` (no auth required). Swagger UI at `/api/docs`.
-5. Always read context first: `GET /api/v1/context/` — returns user profile, recent workouts, today's nutrition, weight trend, habits, and scheduled workouts.
+4. OpenAPI spec: `GET /api/docs/json` (no auth required)
+5. Swagger UI: `/api/docs` (browsable in browser)
+6. For the full list of endpoints, request/response schemas, and auth requirements, fetch the OpenAPI spec.
+7. OpenAPI-generated clients using the `agentToken` security scheme must still send the full `Authorization: AgentToken <token>` header manually; the prefix is not implied by the spec metadata.
+8. Always read context first: `GET /api/v1/context/` — returns user profile, recent workouts, today's nutrition, weight trend, habits, and scheduled workouts.
 
 ### Core Rules
 
@@ -98,6 +101,7 @@ Meals support editing via PATCH:
 - `PATCH /api/v1/nutrition/:date/meals/:mealId` — edit meal by date
 - `PATCH /api/v1/meals/:id/items/:itemId` — edit individual meal items
 - `DELETE /api/v1/nutrition/:date/meals/:mealId` — delete a meal entirely
+- Meal-level PATCH supports `summary`: send text to override, send `null` to clear, omit to leave unchanged.
 
 ### Nutrition Summaries
 

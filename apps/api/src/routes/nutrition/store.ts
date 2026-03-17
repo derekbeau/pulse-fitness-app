@@ -638,6 +638,9 @@ export const patchMealById = async (
   if (updates.name !== undefined) {
     mealUpdate.name = updates.name;
   }
+  if (updates.summary !== undefined) {
+    mealUpdate.summary = updates.summary;
+  }
   if (updates.time !== undefined) {
     mealUpdate.time = updates.time;
   }

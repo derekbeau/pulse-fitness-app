@@ -549,6 +549,8 @@ describe('nutrition routes', () => {
       .mockResolvedValueOnce(meal)
       .mockResolvedValueOnce(meal)
       .mockResolvedValueOnce(meal)
+      .mockResolvedValueOnce(meal)
+      .mockResolvedValueOnce(meal)
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined);
@@ -588,6 +590,22 @@ describe('nutrition routes', () => {
           name: 'Updated Lunch',
         },
       });
+      const patchSummaryResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          summary: '  Applesauce Pancakes + Eggs  ',
+        },
+      });
+      const clearSummaryResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/meals/meal-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          summary: null,
+        },
+      });
 
       const wrongDateResponse = await app.inject({
         method: 'PATCH',
@@ -619,6 +637,8 @@ describe('nutrition routes', () => {
       expect(patchNameResponse.statusCode).toBe(200);
       expect(patchTimeResponse.statusCode).toBe(200);
       expect(patchMultipleResponse.statusCode).toBe(200);
+      expect(patchSummaryResponse.statusCode).toBe(200);
+      expect(clearSummaryResponse.statusCode).toBe(200);
       expect(patchNameResponse.json()).toEqual({
         data: patchedMeal,
       });
@@ -643,17 +663,29 @@ describe('nutrition routes', () => {
       expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
         4,
         'user-1',
-        '2026-03-10',
+        '2026-03-09',
         'meal-1',
       );
       expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
         5,
-        'user-2',
+        'user-1',
         '2026-03-09',
         'meal-1',
       );
       expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
         6,
+        'user-1',
+        '2026-03-10',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        7,
+        'user-2',
+        '2026-03-09',
+        'meal-1',
+      );
+      expect(vi.mocked(findMealForDate)).toHaveBeenNthCalledWith(
+        8,
         'user-1',
         '2026-03-09',
         'meal-404',
@@ -668,6 +700,12 @@ describe('nutrition routes', () => {
       expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(3, 'user-1', 'meal-1', {
         notes: 'Updated note',
         name: 'Updated Lunch',
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(4, 'user-1', 'meal-1', {
+        summary: 'Applesauce Pancakes + Eggs',
+      });
+      expect(vi.mocked(patchMealById)).toHaveBeenNthCalledWith(5, 'user-1', 'meal-1', {
+        summary: null,
       });
 
       expect(wrongDateResponse.statusCode).toBe(404);
