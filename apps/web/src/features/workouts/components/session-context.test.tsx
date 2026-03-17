@@ -67,13 +67,13 @@ describe('SessionContext', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('Preview')).toHaveLength(3);
 
-    const recentTrainingCard = screen.getByText('Recent Training').closest('[data-slot="card"]');
+    const recentTrainingCard = screen.getByText('Recent Training').closest('.rounded-xl');
 
     if (!(recentTrainingCard instanceof HTMLElement)) {
       throw new Error('Expected recent training card.');
     }
 
-    const trainingPhaseCard = screen.getByText('Training Phase').closest('[data-slot="card"]');
+    const trainingPhaseCard = screen.getByText('Training Phase').closest('.rounded-xl');
 
     if (!(trainingPhaseCard instanceof HTMLElement)) {
       throw new Error('Expected training phase card.');
@@ -85,7 +85,7 @@ describe('SessionContext', () => {
     ).toBeInTheDocument();
 
     const grid = container.querySelector(
-      'div.grid.grid-cols-1.gap-3.md\\:grid-cols-2.xl\\:grid-cols-4',
+      'div.grid.grid-cols-1.gap-4.md\\:grid-cols-2.xl\\:grid-cols-4',
     );
     expect(grid).toBeInTheDocument();
     expect(grid).not.toHaveClass('overflow-x-auto');

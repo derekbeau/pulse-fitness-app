@@ -276,7 +276,7 @@ export function SessionExerciseList({
               type="button"
             >
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">{`${sectionLabel} ${sectionEstimate}`}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{`${sectionLabel} ${sectionEstimate}`}</h2>
                 <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 

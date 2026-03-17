@@ -10,7 +10,6 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { PreviewBanner } from '@/components/ui/preview-banner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -77,18 +76,21 @@ export function SessionContext({ className, context }: SessionContextProps) {
   return (
     <section
       aria-label="Session context"
-      className={cn('rounded-2xl border border-border bg-card p-3 shadow-sm', className)}
+      className={cn(
+        'overflow-hidden rounded-3xl border border-border bg-card shadow-sm',
+        className,
+      )}
     >
       <button
         aria-controls="session-context-panel"
         aria-expanded={isExpanded}
-        className="flex w-full cursor-pointer items-center justify-between rounded-xl px-2 py-2 text-left"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
         onClick={() => setIsExpanded((current) => !current)}
         type="button"
       >
         <div>
-          <h2 className="text-base font-semibold text-foreground">Session Context</h2>
-          <p className="text-xs text-muted">Training context and readiness notes</p>
+          <h2 className="text-lg font-semibold text-foreground">Session Context</h2>
+          <p className="text-sm text-muted">Training context and readiness notes</p>
         </div>
         <ChevronDown
           aria-hidden="true"
@@ -96,14 +98,18 @@ export function SessionContext({ className, context }: SessionContextProps) {
         />
       </button>
 
-      <div className="space-y-3 pt-2" hidden={!isExpanded} id="session-context-panel">
+      <div
+        className="space-y-4 border-t border-border px-5 py-5 sm:px-6"
+        hidden={!isExpanded}
+        id="session-context-panel"
+      >
         {hasPreviewCards ? (
           <PreviewBanner
             message="Some cards are in preview — sample data is shown and won't be saved."
             storageKey="pulse-preview-banner-dismissed:active-workout-session-context"
           />
         ) : null}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <ContextCard
             className="w-full"
             description="Last 3 sessions"
@@ -217,30 +223,33 @@ function ContextCard({
   title: string;
 }) {
   return (
-    <Card className={cn('gap-0 border-border/70 bg-secondary/25 py-0 shadow-sm', className)}>
-      <CardHeader className="gap-3 border-b border-border/80 pb-4 pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-base">{title}</CardTitle>
-              {preview ? (
-                <Badge
-                  className="border-amber-500/30 bg-amber-500/10 text-[10px] tracking-wide text-amber-700 uppercase dark:text-amber-300"
-                  variant="outline"
-                >
-                  Preview
-                </Badge>
-              ) : null}
-            </div>
-            <p className="text-sm text-muted">{description}</p>
+    <div
+      className={cn(
+        'flex flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-sm',
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold leading-none">{title}</p>
+            {preview ? (
+              <Badge
+                className="border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] leading-tight tracking-wide text-amber-700 uppercase dark:text-amber-300"
+                variant="outline"
+              >
+                Preview
+              </Badge>
+            ) : null}
           </div>
-          <div className="rounded-full bg-secondary/70 p-2 text-muted">
-            <Icon aria-hidden="true" className="size-4" />
-          </div>
+          <p className="text-xs text-muted">{description}</p>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4 pb-5">{children}</CardContent>
-    </Card>
+        <div className="rounded-full bg-secondary/80 p-1.5 text-muted">
+          <Icon aria-hidden="true" className="size-3.5" />
+        </div>
+      </div>
+      <div className="px-4 py-3">{children}</div>
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -58,16 +59,24 @@ export function SupplementalMenu({
         type="button"
       >
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-foreground">
+          <h2 className="text-lg font-semibold text-foreground">
             Post-Workout Supplemental (10-20 min)
           </h2>
           <p className="text-sm text-muted">{`${totalChecked}/${exercises.length} completed`}</p>
         </div>
 
-        <ChevronDown
-          aria-hidden="true"
-          className={cn('size-4 text-muted transition-transform', isOpen && 'rotate-180')}
-        />
+        <div className="flex items-center gap-3">
+          <Badge
+            className="border-transparent bg-secondary text-secondary-foreground"
+            variant="outline"
+          >
+            {`${totalChecked}/${exercises.length}`}
+          </Badge>
+          <ChevronDown
+            aria-hidden="true"
+            className={cn('size-4 text-muted transition-transform', isOpen && 'rotate-180')}
+          />
+        </div>
       </button>
 
       {isOpen ? (
