@@ -759,6 +759,7 @@ function createEnhancedExercise(input: {
     name: catalogExercise?.name ?? startCase(input.exerciseId),
     phaseBadge: input.phaseBadge,
     prescribedReps: templateExercise?.reps ?? String(input.reversePyramid[0]?.targetReps ?? ''),
+    prescribedSets: templateExercise?.sets ?? input.reversePyramid.length,
     priority: input.priority,
     restSeconds: templateExercise?.restSeconds ?? 60,
     reversePyramid: input.reversePyramid,

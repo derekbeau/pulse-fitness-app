@@ -92,7 +92,7 @@ export const agentCreateMealInputSchema = z.object({
 export const agentWorkoutTemplateExerciseInputSchema = z.object({
   name: requiredText(),
   sets: z.number().int().min(1).max(100),
-  reps: z.number().int().min(1).max(1000),
+  reps: z.union([z.number().int().min(1).max(1000), z.string().min(1).max(20)]),
   restSeconds: z.number().int().min(0).max(3600).optional(),
   tags: z.array(requiredText()).max(20).optional(),
   cues: z.array(requiredText(500)).max(50).optional(),

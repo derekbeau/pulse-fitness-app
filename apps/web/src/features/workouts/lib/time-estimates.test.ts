@@ -30,6 +30,7 @@ function makeExercise(overrides: Partial<ActiveWorkoutExercise> = {}): ActiveWor
     notes: '',
     phaseBadge: 'moderate',
     prescribedReps: '8-10',
+    prescribedSets: 3,
     priority: 'required',
     restSeconds: 90,
     reversePyramid: [],

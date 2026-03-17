@@ -139,7 +139,7 @@ If no new foods were created, explicitly say that existing food entries were reu
 
 ### Templates
 
-- **Create**: `POST /api/v1/workout-templates/` — sections (warmup/main/cooldown) with exercises, sets, reps, rest times. Unknown exercise names are auto-created.
+- **Create**: `POST /api/v1/workout-templates/` — sections (warmup/main/cooldown) with exercises, sets, reps, rest times. Unknown exercise names are auto-created. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`).
 - **Update**: `PUT /api/v1/workout-templates/:id` or `PATCH /api/v1/workout-templates/:id`
 - **Swap exercise**: `PATCH /api/v1/workout-templates/:id/exercises/:exerciseId/swap`
 - **Reorder exercises**: `PATCH /api/v1/workout-templates/:id/reorder`

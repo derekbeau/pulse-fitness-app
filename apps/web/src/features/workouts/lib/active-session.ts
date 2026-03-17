@@ -75,8 +75,7 @@ export function buildActiveWorkoutSession(
       exerciseOrderBySection?.[section.type],
     );
     const exercises = orderedTemplateExercises.map((templateExercise): ActiveWorkoutExercise => {
-      const templateExerciseWithMetadata =
-        templateExercise as WorkoutTemplateExerciseWithMetadata;
+      const templateExerciseWithMetadata = templateExercise as WorkoutTemplateExerciseWithMetadata;
       const exercise = exerciseById.get(templateExercise.exerciseId);
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
       const trackingType = resolveTrackingType({
@@ -94,9 +93,7 @@ export function buildActiveWorkoutSession(
         coachingNotes: templateExerciseWithMetadata.exercise?.coachingNotes ?? null,
         completedSets,
         formCues:
-          templateExerciseWithMetadata.exercise?.formCues ??
-          templateExercise.formCues ??
-          [],
+          templateExerciseWithMetadata.exercise?.formCues ?? templateExercise.formCues ?? [],
         templateCues: templateExercise.templateCues ?? [],
         id: templateExercise.exerciseId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
@@ -109,6 +106,7 @@ export function buildActiveWorkoutSession(
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         programmingNotes: templateExerciseWithMetadata.programmingNotes ?? null,
         prescribedReps: templateExercise.reps,
+        prescribedSets: templateExercise.sets,
         priority: enhancedExercise?.priority ?? 'required',
         restSeconds: templateExercise.restSeconds,
         reversePyramid: enhancedExercise?.reversePyramid ?? [],

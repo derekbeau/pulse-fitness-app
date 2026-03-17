@@ -63,6 +63,7 @@ export type ActiveWorkoutExerciseMetadata = {
   name: string;
   phaseBadge: ActiveWorkoutPhaseBadge;
   prescribedReps: string;
+  prescribedSets: number;
   priority: ActiveWorkoutPriority;
   restSeconds: number;
   reversePyramid: ActiveWorkoutReversePyramidTarget[];
@@ -146,13 +147,7 @@ export type ActiveWorkoutEnhancedExercise = Omit<
   tempo: string;
 };
 
-export type FeedbackFieldType =
-  | 'scale'
-  | 'text'
-  | 'yes_no'
-  | 'emoji'
-  | 'slider'
-  | 'multi_select';
+export type FeedbackFieldType = 'scale' | 'text' | 'yes_no' | 'emoji' | 'slider' | 'multi_select';
 
 export type ActiveWorkoutCustomFeedbackField =
   | {

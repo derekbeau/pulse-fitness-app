@@ -98,14 +98,6 @@ const sectionLabels = {
   cooldown: 'Cooldown',
 } as const;
 
-const badgeStyles = {
-  compound: 'bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
-  isolation:
-    'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
-  cardio: 'bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
-  mobility: 'bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
-} as const;
-
 const phaseBadgeStyles: Record<ActiveWorkoutPhaseBadge, string> = {
   rebuild:
     'border-transparent bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
@@ -676,25 +668,27 @@ function ExerciseCardItem({
       >
         <div className="space-y-4">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                className={cn(
-                  'border-transparent capitalize',
-                  phaseBadgeStyles[exercise.phaseBadge],
-                )}
-                variant="outline"
-              >
-                {formatPhaseBadge(exercise.phaseBadge)}
-              </Badge>
-              <Badge
-                className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
-                variant="outline"
-              >
-                {exercise.category}
-              </Badge>
-              {exercise.priority === 'optional' ? (
-                <span className="text-sm font-medium text-muted">Optional</span>
+            <p className="text-sm text-muted">
+              {formatExerciseSubtitle({
+                exercise,
+                weightUnit,
+              })}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {exercise.phaseBadge !== 'moderate' ? (
+                <Badge
+                  className={cn(
+                    'border-transparent capitalize',
+                    phaseBadgeStyles[exercise.phaseBadge],
+                  )}
+                  variant="outline"
+                >
+                  {formatPhaseBadge(exercise.phaseBadge)}
+                </Badge>
               ) : null}
+              <MetadataPill label={exercise.category} />
+              {exercise.priority === 'optional' ? <MetadataPill label="Optional" /> : null}
               {exercise.tempo ? (
                 <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
               ) : null}
@@ -702,13 +696,6 @@ function ExerciseCardItem({
                 <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
               ) : null}
             </div>
-
-            <p className="text-sm text-muted">
-              {formatExerciseSubtitle({
-                exercise,
-                weightUnit,
-              })}
-            </p>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
@@ -996,15 +983,61 @@ function formatExerciseSubtitle({
   weightUnit: WeightUnit;
 }) {
   const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
-  const canShowWeightLadder =
+  const sets = exercise.prescribedSets;
+  const hasWeightLadder =
     (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
     exercise.reversePyramid.some((target) => target.targetWeight > 0);
 
-  return canShowWeightLadder
-    ? `${exercise.targetSets} × ${repTarget} | ${exercise.reversePyramid
-        .map((target) => formatWeight(target.targetWeight))
-        .join(' → ')} ${weightUnit}`
-    : `${exercise.targetSets} × ${repTarget}`;
+  const hasPerSetWeightTargets = exercise.sets.some(
+    (set) =>
+      (set.targetWeight != null && set.targetWeight > 0) ||
+      (set.targetWeightMin != null && set.targetWeightMax != null),
+  );
+
+  if (hasWeightLadder) {
+    const weightLadder = exercise.reversePyramid
+      .map((target) => formatWeight(target.targetWeight))
+      .join(' → ');
+    return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+  }
+
+  if (hasPerSetWeightTargets) {
+    const uniqueWeights = new Set(
+      exercise.sets
+        .filter((set) => set.targetWeight != null && set.targetWeight > 0)
+        .map((set) => set.targetWeight),
+    );
+
+    if (uniqueWeights.size === 1) {
+      const weight = [...uniqueWeights][0] ?? 0;
+      return `${sets} sets, ${formatWeight(weight)} ${weightUnit} × ${repTarget}`;
+    }
+
+    if (uniqueWeights.size > 1) {
+      const weightLadder = exercise.sets
+        .filter(
+          (set): set is typeof set & { targetWeight: number } =>
+            set.targetWeight != null && set.targetWeight > 0,
+        )
+        .map((set) => formatWeight(set.targetWeight))
+        .join(' → ');
+      return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+    }
+
+    const firstRange = exercise.sets.find(
+      (set) => set.targetWeightMin != null && set.targetWeightMax != null,
+    );
+    if (firstRange && firstRange.targetWeightMin != null && firstRange.targetWeightMax != null) {
+      return `${sets} sets, ${firstRange.targetWeightMin}-${firstRange.targetWeightMax} ${weightUnit} × ${repTarget}`;
+    }
+  }
+
+  const needsRepsSuffix =
+    !repTarget.toLowerCase().includes('rep') &&
+    !repTarget.toLowerCase().includes('sec') &&
+    !repTarget.toLowerCase().includes('min');
+
+  return needsRepsSuffix ? `${sets} sets × ${repTarget} reps` : `${sets} × ${repTarget}`;
 }
 
 function formatHistoryPreview({

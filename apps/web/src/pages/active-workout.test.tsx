@@ -106,7 +106,6 @@ describe('ActiveWorkoutPage', () => {
     ).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
-    expect(within(inclineCard).getByText('Moderate')).toBeInTheDocument();
 
     fireEvent.change(within(inclineCard).getByLabelText('Weight for set 3'), {
       target: { value: '40' },

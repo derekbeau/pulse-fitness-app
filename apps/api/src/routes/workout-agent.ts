@@ -16,13 +16,7 @@ const SITUATIONAL_CUE_PATTERN =
 const dedupeStrings = (values: string[] | undefined): string[] =>
   values ? [...new Set(values)] : [];
 
-const classifyCues = ({
-  cues,
-  formCues,
-}: {
-  cues?: string[];
-  formCues?: string[];
-}) => {
+const classifyCues = ({ cues, formCues }: { cues?: string[]; formCues?: string[] }) => {
   const durable = [...(formCues ?? [])];
   const situational: string[] = [];
 
@@ -131,7 +125,7 @@ export const buildTemplateSections = async ({
     exercises: Array<{
       name: string;
       sets: number;
-      reps: number;
+      reps: number | string;
       restSeconds?: number;
       tags?: string[];
       cues?: string[];
@@ -188,11 +182,13 @@ export const buildTemplateSections = async ({
         newExercises.push(resolvedExercise.newExercise);
       }
 
+      const { repsMin, repsMax } = parseRepsInput(exercise.reps);
+
       existingExercises.push({
         exerciseId: resolvedExercise.exerciseId,
         sets: exercise.sets,
-        repsMin: exercise.reps,
-        repsMax: exercise.reps,
+        repsMin,
+        repsMax,
         tempo: null,
         restSeconds: exercise.restSeconds ?? null,
         supersetGroup: null,
@@ -211,7 +207,31 @@ export const buildTemplateSections = async ({
   };
 };
 
-export const toCreateWorkoutSessionInput = (session: WorkoutSession): CreateWorkoutSessionInput => ({
+function parseRepsInput(reps: number | string): { repsMin: number; repsMax: number } {
+  if (typeof reps === 'number') {
+    return { repsMin: reps, repsMax: reps };
+  }
+
+  const rangeMatch = reps.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (rangeMatch) {
+    return {
+      repsMin: Number.parseInt(rangeMatch[1], 10),
+      repsMax: Number.parseInt(rangeMatch[2], 10),
+    };
+  }
+
+  const singleMatch = reps.match(/^(\d+)$/);
+  if (singleMatch) {
+    const value = Number.parseInt(singleMatch[1], 10);
+    return { repsMin: value, repsMax: value };
+  }
+
+  return { repsMin: 10, repsMax: 10 };
+}
+
+export const toCreateWorkoutSessionInput = (
+  session: WorkoutSession,
+): CreateWorkoutSessionInput => ({
   templateId: session.templateId,
   name: session.name,
   date: session.date,
@@ -265,7 +285,6 @@ export const buildInitialSessionSets = (
 
   return sets;
 };
-
 
 export const buildExerciseSectionOrder = (
   sets: CreateWorkoutSessionInput['sets'],

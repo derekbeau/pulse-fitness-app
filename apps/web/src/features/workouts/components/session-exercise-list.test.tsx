@@ -147,7 +147,6 @@ describe('SessionExerciseList', () => {
     const currentCard = currentExercise.closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
-    expect(within(currentCard as HTMLElement).getByText('Moderate')).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByLabelText('Weight for set 1'),
     ).toBeInTheDocument();
@@ -156,7 +155,7 @@ describe('SessionExerciseList', () => {
       within(currentCard as HTMLElement).getAllByRole('button', { name: 'Add Set' }).length,
     ).toBeGreaterThan(0);
     expect(
-      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
+      within(currentCard as HTMLElement).getByText(/3 sets, 8-10 reps, 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getAllByText('Rest: 90s').length).toBeGreaterThan(0);
@@ -605,7 +604,7 @@ describe('SessionExerciseList', () => {
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
     ).not.toBeInTheDocument();
-    expect(within(squatCard as HTMLElement).getByText(/4 × 5-6/i)).toBeInTheDocument();
+    expect(within(squatCard as HTMLElement).getByText(/4 sets × 5-6 reps/i)).toBeInTheDocument();
   });
 
   it('renders superset rest timers between exercises in the superset group', () => {
@@ -818,6 +817,7 @@ describe('SessionExerciseList', () => {
               name: 'Tempo Squat',
               notes: '',
               phaseBadge: 'moderate',
+              prescribedSets: 3,
               prescribedReps: '10 reps + 30 sec hold',
               priority: 'required',
               restSeconds: 90,
@@ -865,7 +865,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
     expect(
-      within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold/i),
+      within(card as HTMLElement).getByText(/3 × 10 reps \+ 30 sec hold/i),
     ).toBeInTheDocument();
     expect(
       within(card as HTMLElement).queryByText(
@@ -897,6 +897,7 @@ describe('SessionExerciseList', () => {
               name: 'Plank Hold',
               notes: '',
               phaseBadge: 'recovery',
+              prescribedSets: 3,
               prescribedReps: '30 sec',
               priority: 'required',
               restSeconds: 60,
@@ -943,7 +944,7 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Plank Hold' })
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
-    expect(within(rowErgCard as HTMLElement).getByText(/1 × 30 sec/i)).toBeInTheDocument();
+    expect(within(rowErgCard as HTMLElement).getByText(/3 × 30 sec/i)).toBeInTheDocument();
   });
 
   it('renders bodyweight reps exercises without a weight input', () => {
@@ -965,6 +966,7 @@ describe('SessionExerciseList', () => {
               name: 'Pull-up',
               notes: '',
               phaseBadge: 'moderate',
+              prescribedSets: 3,
               prescribedReps: '6-8',
               priority: 'required',
               restSeconds: 90,

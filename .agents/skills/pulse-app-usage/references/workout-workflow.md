@@ -4,7 +4,7 @@ Pulse uses a **Template → Session → Set** model, all managed through `/api/v
 
 ## Template Lifecycle
 
-Templates define the structure: sections (warmup/main/cooldown) with exercises, sets, reps, and rest times.
+Templates define the structure: sections (warmup/main/cooldown) with exercises, sets, reps, and rest times. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`).
 
 ```
 POST /api/v1/workout-templates/
