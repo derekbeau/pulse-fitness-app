@@ -212,7 +212,10 @@ describe('time-estimates', () => {
   it('formats estimate/minutes, rest duration, and tempo labels', () => {
     expect(formatEstimateMinutes(490)).toBe('~8 min');
     expect(formatEstimateMinuteRange(490)).toBe('6-10 min');
-    expect(formatRestDuration(150)).toBe('2:30');
+    expect(formatRestDuration(30)).toBe('30s');
+    expect(formatRestDuration(90)).toBe('90s');
+    expect(formatRestDuration(120)).toBe('2m');
+    expect(formatRestDuration(150)).toBe('2m30s');
     expect(formatTempo('3110')).toBe('3-1-1-0');
   });
 });

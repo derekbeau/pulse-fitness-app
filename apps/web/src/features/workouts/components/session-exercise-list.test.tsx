@@ -159,7 +159,6 @@ describe('SessionExerciseList', () => {
 
     expect(currentCard).not.toBeNull();
     expect(within(currentCard as HTMLElement).getByText('Moderate')).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByText('Current')).toBeInTheDocument();
     expect(
       within(currentCard as HTMLElement).getByLabelText('Weight for set 1'),
     ).toBeInTheDocument();
@@ -168,19 +167,10 @@ describe('SessionExerciseList', () => {
       within(currentCard as HTMLElement).getAllByRole('button', { name: 'Add Set' }).length,
     ).toBeGreaterThan(0);
     expect(
-      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50\.0 → 45\.0 → 40\.0 kg/i),
+      within(currentCard as HTMLElement).getByText(/3 × 8-10 \| 50 → 45 → 40 kg/i),
     ).toBeInTheDocument();
     expect(within(currentCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByText('Rest: 1:30')).toBeInTheDocument();
-    expect(within(currentCard as HTMLElement).getByText('~5 min')).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByText(/Last: 50\.0x12, 45\.0x10, 40\.0x9/i),
-    ).toBeInTheDocument();
-    expect(
-      within(currentCard as HTMLElement).getByTestId('set-grid-incline-dumbbell-press'),
-    ).toHaveClass('grid-cols-2');
-
-    expect(within(currentCard as HTMLElement).getByText('Exercise cues')).toBeVisible();
+    expect(within(currentCard as HTMLElement).getAllByText('Rest: 90s').length).toBeGreaterThan(0);
     expect(within(currentCard as HTMLElement).getByText('Drive feet into the floor')).toBeVisible();
     expect(
       within(currentCard as HTMLElement).getByText('Keep wrists stacked over elbows'),
@@ -192,9 +182,6 @@ describe('SessionExerciseList', () => {
         'Avoid the last 10 degrees of lockout if the left shoulder feels unstable.',
       ),
     ).toBeVisible();
-
-    const notesInput = within(currentCard as HTMLElement).getByLabelText('Session notes');
-    expect(notesInput).toHaveValue('Bench one notch lower than usual.');
 
     const optionalExercise = screen.getByRole('heading', {
       level: 3,
@@ -239,8 +226,10 @@ describe('SessionExerciseList', () => {
         throw new Error('Expected Row Erg card.');
       }
 
-      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
-      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.click(within(rowErgCard as HTMLElement).getByText('Session notes'));
+      const notesInput = within(rowErgCard as HTMLElement).getByPlaceholderText(
+        'Add any technique reminders, machine settings, or quick context.',
+      );
       fireEvent.change(notesInput, { target: { value: 'Keep elbows stacked.' } });
 
       expect(notesInput).toHaveValue('Keep elbows stacked.');
@@ -290,8 +279,10 @@ describe('SessionExerciseList', () => {
         throw new Error('Expected Row Erg card.');
       }
 
-      fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Notes' }));
-      const notesInput = within(rowErgCard as HTMLElement).getByLabelText('Session notes');
+      fireEvent.click(within(rowErgCard as HTMLElement).getByText('Session notes'));
+      const notesInput = within(rowErgCard as HTMLElement).getByPlaceholderText(
+        'Add any technique reminders, machine settings, or quick context.',
+      );
       fireEvent.change(notesInput, { target: { value: 'Slight pause at extension.' } });
 
       expect(onExerciseNotesChange).not.toHaveBeenCalled();
@@ -597,86 +588,6 @@ describe('SessionExerciseList', () => {
     expect(onReorderExercises).toHaveBeenCalledWith('warmup', [
       'banded-shoulder-external-rotation',
       'row-erg',
-    ]);
-  });
-
-  it('allows adding a session-specific cue from the exercise card', () => {
-    if (!activeTemplate) {
-      throw new Error('Expected upper-push template in mock data.');
-    }
-
-    const session = buildActiveWorkoutSession(
-      activeTemplate,
-      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
-    );
-
-    renderWithQueryClient(
-      <SessionExerciseList
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-      />,
-    );
-
-    const currentCard = screen
-      .getByRole('heading', { level: 3, name: 'Row Erg' })
-      .closest('[data-slot="card"]');
-
-    expect(currentCard).not.toBeNull();
-    fireEvent.click(
-      within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }),
-    );
-    fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
-      target: { value: 'Keep elbows soft at lockout' },
-    });
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add' }));
-    expect(
-      within(currentCard as HTMLElement).getByText('Keep elbows soft at lockout'),
-    ).toBeInTheDocument();
-  });
-
-  it('calls onSessionCuesChange when session cues are controlled by the parent', () => {
-    if (!activeTemplate) {
-      throw new Error('Expected upper-push template in mock data.');
-    }
-
-    const onSessionCuesChange = vi.fn();
-    const session = buildActiveWorkoutSession(
-      activeTemplate,
-      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
-    );
-
-    renderWithQueryClient(
-      <SessionExerciseList
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
-        onSessionCuesChange={onSessionCuesChange}
-        onSetUpdate={vi.fn()}
-        session={session}
-        sessionCuesByExercise={{}}
-      />,
-    );
-
-    const currentCard = screen
-      .getByRole('heading', { level: 3, name: 'Row Erg' })
-      .closest('[data-slot="card"]');
-
-    expect(currentCard).not.toBeNull();
-    fireEvent.click(
-      within(currentCard as HTMLElement).getByRole('button', { name: 'Add session cue' }),
-    );
-    fireEvent.change(within(currentCard as HTMLElement).getByLabelText('Session cue input'), {
-      target: { value: 'Pause one second at full extension' },
-    });
-    fireEvent.click(within(currentCard as HTMLElement).getByRole('button', { name: 'Add' }));
-
-    expect(onSessionCuesChange).toHaveBeenCalledWith('row-erg', [
-      'Pause one second at full extension',
     ]);
   });
 
@@ -986,7 +897,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
     expect(
-      within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold • Last: 10 reps/i),
+      within(card as HTMLElement).getByText(/1 × 10 reps \+ 30 sec hold/i),
     ).toBeInTheDocument();
     expect(
       within(card as HTMLElement).queryByText(
@@ -1066,7 +977,6 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
     expect(within(rowErgCard as HTMLElement).getByText(/1 × 30 sec/i)).toBeInTheDocument();
-    expect(within(rowErgCard as HTMLElement).getByText(/Last: 30 sec/i)).toBeInTheDocument();
   });
 
   it('renders bodyweight reps exercises without a weight input', () => {
@@ -1197,7 +1107,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
     const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
     expect(relatedExerciseLabel).toBeVisible();
-    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60\.0x8/);
+    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60x8/);
 
     useLastPerformanceSpy.mockRestore();
   });

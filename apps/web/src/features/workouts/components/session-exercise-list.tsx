@@ -63,10 +63,8 @@ import type {
   ActiveWorkoutSessionData,
 } from '../types';
 import {
-  estimateExerciseTime,
   estimateSectionTime,
   formatEstimateMinuteRange,
-  formatEstimateMinutes,
   formatRestDuration,
   formatTempo,
 } from '../lib/time-estimates';
@@ -98,7 +96,6 @@ type SessionExerciseListProps = {
   ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
-  onSessionCuesChange?: (exerciseId: string, cues: string[]) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   restTimer?: RestTimerState | null;
   session: ActiveWorkoutSessionData;
@@ -151,7 +148,6 @@ export function SessionExerciseList({
   onReorderExercises,
   onRemoveSet,
   onRestTimerComplete,
-  onSessionCuesChange,
   onSetUpdate,
   restTimer = null,
   session,
@@ -161,10 +157,6 @@ export function SessionExerciseList({
 }: SessionExerciseListProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
-  const [localSessionCuesByExercise, setLocalSessionCuesByExercise] = useState<
-    Record<string, string[]>
-  >({});
-  const [visibleNotesPanels, setVisibleNotesPanels] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
@@ -176,7 +168,7 @@ export function SessionExerciseList({
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
-  const resolvedSessionCuesByExercise = sessionCuesByExercise ?? localSessionCuesByExercise;
+  const resolvedSessionCuesByExercise = sessionCuesByExercise ?? {};
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -360,15 +352,7 @@ export function SessionExerciseList({
                             repsInputRefs={repsInputRefs}
                             sessionCurrentExerciseId={session.currentExerciseId}
                             setExpandedExercises={setExpandedExercises}
-                            setVisibleNotesPanels={setVisibleNotesPanels}
-                            onAddSessionCue={(cue) =>
-                              updateSessionCues(item.exercise.id, [
-                                ...(resolvedSessionCuesByExercise[item.exercise.id] ?? []),
-                                cue,
-                              ])
-                            }
                             sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
-                            visibleNotesPanels={visibleNotesPanels}
                             weightUnit={weightUnit}
                             key={item.exercise.id}
                           />
@@ -451,15 +435,7 @@ export function SessionExerciseList({
                                     repsInputRefs={repsInputRefs}
                                     sessionCurrentExerciseId={session.currentExerciseId}
                                     setExpandedExercises={setExpandedExercises}
-                                    setVisibleNotesPanels={setVisibleNotesPanels}
-                                    onAddSessionCue={(cue) =>
-                                      updateSessionCues(exercise.id, [
-                                        ...(resolvedSessionCuesByExercise[exercise.id] ?? []),
-                                        cue,
-                                      ])
-                                    }
                                     sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
-                                    visibleNotesPanels={visibleNotesPanels}
                                     weightUnit={weightUnit}
                                   />
                                   {restTimer &&
@@ -541,18 +517,6 @@ export function SessionExerciseList({
       ) : null}
     </div>
   );
-
-  function updateSessionCues(exerciseId: string, cues: string[]) {
-    if (onSessionCuesChange) {
-      onSessionCuesChange(exerciseId, cues);
-      return;
-    }
-
-    setLocalSessionCuesByExercise((current) => ({
-      ...current,
-      [exerciseId]: cues,
-    }));
-  }
 }
 
 type ExerciseCardItemProps = {
@@ -572,14 +536,11 @@ type ExerciseCardItemProps = {
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
   onRestTimerComplete: () => void;
-  onAddSessionCue: (cue: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCues: string[];
   sessionCurrentExerciseId: string | null;
   setExpandedExercises: Dispatch<SetStateAction<Record<string, boolean>>>;
-  setVisibleNotesPanels: Dispatch<SetStateAction<Record<string, boolean>>>;
-  visibleNotesPanels: Record<string, boolean>;
   weightUnit: WeightUnit;
 };
 
@@ -600,14 +561,11 @@ function ExerciseCardItem({
   onSwapExercise,
   onRemoveSet,
   onRestTimerComplete,
-  onAddSessionCue,
   onSetUpdate,
   repsInputRefs,
   sessionCues,
   sessionCurrentExerciseId,
   setExpandedExercises,
-  setVisibleNotesPanels,
-  visibleNotesPanels,
   weightUnit,
 }: ExerciseCardItemProps) {
   const [localExerciseNotes, setLocalExerciseNotes] = useState<string | undefined>(undefined);
@@ -632,12 +590,10 @@ function ExerciseCardItem({
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
-  const isNotesPanelOpen = visibleNotesPanels[exercise.id] ?? exercise.notes.length > 0;
   const priorityAccentClass =
     exercise.priority === 'required'
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
-  const exerciseEstimate = formatEstimateMinutes(estimateExerciseTime(exercise));
   const canRemoveSet = exercise.sets.length > 1;
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: exercise.id,
@@ -657,10 +613,10 @@ function ExerciseCardItem({
         transition,
       }}
     >
-      <div className="flex items-start gap-2 px-4 py-5 sm:px-5">
+      <div className="flex items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-5 sm:py-5">
         <Button
           aria-label={`Drag handle for ${exercise.name}`}
-          className="mt-0.5 size-9 touch-none shrink-0"
+          className="size-7 touch-none shrink-0 sm:size-9"
           size="icon"
           type="button"
           variant="ghost"
@@ -672,7 +628,7 @@ function ExerciseCardItem({
         <button
           aria-controls={`exercise-panel-${exercise.id}`}
           aria-expanded={isExpanded}
-          className="flex min-w-0 flex-1 cursor-pointer items-start justify-between gap-4 text-left"
+          className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-4 text-left"
           onClick={() =>
             setExpandedExercises((current) => ({
               ...current,
@@ -681,78 +637,26 @@ function ExerciseCardItem({
           }
           type="button"
         >
-          <div className="flex min-w-0 items-start gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <ExerciseStatusIndicator priority={exercise.priority} state={state} />
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3
-                  className={cn(
-                    'text-lg font-semibold text-foreground',
-                    isExerciseComplete && 'text-muted line-through',
-                  )}
-                >
-                  {exercise.name}
-                </h3>
-                {isExerciseComplete ? (
-                  <Check aria-hidden="true" className="size-4 text-emerald-600" />
-                ) : null}
-                <Badge
-                  className={cn(
-                    'border-transparent capitalize',
-                    phaseBadgeStyles[exercise.phaseBadge],
-                  )}
-                  variant="outline"
-                >
-                  {formatPhaseBadge(exercise.phaseBadge)}
-                </Badge>
-                <Badge
-                  className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
-                  variant="outline"
-                >
-                  {exercise.category}
-                </Badge>
-                {exercise.priority === 'optional' ? (
-                  <span className="text-sm font-medium text-muted">Optional</span>
-                ) : null}
-                {state === 'in-progress' ? (
-                  <Badge className="border-primary/20 bg-primary/12 text-primary" variant="outline">
-                    Current
-                  </Badge>
-                ) : null}
-                <Badge
-                  className="border-transparent bg-secondary text-secondary-foreground"
-                  variant="outline"
-                >
-                  {exerciseEstimate}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 text-sm">
-                {exercise.tempo ? (
-                  <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
-                ) : null}
-                {exercise.restSeconds > 0 ? (
-                  <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
-                ) : null}
-              </div>
-              <p className="text-sm text-muted">{`${exercise.completedSets}/${exercise.targetSets} sets completed`}</p>
-              <p className="text-sm text-muted">
-                {formatExerciseSubtitle({
-                  exercise,
-                  lastPerformance,
-                  weightUnit,
-                })}
-              </p>
+            <div className="min-w-0">
+              <h3
+                className={cn(
+                  'text-sm font-semibold text-foreground sm:text-lg',
+                  isExerciseComplete && 'text-muted line-through',
+                )}
+              >
+                {exercise.name}
+              </h3>
+              <p className="text-xs text-muted sm:text-sm">{`${exercise.completedSets}/${exercise.targetSets} sets`}</p>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="text-sm font-medium text-muted">{`#${exerciseNumber}`}</span>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <span className="text-xs font-medium text-muted sm:text-sm">{`#${exerciseNumber}`}</span>
             <ChevronDown
               aria-hidden="true"
-              className={cn(
-                'mt-1 size-4 text-muted transition-transform',
-                isExpanded && 'rotate-180',
-              )}
+              className={cn('size-4 text-muted transition-transform', isExpanded && 'rotate-180')}
             />
           </div>
         </button>
@@ -795,40 +699,64 @@ function ExerciseCardItem({
       >
         <div className="space-y-4">
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                aria-controls={`exercise-notes-${exercise.id}`}
-                aria-expanded={isNotesPanelOpen}
-                onClick={() =>
-                  setVisibleNotesPanels((current) => ({
-                    ...current,
-                    [exercise.id]: !isNotesPanelOpen,
-                  }))
-                }
-                size="xs"
-                type="button"
-                variant={isNotesPanelOpen ? 'secondary' : 'outline'}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                className={cn(
+                  'border-transparent capitalize',
+                  phaseBadgeStyles[exercise.phaseBadge],
+                )}
+                variant="outline"
               >
-                Notes
-              </Button>
+                {formatPhaseBadge(exercise.phaseBadge)}
+              </Badge>
+              <Badge
+                className={cn('border-transparent capitalize', badgeStyles[exercise.category])}
+                variant="outline"
+              >
+                {exercise.category}
+              </Badge>
+              {exercise.priority === 'optional' ? (
+                <span className="text-sm font-medium text-muted">Optional</span>
+              ) : null}
+              {exercise.tempo ? (
+                <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
+              ) : null}
+              {exercise.restSeconds > 0 ? (
+                <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
+              ) : null}
             </div>
 
             <p className="text-sm text-muted">
-              {formatSetPrescription(exercise.prescribedReps, exercise.restSeconds)}
+              {formatExerciseSubtitle({
+                exercise,
+                weightUnit,
+              })}
             </p>
 
-            <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4">
-              <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                History
-              </p>
-              <p className="text-sm text-foreground">
-                {formatHistoryPreview({
-                  history: lastPerformance,
-                  prescribedReps: exercise.prescribedReps,
-                  trackingType: exercise.trackingType,
-                  weightUnit,
-                })}
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
+                <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                  History
+                </p>
+                <p className="text-sm text-foreground">
+                  {formatHistoryPreview({
+                    history: lastPerformance,
+                    prescribedReps: exercise.prescribedReps,
+                    trackingType: exercise.trackingType,
+                    weightUnit,
+                  })}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
+                <FormCueChips
+                  exerciseCoachingNotes={exercise.coachingNotes}
+                  exerciseCues={formCues}
+                  sessionCues={sessionCues}
+                  templateCues={templateCues}
+                  templateProgrammingNotes={exercise.programmingNotes}
+                />
+              </div>
             </div>
 
             {historySummary.related.length > 0 ? (
@@ -895,48 +823,10 @@ function ExerciseCardItem({
                 </div>
               </div>
             ) : null}
-
-            <div className="rounded-2xl border border-border bg-background/80 p-4">
-              <FormCueChips
-                exerciseCoachingNotes={exercise.coachingNotes}
-                exerciseCues={formCues}
-                onAddSessionCue={onAddSessionCue}
-                sessionCues={sessionCues}
-                templateCues={templateCues}
-                templateProgrammingNotes={exercise.programmingNotes}
-              />
-            </div>
-
-            <div
-              className="space-y-2"
-              hidden={!isNotesPanelOpen}
-              id={`exercise-notes-${exercise.id}`}
-            >
-              <label
-                className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
-                htmlFor={`exercise-note-${exercise.id}`}
-              >
-                Session notes
-              </label>
-              <Textarea
-                id={`exercise-note-${exercise.id}`}
-                onBlur={() => {
-                  debouncedExerciseNotesChange.flush();
-                  setLocalExerciseNotes(undefined);
-                }}
-                onChange={(event) => {
-                  const nextNotes = event.target.value;
-                  setLocalExerciseNotes(nextNotes);
-                  debouncedExerciseNotesChange.run(nextNotes);
-                }}
-                placeholder="Add any technique reminders, machine settings, or quick context."
-                value={resolvedExerciseNotes}
-              />
-            </div>
           </div>
 
           <div
-            className="grid grid-cols-2 gap-2"
+            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             data-slot="set-grid"
             data-testid={`set-grid-${exercise.id}`}
           >
@@ -962,7 +852,7 @@ function ExerciseCardItem({
                   seconds={set.seconds}
                 />
                 {inlineRestTimer && inlineRestTimer.setId === set.id && !exercise.supersetGroup ? (
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <InlineRestTimer
                       duration={inlineRestTimer.duration}
                       exerciseName={inlineRestTimer.exerciseName}
@@ -975,7 +865,7 @@ function ExerciseCardItem({
               </Fragment>
             ))}
             <Button
-              className="col-span-2 border-dashed"
+              className="sm:col-span-2 border-dashed"
               onClick={() => onAddSet(exercise.id)}
               size="xs"
               type="button"
@@ -985,6 +875,32 @@ function ExerciseCardItem({
               Add Set
             </Button>
           </div>
+
+          <details className="group" id={`exercise-notes-${exercise.id}`}>
+            <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold tracking-[0.18em] text-muted uppercase list-none">
+              <ChevronDown
+                aria-hidden="true"
+                className="size-3.5 transition-transform group-open:rotate-180"
+              />
+              Session notes
+            </summary>
+            <div className="mt-2">
+              <Textarea
+                id={`exercise-note-${exercise.id}`}
+                onBlur={() => {
+                  debouncedExerciseNotesChange.flush();
+                  setLocalExerciseNotes(undefined);
+                }}
+                onChange={(event) => {
+                  const nextNotes = event.target.value;
+                  setLocalExerciseNotes(nextNotes);
+                  debouncedExerciseNotesChange.run(nextNotes);
+                }}
+                placeholder="Add any technique reminders, machine settings, or quick context."
+                value={resolvedExerciseNotes}
+              />
+            </div>
+          </details>
         </div>
       </CardContent>
     </Card>
@@ -993,7 +909,7 @@ function ExerciseCardItem({
 
 function MetadataPill({ label }: { label: string }) {
   return (
-    <span className="inline-flex rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-foreground">
+    <span className="inline-flex rounded-full border border-border bg-secondary/55 px-2.5 py-0.5 text-xs text-foreground">
       {label}
     </span>
   );
@@ -1029,9 +945,9 @@ function ExerciseStatusIndicator({
     return (
       <span
         aria-label="Completed exercise"
-        className="mt-1 inline-flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600"
+        className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 sm:size-7"
       >
-        <Check aria-hidden="true" className="size-4" />
+        <Check aria-hidden="true" className="size-3 sm:size-4" />
       </span>
     );
   }
@@ -1041,7 +957,7 @@ function ExerciseStatusIndicator({
       <span
         aria-label="In-progress exercise"
         className={cn(
-          'mt-1 inline-flex size-7 items-center justify-center rounded-full',
+          'inline-flex size-5 items-center justify-center rounded-full sm:size-7',
           priority === 'required'
             ? 'bg-amber-500/15 text-amber-600'
             : 'border border-dashed border-border text-muted',
@@ -1060,7 +976,7 @@ function ExerciseStatusIndicator({
     <span
       aria-label="Upcoming exercise"
       className={cn(
-        'mt-1 inline-flex size-7 items-center justify-center rounded-full',
+        'inline-flex size-5 items-center justify-center rounded-full sm:size-7',
         priority === 'required'
           ? 'bg-secondary text-muted'
           : 'border border-dashed border-border text-muted',
@@ -1137,40 +1053,21 @@ function formatCompactPerformanceSetByTrackingType(
 
 function formatExerciseSubtitle({
   exercise,
-  lastPerformance,
   weightUnit,
 }: {
   exercise: ActiveWorkoutExercise;
-  lastPerformance: ActiveWorkoutExercise['lastPerformance'];
   weightUnit: WeightUnit;
 }) {
   const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
   const canShowWeightLadder =
     (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
     exercise.reversePyramid.some((target) => target.targetWeight > 0);
-  const targetText = canShowWeightLadder
+
+  return canShowWeightLadder
     ? `${exercise.targetSets} × ${repTarget} | ${exercise.reversePyramid
         .map((target) => formatWeight(target.targetWeight))
         .join(' → ')} ${weightUnit}`
     : `${exercise.targetSets} × ${repTarget}`;
-
-  if (!lastPerformance || lastPerformance.sets.length === 0) {
-    return targetText;
-  }
-
-  const lastText = lastPerformance.sets
-    .map((set) =>
-      formatCompactPerformanceSetByTrackingType(
-        exercise.trackingType,
-        set.weight,
-        set.reps,
-        exercise.prescribedReps,
-        weightUnit,
-      ),
-    )
-    .join(', ');
-
-  return `${targetText} • Last: ${lastText}`;
 }
 
 function formatHistoryPreview({
@@ -1213,10 +1110,6 @@ function parsePrescribedRepTarget(prescribedReps: string) {
   }
 
   return prescribedReps;
-}
-
-function formatSetPrescription(prescribedReps: string, restSeconds: number) {
-  return `Target ${prescribedReps} • Rest ${restSeconds}s`;
 }
 
 function formatPerformedReps(reps: number, prescribedReps: string) {

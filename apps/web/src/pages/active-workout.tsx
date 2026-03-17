@@ -670,12 +670,6 @@ export function ActiveWorkoutPage() {
             onReorderExercises={handleReorderExercises}
             onRemoveSet={handleRemoveSet}
             onRestTimerComplete={handleRestTimerComplete}
-            onSessionCuesChange={(exerciseId, cues) =>
-              setSessionCuesByExercise((current) => ({
-                ...current,
-                [exerciseId]: cues,
-              }))
-            }
             onSetUpdate={handleSetUpdate}
             restTimer={restTimer}
             session={session}

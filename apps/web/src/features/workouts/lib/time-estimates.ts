@@ -56,10 +56,19 @@ export function formatEstimateMinuteRange(totalSeconds: number) {
 
 export function formatRestDuration(totalSeconds: number) {
   const safeSeconds = Math.max(totalSeconds, 0);
+
+  if (safeSeconds <= 90) {
+    return `${safeSeconds}s`;
+  }
+
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
 
-  return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
+  if (seconds === 0) {
+    return `${minutes}m`;
+  }
+
+  return `${minutes}m${seconds}s`;
 }
 
 export function formatTempo(tempo: string) {

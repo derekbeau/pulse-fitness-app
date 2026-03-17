@@ -21,7 +21,7 @@ export function formatGrams(value: number): string {
 
 export function formatWeight(value: number, unit: WeightUnit = 'none'): string {
   const rounded = Math.round(normalizeNumber(value) * 10) / 10;
-  const formatted = rounded.toFixed(1);
+  const formatted = Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
 
   if (unit === 'none') {
     return formatted;

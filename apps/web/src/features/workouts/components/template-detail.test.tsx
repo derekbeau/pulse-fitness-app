@@ -205,8 +205,7 @@ describe('WorkoutTemplateDetail', () => {
     fireEvent.click(
       within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }),
     );
-    expect(within(inclinePressCard as HTMLElement).getByText('Exercise cues')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Template cues')).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     expect(
       within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades'),
     ).toBeInTheDocument();
@@ -1098,7 +1097,8 @@ describe('WorkoutTemplateDetail', () => {
     await waitFor(() => {
       const patchCalls = fetchSpy.mock.calls.filter(
         ([input, init]) =>
-          String(input).includes('/api/v1/workout-templates/upper-push') && init?.method === 'PATCH',
+          String(input).includes('/api/v1/workout-templates/upper-push') &&
+          init?.method === 'PATCH',
       );
       const firstPatch = patchCalls[0];
       expect(firstPatch).toBeDefined();
@@ -1124,7 +1124,8 @@ describe('WorkoutTemplateDetail', () => {
     await waitFor(() => {
       const patchCalls = fetchSpy.mock.calls.filter(
         ([input, init]) =>
-          String(input).includes('/api/v1/workout-templates/upper-push') && init?.method === 'PATCH',
+          String(input).includes('/api/v1/workout-templates/upper-push') &&
+          init?.method === 'PATCH',
       );
       const lastPatch = patchCalls.at(-1);
       expect(lastPatch).toBeDefined();
@@ -1136,8 +1137,8 @@ describe('WorkoutTemplateDetail', () => {
 
   it('renders visual superset grouping when contiguous exercises share a superset group', async () => {
     const groupedTemplate = structuredClone(templatePayload);
-    const groupedMainExercises =
-      groupedTemplate.data.sections[1].exercises as MutableTemplateExercise[];
+    const groupedMainExercises = groupedTemplate.data.sections[1]
+      .exercises as MutableTemplateExercise[];
     groupedMainExercises.push({
       id: 'template-exercise-shoulder-press',
       exerciseId: 'seated-dumbbell-shoulder-press',
@@ -1281,9 +1282,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(await within(dialog).findByText(/Mar/i)).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Related' }));
-    expect(
-      await within(dialog).findByText('Seated Dumbbell Shoulder Press'),
-    ).toBeInTheDocument();
+    expect(await within(dialog).findByText('Seated Dumbbell Shoulder Press')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Overview' }));
     const notesField = within(dialog).getByLabelText('Coaching notes');

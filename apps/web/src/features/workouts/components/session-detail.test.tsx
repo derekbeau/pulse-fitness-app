@@ -386,7 +386,7 @@ describe('SessionDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(
-      await screen.findByText('Set 1: 55.0 lbs × 10 reps', { selector: 'span' }),
+      await screen.findByText('Set 1: 55 lbs × 10 reps', { selector: 'span' }),
     ).toBeInTheDocument();
     expect(capturedCorrectionPayload).toEqual({
       corrections: [
@@ -441,7 +441,7 @@ describe('SessionDetail', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.getByText('Set 1: 50.0 lbs × 10 reps', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Set 1: 50 lbs × 10 reps', { selector: 'span' })).toBeInTheDocument();
     expect(correctionCalls).toBe(0);
   });
 

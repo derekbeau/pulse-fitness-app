@@ -99,8 +99,8 @@ describe('SessionComparison', () => {
       />,
     );
 
-    expect(screen.getByText('850.0 kg')).toBeInTheDocument();
-    expect(screen.getByText('640.0 kg')).toBeInTheDocument();
+    expect(screen.getByText('850 kg')).toBeInTheDocument();
+    expect(screen.getByText('640 kg')).toBeInTheDocument();
   });
 
   it('uses seconds metric labels for time-based sessions', () => {

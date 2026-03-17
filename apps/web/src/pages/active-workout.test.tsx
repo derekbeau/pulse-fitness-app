@@ -155,10 +155,15 @@ describe('ActiveWorkoutPage', () => {
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
 
-    fireEvent.click(within(inclineCard).getByRole('button', { name: /Notes/i }));
-    fireEvent.change(within(inclineCard).getByLabelText('Session notes'), {
-      target: { value: 'Lower the bench by one notch before the top set.' },
-    });
+    fireEvent.click(within(inclineCard).getByText('Session notes'));
+    fireEvent.change(
+      within(inclineCard).getByPlaceholderText(
+        'Add any technique reminders, machine settings, or quick context.',
+      ),
+      {
+        target: { value: 'Lower the bench by one notch before the top set.' },
+      },
+    );
     expect(
       within(inclineCard).getByDisplayValue('Lower the bench by one notch before the top set.'),
     ).toBeVisible();
