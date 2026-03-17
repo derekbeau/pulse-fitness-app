@@ -33,7 +33,6 @@ import {
   Dot,
   GripVertical,
   MoreVertical,
-  Plus,
 } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -48,7 +47,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { accentCardStyles } from '@/lib/accent-card-styles';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 import { ApiError } from '@/lib/api-client';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
@@ -71,18 +69,8 @@ import {
 import { getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
-import { RestTimer } from './rest-timer';
 import { SetRow, type SetRowUpdate } from './set-row';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
-
-type RestTimerState = {
-  duration: number;
-  exerciseId: string;
-  exerciseName: string;
-  setId: string;
-  setNumber: number;
-  token: number;
-};
 
 type SessionExerciseListProps = {
   enableApiLastPerformance?: boolean;
@@ -95,9 +83,8 @@ type SessionExerciseListProps = {
     exerciseIds: string[],
   ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
-  onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
-  restTimer?: RestTimerState | null;
+  showDragHandles?: boolean;
   session: ActiveWorkoutSessionData;
   sessionId?: string | null;
   sessionCuesByExercise?: Record<string, string[]>;
@@ -147,9 +134,8 @@ export function SessionExerciseList({
   onFocusSetHandled,
   onReorderExercises,
   onRemoveSet,
-  onRestTimerComplete,
   onSetUpdate,
-  restTimer = null,
+  showDragHandles = false,
   session,
   sessionId = null,
   sessionCuesByExercise,
@@ -169,16 +155,17 @@ export function SessionExerciseList({
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
   const resolvedSessionCuesByExercise = sessionCuesByExercise ?? {};
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 6,
+    },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  });
+  const activeSensors = useSensors(pointerSensor, keyboardSensor);
+  const disabledSensors = useSensors();
+  const sensors = showDragHandles ? activeSensors : disabledSensors;
 
   const exerciseNumberMap = new Map<string, number>();
   let exerciseCounter = 1;
@@ -319,11 +306,6 @@ export function SessionExerciseList({
                             enableApiLastPerformance={enableApiLastPerformance}
                             expandedExercises={expandedExercises}
                             focusTargetExerciseId={focusTarget?.exerciseId ?? null}
-                            inlineRestTimer={
-                              restTimer && restTimer.exerciseId === item.exercise.id
-                                ? restTimer
-                                : null
-                            }
                             isMoveDownDisabled={exerciseIndex >= section.exercises.length - 1}
                             isMoveUpDisabled={exerciseIndex <= 0}
                             onAddSet={onAddSet}
@@ -347,12 +329,12 @@ export function SessionExerciseList({
                               })
                             }
                             onRemoveSet={onRemoveSet}
-                            onRestTimerComplete={onRestTimerComplete}
                             onSetUpdate={onSetUpdate}
                             repsInputRefs={repsInputRefs}
                             sessionCurrentExerciseId={session.currentExerciseId}
                             setExpandedExercises={setExpandedExercises}
                             sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
+                            showDragHandle={showDragHandles}
                             weightUnit={weightUnit}
                             key={item.exercise.id}
                           />
@@ -406,7 +388,6 @@ export function SessionExerciseList({
                                     enableApiLastPerformance={enableApiLastPerformance}
                                     expandedExercises={expandedExercises}
                                     focusTargetExerciseId={focusTarget?.exerciseId ?? null}
-                                    inlineRestTimer={null}
                                     isMoveDownDisabled={itemIndex >= section.exercises.length - 1}
                                     isMoveUpDisabled={itemIndex <= 0}
                                     onAddSet={onAddSet}
@@ -430,25 +411,14 @@ export function SessionExerciseList({
                                       })
                                     }
                                     onRemoveSet={onRemoveSet}
-                                    onRestTimerComplete={onRestTimerComplete}
                                     onSetUpdate={onSetUpdate}
                                     repsInputRefs={repsInputRefs}
                                     sessionCurrentExerciseId={session.currentExerciseId}
                                     setExpandedExercises={setExpandedExercises}
                                     sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
+                                    showDragHandle={showDragHandles}
                                     weightUnit={weightUnit}
                                   />
-                                  {restTimer &&
-                                  restTimer.exerciseId === exercise.id &&
-                                  exercise.supersetGroup ? (
-                                    <InlineRestTimer
-                                      duration={restTimer.duration}
-                                      exerciseName={restTimer.exerciseName}
-                                      key={restTimer.token}
-                                      onComplete={onRestTimerComplete}
-                                      setNumber={restTimer.setNumber}
-                                    />
-                                  ) : null}
                                 </div>
                               );
                             })}
@@ -525,7 +495,6 @@ type ExerciseCardItemProps = {
   enableApiLastPerformance: boolean;
   expandedExercises: Record<string, boolean>;
   focusTargetExerciseId: string | null;
-  inlineRestTimer: RestTimerState | null;
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
   onAddSet: (exerciseId: string) => void;
@@ -535,12 +504,12 @@ type ExerciseCardItemProps = {
   onRenameExercise: () => void;
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
-  onRestTimerComplete: () => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCues: string[];
   sessionCurrentExerciseId: string | null;
   setExpandedExercises: Dispatch<SetStateAction<Record<string, boolean>>>;
+  showDragHandle?: boolean;
   weightUnit: WeightUnit;
 };
 
@@ -550,7 +519,6 @@ function ExerciseCardItem({
   enableApiLastPerformance,
   expandedExercises,
   focusTargetExerciseId,
-  inlineRestTimer,
   isMoveDownDisabled,
   isMoveUpDisabled,
   onAddSet,
@@ -560,12 +528,12 @@ function ExerciseCardItem({
   onRenameExercise,
   onSwapExercise,
   onRemoveSet,
-  onRestTimerComplete,
   onSetUpdate,
   repsInputRefs,
   sessionCues,
   sessionCurrentExerciseId,
   setExpandedExercises,
+  showDragHandle = false,
   weightUnit,
 }: ExerciseCardItemProps) {
   const [localExerciseNotes, setLocalExerciseNotes] = useState<string | undefined>(undefined);
@@ -614,17 +582,19 @@ function ExerciseCardItem({
       }}
     >
       <div className="flex items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-5 sm:py-5">
-        <Button
-          aria-label={`Drag handle for ${exercise.name}`}
-          className="size-7 touch-none shrink-0 sm:size-9"
-          size="icon"
-          type="button"
-          variant="ghost"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical aria-hidden="true" className="size-4" />
-        </Button>
+        {showDragHandle ? (
+          <Button
+            aria-label={`Drag handle for ${exercise.name}`}
+            className="size-7 touch-none shrink-0 sm:size-9"
+            size="icon"
+            type="button"
+            variant="ghost"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical aria-hidden="true" className="size-4" />
+          </Button>
+        ) : null}
         <button
           aria-controls={`exercise-panel-${exercise.id}`}
           aria-expanded={isExpanded}
@@ -851,29 +821,8 @@ function ExerciseCardItem({
                   weightUnit={weightUnit}
                   seconds={set.seconds}
                 />
-                {inlineRestTimer && inlineRestTimer.setId === set.id && !exercise.supersetGroup ? (
-                  <div className="sm:col-span-2">
-                    <InlineRestTimer
-                      duration={inlineRestTimer.duration}
-                      exerciseName={inlineRestTimer.exerciseName}
-                      key={inlineRestTimer.token}
-                      onComplete={onRestTimerComplete}
-                      setNumber={inlineRestTimer.setNumber}
-                    />
-                  </div>
-                ) : null}
               </Fragment>
             ))}
-            <Button
-              className="sm:col-span-2 border-dashed"
-              onClick={() => onAddSet(exercise.id)}
-              size="xs"
-              type="button"
-              variant="outline"
-            >
-              <Plus aria-hidden="true" className="size-3.5" />
-              Add Set
-            </Button>
           </div>
 
           <details className="group" id={`exercise-notes-${exercise.id}`}>
@@ -912,25 +861,6 @@ function MetadataPill({ label }: { label: string }) {
     <span className="inline-flex rounded-full border border-border bg-secondary/55 px-2.5 py-0.5 text-xs text-foreground">
       {label}
     </span>
-  );
-}
-
-function InlineRestTimer({
-  duration,
-  exerciseName,
-  onComplete,
-  setNumber,
-}: {
-  duration: number;
-  exerciseName: string;
-  onComplete: () => void;
-  setNumber: number;
-}) {
-  return (
-    <div className={`space-y-2 rounded-2xl border px-3 py-2 ${accentCardStyles.mint}`}>
-      <p className="text-xs text-muted">{`After ${exerciseName} set ${setNumber}`}</p>
-      <RestTimer autoStart duration={duration} onComplete={onComplete} />
-    </div>
   );
 }
 

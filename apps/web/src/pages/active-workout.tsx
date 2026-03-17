@@ -212,6 +212,7 @@ export function ActiveWorkoutPage() {
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
+  const [showDragHandles, setShowDragHandles] = useState(false);
   const { confirm, dialog } = useConfirmation();
   const [isEditTimeDialogOpen, setIsEditTimeDialogOpen] = useState(false);
   const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
@@ -593,8 +594,10 @@ export function ActiveWorkoutPage() {
             currentExercise={session.currentExercise}
             estimatedTotalSeconds={estimatedTotalSeconds}
             isUpdatingStartTime={updateSessionStartTimeMutation.isPending}
+            onRestTimerComplete={handleRestTimerComplete}
             onStartTimeChange={handleStartTimeChange}
             remainingSeconds={remainingEstimatedSeconds}
+            restTimer={restTimer}
             startTime={startTime}
             timeSegments={activeSession?.timeSegments}
             totalExercises={session.totalExercises}
@@ -633,6 +636,9 @@ export function ActiveWorkoutPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={openEditTimeDialog}>Edit time</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowDragHandles((current) => !current)}>
+                    {showDragHandles ? 'Hide reorder handles' : 'Show reorder handles'}
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
                       confirm({
@@ -669,12 +675,11 @@ export function ActiveWorkoutPage() {
             onFocusSetHandled={() => setFocusSetId(null)}
             onReorderExercises={handleReorderExercises}
             onRemoveSet={handleRemoveSet}
-            onRestTimerComplete={handleRestTimerComplete}
             onSetUpdate={handleSetUpdate}
-            restTimer={restTimer}
             session={session}
             sessionId={activeSessionId}
             sessionCuesByExercise={sessionCuesByExercise}
+            showDragHandles={showDragHandles}
             weightUnit={weightUnit}
           />
 

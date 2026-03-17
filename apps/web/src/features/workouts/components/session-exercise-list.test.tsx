@@ -84,7 +84,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -125,16 +124,7 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
-        restTimer={{
-          duration: 90,
-          exerciseId: 'incline-dumbbell-press',
-          exerciseName: 'Incline Dumbbell Press',
-          setId: createWorkoutSetId('incline-dumbbell-press', 2),
-          setNumber: 2,
-          token: 1,
-        }}
         session={session}
         weightUnit="kg"
       />,
@@ -145,7 +135,6 @@ describe('SessionExerciseList', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: /Main \d+-\d+ min/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByText('Alternate exercises, then rest 60s after each round.'),
@@ -212,7 +201,6 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={onExerciseNotesChange}
           onRemoveSet={vi.fn()}
-          onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
         />,
@@ -265,7 +253,6 @@ describe('SessionExerciseList', () => {
           onAddSet={vi.fn()}
           onExerciseNotesChange={onExerciseNotesChange}
           onRemoveSet={vi.fn()}
-          onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
         />,
@@ -313,7 +300,6 @@ describe('SessionExerciseList', () => {
         onAddSet={onAddSet}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={onRemoveSet}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -353,7 +339,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -512,7 +497,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
         sessionId="session-1"
@@ -564,7 +548,6 @@ describe('SessionExerciseList', () => {
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
         onReorderExercises={onReorderExercises}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -606,7 +589,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -644,22 +626,13 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
-        restTimer={{
-          duration: 60,
-          exerciseId: 'cable-lateral-raise',
-          exerciseName: 'Cable Lateral Raise',
-          setId: createWorkoutSetId('cable-lateral-raise', 1),
-          setNumber: 1,
-          token: 2,
-        }}
         session={session}
       />,
     );
 
     const superset = screen.getByLabelText('Superset Pump A');
-    expect(within(superset).getByText('After Cable Lateral Raise set 1')).toBeInTheDocument();
+    expect(superset).toBeInTheDocument();
   });
 
   it('shows completed exercises with strike-through treatment', () => {
@@ -684,7 +657,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -728,7 +700,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -769,7 +740,6 @@ describe('SessionExerciseList', () => {
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
           onRemoveSet={vi.fn()}
-          onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
         />
@@ -791,7 +761,6 @@ describe('SessionExerciseList', () => {
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
           onRemoveSet={vi.fn()}
-          onRestTimerComplete={vi.fn()}
           onSetUpdate={vi.fn()}
           session={session}
         />
@@ -886,7 +855,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -966,7 +934,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -1035,7 +1002,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -1090,7 +1056,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,
@@ -1136,7 +1101,6 @@ describe('SessionExerciseList', () => {
         onAddSet={vi.fn()}
         onExerciseNotesChange={vi.fn()}
         onRemoveSet={vi.fn()}
-        onRestTimerComplete={vi.fn()}
         onSetUpdate={vi.fn()}
         session={session}
       />,

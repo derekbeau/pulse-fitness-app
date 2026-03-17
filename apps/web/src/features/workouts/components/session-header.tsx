@@ -10,6 +10,14 @@ import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
 import { formatEstimateMinutes } from '../lib/time-estimates';
+import { StickyRestTimerBar } from './sticky-rest-timer-bar';
+
+type RestTimerConfig = {
+  duration: number;
+  exerciseName: string;
+  setNumber: number;
+  token: number;
+};
 
 type SessionHeaderProps = {
   className?: string;
@@ -18,6 +26,8 @@ type SessionHeaderProps = {
   estimatedTotalSeconds?: number;
   timeSegments?: WorkoutSessionTimeSegment[];
   remainingSeconds?: number;
+  restTimer?: RestTimerConfig | null;
+  onRestTimerComplete?: () => void;
   startTime: Date | string;
   totalExercises: number;
   totalSets: number;
@@ -33,6 +43,8 @@ export function SessionHeader({
   estimatedTotalSeconds = 0,
   timeSegments,
   remainingSeconds = 0,
+  restTimer = null,
+  onRestTimerComplete,
   startTime,
   totalExercises,
   totalSets,
@@ -81,6 +93,24 @@ export function SessionHeader({
           max={totalSets}
           value={completedSets}
         />
+
+        {/* Sticky rest timer bar — animated height via grid-template-rows */}
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-out"
+          style={{ gridTemplateRows: restTimer ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
+            {restTimer && onRestTimerComplete ? (
+              <StickyRestTimerBar
+                duration={restTimer.duration}
+                exerciseName={restTimer.exerciseName}
+                key={restTimer.token}
+                onComplete={onRestTimerComplete}
+                setNumber={restTimer.setNumber}
+              />
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <Card

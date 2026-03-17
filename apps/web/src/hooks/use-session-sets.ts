@@ -1,4 +1,10 @@
-import { createSetSchema, sessionSetSchema, type SessionSet, type WorkoutSession, updateSetSchema } from '@pulse/shared';
+import {
+  createSetSchema,
+  sessionSetSchema,
+  type SessionSet,
+  type WorkoutSession,
+  updateSetSchema,
+} from '@pulse/shared';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -126,10 +132,7 @@ const getSessionCacheKeys = (sessionId: string) => {
     return [];
   }
 
-  return [
-    workoutSessionQueryKeys.detail(sessionId),
-    workoutQueryKeys.session(sessionId),
-  ] as const;
+  return [workoutSessionQueryKeys.detail(sessionId), workoutQueryKeys.session(sessionId)] as const;
 };
 
 const getSessionInvalidateKeys = (sessionId: string) => {
@@ -149,7 +152,12 @@ const getSessionInvalidateKeys = (sessionId: string) => {
 export function useLogSet(sessionId: string | null | undefined) {
   const normalizedSessionId = sessionId?.trim() ?? '';
 
-  return createOptimisticMutation<WorkoutSession, SessionSet, CreateSetRequest, { optimisticSet: SessionSet }>({
+  return createOptimisticMutation<
+    WorkoutSession,
+    SessionSet,
+    CreateSetRequest,
+    { optimisticSet: SessionSet }
+  >({
     mutationFn: async (input) => {
       if (!normalizedSessionId) {
         throw new Error('Session id is required to log sets');
@@ -178,7 +186,7 @@ export function useLogSet(sessionId: string | null | undefined) {
     }),
     invalidateKeys: () => getSessionInvalidateKeys(normalizedSessionId),
     onSuccess: async () => {
-      toast.success('Set added');
+      toast.success('Set added', { duration: 1500 });
     },
     queryKey: () => getSessionCacheKeys(normalizedSessionId),
     reconcile: (current, serverSet) => applySessionSet(current, serverSet),
@@ -200,11 +208,12 @@ export function useUpdateSet(sessionId: string | null | undefined) {
     invalidateKeys: () => getSessionInvalidateKeys(normalizedSessionId),
     onSuccess: async (_set, variables) => {
       if (variables.update.completed) {
-        toast.success('Set saved');
+        toast.success('Set saved', { duration: 1500 });
       }
     },
     queryKey: () => getSessionCacheKeys(normalizedSessionId),
-    reconcile: (current, serverSet, variables) => updateSessionSet(current, variables.setId, () => serverSet),
+    reconcile: (current, serverSet, variables) =>
+      updateSessionSet(current, variables.setId, () => serverSet),
     updater: (current, variables) =>
       updateSessionSet(current, variables.setId, (existingSet) => {
         const nextSet: SessionSet = {
