@@ -65,6 +65,7 @@ import type {
 import {
   estimateExerciseTime,
   estimateSectionTime,
+  formatEstimateMinuteRange,
   formatEstimateMinutes,
   formatRestDuration,
   formatTempo,
@@ -226,8 +227,8 @@ export function SessionExerciseList({
           section.exercises.map((exercise, index) => [exercise.id, index]),
         );
         const sectionLabel = sectionLabels[section.type];
-        const sectionEstimate = formatEstimateMinutes(estimateSectionTime(section));
-        const sectionSummary = `${sectionLabel} (${completedExercises}/${section.exercises.length} exercises done)`;
+        const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
+        const sectionSummary = `${completedExercises}/${section.exercises.length} exercises done`;
         const isOpen =
           focusTarget?.sectionId === section.id
             ? true
@@ -275,7 +276,7 @@ export function SessionExerciseList({
               type="button"
             >
               <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">{`${sectionLabel} — ${sectionEstimate}`}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{`${sectionLabel} ${sectionEstimate}`}</h2>
                 <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
@@ -610,7 +611,8 @@ function ExerciseCardItem({
   weightUnit,
 }: ExerciseCardItemProps) {
   const [localExerciseNotes, setLocalExerciseNotes] = useState<string | undefined>(undefined);
-  const resolvedExerciseNotes = localExerciseNotes === undefined ? exercise.notes : localExerciseNotes;
+  const resolvedExerciseNotes =
+    localExerciseNotes === undefined ? exercise.notes : localExerciseNotes;
   const debouncedExerciseNotesChange = useDebouncedCallback(
     (notes: string) => onExerciseNotesChange(exercise.id, notes),
     500,
@@ -626,9 +628,7 @@ function ExerciseCardItem({
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
   const isExpanded =
-    focusTargetExerciseId === exercise.id
-      ? true
-      : (expandedExercises[exercise.id] ?? true);
+    focusTargetExerciseId === exercise.id ? true : (expandedExercises[exercise.id] ?? true);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;

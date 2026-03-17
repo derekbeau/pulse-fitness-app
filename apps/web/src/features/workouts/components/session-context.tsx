@@ -1,13 +1,15 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
   HeartPulse,
   Layers3,
   MoonStar,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { PreviewBanner } from '@/components/ui/preview-banner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -59,102 +61,141 @@ const phaseBadgeConfig: Record<ActiveWorkoutPhaseBadge, string> = {
   test: 'border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300',
 };
 
+const XL_BREAKPOINT_QUERY = '(min-width: 1280px)';
+
 type SessionContextProps = {
   className?: string;
   context: ActiveWorkoutSessionContext;
 };
 
 export function SessionContext({ className, context }: SessionContextProps) {
+  const [isExpanded, setIsExpanded] = useState(() => shouldStartExpanded());
   const sleepStatus = sleepStatusConfig[context.sleepStatus];
   const phaseBadge = inferPhaseBadge(context.trainingPhaseLabel);
+  const hasPreviewCards = true;
 
   return (
-    <section aria-label="Session context" className={className}>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <ContextCard
-          className="w-full"
-          description="Last 3 sessions"
-          icon={CalendarClock}
-          title="Recent Training"
-        >
-          <ul className="space-y-2.5">
-            {context.recentSessions.slice(0, 3).map((session) => (
-              <li className="flex items-start justify-between gap-3" key={session.id}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{session.name}</p>
-                  <p className="text-xs text-muted">
-                    {recentSessionDateFormatter.format(parseDateKey(session.date))}
-                  </p>
-                </div>
-                <p className="shrink-0 text-xs font-medium text-muted">
-                  {formatDaysSince(session.date)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </ContextCard>
+    <section
+      aria-label="Session context"
+      className={cn('rounded-2xl border border-border bg-card p-3 shadow-sm', className)}
+    >
+      <button
+        aria-controls="session-context-panel"
+        aria-expanded={isExpanded}
+        className="flex w-full cursor-pointer items-center justify-between rounded-xl px-2 py-2 text-left"
+        onClick={() => setIsExpanded((current) => !current)}
+        type="button"
+      >
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Session Context</h2>
+          <p className="text-xs text-muted">Training context and readiness notes</p>
+        </div>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn('size-4 text-muted transition-transform', isExpanded && 'rotate-180')}
+        />
+      </button>
 
-        <ContextCard
-          className="w-full"
-          description="Sleep and readiness"
-          icon={HeartPulse}
-          title="Recovery Status"
-        >
-          <div
-            className={cn(
-              'flex items-center gap-3 rounded-2xl border px-3 py-3',
-              sleepStatus.className,
-            )}
+      <div className="space-y-3 pt-2" hidden={!isExpanded} id="session-context-panel">
+        {hasPreviewCards ? (
+          <PreviewBanner
+            message="Some cards are in preview — sample data is shown and won't be saved."
+            storageKey="pulse-preview-banner-dismissed:active-workout-session-context"
+          />
+        ) : null}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <ContextCard
+            className="w-full"
+            description="Last 3 sessions"
+            icon={CalendarClock}
+            title="Recent Training"
           >
-            <MoonStar aria-hidden="true" className={cn('size-4', sleepStatus.iconClassName)} />
-            <div className="space-y-0.5">
-              <p className="text-sm font-semibold">{sleepStatus.label}</p>
-              <p className="text-xs text-muted">{sleepStatus.description}</p>
-            </div>
-          </div>
-        </ContextCard>
-
-        <ContextCard
-          className="w-full"
-          description="Conditions to respect today"
-          icon={AlertTriangle}
-          title="Active Injuries"
-        >
-          <div className="space-y-3">
-            <Badge className="w-fit border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-              {`${context.activeInjuries.length} active`}
-            </Badge>
-            {context.activeInjuries.length > 0 ? (
-              <ul className="space-y-2">
-                {context.activeInjuries.map((injury) => (
-                  <li className="flex items-start gap-2" key={injury.id}>
-                    <AlertTriangle
-                      aria-hidden="true"
-                      className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"
-                    />
-                    <span className="text-sm text-foreground">{injury.label}</span>
+            {context.recentSessions.length > 0 ? (
+              <ul className="space-y-2.5">
+                {context.recentSessions.slice(0, 3).map((session) => (
+                  <li className="flex items-start justify-between gap-3" key={session.id}>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{session.name}</p>
+                      <p className="text-xs text-muted">
+                        {recentSessionDateFormatter.format(parseDateKey(session.date))}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-xs font-medium text-muted">
+                      {formatDaysSince(session.date)}
+                    </p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted">No active conditions</p>
+              <p className="text-sm text-muted">No recent completed sessions yet.</p>
             )}
-          </div>
-        </ContextCard>
+          </ContextCard>
 
-        <ContextCard
-          className="w-full"
-          description="Current program block"
-          icon={Layers3}
-          title="Training Phase"
-        >
-          <div className="space-y-3">
-            <Badge className={cn('w-fit border-transparent', phaseBadgeConfig[phaseBadge])}>
-              {formatPhaseBadgeLabel(phaseBadge)}
-            </Badge>
-            <p className="text-sm text-foreground">{context.trainingPhaseLabel}</p>
-          </div>
-        </ContextCard>
+          <ContextCard
+            className="w-full"
+            description="Sleep and readiness"
+            icon={HeartPulse}
+            preview
+            title="Recovery Status"
+          >
+            <div
+              className={cn(
+                'flex items-center gap-3 rounded-2xl border px-3 py-3',
+                sleepStatus.className,
+              )}
+            >
+              <MoonStar aria-hidden="true" className={cn('size-4', sleepStatus.iconClassName)} />
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold">{sleepStatus.label}</p>
+                <p className="text-xs text-muted">{sleepStatus.description}</p>
+              </div>
+            </div>
+          </ContextCard>
+
+          <ContextCard
+            className="w-full"
+            description="Conditions to respect today"
+            icon={AlertTriangle}
+            preview
+            title="Active Injuries"
+          >
+            <div className="space-y-3">
+              <Badge className="w-fit border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                {`${context.activeInjuries.length} active`}
+              </Badge>
+              {context.activeInjuries.length > 0 ? (
+                <ul className="space-y-2">
+                  {context.activeInjuries.map((injury) => (
+                    <li className="flex items-start gap-2" key={injury.id}>
+                      <AlertTriangle
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"
+                      />
+                      <span className="text-sm text-foreground">{injury.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted">No active conditions</p>
+              )}
+            </div>
+          </ContextCard>
+
+          <ContextCard
+            className="w-full"
+            description="Current program block"
+            icon={Layers3}
+            preview
+            title="Training Phase"
+          >
+            <div className="space-y-3">
+              <Badge className={cn('w-fit border-transparent', phaseBadgeConfig[phaseBadge])}>
+                {formatPhaseBadgeLabel(phaseBadge)}
+              </Badge>
+              <p className="text-sm text-foreground">{context.trainingPhaseLabel}</p>
+            </div>
+          </ContextCard>
+        </div>
       </div>
     </section>
   );
@@ -165,20 +206,32 @@ function ContextCard({
   children,
   description,
   icon: Icon,
+  preview = false,
   title,
 }: {
   className?: string;
   children: ReactNode;
   description: string;
   icon: typeof CalendarClock;
+  preview?: boolean;
   title: string;
 }) {
   return (
-    <Card className={cn('gap-0 py-0 shadow-sm', className)}>
+    <Card className={cn('gap-0 border-border/70 bg-secondary/25 py-0 shadow-sm', className)}>
       <CardHeader className="gap-3 border-b border-border/80 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle className="text-base">{title}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{title}</CardTitle>
+              {preview ? (
+                <Badge
+                  className="border-amber-500/30 bg-amber-500/10 text-[10px] tracking-wide text-amber-700 uppercase dark:text-amber-300"
+                  variant="outline"
+                >
+                  Preview
+                </Badge>
+              ) : null}
+            </div>
             <p className="text-sm text-muted">{description}</p>
           </div>
           <div className="rounded-full bg-secondary/70 p-2 text-muted">
@@ -236,4 +289,12 @@ function inferPhaseBadge(trainingPhaseLabel: string): ActiveWorkoutPhaseBadge {
 
 function formatPhaseBadgeLabel(phase: ActiveWorkoutPhaseBadge) {
   return `${phase.charAt(0).toUpperCase()}${phase.slice(1)} Phase`;
+}
+
+function shouldStartExpanded() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+
+  return window.matchMedia(XL_BREAKPOINT_QUERY).matches;
 }

@@ -110,6 +110,7 @@ const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   main: 'Main',
   cooldown: 'Cooldown',
 };
+// Shared workout schema currently supports only warmup/main/cooldown section types.
 
 const categoryBadgeByExerciseId = new Map(
   mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
@@ -140,6 +141,10 @@ export function ActiveWorkoutPage() {
   const requestedTemplateId = searchParams.get('template');
   const activeSessionsQuery = useWorkoutSessions(
     { status: ['in-progress', 'paused'] },
+    { enabled: !requestedTemplateId },
+  );
+  const completedSessionsQuery = useWorkoutSessions(
+    { status: ['completed'], limit: 3 },
     { enabled: !requestedTemplateId },
   );
   const activeSessions = activeSessionsQuery.data ?? [];
@@ -227,6 +232,19 @@ export function ActiveWorkoutPage() {
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
+  const sessionContext = useMemo(() => {
+    const recentSessions = (completedSessionsQuery.data ?? []).slice(0, 3).map((session) => ({
+      date: session.date,
+      id: session.id,
+      name: session.name,
+      volume: 0,
+    }));
+
+    return {
+      ...workoutSessionContext,
+      recentSessions,
+    };
+  }, [completedSessionsQuery.data]);
   const redirectToCompletedSessionNotice = useCallback(() => {
     clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
     clearStoredActiveWorkoutSessionId();
@@ -636,7 +654,7 @@ export function ActiveWorkoutPage() {
             </div>
           ) : null}
 
-          <SessionContext context={workoutSessionContext} />
+          <SessionContext context={sessionContext} />
 
           <SessionExerciseList
             enableApiLastPerformance={Boolean(activeSessionId)}

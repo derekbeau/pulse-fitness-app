@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ActiveWorkoutExercise, ActiveWorkoutSection, ActiveWorkoutSessionData } from '../types';
+import type {
+  ActiveWorkoutExercise,
+  ActiveWorkoutSection,
+  ActiveWorkoutSessionData,
+} from '../types';
 import {
   estimateExerciseTime,
   estimateRemainingExerciseTime,
   estimateRemainingTime,
   estimateSectionTime,
   estimateTotalTime,
+  formatEstimateMinuteRange,
   formatEstimateMinutes,
   formatRestDuration,
   formatTempo,
@@ -206,6 +211,7 @@ describe('time-estimates', () => {
 
   it('formats estimate/minutes, rest duration, and tempo labels', () => {
     expect(formatEstimateMinutes(490)).toBe('~8 min');
+    expect(formatEstimateMinuteRange(490)).toBe('6-10 min');
     expect(formatRestDuration(150)).toBe('2:30');
     expect(formatTempo('3110')).toBe('3-1-1-0');
   });

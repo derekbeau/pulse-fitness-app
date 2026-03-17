@@ -22,9 +22,8 @@ export function estimateSectionTime(section: ActiveWorkoutSection) {
 }
 
 export function estimateRemainingSectionTime(section: ActiveWorkoutSection) {
-  return estimateSectionByGroup(
-    section,
-    (exercise) => Math.max(exercise.targetSets - exercise.completedSets, 0),
+  return estimateSectionByGroup(section, (exercise) =>
+    Math.max(exercise.targetSets - exercise.completedSets, 0),
   );
 }
 
@@ -33,7 +32,10 @@ export function estimateTotalTime(session: ActiveWorkoutSessionData) {
 }
 
 export function estimateRemainingTime(session: ActiveWorkoutSessionData) {
-  return session.sections.reduce((total, section) => total + estimateRemainingSectionTime(section), 0);
+  return session.sections.reduce(
+    (total, section) => total + estimateRemainingSectionTime(section),
+    0,
+  );
 }
 
 export function formatEstimateMinutes(totalSeconds: number) {
@@ -41,6 +43,15 @@ export function formatEstimateMinutes(totalSeconds: number) {
   const roundedMinutes = Math.round(safeSeconds / 60);
 
   return `~${roundedMinutes} min`;
+}
+
+export function formatEstimateMinuteRange(totalSeconds: number) {
+  const safeSeconds = Math.max(totalSeconds, 0);
+  const roundedMinutes = Math.max(1, Math.round(safeSeconds / 60));
+  const minMinutes = Math.max(1, roundedMinutes - 2);
+  const maxMinutes = Math.max(minMinutes + 1, roundedMinutes + 2);
+
+  return `${minMinutes}-${maxMinutes} min`;
 }
 
 export function formatRestDuration(totalSeconds: number) {
@@ -52,7 +63,10 @@ export function formatRestDuration(totalSeconds: number) {
 }
 
 export function formatTempo(tempo: string) {
-  const segments = tempo.replace(/[^0-9]/g, '').split('').filter(Boolean);
+  const segments = tempo
+    .replace(/[^0-9]/g, '')
+    .split('')
+    .filter(Boolean);
 
   return segments.length > 0 ? segments.join('-') : tempo;
 }
@@ -183,9 +197,7 @@ function estimateSecondsPerRep(tempo: string | null | undefined) {
         .replace(/[^0-9]/g, '')
         .split('')
         .map((segment) => Number.parseInt(segment, 10));
-  const segments = parsedSegments.filter(
-    (segment) => Number.isFinite(segment) && segment >= 0,
-  );
+  const segments = parsedSegments.filter((segment) => Number.isFinite(segment) && segment >= 0);
 
   if (segments.length === 0) {
     return DEFAULT_SECONDS_PER_REP;

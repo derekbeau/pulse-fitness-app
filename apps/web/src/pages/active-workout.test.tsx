@@ -87,11 +87,19 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
     expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Session Context/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.getByText('Recent Training')).toBeInTheDocument();
     expect(screen.getByText('Recovery Status')).toBeInTheDocument();
     expect(screen.getByText('Active Injuries')).toBeInTheDocument();
     expect(screen.getByText('Training Phase')).toBeInTheDocument();
-    expect(screen.getByText(/Warmup \(\d+\/2 exercises done\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Session Context/i }));
+    expect(
+      screen.getByText("Some cards are in preview — sample data is shown and won't be saved."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/\d+\/2 exercises done/)).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
@@ -333,6 +341,10 @@ describe('ActiveWorkoutPage', () => {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
       }
 
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
         return Promise.resolve(
           jsonResponse({
@@ -424,7 +436,9 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'Seated Dumbbell Shoulder Press' }),
     ).toBeInTheDocument();
-    expect(within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Reps for set 1')).toHaveValue(9);
+    expect(
+      within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Reps for set 1'),
+    ).toHaveValue(9);
     expect(vi.mocked(toast)).toHaveBeenCalledWith('Workout updated by agent');
   });
 
@@ -439,6 +453,10 @@ describe('ActiveWorkoutPage', () => {
 
       if (url.endsWith('/api/v1/auth/register')) {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
       }
 
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
@@ -538,6 +556,10 @@ describe('ActiveWorkoutPage', () => {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
       }
 
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
         return Promise.resolve(
           jsonResponse({
@@ -573,6 +595,10 @@ describe('ActiveWorkoutPage', () => {
 
       if (url.endsWith('/api/v1/auth/register')) {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
       }
 
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
@@ -627,6 +653,10 @@ describe('ActiveWorkoutPage', () => {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
       }
 
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
         return Promise.resolve(
           jsonResponse({
@@ -676,6 +706,10 @@ describe('ActiveWorkoutPage', () => {
 
       if (url.endsWith('/api/v1/auth/register')) {
         return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
       }
 
       if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {

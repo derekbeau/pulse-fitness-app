@@ -140,9 +140,11 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    expect(screen.getByText('Warmup (2/2 exercises done)')).toBeInTheDocument();
-    expect(screen.getByText('Main (0/4 exercises done)')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Main — ~\d+ min/i })).toBeInTheDocument();
+    expect(screen.getByText('2/2 exercises done')).toBeInTheDocument();
+    expect(screen.getByText('0/4 exercises done')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: /Main \d+-\d+ min/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
@@ -534,7 +536,9 @@ describe('SessionExerciseList', () => {
       throw new Error('Expected Row Erg card.');
     }
 
-    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Swap exercise' }));
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Swap exercise' }),
+    );
 
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('Related exercises')).toBeInTheDocument();
@@ -1127,10 +1131,14 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    const card = screen.getByRole('heading', { level: 3, name: 'Pull-up' }).closest('[data-slot="card"]');
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'Pull-up' })
+      .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).getByLabelText('Reps for set 1')).toBeInTheDocument();
-    expect(within(card as HTMLElement).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).queryByLabelText('Weight for set 1'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders related history collapsed by default and expands on demand', () => {
@@ -1229,7 +1237,9 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
     expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
-    expect(within(rowErgCard as HTMLElement).queryByText('Related history')).not.toBeInTheDocument();
+    expect(
+      within(rowErgCard as HTMLElement).queryByText('Related history'),
+    ).not.toBeInTheDocument();
 
     useLastPerformanceSpy.mockRestore();
   });
