@@ -932,7 +932,10 @@ export function ActiveWorkoutPage() {
     }
 
     const exerciseSets = setDrafts[exerciseId] ?? [];
-    const nextSetNumber = exerciseSets.length + 1;
+    const serverMaxSetNumber = (activeSession?.sets ?? [])
+      .filter((s) => s.exerciseId === exerciseId)
+      .reduce((max, s) => Math.max(max, s.setNumber), 0);
+    const nextSetNumber = Math.max(exerciseSets.length, serverMaxSetNumber) + 1;
 
     if (activeSessionId) {
       setSessionError(null);

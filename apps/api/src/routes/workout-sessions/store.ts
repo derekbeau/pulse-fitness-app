@@ -462,6 +462,14 @@ export const createSessionSet = async ({
     .reduce((maxValue, set) => Math.max(maxValue, set.orderIndex), -1);
   const nextOrderIndex = sameExerciseOrderIndex ?? maxOrderIndexInSection + 1;
 
+  const sameExerciseSets = existingSets.filter((set) => set.exerciseId === input.exerciseId);
+  const maxExerciseSetNumber = sameExerciseSets.reduce(
+    (maxValue, set) => Math.max(maxValue, set.setNumber),
+    0,
+  );
+  const resolvedSetNumber =
+    input.setNumber <= maxExerciseSetNumber ? maxExerciseSetNumber + 1 : input.setNumber;
+
   const result = db
     .insert(sessionSets)
     .values({
@@ -469,7 +477,7 @@ export const createSessionSet = async ({
       sessionId,
       exerciseId: input.exerciseId,
       orderIndex: nextOrderIndex,
-      setNumber: input.setNumber,
+      setNumber: resolvedSetNumber,
       weight: input.weight,
       reps: input.reps,
       section: input.section,
