@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { NutritionWeekSummary } from '@pulse/shared';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NutritionWeekStrip } from '@/features/nutrition/components/nutrition-week-strip';
@@ -71,43 +72,41 @@ const weekSummary: NutritionWeekSummary = [
 ];
 
 describe('NutritionWeekStrip', () => {
-  it('renders seven day cells', () => {
-    render(
+  function renderStrip(props?: Partial<ComponentProps<typeof NutritionWeekStrip>>) {
+    return render(
       <NutritionWeekStrip
         days={weekSummary}
+        disableNextWeek={false}
         selectedDate={new Date('2026-03-06T09:00:00')}
+        onNextWeek={() => {}}
+        onPreviousWeek={() => {}}
         onSelectDate={() => {}}
+        {...props}
       />,
     );
+  }
+
+  it('renders seven day cells', () => {
+    renderStrip();
 
     expect(screen.getAllByRole('listitem')).toHaveLength(7);
   });
 
-  it('marks the selected day cell as distinct', () => {
-    render(
-      <NutritionWeekStrip
-        days={weekSummary}
-        selectedDate={new Date('2026-03-06T09:00:00')}
-        onSelectDate={() => {}}
-      />,
-    );
+  it('marks the selected day cell as distinct and clickable', () => {
+    renderStrip();
 
     const selectedButton = screen.getByRole('button', { name: 'Select 2026-03-06' });
     const unselectedButton = screen.getByRole('button', { name: 'Select 2026-03-05' });
 
     expect(selectedButton).toHaveAttribute('data-selected', 'true');
+    expect(selectedButton).toHaveClass('bg-primary/15');
     expect(unselectedButton).toHaveAttribute('data-selected', 'false');
+    expect(unselectedButton).toHaveClass('cursor-pointer');
   });
 
   it('fires date select handler for the clicked day', () => {
     const onSelectDate = vi.fn();
-    render(
-      <NutritionWeekStrip
-        days={weekSummary}
-        selectedDate={new Date('2026-03-06T09:00:00')}
-        onSelectDate={onSelectDate}
-      />,
-    );
+    renderStrip({ onSelectDate });
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-03' }));
 
@@ -115,13 +114,7 @@ describe('NutritionWeekStrip', () => {
   });
 
   it('renders indicator states for empty, partial, and complete days', () => {
-    render(
-      <NutritionWeekStrip
-        days={weekSummary}
-        selectedDate={new Date('2026-03-06T09:00:00')}
-        onSelectDate={() => {}}
-      />,
-    );
+    renderStrip();
 
     expect(screen.getByLabelText('Completeness empty for 2026-03-02')).toHaveAttribute(
       'data-state',
@@ -135,5 +128,18 @@ describe('NutritionWeekStrip', () => {
       'data-state',
       'complete',
     );
+  });
+
+  it('wires week navigation arrows and disables next week when requested', () => {
+    const onPreviousWeek = vi.fn();
+    const onNextWeek = vi.fn();
+    renderStrip({ disableNextWeek: true, onNextWeek, onPreviousWeek });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to previous week' }));
+    expect(onPreviousWeek).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByRole('button', { name: 'Go to next week' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next week' }));
+    expect(onNextWeek).not.toHaveBeenCalled();
   });
 });

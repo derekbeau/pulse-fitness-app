@@ -8,12 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DateNavBar,
-  MealCard,
-  NutritionMacroRings,
-  NutritionWeekStrip,
-} from '@/features/nutrition';
+import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
 import {
   prefetchNutritionDay,
   useDailyNutrition,
@@ -23,43 +18,19 @@ import {
 } from '@/features/nutrition/api/nutrition';
 import {
   formatDateKey,
-  formatCalories,
   formatDayLabel,
-  formatGrams,
   isSameDay,
   addDays,
   sortMeals,
   toMealLoggedAtTimestamp,
   startOfDay,
   type MealSortDirection,
-  type MacroTotals,
-  type MacroKey,
 } from '@/features/nutrition/lib/nutrition-utils';
-import { accentCardStyles } from '@/lib/accent-card-styles';
-import { cn } from '@/lib/utils';
-
-const MACRO_CONFIG: Array<{
-  key: MacroKey;
-  label: string;
-  formatValue: (value: number) => string;
-}> = [
-  { key: 'calories', label: 'Calories', formatValue: formatCalories },
-  { key: 'protein', label: 'Protein', formatValue: formatGrams },
-  { key: 'carbs', label: 'Carbs', formatValue: formatGrams },
-  { key: 'fat', label: 'Fat', formatValue: formatGrams },
-];
-
-const EMPTY_TOTALS: MacroTotals = {
-  calories: 0,
-  protein: 0,
-  carbs: 0,
-  fat: 0,
-};
 
 export function NutritionPage() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
-  const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('asc');
+  const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
   const { confirm, dialog } = useConfirmation();
   const dateKey = formatDateKey(selectedDate);
 
@@ -92,10 +63,11 @@ export function NutritionPage() {
     (meal) => meal.name,
   );
 
-  const dailyTotals = dailySummaryQuery.data?.actual ?? EMPTY_TOTALS;
+  const dailyTotals = dailySummaryQuery.data?.actual;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
   const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
   const isSelectedDateToday = isSameDay(selectedDate, new Date());
+  const isViewingCurrentWeek = isSameWeek(selectedDate, new Date());
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
@@ -158,6 +130,17 @@ export function NutritionPage() {
         </div>
         <p className="max-w-2xl text-sm text-muted">
           Agent-logged meals for {formatDayLabel(dateKey)}.
+          {!isSelectedDateToday ? (
+            <Button
+              className="ml-2 h-auto p-0 align-baseline text-sm"
+              size="sm"
+              type="button"
+              variant="link"
+              onClick={() => setSelectedDate(startOfDay(new Date()))}
+            >
+              Today
+            </Button>
+          ) : null}
         </p>
       </header>
 
@@ -166,36 +149,15 @@ export function NutritionPage() {
       ) : weekSummaryQuery.data ? (
         <NutritionWeekStrip
           days={weekSummaryQuery.data}
+          disableNextWeek={isViewingCurrentWeek}
           selectedDate={selectedDate}
+          onNextWeek={() => setSelectedDate((currentDate) => addDays(currentDate, 7))}
+          onPreviousWeek={() => setSelectedDate((currentDate) => addDays(currentDate, -7))}
           onSelectDate={setSelectedDate}
         />
       ) : weekSummaryQuery.isError ? (
         <p className="text-sm text-muted">Unable to load week summary.</p>
       ) : null}
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <DateNavBar className="flex-1" selectedDate={selectedDate} onDateChange={setSelectedDate} />
-        <Button
-          aria-label="Toggle meal sort direction"
-          aria-pressed={mealSortDirection === 'desc'}
-          className="w-full justify-center sm:w-auto sm:justify-start"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() =>
-            setMealSortDirection((currentDirection) =>
-              currentDirection === 'asc' ? 'desc' : 'asc',
-            )
-          }
-        >
-          {mealSortDirection === 'asc' ? (
-            <ArrowUp aria-hidden="true" className="size-4" />
-          ) : (
-            <ArrowDown aria-hidden="true" className="size-4" />
-          )}
-          <span>{mealSortDirection === 'asc' ? 'Oldest first' : 'Newest first'}</span>
-        </Button>
-      </div>
 
       {nutritionError ? (
         <section className="rounded-2xl border border-destructive/30 px-5 py-6">
@@ -208,74 +170,9 @@ export function NutritionPage() {
         </section>
       ) : (
         <>
-          <section
-            aria-label="Daily macro totals"
-            className={cn('rounded-2xl border border-border/70 px-4 py-4', accentCardStyles.cream)}
-          >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Daily totals</h2>
-                <p className="text-sm opacity-70 dark:text-muted dark:opacity-100">
-                  Actual intake against your daily macro targets.
-                </p>
-              </div>
-              <p className="text-sm font-medium opacity-75 dark:text-muted dark:opacity-100">
-                {formatDayLabel(dateKey)}
-              </p>
-            </div>
-
-            {isLoadingDay ? (
-              <NutritionTotalsSkeleton />
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-                {MACRO_CONFIG.map((macro) => {
-                  const actual = dailyTotals[macro.key];
-                  const target = dailyTargets?.[macro.key] ?? null;
-                  const isOverTarget = target !== null && actual > target;
-
-                  return (
-                    <div
-                      key={macro.key}
-                      className="rounded-xl border border-black/8 bg-white/30 px-3.5 py-3 backdrop-blur-sm dark:border-border dark:bg-secondary/60"
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-65 dark:text-muted dark:opacity-100">
-                        {macro.label}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold">
-                        <span
-                          className={cn(
-                            target === null
-                              ? 'text-foreground'
-                              : isOverTarget
-                                ? 'text-red-900 dark:text-red-400'
-                                : 'text-emerald-950 dark:text-emerald-400',
-                            'text-lg tracking-tight',
-                          )}
-                        >
-                          {macro.formatValue(actual)}
-                        </span>
-                        {target === null ? (
-                          <span className="opacity-70 dark:text-muted dark:opacity-100">
-                            {' '}
-                            / No target set
-                          </span>
-                        ) : (
-                          <span className="opacity-70 dark:text-muted dark:opacity-100">
-                            {' '}
-                            / {macro.formatValue(target)}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
           {isLoadingDay ? (
             <NutritionRingsSkeleton />
-          ) : dailyTargets ? (
+          ) : dailyTargets && dailyTotals ? (
             <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
           ) : (
             <NutritionTargetsPlaceholder />
@@ -287,7 +184,30 @@ export function NutritionPage() {
             </p>
           ) : null}
 
-          <div className="space-y-2">
+          <div className="space-y-2" aria-label="Meals logged section">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-foreground">Meals logged</h2>
+              <Button
+                aria-label="Toggle meal sort direction"
+                aria-pressed={mealSortDirection === 'desc'}
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setMealSortDirection((currentDirection) =>
+                    currentDirection === 'asc' ? 'desc' : 'asc',
+                  )
+                }
+              >
+                {mealSortDirection === 'asc' ? (
+                  <ArrowUp aria-hidden="true" className="size-4" />
+                ) : (
+                  <ArrowDown aria-hidden="true" className="size-4" />
+                )}
+                <span>{mealSortDirection === 'asc' ? 'Oldest first' : 'Newest first'}</span>
+              </Button>
+            </div>
+
             {isLoadingDay ? (
               <div aria-label="Loading nutrition meals" className="space-y-2">
                 {Array.from({ length: 4 }).map((_, index) => (
@@ -341,22 +261,6 @@ function NutritionTargetsPlaceholder() {
   );
 }
 
-function NutritionTotalsSkeleton() {
-  return (
-    <div
-      aria-label="Loading nutrition"
-      className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
-    >
-      {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton
-          key={index}
-          className="h-18 rounded-xl border border-black/8 bg-white/30 dark:border-border dark:bg-secondary/60"
-        />
-      ))}
-    </div>
-  );
-}
-
 function NutritionRingsSkeleton() {
   return (
     <section className="space-y-4" aria-label="Loading nutrition rings">
@@ -385,4 +289,15 @@ function NutritionWeekStripSkeleton() {
       </div>
     </section>
   );
+}
+
+function isSameWeek(left: Date, right: Date) {
+  return getWeekStart(left).getTime() === getWeekStart(right).getTime();
+}
+
+function getWeekStart(date: Date) {
+  const normalizedDate = startOfDay(date);
+  const dayOfWeek = normalizedDate.getDay();
+  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  return addDays(normalizedDate, offsetToMonday);
 }

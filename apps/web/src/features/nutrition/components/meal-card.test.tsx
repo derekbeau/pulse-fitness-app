@@ -49,16 +49,14 @@ const breakfastMeal = {
 };
 
 describe('MealCard', () => {
-  it('renders a compact meal header collapsed by default and expands on click', () => {
+  it('renders summary text while collapsed and expands on click', () => {
     render(<MealCard meal={breakfastMeal} />);
 
-    expect(
-      screen.queryByText('Large Eggs, Whole Wheat Bread, Whey Protein'),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/535cal · 29P · 72C · 17F/)).toBeInTheDocument();
-    expect(screen.getByText('3 foods', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toBeInTheDocument();
+    expect(screen.queryByText(/535cal · 29P · 72C · 17F/)).not.toBeInTheDocument();
+    expect(screen.queryByText('3 foods', { exact: false })).not.toBeInTheDocument();
     expect(screen.getByText('7:20 AM')).toBeInTheDocument();
-    expect(screen.queryByText('Large Eggs')).not.toBeInTheDocument();
+    expect(screen.queryByText('Large Eggs', { selector: 'li p' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Breakfast/i }));
 
@@ -66,6 +64,18 @@ describe('MealCard', () => {
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
     expect(screen.getByText('210cal')).toBeInTheDocument();
     expect(screen.getByText('5.5 oz')).toBeInTheDocument();
+  });
+
+  it('falls back to concatenated item names when summary is empty', () => {
+    render(<MealCard meal={{ ...breakfastMeal, summary: null }} />);
+
+    expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toBeInTheDocument();
+  });
+
+  it('shows default collapsed copy when summary and items are both empty', () => {
+    render(<MealCard meal={{ ...breakfastMeal, summary: '', items: [] }} />);
+
+    expect(screen.getByText('No meal details available')).toBeInTheDocument();
   });
 
   it('uses compact row styling with truncated item names after expanding', () => {

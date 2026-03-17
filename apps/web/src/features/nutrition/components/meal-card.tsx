@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
-  calculateMacroTotals,
   formatCalories,
   formatDisplayServing,
   formatGrams,
@@ -41,8 +40,8 @@ const CARD_HORIZONTAL_PADDING = 'px-4 sm:px-5';
 export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const contentId = useId();
-  const totals = calculateMacroTotals(meal.items);
   const formattedTime = formatMealTime(meal.time);
+  const collapsedSummary = formatCollapsedSummary(meal);
   const canDelete = typeof onDelete === 'function';
 
   return (
@@ -62,11 +61,7 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
             <h2 className="truncate text-sm font-semibold text-foreground">{meal.name}</h2>
             <span className="shrink-0 text-[11px] text-muted">{formattedTime}</span>
           </div>
-          <p className="mt-0.5 text-xs text-muted">
-            {formatMacroSummary(totals)}
-            {' · '}
-            {formatFoodCount(meal.items.length)}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-muted">{collapsedSummary}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -146,20 +141,16 @@ function formatMealTime(time: string | null) {
   return `${normalizedHours}:${String(minutes).padStart(2, '0')} ${meridiem}`;
 }
 
-function formatFoodCount(count: number) {
-  return `${count} ${count === 1 ? 'food' : 'foods'}`;
-}
+function formatCollapsedSummary(meal: MealCardMeal) {
+  const summary = meal.summary?.trim();
+  if (summary) {
+    return summary;
+  }
 
-function formatMacroSummary(macros: {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}) {
-  return [
-    formatCalories(macros.calories, { compact: true }),
-    formatGrams(macros.protein, { compact: true, suffix: 'P' }),
-    formatGrams(macros.carbs, { compact: true, suffix: 'C' }),
-    formatGrams(macros.fat, { compact: true, suffix: 'F' }),
-  ].join(' · ');
+  const itemNames = meal.items.map((item) => item.name.trim()).filter((name) => name.length > 0);
+  if (itemNames.length > 0) {
+    return itemNames.join(', ');
+  }
+
+  return 'No meal details available';
 }

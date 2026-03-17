@@ -410,15 +410,13 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const dailyTotals = screen.getByLabelText('Daily macro totals');
-
     expect(screen.getByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
-    expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
-    expect(screen.getByText('Friday, Mar 6')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Go to next day' })).toBeDisabled();
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Go to next week' })).toBeDisabled();
     expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Go to today' })).not.toBeInTheDocument();
-    expect(within(dailyTotals).getByText(/\/ 2300 cal/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Today$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Daily totals' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Meals logged' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/nutrition/2026-03-05'),
       expect.objectContaining({ method: 'GET' }),
@@ -435,7 +433,7 @@ describe('NutritionPage', () => {
     );
   });
 
-  it('renders week strip above date navigation and updates selected date when a strip day is tapped', async () => {
+  it('renders week strip above meals section and updates selected date when a strip day is tapped', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -464,16 +462,16 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     const strip = screen.getByRole('list', { name: 'Nutrition week summary' });
-    const dateNavPreviousButton = screen.getByRole('button', { name: 'Go to previous day' });
+    const mealsHeading = screen.getByRole('heading', { name: 'Meals logged' });
     expect(
-      strip.compareDocumentPosition(dateNavPreviousButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+      strip.compareDocumentPosition(mealsHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
     expect(getMealHeading('Breakfast')).toBeInTheDocument();
   });
 
@@ -511,7 +509,7 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     expect(screen.getByText('Unable to load week summary.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Daily macro totals')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Macro progress' })).toBeInTheDocument();
     expect(screen.queryByText('Unable to load nutrition')).not.toBeInTheDocument();
   });
 
@@ -538,7 +536,7 @@ describe('NutritionPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows date-aware empty-state copy and go-to-today action on non-today dates', async () => {
+  it('shows date-aware empty-state copy and today shortcuts on non-today dates', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -556,25 +554,26 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'No meals logged for this day' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Today$/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByText('Friday, March 6')).toBeInTheDocument();
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Go to today' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Today$/ })).not.toBeInTheDocument();
   });
 
-  it('renders previous day meals from API sorted by time ascending by default', async () => {
+  it('renders selected-day meals sorted by time descending by default', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -599,13 +598,16 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByText('Thursday, March 5')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
-    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
+    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
   });
 
   it('shows an accessible meal sort toggle and reverses order when toggled', async () => {
@@ -633,20 +635,23 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
     const sortToggle = screen.getByRole('button', { name: /toggle meal sort direction/i });
-    expect(sortToggle).toHaveAttribute('aria-pressed', 'false');
-    expect(within(sortToggle).getByText('Oldest first')).toBeInTheDocument();
-    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
-
-    fireEvent.click(sortToggle);
-
     expect(sortToggle).toHaveAttribute('aria-pressed', 'true');
     expect(within(sortToggle).getByText('Newest first')).toBeInTheDocument();
     expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
+
+    fireEvent.click(sortToggle);
+
+    expect(sortToggle).toHaveAttribute('aria-pressed', 'false');
+    expect(within(sortToggle).getByText('Oldest first')).toBeInTheDocument();
+    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
   });
 
   it('persists meal sort preference while navigating dates in the same session', async () => {
@@ -674,22 +679,25 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: /toggle meal sort direction/i }));
-    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
+    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expectMealsInDisplayOrder(['Dinner', 'Snacks', 'Lunch', 'Breakfast']);
+    expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
   });
 
   it('shows grouped food rows and deletes a meal via the API mutation', async () => {
@@ -717,7 +725,10 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to previous day' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
@@ -789,7 +800,6 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    expect(screen.getByLabelText('Loading nutrition')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition rings')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition meals')).toBeInTheDocument();
     expect(screen.getByLabelText('Loading nutrition week strip')).toBeInTheDocument();
@@ -810,9 +820,6 @@ describe('NutritionPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    const dailyTotals = screen.getByLabelText('Daily macro totals');
-
-    expect(within(dailyTotals).getAllByText('/ No target set')).toHaveLength(4);
     expect(screen.getByText(/No daily macro target is set yet/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Eaten' })).not.toBeInTheDocument();
   });
