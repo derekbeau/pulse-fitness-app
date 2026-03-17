@@ -232,14 +232,15 @@ function getMetricInputs(trackingType: ExerciseTrackingType, weightUnit: WeightU
     ariaLabel: 'Reps',
     inputMode: 'numeric',
     key: 'reps',
-    placeholder: '0',
+    placeholder: '--',
     step: '1',
+    suffix: 'reps',
   };
   const secondsInput: MetricInputConfig = {
     ariaLabel: 'Seconds',
     inputMode: 'numeric',
     key: 'seconds',
-    placeholder: '0',
+    placeholder: '--',
     step: '1',
     suffix: 'sec',
   };
@@ -247,7 +248,7 @@ function getMetricInputs(trackingType: ExerciseTrackingType, weightUnit: WeightU
     ariaLabel: 'Distance',
     inputMode: 'decimal',
     key: 'distance',
-    placeholder: '0',
+    placeholder: '--',
     step: '0.1',
     suffix: distanceUnit,
   };
@@ -295,9 +296,10 @@ function formatTargetHint({
       ? `${targetWeightMin}-${targetWeightMax} ${weightUnit}`
       : null;
   const weightValue =
-    targetWeight !== null ? `${targetWeight} ${weightUnit}` : weightRange ?? null;
+    targetWeight !== null ? `${targetWeight} ${weightUnit}` : (weightRange ?? null);
   const secondsValue = targetSeconds !== null ? `${targetSeconds}s` : null;
-  const distanceValue = targetDistance !== null ? `${targetDistance} ${getDistanceUnit(weightUnit)}` : null;
+  const distanceValue =
+    targetDistance !== null ? `${targetDistance} ${getDistanceUnit(weightUnit)}` : null;
 
   switch (trackingType) {
     case 'weight_reps':

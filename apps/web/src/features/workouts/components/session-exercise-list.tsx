@@ -61,6 +61,7 @@ import type {
   ActiveWorkoutSessionData,
 } from '../types';
 import {
+  estimateExerciseTime,
   estimateSectionTime,
   formatEstimateMinuteRange,
   formatRestDuration,
@@ -255,7 +256,10 @@ export function SessionExerciseList({
               type="button"
             >
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">{`${sectionLabel} ${sectionEstimate}`}</h2>
+                <h2 className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
+                  {sectionLabel}
+                  <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
+                </h2>
                 <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
@@ -618,7 +622,10 @@ function ExerciseCardItem({
               >
                 {exercise.name}
               </h3>
-              <p className="text-xs text-muted sm:text-sm">{`${exercise.completedSets}/${exercise.targetSets} sets`}</p>
+              <p className="text-xs text-muted sm:text-sm">
+                {`${exercise.completedSets}/${exercise.targetSets} sets`}
+                <span className="ml-1.5 opacity-70">{`· ${formatEstimateMinuteRange(estimateExerciseTime(exercise))}`}</span>
+              </p>
             </div>
           </div>
 
