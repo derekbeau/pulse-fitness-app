@@ -18,6 +18,8 @@ Package manager: **pnpm** (workspaces). Build system: **Turborepo**.
 
 ## Commands
 
+Dev server ports are configured via `.env` to avoid conflicts with defaults (API on `3101`, Vite on `5273`). See `.env.example` for the variables: `PORT`, `VITE_PORT`, `VITE_API_PORT`.
+
 ```bash
 pnpm dev                    # Start all apps in dev mode
 pnpm build                  # Build all packages
@@ -94,8 +96,38 @@ pnpm --filter shared build  # Build shared package
 - **Foods**: Per-user database. `lastUsedAt` and `usageCount` are automatically maintained by the meal store layer whenever saved-food meal items are created, updated, or deleted.
 - **Trash & Soft Delete**: User-facing habits, workout templates, exercises, foods, and workout sessions use `deletedAt` soft delete; restore/purge flows are handled via `/api/v1/trash`.
 
-## PRD & Build Plan
+## Production Deployment
 
-Full PRD: `.orchestrator/health-fitness-app/prd/PRD.md`
-Summary: `.orchestrator/health-fitness-app/prd/SUMMARY.md`
-Build plan: `.orchestrator/health-fitness-app/plan.json`
+Pulse runs in production on **Orbstack** via Docker Compose.
+
+- **Compose file:** [`docker-compose.yml`](docker-compose.yml) — defines `api` and `web` services
+- **Dockerfile:** [`Dockerfile`](Dockerfile) — multi-stage build (build → api runtime → nginx frontend)
+- **Container name:** `pulse-fitness-app-api-1` (API), `pulse-fitness-app-web-1` (frontend)
+- **Database:** SQLite at `/data/pulse.db` inside the API container, persisted via the `pulse-data` Docker volume
+- **Frontend port:** `8147` on host → `80` in nginx container
+- **API:** internal only (accessed by nginx via Docker network, not exposed to host)
+- **Environment variables:** `JWT_SECRET`, `AGENT_TOKEN_CLAUDE_CODE` — set in `.env` at repo root (not committed)
+
+### Common Operations
+
+```bash
+# Rebuild and restart after code changes
+docker compose up -d --build
+
+# View logs
+docker compose logs -f api
+docker compose logs -f web
+
+# Restart a single service
+docker restart pulse-fitness-app-api-1
+
+# Run SQL against production database (no sqlite3 in container)
+docker cp pulse-fitness-app-api-1:/data/pulse.db /tmp/pulse-edit.db
+sqlite3 /tmp/pulse-edit.db "<SQL here>"
+docker cp /tmp/pulse-edit.db pulse-fitness-app-api-1:/data/pulse.db
+docker restart pulse-fitness-app-api-1
+rm /tmp/pulse-edit.db
+
+# Backup production database
+./scripts/backup-db.sh
+```
