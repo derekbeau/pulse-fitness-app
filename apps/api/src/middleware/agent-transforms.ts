@@ -6,6 +6,7 @@ import type { FastifyRequest, preHandlerHookHandler } from 'fastify';
 import { isAgentRequest } from './auth.js';
 import {
   createExercise,
+  findVisibleExerciseById,
   findVisibleExerciseByName,
   type ExerciseDedupCandidate,
   findExerciseDedupCandidates,
@@ -380,10 +381,12 @@ const transformExerciseMutation = async ({
   userId: string;
 }) => {
   const exerciseName = trimNonEmptyString(input.exerciseName);
+  const namedExercise = trimNonEmptyString(input.name);
+  const currentExerciseId = trimNonEmptyString(input.exerciseId);
   if (
     exerciseName &&
     (typeof input.exerciseId !== 'string' ||
-      trimNonEmptyString(input.exerciseId) === exerciseName)
+      currentExerciseId === exerciseName)
   ) {
     const resolvedId = await resolveExerciseIdFromName({
       name: exerciseName,
@@ -395,14 +398,31 @@ const transformExerciseMutation = async ({
     }
   }
 
+  const isSetUpsertInput = isFiniteNumber(input.setNumber);
+  const isExerciseMutationInput = isFiniteNumber(input.sets);
+  if (!exerciseName && !namedExercise && currentExerciseId && (isSetUpsertInput || isExerciseMutationInput)) {
+    const existingById = await findVisibleExerciseById({
+      id: currentExerciseId,
+      userId,
+    });
+    if (!existingById) {
+      const resolvedId = await resolveExerciseIdFromName({
+        name: currentExerciseId,
+        userId,
+        source: input,
+      });
+      if (resolvedId) {
+        input.exerciseId = resolvedId;
+      }
+    }
+  }
+
   const shouldExpandTemplateReps =
     hasTemplateExerciseFields(input) &&
     (exerciseName !== undefined || typeof input.exerciseId === 'string');
   const isAgentExerciseMutation = isAgentExerciseInput(input);
 
   if (isAgentExerciseMutation) {
-    const namedExercise = trimNonEmptyString(input.name);
-    const currentExerciseId = trimNonEmptyString(input.exerciseId);
     if (
       namedExercise &&
       (typeof input.exerciseId !== 'string' || currentExerciseId === namedExercise)

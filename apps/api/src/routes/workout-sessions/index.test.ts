@@ -3572,6 +3572,59 @@ describe('workout session routes', () => {
     });
   });
 
+  it('returns 404 when AgentToken templateName cannot be resolved', async () => {
+    const agentToken = seedAgentToken('user-1', 'agent-template-miss-token');
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        templateName: 'Unknown Template',
+        name: 'Quick Lift',
+        date: '2026-03-12',
+        startedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_TEMPLATE_NOT_FOUND',
+        message: 'Workout template not found',
+      },
+    });
+  });
+
+  it('rejects templateName for JWT callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateName: 'Upper Push',
+        name: 'Quick Lift',
+        date: '2026-03-12',
+        startedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'templateName is only supported for AgentToken requests',
+      },
+    });
+  });
+
   it('patches sessions with agent exercise mutations and auto-creates missing exercises', async () => {
     const agentToken = seedAgentToken('user-1', 'plain-agent-token-2');
     seedWorkoutSession({

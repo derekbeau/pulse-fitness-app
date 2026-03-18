@@ -360,10 +360,12 @@ export const sessionSetInputSchema = z
       return z.NEVER;
     }
 
-    return {
+    const normalized = {
       ...value,
       exerciseId: resolvedExerciseId,
     };
+    delete normalized.exerciseName;
+    return normalized;
   });
 
 const workoutSessionExerciseMutationInputSchema = z
@@ -387,10 +389,13 @@ const workoutSessionExerciseMutationInputSchema = z
       return z.NEVER;
     }
 
-    return {
+    const normalized = {
       ...value,
       exerciseId: resolvedExerciseId,
     };
+    delete normalized.exerciseName;
+    delete normalized.name;
+    return normalized;
   });
 
 export const createWorkoutSessionInputSchema = z

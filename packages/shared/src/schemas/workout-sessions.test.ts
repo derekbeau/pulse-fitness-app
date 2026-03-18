@@ -174,7 +174,6 @@ describe('sessionSetInputSchema', () => {
       }),
     ).toEqual({
       exerciseId: 'Goblet Squat',
-      exerciseName: 'Goblet Squat',
       orderIndex: 0,
       setNumber: 1,
       weight: null,
@@ -724,7 +723,6 @@ describe('updateWorkoutSessionInputSchema', () => {
       sets: [
         {
           exerciseId: 'Landmine Press',
-          exerciseName: 'Landmine Press',
           orderIndex: 0,
           setNumber: 1,
           weight: 95,
@@ -738,7 +736,6 @@ describe('updateWorkoutSessionInputSchema', () => {
       addExercises: [
         {
           exerciseId: 'Goblet Squat',
-          name: 'Goblet Squat',
           sets: 2,
           reps: 10,
           section: 'main',

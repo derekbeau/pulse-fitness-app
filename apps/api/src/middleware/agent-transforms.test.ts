@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createExercise,
   findExerciseDedupCandidates,
+  findVisibleExerciseById,
   findVisibleExerciseByName,
 } from '../routes/exercises/store.js';
 import { createFood, findFoodByName } from '../routes/foods/store.js';
@@ -12,6 +13,7 @@ import { agentRequestTransform, parseRepsInput } from './agent-transforms.js';
 
 vi.mock('../routes/exercises/store.js', () => ({
   createExercise: vi.fn(),
+  findVisibleExerciseById: vi.fn(),
   findVisibleExerciseByName: vi.fn(),
   findExerciseDedupCandidates: vi.fn(),
 }));
@@ -81,6 +83,7 @@ describe('agentRequestTransform', () => {
   beforeEach(() => {
     vi.mocked(createExercise).mockReset();
     vi.mocked(findExerciseDedupCandidates).mockReset();
+    vi.mocked(findVisibleExerciseById).mockReset();
     vi.mocked(findVisibleExerciseByName).mockReset();
     vi.mocked(createFood).mockReset();
     vi.mocked(findFoodByName).mockReset();
@@ -143,7 +146,6 @@ describe('agentRequestTransform', () => {
         url: '/transform',
         payload: {
           templateName: 'Upper Push',
-          templateId: 'Upper Push',
         },
       });
 

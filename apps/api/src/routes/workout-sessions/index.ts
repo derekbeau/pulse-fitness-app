@@ -25,7 +25,7 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import {
   agentEnrichmentOnSend,
   buildDataResponse,
@@ -299,6 +299,15 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       let input: CreateWorkoutSessionInput = request.body;
+      if (request.body.templateName !== undefined && !isAgentRequest(request)) {
+        return sendError(
+          reply,
+          400,
+          'VALIDATION_ERROR',
+          'templateName is only supported for AgentToken requests',
+        );
+      }
+
       if (request.body.templateName !== undefined && request.body.templateId === null) {
         return sendError(
           reply,
