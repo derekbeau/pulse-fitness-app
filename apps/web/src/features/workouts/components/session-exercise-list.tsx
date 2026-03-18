@@ -28,12 +28,14 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Braces,
   ChevronDown,
   Check,
   Circle,
   Dot,
   GripVertical,
   History,
+  Link2Off,
   MoreVertical,
 } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
@@ -42,6 +44,14 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +59,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { ApiError } from '@/lib/api-client';
@@ -74,6 +85,7 @@ import {
   formatRestDuration,
   formatTempo,
 } from '../lib/time-estimates';
+import { getSupersetAccentClass } from '../lib/superset-utils';
 import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseHistoryModal } from './exercise-history-modal';
@@ -91,9 +103,15 @@ type SessionExerciseListProps = {
     section: 'warmup' | 'main' | 'cooldown',
     exerciseIds: string[],
   ) => void | Promise<void>;
+  onUpdateSupersetGroup?: (
+    section: 'warmup' | 'main' | 'cooldown',
+    exerciseIds: string[],
+    supersetGroup: string | null,
+  ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   showDragHandles?: boolean;
+  supersetUpdatePending?: boolean;
   session: ActiveWorkoutSessionData;
   sessionId?: string | null;
   sessionCuesByExercise?: Record<string, string[]>;
@@ -150,9 +168,11 @@ export function SessionExerciseList({
   onExerciseNotesChange,
   onFocusSetHandled,
   onReorderExercises,
+  onUpdateSupersetGroup,
   onRemoveSet,
   onSetUpdate,
   showDragHandles = false,
+  supersetUpdatePending = false,
   session,
   sessionId = null,
   sessionCuesByExercise,
@@ -187,6 +207,9 @@ export function SessionExerciseList({
     exerciseName: string;
     trackingType: ExerciseTrackingType;
   } | null>(null);
+  const [supersetSectionTarget, setSupersetSectionTarget] = useState<
+    ActiveWorkoutSessionData['sections'][number]['type'] | null
+  >(null);
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
@@ -282,9 +305,10 @@ export function SessionExerciseList({
               onClick={() =>
                 setOpenSections((current) => ({
                   ...current,
-                  [section.id]:
-                    !(current[section.id] ??
-                      isSectionInitiallyOpen(section, session.currentExerciseId)),
+                  [section.id]: !(
+                    current[section.id] ??
+                    isSectionInitiallyOpen(section, session.currentExerciseId)
+                  ),
                 }))
               }
               type="button"
@@ -323,6 +347,21 @@ export function SessionExerciseList({
               hidden={!isOpen}
               id={`section-panel-${section.id}`}
             >
+              {onUpdateSupersetGroup && section.exercises.length >= 2 ? (
+                <div className="mb-3 flex justify-end">
+                  <Button
+                    disabled={supersetUpdatePending}
+                    onClick={() => setSupersetSectionTarget(section.type)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Braces aria-hidden="true" className="size-4" />
+                    Manage supersets
+                  </Button>
+                </div>
+              ) : null}
+
               <DndContext
                 collisionDetection={closestCenter}
                 onDragEnd={({ active, over }) => {
@@ -393,7 +432,14 @@ export function SessionExerciseList({
                         );
                       }
 
-                      const supersetAccentClass = getSupersetAccentClass(item.groupId);
+                      const supersetAccentClass = getSupersetAccentClass(
+                        item.groupId,
+                        supersetAccentStyles,
+                      );
+                      const groupCollapseKey = `superset:${section.id}:${item.groupId}`;
+                      const isGroupFocused = item.exercises.some(
+                        (exercise) => exercise.id === (focusTarget?.exerciseId ?? null),
+                      );
                       const sharedRestSeconds = Math.max(
                         ...item.exercises.map((exercise) => exercise.restSeconds),
                       );
@@ -418,6 +464,25 @@ export function SessionExerciseList({
                             <p className="text-sm text-muted">
                               {`Alternate exercises, then rest ${sharedRestSeconds}s after each round.`}
                             </p>
+                            {onUpdateSupersetGroup ? (
+                              <Button
+                                className="ml-auto"
+                                disabled={supersetUpdatePending}
+                                onClick={() =>
+                                  void onUpdateSupersetGroup(
+                                    section.type,
+                                    item.exercises.map((exercise) => exercise.id),
+                                    null,
+                                  )
+                                }
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <Link2Off aria-hidden="true" className="size-4" />
+                                Ungroup
+                              </Button>
+                            ) : null}
                           </div>
 
                           <div className="space-y-3">
@@ -475,6 +540,9 @@ export function SessionExerciseList({
                                     sessionCurrentExerciseId={session.currentExerciseId}
                                     setExpandedExercises={setExpandedExercises}
                                     sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
+                                    collapseKey={groupCollapseKey}
+                                    embeddedInSuperset
+                                    forceExpanded={isGroupFocused}
                                     showDragHandle={showDragHandles}
                                     weightUnit={weightUnit}
                                   />
@@ -492,6 +560,23 @@ export function SessionExerciseList({
           </section>
         );
       })}
+
+      {supersetSectionTarget && onUpdateSupersetGroup ? (
+        <SessionSupersetManagerDialog
+          isPending={supersetUpdatePending}
+          onApply={(exerciseIds, supersetGroup) =>
+            onUpdateSupersetGroup(supersetSectionTarget, exerciseIds, supersetGroup)
+          }
+          onOpenChange={(open) => {
+            if (!open) {
+              setSupersetSectionTarget(null);
+            }
+          }}
+          section={
+            session.sections.find((section) => section.type === supersetSectionTarget) ?? null
+          }
+        />
+      ) : null}
 
       <RenameExerciseDialog
         key={renameTarget ? `${renameTarget.exerciseId}-open` : 'rename-session-closed'}
@@ -563,10 +648,13 @@ export function SessionExerciseList({
 }
 
 type ExerciseCardItemProps = {
+  collapseKey?: string;
+  embeddedInSuperset?: boolean;
   exercise: ActiveWorkoutExercise;
   exerciseNumber: number;
   enableApiLastPerformance: boolean;
   expandedExercises: Record<string, boolean>;
+  forceExpanded?: boolean;
   focusTargetExerciseId: string | null;
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
@@ -588,10 +676,13 @@ type ExerciseCardItemProps = {
 };
 
 function ExerciseCardItem({
+  collapseKey,
+  embeddedInSuperset = false,
   exercise,
   exerciseNumber,
   enableApiLastPerformance,
   expandedExercises,
+  forceExpanded = false,
   focusTargetExerciseId,
   isMoveDownDisabled,
   isMoveUpDisabled,
@@ -628,13 +719,17 @@ function ExerciseCardItem({
   const lastPerformance = historySummary.history;
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
+  const resolvedCollapseKey = collapseKey ?? exercise.id;
   const isExpanded =
-    focusTargetExerciseId === exercise.id ? true : (expandedExercises[exercise.id] ?? true);
+    forceExpanded ||
+    focusTargetExerciseId === exercise.id ||
+    (expandedExercises[resolvedCollapseKey] ?? true);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
-  const priorityAccentClass =
-    exercise.priority === 'required'
+  const priorityAccentClass = embeddedInSuperset
+    ? ''
+    : exercise.priority === 'required'
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
   const canRemoveSet = exercise.sets.length > 1;
@@ -646,9 +741,10 @@ function ExerciseCardItem({
     <Card
       className={cn(
         'gap-0 overflow-hidden py-0 transition-colors',
+        embeddedInSuperset && 'border-none bg-transparent shadow-none',
         priorityAccentClass,
-        state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
-        state === 'in-progress' && 'border-primary/35 shadow-md',
+        !embeddedInSuperset && state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
+        !embeddedInSuperset && state === 'in-progress' && 'border-primary/35 shadow-md',
       )}
       ref={setNodeRef}
       style={{
@@ -677,7 +773,7 @@ function ExerciseCardItem({
           onClick={() =>
             setExpandedExercises((current) => ({
               ...current,
-              [exercise.id]: !(current[exercise.id] ?? true),
+              [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? true),
             }))
           }
           type="button"
@@ -1228,18 +1324,139 @@ function formatPhaseBadge(phaseBadge: ActiveWorkoutPhaseBadge) {
   return `${phaseBadge.charAt(0).toUpperCase()}${phaseBadge.slice(1)}`;
 }
 
-function formatSupersetGroupLabel(groupId: string) {
-  return groupId.replace(/-/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+function SessionSupersetManagerDialog({
+  isPending,
+  onApply,
+  onOpenChange,
+  section,
+}: {
+  isPending: boolean;
+  onApply: (exerciseIds: string[], supersetGroup: string | null) => void;
+  onOpenChange: (open: boolean) => void;
+  section: ActiveWorkoutSessionData['sections'][number] | null;
+}) {
+  const supersetGroups = useMemo(
+    () =>
+      [
+        ...new Set(
+          (section?.exercises ?? [])
+            .map((exercise) => exercise.supersetGroup)
+            .filter((group): group is string => typeof group === 'string' && group.length > 0),
+        ),
+      ].sort((left, right) => left.localeCompare(right)),
+    [section],
+  );
+  const [newSupersetName, setNewSupersetName] = useState(() => getNextSupersetName(supersetGroups));
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Manage supersets</DialogTitle>
+          <DialogDescription>
+            Select 2+ exercises to group as a superset, or select grouped exercises to ungroup.
+          </DialogDescription>
+        </DialogHeader>
+
+        {section ? (
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-3">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Exercises
+              </p>
+              <div className="space-y-2">
+                {section.exercises.map((exercise, index) => (
+                  <label
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                    key={exercise.id}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedExerciseIds.includes(exercise.id)}
+                        onCheckedChange={(checked) =>
+                          setSelectedExerciseIds((current) => {
+                            if (checked !== true) {
+                              return current.filter((value) => value !== exercise.id);
+                            }
+
+                            if (current.includes(exercise.id)) {
+                              return current;
+                            }
+
+                            return [...current, exercise.id];
+                          })
+                        }
+                      />
+                      <span className="text-sm text-foreground">
+                        {index + 1}. {exercise.name}
+                      </span>
+                    </span>
+                    {exercise.supersetGroup ? (
+                      <Badge variant="secondary">
+                        {formatSupersetGroupLabel(exercise.supersetGroup)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Ungrouped</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
+                Group as Superset
+              </p>
+              <Input
+                aria-label="Superset name"
+                disabled={isPending}
+                onChange={(event) => setNewSupersetName(event.currentTarget.value)}
+                placeholder="Superset A"
+                value={newSupersetName}
+              />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="sm:flex-1"
+                  disabled={isPending || selectedExerciseIds.length < 2}
+                  onClick={() => {
+                    const supersetGroup = toSupersetGroupId(newSupersetName);
+                    if (!supersetGroup) {
+                      toast.error('Superset name is required');
+                      return;
+                    }
+
+                    onApply(selectedExerciseIds, supersetGroup);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                >
+                  Group as Superset
+                </Button>
+                <Button
+                  className="sm:flex-1"
+                  disabled={isPending || selectedExerciseIds.length === 0}
+                  onClick={() => {
+                    onApply(selectedExerciseIds, null);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Link2Off aria-hidden="true" className="size-4" />
+                  Ungroup Selected
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-function getSupersetAccentClass(groupId: string) {
-  let hash = 0;
-
-  for (const character of groupId) {
-    hash = (hash + character.charCodeAt(0)) % supersetAccentStyles.length;
-  }
-
-  return supersetAccentStyles[hash];
+function formatSupersetGroupLabel(groupId: string) {
+  return groupId.replace(/-/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function groupExercises(exercises: ActiveWorkoutExercise[]) {
@@ -1287,4 +1504,46 @@ function groupExercises(exercises: ActiveWorkoutExercise[]) {
   }
 
   return groups;
+}
+
+function getNextSupersetName(groups: string[]) {
+  const existingNames = new Set(
+    groups
+      .map((group) =>
+        group
+          .replace(/^superset-?/i, '')
+          .trim()
+          .toUpperCase(),
+      )
+      .filter((group) => group.length > 0),
+  );
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  for (const letter of alphabet) {
+    if (!existingNames.has(letter)) {
+      return `Superset ${letter}`;
+    }
+  }
+
+  let suffix = 1;
+  while (existingNames.has(`A${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `Superset A${suffix}`;
+}
+
+function toSupersetGroupId(value: string) {
+  const normalized = value
+    .trim()
+    .replace(/^superset[-\s]*/i, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9-_]/g, '')
+    .toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  return `superset-${normalized}`.slice(0, 255);
 }

@@ -66,6 +66,7 @@ type SessionSetRecord = {
   targetWeightMax: number | null;
   targetSeconds: number | null;
   targetDistance: number | null;
+  supersetGroup: string | null;
   completed: boolean;
   skipped: boolean;
   section: WorkoutTemplateSectionType | null;
@@ -131,6 +132,7 @@ const sessionSetSelection = {
   targetWeightMax: sessionSets.targetWeightMax,
   targetSeconds: sessionSets.targetSeconds,
   targetDistance: sessionSets.targetDistance,
+  supersetGroup: sessionSets.supersetGroup,
   completed: sessionSets.completed,
   skipped: sessionSets.skipped,
   section: sessionSets.section,
@@ -261,6 +263,7 @@ const buildWorkoutSessionExercises = (
     {
       exerciseId: string;
       exerciseName: string;
+      supersetGroup: string | null;
       trackingType: ExerciseTrackingType | null;
       orderIndex: number;
       section: WorkoutTemplateSectionType | null;
@@ -279,6 +282,9 @@ const buildWorkoutSessionExercises = (
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
+      if (set.supersetGroup !== null) {
+        existing.supersetGroup = set.supersetGroup;
+      }
       existing.sets.push(parsedSet);
       continue;
     }
@@ -286,6 +292,7 @@ const buildWorkoutSessionExercises = (
     groupedByExercise.set(set.exerciseId, {
       exerciseId: set.exerciseId,
       exerciseName,
+      supersetGroup: set.supersetGroup,
       trackingType: (exerciseInfo?.trackingType as ExerciseTrackingType) ?? null,
       orderIndex: set.orderIndex,
       section: set.section,
@@ -316,6 +323,7 @@ const buildWorkoutSessionExercises = (
     .map((exercise) => ({
       exerciseId: exercise.exerciseId,
       exerciseName: exercise.exerciseName,
+      supersetGroup: exercise.supersetGroup,
       trackingType: exercise.trackingType,
       exercise: {
         formCues: exercise.formCues,
@@ -342,6 +350,7 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     targetWeightMax: set.targetWeightMax,
     targetSeconds: set.targetSeconds,
     targetDistance: set.targetDistance,
+    supersetGroup: set.supersetGroup,
     completed: set.completed,
     skipped: set.skipped,
     section: set.section,
@@ -463,6 +472,8 @@ export const createSessionSet = async ({
   const nextOrderIndex = sameExerciseOrderIndex ?? maxOrderIndexInSection + 1;
 
   const sameExerciseSets = existingSets.filter((set) => set.exerciseId === input.exerciseId);
+  const sameExerciseSupersetGroup =
+    sameExerciseSets.find((set) => set.supersetGroup !== null)?.supersetGroup ?? null;
   const maxExerciseSetNumber = sameExerciseSets.reduce(
     (maxValue, set) => Math.max(maxValue, set.setNumber),
     0,
@@ -480,6 +491,7 @@ export const createSessionSet = async ({
       setNumber: resolvedSetNumber,
       weight: input.weight,
       reps: input.reps,
+      supersetGroup: sameExerciseSupersetGroup,
       section: input.section,
     })
     .run();
@@ -747,6 +759,7 @@ export const batchUpsertSessionSets = async ({
       .all();
     const orderIndexByExerciseAndSection = new Map<string, number>();
     const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType | null, number>();
+    const supersetGroupByExerciseId = new Map<string, string | null>();
 
     for (const set of existingSets) {
       const key = `${set.section ?? 'null'}:${set.exerciseId}`;
@@ -756,6 +769,13 @@ export const batchUpsertSessionSets = async ({
 
       const currentNextOrderIndex = nextOrderIndexBySection.get(set.section) ?? 0;
       nextOrderIndexBySection.set(set.section, Math.max(currentNextOrderIndex, set.orderIndex + 1));
+
+      const existingSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId);
+      if (existingSupersetGroup === undefined) {
+        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+      } else if (existingSupersetGroup === null && set.supersetGroup !== null) {
+        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+      }
     }
 
     for (const set of input.sets) {
@@ -793,6 +813,11 @@ export const batchUpsertSessionSets = async ({
         continue;
       }
 
+      const inheritedSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId) ?? null;
+      if (!supersetGroupByExerciseId.has(set.exerciseId)) {
+        supersetGroupByExerciseId.set(set.exerciseId, inheritedSupersetGroup);
+      }
+
       tx.insert(sessionSets)
         .values({
           id: randomUUID(),
@@ -802,6 +827,7 @@ export const batchUpsertSessionSets = async ({
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
+          supersetGroup: inheritedSupersetGroup,
           section: set.section,
         })
         .run();

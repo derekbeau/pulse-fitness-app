@@ -137,6 +137,7 @@ export const sessionSets = sqliteTable(
     targetWeightMax: real('target_weight_max'),
     targetSeconds: integer('target_seconds'),
     targetDistance: real('target_distance'),
+    supersetGroup: text('superset_group'),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
     section: text('section').$type<WorkoutTemplateSectionType>(),

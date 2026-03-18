@@ -28,6 +28,7 @@ Each template exercise stores prescription data, not completed performance.
 - `reps`: prescription string such as `8-10`, `12`, `6/side`, or `45 sec`
 - `tempo`: 4-digit notation such as `3110`
 - `restSeconds`: planned rest period between working sets
+- `supersetGroup`: nullable group id (for example `superset-a`); contiguous exercises with the same id are rendered as one superset card
 - `cues`: situational prompts scoped to this template/session context
 - `badges`: quick-read metadata for chips and filtering
 
@@ -45,6 +46,7 @@ Example shape:
   reps: '8-10',
   tempo: '3110',
   restSeconds: 90,
+  supersetGroup: 'superset-a',
   cues: ['Week 1 keep RPE 7'],
   badges: ['compound', 'push']
 }
@@ -62,6 +64,19 @@ A workout session is the user-specific execution record of a template.
 - `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp and nullable `end`
 
 Completed sessions should also store exercise-level set logs and post-workout feedback.
+
+Session exercise metadata should preserve `supersetGroup` values so completed receipts and history can render grouped supersets consistently.
+
+## Superset Grouping
+
+- A superset is represented by assigning the same non-null `supersetGroup` id to 2+ exercises in the same section.
+- Grouping action: set selected exercises to a shared `supersetGroup` id.
+- Ungrouping action: set selected exercises to `supersetGroup: null`.
+- Rendering rules:
+  - Use a single shared container for each contiguous superset group (no nested visual cards).
+  - Apply a deterministic accent left border per group id.
+  - Keep grouped exercises separated with internal dividers while still inside one container.
+  - Collapse/expand the whole superset as one unit.
 
 ## Set Logging
 

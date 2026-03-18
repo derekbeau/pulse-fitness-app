@@ -7,7 +7,7 @@ import type {
 export const buildInitialSessionSets = (
   sections: Array<{
     type: WorkoutTemplateSectionType;
-    exercises: Array<{ exerciseId: string; sets: number | null }>;
+    exercises: Array<{ exerciseId: string; sets: number | null; supersetGroup?: string | null }>;
   }>,
 ): CreateWorkoutSessionInput['sets'] => {
   const sets: CreateWorkoutSessionInput['sets'] = [];
@@ -25,6 +25,7 @@ export const buildInitialSessionSets = (
           reps: null,
           completed: false,
           skipped: false,
+          supersetGroup: exercise.supersetGroup ?? null,
           section: section.type,
           notes: null,
         });

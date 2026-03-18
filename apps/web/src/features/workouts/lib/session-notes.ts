@@ -68,6 +68,7 @@ export function buildSessionSetInputs(
         section: templateExercise?.section ?? null,
         setNumber: draftSet.number,
         skipped: false,
+        supersetGroup: templateExercise?.exercise.supersetGroup ?? null,
         targetWeight: draftSet.targetWeight,
         targetWeightMin: draftSet.targetWeightMin,
         targetWeightMax: draftSet.targetWeightMax,

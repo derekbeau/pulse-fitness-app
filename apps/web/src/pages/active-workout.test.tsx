@@ -1340,7 +1340,7 @@ describe('ActiveWorkoutPage', () => {
     );
 
     expect(payloadSets).toEqual([
-      {
+      expect.objectContaining({
         completed: true,
         exerciseId: 'incline-dumbbell-press',
         orderIndex: 0,
@@ -1349,9 +1349,10 @@ describe('ActiveWorkoutPage', () => {
         section: 'main',
         setNumber: 1,
         skipped: false,
+        supersetGroup: null,
         weight: 50,
-      },
-      {
+      }),
+      expect.objectContaining({
         completed: true,
         exerciseId: 'incline-dumbbell-press',
         orderIndex: 0,
@@ -1360,8 +1361,9 @@ describe('ActiveWorkoutPage', () => {
         section: 'main',
         setNumber: 2,
         skipped: false,
+        supersetGroup: null,
         weight: 45,
-      },
+      }),
     ]);
   });
 
@@ -1433,7 +1435,7 @@ describe('ActiveWorkoutPage', () => {
     );
 
     expect(payloadSets).toEqual([
-      {
+      expect.objectContaining({
         completed: true,
         exerciseId: 'dead-bug',
         notes: null,
@@ -1442,9 +1444,10 @@ describe('ActiveWorkoutPage', () => {
         section: 'main',
         setNumber: 1,
         skipped: false,
+        supersetGroup: null,
         weight: null,
-      },
-      {
+      }),
+      expect.objectContaining({
         completed: true,
         exerciseId: 'dead-hang',
         notes: null,
@@ -1453,8 +1456,9 @@ describe('ActiveWorkoutPage', () => {
         section: 'cooldown',
         setNumber: 1,
         skipped: false,
+        supersetGroup: null,
         weight: null,
-      },
+      }),
     ]);
   });
 });

@@ -182,6 +182,10 @@ const toCreateWorkoutSessionInput = (
     throw new Error('Workout session must exist to build an update payload');
   }
 
+  const supersetGroupByExerciseId = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.supersetGroup]),
+  );
+
   return {
     templateId: session.templateId,
     name: session.name,
@@ -201,6 +205,7 @@ const toCreateWorkoutSessionInput = (
       reps: set.reps,
       completed: set.completed,
       skipped: set.skipped,
+      supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
       section: set.section,
       notes: set.notes,
     })),
@@ -951,6 +956,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             reps: set.reps,
             completed: true,
             skipped: false,
+            supersetGroup: null,
             section: null,
             notes: null,
           });
@@ -974,6 +980,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     const referencedExerciseIds = [
       ...(body.sets?.map((set) => set.exerciseId) ?? []),
       ...(body.addExercises?.map((exercise) => exercise.exerciseId) ?? []),
+      ...(body.exercises?.map((exercise) => exercise.exerciseId) ?? []),
     ];
     if (referencedExerciseIds.length > 0) {
       const invalidExerciseIds = await findInvalidSessionExerciseIds({
@@ -1018,6 +1025,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             reps: exercise.reps ?? null,
             completed: false,
             skipped: false,
+            supersetGroup: null,
             section: targetSection,
             notes: null,
           });
@@ -1070,6 +1078,34 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       merged = {
         ...merged,
         sets: reorderSessionSetsByExercise(merged.sets, body.reorderExercises),
+      };
+    }
+
+    if (body.exercises) {
+      const currentExerciseIds = new Set(merged.sets.map((set) => set.exerciseId));
+      const hasUnknownExercise = body.exercises.some(
+        (exercise) => !currentExerciseIds.has(exercise.exerciseId),
+      );
+      if (hasUnknownExercise) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'exercises contains unknown exercise ids');
+      }
+
+      const supersetGroupEntries = body.exercises.flatMap((exercise) =>
+        exercise.supersetGroup === undefined
+          ? []
+          : ([[exercise.exerciseId, exercise.supersetGroup]] as const),
+      );
+      const supersetGroupByExerciseId = new Map(supersetGroupEntries);
+      merged = {
+        ...merged,
+        sets: merged.sets.map((set) =>
+          supersetGroupByExerciseId.has(set.exerciseId)
+            ? {
+                ...set,
+                supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
+              }
+            : set,
+        ),
       };
     }
 
