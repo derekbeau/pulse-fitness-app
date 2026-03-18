@@ -279,21 +279,32 @@ export const createMealForDate = async (
       throw new Error('Failed to persist meal');
     }
 
-    const itemValues = input.items.map((item) => ({
-      mealId: meal.id,
-      foodId: toNullable(item.foodId),
-      name: item.name,
-      amount: item.amount,
-      unit: item.unit,
-      displayQuantity: toNullable(item.displayQuantity),
-      displayUnit: toNullable(item.displayUnit),
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
-      fiber: toNullable(item.fiber),
-      sugar: toNullable(item.sugar),
-    }));
+    const itemValues = input.items.map((item) => {
+      if (
+        item.calories === undefined ||
+        item.protein === undefined ||
+        item.carbs === undefined ||
+        item.fat === undefined
+      ) {
+        throw new Error('Meal item macros are required');
+      }
+
+      return {
+        mealId: meal.id,
+        foodId: toNullable(item.foodId),
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        displayQuantity: toNullable(item.displayQuantity),
+        displayUnit: toNullable(item.displayUnit),
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        fiber: toNullable(item.fiber),
+        sugar: toNullable(item.sugar),
+      };
+    });
 
     const foodIds = [...new Set(itemValues.map((item) => item.foodId).filter(isTrackedFoodId))];
     if (foodIds.length > 0) {

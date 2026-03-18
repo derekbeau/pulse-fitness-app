@@ -89,18 +89,93 @@ export const deleteMealResultSchema = z.object({
 
 export const mealItemInputSchema = z.object({
   foodId: z.string().trim().min(1).nullable().optional(),
-  name: requiredText(),
-  amount: z.number().positive().finite(),
-  unit: requiredText(50),
+  foodName: requiredText().optional(),
+  name: requiredText().optional(),
+  amount: z.number().positive().finite().optional(),
+  quantity: z.number().positive().finite().optional(),
+  unit: requiredText(50).optional(),
   displayQuantity: z.number().positive().finite().nullable().optional(),
   displayUnit: z.string().trim().min(1).max(50).nullable().optional(),
-  calories: nonnegativeNumber,
-  protein: nonnegativeNumber,
-  carbs: nonnegativeNumber,
-  fat: nonnegativeNumber,
+  calories: nonnegativeNumber.optional(),
+  protein: nonnegativeNumber.optional(),
+  carbs: nonnegativeNumber.optional(),
+  fat: nonnegativeNumber.optional(),
   fiber: nonnegativeNumber.optional(),
   sugar: nonnegativeNumber.optional(),
-});
+  adhoc: z.boolean().optional(),
+  saveToFoods: z.boolean().optional(),
+})
+  .superRefine((value, ctx) => {
+    if (
+      value.adhoc !== undefined &&
+      value.saveToFoods !== undefined &&
+      value.adhoc === value.saveToFoods
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '`adhoc` and `saveToFoods` are aliases; provide at most one',
+      });
+    }
+
+    if (value.name === undefined && value.foodName === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['name'],
+        message: 'name or foodName is required',
+      });
+    }
+
+    if (value.amount === undefined && value.quantity === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['amount'],
+        message: 'amount or quantity is required',
+      });
+    }
+
+    const macroFields: Array<'calories' | 'protein' | 'carbs' | 'fat'> = [
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+    ];
+    const hasAnyInlineMacro = macroFields.some((field) => value[field] !== undefined);
+    const hasAllInlineMacros = macroFields.every((field) => value[field] !== undefined);
+    const isAdhoc = value.adhoc === true || value.saveToFoods === false;
+
+    if (isAdhoc || (hasAnyInlineMacro && !hasAllInlineMacros)) {
+      for (const field of macroFields) {
+        if (value[field] === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} is required when logging an ad-hoc meal item`,
+          });
+        }
+      }
+    }
+  })
+  .transform(({ amount, foodName, name, quantity, unit, ...rest }, ctx) => {
+    const resolvedAmount = amount ?? quantity;
+    const resolvedName = name ?? foodName;
+    const resolvedUnit = unit ?? 'serving';
+
+    if (resolvedAmount === undefined || resolvedName === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Meal item is missing required fields',
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...rest,
+      ...(foodName !== undefined ? { foodName } : {}),
+      name: resolvedName,
+      amount: resolvedAmount,
+      unit: resolvedUnit,
+    };
+  });
 
 export const createMealInputSchema = z.object({
   name: requiredText(120),

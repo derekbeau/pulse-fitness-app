@@ -102,6 +102,54 @@ describe('mealItemInputSchema', () => {
     });
   });
 
+  it('normalizes foodName and quantity aliases', () => {
+    expect(
+      mealItemInputSchema.parse({
+        foodName: 'Chicken Breast',
+        quantity: 2,
+        calories: 120,
+        protein: 25,
+        carbs: 0,
+        fat: 2,
+      }),
+    ).toEqual({
+      foodName: 'Chicken Breast',
+      name: 'Chicken Breast',
+      amount: 2,
+      unit: 'serving',
+      calories: 120,
+      protein: 25,
+      carbs: 0,
+      fat: 2,
+    });
+  });
+
+  it('requires full inline macros for ad-hoc items', () => {
+    expect(() =>
+      mealItemInputSchema.parse({
+        foodName: 'Homemade Chili',
+        quantity: 1,
+        adhoc: true,
+        calories: 300,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects contradictory adhoc aliases', () => {
+    expect(() =>
+      mealItemInputSchema.parse({
+        foodName: 'Chicken Breast',
+        quantity: 1,
+        adhoc: true,
+        saveToFoods: true,
+        calories: 120,
+        protein: 25,
+        carbs: 0,
+        fat: 2,
+      }),
+    ).toThrow();
+  });
+
   it('rejects invalid quantities and macros', () => {
     expect(() =>
       mealItemInputSchema.parse({
@@ -248,6 +296,32 @@ describe('createMealForDateInputSchema', () => {
     });
 
     expect(meal.date).toBe('2026-03-09');
+  });
+
+  it('accepts agent-style meal items with foodName and quantity', () => {
+    const meal = createMealForDateInputSchema.parse({
+      date: '2026-03-09',
+      name: 'Lunch',
+      items: [
+        {
+          foodName: 'Chicken Breast',
+          quantity: 2,
+        },
+      ],
+    });
+
+    expect(meal).toEqual({
+      date: '2026-03-09',
+      name: 'Lunch',
+      items: [
+        {
+          foodName: 'Chicken Breast',
+          name: 'Chicken Breast',
+          amount: 2,
+          unit: 'serving',
+        },
+      ],
+    });
   });
 
   it('rejects impossible calendar dates', () => {

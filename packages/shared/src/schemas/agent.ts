@@ -7,59 +7,6 @@ import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
-export const agentMealItemInputSchema = z
-  .object({
-    foodName: requiredText(),
-    quantity: z.number().positive().finite(),
-    unit: z.string().trim().min(1).max(50).default('serving'),
-    displayQuantity: z.number().positive().finite().optional(),
-    displayUnit: z.string().trim().min(1).max(50).optional(),
-    adhoc: z.boolean().optional(),
-    saveToFoods: z.boolean().optional(),
-    calories: z.number().nonnegative().finite().optional(),
-    protein: z.number().nonnegative().finite().optional(),
-    carbs: z.number().nonnegative().finite().optional(),
-    fat: z.number().nonnegative().finite().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (
-      value.adhoc !== undefined &&
-      value.saveToFoods !== undefined &&
-      value.adhoc === value.saveToFoods
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: '`adhoc` and `saveToFoods` are aliases; provide at most one',
-      });
-    }
-
-    const isAdhoc = value.adhoc === true || value.saveToFoods === false;
-
-    if (!isAdhoc) {
-      return;
-    }
-
-    for (const field of ['calories', 'protein', 'carbs', 'fat'] as const) {
-      if (value[field] === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [field],
-          message: `${field} is required when logging an ad-hoc meal item`,
-        });
-      }
-    }
-  });
-
-export const agentCreateMealInputSchema = z.object({
-  name: requiredText(120),
-  date: dateSchema,
-  time: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-    .optional(),
-  items: z.array(agentMealItemInputSchema).min(1),
-});
-
 export const agentWorkoutTemplateExerciseInputSchema = z.object({
   name: requiredText(),
   sets: z.number().int().min(1).max(100),
@@ -252,8 +199,6 @@ export const agentContextResponseSchema = z.object({
   scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),
 });
 
-export type AgentMealItemInput = z.infer<typeof agentMealItemInputSchema>;
-export type AgentCreateMealInput = z.infer<typeof agentCreateMealInputSchema>;
 export type AgentWorkoutTemplateExerciseInput = z.infer<
   typeof agentWorkoutTemplateExerciseInputSchema
 >;

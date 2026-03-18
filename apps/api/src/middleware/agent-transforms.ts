@@ -84,6 +84,36 @@ const hasInlineFoodMacros = (
   isFiniteNumber(value.carbs) &&
   isFiniteNumber(value.fat);
 
+const resolveMealAmount = (item: MutableRecord): number | undefined => {
+  if (isFiniteNumber(item.amount) && item.amount > 0) {
+    return item.amount;
+  }
+
+  if (isFiniteNumber(item.quantity) && item.quantity > 0) {
+    item.amount = item.quantity;
+    return item.quantity;
+  }
+
+  return undefined;
+};
+
+const applyResolvedFoodMacros = ({
+  item,
+  amount,
+  food,
+}: {
+  item: MutableRecord;
+  amount: number;
+  food: ResolvedFood;
+}) => {
+  item.foodId = food.id;
+  item.name = food.name;
+  item.calories = food.calories * amount;
+  item.protein = food.protein * amount;
+  item.carbs = food.carbs * amount;
+  item.fat = food.fat * amount;
+};
+
 const isAgentExerciseInput = (value: MutableRecord) =>
   trimNonEmptyString(value.name) !== undefined &&
   isFiniteNumber(value.sets) &&
@@ -277,8 +307,24 @@ const transformFoodItem = async ({ item, userId }: { item: MutableRecord; userId
     return;
   }
 
+  const amount = resolveMealAmount(item);
+  if (amount === undefined) {
+    return;
+  }
+
+  if (trimNonEmptyString(item.unit) === undefined) {
+    item.unit = 'serving';
+  }
+
+  if (trimNonEmptyString(item.name) === undefined) {
+    item.name = foodName;
+  }
+
   const isAdhoc = item.adhoc === true || item.saveToFoods === false;
   if (isAdhoc) {
+    if (typeof item.foodId !== 'string') {
+      item.foodId = null;
+    }
     return;
   }
 
@@ -296,13 +342,21 @@ const transformFoodItem = async ({ item, userId }: { item: MutableRecord; userId
         },
         userId,
       );
-      item.foodId = created.entity.id;
+      applyResolvedFoodMacros({
+        item,
+        amount,
+        food: created.entity,
+      });
       return;
     }
 
     const resolved = await resolveByName('food', foodName, userId);
     if (resolved) {
-      item.foodId = resolved.id;
+      applyResolvedFoodMacros({
+        item,
+        amount,
+        food: resolved,
+      });
     }
   }
 };

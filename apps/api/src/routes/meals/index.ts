@@ -1,11 +1,8 @@
 import {
-  agentCreateMealInputSchema,
-  type AgentMealItemInput,
   apiDataResponseSchema,
   createMealForDateInputSchema,
+  type CreateMealForDateInput,
   dailyNutritionMealSchema,
-  dateSchema,
-  nutritionMacroTotalsSchema,
   nutritionMealItemSchema,
   nutritionMealSchema,
   patchMealInputSchema,
@@ -13,13 +10,11 @@ import {
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
-import { buildDataResponse } from '../../middleware/agent-enrichment.js';
-import { autoCreateIfMissing, resolveByName } from '../../middleware/agent-transforms.js';
-import { trackFoodUsage } from '../foods/store.js';
+import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -27,6 +22,7 @@ import {
   idParamsSchema,
   mealItemParamsSchema,
 } from '../../openapi.js';
+import { findFoodById } from '../foods/store.js';
 import {
   createMealForDate,
   findMealById,
@@ -35,106 +31,92 @@ import {
   patchMealItemById,
 } from '../nutrition/store.js';
 
-const MAX_MEAL_SUMMARY_LENGTH = 500;
-const SUMMARY_ELLIPSIS = '...';
-
-// Keep the standard schema first to match the other mixed-auth routes and
-// avoid accidental first-match ambiguity if these payloads ever converge.
-const createMealRequestSchema = z.union([
-  createMealForDateInputSchema.transform((data) => ({
-    mode: 'standard' as const,
-    data,
-  })),
-  agentCreateMealInputSchema.transform((data) => ({
-    mode: 'agent' as const,
-    data,
-  })),
-]);
-
-const agentMealSchema = nutritionMealSchema
-  .pick({
-    id: true,
-    name: true,
-    summary: true,
-    time: true,
-  })
-  .extend({
-    date: dateSchema,
-  });
-
-const agentMealItemResponseSchema = nutritionMealItemSchema.pick({
-  id: true,
-  foodId: true,
-  name: true,
-  amount: true,
-  unit: true,
-  displayQuantity: true,
-  displayUnit: true,
-  calories: true,
-  protein: true,
-  carbs: true,
-  fat: true,
-});
-
-const createMealResponseSchema = z.union([
-  apiDataResponseSchema(dailyNutritionMealSchema),
-  apiDataResponseSchema(
-    z.object({
-      meal: agentMealSchema,
-      macros: nutritionMacroTotalsSchema,
-      items: z.array(agentMealItemResponseSchema),
-    }),
-  ),
-]);
-
-const buildMealSummary = (names: string[], maxLength: number) => {
-  let summary = '';
-
-  for (const name of names) {
-    const candidate = summary ? `${summary}, ${name}` : name;
-    if (candidate.length <= maxLength) {
-      summary = candidate;
-      continue;
-    }
-
-    if (!summary) {
-      return name.slice(0, maxLength);
-    }
-
-    return summary.length + SUMMARY_ELLIPSIS.length <= maxLength
-      ? `${summary}${SUMMARY_ELLIPSIS}`
-      : `${summary.slice(0, maxLength - SUMMARY_ELLIPSIS.length)}${SUMMARY_ELLIPSIS}`;
-  }
-
-  return summary;
+type MealCreateItemInput = CreateMealForDateInput['items'][number];
+type PersistedMealCreateItem = {
+  foodId?: string | null;
+  name: string;
+  amount: number;
+  unit: string;
+  displayQuantity?: number | null;
+  displayUnit?: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
 };
 
-const isAdhocMealItem = (
-  item: AgentMealItemInput,
-): item is AgentMealItemInput & {
+const hasInlineMacros = (
+  item: MealCreateItemInput,
+): item is MealCreateItemInput & {
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
 } =>
-  (item.adhoc === true || item.saveToFoods === false) &&
   item.calories !== undefined &&
   item.protein !== undefined &&
   item.carbs !== undefined &&
   item.fat !== undefined;
 
-const hasInlineMacros = (
-  item: AgentMealItemInput,
-): item is AgentMealItemInput & {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-} =>
-  item.calories !== undefined &&
-  item.protein !== undefined &&
-  item.carbs !== undefined &&
-  item.fat !== undefined;
+const normalizeMealItemForCreate = async (
+  item: MealCreateItemInput,
+  userId: string,
+): Promise<{ ok: true; item: PersistedMealCreateItem } | { ok: false; unresolvedName: string }> => {
+  if (hasInlineMacros(item)) {
+    return {
+      ok: true,
+      item: {
+        foodId: item.foodId ?? null,
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        displayQuantity: item.displayQuantity,
+        displayUnit: item.displayUnit,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        fiber: item.fiber,
+        sugar: item.sugar,
+      },
+    };
+  }
+
+  if (typeof item.foodId !== 'string') {
+    return {
+      ok: false,
+      unresolvedName: item.foodName ?? item.name,
+    };
+  }
+
+  const food = await findFoodById(item.foodId, userId);
+  if (!food) {
+    return {
+      ok: false,
+      unresolvedName: item.foodName ?? item.name,
+    };
+  }
+
+  return {
+    ok: true,
+    item: {
+      foodId: food.id,
+      name: food.name,
+      amount: item.amount,
+      unit: item.unit,
+      displayQuantity: item.displayQuantity,
+      displayUnit: item.displayUnit,
+      calories: food.calories * item.amount,
+      protein: food.protein * item.amount,
+      carbs: food.carbs * item.amount,
+      fat: food.fat * item.amount,
+      fiber: item.fiber,
+      sugar: item.sugar,
+    },
+  };
+};
 
 export const mealRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -144,10 +126,12 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
-        body: createMealRequestSchema,
+        body: createMealForDateInputSchema,
         response: {
-          201: createMealResponseSchema,
+          201: apiDataResponseSchema(dailyNutritionMealSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
@@ -159,198 +143,63 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      if (isAgentRequest(request) && request.body.mode !== 'agent') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
-      }
-
-      if (!isAgentRequest(request) && request.body.mode !== 'standard') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid meal payload');
-      }
-
-      if (request.body.mode === 'agent') {
-        const { date, items, name, time } = request.body.data;
-        const userId = request.userId;
-
-        const itemResults = await Promise.all(
-          items.map(async (item) => {
-            if (isAdhocMealItem(item)) {
-              return { kind: 'adhoc' as const, item };
-            }
-
-            if (hasInlineMacros(item)) {
-              const created = await autoCreateIfMissing(
-                'food',
-                {
-                  name: item.foodName,
-                  servingSize: item.unit,
-                  calories: item.calories,
-                  protein: item.protein,
-                  carbs: item.carbs,
-                  fat: item.fat,
-                },
-                userId,
-              );
-              return { kind: 'food' as const, item, food: created.entity };
-            }
-
-            const resolved = await resolveByName('food', item.foodName, userId);
-            return { kind: 'food' as const, item, food: resolved };
-          }),
-        );
-
-        const unresolved = itemResults
-          .filter((entry) => entry.kind === 'food' && entry.food === undefined)
-          .map((entry) => entry.item.foodName);
-        if (unresolved.length > 0) {
-          return sendError(
-            reply,
-            422,
-            'UNRESOLVED_FOODS',
-            `Could not find foods: ${unresolved.join(', ')}`,
-          );
-        }
-
-        const mealItems = itemResults.map((entry) => {
-          if (entry.kind === 'adhoc') {
-            return {
-              foodId: null,
-              name: entry.item.foodName,
-              amount: entry.item.quantity,
-              unit: entry.item.unit,
-              displayQuantity: entry.item.displayQuantity ?? null,
-              displayUnit: entry.item.displayUnit ?? null,
-              calories: entry.item.calories,
-              protein: entry.item.protein,
-              carbs: entry.item.carbs,
-              fat: entry.item.fat,
-            };
-          }
-
-          if (!entry.food) {
-            throw new Error('Unresolved food passed validation guard');
-          }
-
-          return {
-            foodId: entry.food.id,
-            name: entry.food.name,
-            amount: entry.item.quantity,
-            unit: entry.item.unit,
-            displayQuantity: entry.item.displayQuantity ?? null,
-            displayUnit: entry.item.displayUnit ?? null,
-            calories: entry.food.calories * entry.item.quantity,
-            protein: entry.food.protein * entry.item.quantity,
-            carbs: entry.food.carbs * entry.item.quantity,
-            fat: entry.food.fat * entry.item.quantity,
-          };
-        });
-
-        const summary = buildMealSummary(
-          mealItems.map((item) => item.name),
-          MAX_MEAL_SUMMARY_LENGTH,
-        );
-        const created = await createMealForDate(userId, date, {
-          name,
-          summary,
-          time,
-          items: mealItems,
-        });
-
-        const resolvedFoodIds = itemResults
-          .flatMap((entry) => (entry.kind === 'food' && entry.food ? [entry.food.id] : []))
-          .filter((value, index, values) => values.indexOf(value) === index);
-
-        const usageTrackingResults = await Promise.allSettled(
-          resolvedFoodIds.map((foodId) => trackFoodUsage(foodId, userId)),
-        );
-        usageTrackingResults.forEach((result, index) => {
-          if (result.status === 'rejected') {
-            request.log.warn(
-              { err: result.reason, foodId: resolvedFoodIds[index], userId },
-              'Failed to track food usage after agent meal creation',
-            );
-          }
-        });
-
-        const macros = created.items.reduce(
-          (acc, item) => ({
-            calories: acc.calories + item.calories,
-            protein: acc.protein + item.protein,
-            carbs: acc.carbs + item.carbs,
-            fat: acc.fat + item.fat,
-          }),
-          { calories: 0, protein: 0, carbs: 0, fat: 0 },
-        );
-
-        const responseData = {
-          meal: {
-            id: created.meal.id,
-            name: created.meal.name,
-            summary: created.meal.summary,
-            date,
-            time: created.meal.time,
-          },
-          macros,
-          items: created.items.map((item) => ({
-            id: item.id,
-            foodId: item.foodId,
-            name: item.name,
-            amount: item.amount,
-            unit: item.unit,
-            displayQuantity: item.displayQuantity,
-            displayUnit: item.displayUnit,
-            calories: item.calories,
-            protein: item.protein,
-            carbs: item.carbs,
-            fat: item.fat,
-          })),
-        };
-
-        return reply.code(201).send(
-          buildDataResponse(request, responseData, {
-            endpoint: 'meal.create',
-            mealDate: date,
-            mealName: created.meal.name,
-            itemCount: created.items.length,
-            mealMacros: macros,
-          }),
-        );
-      }
-
-      const { date } = request.body.data;
-      const created = await createMealForDate(request.userId, date, {
-        name: request.body.data.name,
-        summary: request.body.data.summary,
-        time: request.body.data.time,
-        notes: request.body.data.notes,
-        items: request.body.data.items,
-      });
-
-      const foodIds = [
-        ...new Set(
-          created.items
-            .map((item) => item.foodId)
-            .filter((foodId): foodId is string => typeof foodId === 'string'),
-        ),
-      ];
-      const usageTrackingResults = await Promise.allSettled(
-        foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
+      const normalizedItems = await Promise.all(
+        request.body.items.map((item) => normalizeMealItemForCreate(item, request.userId)),
       );
-      usageTrackingResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          request.log.warn(
-            { err: result.reason, foodId: foodIds[index], userId: request.userId },
-            'Failed to track food usage after meal creation',
-          );
-        }
+      const unresolvedFoods = normalizedItems
+        .filter((result): result is { ok: false; unresolvedName: string } => !result.ok)
+        .map((result) => result.unresolvedName);
+
+      if (unresolvedFoods.length > 0) {
+        return sendError(
+          reply,
+          422,
+          'UNRESOLVED_FOODS',
+          `Could not find foods: ${unresolvedFoods.join(', ')}`,
+        );
+      }
+
+      const resolvedItems = normalizedItems
+        .filter((result): result is { ok: true; item: PersistedMealCreateItem } => result.ok)
+        .map((result) => result.item);
+
+      const created = await createMealForDate(request.userId, request.body.date, {
+        name: request.body.name,
+        summary: request.body.summary,
+        time: request.body.time,
+        notes: request.body.notes,
+        items: resolvedItems,
       });
 
-      return reply.code(201).send(buildDataResponse(request, created));
+      const mealMacros = created.items.reduce(
+        (totals, item) => ({
+          calories: totals.calories + item.calories,
+          protein: totals.protein + item.protein,
+          carbs: totals.carbs + item.carbs,
+          fat: totals.fat + item.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.create',
+        mealDate: request.body.date,
+        mealName: created.meal.name,
+        itemCount: created.items.length,
+        mealMacros,
+      });
+
+      return reply.code(201).send({
+        data: created,
+      });
     },
   );
 
   typedApp.patch(
     '/:id',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: idParamsSchema,
         body: patchMealInputSchema,
@@ -376,18 +225,22 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      return reply.send(
-        buildDataResponse(request, updatedMeal, {
-          endpoint: 'meal.update',
-          mealName: updatedMeal.name,
-        }),
-      );
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.update',
+        mealName: updatedMeal.name,
+      });
+
+      return reply.send({
+        data: updatedMeal,
+      });
     },
   );
 
   typedApp.patch(
     '/:id/items/:itemId',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: mealItemParamsSchema,
         body: patchMealItemInputSchema,
@@ -422,19 +275,21 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
       }
 
-      return reply.send(
-        buildDataResponse(request, updatedMealItem, {
-          endpoint: 'meal.update',
-          mealName: existingMealItem.name,
-          itemCount: 1,
-          mealMacros: {
-            calories: updatedMealItem.calories,
-            protein: updatedMealItem.protein,
-            carbs: updatedMealItem.carbs,
-            fat: updatedMealItem.fat,
-          },
-        }),
-      );
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.update',
+        mealName: existingMealItem.name,
+        itemCount: 1,
+        mealMacros: {
+          calories: updatedMealItem.calories,
+          protein: updatedMealItem.protein,
+          carbs: updatedMealItem.carbs,
+          fat: updatedMealItem.fat,
+        },
+      });
+
+      return reply.send({
+        data: updatedMealItem,
+      });
     },
   );
 };
