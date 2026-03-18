@@ -13,6 +13,7 @@ import { createAppQueryClient } from '@/lib/query-client';
 import {
   useCreateHabit,
   useDeleteHabit,
+  useHabitEntries,
   useHabits,
   useToggleHabit,
   useUpdateHabit,
@@ -143,6 +144,93 @@ describe('habit api hooks', () => {
       }),
     );
     expect(result.current.data).toEqual([habits[0]]);
+  });
+
+  it('configures foreground polling for habits and habit entries when intervals are provided', async () => {
+    const queryClient = createAppQueryClient();
+    const wrapper = createWrapper(queryClient);
+
+    const habitsResponse: Habit[] = [
+      {
+        id: 'habit-active',
+        userId: 'user-1',
+        name: 'Hydrate',
+        description: null,
+        emoji: '💧',
+        trackingType: 'numeric',
+        target: 8,
+        unit: 'glasses',
+        frequency: 'daily',
+        frequencyTarget: null,
+        scheduledDays: null,
+        pausedUntil: null,
+        sortOrder: 0,
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    const entriesResponse: HabitEntry[] = [
+      {
+        id: 'entry-1',
+        habitId: 'habit-active',
+        userId: 'user-1',
+        date: '2026-03-07',
+        completed: true,
+        value: 8,
+        createdAt: 1,
+      },
+    ];
+
+    mockedApiRequest.mockImplementation(async (path) => {
+      if (path === '/api/v1/habits') {
+        return habitsResponse;
+      }
+
+      if (path === '/api/v1/habit-entries?from=2026-03-07&to=2026-03-07') {
+        return entriesResponse;
+      }
+
+      throw new Error(`Unexpected path: ${String(path)}`);
+    });
+
+    const habitsHook = renderHook(() => useHabits({ refetchIntervalMs: 30_000 }), { wrapper });
+    const entriesHook = renderHook(
+      () =>
+        useHabitEntries('2026-03-07', '2026-03-07', {
+          refetchIntervalMs: 30_000,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(habitsHook.result.current.isSuccess).toBe(true);
+      expect(entriesHook.result.current.isSuccess).toBe(true);
+    });
+
+    const habitsQuery = queryClient.getQueryCache().find({
+      queryKey: habitQueryKeys.habits(),
+    });
+    const entriesQuery = queryClient.getQueryCache().find({
+      queryKey: habitQueryKeys.entries({ from: '2026-03-07', to: '2026-03-07' }),
+    });
+    const habitsQueryOptions = habitsQuery?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+    const entriesQueryOptions = entriesQuery?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+
+    expect(habitsQueryOptions?.refetchInterval).toBe(30_000);
+    expect(entriesQueryOptions?.refetchInterval).toBe(30_000);
+    expect(habitsQueryOptions?.refetchIntervalInBackground).toBe(false);
+    expect(entriesQueryOptions?.refetchIntervalInBackground).toBe(false);
   });
 
   it('optimistically updates and rolls back a toggled habit entry on failure', async () => {

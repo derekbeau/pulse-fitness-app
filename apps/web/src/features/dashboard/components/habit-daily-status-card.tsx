@@ -16,6 +16,7 @@ import {
 } from '@/features/habits/api/habits';
 import { getToday, toDateKey } from '@/lib/date';
 import { formatPercent, formatServing } from '@/lib/format-utils';
+import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 
 type ResolvedTodayEntry = {
   completed: boolean;
@@ -77,8 +78,12 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
   const isCancellingNumericEditRef = useRef(false);
 
   const todayKey = toDateKey(getToday());
-  const habitsQuery = useHabits();
-  const habitEntriesQuery = useHabitEntries(todayKey, todayKey);
+  const habitsQuery = useHabits({
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
+  const habitEntriesQuery = useHabitEntries(todayKey, todayKey, {
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
   const toggleHabitMutation = useToggleHabit();
 
   const habit = useMemo(

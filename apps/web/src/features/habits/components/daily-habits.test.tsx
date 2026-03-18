@@ -231,7 +231,13 @@ describe('DailyHabits', () => {
 
     render(<DailyHabits selectedDate={selectedDate} />);
 
-    expect(mockedUseHabitEntries).toHaveBeenCalledWith('2026-03-04', '2026-03-04');
+    expect(mockedUseHabitEntries).toHaveBeenCalledWith(
+      '2026-03-04',
+      '2026-03-04',
+      expect.objectContaining({
+        refetchIntervalMs: undefined,
+      }),
+    );
     const hydrateInput = screen.getByRole('spinbutton', { name: 'Hydrate' });
     fireEvent.change(hydrateInput, { target: { value: '9' } });
     fireEvent.blur(hydrateInput);

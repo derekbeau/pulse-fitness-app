@@ -24,6 +24,7 @@ import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { getToday, isSameDay, normalizeDate, toDateKey } from '@/lib/date';
 import { formatPercent, formatServing } from '@/lib/format-utils';
+import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 import { cn } from '@/lib/utils';
 
 import { HabitCardMenu } from './habit-card-menu';
@@ -360,8 +361,12 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
-  const habitsQuery = useHabits();
-  const habitEntriesQuery = useHabitEntries(activeDateKey, activeDateKey);
+  const habitsQuery = useHabits({
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
+  const habitEntriesQuery = useHabitEntries(activeDateKey, activeDateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
   const toggleHabitMutation = useToggleHabit();
   const updateHabitEntryMutation = useUpdateHabitEntry();
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { useWeightTrend } from './use-weight-trend';
+import { dashboardWeightTrendQueryKeys, useWeightTrend } from './use-weight-trend';
 
 const mockFetch = vi.fn();
 
@@ -100,5 +100,35 @@ describe('useWeightTrend', () => {
     });
 
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('configures foreground polling when a refetch interval is provided', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse([]));
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(
+      () =>
+        useWeightTrend('2026-03-04', '2026-03-05', {
+          refetchIntervalMs: 30_000,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const query = queryClient.getQueryCache().find({
+      queryKey: dashboardWeightTrendQueryKeys.range('2026-03-04', '2026-03-05'),
+    });
+    const queryOptions = query?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+
+    expect(queryOptions?.refetchInterval).toBe(30_000);
+    expect(queryOptions?.refetchIntervalInBackground).toBe(false);
   });
 });

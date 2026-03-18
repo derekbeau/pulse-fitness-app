@@ -66,6 +66,11 @@ type UseUpdateHabitEntryOptions = {
   successMessage?: string;
 };
 
+type HabitQueryOptions = {
+  enabled?: boolean;
+  refetchIntervalMs?: number;
+};
+
 type ReorderMutationContext = {
   previousHabits: Habit[] | undefined;
 };
@@ -206,8 +211,9 @@ const reorderCachedHabits = (habits: Habit[] | undefined, items: ReorderHabitsIn
     .sort(compareHabits);
 };
 
-export function useHabits() {
+export function useHabits(options: HabitQueryOptions = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryFn: async ({ signal }) => {
       const habits = await apiRequest<Habit[]>('/api/v1/habits', {
         method: 'GET',
@@ -217,11 +223,14 @@ export function useHabits() {
       return habitsWithTodayEntrySchema.parse(habits).filter((habit) => habit.active);
     },
     queryKey: habitQueryKeys.habits(),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 }
 
-export function useHabitEntries(from: string, to: string) {
+export function useHabitEntries(from: string, to: string, options: HabitQueryOptions = {}) {
   return useQuery({
+    enabled: (options.enabled ?? true) && from.length > 0 && to.length > 0,
     queryFn: async ({ signal }) => {
       const entries = await apiRequest<HabitEntry[]>(
         `/api/v1/habit-entries?from=${from}&to=${to}`,
@@ -234,6 +243,8 @@ export function useHabitEntries(from: string, to: string) {
       return habitEntriesSchema.parse(entries);
     },
     queryKey: habitQueryKeys.entries({ from, to }),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 }
 

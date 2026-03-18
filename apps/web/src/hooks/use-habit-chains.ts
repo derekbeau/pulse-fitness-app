@@ -11,6 +11,11 @@ export const habitChainQueryKeys = {
   range: (from: string, to: string) => [...habitChainQueryKeys.all, from, to] as const,
 };
 
+type HabitChainsQueryOptions = {
+  enabled?: boolean;
+  refetchIntervalMs?: number;
+};
+
 const fetchHabitChains = async (
   from: string,
   to: string,
@@ -27,9 +32,15 @@ const fetchHabitChains = async (
   return habitEntriesSchema.parse(entries);
 };
 
-export const useHabitChains = (from: string, to: string) =>
+export const useHabitChains = (
+  from: string,
+  to: string,
+  options: HabitChainsQueryOptions = {},
+) =>
   useQuery({
-    enabled: from.length > 0 && to.length > 0,
+    enabled: (options.enabled ?? true) && from.length > 0 && to.length > 0,
     queryFn: ({ signal }) => fetchHabitChains(from, to, signal),
     queryKey: habitChainQueryKeys.range(from, to),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });

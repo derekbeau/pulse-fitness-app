@@ -173,6 +173,82 @@ describe('nutrition api hooks', () => {
     );
   });
 
+  it('configures foreground polling when nutrition refetch intervals are provided', async () => {
+    mockFetch
+      .mockResolvedValueOnce(createJsonResponse(null))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          date: '2026-03-09',
+          meals: 0,
+          actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          target: null,
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse([]));
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+
+    const dayHook = renderHook(
+      () => useDailyNutrition('2026-03-09', { refetchIntervalMs: 20_000 }),
+      {
+        wrapper,
+      },
+    );
+    const summaryHook = renderHook(
+      () => useNutritionSummary('2026-03-09', { refetchIntervalMs: 20_000 }),
+      {
+        wrapper,
+      },
+    );
+    const weekSummaryHook = renderHook(
+      () => useNutritionWeekSummary('2026-03-09', { refetchIntervalMs: 30_000 }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => {
+      expect(dayHook.result.current.isSuccess).toBe(true);
+      expect(summaryHook.result.current.isSuccess).toBe(true);
+      expect(weekSummaryHook.result.current.isSuccess).toBe(true);
+    });
+
+    const dayQuery = queryClient.getQueryCache().find({
+      queryKey: nutritionQueryKeys.day('2026-03-09'),
+    });
+    const summaryQuery = queryClient.getQueryCache().find({
+      queryKey: nutritionQueryKeys.summary('2026-03-09'),
+    });
+    const weekSummaryQuery = queryClient.getQueryCache().find({
+      queryKey: nutritionQueryKeys.weekSummary('2026-03-09'),
+    });
+    const dayQueryOptions = dayQuery?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+    const summaryQueryOptions = summaryQuery?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+    const weekSummaryQueryOptions = weekSummaryQuery?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+
+    expect(dayQueryOptions?.refetchInterval).toBe(20_000);
+    expect(summaryQueryOptions?.refetchInterval).toBe(20_000);
+    expect(weekSummaryQueryOptions?.refetchInterval).toBe(30_000);
+    expect(dayQueryOptions?.refetchIntervalInBackground).toBe(false);
+    expect(summaryQueryOptions?.refetchIntervalInBackground).toBe(false);
+    expect(weekSummaryQueryOptions?.refetchIntervalInBackground).toBe(false);
+  });
+
   it('deletes a meal and invalidates daily + summary + week-summary cache for that date', async () => {
     mockFetch.mockResolvedValueOnce(createJsonResponse({ success: true }));
 

@@ -18,6 +18,11 @@ import {
   useNutritionWeekSummary,
 } from '@/features/nutrition/api/nutrition';
 import {
+  NUTRITION_POLL_INTERVAL_MS,
+  NUTRITION_WEEK_SUMMARY_POLL_INTERVAL_MS,
+  getForegroundPollingInterval,
+} from '@/lib/query-polling';
+import {
   formatDateKey,
   formatDayLabel,
   isSameDay,
@@ -35,9 +40,15 @@ export function NutritionPage() {
   const { confirm, dialog } = useConfirmation();
   const dateKey = formatDateKey(selectedDate);
 
-  const dailyNutritionQuery = useDailyNutrition(dateKey);
-  const dailySummaryQuery = useNutritionSummary(dateKey);
-  const weekSummaryQuery = useNutritionWeekSummary(dateKey);
+  const dailyNutritionQuery = useDailyNutrition(dateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
+  });
+  const dailySummaryQuery = useNutritionSummary(dateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
+  });
+  const weekSummaryQuery = useNutritionWeekSummary(dateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(NUTRITION_WEEK_SUMMARY_POLL_INTERVAL_MS),
+  });
   const deleteMealMutation = useDeleteMeal();
   const renameMealMutation = useRenameMeal();
 

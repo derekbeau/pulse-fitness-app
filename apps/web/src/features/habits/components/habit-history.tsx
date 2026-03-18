@@ -7,6 +7,7 @@ import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { HabitChainDot, type HabitDotEntry } from '@/features/habits/components/habit-chain-dot';
 import { addDays, getToday, toDateKey } from '@/lib/date';
 import { formatPercent } from '@/lib/format-utils';
+import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 
 const HISTORY_DAYS = 90;
 
@@ -176,8 +177,12 @@ function getHistoryWindow(todayKey: string) {
 export function HabitHistory() {
   const todayKey = useTodayKey();
   const { dates, from, to } = useMemo(() => getHistoryWindow(todayKey), [todayKey]);
-  const habitsQuery = useHabits();
-  const habitEntriesQuery = useHabitEntries(from, to);
+  const habitsQuery = useHabits({
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
+  const habitEntriesQuery = useHabitEntries(from, to, {
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
 
   const historyRows = useMemo(
     () =>

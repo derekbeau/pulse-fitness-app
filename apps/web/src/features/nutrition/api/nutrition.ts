@@ -28,6 +28,11 @@ type RenameMealMutationContext = {
   previousDailyNutrition: DailyNutrition | null | undefined;
 };
 
+type NutritionQueryOptions = {
+  enabled?: boolean;
+  refetchIntervalMs?: number;
+};
+
 const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
   apiRequest<DailyNutrition>(`/api/v1/nutrition/${date}`, {
     method: 'GET',
@@ -90,22 +95,31 @@ const renameMealInDailyNutrition = (
   };
 };
 
-export const useDailyNutrition = (date: string) =>
+export const useDailyNutrition = (date: string, options: NutritionQueryOptions = {}) =>
   useQuery({
+    enabled: (options.enabled ?? true) && date.length > 0,
     queryKey: nutritionQueryKeys.day(date),
     queryFn: ({ signal }) => fetchDailyNutrition(date, signal),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 
-export const useNutritionSummary = (date: string) =>
+export const useNutritionSummary = (date: string, options: NutritionQueryOptions = {}) =>
   useQuery({
+    enabled: (options.enabled ?? true) && date.length > 0,
     queryKey: nutritionQueryKeys.summary(date),
     queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 
-export const useNutritionWeekSummary = (date: string) =>
+export const useNutritionWeekSummary = (date: string, options: NutritionQueryOptions = {}) =>
   useQuery({
+    enabled: (options.enabled ?? true) && date.length > 0,
     queryKey: nutritionQueryKeys.weekSummary(date),
     queryFn: ({ signal }) => fetchNutritionWeekSummary(date, signal),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 
 export const prefetchNutritionDay = async (queryClient: QueryClient, date: string) => {

@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/api-client';
 import { addDays, getToday, toDateKey } from '@/lib/date';
 import { formatTrendChange, formatWeight } from '@/lib/format-utils';
+import { WEIGHT_TREND_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 import { cn } from '@/lib/utils';
 
 type RangeOption = {
@@ -155,6 +156,8 @@ export function WeightTrendChart() {
   const weightEntriesQuery = useQuery({
     queryKey: getQueryKeyForRange(resolvedRange),
     queryFn: () => fetchWeightEntries(resolvedRange),
+    refetchInterval: getForegroundPollingInterval(WEIGHT_TREND_POLL_INTERVAL_MS) ?? false,
+    refetchIntervalInBackground: false,
   });
 
   const chartData = useMemo(() => {

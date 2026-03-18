@@ -8,6 +8,11 @@ export const dashboardSnapshotQueryKeys = {
   detail: (date: string) => [...dashboardSnapshotQueryKeys.all, date] as const,
 };
 
+type DashboardSnapshotQueryOptions = {
+  enabled?: boolean;
+  refetchIntervalMs?: number;
+};
+
 const fetchDashboardSnapshot = async (
   date: string,
   signal?: AbortSignal,
@@ -23,11 +28,13 @@ const fetchDashboardSnapshot = async (
   return dashboardSnapshotSchema.parse(snapshot);
 };
 
-export const useDashboardSnapshot = (date: string) =>
+export const useDashboardSnapshot = (date: string, options: DashboardSnapshotQueryOptions = {}) =>
   useQuery({
-    enabled: date.length > 0,
+    enabled: (options.enabled ?? true) && date.length > 0,
     queryFn: ({ signal }) => fetchDashboardSnapshot(date, signal),
     queryKey: dashboardSnapshotQueryKeys.detail(date),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 
 export const prefetchDashboardSnapshot = (queryClient: QueryClient, date: string) =>
