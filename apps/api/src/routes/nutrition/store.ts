@@ -631,6 +631,118 @@ export const findMealById = async (
     .get();
 };
 
+export const addItemsToMeal = async (
+  userId: string,
+  mealId: string,
+  items: MealInputItemWithMacros[],
+): Promise<{ meal: MealRecord; items: MealItemRecord[] } | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  const now = Date.now();
+  const updated = db.transaction((tx) => {
+    const meal = tx
+      .select(mealSelection)
+      .from(meals)
+      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+      .where(and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId)))
+      .limit(1)
+      .get();
+
+    if (!meal) {
+      return undefined;
+    }
+
+    const itemValues = items.map((item) => ({
+      mealId: meal.id,
+      foodId: toNullable(item.foodId),
+      name: item.name,
+      amount: item.amount,
+      unit: item.unit,
+      displayQuantity: toNullable(item.displayQuantity),
+      displayUnit: toNullable(item.displayUnit),
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: toNullable(item.fiber),
+      sugar: toNullable(item.sugar),
+    }));
+
+    const foodIds = [...new Set(itemValues.map((item) => item.foodId).filter(isTrackedFoodId))];
+    if (foodIds.length > 0) {
+      const ownedFoods = tx
+        .select({ id: foods.id })
+        .from(foods)
+        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId)))
+        .all();
+
+      if (ownedFoods.length !== foodIds.length) {
+        throw new Error('One or more foodIds do not belong to this user');
+      }
+    }
+
+    const insertedItems = tx
+      .insert(mealItems)
+      .values(itemValues)
+      .returning(mealItemSelection)
+      .all();
+
+    if (insertedItems.length !== items.length) {
+      throw new Error('Failed to persist meal items');
+    }
+
+    const updatedMeal = tx
+      .update(meals)
+      .set({
+        updatedAt: now,
+      })
+      .where(eq(meals.id, meal.id))
+      .returning(mealSelection)
+      .get();
+
+    if (!updatedMeal) {
+      throw new Error('Failed to persist meal update');
+    }
+
+    const allItems = tx
+      .select(mealItemSelection)
+      .from(mealItems)
+      .where(eq(mealItems.mealId, meal.id))
+      .orderBy(asc(mealItems.createdAt))
+      .all();
+
+    return {
+      meal: updatedMeal,
+      items: allItems,
+      insertedItems,
+    };
+  });
+
+  if (!updated) {
+    return undefined;
+  }
+
+  await applyFoodUsageTrackingEffects(
+    userId,
+    updated.insertedItems.flatMap((item) =>
+      isTrackedFoodId(item.foodId)
+        ? [
+            {
+              action: 'increment' as const,
+              foodId: item.foodId,
+            },
+          ]
+        : [],
+    ),
+    'meal item append',
+  );
+
+  return {
+    meal: updated.meal,
+    items: updated.items,
+  };
+};
+
 export const patchMealById = async (
   userId: string,
   mealId: string,

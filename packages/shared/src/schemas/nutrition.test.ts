@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type AddMealItemsInput,
   type CreateMealInput,
   type CreateMealForDateInput,
   type DailyNutrition,
@@ -10,6 +11,7 @@ import {
   type PatchMealItemInput,
   type NutritionSummary,
   type NutritionWeekSummary,
+  addMealItemsInputSchema,
   createMealInputSchema,
   createMealForDateInputSchema,
   dailyNutritionSchema,
@@ -366,6 +368,46 @@ describe('createMealForDateInputSchema', () => {
             fat: 1,
           },
         ],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('addMealItemsInputSchema', () => {
+  it('parses a valid add-items payload', () => {
+    const payload: AddMealItemsInput = addMealItemsInputSchema.parse({
+      items: [
+        {
+          foodName: 'Greek Yogurt',
+          quantity: 2,
+          calories: 120,
+          protein: 15,
+          carbs: 6,
+          fat: 3,
+        },
+      ],
+    });
+
+    expect(payload).toEqual({
+      items: [
+        {
+          foodName: 'Greek Yogurt',
+          name: 'Greek Yogurt',
+          amount: 2,
+          unit: 'serving',
+          calories: 120,
+          protein: 15,
+          carbs: 6,
+          fat: 3,
+        },
+      ],
+    });
+  });
+
+  it('requires at least one item', () => {
+    expect(() =>
+      addMealItemsInputSchema.parse({
+        items: [],
       }),
     ).toThrow();
   });

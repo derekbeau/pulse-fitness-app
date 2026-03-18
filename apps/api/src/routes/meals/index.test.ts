@@ -8,6 +8,7 @@ import {
 } from '../../middleware/store.js';
 import { createFood, findFoodById, findFoodByName } from '../foods/store.js';
 import {
+  addItemsToMeal,
   createMealForDate,
   findMealById,
   findMealItemById,
@@ -32,6 +33,7 @@ vi.mock('../nutrition/store.js', async () => {
     await vi.importActual<typeof import('../nutrition/store.js')>('../nutrition/store.js');
   return {
     ...actual,
+    addItemsToMeal: vi.fn(),
     createMealForDate: vi.fn(),
     findMealById: vi.fn(),
     findMealItemById: vi.fn(),
@@ -78,6 +80,7 @@ describe('meal routes', () => {
     vi.mocked(findFoodById).mockReset();
     vi.mocked(findFoodByName).mockReset();
     vi.mocked(createMealForDate).mockReset();
+    vi.mocked(addItemsToMeal).mockReset();
     vi.mocked(findMealById).mockReset();
     vi.mocked(findMealItemById).mockReset();
     vi.mocked(patchMealById).mockReset();
@@ -688,6 +691,389 @@ describe('meal routes', () => {
           }),
         ],
       });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('adds a single item to an existing meal via JWT', async () => {
+    vi.mocked(addItemsToMeal).mockResolvedValue({
+      meal: {
+        id: 'meal-1',
+        nutritionLogId: 'log-1',
+        name: 'Lunch',
+        summary: 'Chicken, Rice',
+        time: '12:30',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+      items: [
+        {
+          id: 'item-1',
+          mealId: 'meal-1',
+          foodId: 'food-1',
+          name: 'Chicken',
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 300,
+          protein: 40,
+          carbs: 0,
+          fat: 10,
+          fiber: null,
+          sugar: null,
+          createdAt: 1,
+        },
+        {
+          id: 'item-2',
+          mealId: 'meal-1',
+          foodId: null,
+          name: 'Olive Oil',
+          amount: 1,
+          unit: 'tbsp',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 120,
+          protein: 0,
+          carbs: 0,
+          fat: 14,
+          fiber: null,
+          sugar: null,
+          createdAt: 2,
+        },
+      ],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/meal-1/items',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          items: [
+            {
+              name: 'Olive Oil',
+              amount: 1,
+              unit: 'tbsp',
+              calories: 120,
+              protein: 0,
+              carbs: 0,
+              fat: 14,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          meal: expect.objectContaining({ id: 'meal-1', updatedAt: 2 }),
+          items: expect.arrayContaining([
+            expect.objectContaining({ id: 'item-2', name: 'Olive Oil' }),
+          ]),
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledWith('user-1', 'meal-1', [
+        {
+          foodId: null,
+          name: 'Olive Oil',
+          amount: 1,
+          unit: 'tbsp',
+          displayQuantity: undefined,
+          displayUnit: undefined,
+          calories: 120,
+          protein: 0,
+          carbs: 0,
+          fat: 14,
+          fiber: undefined,
+          sugar: undefined,
+        },
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('adds multiple items for agent callers and returns enrichment', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(findFoodByName).mockResolvedValue({
+      id: 'food-1',
+      name: 'Chicken Breast',
+      brand: null,
+      servingSize: 'serving',
+      calories: 120,
+      protein: 25,
+      carbs: 0,
+      fat: 2,
+    });
+    vi.mocked(addItemsToMeal).mockResolvedValue({
+      meal: {
+        id: 'meal-1',
+        nutritionLogId: 'log-1',
+        name: 'Lunch',
+        summary: 'Chicken, Rice',
+        time: '12:30',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+      items: [
+        {
+          id: 'item-1',
+          mealId: 'meal-1',
+          foodId: 'food-1',
+          name: 'Chicken Breast',
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 120,
+          protein: 25,
+          carbs: 0,
+          fat: 2,
+          fiber: null,
+          sugar: null,
+          createdAt: 1,
+        },
+        {
+          id: 'item-2',
+          mealId: 'meal-1',
+          foodId: null,
+          name: 'Rice Bowl',
+          amount: 1,
+          unit: 'bowl',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 300,
+          protein: 6,
+          carbs: 60,
+          fat: 2,
+          fiber: null,
+          sugar: null,
+          createdAt: 2,
+        },
+      ],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/meal-1/items',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        payload: {
+          items: [
+            {
+              foodName: 'Chicken Breast',
+              quantity: 1,
+            },
+            {
+              foodName: 'Rice Bowl',
+              quantity: 1,
+              unit: 'bowl',
+              adhoc: true,
+              calories: 300,
+              protein: 6,
+              carbs: 60,
+              fat: 2,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        data: {
+          meal: {
+            id: 'meal-1',
+            name: 'Lunch',
+          },
+          items: [
+            {
+              id: 'item-1',
+              foodId: 'food-1',
+            },
+            {
+              id: 'item-2',
+              foodId: null,
+            },
+          ],
+        },
+        agent: {
+          hints: expect.any(Array),
+          suggestedActions: expect.any(Array),
+          relatedState: expect.objectContaining({
+            mealName: 'Lunch',
+            itemCount: 2,
+          }),
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledWith('user-1', 'meal-1', [
+        expect.objectContaining({
+          foodId: 'food-1',
+          name: 'Chicken Breast',
+          amount: 1,
+          calories: 120,
+          protein: 25,
+          carbs: 0,
+          fat: 2,
+        }),
+        expect.objectContaining({
+          foodId: null,
+          name: 'Rice Bowl',
+          amount: 1,
+          unit: 'bowl',
+          calories: 300,
+          protein: 6,
+          carbs: 60,
+          fat: 2,
+        }),
+      ]);
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns UNRESOLVED_FOODS when appended items cannot be resolved', async () => {
+    vi.mocked(findFoodById).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/meal-1/items',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          items: [
+            {
+              foodId: 'food-404',
+              name: 'Chicken breast (grilled)',
+              amount: 1,
+              unit: 'serving',
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNRESOLVED_FOODS',
+          message: 'Could not find foods: Chicken breast (grilled)',
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 404 when appending items to a missing meal', async () => {
+    vi.mocked(addItemsToMeal).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/missing-meal/items',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          items: [
+            {
+              name: 'Olive Oil',
+              amount: 1,
+              unit: 'tbsp',
+              calories: 120,
+              protein: 0,
+              carbs: 0,
+              fat: 14,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'MEAL_NOT_FOUND',
+          message: 'Meal not found',
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledWith(
+        'user-1',
+        'missing-meal',
+        expect.any(Array),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 404 when appending items to a meal owned by a different user', async () => {
+    vi.mocked(addItemsToMeal).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/meal-1/items',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          items: [
+            {
+              name: 'Olive Oil',
+              amount: 1,
+              unit: 'tbsp',
+              calories: 120,
+              protein: 0,
+              carbs: 0,
+              fat: 14,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'MEAL_NOT_FOUND',
+          message: 'Meal not found',
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledWith('user-2', 'meal-1', expect.any(Array));
     } finally {
       await app.close();
     }

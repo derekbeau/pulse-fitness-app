@@ -185,6 +185,10 @@ export const createMealForDateInputSchema = createMealInputSchema.extend({
   date: dateSchema,
 });
 
+export const addMealItemsInputSchema = z.object({
+  items: z.array(mealItemInputSchema).min(1),
+});
+
 export const patchMealInputSchema = z
   .object({
     name: requiredText(120).optional(),
@@ -216,6 +220,7 @@ export const patchMealItemInputSchema = z
 export type MealItemInput = z.infer<typeof mealItemInputSchema>;
 export type CreateMealInput = z.infer<typeof createMealInputSchema>;
 export type CreateMealForDateInput = z.infer<typeof createMealForDateInputSchema>;
+export type AddMealItemsInput = z.infer<typeof addMealItemsInputSchema>;
 export type PatchMealInput = z.infer<typeof patchMealInputSchema>;
 export type PatchMealItemInput = z.infer<typeof patchMealItemInputSchema>;
 export type NutritionMacroTotals = z.infer<typeof nutritionMacroTotalsSchema>;

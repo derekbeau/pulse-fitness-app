@@ -1,4 +1,5 @@
 import {
+  addMealItemsInputSchema,
   apiDataResponseSchema,
   createMealForDateInputSchema,
   type CreateMealForDateInput,
@@ -24,6 +25,7 @@ import {
 } from '../../openapi.js';
 import { findFoodById } from '../foods/store.js';
 import {
+  addItemsToMeal,
   createMealForDate,
   findMealById,
   findMealItemById,
@@ -226,6 +228,75 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.code(201).send({
         data: created,
+      });
+    },
+  );
+
+  typedApp.post(
+    '/:id/items',
+    {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: idParamsSchema,
+        body: addMealItemsInputSchema,
+        response: {
+          200: apiDataResponseSchema(dailyNutritionMealSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Add items to an existing meal',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const normalizedItems = await Promise.all(
+        request.body.items.map((item) => normalizeMealItemForCreate(item, request.userId)),
+      );
+      const unresolvedFoods = normalizedItems
+        .filter((result): result is { ok: false; unresolvedName: string } => !result.ok)
+        .map((result) => result.unresolvedName);
+
+      if (unresolvedFoods.length > 0) {
+        return sendError(
+          reply,
+          422,
+          'UNRESOLVED_FOODS',
+          `Could not find foods: ${unresolvedFoods.join(', ')}`,
+        );
+      }
+
+      const resolvedItems = normalizedItems
+        .filter((result): result is { ok: true; item: PersistedMealCreateItem } => result.ok)
+        .map((result) => result.item);
+
+      const updatedMeal = await addItemsToMeal(request.userId, request.params.id, resolvedItems);
+      if (!updatedMeal) {
+        return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
+      }
+
+      const addedItemMacros = resolvedItems.reduce(
+        (totals, item) => ({
+          calories: totals.calories + item.calories,
+          protein: totals.protein + item.protein,
+          carbs: totals.carbs + item.carbs,
+          fat: totals.fat + item.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.update',
+        mealName: updatedMeal.meal.name,
+        itemCount: resolvedItems.length,
+        mealMacros: addedItemMacros,
+      });
+
+      return reply.send({
+        data: updatedMeal,
       });
     },
   );
