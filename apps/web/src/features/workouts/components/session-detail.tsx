@@ -4,11 +4,11 @@ import {
   ArrowLeft,
   ChevronDown,
   Dumbbell,
+  History,
   ListChecks,
   NotebookPen,
   Repeat2,
   Scale,
-  TrendingUp,
 } from 'lucide-react';
 import {
   type ExerciseTrackingType,
@@ -25,13 +25,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
@@ -58,7 +51,6 @@ import {
   formatSetSummary,
   getDistanceUnit,
   getSetDistance,
-  getSetSeconds,
   getSetSummaryMetricValue,
   getTrackingSummaryMetricLabel,
   isRepTrackingType,
@@ -66,8 +58,7 @@ import {
   resolveTrackingType,
 } from '../lib/tracking';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
-import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
-import { ExerciseTrendChart } from './exercise-trend-chart';
+import { ExerciseHistoryModal } from './exercise-history-modal';
 import { MarkdownNote } from './markdown-note';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
@@ -216,15 +207,6 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
     .find((exercise) => exercise.exerciseId === selectedExerciseId);
-  const selectedExerciseHistory =
-    selectedExercise != null
-      ? buildExerciseHistory({
-          currentSession: session,
-          exerciseId: selectedExercise.exerciseId,
-          previousSession,
-          trackingType: selectedExercise.trackingType,
-        })
-      : [];
 
   const startEditing = () => {
     setSetDrafts(buildSessionSetDrafts(session.sets));
@@ -512,14 +494,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                       </div>
 
                       <Button
-                        aria-label={`Open ${exercise.name} trend chart`}
+                        aria-label={`Open ${exercise.name} history`}
                         className="size-11 min-h-11 min-w-11 self-start"
                         onClick={() => setSelectedExerciseId(exercise.exerciseId)}
                         size="icon-sm"
                         type="button"
                         variant="outline"
                       >
-                        <TrendingUp aria-hidden="true" className="size-4" />
+                        <History aria-hidden="true" className="size-4" />
                       </Button>
                     </div>
                   </CardHeader>
@@ -647,31 +629,16 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </Button>
       ) : null}
 
-      <Dialog
-        onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)}
-        open={selectedExercise != null}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
-          {selectedExercise ? (
-            <div className="space-y-0">
-              <DialogHeader className="px-6 pt-6">
-                <DialogTitle>{`${selectedExercise.name} trends`}</DialogTitle>
-                <DialogDescription>
-                  Review weight and rep progression for this exercise.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
-                <ExerciseTrendChart
-                  exerciseName={selectedExercise.name}
-                  history={selectedExerciseHistory}
-                  trackingType={selectedExercise.trackingType}
-                  weightUnit={weightUnit}
-                />
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      {selectedExercise ? (
+        <ExerciseHistoryModal
+          exerciseId={selectedExercise.exerciseId}
+          exerciseName={selectedExercise.name}
+          onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)}
+          open={selectedExercise != null}
+          trackingType={selectedExercise.trackingType}
+          weightUnit={weightUnit}
+        />
+      ) : null}
       {confirmDialog}
     </section>
   );
@@ -1093,96 +1060,6 @@ function inferPhaseBadge(
     default:
       return 'moderate';
   }
-}
-
-function buildExerciseHistory({
-  currentSession,
-  exerciseId,
-  previousSession,
-  trackingType,
-}: {
-  currentSession: WorkoutSession;
-  exerciseId: string;
-  previousSession: WorkoutSession | null;
-  trackingType: ExerciseTrackingType;
-}): ActiveWorkoutExerciseHistoryPoint[] {
-  const history: ActiveWorkoutExerciseHistoryPoint[] = [];
-
-  const previousPoint =
-    previousSession != null ? buildHistoryPoint(previousSession, exerciseId, trackingType) : null;
-  const currentPoint = buildHistoryPoint(currentSession, exerciseId, trackingType);
-
-  if (previousPoint) {
-    history.push(previousPoint);
-  }
-
-  if (currentPoint) {
-    history.push(currentPoint);
-  }
-
-  return history;
-}
-
-function buildHistoryPoint(
-  session: WorkoutSession,
-  exerciseId: string,
-  trackingType: ExerciseTrackingType,
-): ActiveWorkoutExerciseHistoryPoint | null {
-  const sets = session.sets.filter((set) => {
-    if (set.exerciseId !== exerciseId) {
-      return false;
-    }
-
-    if (
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio' ||
-      trackingType === 'weight_seconds'
-    ) {
-      // Time-based sets currently come back via `reps` until session-set seconds persistence lands.
-      return getSetSeconds(set) != null;
-    }
-
-    return set.reps != null;
-  });
-
-  if (sets.length === 0) {
-    return null;
-  }
-
-  const topSet = sets.reduce<SessionSet>((best, current) => {
-    if (
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio' ||
-      trackingType === 'weight_seconds'
-    ) {
-      return (getSetSeconds(current) ?? 0) > (getSetSeconds(best) ?? 0) ? current : best;
-    }
-
-    if (trackingType === 'bodyweight_reps' || trackingType === 'reps_only') {
-      return (current.reps ?? 0) > (best.reps ?? 0) ? current : best;
-    }
-
-    const bestWeight = best.weight ?? 0;
-    const currentWeight = current.weight ?? 0;
-
-    if (currentWeight > bestWeight) {
-      return current;
-    }
-
-    if (currentWeight === bestWeight && (current.reps ?? 0) > (best.reps ?? 0)) {
-      return current;
-    }
-
-    return best;
-  }, sets[0]);
-
-  return {
-    date: session.date,
-    reps: topSet.reps ?? 0,
-    seconds: getSetSeconds(topSet),
-    trackingType,
-    weight: topSet.weight ?? 0,
-  };
 }
 
 function formatSetLabel(

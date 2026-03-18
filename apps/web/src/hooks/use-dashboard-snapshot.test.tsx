@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
 
-import { useDashboardSnapshot } from './use-dashboard-snapshot';
+import { dashboardSnapshotQueryKeys, useDashboardSnapshot } from './use-dashboard-snapshot';
 
 const mockFetch = vi.fn();
 
@@ -111,5 +111,32 @@ describe('useDashboardSnapshot', () => {
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
     });
+  });
+
+  it('configures foreground polling when a refetch interval is provided', async () => {
+    mockFetch.mockResolvedValue(createJsonResponse(snapshotFixture));
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(
+      () => useDashboardSnapshot('2026-03-06', { refetchIntervalMs: 20_000 }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    const query = queryClient.getQueryCache().find({
+      queryKey: dashboardSnapshotQueryKeys.detail('2026-03-06'),
+    });
+    const queryOptions = query?.options as
+      | {
+          refetchInterval?: number | false;
+          refetchIntervalInBackground?: boolean;
+        }
+      | undefined;
+
+    expect(queryOptions?.refetchInterval).toBe(20_000);
+    expect(queryOptions?.refetchIntervalInBackground).toBe(false);
   });
 });

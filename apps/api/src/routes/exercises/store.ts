@@ -5,6 +5,7 @@ import type {
   ExerciseCategory,
   ExerciseHistoryWithRelated,
   ExerciseLastPerformance,
+  ExercisePerformanceHistory,
   ExerciseTrackingType,
   RelatedExerciseLastPerformance,
   UpdateExerciseInput,
@@ -618,6 +619,101 @@ export const findExerciseLastPerformance = async ({
       reps: set.reps,
     })),
   };
+};
+
+export const findExercisePerformanceHistory = async ({
+  exerciseId,
+  userId,
+  limit,
+}: {
+  exerciseId: string;
+  userId: string;
+  limit: number;
+}): Promise<ExercisePerformanceHistory> => {
+  const { db } = await import('../../db/index.js');
+
+  const sessions = await db
+    .select({
+      sessionId: workoutSessions.id,
+      date: workoutSessions.date,
+      notes: workoutSessions.notes,
+      completedAt: workoutSessions.completedAt,
+      startedAt: workoutSessions.startedAt,
+      createdAt: workoutSessions.createdAt,
+    })
+    .from(sessionSets)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+    .where(
+      and(
+        eq(sessionSets.exerciseId, exerciseId),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+        eq(workoutSessions.status, 'completed'),
+      ),
+    )
+    .groupBy(
+      workoutSessions.id,
+      workoutSessions.date,
+      workoutSessions.notes,
+      workoutSessions.completedAt,
+      workoutSessions.startedAt,
+      workoutSessions.createdAt,
+    )
+    .orderBy(
+      desc(workoutSessions.completedAt),
+      desc(workoutSessions.startedAt),
+      desc(workoutSessions.createdAt),
+    )
+    .limit(limit)
+    .all();
+
+  if (sessions.length === 0) {
+    return [];
+  }
+
+  const sessionIds = sessions.map((session) => session.sessionId);
+  const completedSets = await db
+    .select({
+      sessionId: sessionSets.sessionId,
+      setNumber: sessionSets.setNumber,
+      weight: sessionSets.weight,
+      reps: sessionSets.reps,
+      createdAt: sessionSets.createdAt,
+    })
+    .from(sessionSets)
+    .where(and(inArray(sessionSets.sessionId, sessionIds), eq(sessionSets.exerciseId, exerciseId)))
+    .orderBy(asc(sessionSets.sessionId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
+    .all();
+
+  const setsBySessionId = new Map<
+    string,
+    Array<{ setNumber: number; weight: number | null; reps: number | null }>
+  >();
+  for (const set of completedSets) {
+    const currentSets = setsBySessionId.get(set.sessionId) ?? [];
+    currentSets.push({
+      setNumber: set.setNumber,
+      weight: set.weight,
+      reps: set.reps,
+    });
+    setsBySessionId.set(set.sessionId, currentSets);
+  }
+
+  return sessions.flatMap((session) => {
+    const sets = setsBySessionId.get(session.sessionId);
+    if (!sets || sets.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        sessionId: session.sessionId,
+        date: session.date,
+        notes: session.notes,
+        sets,
+      },
+    ];
+  });
 };
 
 const findExercisesLastPerformanceById = async ({

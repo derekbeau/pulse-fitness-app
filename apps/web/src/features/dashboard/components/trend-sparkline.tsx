@@ -6,6 +6,7 @@ import { computeEWMA, type DashboardTrendMetric } from '@pulse/shared';
 import { Card, CardContent } from '@/components/ui/card';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
+import { WEIGHT_TREND_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { addDays, parseDateInput, toDateKey } from '@/lib/date';
 import { formatCalories, formatGrams, formatTrendChange, formatWeight } from '@/lib/format-utils';
@@ -333,7 +334,10 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const needsWeight = resolvedMetrics.includes('weight');
   const needsMacros = resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
   const range = resolveTrendRange(endDate);
-  const weightTrendQuery = useWeightTrend(range.from, range.to, { enabled: needsWeight });
+  const weightTrendQuery = useWeightTrend(range.from, range.to, {
+    enabled: needsWeight,
+    refetchIntervalMs: getForegroundPollingInterval(WEIGHT_TREND_POLL_INTERVAL_MS),
+  });
   const macroTrendQuery = useMacroTrend(range.from, range.to, { enabled: needsMacros });
 
   if ((needsWeight && weightTrendQuery.isLoading) || (needsMacros && macroTrendQuery.isLoading)) {

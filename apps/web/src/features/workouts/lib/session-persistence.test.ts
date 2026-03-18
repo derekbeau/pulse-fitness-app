@@ -4,9 +4,14 @@ import type { ActiveWorkoutSetDrafts } from '../types';
 import {
   ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX,
   ACTIVE_WORKOUT_SESSION_STORAGE_KEY,
+  WORKOUT_EXERCISES_STORAGE_PREFIX,
+  WORKOUT_SECTIONS_STORAGE_PREFIX,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
+  clearStoredWorkoutSessionUiState,
   getActiveWorkoutDraftStorageKey,
+  getWorkoutExerciseStorageKey,
+  getWorkoutSectionStorageKey,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
@@ -85,5 +90,32 @@ describe('session-persistence', () => {
   it('returns null for blank draft ids', () => {
     expect(getActiveWorkoutDraftStorageKey('  ')).toBeNull();
     expect(getStoredActiveWorkoutDraft('  ')).toBeNull();
+  });
+
+  it('builds scoped storage keys for workout section and exercise UI state', () => {
+    expect(getWorkoutSectionStorageKey('session-a')).toBe(
+      `${WORKOUT_SECTIONS_STORAGE_PREFIX}:session-a`,
+    );
+    expect(getWorkoutExerciseStorageKey('session-a')).toBe(
+      `${WORKOUT_EXERCISES_STORAGE_PREFIX}:session-a`,
+    );
+    expect(getWorkoutSectionStorageKey('  ')).toBeNull();
+    expect(getWorkoutExerciseStorageKey('  ')).toBeNull();
+  });
+
+  it('clears persisted workout section and exercise UI state by session id', () => {
+    window.localStorage.setItem(
+      `${WORKOUT_SECTIONS_STORAGE_PREFIX}:session-a`,
+      JSON.stringify({ warmup: false }),
+    );
+    window.localStorage.setItem(
+      `${WORKOUT_EXERCISES_STORAGE_PREFIX}:session-a`,
+      JSON.stringify({ 'row-erg': false }),
+    );
+
+    clearStoredWorkoutSessionUiState('session-a');
+
+    expect(window.localStorage.getItem(`${WORKOUT_SECTIONS_STORAGE_PREFIX}:session-a`)).toBeNull();
+    expect(window.localStorage.getItem(`${WORKOUT_EXERCISES_STORAGE_PREFIX}:session-a`)).toBeNull();
   });
 });

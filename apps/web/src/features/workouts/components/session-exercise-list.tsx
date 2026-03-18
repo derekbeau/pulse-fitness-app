@@ -1,6 +1,7 @@
 import {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -32,6 +33,7 @@ import {
   Circle,
   Dot,
   GripVertical,
+  History,
   MoreVertical,
 } from 'lucide-react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
@@ -48,12 +50,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { useLastPerformance } from '@/hooks/use-last-performance';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { ApiError } from '@/lib/api-client';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import { useRenameExercise } from '../api/workouts';
+import {
+  getWorkoutExerciseStorageKey,
+  getWorkoutSectionStorageKey,
+} from '../lib/session-persistence';
 import type {
   ActiveWorkoutExercise,
   ActiveWorkoutExerciseHistorySummary,
@@ -69,6 +76,7 @@ import {
 } from '../lib/time-estimates';
 import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
+import { ExerciseHistoryModal } from './exercise-history-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { SetRow, type SetRowUpdate } from './set-row';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
@@ -150,10 +158,22 @@ export function SessionExerciseList({
   sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
-    createInitialOpenSections(session),
+  const sectionStorageKey = useMemo(
+    () => (sessionId ? (getWorkoutSectionStorageKey(sessionId) ?? '') : ''),
+    [sessionId],
   );
-  const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
+  const exerciseStorageKey = useMemo(
+    () => (sessionId ? (getWorkoutExerciseStorageKey(sessionId) ?? '') : ''),
+    [sessionId],
+  );
+  const [openSections, setOpenSections] = usePersistedState<Record<string, boolean>>(
+    sectionStorageKey,
+    () => createInitialOpenSections(session),
+  );
+  const [expandedExercises, setExpandedExercises] = usePersistedState<Record<string, boolean>>(
+    exerciseStorageKey,
+    {},
+  );
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
@@ -161,6 +181,11 @@ export function SessionExerciseList({
   const [swapTarget, setSwapTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
+  } | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    trackingType: ExerciseTrackingType;
   } | null>(null);
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
@@ -342,6 +367,13 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            onOpenHistory={() =>
+                              setHistoryTarget({
+                                exerciseId: item.exercise.id,
+                                exerciseName: item.exercise.name,
+                                trackingType: item.exercise.trackingType,
+                              })
+                            }
                             onSwapExercise={() =>
                               setSwapTarget({
                                 exerciseId: item.exercise.id,
@@ -422,6 +454,13 @@ export function SessionExerciseList({
                                       setRenameTarget({
                                         exerciseId: exercise.id,
                                         exerciseName: exercise.name,
+                                      })
+                                    }
+                                    onOpenHistory={() =>
+                                      setHistoryTarget({
+                                        exerciseId: exercise.id,
+                                        exerciseName: exercise.name,
+                                        trackingType: exercise.trackingType,
                                       })
                                     }
                                     onSwapExercise={() =>
@@ -505,6 +544,20 @@ export function SessionExerciseList({
           sourceLabel="this workout"
         />
       ) : null}
+      {historyTarget ? (
+        <ExerciseHistoryModal
+          exerciseId={historyTarget.exerciseId}
+          exerciseName={historyTarget.exerciseName}
+          onOpenChange={(open) => {
+            if (!open) {
+              setHistoryTarget(null);
+            }
+          }}
+          open={historyTarget != null}
+          trackingType={historyTarget.trackingType}
+          weightUnit={weightUnit}
+        />
+      ) : null}
     </div>
   );
 }
@@ -521,6 +574,7 @@ type ExerciseCardItemProps = {
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
+  onOpenHistory: () => void;
   onRenameExercise: () => void;
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
@@ -545,6 +599,7 @@ function ExerciseCardItem({
   onExerciseNotesChange,
   onMoveDown,
   onMoveUp,
+  onOpenHistory,
   onRenameExercise,
   onSwapExercise,
   onRemoveSet,
@@ -653,6 +708,17 @@ function ExerciseCardItem({
             />
           </div>
         </button>
+
+        <Button
+          aria-label={`Open ${exercise.name} history`}
+          className="mt-0.5 size-8 shrink-0"
+          onClick={onOpenHistory}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <History aria-hidden="true" className="size-4" />
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1094,7 +1160,7 @@ function formatHistoryPreview({
     )
     .join(', ');
 
-  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} - ${setSummary}`;
 }
 
 function parsePrescribedRepTarget(prescribedReps: string) {

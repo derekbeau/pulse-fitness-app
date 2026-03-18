@@ -87,6 +87,7 @@ import {
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
   clearStoredActiveWorkoutDraft,
   clearStoredActiveWorkoutSessionId,
+  clearStoredWorkoutSessionUiState,
   getStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
@@ -252,11 +253,14 @@ export function ActiveWorkoutPage() {
   }, [completedSessionsQuery.data]);
   const redirectToCompletedSessionNotice = useCallback(() => {
     clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+    if (activeSessionId) {
+      clearStoredWorkoutSessionUiState(activeSessionId);
+    }
     clearStoredActiveWorkoutSessionId();
     navigate(`/workouts?${WORKOUT_SESSION_NOTICE_QUERY_KEY}=${WORKOUT_SESSION_COMPLETED_NOTICE}`, {
       replace: true,
     });
-  }, [activeWorkoutDraftId, navigate]);
+  }, [activeSessionId, activeWorkoutDraftId, navigate]);
 
   const templateExerciseById = useMemo(
     () =>
@@ -781,6 +785,9 @@ export function ActiveWorkoutPage() {
               ]);
 
               clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+              if (activeSessionId) {
+                clearStoredWorkoutSessionUiState(activeSessionId);
+              }
               setSessionFeedback(feedback);
               setSessionCompletedAt(completedAtIso);
               setStage('summary');
@@ -864,6 +871,9 @@ export function ActiveWorkoutPage() {
             }
 
             clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+            if (persistedSessionId) {
+              clearStoredWorkoutSessionUiState(persistedSessionId);
+            }
             navigate('/workouts');
           }}
           onNotesChange={setSessionNotes}
@@ -1312,6 +1322,7 @@ export function ActiveWorkoutPage() {
       },
       onSuccess: () => {
         clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
+        clearStoredWorkoutSessionUiState(activeSessionId);
         clearStoredActiveWorkoutSessionId();
         navigate('/workouts', { replace: true });
       },

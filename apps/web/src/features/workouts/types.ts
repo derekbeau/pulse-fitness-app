@@ -38,6 +38,19 @@ export type ActiveWorkoutLastPerformance = {
   sets: ActiveWorkoutLastPerformanceSet[];
 };
 
+export type ActiveWorkoutPerformanceHistorySet = {
+  reps: number | null;
+  setNumber: number;
+  weight: number | null;
+};
+
+export type ActiveWorkoutPerformanceHistorySession = {
+  date: string;
+  notes: string | null;
+  sessionId: string;
+  sets: ActiveWorkoutPerformanceHistorySet[];
+};
+
 export type ActiveWorkoutRelatedLastPerformance = {
   exerciseId: string;
   exerciseName: string;

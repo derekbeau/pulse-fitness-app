@@ -15,6 +15,10 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetId,
 } from '../lib/active-session';
+import {
+  getWorkoutExerciseStorageKey,
+  getWorkoutSectionStorageKey,
+} from '../lib/session-persistence';
 import type { ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
 
@@ -39,6 +43,26 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
+
+function getExercisePanelToggle(exerciseName: string, exerciseId: string) {
+  const card = screen
+    .getByRole('heading', { level: 3, name: exerciseName })
+    .closest('[data-slot="card"]');
+
+  if (!card) {
+    throw new Error(`Expected ${exerciseName} card.`);
+  }
+
+  const toggle = within(card as HTMLElement)
+    .getAllByRole('button')
+    .find((button) => button.getAttribute('aria-controls') === `exercise-panel-${exerciseId}`);
+
+  if (!toggle) {
+    throw new Error(`Expected ${exerciseName} toggle button.`);
+  }
+
+  return toggle;
+}
 
 describe('SessionExerciseList', () => {
   it('renders prescribed set targets from session set data', () => {
@@ -836,6 +860,111 @@ describe('SessionExerciseList', () => {
     expect(screen.getByRole('button', { name: /Main/i })).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('persists section and exercise collapse state across remounts for the same session id', () => {
+    vi.useFakeTimers();
+
+    try {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const sectionKey = getWorkoutSectionStorageKey('session-persist-a');
+    const exerciseKey = getWorkoutExerciseStorageKey('session-persist-a');
+
+    if (!sectionKey || !exerciseKey) {
+      throw new Error('Expected workout storage keys.');
+    }
+
+    const firstRender = renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-persist-a"
+      />,
+    );
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+    fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    firstRender.unmount();
+
+    const storedSections = window.localStorage.getItem(sectionKey);
+    const storedExercises = window.localStorage.getItem(exerciseKey);
+
+    expect(storedSections).not.toBeNull();
+    expect(storedExercises).not.toBeNull();
+    expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
+    expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': false });
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-persist-a"
+      />,
+    );
+
+    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+    expect(warmupButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(warmupButton);
+
+    expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute('aria-expanded', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('scopes persisted section state by session id', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    const firstRender = renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-scope-a"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
+    firstRender.unmount();
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-scope-b"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -1135,6 +1264,141 @@ describe('SessionExerciseList', () => {
     expect(
       within(card as HTMLElement).queryByLabelText('Weight for set 1'),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows all sets in the inline history preview for the latest session', () => {
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 0,
+      currentExercise: 1,
+      currentExerciseId: 'incline-dumbbell-press',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['compound'],
+              category: 'compound',
+              completedSets: 0,
+              formCues: [],
+              id: 'incline-dumbbell-press',
+              injuryCues: [],
+              lastPerformance: {
+                date: '2026-03-13',
+                sessionId: 'session-last',
+                sets: [
+                  { completed: true, reps: 12, setNumber: 1, weight: 25 },
+                  { completed: true, reps: 12, setNumber: 2, weight: 25 },
+                ],
+              },
+              name: 'Incline Dumbbell Press',
+              notes: '',
+              phaseBadge: 'moderate',
+              prescribedSets: 2,
+              prescribedReps: '10-12',
+              priority: 'required',
+              restSeconds: 90,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: false,
+                  distance: null,
+                  id: 'incline-set-1',
+                  number: 1,
+                  reps: null,
+                  seconds: null,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              templateCues: [],
+              tempo: null,
+              targetSets: 1,
+              trackingType: 'weight_reps',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'History Preview Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
+      .closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(
+      within(card as HTMLElement).getByText(/Mar 13 - 25 lbs × 12 reps, 25 lbs × 12 reps/),
+    ).toBeInTheDocument();
+  });
+
+  it('opens and closes full history modal from active workout exercise rows', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/row-erg/history') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                sessionId: 'session-1',
+                date: '2026-03-17',
+                notes: null,
+                sets: [
+                  { setNumber: 1, reps: 15, weight: 25 },
+                  { setNumber: 2, reps: 12, weight: 25 },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Row Erg history' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Row Erg history')).toBeInTheDocument();
+    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Row Erg history')).not.toBeInTheDocument();
+    });
   });
 
   it('renders related history collapsed by default and expands on demand', () => {

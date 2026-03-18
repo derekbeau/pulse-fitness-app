@@ -281,6 +281,18 @@ describe('ExerciseLibrary', () => {
     expect(within(pressCard as HTMLElement).getByText('Push')).toBeInTheDocument();
   });
 
+  it('loads trend data from the exercise history API', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
+
+    expect(await screen.findByText('Incline Dumbbell Press trends')).toBeInTheDocument();
+    expect((await screen.findAllByText(/Latest/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText('No history yet')).not.toBeInTheDocument();
+  });
+
   it('renames an exercise from the card actions menu', async () => {
     mockExerciseRequests();
 
@@ -388,6 +400,25 @@ function renderExerciseLibrary() {
 
 function mockExerciseRequests() {
   const mockExercises = exerciseFixtures.map((exercise) => ({ ...exercise }));
+  const historyByExerciseId: Record<string, unknown[]> = {
+    'incline-dumbbell-press': [
+      {
+        sessionId: 'session-1',
+        date: '2026-03-08',
+        notes: null,
+        sets: [
+          { setNumber: 1, reps: 10, weight: 70 },
+          { setNumber: 2, reps: 9, weight: 70 },
+        ],
+      },
+      {
+        sessionId: 'session-2',
+        date: '2026-03-04',
+        notes: null,
+        sets: [{ setNumber: 1, reps: 8, weight: 65 }],
+      },
+    ],
+  };
 
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = new URL(String(input), 'https://pulse.test');
@@ -432,6 +463,16 @@ function mockExerciseRequests() {
       return Promise.resolve(
         jsonResponse({
           data: exercise,
+        }),
+      );
+    }
+
+    if (url.pathname.startsWith('/api/v1/exercises/') && url.pathname.endsWith('/history')) {
+      const exerciseId = url.pathname.split('/')[4] ?? '';
+
+      return Promise.resolve(
+        jsonResponse({
+          data: historyByExerciseId[exerciseId] ?? [],
         }),
       );
     }

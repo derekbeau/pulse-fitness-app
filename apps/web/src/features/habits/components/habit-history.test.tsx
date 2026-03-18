@@ -143,7 +143,13 @@ describe('HabitHistory', () => {
   it('loads a 90-day range from API hooks and renders history grids', () => {
     render(<HabitHistory />);
 
-    expect(mockedUseHabitEntries).toHaveBeenCalledWith('2025-12-11', '2026-03-10');
+    expect(mockedUseHabitEntries).toHaveBeenCalledWith(
+      '2025-12-11',
+      '2026-03-10',
+      expect.objectContaining({
+        refetchIntervalMs: undefined,
+      }),
+    );
     expect(screen.getByText('Last 90 days')).toBeInTheDocument();
 
     const hydrateGrid = screen.getByTestId('habit-history-grid-hydrate');

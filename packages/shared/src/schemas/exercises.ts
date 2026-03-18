@@ -136,6 +136,10 @@ export const exerciseLastPerformanceQuerySchema = z.object({
   includeRelated: z.coerce.boolean().optional().default(false),
 });
 
+export const exercisePerformanceHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
 export const exerciseLastPerformanceSetSchema = z.object({
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable(),
@@ -160,6 +164,17 @@ export const exerciseHistoryWithRelatedSchema = z.object({
   related: z.array(relatedExerciseLastPerformanceSchema).max(20),
 });
 
+export const exercisePerformanceHistorySessionSchema = z.object({
+  sessionId: z.string(),
+  date: dateSchema,
+  notes: z.string().nullable(),
+  sets: z.array(exerciseLastPerformanceSetSchema).max(100),
+});
+
+export const exercisePerformanceHistorySchema = z
+  .array(exercisePerformanceHistorySessionSchema)
+  .max(50);
+
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;
 export type ExerciseTrackingType = z.infer<typeof exerciseTrackingTypeSchema>;
 export type Exercise = z.infer<typeof exerciseSchema>;
@@ -167,7 +182,10 @@ export type CreateExerciseInput = z.infer<typeof createExerciseInputSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseInputSchema>;
 export type ExerciseQueryParams = z.infer<typeof exerciseQueryParamsSchema>;
 export type ExerciseLastPerformanceQuery = z.infer<typeof exerciseLastPerformanceQuerySchema>;
+export type ExercisePerformanceHistoryQuery = z.infer<typeof exercisePerformanceHistoryQuerySchema>;
 export type ExerciseLastPerformance = z.infer<typeof exerciseLastPerformanceSchema>;
 export type ExerciseLastPerformanceSet = z.infer<typeof exerciseLastPerformanceSetSchema>;
 export type RelatedExerciseLastPerformance = z.infer<typeof relatedExerciseLastPerformanceSchema>;
 export type ExerciseHistoryWithRelated = z.infer<typeof exerciseHistoryWithRelatedSchema>;
+export type ExercisePerformanceHistorySession = z.infer<typeof exercisePerformanceHistorySessionSchema>;
+export type ExercisePerformanceHistory = z.infer<typeof exercisePerformanceHistorySchema>;

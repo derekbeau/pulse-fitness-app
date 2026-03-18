@@ -16,6 +16,7 @@ import {
   normalizeDate,
   toDateKey,
 } from '@/lib/date';
+import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 
 function getHabitEntryCompleted(habit: Habit, entry: HabitEntry | undefined) {
   if (!entry) {
@@ -62,8 +63,12 @@ export function HabitsPage() {
   const normalizedSelectedDate = useMemo(() => normalizeDate(selectedDate), [selectedDate]);
   const weekEnd = useMemo(() => addDays(visibleWeekStart, 6), [visibleWeekStart]);
 
-  const habitsQuery = useHabits();
-  const weekEntriesQuery = useHabitEntries(toDateKey(visibleWeekStart), toDateKey(weekEnd));
+  const habitsQuery = useHabits({
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
+  const weekEntriesQuery = useHabitEntries(toDateKey(visibleWeekStart), toDateKey(weekEnd), {
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
 
   const weekCompletionByDate = useMemo(
     () =>

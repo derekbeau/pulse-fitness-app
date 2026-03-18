@@ -58,7 +58,7 @@ describe('MealCard', () => {
     expect(screen.getByText('7:20 AM')).toBeInTheDocument();
     expect(screen.queryByText('Large Eggs', { selector: 'li p' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Breakfast/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Breakfast' }));
 
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe('MealCard', () => {
   it('uses compact row styling with truncated item names after expanding', () => {
     render(<MealCard meal={breakfastMeal} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Breakfast/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Breakfast' }));
 
     expect(screen.getByText('Large Eggs')).toHaveClass('truncate');
   });
@@ -99,5 +99,79 @@ describe('MealCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete Breakfast' }));
 
     expect(onDelete).toHaveBeenCalledWith('meal-breakfast');
+  });
+
+  it('opens inline name editing when meal name is clicked', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+
+    expect(screen.getByRole('textbox', { name: 'Meal name for Breakfast' })).toHaveValue(
+      'Breakfast',
+    );
+  });
+
+  it('submits the trimmed name on enter', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: '  Late Breakfast  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onRename).toHaveBeenCalledWith('meal-breakfast', 'Late Breakfast');
+  });
+
+  it('submits a changed name on blur', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: 'Brunch' } });
+    fireEvent.blur(input);
+
+    expect(onRename).toHaveBeenCalledWith('meal-breakfast', 'Brunch');
+  });
+
+  it('cancels rename on escape without firing mutation', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: 'Brunch' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it('does not fire mutation when blur has no changes', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Meal name for Breakfast' }));
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it('prevents saving empty names', () => {
+    const onRename = vi.fn();
+
+    render(<MealCard meal={breakfastMeal} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.getByText('Meal name is required')).toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { MoreVertical } from 'lucide-react';
-import type { Exercise } from '@pulse/shared';
+import type { Exercise, ExerciseTrackingType } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +21,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useExerciseHistory } from '@/hooks/use-exercise-history';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 import { useExerciseFilters, useExercises, useRenameExercise } from '../api/workouts';
-import { workoutExerciseHistory } from '../lib/mock-data';
+import type {
+  ActiveWorkoutExerciseHistoryPoint,
+  ActiveWorkoutPerformanceHistorySession,
+} from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { TagChips } from './tag-chips';
@@ -49,6 +54,7 @@ type ExerciseLibraryProps = {
 };
 
 export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
+  const { weightUnit } = useWeightUnit();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -111,6 +117,17 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
 
   const selectedExercise =
     filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
+  const selectedExerciseHistoryQuery = useExerciseHistory(selectedExercise?.id ?? '', {
+    enabled: selectedExercise != null,
+    limit: 30,
+  });
+  const selectedExerciseTrendHistory = useMemo(() => {
+    if (!selectedExercise) {
+      return [];
+    }
+
+    return toExerciseTrendHistory(selectedExerciseHistoryQuery.data ?? [], selectedExercise.trackingType);
+  }, [selectedExercise, selectedExerciseHistoryQuery.data]);
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -313,10 +330,14 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
                     <p className="mt-1 text-sm text-muted">{selectedExercise.instructions}</p>
                   </div>
                 ) : null}
+                {selectedExerciseHistoryQuery.isPending ? (
+                  <p className="text-sm text-muted">Loading exercise history...</p>
+                ) : null}
                 <ExerciseTrendChart
                   exerciseName={selectedExercise.name}
-                  // TODO: Replace mock history with a real session-history query when workout history APIs land.
-                  history={workoutExerciseHistory[selectedExercise.id] ?? []}
+                  history={selectedExerciseTrendHistory}
+                  trackingType={selectedExercise.trackingType}
+                  weightUnit={weightUnit}
                 />
               </div>
             </div>
@@ -481,4 +502,76 @@ function formatLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function toExerciseTrendHistory(
+  sessions: ActiveWorkoutPerformanceHistorySession[],
+  trackingType: ExerciseTrackingType,
+): ActiveWorkoutExerciseHistoryPoint[] {
+  return sessions.flatMap((session) => {
+    const topSet = pickTopSessionSet(session.sets, trackingType);
+
+    if (!topSet || topSet.reps == null) {
+      return [];
+    }
+
+    return [
+      {
+        date: session.date,
+        distance: trackingType === 'distance' ? topSet.reps : null,
+        reps: topSet.reps,
+        seconds:
+          trackingType === 'seconds_only' ||
+          trackingType === 'cardio' ||
+          trackingType === 'weight_seconds'
+            ? topSet.reps
+            : null,
+        trackingType,
+        weight: topSet.weight ?? 0,
+      },
+    ];
+  });
+}
+
+function pickTopSessionSet(
+  sets: ActiveWorkoutPerformanceHistorySession['sets'],
+  trackingType: ExerciseTrackingType,
+) {
+  const [firstSet, ...remainingSets] = sets;
+  if (!firstSet) {
+    return null;
+  }
+
+  return remainingSets.reduce((bestSet, currentSet) => {
+    if (currentSet.reps == null) {
+      return bestSet;
+    }
+
+    if (bestSet.reps == null) {
+      return currentSet;
+    }
+
+    if (
+      trackingType === 'seconds_only' ||
+      trackingType === 'cardio' ||
+      trackingType === 'weight_seconds' ||
+      trackingType === 'distance' ||
+      trackingType === 'reps_only' ||
+      trackingType === 'bodyweight_reps'
+    ) {
+      return currentSet.reps > bestSet.reps ? currentSet : bestSet;
+    }
+
+    const currentWeight = currentSet.weight ?? 0;
+    const bestWeight = bestSet.weight ?? 0;
+    if (currentWeight > bestWeight) {
+      return currentSet;
+    }
+
+    if (currentWeight === bestWeight && currentSet.reps > bestSet.reps) {
+      return currentSet;
+    }
+
+    return bestSet;
+  }, firstSet);
 }

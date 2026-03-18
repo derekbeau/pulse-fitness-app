@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, CalendarClock, Dumbbell, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Dumbbell, History, TriangleAlert } from 'lucide-react';
 import type {
+  ExerciseTrackingType,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WeightUnit,
@@ -24,6 +25,7 @@ import {
 } from '../api/workouts';
 import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { ExerciseHistoryModal } from './exercise-history-modal';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -59,6 +61,11 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
   const { confirm, dialog: confirmDialog } = useConfirmation();
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    trackingType: ExerciseTrackingType;
+  } | null>(null);
 
   const template = scheduledWorkout?.template ?? null;
   const isTemplateAvailable = template !== null;
@@ -226,7 +233,19 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
         </CardContent>
       </Card>
 
-      {template ? <TemplateSections template={template} weightUnit={weightUnit} /> : null}
+      {template ? (
+        <TemplateSections
+          onOpenHistory={(exercise) =>
+            setHistoryTarget({
+              exerciseId: exercise.exerciseId,
+              exerciseName: exercise.exerciseName,
+              trackingType: exercise.trackingType,
+            })
+          }
+          template={template}
+          weightUnit={weightUnit}
+        />
+      ) : null}
 
       {scheduledWorkout ? (
         <ScheduleWorkoutDialog
@@ -241,6 +260,20 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
           disallowDateMessage="Pick a different date to reschedule."
           submitLabel="Save"
           title="Reschedule workout"
+        />
+      ) : null}
+      {historyTarget ? (
+        <ExerciseHistoryModal
+          exerciseId={historyTarget.exerciseId}
+          exerciseName={historyTarget.exerciseName}
+          onOpenChange={(open) => {
+            if (!open) {
+              setHistoryTarget(null);
+            }
+          }}
+          open={historyTarget != null}
+          trackingType={historyTarget.trackingType}
+          weightUnit={weightUnit}
         />
       ) : null}
       {confirmDialog}
@@ -261,9 +294,11 @@ function BackLink() {
 }
 
 function TemplateSections({
+  onOpenHistory,
   template,
   weightUnit,
 }: {
+  onOpenHistory: (exercise: WorkoutTemplateExercise) => void;
   template: WorkoutTemplate;
   weightUnit: WeightUnit;
 }) {
@@ -313,6 +348,16 @@ function TemplateSections({
                     {exercise.supersetGroup}
                   </Badge>
                 ) : null}
+                <Button
+                  aria-label={`Open ${exercise.exerciseName} history`}
+                  className="size-8 min-h-8 min-w-8"
+                  onClick={() => onOpenHistory(exercise)}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <History aria-hidden="true" className="size-4 shrink-0 text-muted" />
+                </Button>
                 <Dumbbell aria-hidden="true" className="size-4 shrink-0 text-muted" />
               </div>
             ))}

@@ -34,6 +34,11 @@ import { useLogWeight } from '@/features/weight/api/weight';
 import { prefetchDashboardSnapshot, useDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
+import {
+  DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS,
+  HABIT_ENTRIES_POLL_INTERVAL_MS,
+  getForegroundPollingInterval,
+} from '@/lib/query-polling';
 import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
@@ -162,11 +167,17 @@ export function DashboardPage() {
   const isViewingToday = isSameDay(selectedDate, getToday());
   const greeting = getDashboardGreeting();
 
-  const snapshotQuery = useDashboardSnapshot(selectedDateKey);
+  const snapshotQuery = useDashboardSnapshot(selectedDateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS),
+  });
   // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
-  const habitsQuery = useHabits();
-  const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
+  const habitsQuery = useHabits({
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
+  const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
+  });
   const recentWorkoutsQuery = useRecentWorkouts();
   const persistedVisibleWidgets = getUniqueWidgetIds(
     dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS

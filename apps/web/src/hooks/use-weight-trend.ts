@@ -40,7 +40,16 @@ const fetchWeightTrend = async (
   return dashboardWeightTrendSchema.parse(trend);
 };
 
-export const useWeightTrend = (from?: string, to?: string, options: { enabled?: boolean } = {}) => {
+type WeightTrendQueryOptions = {
+  enabled?: boolean;
+  refetchIntervalMs?: number;
+};
+
+export const useWeightTrend = (
+  from?: string,
+  to?: string,
+  options: WeightTrendQueryOptions = {},
+) => {
   const range = resolveDateRange(from, to);
   const enabled = options.enabled ?? DEFAULT_QUERY_ENABLED;
 
@@ -48,5 +57,7 @@ export const useWeightTrend = (from?: string, to?: string, options: { enabled?: 
     enabled,
     queryFn: ({ signal }) => fetchWeightTrend(range.from, range.to, signal),
     queryKey: dashboardWeightTrendQueryKeys.range(range.from, range.to),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
   });
 };

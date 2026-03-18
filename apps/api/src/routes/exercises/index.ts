@@ -8,6 +8,8 @@ import {
   exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
   exerciseLastPerformanceSchema,
+  exercisePerformanceHistoryQuerySchema,
+  exercisePerformanceHistorySchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
   updateExerciseInputSchema,
@@ -35,6 +37,7 @@ import {
   findExerciseDedupCandidates,
   findExerciseHistoryWithRelated,
   findExerciseLastPerformance,
+  findExercisePerformanceHistory,
   findExerciseOwnership,
   findVisibleExerciseById,
   listExerciseFilters,
@@ -271,6 +274,51 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.send({
         data: filters,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/:id/history',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: exercisePerformanceHistoryQuerySchema,
+        response: {
+          200: apiDataResponseSchema(exercisePerformanceHistorySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Get recent completed session history for an exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const exercise = await findVisibleExerciseById({
+        id: request.params.id,
+        userId: request.userId,
+      });
+      if (!exercise) {
+        return sendError(
+          reply,
+          404,
+          EXERCISE_NOT_FOUND_RESPONSE.code,
+          EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const history = await findExercisePerformanceHistory({
+        exerciseId: request.params.id,
+        userId: request.userId,
+        limit: request.query.limit,
+      });
+
+      reply.header('Cache-Control', 'private, no-cache');
+
+      return reply.send({
+        data: history,
       });
     },
   );
