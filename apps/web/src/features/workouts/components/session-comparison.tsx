@@ -91,9 +91,11 @@ export function SessionComparison({
   const currentVolume = getSessionVolume(currentSession);
   const previousVolume = getSessionVolume(previousSession);
   const volumeDelta = currentVolume - previousVolume;
-  const percentChange =
-    previousVolume > 0 ? Math.round((volumeDelta / previousVolume) * 100) : null;
   const volumeLabel = getSessionVolumeLabel(currentSession);
+  const percentChange =
+    volumeLabel !== 'mixed' && previousVolume > 0
+      ? Math.round((volumeDelta / previousVolume) * 100)
+      : null;
 
   return (
     <Card className="border-transparent bg-[var(--color-accent-mint)] text-on-accent dark:bg-card dark:text-foreground">
@@ -128,7 +130,7 @@ export function SessionComparison({
           </p>
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
-              direction={getDirection(volumeDelta)}
+              direction={volumeLabel === 'mixed' ? 'flat' : getDirection(volumeDelta)}
               label={formatVolumeDelta(volumeDelta, volumeLabel, weightUnit)}
             />
             {percentChange != null ? (
@@ -416,7 +418,7 @@ function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
   }
 
   if (label === 'mixed') {
-    return formatNumber(value);
+    return '-';
   }
 
   return `${formatNumber(value)} reps`;
@@ -436,7 +438,7 @@ function formatVolumeDelta(value: number, label: string, weightUnit: WeightUnit)
   }
 
   if (label === 'mixed') {
-    return formatSignedNumber(value);
+    return '-';
   }
 
   return `${formatSignedNumber(value)} reps`;

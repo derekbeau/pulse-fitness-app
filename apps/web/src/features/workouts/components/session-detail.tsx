@@ -50,6 +50,7 @@ import {
 } from '../api/workouts';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
+  formatTrackingMetricBreakdown,
   formatSetSummary,
   getDistanceUnit,
   getSetDistance,
@@ -204,6 +205,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
   const sessionDate = new Date(session.startedAt);
   const summary = getSessionSummary(session, template ?? null);
+  const shouldShowRepsStat = summary.metricTotals.reps > 0 && summary.metricLabel !== 'reps';
   const sections = buildSections(session, template);
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
@@ -349,7 +351,12 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={cn(
+          'grid gap-2.5 sm:grid-cols-2',
+          shouldShowRepsStat ? 'xl:grid-cols-4' : 'xl:grid-cols-3',
+        )}
+      >
         <StatCard
           accentTextClassName="text-blue-900 dark:text-blue-200"
           className="border-blue-200/70 bg-blue-500/10 dark:border-blue-400/30 dark:bg-blue-500/15"
@@ -364,13 +371,15 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           label="Sets"
           value={`${summary.totalSets}`}
         />
-        <StatCard
-          accentTextClassName="text-fuchsia-900 dark:text-fuchsia-200"
-          className="border-fuchsia-200/70 bg-fuchsia-500/10 dark:border-fuchsia-400/30 dark:bg-fuchsia-500/15"
-          icon={<Repeat2 aria-hidden="true" className="size-4" />}
-          label="Reps"
-          value={integerFormatter.format(summary.metricTotals.reps)}
-        />
+        {shouldShowRepsStat ? (
+          <StatCard
+            accentTextClassName="text-fuchsia-900 dark:text-fuchsia-200"
+            className="border-fuchsia-200/70 bg-fuchsia-500/10 dark:border-fuchsia-400/30 dark:bg-fuchsia-500/15"
+            icon={<Repeat2 aria-hidden="true" className="size-4" />}
+            label="Reps"
+            value={integerFormatter.format(summary.metricTotals.reps)}
+          />
+        ) : null}
         <StatCard
           accentTextClassName="text-emerald-900 dark:text-emerald-200"
           className="border-emerald-200/70 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-500/15"
@@ -1185,7 +1194,7 @@ function formatSummaryMetric(
     case 'distance':
       return `${formatServing(totals.distance)} ${getDistanceUnit(weightUnit)}`;
     case 'mixed':
-      return formatMixedMetricSummary(totals, weightUnit);
+      return formatTrackingMetricBreakdown(totals, weightUnit);
     default:
       return '-';
   }
@@ -1209,32 +1218,6 @@ function formatSummaryMetricLabel(label: SessionMetricLabel) {
   }
 
   return 'Volume';
-}
-
-function formatMixedMetricSummary(
-  totals: Record<TrackingSummaryMetricLabel, number>,
-  weightUnit: WeightUnit,
-) {
-  const segments: string[] = [];
-
-  if (totals.volume > 0) {
-    segments.push(`${formatWeightValue(totals.volume)} ${weightUnit}`);
-  }
-  if (totals.reps > 0) {
-    segments.push(`${integerFormatter.format(totals.reps)} reps`);
-  }
-  if (totals.seconds > 0) {
-    segments.push(`${formatServing(totals.seconds)} sec`);
-  }
-  if (totals.distance > 0) {
-    segments.push(`${formatServing(totals.distance)} ${getDistanceUnit(weightUnit)}`);
-  }
-
-  if (segments.length === 0) {
-    return '-';
-  }
-
-  return segments.join(' • ');
 }
 
 function formatLabel(value: string) {

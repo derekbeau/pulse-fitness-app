@@ -138,4 +138,22 @@ describe('SessionComparison', () => {
     expect(screen.getByText('2.5 mi')).toBeInTheDocument();
     expect(screen.getByText('1 mi')).toBeInTheDocument();
   });
+
+  it('shows mixed session volume as non-comparable', () => {
+    const previousSession = createSession({
+      id: 'previous-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [createSet('distance-run', 1, 1.2), createSet('couch-stretch', 1, 60)],
+    });
+    const currentSession = createSession({
+      id: 'current-session',
+      sets: [createSet('distance-run', 1, 2.5), createSet('couch-stretch', 1, 90)],
+    });
+
+    render(<SessionComparison currentSession={currentSession} previousSession={previousSession} />);
+
+    expect(screen.getByText('Mixed progression')).toBeInTheDocument();
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByText('+16%')).not.toBeInTheDocument();
+  });
 });

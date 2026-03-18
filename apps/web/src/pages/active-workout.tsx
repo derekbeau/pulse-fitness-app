@@ -13,7 +13,6 @@ import {
   type WorkoutSession as ApiWorkoutSession,
   type SessionSet,
   type WorkoutSessionTimeSegment,
-  type WeightUnit,
   workoutSessionSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionFeedbackResponse,
@@ -62,7 +61,7 @@ import {
   useWorkoutTemplate,
 } from '@/features/workouts/api/workouts';
 import {
-  getDistanceUnit,
+  formatTrackingMetricBreakdown,
   getSetSummaryMetricValue,
   getTrackingSummaryMetricLabel,
   isRepTrackingType,
@@ -1922,41 +1921,6 @@ function parseEditableTimeSegments(timeSegments: WorkoutSessionTimeSegment[]) {
       error: 'Time segments must be ordered, non-overlapping, and each end must be after start.',
     };
   }
-}
-
-function formatTrackingMetricBreakdown(
-  totals: Record<TrackingSummaryMetricLabel, number>,
-  weightUnit: WeightUnit,
-) {
-  const segments: string[] = [];
-
-  if (totals.volume > 0) {
-    segments.push(`${formatMetricValue(totals.volume)} ${weightUnit}`);
-  }
-  if (totals.reps > 0) {
-    segments.push(`${formatMetricValue(totals.reps)} reps`);
-  }
-  if (totals.seconds > 0) {
-    segments.push(`${formatMetricValue(totals.seconds)} sec`);
-  }
-  if (totals.distance > 0) {
-    segments.push(`${formatMetricValue(totals.distance)} ${getDistanceUnit(weightUnit)}`);
-  }
-
-  if (segments.length === 0) {
-    return '-';
-  }
-
-  return segments.join(' • ');
-}
-
-function formatMetricValue(value: number) {
-  const rounded = Math.round(value * 100) / 100;
-  if (Number.isInteger(rounded)) {
-    return new Intl.NumberFormat('en-US').format(rounded);
-  }
-
-  return rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function buildActiveWorkoutSessionHref(sessionId: string, view: string | null) {

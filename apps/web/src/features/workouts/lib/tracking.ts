@@ -326,6 +326,32 @@ export function formatTrackingTypeSummary(trackingTypes: ExerciseTrackingType[])
   return uniqueTrackingTypes.map((trackingType) => getTrackingTypeLabel(trackingType)).join(' • ');
 }
 
+export function formatTrackingMetricBreakdown(
+  totals: Record<TrackingSummaryMetricLabel, number>,
+  weightUnit: WeightUnit,
+) {
+  const segments: string[] = [];
+
+  if (totals.volume > 0) {
+    segments.push(`${formatMetricNumber(totals.volume)} ${weightUnit}`);
+  }
+  if (totals.reps > 0) {
+    segments.push(`${formatMetricNumber(totals.reps)} reps`);
+  }
+  if (totals.seconds > 0) {
+    segments.push(`${formatMetricNumber(totals.seconds)} sec`);
+  }
+  if (totals.distance > 0) {
+    segments.push(`${formatMetricNumber(totals.distance)} ${getDistanceUnit(weightUnit)}`);
+  }
+
+  if (segments.length === 0) {
+    return '-';
+  }
+
+  return segments.join(' • ');
+}
+
 function joinSegments(
   left: string | null,
   right: string | null,
@@ -338,7 +364,7 @@ function joinSegments(
   return left ?? right ?? '-';
 }
 
-function formatMetricNumber(value: number) {
+export function formatMetricNumber(value: number) {
   const normalized = Math.round(value * 100) / 100;
   if (Number.isInteger(normalized)) {
     return integerFormatter.format(normalized);

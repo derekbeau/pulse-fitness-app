@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatMetricNumber,
   formatSetSummary,
+  formatTrackingMetricBreakdown,
   getSetSummaryMetricValue,
   getTrackingSummaryMetricLabel,
 } from './tracking';
@@ -74,5 +76,25 @@ describe('tracking format helpers', () => {
     expect(getTrackingSummaryMetricLabel('distance')).toBe('distance');
     expect(getSetSummaryMetricValue('weight_reps', { reps: 5, weight: 100 })).toBe(500);
     expect(getSetSummaryMetricValue('seconds_only', { reps: 40 })).toBe(40);
+  });
+
+  it('formats mixed metric breakdown values consistently', () => {
+    expect(
+      formatTrackingMetricBreakdown(
+        {
+          distance: 0.5,
+          reps: 12,
+          seconds: 120,
+          volume: 135,
+        },
+        'lbs',
+      ),
+    ).toBe('135 lbs • 12 reps • 120 sec • 0.5 mi');
+  });
+
+  it('formats metric numbers without trailing zeros', () => {
+    expect(formatMetricNumber(135)).toBe('135');
+    expect(formatMetricNumber(135.5)).toBe('135.5');
+    expect(formatMetricNumber(135.678)).toBe('135.68');
   });
 });

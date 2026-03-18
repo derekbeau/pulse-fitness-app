@@ -188,6 +188,42 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Felt strong overall.')).toBeInTheDocument();
   });
 
+  it('hides the reps stat card for time-only sessions', async () => {
+    const currentSession = createSession({
+      id: 'session-time-only',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-stretch-1',
+          exerciseId: 'couch-stretch',
+          setNumber: 1,
+          reps: 90,
+          weight: null,
+          section: 'cooldown',
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(screen.getByText('Seconds')).toBeInTheDocument();
+    expect(screen.queryByText(/^Reps$/)).not.toBeInTheDocument();
+  });
+
   it('shows volume progression, deltas, and PR badges when comparison is enabled', async () => {
     const previousSession = createSession({
       id: 'session-previous',
