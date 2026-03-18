@@ -79,10 +79,10 @@ const getWorkoutHref = (workout: DashboardWorkoutSnapshot | null | undefined): s
   }
 
   if (workout.status === 'in_progress') {
-    return `/workouts/sessions/${workout.sessionId}`;
+    return `/workouts/active?sessionId=${encodeURIComponent(workout.sessionId)}`;
   }
 
-  return `/workouts/sessions/${workout.sessionId}/summary`;
+  return `/workouts/sessions/${workout.sessionId}`;
 };
 
 const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
