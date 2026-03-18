@@ -5,7 +5,7 @@ import type {
   HabitTrackingType,
   WorkoutSession,
 } from '@pulse/shared';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyRequest, onSendHookHandler } from 'fastify';
 
 import { isAgentRequest } from './auth.js';
 
@@ -62,6 +62,8 @@ export type AgentEnrichmentContext =
       endpoint: 'food.create';
       similarFoods?: Array<Pick<FoodSummary, 'id' | 'name' | 'brand'>>;
     };
+
+const requestEnrichmentContext = new WeakMap<FastifyRequest, AgentEnrichmentContext>();
 
 const formatNumber = (value: number) => {
   if (Number.isInteger(value)) {
@@ -156,8 +158,7 @@ const buildMealEnrichment = (
         ? record.name
         : 'meal');
   const itemCount =
-    context.itemCount ??
-    (record && Array.isArray(record.items) ? record.items.length : undefined);
+    context.itemCount ?? (record && Array.isArray(record.items) ? record.items.length : undefined);
 
   return {
     hints: compactStrings([
@@ -203,7 +204,9 @@ const buildWorkoutSessionEnrichment = (
   const exerciseIds = new Set(sortedSets.map((set) => set.exerciseId));
   const remainingExerciseIds = new Set(openSets.map((set) => set.exerciseId));
   const nextSet = openSets[0];
-  const nextExercise = session.exercises?.find((exercise) => exercise.exerciseId === nextSet?.exerciseId);
+  const nextExercise = session.exercises?.find(
+    (exercise) => exercise.exerciseId === nextSet?.exerciseId,
+  );
 
   return {
     hints: compactStrings([
@@ -218,7 +221,9 @@ const buildWorkoutSessionEnrichment = (
         : session.status === 'in-progress'
           ? 'Mark the session completed or add a finisher set if more work is needed.'
           : 'Review notes and confirm the session status is final.',
-      session.status === 'in-progress' ? 'Pause or complete the session when the workout ends.' : undefined,
+      session.status === 'in-progress'
+        ? 'Pause or complete the session when the workout ends.'
+        : undefined,
     ]),
     relatedState: compactRecord({
       action: context.action,
@@ -374,11 +379,85 @@ export const buildAgentEnrichment = (
   }
 };
 
+export const setAgentEnrichmentContext = (
+  request: FastifyRequest,
+  context?: AgentEnrichmentContext,
+) => {
+  if (context) {
+    requestEnrichmentContext.set(request, context);
+    return;
+  }
+
+  requestEnrichmentContext.delete(request);
+};
+
+const parseJsonPayload = (payload: string | Buffer): unknown => {
+  try {
+    return JSON.parse(typeof payload === 'string' ? payload : payload.toString('utf-8'));
+  } catch {
+    return undefined;
+  }
+};
+
+const isResponseEnvelope = (
+  value: unknown,
+): value is {
+  data: unknown;
+  agent?: AgentEnrichment;
+} => isRecord(value) && 'data' in value;
+
+const enrichResponseEnvelope = (
+  request: FastifyRequest,
+  envelope: { data: unknown; agent?: AgentEnrichment },
+) => {
+  const context = requestEnrichmentContext.get(request);
+  if (!context || envelope.agent !== undefined) {
+    return envelope;
+  }
+
+  const agent = buildAgentEnrichment(request, envelope.data, context);
+  return agent ? { ...envelope, agent } : envelope;
+};
+
+export const agentEnrichmentOnSend: onSendHookHandler = async (request, _reply, payload) => {
+  if (!isAgentRequest(request)) {
+    requestEnrichmentContext.delete(request);
+    return payload;
+  }
+
+  if (!requestEnrichmentContext.has(request)) {
+    return payload;
+  }
+
+  if (typeof payload === 'string' || Buffer.isBuffer(payload)) {
+    const parsed = parseJsonPayload(payload);
+    if (!isResponseEnvelope(parsed)) {
+      requestEnrichmentContext.delete(request);
+      return payload;
+    }
+
+    const enriched = enrichResponseEnvelope(request, parsed);
+    requestEnrichmentContext.delete(request);
+    const serialized = JSON.stringify(enriched);
+    return typeof payload === 'string' ? serialized : Buffer.from(serialized);
+  }
+
+  if (isResponseEnvelope(payload)) {
+    const enriched = enrichResponseEnvelope(request, payload);
+    requestEnrichmentContext.delete(request);
+    return enriched;
+  }
+
+  requestEnrichmentContext.delete(request);
+  return payload;
+};
+
 export const buildDataResponse = <T>(
   request: FastifyRequest,
   data: T,
   context?: AgentEnrichmentContext,
 ) => {
+  setAgentEnrichmentContext(request, context);
   const agent = buildAgentEnrichment(request, data, context);
 
   return agent ? { data, agent } : { data };

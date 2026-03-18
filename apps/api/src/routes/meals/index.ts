@@ -15,10 +15,10 @@ import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { autoCreateIfMissing, resolveByName } from '../agentEnrichment.js';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import { autoCreateIfMissing, resolveByName } from '../../middleware/agent-transforms.js';
 import { trackFoodUsage } from '../foods/store.js';
 import {
   apiErrorResponseSchema,

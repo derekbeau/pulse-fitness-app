@@ -6,7 +6,7 @@ import type {
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
 
-import { autoCreateIfMissing } from './agentEnrichment.js';
+import { autoCreateIfMissing, parseRepsInput } from '../middleware/agent-transforms.js';
 import { updateOwnedExercise } from './exercises/store.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
@@ -206,28 +206,6 @@ export const buildTemplateSections = async ({
     newExercises,
   };
 };
-
-function parseRepsInput(reps: number | string): { repsMin: number; repsMax: number } {
-  if (typeof reps === 'number') {
-    return { repsMin: reps, repsMax: reps };
-  }
-
-  const rangeMatch = reps.match(/^(\d+)\s*-\s*(\d+)$/);
-  if (rangeMatch) {
-    return {
-      repsMin: Number.parseInt(rangeMatch[1], 10),
-      repsMax: Number.parseInt(rangeMatch[2], 10),
-    };
-  }
-
-  const singleMatch = reps.match(/^(\d+)$/);
-  if (singleMatch) {
-    const value = Number.parseInt(singleMatch[1], 10);
-    return { repsMin: value, repsMax: value };
-  }
-
-  return { repsMin: 10, repsMax: 10 };
-}
 
 export const toCreateWorkoutSessionInput = (
   session: WorkoutSession,
