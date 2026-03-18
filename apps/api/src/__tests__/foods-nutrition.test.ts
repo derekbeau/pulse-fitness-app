@@ -165,6 +165,12 @@ const decrementFoodUsageInState = (foodId: string, userId: string) => {
 };
 
 vi.mock('../routes/foods/store.js', () => ({
+  FoodMergeSameIdError: class FoodMergeSameIdError extends Error {},
+  FoodMergeNotFoundError: class FoodMergeNotFoundError extends Error {
+    constructor(public readonly foodRole: 'winner' | 'loser') {
+      super(`Merge ${foodRole} food not found`);
+    }
+  },
   createFood: vi.fn(
     async (
       input: Omit<StoredFood, 'createdAt' | 'updatedAt' | 'lastUsedAt' | 'usageCount' | 'tags'> & {
@@ -231,6 +237,14 @@ vi.mock('../routes/foods/store.js', () => ({
       };
     },
   ),
+  findFoodById: vi.fn(async (id: string, userId: string) => {
+    const existing = testState.foods.get(id);
+    if (!existing || existing.userId !== userId) {
+      return undefined;
+    }
+
+    return existing;
+  }),
   updateFood: vi.fn(async (id: string, userId: string, updates: Partial<StoredFood>) => {
     const existing = testState.foods.get(id);
     if (!existing || existing.userId !== userId) {
@@ -262,6 +276,46 @@ vi.mock('../routes/foods/store.js', () => ({
 
     testState.foods.delete(id);
     return true;
+  }),
+  mergeFoods: vi.fn(async (userId: string, winnerId: string, loserId: string) => {
+    if (winnerId === loserId) {
+      throw new Error('winnerId and loserId must be different');
+    }
+
+    const winner = testState.foods.get(winnerId);
+    const loser = testState.foods.get(loserId);
+    if (!winner || winner.userId !== userId) {
+      throw new Error('Merge winner food not found');
+    }
+    if (!loser || loser.userId !== userId) {
+      throw new Error('Merge loser food not found');
+    }
+
+    for (const [id, item] of testState.mealItems.entries()) {
+      if (item.foodId === loserId) {
+        testState.mealItems.set(id, {
+          ...item,
+          foodId: winnerId,
+        });
+      }
+    }
+
+    const mergedWinner: StoredFood = {
+      ...winner,
+      usageCount: winner.usageCount + loser.usageCount,
+      lastUsedAt:
+        winner.lastUsedAt === null
+          ? loser.lastUsedAt
+          : loser.lastUsedAt === null
+            ? winner.lastUsedAt
+            : Math.max(winner.lastUsedAt, loser.lastUsedAt),
+      updatedAt: Date.now(),
+    };
+
+    testState.foods.set(winnerId, mergedWinner);
+    testState.foods.delete(loserId);
+
+    return mergedWinner;
   }),
   trackFoodUsage: vi.fn(async (foodId: string, userId: string, lastUsedAt = Date.now()) => {
     incrementFoodUsageInState(foodId, userId, lastUsedAt);

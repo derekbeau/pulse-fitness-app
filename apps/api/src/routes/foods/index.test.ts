@@ -6,13 +6,28 @@ import {
   findUserAuthById,
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
-import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
+import {
+  createFood,
+  deleteFood,
+  findFoodById,
+  FoodMergeNotFoundError,
+  listFoods,
+  mergeFoods,
+  updateFood,
+} from './store.js';
 
 vi.mock('./store.js', () => ({
+  FoodMergeSameIdError: class FoodMergeSameIdError extends Error {},
+  FoodMergeNotFoundError: class FoodMergeNotFoundError extends Error {
+    constructor(public readonly foodRole: 'winner' | 'loser') {
+      super(`Merge ${foodRole} food not found`);
+    }
+  },
   createFood: vi.fn(),
   deleteFood: vi.fn(),
   findFoodById: vi.fn(),
   listFoods: vi.fn(),
+  mergeFoods: vi.fn(),
   updateFood: vi.fn(),
 }));
 
@@ -105,6 +120,7 @@ describe('foods routes', () => {
     vi.mocked(deleteFood).mockReset();
     vi.mocked(findFoodById).mockReset();
     vi.mocked(listFoods).mockReset();
+    vi.mocked(mergeFoods).mockReset();
     vi.mocked(updateFood).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
@@ -400,6 +416,13 @@ describe('foods routes', () => {
             name: 'Updated',
           },
         }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+          payload: {
+            loserId: '22222222-2222-4222-8222-222222222222',
+          },
+        }),
       ]);
 
       for (const response of requests) {
@@ -411,6 +434,151 @@ describe('foods routes', () => {
           },
         });
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('merges foods and returns the updated winner food', async () => {
+    vi.mocked(mergeFoods).mockResolvedValue(
+      buildFood({
+        id: '11111111-1111-4111-8111-111111111111',
+        usageCount: 14,
+        lastUsedAt: 1_700_000_100_000,
+      }),
+    );
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          loserId: '22222222-2222-4222-8222-222222222222',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: buildFood({
+          id: '11111111-1111-4111-8111-111111111111',
+          usageCount: 14,
+          lastUsedAt: 1_700_000_100_000,
+        }),
+      });
+      expect(vi.mocked(mergeFoods)).toHaveBeenCalledWith(
+        'user-1',
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 400 for invalid merge requests', async () => {
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+
+      const [sameIdResponse, invalidBodyResponse] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            loserId: '11111111-1111-4111-8111-111111111111',
+          },
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+          headers: createAuthorizationHeader(authToken),
+          payload: {
+            loserId: 'food-1',
+          },
+        }),
+      ]);
+
+      expect(sameIdResponse.statusCode).toBe(400);
+      expect(sameIdResponse.json()).toEqual({
+        error: {
+          code: 'INVALID_FOOD_MERGE',
+          message: 'winnerId and loserId must be different',
+        },
+      });
+      expect(vi.mocked(mergeFoods)).not.toHaveBeenCalled();
+
+      expect(invalidBodyResponse.statusCode).toBe(400);
+      expectValidationError(invalidBodyResponse.json(), {
+        method: 'POST',
+        url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+        instancePath: '/loserId',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns 404 when either merge food cannot be found', async () => {
+    vi.mocked(mergeFoods)
+      .mockRejectedValueOnce(new FoodMergeNotFoundError('loser'))
+      .mockRejectedValueOnce(new FoodMergeNotFoundError('winner'));
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+
+      const loserMissingResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/foods/11111111-1111-4111-8111-111111111111/merge',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          loserId: '22222222-2222-4222-8222-222222222222',
+        },
+      });
+
+      const winnerMissingResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/foods/33333333-3333-4333-8333-333333333333/merge',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          loserId: '22222222-2222-4222-8222-222222222222',
+        },
+      });
+
+      expect(loserMissingResponse.statusCode).toBe(404);
+      expect(loserMissingResponse.json()).toEqual({
+        error: {
+          code: 'FOOD_NOT_FOUND',
+          message: 'Food not found',
+        },
+      });
+
+      expect(winnerMissingResponse.statusCode).toBe(404);
+      expect(winnerMissingResponse.json()).toEqual({
+        error: {
+          code: 'FOOD_NOT_FOUND',
+          message: 'Food not found',
+        },
+      });
     } finally {
       await app.close();
     }

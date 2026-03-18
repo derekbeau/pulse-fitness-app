@@ -8,7 +8,7 @@ import type {
   UpdateFoodInput,
 } from '@pulse/shared';
 
-import { foods } from '../../db/schema/index.js';
+import { foods, mealItems } from '../../db/schema/index.js';
 
 export type FoodRecord = Food;
 
@@ -21,6 +21,20 @@ export type FoodListResult = {
   foods: FoodRecord[];
   total: number;
 };
+
+export class FoodMergeSameIdError extends Error {
+  constructor() {
+    super('winnerId and loserId must be different');
+    this.name = 'FoodMergeSameIdError';
+  }
+}
+
+export class FoodMergeNotFoundError extends Error {
+  constructor(public readonly foodRole: 'winner' | 'loser') {
+    super(`Merge ${foodRole} food not found`);
+    this.name = 'FoodMergeNotFoundError';
+  }
+}
 
 const foodSelection = {
   id: foods.id,
@@ -395,6 +409,100 @@ export const deleteFood = async (id: string, userId: string): Promise<boolean> =
     .run();
 
   return result.changes === 1;
+};
+
+const mergeLastUsedAt = (winnerLastUsedAt: number | null, loserLastUsedAt: number | null) => {
+  if (winnerLastUsedAt === null) {
+    return loserLastUsedAt;
+  }
+
+  if (loserLastUsedAt === null) {
+    return winnerLastUsedAt;
+  }
+
+  return Math.max(winnerLastUsedAt, loserLastUsedAt);
+};
+
+export const mergeFoods = async (
+  userId: string,
+  winnerId: string,
+  loserId: string,
+): Promise<FoodRecord> => {
+  if (winnerId === loserId) {
+    throw new FoodMergeSameIdError();
+  }
+
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const winner = tx
+      .select(foodSelection)
+      .from(foods)
+      .where(and(eq(foods.id, winnerId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!winner) {
+      throw new FoodMergeNotFoundError('winner');
+    }
+
+    const loser = tx
+      .select(foodSelection)
+      .from(foods)
+      .where(and(eq(foods.id, loserId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!loser) {
+      throw new FoodMergeNotFoundError('loser');
+    }
+
+    tx.update(mealItems).set({ foodId: winnerId }).where(eq(mealItems.foodId, loserId)).run();
+
+    const now = Date.now();
+    const updatedWinnerUsageCount = winner.usageCount + loser.usageCount;
+    const updatedWinnerLastUsedAt = mergeLastUsedAt(winner.lastUsedAt, loser.lastUsedAt);
+
+    const winnerUpdateResult = tx
+      .update(foods)
+      .set({
+        usageCount: updatedWinnerUsageCount,
+        lastUsedAt: updatedWinnerLastUsedAt,
+        updatedAt: now,
+      })
+      .where(and(eq(foods.id, winnerId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .run();
+
+    if (winnerUpdateResult.changes !== 1) {
+      throw new Error('Failed to update winner food during merge');
+    }
+
+    const loserDeleteResult = tx
+      .update(foods)
+      .set({
+        deletedAt: new Date(now).toISOString(),
+        updatedAt: now,
+      })
+      .where(and(eq(foods.id, loserId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .run();
+
+    if (loserDeleteResult.changes !== 1) {
+      throw new Error('Failed to soft-delete loser food during merge');
+    }
+
+    const mergedWinner = tx
+      .select(foodSelection)
+      .from(foods)
+      .where(and(eq(foods.id, winnerId), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!mergedWinner) {
+      throw new Error('Failed to load merged winner food');
+    }
+
+    return mergedWinner;
+  });
 };
 
 export const trackFoodUsage = async (
