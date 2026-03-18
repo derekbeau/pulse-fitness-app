@@ -962,41 +962,53 @@ describe('nutrition routes', () => {
     }
   });
 
-  it('returns agent-enriched daily summary payloads for AgentToken requests', async () => {
+  it('returns the same daily summary schema for JWT and AgentToken callers', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-1',
     });
     vi.mocked(getDailyNutritionSummaryForDate).mockResolvedValue(nutritionSummary);
-    vi.mocked(getDailyNutritionForDate).mockResolvedValue({
-      log: {
-        id: 'log-1',
-        userId: 'user-1',
-        date: '2026-03-09',
-        notes: null,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      meals: [{ meal, items: mealItems }],
-    });
 
     const app = buildServer();
 
     try {
       await app.ready();
-      const response = await app.inject({
-        method: 'GET',
-        url: '/api/v1/nutrition/2026-03-09/summary',
-        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
-      });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/summary',
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
 
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({
-        data: {
-          summary: nutritionSummary,
-          meals: [{ meal, items: mealItems }],
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual({
+        data: nutritionSummary,
+      });
+      expect(agentResponse.statusCode).toBe(200);
+      expect(agentResponse.json()).toMatchObject({
+        data: nutritionSummary,
+        agent: {
+          hints: expect.arrayContaining([expect.any(String)]),
+          suggestedActions: expect.arrayContaining([expect.any(String)]),
+          relatedState: expect.objectContaining({
+            date: '2026-03-09',
+            meals: nutritionSummary.meals,
+            actual: nutritionSummary.actual,
+            target: nutritionSummary.target,
+          }),
         },
       });
+      expect(vi.mocked(getDailyNutritionForDate)).not.toHaveBeenCalled();
       expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();

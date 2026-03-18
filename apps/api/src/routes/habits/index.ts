@@ -14,7 +14,8 @@ import { z } from 'zod';
 import { getTodayDate } from '../../lib/date.js';
 import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -46,17 +47,7 @@ const habitWithTodayEntrySchema = habitSchema.extend({
   todayEntry: habitTodayEntrySchema.nullable(),
 });
 
-const agentHabitListItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  trackingType: habitSchema.shape.trackingType,
-  todayEntry: habitTodayEntrySchema.nullable(),
-});
-
-const listHabitsResponseSchema = z.union([
-  apiDataResponseSchema(z.array(habitWithTodayEntrySchema)),
-  apiDataResponseSchema(z.array(agentHabitListItemSchema)),
-]);
+const listHabitsResponseSchema = apiDataResponseSchema(z.array(habitWithTodayEntrySchema));
 
 type UpdateHabitRequest = {
   body: z.infer<typeof updateHabitInputSchema>;
@@ -109,6 +100,7 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
   typedApp.get(
     '/',
     {
+      onSend: agentEnrichmentOnSend,
       schema: {
         response: {
           200: listHabitsResponseSchema,
@@ -120,6 +112,12 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
+      const today = getTodayDate();
+      setAgentEnrichmentContext(request, {
+        endpoint: 'habit.list',
+        date: today,
+      });
+
       if (shouldEnsureStarterHabits()) {
         await ensureStarterHabitsForUser(request.userId);
       }
@@ -129,7 +127,6 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
         return reply.send({ data: [] });
       }
 
-      const today = getTodayDate();
       const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
       const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
       const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
@@ -185,14 +182,7 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
       );
 
       return reply.send({
-        data: isAgentRequest(request)
-          ? habitsWithResolvedEntries.map((habit) => ({
-              id: habit.id,
-              name: habit.name,
-              trackingType: habit.trackingType,
-              todayEntry: habit.todayEntry,
-            }))
-          : habitsWithResolvedEntries,
+        data: habitsWithResolvedEntries,
       });
     },
   );

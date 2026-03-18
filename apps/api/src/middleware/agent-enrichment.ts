@@ -45,9 +45,17 @@ export type AgentEnrichmentContext =
       mealMacros?: MacroSummary;
     }
   | {
+      endpoint: 'nutrition.summary';
+      date: string;
+    }
+  | {
       endpoint: 'workout-session.mutation';
       action: 'create' | 'update' | 'reorder' | 'swap' | 'time-segments' | 'set';
       session?: WorkoutSession;
+    }
+  | {
+      endpoint: 'habit.list';
+      date: string;
     }
   | {
       endpoint: 'habit-entry.mutation';
@@ -112,6 +120,27 @@ const isFoodSummary = (value: unknown): value is FoodSummary =>
   typeof value.protein === 'number' &&
   typeof value.carbs === 'number' &&
   typeof value.fat === 'number';
+
+const isMacroSummary = (value: unknown): value is MacroSummary =>
+  isRecord(value) &&
+  typeof value.calories === 'number' &&
+  typeof value.protein === 'number' &&
+  typeof value.carbs === 'number' &&
+  typeof value.fat === 'number';
+
+const isNutritionSummary = (
+  value: unknown,
+): value is {
+  date: string;
+  meals: number;
+  actual: MacroSummary;
+  target: MacroSummary | null;
+} =>
+  isRecord(value) &&
+  typeof value.date === 'string' &&
+  typeof value.meals === 'number' &&
+  isMacroSummary(value.actual) &&
+  (value.target === null || isMacroSummary(value.target));
 
 const deriveMealMacros = (responseData: unknown): MacroSummary | undefined => {
   if (!isRecord(responseData)) {
@@ -181,6 +210,89 @@ const buildMealEnrichment = (
       itemCount,
       mealMacros,
     }),
+  };
+};
+
+const buildNutritionSummaryEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'nutrition.summary' }>,
+): AgentEnrichment | undefined => {
+  if (!isNutritionSummary(responseData)) {
+    return undefined;
+  }
+
+  const remainingMacros = responseData.target
+    ? {
+        calories: responseData.target.calories - responseData.actual.calories,
+        protein: responseData.target.protein - responseData.actual.protein,
+        carbs: responseData.target.carbs - responseData.actual.carbs,
+        fat: responseData.target.fat - responseData.actual.fat,
+      }
+    : undefined;
+
+  return {
+    hints: compactStrings([
+      `${pluralize(responseData.meals, 'meal')} logged for ${responseData.date}, totaling ${formatNumber(responseData.actual.calories)} kcal and ${formatNumber(responseData.actual.protein)}g protein.`,
+      remainingMacros
+        ? `Remaining target is ${formatNumber(remainingMacros.calories)} kcal, ${formatNumber(remainingMacros.protein)}g protein, ${formatNumber(remainingMacros.carbs)}g carbs, and ${formatNumber(remainingMacros.fat)}g fat.`
+        : 'No nutrition target is configured for this date.',
+    ]),
+    suggestedActions: compactStrings([
+      'Log the next meal when nutrition changes.',
+      responseData.target ? 'Use remaining macros to guide your next meal choice.' : undefined,
+    ]),
+    relatedState: compactRecord({
+      date: context.date,
+      meals: responseData.meals,
+      actual: responseData.actual,
+      target: responseData.target,
+      remaining: remainingMacros,
+    }),
+  };
+};
+
+const buildHabitListEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'habit.list' }>,
+): AgentEnrichment | undefined => {
+  if (!Array.isArray(responseData)) {
+    return undefined;
+  }
+
+  const completedHabits = responseData.reduce((count, habit) => {
+    if (!isRecord(habit) || !isRecord(habit.todayEntry)) {
+      return count;
+    }
+
+    return habit.todayEntry.completed === true ? count + 1 : count;
+  }, 0);
+  const totalHabits = responseData.length;
+  const remainingHabits = Math.max(0, totalHabits - completedHabits);
+
+  return {
+    hints: compactStrings([
+      totalHabits === 0
+        ? `No active habits are configured for ${context.date}.`
+        : `${completedHabits}/${totalHabits} habits are complete for ${context.date}.`,
+      remainingHabits > 0
+        ? `${pluralize(remainingHabits, 'habit')} still ${remainingHabits === 1 ? 'needs' : 'need'} attention.`
+        : totalHabits > 0
+          ? 'All active habits are complete for today.'
+          : undefined,
+    ]),
+    suggestedActions: compactStrings([
+      remainingHabits > 0
+        ? 'Update any remaining habits as you complete them.'
+        : totalHabits > 0
+          ? "Review tomorrow's habit plan and targets."
+          : 'Create or restore habits to start tracking daily progress.',
+    ]),
+    relatedState: {
+      date: context.date,
+      totalHabits,
+      completedHabits,
+      remainingHabits,
+    },
   };
 };
 
@@ -404,8 +516,12 @@ export const buildAgentEnrichment = (
     case 'meal.create':
     case 'meal.update':
       return buildMealEnrichment(responseData, context);
+    case 'nutrition.summary':
+      return buildNutritionSummaryEnrichment(responseData, context);
     case 'workout-session.mutation':
       return buildWorkoutSessionEnrichment(responseData, context);
+    case 'habit.list':
+      return buildHabitListEnrichment(responseData, context);
     case 'habit-entry.mutation':
       return buildHabitEntryEnrichment(responseData, context);
     case 'weight.mutation':
