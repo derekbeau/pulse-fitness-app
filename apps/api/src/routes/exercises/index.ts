@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  agentCreateExerciseInputSchema,
-  agentExerciseCreateResponseSchema,
+  agentExerciseDedupCandidateSchema,
   apiDataResponseSchema,
   apiPaginatedResponseSchema,
   createExerciseInputSchema,
@@ -18,7 +17,9 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
+import { agentEnrichmentOnSend } from '../../middleware/agent-enrichment.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -56,29 +57,9 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
   message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
 
-const DEFAULT_CATEGORY = 'compound' as const;
-const DEFAULT_TRACKING_TYPE = 'weight_reps' as const;
-
-// Fastify can only advertise one static body schema, so this union keeps
-// validation and OpenAPI generation in Fastify while the auth-mode guard below
-// rejects the branch that does not match the resolved credentials.
-const createExerciseRequestSchema = z.union([
-  createExerciseInputSchema.transform((data) => ({
-    mode: 'standard' as const,
-    data,
-  })),
-  agentCreateExerciseInputSchema.transform((data) => ({
-    mode: 'agent' as const,
-    data,
-  })),
-]);
-
-const agentExerciseListItemSchema = exerciseSchema.pick({
-  id: true,
-  name: true,
-  category: true,
-  muscleGroups: true,
-  equipment: true,
+const exerciseCreateDedupResponseSchema = z.object({
+  created: z.literal(false),
+  candidates: z.array(agentExerciseDedupCandidateSchema).min(1),
 });
 
 const exerciseFiltersSchema = z.object({
@@ -178,14 +159,13 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
-        body: createExerciseRequestSchema,
+        body: createExerciseInputSchema,
         response: {
-          200: apiDataResponseSchema(agentExerciseCreateResponseSchema),
-          201: z.union([
-            apiDataResponseSchema(exerciseSchema),
-            apiDataResponseSchema(agentExerciseCreateResponseSchema),
-          ]),
+          200: apiDataResponseSchema(exerciseCreateDedupResponseSchema),
+          201: apiDataResponseSchema(exerciseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
         },
@@ -195,20 +175,12 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      if (isAgentRequest(request) && request.body.mode !== 'agent') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
-      }
-
-      if (!isAgentRequest(request) && request.body.mode !== 'standard') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid exercise payload');
-      }
-
-      if (request.body.mode === 'agent') {
+      if (isAgentRequest(request)) {
         const dedupCandidates = await findExerciseDedupCandidates({
           userId: request.userId,
-          name: request.body.data.name,
+          name: request.body.name,
         });
-        if (dedupCandidates.length > 0 && !request.body.data.force) {
+        if (dedupCandidates.length > 0 && !request.body.force) {
           return reply.send({
             data: {
               created: false,
@@ -216,58 +188,11 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
             },
           });
         }
-
-        const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
-          userId: request.userId,
-          exerciseIds: request.body.data.relatedExerciseIds,
-        });
-        if (!hasValidRelatedExerciseIds) {
-          return sendError(
-            reply,
-            400,
-            INVALID_RELATED_EXERCISES_RESPONSE.code,
-            INVALID_RELATED_EXERCISES_RESPONSE.message,
-          );
-        }
-
-        const exercise = await createExercise({
-          id: randomUUID(),
-          userId: request.userId,
-          name: request.body.data.name,
-          category: request.body.data.category ?? DEFAULT_CATEGORY,
-          trackingType: DEFAULT_TRACKING_TYPE,
-          muscleGroups: request.body.data.muscleGroups ?? [],
-          equipment: request.body.data.equipment ?? '',
-          tags: [],
-          formCues: [],
-          instructions: null,
-          coachingNotes: request.body.data.coachingNotes ?? null,
-          relatedExerciseIds: request.body.data.relatedExerciseIds,
-        });
-
-        return reply.code(201).send({
-          data: {
-            created: true,
-            exercise: {
-              id: exercise.id,
-              name: exercise.name,
-              category: exercise.category,
-              trackingType: exercise.trackingType,
-              muscleGroups: exercise.muscleGroups,
-              equipment: exercise.equipment,
-              instructions: exercise.instructions,
-              coachingNotes: exercise.coachingNotes,
-              relatedExerciseIds: exercise.relatedExerciseIds,
-              tags: exercise.tags,
-              formCues: exercise.formCues,
-            },
-          },
-        });
       }
 
       const hasValidRelatedExerciseIds = await allRelatedExercisesOwned({
         userId: request.userId,
-        exerciseIds: request.body.data.relatedExerciseIds,
+        exerciseIds: request.body.relatedExerciseIds,
       });
       if (!hasValidRelatedExerciseIds) {
         return sendError(
@@ -281,7 +206,16 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       const exercise = await createExercise({
         id: randomUUID(),
         userId: request.userId,
-        ...request.body.data,
+        name: request.body.name,
+        muscleGroups: request.body.muscleGroups,
+        equipment: request.body.equipment,
+        category: request.body.category,
+        trackingType: request.body.trackingType,
+        tags: request.body.tags,
+        formCues: request.body.formCues,
+        instructions: request.body.instructions,
+        coachingNotes: request.body.coachingNotes,
+        relatedExerciseIds: request.body.relatedExerciseIds,
       });
 
       return reply.code(201).send({
@@ -296,10 +230,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         querystring: exerciseQueryParamsSchema,
         response: {
-          200: z.union([
-            apiPaginatedResponseSchema(exerciseSchema),
-            apiDataResponseSchema(z.array(agentExerciseListItemSchema)),
-          ]),
+          200: apiPaginatedResponseSchema(exerciseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
         },
@@ -315,18 +246,6 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       });
 
       reply.header('Cache-Control', 'private, no-cache');
-
-      if (isAgentRequest(request)) {
-        return reply.send({
-          data: result.data.map((exercise) => ({
-            id: exercise.id,
-            name: exercise.name,
-            category: exercise.category,
-            muscleGroups: exercise.muscleGroups,
-            equipment: exercise.equipment,
-          })),
-        });
-      }
 
       return reply.send(result);
     },

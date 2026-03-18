@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
-import { findUserAuthById } from '../../middleware/store.js';
+import {
+  findAgentTokenByHash,
+  findUserAuthById,
+  updateAgentTokenLastUsedAt,
+} from '../../middleware/store.js';
 import { listHabitEntriesByDateRange } from '../habit-entries/store.js';
 import {
   createHabit,
@@ -25,7 +29,9 @@ vi.mock('./store.js', () => ({
   updateHabit: vi.fn(),
 }));
 vi.mock('../../middleware/store.js', () => ({
+  findAgentTokenByHash: vi.fn(),
   findUserAuthById: vi.fn(),
+  updateAgentTokenLastUsedAt: vi.fn(),
 }));
 vi.mock('../auth/store.js', () => ({
   ensureStarterHabitsForUser: vi.fn(),
@@ -42,8 +48,8 @@ vi.mock('../../lib/habit-resolvers.js', () => ({
   resolveHabitCompletion: vi.fn(),
 }));
 
-const createAuthorizationHeader = (token: string) => ({
-  authorization: `Bearer ${token}`,
+const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
+  authorization: `${scheme} ${token}`,
 });
 
 const expectRequestValidationError = (
@@ -72,10 +78,13 @@ describe('habit routes', () => {
     vi.mocked(reorderHabits).mockReset();
     vi.mocked(softDeleteHabit).mockReset();
     vi.mocked(updateHabit).mockReset();
+    vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
+    vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(listHabitEntriesByDateRange).mockReset();
     vi.mocked(resolveHabitCompletion).mockReset();
     vi.mocked(findUserAuthById).mockResolvedValue({ id: 'user-1' });
+    vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     vi.mocked(ensureStarterHabitsForUser).mockReset();
     vi.mocked(ensureStarterHabitsForUser).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-habit-secret';
@@ -163,7 +172,7 @@ describe('habit routes', () => {
     }
   });
 
-  it('lists the authenticated users active habits sorted by sort order', async () => {
+  it('returns the same habit list schema for JWT and AgentToken callers', async () => {
     vi.mocked(listHabitEntriesByDateRange).mockResolvedValue([]);
     vi.mocked(listActiveHabits).mockResolvedValue([
       {
@@ -203,63 +212,96 @@ describe('habit routes', () => {
         updatedAt: 1_700_000_100_000,
       },
     ]);
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
 
     const app = buildServer();
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
-      const response = await app.inject({
-        method: 'GET',
-        url: '/api/v1/habits',
-        headers: createAuthorizationHeader(authToken),
-      });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/habits',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/habits',
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
 
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({
+      const expectedData = [
+        {
+          id: 'habit-2',
+          userId: 'user-1',
+          name: 'Water',
+          description: null,
+          emoji: '💧',
+          trackingType: 'numeric',
+          target: 8,
+          unit: 'glasses',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
+          sortOrder: 0,
+          active: true,
+          createdAt: 1_700_000_000_000,
+          updatedAt: 1_700_000_000_000,
+          todayEntry: null,
+        },
+        {
+          id: 'habit-1',
+          userId: 'user-1',
+          name: 'Sleep',
+          description: null,
+          emoji: '😴',
+          trackingType: 'time',
+          target: 8,
+          unit: 'hours',
+          frequency: 'daily',
+          frequencyTarget: null,
+          scheduledDays: null,
+          pausedUntil: null,
+          sortOrder: 1,
+          active: true,
+          createdAt: 1_700_000_100_000,
+          updatedAt: 1_700_000_100_000,
+          todayEntry: null,
+        },
+      ];
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual({
         data: [
-          {
-            id: 'habit-2',
-            userId: 'user-1',
-            name: 'Water',
-            description: null,
-            emoji: '💧',
-            trackingType: 'numeric',
-            target: 8,
-            unit: 'glasses',
-            frequency: 'daily',
-            frequencyTarget: null,
-            scheduledDays: null,
-            pausedUntil: null,
-            sortOrder: 0,
-            active: true,
-            createdAt: 1_700_000_000_000,
-            updatedAt: 1_700_000_000_000,
-            todayEntry: null,
-          },
-          {
-            id: 'habit-1',
-            userId: 'user-1',
-            name: 'Sleep',
-            description: null,
-            emoji: '😴',
-            trackingType: 'time',
-            target: 8,
-            unit: 'hours',
-            frequency: 'daily',
-            frequencyTarget: null,
-            scheduledDays: null,
-            pausedUntil: null,
-            sortOrder: 1,
-            active: true,
-            createdAt: 1_700_000_100_000,
-            updatedAt: 1_700_000_100_000,
-            todayEntry: null,
-          },
+          ...expectedData,
         ],
+      });
+      expect(agentResponse.statusCode).toBe(200);
+      expect(agentResponse.json()).toMatchObject({
+        data: expectedData,
+        agent: {
+          hints: expect.arrayContaining([expect.any(String)]),
+          suggestedActions: expect.arrayContaining([expect.any(String)]),
+          relatedState: expect.objectContaining({
+            date: expect.any(String),
+            totalHabits: 2,
+            completedHabits: 0,
+            remainingHabits: 2,
+          }),
+        },
       });
       expect(vi.mocked(listActiveHabits)).toHaveBeenCalledWith('user-1');
       expect(vi.mocked(resolveHabitCompletion)).not.toHaveBeenCalled();
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();
     }

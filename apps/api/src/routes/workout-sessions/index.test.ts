@@ -3528,24 +3528,30 @@ describe('workout session routes', () => {
     );
   });
 
-  it('creates agent-style sessions at /api/v1/workout-sessions with AgentToken auth', async () => {
+  it('creates sessions with AgentToken auth using templateName resolution', async () => {
     const agentToken = seedAgentToken('user-1');
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
 
     const response = await context.app.inject({
       method: 'POST',
       url: '/api/v1/workout-sessions',
       headers: createAgentTokenHeader(agentToken),
       payload: {
+        templateName: ' Upper Push ',
         name: 'Quick Lift',
+        date: '2026-03-12',
+        startedAt,
       },
     });
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
       data: expect.objectContaining({
+        templateId: 'template-1',
         name: 'Quick Lift',
         status: 'in-progress',
-        date: expect.any(String),
+        date: '2026-03-12',
+        startedAt,
       }),
       agent: expect.objectContaining({
         hints: [
@@ -3559,13 +3565,63 @@ describe('workout session routes', () => {
         relatedState: expect.objectContaining({
           action: 'create',
           status: 'in-progress',
-          totalSets: 0,
-          completedSets: 0,
-          remainingSets: 0,
-          remainingExercises: 0,
-          nextSet: null,
+          totalSets: expect.any(Number),
+          completedSets: expect.any(Number),
         }),
       }),
+    });
+  });
+
+  it('returns 404 when AgentToken templateName cannot be resolved', async () => {
+    const agentToken = seedAgentToken('user-1', 'agent-template-miss-token');
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        templateName: 'Unknown Template',
+        name: 'Quick Lift',
+        date: '2026-03-12',
+        startedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_TEMPLATE_NOT_FOUND',
+        message: 'Workout template not found',
+      },
+    });
+  });
+
+  it('rejects templateName for JWT callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateName: 'Upper Push',
+        name: 'Quick Lift',
+        date: '2026-03-12',
+        startedAt,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'templateName is only supported for AgentToken requests',
+      },
     });
   });
 
@@ -3633,5 +3689,284 @@ describe('workout session routes', () => {
       name: 'Landmine Press',
       userId: 'user-1',
     });
+  });
+
+  it('allows agent PATCH updates for duration, name, feedback, and timestamps', async () => {
+    const agentToken = seedAgentToken('user-1', 'agent-standard-fields-token');
+    const startedAt = Date.parse('2026-03-12T10:00:00.000Z');
+    const completedAt = Date.parse('2026-03-12T10:20:00.000Z');
+
+    seedWorkoutSession({
+      id: 'session-agent-standard-fields',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Original Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt,
+      completedAt,
+      duration: 1_200,
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:20:00.000Z',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-agent-standard-fields',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        name: ' Updated Session ',
+        startedAt: Date.parse('2026-03-12T10:05:00.000Z'),
+        completedAt: Date.parse('2026-03-12T10:30:00.000Z'),
+        duration: 1_500,
+        feedback: {
+          energy: 5,
+          recovery: 4,
+          technique: 4,
+          notes: ' Strong finish ',
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-agent-standard-fields',
+        name: 'Updated Session',
+        startedAt: Date.parse('2026-03-12T10:05:00.000Z'),
+        completedAt: Date.parse('2026-03-12T10:30:00.000Z'),
+        duration: 1_500,
+        feedback: {
+          energy: 5,
+          recovery: 4,
+          technique: 4,
+          notes: 'Strong finish',
+        },
+      }),
+      agent: expect.objectContaining({
+        relatedState: expect.objectContaining({
+          action: 'update',
+        }),
+      }),
+    });
+  });
+
+  it('supports set upserts via exerciseId (JWT) and exerciseName (AgentToken)', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'agent-set-upsert-token');
+
+    seedWorkoutSession({
+      id: 'session-jwt-upsert',
+      userId: 'user-1',
+      name: 'JWT Upsert Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-jwt-upsert-set-1',
+      sessionId: 'session-jwt-upsert',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      completed: false,
+      section: 'main',
+    });
+
+    const jwtResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-jwt-upsert',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, weight: 205, reps: 6 }],
+      },
+    });
+
+    expect(jwtResponse.statusCode).toBe(200);
+    expect(jwtResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-jwt-upsert',
+        sets: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'global-bench-press',
+            setNumber: 1,
+            weight: 205,
+            reps: 6,
+            completed: true,
+          }),
+        ]),
+      }),
+    });
+
+    seedWorkoutSession({
+      id: 'session-agent-upsert',
+      userId: 'user-1',
+      name: 'Agent Upsert Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const agentResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-agent-upsert',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        sets: [{ exerciseName: 'Landmine Press', setNumber: 1, weight: 70, reps: 10 }],
+      },
+    });
+
+    expect(agentResponse.statusCode).toBe(200);
+    expect(agentResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-agent-upsert',
+        sets: expect.arrayContaining([
+          expect.objectContaining({
+            setNumber: 1,
+            weight: 70,
+            reps: 10,
+            completed: true,
+          }),
+        ]),
+      }),
+      agent: expect.objectContaining({
+        relatedState: expect.objectContaining({
+          action: 'update',
+        }),
+      }),
+    });
+
+    const createdExercise = context.db
+      .select({ id: exercises.id, name: exercises.name, userId: exercises.userId })
+      .from(exercises)
+      .where(eq(exercises.name, 'Landmine Press'))
+      .get();
+    expect(createdExercise).toEqual({
+      id: expect.any(String),
+      name: 'Landmine Press',
+      userId: 'user-1',
+    });
+  });
+
+  it('applies addExercises/removeExercises/reorderExercises for both JWT and AgentToken callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'agent-exercise-mutations-token');
+
+    seedWorkoutSession({
+      id: 'session-jwt-mutations',
+      userId: 'user-1',
+      name: 'JWT Mutations Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-jwt-mutations-bench',
+      sessionId: 'session-jwt-mutations',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-jwt-mutations-lat',
+      sessionId: 'session-jwt-mutations',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const jwtResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-jwt-mutations',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        addExercises: [{ exerciseId: 'user-1-plank', sets: 1, section: 'main' }],
+        removeExercises: ['user-1-lat-pulldown'],
+        reorderExercises: ['user-1-plank', 'global-bench-press'],
+      },
+    });
+
+    expect(jwtResponse.statusCode).toBe(200);
+    expect(jwtResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-jwt-mutations',
+        sets: expect.arrayContaining([
+          expect.objectContaining({ exerciseId: 'global-bench-press' }),
+          expect.objectContaining({ exerciseId: 'user-1-plank' }),
+        ]),
+      }),
+    });
+    expect(
+      (jwtResponse.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('user-1-lat-pulldown');
+
+    seedWorkoutSession({
+      id: 'session-agent-mutations',
+      userId: 'user-1',
+      name: 'Agent Mutations Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-agent-mutations-bench',
+      sessionId: 'session-agent-mutations',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-agent-mutations-lat',
+      sessionId: 'session-agent-mutations',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const agentResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-agent-mutations',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        addExercises: [{ name: 'RKC Plank', sets: 1, section: 'main' }],
+        removeExercises: ['user-1-lat-pulldown'],
+        reorderExercises: ['user-1-plank', 'global-bench-press'],
+      },
+    });
+
+    expect(agentResponse.statusCode).toBe(200);
+    expect(agentResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-agent-mutations',
+      }),
+      agent: expect.objectContaining({
+        relatedState: expect.objectContaining({
+          action: 'update',
+        }),
+      }),
+    });
+    expect(
+      (agentResponse.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).toEqual(expect.arrayContaining(['global-bench-press', 'user-1-plank']));
+    expect(
+      (agentResponse.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('user-1-lat-pulldown');
   });
 });

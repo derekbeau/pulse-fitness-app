@@ -187,6 +187,83 @@ describe('OpenAPI docs', () => {
     }
   });
 
+  it('documents unified request-body schemas without auth-branch anyOf bodies', async () => {
+    const app = buildServer();
+
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/docs/json',
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const body = response.json() as {
+        paths: Record<string, Partial<Record<(typeof HTTP_METHODS)[number], Record<string, unknown>>>>;
+      };
+
+      const operationsWithRequestBody = Object.entries(body.paths).flatMap(([routePath, methods]) =>
+        HTTP_METHODS.flatMap((method) => {
+          const operation = methods[method];
+          if (!operation || typeof operation !== 'object' || !('requestBody' in operation)) {
+            return [];
+          }
+
+          return [{ routePath, method, operation }];
+        }),
+      );
+
+      expect(operationsWithRequestBody.length).toBeGreaterThan(0);
+
+      for (const { routePath, method, operation } of operationsWithRequestBody) {
+        const requestBody = operation.requestBody as
+          | {
+              content?: {
+                'application/json'?: {
+                  schema?: Record<string, unknown>;
+                };
+              };
+            }
+          | undefined;
+
+        const schema = requestBody?.content?.['application/json']?.schema;
+        if (!schema) {
+          continue;
+        }
+
+        expect(
+          schema.anyOf,
+          `Unexpected top-level anyOf in ${method.toUpperCase()} ${routePath}`,
+        ).toBeUndefined();
+      }
+
+      const serialized = JSON.stringify(body);
+      const removedSchemaNames = [
+        'agentCreateFoodInputSchema',
+        'agentFoodResultSchema',
+        'agentFoodSearchParamsSchema',
+        'agentMealItemInputSchema',
+        'agentCreateMealInputSchema',
+        'agentWorkoutTemplateExerciseInputSchema',
+        'agentWorkoutTemplateSectionInputSchema',
+        'agentCreateWorkoutTemplateInputSchema',
+        'agentUpdateWorkoutTemplateInputSchema',
+        'agentCreateWorkoutSessionInputSchema',
+        'agentWorkoutSetUpsertInputSchema',
+        'agentWorkoutSessionExerciseMutationSchema',
+        'agentUpdateWorkoutSessionInputSchema',
+        'agentCreateExerciseInputSchema',
+        'agentPatchExerciseInputSchema',
+      ];
+
+      for (const schemaName of removedSchemaNames) {
+        expect(serialized).not.toContain(schemaName);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it('documents all versioned API operations with tags, summaries, responses, and matching security', async () => {
     const app = buildServer();
 

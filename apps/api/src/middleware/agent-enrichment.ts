@@ -5,7 +5,7 @@ import type {
   HabitTrackingType,
   WorkoutSession,
 } from '@pulse/shared';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyRequest, onSendHookHandler } from 'fastify';
 
 import { isAgentRequest } from './auth.js';
 
@@ -45,9 +45,17 @@ export type AgentEnrichmentContext =
       mealMacros?: MacroSummary;
     }
   | {
+      endpoint: 'nutrition.summary';
+      date: string;
+    }
+  | {
       endpoint: 'workout-session.mutation';
       action: 'create' | 'update' | 'reorder' | 'swap' | 'time-segments' | 'set';
       session?: WorkoutSession;
+    }
+  | {
+      endpoint: 'habit.list';
+      date: string;
     }
   | {
       endpoint: 'habit-entry.mutation';
@@ -61,7 +69,13 @@ export type AgentEnrichmentContext =
   | {
       endpoint: 'food.create';
       similarFoods?: Array<Pick<FoodSummary, 'id' | 'name' | 'brand'>>;
+    }
+  | {
+      endpoint: 'workout-template.mutation';
+      action: 'create' | 'update';
     };
+
+const requestEnrichmentContext = new WeakMap<FastifyRequest, AgentEnrichmentContext>();
 
 const formatNumber = (value: number) => {
   if (Number.isInteger(value)) {
@@ -106,6 +120,27 @@ const isFoodSummary = (value: unknown): value is FoodSummary =>
   typeof value.protein === 'number' &&
   typeof value.carbs === 'number' &&
   typeof value.fat === 'number';
+
+const isMacroSummary = (value: unknown): value is MacroSummary =>
+  isRecord(value) &&
+  typeof value.calories === 'number' &&
+  typeof value.protein === 'number' &&
+  typeof value.carbs === 'number' &&
+  typeof value.fat === 'number';
+
+const isNutritionSummary = (
+  value: unknown,
+): value is {
+  date: string;
+  meals: number;
+  actual: MacroSummary;
+  target: MacroSummary | null;
+} =>
+  isRecord(value) &&
+  typeof value.date === 'string' &&
+  typeof value.meals === 'number' &&
+  isMacroSummary(value.actual) &&
+  (value.target === null || isMacroSummary(value.target));
 
 const deriveMealMacros = (responseData: unknown): MacroSummary | undefined => {
   if (!isRecord(responseData)) {
@@ -156,8 +191,7 @@ const buildMealEnrichment = (
         ? record.name
         : 'meal');
   const itemCount =
-    context.itemCount ??
-    (record && Array.isArray(record.items) ? record.items.length : undefined);
+    context.itemCount ?? (record && Array.isArray(record.items) ? record.items.length : undefined);
 
   return {
     hints: compactStrings([
@@ -176,6 +210,89 @@ const buildMealEnrichment = (
       itemCount,
       mealMacros,
     }),
+  };
+};
+
+const buildNutritionSummaryEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'nutrition.summary' }>,
+): AgentEnrichment | undefined => {
+  if (!isNutritionSummary(responseData)) {
+    return undefined;
+  }
+
+  const remainingMacros = responseData.target
+    ? {
+        calories: responseData.target.calories - responseData.actual.calories,
+        protein: responseData.target.protein - responseData.actual.protein,
+        carbs: responseData.target.carbs - responseData.actual.carbs,
+        fat: responseData.target.fat - responseData.actual.fat,
+      }
+    : undefined;
+
+  return {
+    hints: compactStrings([
+      `${pluralize(responseData.meals, 'meal')} logged for ${responseData.date}, totaling ${formatNumber(responseData.actual.calories)} kcal and ${formatNumber(responseData.actual.protein)}g protein.`,
+      remainingMacros
+        ? `Remaining target is ${formatNumber(remainingMacros.calories)} kcal, ${formatNumber(remainingMacros.protein)}g protein, ${formatNumber(remainingMacros.carbs)}g carbs, and ${formatNumber(remainingMacros.fat)}g fat.`
+        : 'No nutrition target is configured for this date.',
+    ]),
+    suggestedActions: compactStrings([
+      'Log the next meal when nutrition changes.',
+      responseData.target ? 'Use remaining macros to guide your next meal choice.' : undefined,
+    ]),
+    relatedState: compactRecord({
+      date: context.date,
+      meals: responseData.meals,
+      actual: responseData.actual,
+      target: responseData.target,
+      remaining: remainingMacros,
+    }),
+  };
+};
+
+const buildHabitListEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'habit.list' }>,
+): AgentEnrichment | undefined => {
+  if (!Array.isArray(responseData)) {
+    return undefined;
+  }
+
+  const completedHabits = responseData.reduce((count, habit) => {
+    if (!isRecord(habit) || !isRecord(habit.todayEntry)) {
+      return count;
+    }
+
+    return habit.todayEntry.completed === true ? count + 1 : count;
+  }, 0);
+  const totalHabits = responseData.length;
+  const remainingHabits = Math.max(0, totalHabits - completedHabits);
+
+  return {
+    hints: compactStrings([
+      totalHabits === 0
+        ? `No active habits are configured for ${context.date}.`
+        : `${completedHabits}/${totalHabits} habits are complete for ${context.date}.`,
+      remainingHabits > 0
+        ? `${pluralize(remainingHabits, 'habit')} still ${remainingHabits === 1 ? 'needs' : 'need'} attention.`
+        : totalHabits > 0
+          ? 'All active habits are complete for today.'
+          : undefined,
+    ]),
+    suggestedActions: compactStrings([
+      remainingHabits > 0
+        ? 'Update any remaining habits as you complete them.'
+        : totalHabits > 0
+          ? "Review tomorrow's habit plan and targets."
+          : 'Create or restore habits to start tracking daily progress.',
+    ]),
+    relatedState: {
+      date: context.date,
+      totalHabits,
+      completedHabits,
+      remainingHabits,
+    },
   };
 };
 
@@ -203,7 +320,9 @@ const buildWorkoutSessionEnrichment = (
   const exerciseIds = new Set(sortedSets.map((set) => set.exerciseId));
   const remainingExerciseIds = new Set(openSets.map((set) => set.exerciseId));
   const nextSet = openSets[0];
-  const nextExercise = session.exercises?.find((exercise) => exercise.exerciseId === nextSet?.exerciseId);
+  const nextExercise = session.exercises?.find(
+    (exercise) => exercise.exerciseId === nextSet?.exerciseId,
+  );
 
   return {
     hints: compactStrings([
@@ -218,7 +337,9 @@ const buildWorkoutSessionEnrichment = (
         : session.status === 'in-progress'
           ? 'Mark the session completed or add a finisher set if more work is needed.'
           : 'Review notes and confirm the session status is final.',
-      session.status === 'in-progress' ? 'Pause or complete the session when the workout ends.' : undefined,
+      session.status === 'in-progress'
+        ? 'Pause or complete the session when the workout ends.'
+        : undefined,
     ]),
     relatedState: compactRecord({
       action: context.action,
@@ -348,6 +469,40 @@ const buildFoodEnrichment = (
   };
 };
 
+const buildWorkoutTemplateEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'workout-template.mutation' }>,
+): AgentEnrichment | undefined => {
+  if (!isRecord(responseData) || !Array.isArray(responseData.sections)) {
+    return undefined;
+  }
+
+  const sectionCount = responseData.sections.length;
+  const exerciseCount = responseData.sections
+    .filter(isRecord)
+    .reduce((count, section) => count + (Array.isArray(section.exercises) ? section.exercises.length : 0), 0);
+  const templateName = typeof responseData.name === 'string' ? responseData.name : 'Template';
+
+  return {
+    hints: compactStrings([
+      `${templateName} now has ${pluralize(exerciseCount, 'exercise')} across ${pluralize(sectionCount, 'section')}.`,
+      context.action === 'create'
+        ? 'Use this template to start a session when you are ready to train.'
+        : 'Review targets and notes to confirm the update reflects the intended workout plan.',
+    ]),
+    suggestedActions: compactStrings([
+      'Start a workout session from this template when needed.',
+      context.action === 'update' ? 'Re-check set targets for time- and load-based movements.' : undefined,
+    ]),
+    relatedState: compactRecord({
+      action: context.action,
+      templateName,
+      sectionCount,
+      exerciseCount,
+    }),
+  };
+};
+
 export const buildAgentEnrichment = (
   request: FastifyRequest,
   responseData: unknown,
@@ -361,17 +516,96 @@ export const buildAgentEnrichment = (
     case 'meal.create':
     case 'meal.update':
       return buildMealEnrichment(responseData, context);
+    case 'nutrition.summary':
+      return buildNutritionSummaryEnrichment(responseData, context);
     case 'workout-session.mutation':
       return buildWorkoutSessionEnrichment(responseData, context);
+    case 'habit.list':
+      return buildHabitListEnrichment(responseData, context);
     case 'habit-entry.mutation':
       return buildHabitEntryEnrichment(responseData, context);
     case 'weight.mutation':
       return buildWeightEnrichment(responseData, context);
     case 'food.create':
       return buildFoodEnrichment(responseData, context);
+    case 'workout-template.mutation':
+      return buildWorkoutTemplateEnrichment(responseData, context);
     default:
       return undefined;
   }
+};
+
+export const setAgentEnrichmentContext = (
+  request: FastifyRequest,
+  context?: AgentEnrichmentContext,
+) => {
+  if (context) {
+    requestEnrichmentContext.set(request, context);
+    return;
+  }
+
+  requestEnrichmentContext.delete(request);
+};
+
+const parseJsonPayload = (payload: string | Buffer): unknown => {
+  try {
+    return JSON.parse(typeof payload === 'string' ? payload : payload.toString('utf-8'));
+  } catch {
+    return undefined;
+  }
+};
+
+const isResponseEnvelope = (
+  value: unknown,
+): value is {
+  data: unknown;
+  agent?: AgentEnrichment;
+} => isRecord(value) && 'data' in value;
+
+const enrichResponseEnvelope = (
+  request: FastifyRequest,
+  envelope: { data: unknown; agent?: AgentEnrichment },
+) => {
+  const context = requestEnrichmentContext.get(request);
+  if (!context || envelope.agent !== undefined) {
+    return envelope;
+  }
+
+  const agent = buildAgentEnrichment(request, envelope.data, context);
+  return agent ? { ...envelope, agent } : envelope;
+};
+
+export const agentEnrichmentOnSend: onSendHookHandler = async (request, _reply, payload) => {
+  if (!isAgentRequest(request)) {
+    requestEnrichmentContext.delete(request);
+    return payload;
+  }
+
+  if (!requestEnrichmentContext.has(request)) {
+    return payload;
+  }
+
+  if (typeof payload === 'string' || Buffer.isBuffer(payload)) {
+    const parsed = parseJsonPayload(payload);
+    if (!isResponseEnvelope(parsed)) {
+      requestEnrichmentContext.delete(request);
+      return payload;
+    }
+
+    const enriched = enrichResponseEnvelope(request, parsed);
+    requestEnrichmentContext.delete(request);
+    const serialized = JSON.stringify(enriched);
+    return typeof payload === 'string' ? serialized : Buffer.from(serialized);
+  }
+
+  if (isResponseEnvelope(payload)) {
+    const enriched = enrichResponseEnvelope(request, payload);
+    requestEnrichmentContext.delete(request);
+    return enriched;
+  }
+
+  requestEnrichmentContext.delete(request);
+  return payload;
 };
 
 export const buildDataResponse = <T>(

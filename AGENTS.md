@@ -60,6 +60,8 @@ pnpm --filter shared build  # Build shared package
 - API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`
 - JWTs are for web app sessions; AgentToken auth is for agent integrations.
 - Agent-specific convenience features such as name resolution, auto-create behavior, and response enrichment activate automatically when a request uses AgentToken auth.
+- Unified endpoint schemas are shared across JWT and AgentToken callers; route-level auth-branch schema unions are deprecated.
+- Agent conveniences should be handled by middleware (`agentRequestTransform` pre-handler and `agentEnrichmentOnSend` on-send), not route-handler branching.
 - Sensitive routes such as auth management and agent token CRUD are JWT-only.
 - JWTs issued by Pulse include `type: "session"` and `iss: "pulse-api"` claims; hand-crafted JWTs without these claims are rejected.
 - Success response: `{ data: T, agent?: AgentEnrichment }`

@@ -13,11 +13,10 @@ import {
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
-import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
 import { trackFoodUsage } from '../foods/store.js';
 import {
   apiErrorResponseSchema,
@@ -43,11 +42,6 @@ import {
 
 const isNonEmptyString = (value: string | null): value is string =>
   typeof value === 'string' && value.length > 0;
-
-const nutritionSummaryWithMealsSchema = z.object({
-  summary: nutritionSummarySchema,
-  meals: z.array(dailyNutritionMealSchema),
-});
 
 export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -81,6 +75,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/:date/meals',
     {
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: dateParamsSchema,
         body: createMealInputSchema,
@@ -122,15 +117,17 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         { calories: 0, protein: 0, carbs: 0, fat: 0 },
       );
 
-      return reply.code(201).send(
-        buildDataResponse(request, created, {
-          endpoint: 'meal.create',
-          mealDate: request.params.date,
-          mealName: created.meal.name,
-          itemCount: created.items.length,
-          mealMacros,
-        }),
-      );
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.create',
+        mealDate: request.params.date,
+        mealName: created.meal.name,
+        itemCount: created.items.length,
+        mealMacros,
+      });
+
+      return reply.code(201).send({
+        data: created,
+      });
     },
   );
 
@@ -161,13 +158,11 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   typedApp.get(
     '/:date/summary',
     {
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: dateParamsSchema,
         response: {
-          200: z.union([
-            apiDataResponseSchema(nutritionSummarySchema),
-            apiDataResponseSchema(nutritionSummaryWithMealsSchema),
-          ]),
+          200: apiDataResponseSchema(nutritionSummarySchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
         },
@@ -177,21 +172,11 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      if (isAgentRequest(request)) {
-        const [summary, dailyNutrition] = await Promise.all([
-          getDailyNutritionSummaryForDate(request.userId, request.params.date),
-          getDailyNutritionForDate(request.userId, request.params.date),
-        ]);
-
-        return reply.send({
-          data: {
-            summary,
-            meals: dailyNutrition?.meals ?? [],
-          },
-        });
-      }
-
       const summary = await getDailyNutritionSummaryForDate(request.userId, request.params.date);
+      setAgentEnrichmentContext(request, {
+        endpoint: 'nutrition.summary',
+        date: request.params.date,
+      });
 
       return reply.send({
         data: summary,
@@ -237,6 +222,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   typedApp.patch(
     '/:date/meals/:mealId',
     {
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: mealParamsSchema,
         body: patchMealInputSchema,
@@ -266,19 +252,22 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      return reply.send(
-        buildDataResponse(request, updatedMeal, {
-          endpoint: 'meal.update',
-          mealDate: request.params.date,
-          mealName: updatedMeal.name,
-        }),
-      );
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.update',
+        mealDate: request.params.date,
+        mealName: updatedMeal.name,
+      });
+
+      return reply.send({
+        data: updatedMeal,
+      });
     },
   );
 
   typedApp.patch(
     '/:date/meals/:mealId/items/:itemId',
     {
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: mealItemParamsSchema,
         body: patchMealItemInputSchema,
@@ -314,20 +303,22 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 404, 'MEAL_ITEM_NOT_FOUND', 'Meal item not found');
       }
 
-      return reply.send(
-        buildDataResponse(request, updatedMealItem, {
-          endpoint: 'meal.update',
-          mealDate: request.params.date,
-          mealName: existingMealItem.name,
-          itemCount: 1,
-          mealMacros: {
-            calories: updatedMealItem.calories,
-            protein: updatedMealItem.protein,
-            carbs: updatedMealItem.carbs,
-            fat: updatedMealItem.fat,
-          },
-        }),
-      );
+      setAgentEnrichmentContext(request, {
+        endpoint: 'meal.update',
+        mealDate: request.params.date,
+        mealName: existingMealItem.name,
+        itemCount: 1,
+        mealMacros: {
+          calories: updatedMealItem.calories,
+          protein: updatedMealItem.protein,
+          carbs: updatedMealItem.carbs,
+          fat: updatedMealItem.fat,
+        },
+      });
+
+      return reply.send({
+        data: updatedMealItem,
+      });
     },
   );
 };

@@ -67,18 +67,44 @@ export const exerciseSchema = z.object({
   updatedAt: z.number().int(),
 });
 
-export const createExerciseInputSchema = z.object({
-  name: requiredStringSchema,
-  muscleGroups: z.array(requiredStringSchema).min(1).max(20),
-  equipment: requiredStringSchema,
-  category: exerciseCategorySchema,
-  trackingType: exerciseTrackingTypeSchema.optional().default('weight_reps'),
-  tags: z.array(z.string()).optional().default([]),
-  formCues: z.array(z.string()).optional().default([]),
-  instructions: nullableInstructionsSchema.optional().default(null),
-  coachingNotes: nullableCoachingNotesSchema.optional().default(null),
-  relatedExerciseIds: z.array(z.string()).max(20).optional().default([]),
-});
+const createExerciseInputBaseSchema = z
+  .object({
+    name: requiredStringSchema.optional(),
+    exerciseName: requiredStringSchema.optional(),
+    muscleGroups: z.array(requiredStringSchema).max(20).optional().default([]),
+    equipment: responseStringSchema.optional().default(''),
+    category: exerciseCategorySchema.optional().default('compound'),
+    trackingType: exerciseTrackingTypeSchema.optional().default('weight_reps'),
+    tags: z.array(z.string()).optional().default([]),
+    formCues: z.array(z.string()).optional().default([]),
+    instructions: nullableInstructionsSchema.optional().default(null),
+    coachingNotes: nullableCoachingNotesSchema.optional().default(null),
+    relatedExerciseIds: z.array(z.string()).max(20).optional().default([]),
+    force: z.boolean().optional().default(false),
+  })
+  .refine((value) => value.name !== undefined || value.exerciseName !== undefined, {
+    message: 'name or exerciseName is required',
+    path: ['name'],
+  });
+
+export const createExerciseInputSchema = createExerciseInputBaseSchema.transform(
+  ({ name, exerciseName, ...rest }, ctx) => {
+    const resolvedName = name ?? exerciseName;
+    if (!resolvedName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['name'],
+        message: 'name or exerciseName is required',
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...rest,
+      name: resolvedName,
+    };
+  },
+);
 
 export const updateExerciseInputSchema = z
   .object({

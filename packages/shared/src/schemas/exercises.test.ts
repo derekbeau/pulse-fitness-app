@@ -164,6 +164,7 @@ describe('createExerciseInputSchema', () => {
       instructions: null,
       coachingNotes: null,
       relatedExerciseIds: [],
+      force: false,
     });
   });
 
@@ -191,9 +192,35 @@ describe('createExerciseInputSchema', () => {
       instructions: null,
       coachingNotes: null,
       relatedExerciseIds: [],
+      force: false,
     };
 
     expect(payload.category).toBe('cardio');
+  });
+
+  it('accepts exerciseName alias and applies agent-compatible defaults', () => {
+    const payload = createExerciseInputSchema.parse({
+      exerciseName: ' Landmine Press ',
+      coachingNotes: ' Keep ribs stacked. ',
+    });
+
+    expect(payload).toEqual({
+      name: 'Landmine Press',
+      category: 'compound',
+      trackingType: 'weight_reps',
+      muscleGroups: [],
+      equipment: '',
+      tags: [],
+      formCues: [],
+      instructions: null,
+      coachingNotes: 'Keep ribs stacked.',
+      relatedExerciseIds: [],
+      force: false,
+    });
+  });
+
+  it('requires name or exerciseName', () => {
+    expect(() => createExerciseInputSchema.parse({ category: 'compound' })).toThrow();
   });
 
   it('rejects relatedExerciseIds beyond the limit', () => {

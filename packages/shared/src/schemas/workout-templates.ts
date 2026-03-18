@@ -102,7 +102,9 @@ export const workoutTemplateSectionSchema = z.object({
 
 const workoutTemplateExerciseInputSchema = z
   .object({
-    exerciseId: requiredStringSchema,
+    exerciseId: requiredStringSchema.optional(),
+    exerciseName: requiredStringSchema.optional(),
+    reps: z.union([z.number().int().min(1).max(1000), z.string().trim().min(1).max(20)]).optional(),
     sets: nullablePositiveIntSchema.optional().default(null),
     repsMin: nullablePositiveIntSchema.optional().default(null),
     repsMax: nullablePositiveIntSchema.optional().default(null),
@@ -120,7 +122,23 @@ const workoutTemplateExerciseInputSchema = z
       message: 'repsMin must be less than or equal to repsMax',
       path: ['repsMax'],
     },
-  );
+  )
+  .transform((value, context) => {
+    const resolvedExerciseId = value.exerciseId ?? value.exerciseName;
+    if (!resolvedExerciseId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exerciseId or exerciseName is required',
+        path: ['exerciseId'],
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...value,
+      exerciseId: resolvedExerciseId,
+    };
+  });
 
 const workoutTemplateSectionInputSchema = z.object({
   type: workoutTemplateSectionTypeSchema,

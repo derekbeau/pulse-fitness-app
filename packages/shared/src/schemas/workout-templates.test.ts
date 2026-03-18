@@ -252,6 +252,45 @@ describe('createWorkoutTemplateInputSchema', () => {
     });
   });
 
+  it('accepts agent convenience fields on exercises', () => {
+    const payload = createWorkoutTemplateInputSchema.parse({
+      name: 'Agent Template',
+      sections: [
+        {
+          type: 'main',
+          exercises: [
+            {
+              exerciseName: 'Incline Bench Press',
+              reps: '8-10',
+              sets: 3,
+              repsMin: null,
+              repsMax: null,
+              tempo: '3010',
+              setTargets: [{ setNumber: 1, targetWeight: 70 }],
+              programmingNotes: 'Progress load weekly.',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(payload.sections[0]?.exercises[0]).toEqual({
+      exerciseId: 'Incline Bench Press',
+      exerciseName: 'Incline Bench Press',
+      reps: '8-10',
+      sets: 3,
+      repsMin: null,
+      repsMax: null,
+      tempo: '3010',
+      restSeconds: null,
+      supersetGroup: null,
+      notes: null,
+      cues: [],
+      setTargets: [{ setNumber: 1, targetWeight: 70 }],
+      programmingNotes: 'Progress load weekly.',
+    });
+  });
+
   it('rejects duplicate sections and invalid rep ranges', () => {
     expect(() =>
       createWorkoutTemplateInputSchema.parse({

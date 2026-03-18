@@ -1,80 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  agentUpdateWorkoutSessionInputSchema,
-  agentPatchExerciseInputSchema,
-  agentCreateWorkoutTemplateInputSchema,
-  type AgentCreateWorkoutTemplateInput,
+  agentExerciseSearchParamsSchema,
+  agentUpdateHabitEntryInputSchema,
 } from './agent.js';
 
-describe('agentCreateWorkoutTemplateInputSchema', () => {
-  it('accepts both template cues and durable form cues on exercises', () => {
-    const payload: AgentCreateWorkoutTemplateInput = agentCreateWorkoutTemplateInputSchema.parse({
-      name: ' Upper A ',
-      sections: [
-        {
-          name: ' Main ',
-          exercises: [
-            {
-              name: ' Incline Press ',
-              sets: 4,
-              reps: 8,
-              cues: [' week 1 keep RPE 7 '],
-              formCues: [' keep wrists stacked '],
-            },
-          ],
-        },
-      ],
-    });
-
-    expect(payload).toEqual({
-      name: 'Upper A',
-      sections: [
-        {
-          name: 'Main',
-          exercises: [
-            {
-              name: 'Incline Press',
-              sets: 4,
-              reps: 8,
-              cues: ['week 1 keep RPE 7'],
-              formCues: ['keep wrists stacked'],
-            },
-          ],
-        },
-      ],
+describe('agentExerciseSearchParamsSchema', () => {
+  it('coerces and defaults query params', () => {
+    expect(
+      agentExerciseSearchParamsSchema.parse({
+        q: ' press ',
+      }),
+    ).toEqual({
+      q: 'press',
+      limit: 10,
     });
   });
 });
 
-describe('agentPatchExerciseInputSchema', () => {
-  it('accepts enrichment updates for exercise metadata operations', () => {
-    const payload = agentPatchExerciseInputSchema.parse({
-      name: ' Incline Dumbbell Press ',
-      coachingNotes: ' Keep elbows stacked under wrists. ',
-      relatedExerciseIds: ['exercise-1', 'exercise-2'],
-    });
-
-    expect(payload).toEqual({
-      name: 'Incline Dumbbell Press',
-      coachingNotes: 'Keep elbows stacked under wrists.',
-      relatedExerciseIds: ['exercise-1', 'exercise-2'],
-    });
-  });
-});
-
-describe('agentUpdateWorkoutSessionInputSchema', () => {
-  it('accepts mid-session exercise mutations', () => {
-    const payload = agentUpdateWorkoutSessionInputSchema.parse({
-      addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10 }],
-      removeExercises: ['exercise-1'],
-      reorderExercises: ['exercise-2', 'exercise-1'],
-    });
-
-    expect(payload).toEqual({
-      addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10, section: 'main' }],
-      removeExercises: ['exercise-1'],
-      reorderExercises: ['exercise-2', 'exercise-1'],
-    });
+describe('agentUpdateHabitEntryInputSchema', () => {
+  it('requires at least one updatable value', () => {
+    expect(() =>
+      agentUpdateHabitEntryInputSchema.parse({
+        date: '2026-03-12',
+      }),
+    ).toThrow('At least one habit entry field must be provided');
   });
 });
