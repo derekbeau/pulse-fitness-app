@@ -1345,6 +1345,194 @@ describe('exercise routes', () => {
     });
   });
 
+  it('persists formCues, coachingNotes, and instructions across patch/put read-after-write flows', async () => {
+    seedExercise({
+      id: 'metadata-exercise',
+      userId: 'user-1',
+      name: 'Cable Row',
+      muscleGroups: ['lats'],
+      equipment: 'cable',
+      category: 'compound',
+      formCues: [],
+      instructions: null,
+      coachingNotes: null,
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const patchResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        formCues: ['Keep elbows tucked'],
+        coachingNotes: 'Focus on form',
+        instructions: 'Stand with feet shoulder-width apart.',
+      },
+    });
+
+    expect(patchResponse.statusCode).toBe(200);
+    expect(patchResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'metadata-exercise',
+        formCues: ['Keep elbows tucked'],
+        coachingNotes: 'Focus on form',
+        instructions: 'Stand with feet shoulder-width apart.',
+      }),
+    });
+
+    const listAfterPatchResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(listAfterPatchResponse.statusCode).toBe(200);
+    const listAfterPatch = listAfterPatchResponse.json() as {
+      data: Array<{
+        id: string;
+        formCues: string[];
+        coachingNotes: string | null;
+        instructions: string | null;
+      }>;
+    };
+    expect(listAfterPatch.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
+      expect.objectContaining({
+        formCues: ['Keep elbows tucked'],
+        coachingNotes: 'Focus on form',
+        instructions: 'Stand with feet shoulder-width apart.',
+      }),
+    );
+
+    const putResponse = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Cable Row v2',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+    expect(putResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'metadata-exercise',
+        name: 'Cable Row v2',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      }),
+    });
+
+    const listAfterPutResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(listAfterPutResponse.statusCode).toBe(200);
+    const listAfterPut = listAfterPutResponse.json() as {
+      data: Array<{
+        id: string;
+        formCues: string[];
+        coachingNotes: string | null;
+        instructions: string | null;
+      }>;
+    };
+    expect(listAfterPut.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
+      expect.objectContaining({
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      }),
+    );
+
+    const patchWithoutMetadataFields = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Cable Row v3',
+      },
+    });
+
+    expect(patchWithoutMetadataFields.statusCode).toBe(200);
+    expect(patchWithoutMetadataFields.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'metadata-exercise',
+        name: 'Cable Row v3',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      }),
+    });
+
+    const patchNullMetadataResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        coachingNotes: null,
+        instructions: null,
+      },
+    });
+
+    expect(patchNullMetadataResponse.statusCode).toBe(200);
+    expect(patchNullMetadataResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'metadata-exercise',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: null,
+        instructions: null,
+      }),
+    });
+
+    const listAfterNullPatchResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=20',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(listAfterNullPatchResponse.statusCode).toBe(200);
+    const listAfterNullPatch = listAfterNullPatchResponse.json() as {
+      data: Array<{
+        id: string;
+        formCues: string[];
+        coachingNotes: string | null;
+        instructions: string | null;
+      }>;
+    };
+    expect(listAfterNullPatch.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
+      expect.objectContaining({
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: null,
+        instructions: null,
+      }),
+    );
+
+    const persistedMetadata = context.db
+      .select({
+        formCues: exercises.formCues,
+        coachingNotes: exercises.coachingNotes,
+        instructions: exercises.instructions,
+      })
+      .from(exercises)
+      .where(eq(exercises.id, 'metadata-exercise'))
+      .get();
+
+    expect(persistedMetadata).toEqual({
+      formCues: ['Brace core and pull elbows back'],
+      coachingNotes: null,
+      instructions: null,
+    });
+  });
+
   it('deletes only user-specific exercises and rejects global rows', async () => {
     seedExercise({
       id: 'user-exercise',
