@@ -123,7 +123,7 @@ describe('SessionDetail', () => {
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
     expect(
-      screen.getByRole('button', { name: 'Open Incline Dumbbell Press trend chart' }),
+      screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }),
     ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
@@ -408,7 +408,7 @@ describe('SessionDetail', () => {
     expect(await screen.findByText('First session — no comparison available')).toBeInTheDocument();
   });
 
-  it('opens an exercise trend chart from the session detail exercise action', async () => {
+  it('opens full exercise history from the session detail exercise action', async () => {
     const currentSession = createSession({
       id: 'session-current',
       templateId: 'template-upper-push',
@@ -441,12 +441,13 @@ describe('SessionDetail', () => {
     await screen.findByText('Workout receipt');
 
     fireEvent.click(
-      screen.getByRole('button', { name: /open incline dumbbell press trend chart/i }),
+      screen.getByRole('button', { name: /open incline dumbbell press history/i }),
     );
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Incline Dumbbell Press trends')).toBeInTheDocument();
-    expect(screen.getByLabelText('Incline Dumbbell Press trend chart')).toBeInTheDocument();
+    expect(screen.getByText('Incline Dumbbell Press history')).toBeInTheDocument();
+    expect(await screen.findByText(/Mar 1, 2026 -/)).toBeInTheDocument();
+    expect(screen.getByText(/8 reps/)).toBeInTheDocument();
   });
 
   it('supports inline correction editing and only submits changed values', async () => {
@@ -730,6 +731,24 @@ function mockSessionDetailRequests({
             createdAt: 1,
             updatedAt: 1,
           },
+        }),
+      );
+    }
+
+    if (url.includes('/api/v1/exercises/incline-dumbbell-press/history')) {
+      return Promise.resolve(
+        jsonResponse({
+          data: [
+            {
+              sessionId: 'session-last',
+              date: '2026-03-01',
+              notes: null,
+              sets: [
+                { setNumber: 1, reps: 8, weight: 105 },
+                { setNumber: 2, reps: 8, weight: 100 },
+              ],
+            },
+          ],
         }),
       );
     }

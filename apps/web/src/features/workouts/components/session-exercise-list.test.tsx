@@ -1266,6 +1266,141 @@ describe('SessionExerciseList', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows all sets in the inline history preview for the latest session', () => {
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 0,
+      currentExercise: 1,
+      currentExerciseId: 'incline-dumbbell-press',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['compound'],
+              category: 'compound',
+              completedSets: 0,
+              formCues: [],
+              id: 'incline-dumbbell-press',
+              injuryCues: [],
+              lastPerformance: {
+                date: '2026-03-13',
+                sessionId: 'session-last',
+                sets: [
+                  { completed: true, reps: 12, setNumber: 1, weight: 25 },
+                  { completed: true, reps: 12, setNumber: 2, weight: 25 },
+                ],
+              },
+              name: 'Incline Dumbbell Press',
+              notes: '',
+              phaseBadge: 'moderate',
+              prescribedSets: 2,
+              prescribedReps: '10-12',
+              priority: 'required',
+              restSeconds: 90,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: false,
+                  distance: null,
+                  id: 'incline-set-1',
+                  number: 1,
+                  reps: null,
+                  seconds: null,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              templateCues: [],
+              tempo: null,
+              targetSets: 1,
+              trackingType: 'weight_reps',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'History Preview Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
+      .closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(
+      within(card as HTMLElement).getByText(/Mar 13 - 25 lbs × 12 reps, 25 lbs × 12 reps/),
+    ).toBeInTheDocument();
+  });
+
+  it('opens and closes full history modal from active workout exercise rows', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/row-erg/history') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                sessionId: 'session-1',
+                date: '2026-03-17',
+                notes: null,
+                sets: [
+                  { setNumber: 1, reps: 15, weight: 25 },
+                  { setNumber: 2, reps: 12, weight: 25 },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Row Erg history' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Row Erg history')).toBeInTheDocument();
+    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Row Erg history')).not.toBeInTheDocument();
+    });
+  });
+
   it('renders related history collapsed by default and expands on demand', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');

@@ -1180,6 +1180,53 @@ describe('WorkoutTemplateDetail', () => {
     expect(await screen.findByText('Superset A')).toBeInTheDocument();
   });
 
+  it('opens exercise history modal from template exercise rows', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                sessionId: 'session-1',
+                date: '2026-03-06',
+                notes: 'Strong session',
+                sets: [
+                  { setNumber: 1, reps: 10, weight: 70 },
+                  { setNumber: 2, reps: 9, weight: 70 },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Incline Dumbbell Press history' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Incline Dumbbell Press history')).toBeInTheDocument();
+    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
+    await waitFor(() => {
+      expect(screen.queryByText('Incline Dumbbell Press history')).not.toBeInTheDocument();
+    });
+  });
+
   it('opens exercise detail modal with overview, history, and related data and saves coaching notes', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = new URL(String(input), 'https://pulse.test');

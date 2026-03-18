@@ -21,6 +21,7 @@ import {
   ArrowUp,
   Braces,
   GripVertical,
+  History,
   Link2Off,
   MoreVertical,
   Plus,
@@ -82,6 +83,7 @@ import {
 import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
+import { ExerciseHistoryModal } from './exercise-history-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
@@ -151,6 +153,11 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
     exerciseId: string;
     templateExerciseId: string;
+  } | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    trackingType: ExerciseTrackingType;
   } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
@@ -559,6 +566,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                 templateExerciseId: exercise.id,
                               })
                             }
+                            onOpenHistory={() =>
+                              setHistoryTarget({
+                                exerciseId: exercise.exerciseId,
+                                exerciseName: exercise.exerciseName,
+                                trackingType: exercise.trackingType,
+                              })
+                            }
                             onRename={() =>
                               setRenameTarget({
                                 exerciseId: exercise.exerciseId,
@@ -634,6 +648,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                     setExerciseDetailTarget({
                                       exerciseId: exercise.exerciseId,
                                       templateExerciseId: exercise.id,
+                                    })
+                                  }
+                                  onOpenHistory={() =>
+                                    setHistoryTarget({
+                                      exerciseId: exercise.exerciseId,
+                                      exerciseName: exercise.exerciseName,
+                                      trackingType: exercise.trackingType,
                                     })
                                   }
                                   onRename={() =>
@@ -792,6 +813,20 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
           }
         />
       ) : null}
+      {historyTarget ? (
+        <ExerciseHistoryModal
+          exerciseId={historyTarget.exerciseId}
+          exerciseName={historyTarget.exerciseName}
+          onOpenChange={(open) => {
+            if (!open) {
+              setHistoryTarget(null);
+            }
+          }}
+          open={historyTarget != null}
+          trackingType={historyTarget.trackingType}
+          weightUnit={weightUnit}
+        />
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -874,6 +909,7 @@ function TemplateExerciseCard({
   index,
   isMoveDownDisabled,
   isMoveUpDisabled,
+  onOpenHistory,
   onMoveDown,
   onMoveUp,
   onOpenDetails,
@@ -886,6 +922,7 @@ function TemplateExerciseCard({
   index: number;
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
+  onOpenHistory: () => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
   onOpenDetails: () => void;
@@ -968,31 +1005,44 @@ function TemplateExerciseCard({
               ) : null}
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                aria-label={`Exercise actions for ${exercise.exerciseName}`}
-                className="-mr-1 size-11 min-h-11 min-w-11"
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <MoreVertical aria-hidden="true" className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
-              <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
-                <ArrowUp aria-hidden="true" className="size-4" />
-                Move up
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
-                <ArrowDown aria-hidden="true" className="size-4" />
-                Move down
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onRename}>Rename exercise</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <Button
+              aria-label={`Open ${exercise.exerciseName} history`}
+              className="size-11 min-h-11 min-w-11"
+              onClick={onOpenHistory}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <History aria-hidden="true" className="size-4" />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={`Exercise actions for ${exercise.exerciseName}`}
+                  className="-mr-1 size-11 min-h-11 min-w-11"
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MoreVertical aria-hidden="true" className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
+                <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
+                  <ArrowUp aria-hidden="true" className="size-4" />
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
+                  <ArrowDown aria-hidden="true" className="size-4" />
+                  Move down
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onRename}>Rename exercise</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </CardHeader>
 

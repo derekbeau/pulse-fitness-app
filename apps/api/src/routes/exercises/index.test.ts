@@ -217,7 +217,7 @@ describe('exercise routes', () => {
     seedUser('user-2', 'alex');
   });
 
-  it('requires auth for create, list, last-performance, update, and delete', async () => {
+  it('requires auth for create, list, history, last-performance, update, and delete', async () => {
     const responses = await Promise.all([
       context.app.inject({
         method: 'POST',
@@ -232,6 +232,10 @@ describe('exercise routes', () => {
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises',
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/exercise-1/history',
       }),
       context.app.inject({
         method: 'GET',
@@ -346,6 +350,14 @@ describe('exercise routes', () => {
       reps: 9,
     });
     seedSessionSet({
+      id: 'set-latest-2',
+      sessionId: 'session-latest',
+      exerciseId: 'global-bench',
+      setNumber: 2,
+      weight: 100,
+      reps: 8,
+    });
+    seedSessionSet({
       id: 'set-in-progress',
       sessionId: 'session-in-progress',
       exerciseId: 'global-bench',
@@ -383,6 +395,11 @@ describe('exercise routes', () => {
             setNumber: 1,
             weight: 105,
             reps: 9,
+          },
+          {
+            setNumber: 2,
+            weight: 100,
+            reps: 8,
           },
         ],
       },
@@ -487,6 +504,130 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns recent completed exercise history with all sets for each session', async () => {
+    seedExercise({
+      id: 'global-bench',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    seedWorkoutSession({
+      id: 'session-old',
+      userId: 'user-1',
+      name: 'Push Day',
+      date: '2026-03-01',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-01T10:00:00.000Z'),
+      completedAt: Date.parse('2026-03-01T10:45:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-latest',
+      userId: 'user-1',
+      name: 'Push Day 2',
+      date: '2026-03-08',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-08T10:00:00.000Z'),
+      completedAt: Date.parse('2026-03-08T10:50:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-in-progress',
+      userId: 'user-1',
+      name: 'Push Day Live',
+      date: '2026-03-10',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-10T10:00:00.000Z'),
+      completedAt: null,
+    });
+
+    context.db
+      .update(workoutSessions)
+      .set({ notes: 'Felt stronger than last week.' })
+      .where(eq(workoutSessions.id, 'session-latest'))
+      .run();
+
+    seedSessionSet({
+      id: 'set-old-1',
+      sessionId: 'session-old',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 95,
+      reps: 10,
+    });
+    seedSessionSet({
+      id: 'set-latest-1',
+      sessionId: 'session-latest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 105,
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'set-latest-2',
+      sessionId: 'session-latest',
+      exerciseId: 'global-bench',
+      setNumber: 2,
+      weight: 100,
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'set-in-progress-1',
+      sessionId: 'session-in-progress',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 110,
+      reps: 6,
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-bench/history?limit=2',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        {
+          sessionId: 'session-latest',
+          date: '2026-03-08',
+          notes: 'Felt stronger than last week.',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 105,
+              reps: 8,
+            },
+            {
+              setNumber: 2,
+              weight: 100,
+              reps: 8,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-old',
+          date: '2026-03-01',
+          notes: null,
+          sets: [
+            {
+              setNumber: 1,
+              weight: 95,
+              reps: 10,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('returns exact and related history when includeRelated=true', async () => {
     seedExercise({
       id: 'flat-bench',
@@ -542,6 +683,14 @@ describe('exercise routes', () => {
       reps: 5,
     });
     seedSessionSet({
+      id: 'set-flat-2',
+      sessionId: 'session-flat',
+      exerciseId: 'flat-bench',
+      setNumber: 2,
+      weight: 195,
+      reps: 6,
+    });
+    seedSessionSet({
       id: 'set-incline-1',
       sessionId: 'session-incline',
       exerciseId: 'incline-bench',
@@ -572,6 +721,11 @@ describe('exercise routes', () => {
               setNumber: 1,
               weight: 205,
               reps: 5,
+            },
+            {
+              setNumber: 2,
+              weight: 195,
+              reps: 6,
             },
           ],
         },
