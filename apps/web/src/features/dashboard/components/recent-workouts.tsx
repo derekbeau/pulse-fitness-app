@@ -7,6 +7,7 @@ import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboa
 import { formatRelativeWorkoutDate } from '@/features/dashboard/lib/recent-workouts';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { parseDateInput } from '@/lib/date';
+import { formatDuration } from '@/lib/format-utils';
 
 const WORKOUTS_TO_SHOW = 5;
 const WORKOUT_SKELETON_ROWS = 4;
@@ -78,54 +79,58 @@ export function RecentWorkouts() {
           <p className="text-sm text-muted-foreground">Unable to load recent workouts.</p>
         ) : recentWorkoutsQuery.data && recentWorkoutsQuery.data.length > 0 ? (
           <ul className="grid gap-2.5 py-0.5">
-            {recentWorkoutsQuery.data.map((workout) => (
-              <li className="min-w-0" key={workout.id}>
-                <Link
-                  aria-label={`Open ${workout.name}`}
-                  className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  to={`/workouts/sessions/${workout.id}`}
-                >
-                  <Card
-                    className="h-full gap-2.5 overflow-hidden px-3 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                    data-slot="recent-workout-card"
+            {recentWorkoutsQuery.data.map((workout) => {
+              const durationLabel = formatDuration(workout.duration);
+
+              return (
+                <li className="min-w-0" key={workout.id}>
+                  <Link
+                    aria-label={`Open ${workout.name}`}
+                    className="block cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    to={`/workouts/sessions/${workout.id}`}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 space-y-1">
-                          <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">
-                            {workout.name}
-                          </p>
-                          <time className="text-sm text-muted" dateTime={workout.date}>
-                            {formatWorkoutDate(workout.date)}
-                          </time>
-                        </div>
+                    <Card
+                      className="h-full gap-2.5 overflow-hidden px-3 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                      data-slot="recent-workout-card"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-1">
+                            <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">
+                              {workout.name}
+                            </p>
+                            <time className="text-sm text-muted" dateTime={workout.date}>
+                              {formatWorkoutDate(workout.date)}
+                            </time>
+                          </div>
 
-                        <span className="shrink-0 rounded-full bg-[var(--color-accent-cream)] px-2 py-1 text-[11px] font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
-                          {formatRelativeWorkoutDate(workout.date)}
-                        </span>
-                      </div>
-
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <div className="flex min-w-0 flex-wrap gap-1.5 text-xs text-foreground">
-                          <span className="rounded-full bg-secondary px-2 py-0.5">
-                            {`${workout.exerciseCount} exercises`}
-                          </span>
-                          <span className="rounded-full bg-secondary px-2 py-0.5">
-                            {workout.duration === null ? 'Duration n/a' : `${workout.duration} min`}
+                          <span className="shrink-0 rounded-full bg-[var(--color-accent-cream)] px-2 py-1 text-[11px] font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
+                            {formatRelativeWorkoutDate(workout.date)}
                           </span>
                         </div>
-                        <span
-                          aria-hidden="true"
-                          className="inline-flex shrink-0 items-center text-muted-foreground"
-                        >
-                          <ChevronRight className="size-4" />
-                        </span>
+
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <div className="flex min-w-0 flex-wrap gap-1.5 text-xs text-foreground">
+                            <span className="rounded-full bg-secondary px-2 py-0.5">
+                              {`${workout.exerciseCount} exercises`}
+                            </span>
+                            <span className="rounded-full bg-secondary px-2 py-0.5">
+                              {durationLabel === '-' ? 'Duration n/a' : durationLabel}
+                            </span>
+                          </div>
+                          <span
+                            aria-hidden="true"
+                            className="inline-flex shrink-0 items-center text-muted-foreground"
+                          >
+                            <ChevronRight className="size-4" />
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                </Link>
-              </li>
-            ))}
+                    </Card>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div className="space-y-2.5" data-slot="recent-workout-empty-state">

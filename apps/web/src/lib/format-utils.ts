@@ -1,6 +1,9 @@
 type CaloriesUnit = 'none' | 'cal' | 'kcal';
 type WeightUnit = 'none' | 'lbs';
 
+const SECONDS_PER_MINUTE = 60;
+const HOUR_DISPLAY_THRESHOLD_SECONDS = 90 * SECONDS_PER_MINUTE;
+
 function normalizeNumber(value: number): number {
   return Number.isFinite(value) ? value : 0;
 }
@@ -43,4 +46,28 @@ export function formatServing(value: number): string {
   return normalizeNumber(value)
     .toFixed(2)
     .replace(/\.?0+$/, '');
+}
+
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null) {
+    return '-';
+  }
+
+  const normalizedSeconds = Math.max(0, Math.floor(normalizeNumber(seconds)));
+  if (normalizedSeconds === 0) {
+    return '0 min';
+  }
+
+  if (normalizedSeconds < SECONDS_PER_MINUTE) {
+    return '< 1 min';
+  }
+
+  const totalMinutes = Math.floor(normalizedSeconds / SECONDS_PER_MINUTE);
+  if (normalizedSeconds < HOUR_DISPLAY_THRESHOLD_SECONDS) {
+    return `${totalMinutes} min`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
 }

@@ -106,7 +106,7 @@ describe('SnapshotCards', () => {
     );
     expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
       'href',
-      '/workouts/sessions/session-upper-push-a/summary',
+      '/workouts/sessions/session-upper-push-a',
     );
   });
 
@@ -257,7 +257,7 @@ describe('SnapshotCards', () => {
 
     expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
       'href',
-      '/workouts/sessions/session-upper-pull',
+      '/workouts/active?sessionId=session-upper-pull',
     );
     expect(screen.getByText('In Progress')).toBeInTheDocument();
   });

@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useNavigate } from 'react-router';
 import { toDateKey } from '@/lib/date-utils';
+import { formatDuration } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -685,9 +686,11 @@ function getWorkoutPresentation(status: WorkoutSessionStatus) {
 
 function buildStatusStats(session: WorkoutListViewItem) {
   if (session.status === 'completed') {
+    const durationLabel = formatDuration(session.duration);
+
     return [
       { icon: CalendarCheck2, label: sessionDateFormatter.format(session.date) },
-      { icon: Timer, label: session.duration != null ? `${session.duration} min` : 'Duration n/a' },
+      { icon: Timer, label: durationLabel === '-' ? 'Duration n/a' : durationLabel },
       { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
     ];
   }

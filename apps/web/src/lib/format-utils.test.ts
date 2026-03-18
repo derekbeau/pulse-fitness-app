@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatCalories,
+  formatDuration,
   formatGrams,
   formatPercent,
   formatServing,
@@ -39,5 +40,15 @@ describe('format-utils', () => {
   it('formats serving values with up to two decimals', () => {
     expect(formatServing(1.5)).toBe('1.5');
     expect(formatServing(2.0)).toBe('2');
+  });
+
+  it('formats workout duration from seconds to human-readable labels', () => {
+    expect(formatDuration(3924)).toBe('65 min');
+    expect(formatDuration(3600)).toBe('60 min');
+    expect(formatDuration(5400)).toBe('1h 30m');
+    expect(formatDuration(45)).toBe('< 1 min');
+    expect(formatDuration(0)).toBe('0 min');
+    expect(formatDuration(null)).toBe('-');
+    expect(formatDuration(undefined)).toBe('-');
   });
 });
