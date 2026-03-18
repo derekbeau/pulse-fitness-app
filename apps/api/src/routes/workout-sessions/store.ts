@@ -282,7 +282,7 @@ const buildWorkoutSessionExercises = (
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
-      if (existing.supersetGroup === null && set.supersetGroup !== null) {
+      if (set.supersetGroup !== null) {
         existing.supersetGroup = set.supersetGroup;
       }
       existing.sets.push(parsedSet);
@@ -759,6 +759,7 @@ export const batchUpsertSessionSets = async ({
       .all();
     const orderIndexByExerciseAndSection = new Map<string, number>();
     const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType | null, number>();
+    const supersetGroupByExerciseId = new Map<string, string | null>();
 
     for (const set of existingSets) {
       const key = `${set.section ?? 'null'}:${set.exerciseId}`;
@@ -768,6 +769,13 @@ export const batchUpsertSessionSets = async ({
 
       const currentNextOrderIndex = nextOrderIndexBySection.get(set.section) ?? 0;
       nextOrderIndexBySection.set(set.section, Math.max(currentNextOrderIndex, set.orderIndex + 1));
+
+      const existingSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId);
+      if (existingSupersetGroup === undefined) {
+        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+      } else if (existingSupersetGroup === null && set.supersetGroup !== null) {
+        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+      }
     }
 
     for (const set of input.sets) {
@@ -805,6 +813,11 @@ export const batchUpsertSessionSets = async ({
         continue;
       }
 
+      const inheritedSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId) ?? null;
+      if (!supersetGroupByExerciseId.has(set.exerciseId)) {
+        supersetGroupByExerciseId.set(set.exerciseId, inheritedSupersetGroup);
+      }
+
       tx.insert(sessionSets)
         .values({
           id: randomUUID(),
@@ -814,6 +827,7 @@ export const batchUpsertSessionSets = async ({
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
+          supersetGroup: inheritedSupersetGroup,
           section: set.section,
         })
         .run();

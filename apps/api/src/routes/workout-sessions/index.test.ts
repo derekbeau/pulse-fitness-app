@@ -188,6 +188,7 @@ const seedSessionSet = (values: {
   targetDistance?: number | null;
   completed?: boolean;
   skipped?: boolean;
+  supersetGroup?: string | null;
   section?: 'warmup' | 'main' | 'cooldown' | null;
   notes?: string | null;
 }) =>
@@ -208,6 +209,7 @@ const seedSessionSet = (values: {
       targetDistance: values.targetDistance ?? null,
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
+      supersetGroup: values.supersetGroup ?? null,
       section: values.section ?? null,
       notes: values.notes ?? null,
     })
@@ -1366,6 +1368,84 @@ describe('workout session routes', () => {
 
     expect(groupedResponse.statusCode).toBe(200);
     expect(groupedResponse.json()).toEqual(batchResponse.json());
+  });
+
+  it('batch-upserted sets inherit an exercise superset group from existing sets', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-upsert-superset',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Superset Upsert Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-upsert-superset-1',
+      sessionId: 'session-upsert-superset',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      supersetGroup: 'push-a',
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/workout-sessions/session-upsert-superset/sets',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            id: 'session-upsert-superset-1',
+            exerciseId: 'global-bench-press',
+            setNumber: 1,
+            weight: 190,
+            reps: 8,
+            section: 'main',
+          },
+          {
+            exerciseId: 'global-bench-press',
+            setNumber: 2,
+            weight: 175,
+            reps: 10,
+            section: 'main',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const persistedSets = context.db
+      .select({
+        id: sessionSets.id,
+        setNumber: sessionSets.setNumber,
+        supersetGroup: sessionSets.supersetGroup,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-upsert-superset'))
+      .all();
+
+    expect(persistedSets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'session-upsert-superset-1',
+          setNumber: 1,
+          supersetGroup: 'push-a',
+        }),
+        expect.objectContaining({
+          setNumber: 2,
+          supersetGroup: 'push-a',
+        }),
+      ]),
+    );
   });
 
   it('enforces ownership, active-session writes, and set-level validation', async () => {
@@ -4015,6 +4095,64 @@ describe('workout session routes', () => {
     expect(response.json()).toEqual({
       data: expect.objectContaining({
         id: 'session-superset-groups',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'global-bench-press',
+            supersetGroup: 'push-a',
+          }),
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            supersetGroup: 'push-a',
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('treats omitted supersetGroup in exercise updates as no-op', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-superset-omit-noop',
+      userId: 'user-1',
+      name: 'Superset Omit Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-superset-omit-bench-1',
+      sessionId: 'session-superset-omit-noop',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      supersetGroup: 'push-a',
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-superset-omit-lat-1',
+      sessionId: 'session-superset-omit-noop',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      supersetGroup: 'push-a',
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-superset-omit-noop',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exercises: [{ exerciseId: 'global-bench-press' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-superset-omit-noop',
         exercises: expect.arrayContaining([
           expect.objectContaining({
             exerciseId: 'global-bench-press',

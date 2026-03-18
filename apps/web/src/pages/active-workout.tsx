@@ -1254,7 +1254,7 @@ export function ActiveWorkoutPage() {
   }
 
   async function handleUpdateSupersetGroup(
-    _section: WorkoutTemplateSectionType,
+    section: WorkoutTemplateSectionType,
     exerciseIds: string[],
     supersetGroup: string | null,
   ) {
@@ -1262,16 +1262,29 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    const targetSection = session.sections.find((sessionSection) => sessionSection.type === section);
+    if (!targetSection) {
+      return;
+    }
+
+    const targetSectionExerciseIds = new Set(targetSection.exercises.map((exercise) => exercise.id));
+    const scopedExerciseIds = exerciseIds.filter((exerciseId) => targetSectionExerciseIds.has(exerciseId));
+    if (scopedExerciseIds.length === 0) {
+      return;
+    }
+
+    const allExercises = session.sections.flatMap((sessionSection) => sessionSection.exercises);
+    const previousSupersetByExerciseId = new Map(
+      allExercises.map((exercise) => [exercise.id, exercise.supersetGroup] as const),
+    );
     const previousValues = new Map(
-      exerciseIds.map((exerciseId) => [
+      scopedExerciseIds.map((exerciseId) => [
         exerciseId,
-        session.sections
-          .flatMap((section) => section.exercises)
-          .find((exercise) => exercise.id === exerciseId)?.supersetGroup ?? null,
+        previousSupersetByExerciseId.get(exerciseId) ?? null,
       ]),
     );
     const nextOverrides = Object.fromEntries(
-      exerciseIds.map((exerciseId) => [exerciseId, supersetGroup]),
+      scopedExerciseIds.map((exerciseId) => [exerciseId, supersetGroup]),
     );
 
     setExerciseSupersetOverrides((current) => ({
@@ -1287,7 +1300,7 @@ export function ActiveWorkoutPage() {
     setSessionError(null);
     try {
       const updatedSession = await persistSessionSupersetGroups({
-        exerciseUpdates: exerciseIds.map((exerciseId) => ({
+        exerciseUpdates: scopedExerciseIds.map((exerciseId) => ({
           exerciseId,
           supersetGroup,
         })),

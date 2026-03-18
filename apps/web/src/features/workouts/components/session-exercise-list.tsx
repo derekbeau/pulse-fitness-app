@@ -85,6 +85,7 @@ import {
   formatRestDuration,
   formatTempo,
 } from '../lib/time-estimates';
+import { getSupersetAccentClass } from '../lib/superset-utils';
 import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseHistoryModal } from './exercise-history-modal';
@@ -431,7 +432,10 @@ export function SessionExerciseList({
                         );
                       }
 
-                      const supersetAccentClass = getSupersetAccentClass(item.groupId);
+                      const supersetAccentClass = getSupersetAccentClass(
+                        item.groupId,
+                        supersetAccentStyles,
+                      );
                       const groupCollapseKey = `superset:${section.id}:${item.groupId}`;
                       const isGroupFocused = item.exercises.some(
                         (exercise) => exercise.id === (focusTarget?.exerciseId ?? null),
@@ -1453,16 +1457,6 @@ function SessionSupersetManagerDialog({
 
 function formatSupersetGroupLabel(groupId: string) {
   return groupId.replace(/-/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function getSupersetAccentClass(groupId: string) {
-  let hash = 0;
-
-  for (const character of groupId) {
-    hash = (hash + character.charCodeAt(0)) % supersetAccentStyles.length;
-  }
-
-  return supersetAccentStyles[hash];
 }
 
 function groupExercises(exercises: ActiveWorkoutExercise[]) {

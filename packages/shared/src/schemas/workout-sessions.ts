@@ -409,7 +409,7 @@ const workoutSessionExerciseMutationInputSchema = z
 
 const workoutSessionExerciseUpdateInputSchema = z.object({
   exerciseId: requiredStringSchema,
-  supersetGroup: nullableShortStringSchema.optional().default(null),
+  supersetGroup: nullableShortStringSchema.optional(),
 });
 
 export const createWorkoutSessionInputSchema = z

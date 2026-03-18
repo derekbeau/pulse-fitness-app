@@ -1090,9 +1090,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         return sendError(reply, 400, 'VALIDATION_ERROR', 'exercises contains unknown exercise ids');
       }
 
-      const supersetGroupByExerciseId = new Map(
-        body.exercises.map((exercise) => [exercise.exerciseId, exercise.supersetGroup ?? null]),
+      const supersetGroupEntries = body.exercises.flatMap((exercise) =>
+        exercise.supersetGroup === undefined
+          ? []
+          : ([[exercise.exerciseId, exercise.supersetGroup]] as const),
       );
+      const supersetGroupByExerciseId = new Map(supersetGroupEntries);
       merged = {
         ...merged,
         sets: merged.sets.map((set) =>

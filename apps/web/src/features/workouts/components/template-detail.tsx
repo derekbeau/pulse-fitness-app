@@ -80,6 +80,7 @@ import {
   formatWorkoutConflictDescription,
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
+import { getSupersetAccentClass } from '../lib/superset-utils';
 import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
@@ -116,7 +117,7 @@ const supersetAccentStyles = [
   'border-l-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/5',
   'border-l-[var(--color-accent-pink)] bg-[var(--color-accent-pink)]/5',
   'border-l-[var(--color-accent-cream)] bg-[var(--color-accent-cream)]/12',
-];
+] as const;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -593,7 +594,10 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                         );
                       }
 
-                      const supersetAccentClass = getSupersetAccentClass(group.groupId);
+                      const supersetAccentClass = getSupersetAccentClass(
+                        group.groupId,
+                        supersetAccentStyles,
+                      );
 
                       return (
                         <div
@@ -1722,16 +1726,6 @@ function buildTemplateExerciseGroups(exercises: WorkoutTemplateExercise[]) {
   }
 
   return groups;
-}
-
-function getSupersetAccentClass(groupId: string) {
-  let hash = 5381;
-
-  for (const character of groupId) {
-    hash = ((hash << 5) + hash + character.charCodeAt(0)) >>> 0;
-  }
-
-  return supersetAccentStyles[hash % supersetAccentStyles.length] ?? supersetAccentStyles[0];
 }
 
 function formatSupersetLabel(groupId: string) {
