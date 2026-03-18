@@ -51,7 +51,7 @@ export function ExerciseHistoryModal({
           <DialogDescription>{`Last ${limit} completed sessions`}</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+        <div className="space-y-2 pr-1">
           {historyQuery.isPending ? (
             <p className="text-sm text-muted">Loading exercise history...</p>
           ) : null}

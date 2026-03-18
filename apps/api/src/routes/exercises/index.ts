@@ -315,6 +315,8 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         limit: request.query.limit,
       });
 
+      reply.header('Cache-Control', 'private, no-cache');
+
       return reply.send({
         data: history,
       });
