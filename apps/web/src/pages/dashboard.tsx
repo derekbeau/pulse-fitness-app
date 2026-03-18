@@ -11,7 +11,6 @@ import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Toggle } from '@/components/ui/toggle';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
@@ -52,20 +51,22 @@ function DashboardWidgetEditOverlay({
   widgetLabel: string;
 }) {
   return (
-    <div className="pointer-events-none absolute inset-0 rounded-2xl bg-background/60">
-      <div className="pointer-events-auto absolute top-3 right-3">
-        <Toggle
+    <div className="pointer-events-auto absolute inset-0 z-30 rounded-2xl border-2 border-dashed border-primary/45 bg-background/65 backdrop-blur-[1px]">
+      <p className="absolute top-3 left-3 rounded-full border border-border/80 bg-background/95 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/90 shadow-sm">
+        Edit mode
+      </p>
+      <div className="absolute top-3 right-3 z-40">
+        <Button
           aria-label={`Hide ${widgetLabel} widget`}
-          onPressedChange={() => {
-            onHide();
-          }}
-          pressed={false}
+          className="rounded-full border-border/80 bg-background/95 px-3 text-xs font-semibold shadow-sm hover:bg-background"
+          onClick={onHide}
           size="sm"
+          type="button"
           variant="outline"
         >
-          <EyeOff />
+          <EyeOff className="size-4" />
           Hide
-        </Toggle>
+        </Button>
       </div>
     </div>
   );
@@ -163,6 +164,10 @@ export function DashboardPage() {
       const current = currentDraft ?? persistedVisibleWidgets;
       return current.filter((value) => value !== widgetId);
     });
+  }
+
+  function showAllWidgets() {
+    setVisibleWidgetsDraft([...DEFAULT_VISIBLE_WIDGETS]);
   }
 
   function handleStartEditMode() {
@@ -610,7 +615,17 @@ export function DashboardPage() {
 
       {isEditMode ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Hidden widgets</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-foreground">Hidden widgets</h2>
+            {hiddenWidgets.length > 1 ? (
+              <Button onClick={showAllWidgets} size="sm" type="button" variant="outline">
+                Show all
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Use Restore to add cards back before saving.
+          </p>
           {hiddenWidgets.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hidden widgets.</p>
           ) : (
@@ -629,13 +644,14 @@ export function DashboardPage() {
                       <p className="text-xs text-muted-foreground">Currently hidden</p>
                     </div>
                     <Button
+                      aria-label={`Show ${DASHBOARD_WIDGET_IDS[widgetId]} widget`}
                       onClick={() => showWidget(widgetId)}
                       size="sm"
                       type="button"
                       variant="outline"
                     >
                       <Plus />
-                      Show
+                      Restore
                     </Button>
                   </CardContent>
                 </Card>

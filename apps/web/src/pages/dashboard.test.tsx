@@ -804,7 +804,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
     expect(screen.getByText('Recent Workouts')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Recent Workouts widget' }));
     await vi.runAllTimersAsync();
     await Promise.resolve();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
@@ -832,6 +832,54 @@ describe('DashboardPage', () => {
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
       visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
     });
+  });
+
+  it('hides grouped widgets individually and supports bulk restore in edit mode', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    const { container } = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+
+    expect(screen.getByRole('button', { name: 'Hide Daily Snapshot widget' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide Log Weight widget' })).toBeInTheDocument();
+    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Daily Snapshot widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show Daily Snapshot widget' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show all' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Log Weight widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(container.querySelector('[data-widget-label="Log Weight"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="dashboard-snapshot-panel"]')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
+    expect(screen.getByText('No hidden widgets.')).toBeInTheDocument();
   });
 
   it('stays in edit mode and shows an error when widget visibility save fails', async () => {
