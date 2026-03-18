@@ -163,9 +163,15 @@ export function HabitChainDot({
   const statusLabel = getStatusLabel(entry);
   const details = formatValueDetails(entry, habit);
 
-  // Ring for quota habits with partial progress (not yet completed)
+  // Ring for quota habits with partial progress, including today's scheduled dot.
   const showRing =
-    quota && progress != null && progress > 0 && progress < 1 && entry.status === 'missed';
+    quota &&
+    progress != null &&
+    progress > 0 &&
+    progress < 1 &&
+    entry.isScheduled &&
+    !entry.isFutureDate &&
+    entry.status !== 'completed';
 
   const statusClass = showRing
     ? 'bg-transparent'

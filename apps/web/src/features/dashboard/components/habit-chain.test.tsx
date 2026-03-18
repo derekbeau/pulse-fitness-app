@@ -248,6 +248,139 @@ describe('HabitChain', () => {
     expect(todaySquare).toHaveClass('bg-[var(--color-muted)]/40');
   });
 
+  it('renders a proportional progress ring for today numeric progress', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+    const habit: Habit = {
+      id: 'habit-water-partial',
+      userId: 'user-1',
+      name: 'Water',
+      description: null,
+      emoji: null,
+      trackingType: 'numeric',
+      target: 100,
+      unit: 'oz',
+      frequency: 'daily',
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+    const entries: HabitEntry[] = [
+      {
+        id: 'entry-water-partial',
+        habitId: habit.id,
+        userId: habit.userId,
+        date: '2026-03-10',
+        completed: false,
+        value: 52,
+        createdAt: new Date('2026-03-10T12:00:00Z').getTime(),
+      },
+    ];
+
+    renderHabitChain({
+      endDate: '2026-03-10',
+      entries,
+      habitIds: [habit.id],
+      habits: [habit],
+    });
+
+    const todaySquare = screen.getByRole('button', { name: 'Water 2026-03-10 Not tracked' });
+    expect(todaySquare).toHaveClass('bg-transparent');
+
+    const progressCircle = todaySquare.querySelector('circle[stroke="var(--color-accent-mint)"]');
+    if (!progressCircle) {
+      throw new Error('Expected progress circle for partial numeric progress.');
+    }
+
+    const dashArray = Number.parseFloat(progressCircle.getAttribute('stroke-dasharray') ?? '0');
+    const dashOffset = Number.parseFloat(progressCircle.getAttribute('stroke-dashoffset') ?? '0');
+    expect(dashArray).toBeGreaterThan(0);
+    expect(dashOffset / dashArray).toBeCloseTo(0.48, 1);
+  });
+
+  it('keeps 0%, partial, and 100% numeric states visually distinct', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+    const baseHabit = {
+      userId: 'user-1',
+      description: null,
+      emoji: null,
+      trackingType: 'numeric' as const,
+      target: 100,
+      unit: 'oz',
+      frequency: 'daily' as const,
+      frequencyTarget: null,
+      scheduledDays: null,
+      pausedUntil: null,
+      sortOrder: 0,
+      active: true,
+      createdAt: new Date('2026-02-01T00:00:00Z').getTime(),
+      updatedAt: new Date('2026-02-01T00:00:00Z').getTime(),
+    };
+
+    const habits: Habit[] = [
+      { ...baseHabit, id: 'habit-water-zero', name: 'Water Zero' },
+      { ...baseHabit, id: 'habit-water-partial', name: 'Water Partial' },
+      { ...baseHabit, id: 'habit-water-full', name: 'Water Full' },
+    ];
+    const entries: HabitEntry[] = [
+      {
+        id: 'entry-water-zero',
+        habitId: 'habit-water-zero',
+        userId: 'user-1',
+        date: '2026-03-10',
+        completed: false,
+        value: 0,
+        createdAt: new Date('2026-03-10T12:00:00Z').getTime(),
+      },
+      {
+        id: 'entry-water-partial',
+        habitId: 'habit-water-partial',
+        userId: 'user-1',
+        date: '2026-03-10',
+        completed: false,
+        value: 52,
+        createdAt: new Date('2026-03-10T12:00:00Z').getTime(),
+      },
+      {
+        id: 'entry-water-full',
+        habitId: 'habit-water-full',
+        userId: 'user-1',
+        date: '2026-03-10',
+        completed: true,
+        value: 100,
+        createdAt: new Date('2026-03-10T12:00:00Z').getTime(),
+      },
+    ];
+
+    renderHabitChain({
+      endDate: '2026-03-10',
+      entries,
+      habits,
+    });
+
+    const zeroSquare = screen.getByRole('button', { name: 'Water Zero 2026-03-10 Not tracked' });
+    const partialSquare = screen.getByRole('button', {
+      name: 'Water Partial 2026-03-10 Not tracked',
+    });
+    const fullSquare = screen.getByRole('button', { name: 'Water Full 2026-03-10 Completed' });
+
+    expect(zeroSquare).toHaveClass('bg-[var(--color-muted)]/40');
+    expect(zeroSquare.querySelector('svg')).toBeNull();
+
+    expect(partialSquare).toHaveClass('bg-transparent');
+    expect(partialSquare.querySelector('svg')).toBeInTheDocument();
+
+    expect(fullSquare).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(fullSquare.querySelector('svg')).toBeNull();
+  });
+
   it('shows future days as not scheduled', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
