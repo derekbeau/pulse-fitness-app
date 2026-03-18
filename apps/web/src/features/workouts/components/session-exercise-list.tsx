@@ -214,12 +214,14 @@ export function SessionExerciseList({
         const completedExercises = section.exercises.filter(
           (exercise) => exercise.completedSets >= exercise.targetSets,
         ).length;
+        const totalExercises = section.exercises.length;
+        const isSectionCompleted = totalExercises > 0 && completedExercises === totalExercises;
+        const isSectionInProgress = completedExercises > 0 && !isSectionCompleted;
         const exerciseIndexById = new Map(
           section.exercises.map((exercise, index) => [exercise.id, index]),
         );
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
-        const sectionSummary = `${completedExercises}/${section.exercises.length} exercises done`;
         const isOpen =
           openSections[section.id] ?? isSectionInitiallyOpen(section, session.currentExerciseId);
         const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
@@ -262,20 +264,27 @@ export function SessionExerciseList({
               }
               type="button"
             >
-              <div className="space-y-1">
+              <div>
                 <h2 className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
                   {sectionLabel}
                   <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
                 </h2>
-                <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
               <div className="flex items-center gap-3">
                 <Badge
-                  className="border-transparent bg-secondary text-secondary-foreground"
+                  className={cn(
+                    isSectionCompleted
+                      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                      : isSectionInProgress
+                        ? 'border-transparent bg-secondary text-secondary-foreground'
+                        : 'border-border/70 bg-muted text-muted-foreground',
+                  )}
                   variant="outline"
                 >
-                  {`${completedExercises}/${section.exercises.length}`}
+                  {isSectionCompleted ? <Check aria-hidden="true" className="size-3.5" /> : null}
+                  {isSectionCompleted ? <span className="sr-only">Section complete</span> : null}
+                  {`${completedExercises}/${totalExercises}`}
                 </Badge>
                 <ChevronDown
                   aria-hidden="true"

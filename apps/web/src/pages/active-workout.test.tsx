@@ -99,7 +99,9 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByText("Some cards are in preview — sample data is shown and won't be saved."),
     ).toBeInTheDocument();
-    expect(screen.getByText(/\d+\/2 exercises done/)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('button', { name: /Warmup/i })).getByText('0/2'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
