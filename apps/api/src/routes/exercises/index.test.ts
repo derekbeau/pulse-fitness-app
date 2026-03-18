@@ -939,6 +939,61 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns the same paginated list format for JWT and AgentToken auth', async () => {
+    seedExercise({
+      id: 'global-row',
+      userId: null,
+      name: 'Chest Supported Row',
+      muscleGroups: ['lats', 'upper back'],
+      equipment: 'machine',
+      category: 'compound',
+      tags: ['pull'],
+      formCues: ['drive elbows to hips'],
+      instructions: 'Control the eccentric.',
+      coachingNotes: 'Keep chest connected to pad.',
+      relatedExerciseIds: [],
+    });
+
+    const jwtToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'exercise-list-agent-token');
+
+    const [jwtResponse, agentResponse] = await Promise.all([
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises?page=1&limit=5',
+        headers: createAuthorizationHeader(jwtToken),
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises?page=1&limit=5',
+        headers: createAgentTokenHeader(agentToken),
+      }),
+    ]);
+
+    expect(jwtResponse.statusCode).toBe(200);
+    expect(agentResponse.statusCode).toBe(200);
+    expect(jwtResponse.json()).toEqual(agentResponse.json());
+    expect(agentResponse.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'global-row',
+          name: 'Chest Supported Row',
+          tags: ['pull'],
+          formCues: ['drive elbows to hips'],
+          trackingType: 'weight_reps',
+        }),
+      ],
+      meta: {
+        page: 1,
+        limit: 5,
+        total: 1,
+      },
+    });
+  });
+
   it('includes soft-deleted user exercises when they are referenced by workout history', async () => {
     seedExercise({
       id: 'active-owned',
@@ -1380,7 +1435,7 @@ describe('exercise routes', () => {
     expectValidationError(createResponse.json(), {
       method: 'POST',
       url: '/api/v1/exercises',
-      instancePath: '/',
+      instancePath: '/name',
     });
 
     expect(queryResponse.statusCode).toBe(400);
@@ -1435,7 +1490,7 @@ describe('exercise routes', () => {
     });
   });
 
-  it('agent create exercise: creates when no close dedup candidates are found', async () => {
+  it('agent create exercise: resolves exerciseName and creates when no close dedup candidates are found', async () => {
     seedExercise({
       id: 'agent-related-owned',
       userId: 'user-1',
@@ -1452,7 +1507,7 @@ describe('exercise routes', () => {
       url: '/api/v1/exercises',
       headers: createAgentTokenHeader(authToken),
       payload: {
-        name: 'Landmine Press',
+        exerciseName: 'Landmine Press',
         coachingNotes: 'Keep ribs down and punch through at lockout.',
         relatedExerciseIds: ['agent-related-owned'],
       },
@@ -1460,16 +1515,13 @@ describe('exercise routes', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
-      data: {
-        created: true,
-        exercise: expect.objectContaining({
-          name: 'Landmine Press',
-          coachingNotes: 'Keep ribs down and punch through at lockout.',
-          relatedExerciseIds: ['agent-related-owned'],
-          muscleGroups: [],
-          equipment: '',
-        }),
-      },
+      data: expect.objectContaining({
+        name: 'Landmine Press',
+        coachingNotes: 'Keep ribs down and punch through at lockout.',
+        relatedExerciseIds: ['agent-related-owned'],
+        muscleGroups: [],
+        equipment: '',
+      }),
     });
   });
 
@@ -1564,12 +1616,9 @@ describe('exercise routes', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
-      data: {
-        created: true,
-        exercise: expect.objectContaining({
-          name: 'Bench Press',
-        }),
-      },
+      data: expect.objectContaining({
+        name: 'Bench Press',
+      }),
     });
     expect(context.db.select({ id: exercises.id }).from(exercises).all()).toHaveLength(2);
   });
@@ -1736,6 +1785,11 @@ describe('exercise routes', () => {
           name: 'Cable Curl',
         }),
       ],
+      meta: {
+        page: 1,
+        limit: 10,
+        total: 1,
+      },
     });
   });
 });

@@ -37,6 +37,8 @@ type VisibleExerciseRecord = ExerciseOwnershipRecord & {
   relatedExerciseIds: string[];
 };
 
+type PersistedCreateExerciseInput = Omit<CreateExerciseInput, 'force'>;
+
 export type ExerciseDedupCandidate = {
   id: string;
   name: string;
@@ -130,7 +132,7 @@ export const createExercise = async ({
   instructions,
   coachingNotes,
   relatedExerciseIds,
-}: CreateExerciseInput & { id: string; userId: string }): Promise<Exercise> => {
+}: PersistedCreateExerciseInput & { id: string; userId: string }): Promise<Exercise> => {
   const { db } = await import('../../db/index.js');
 
   const result = db
