@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -74,7 +74,7 @@ describe('ActiveWorkoutPage', () => {
     }
   });
 
-  it('renders the active workout UI and advances focus after the rest timer completes', () => {
+  it('renders the active workout UI and does not auto-focus a different section after rest timer completion', () => {
     renderActiveWorkoutPage();
 
     const heading = screen.getByRole('heading', { level: 1, name: 'Upper Push' });
@@ -99,7 +99,9 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByText("Some cards are in preview — sample data is shown and won't be saved."),
     ).toBeInTheDocument();
-    expect(screen.getByText(/\d+\/2 exercises done/)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('button', { name: /Warmup/i })).getByText('0/2'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
@@ -113,6 +115,7 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.change(within(inclineCard).getByLabelText('Reps for set 3'), {
       target: { value: '9' },
     });
+    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 3' }));
 
     act(() => {
       vi.advanceTimersByTime(500);
@@ -125,7 +128,7 @@ describe('ActiveWorkoutPage', () => {
     });
 
     const nextExerciseCard = getExerciseCard('Row Erg');
-    expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).toHaveFocus();
+    expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).not.toHaveFocus();
     expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
@@ -146,6 +149,58 @@ describe('ActiveWorkoutPage', () => {
         name: 'Complete supplemental exercise Dead Bug Breathing',
       }),
     ).toBeChecked();
+  });
+
+  it('only updates the rest timer on explicit set completion toggles', () => {
+    renderActiveWorkoutPage();
+
+    const inclineCard = getExerciseCard('Incline Dumbbell Press');
+
+    fireEvent.change(within(inclineCard).getByLabelText('Weight for set 1'), {
+      target: { value: '50' },
+    });
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 1'), {
+      target: { value: '8' },
+    });
+    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 1' }));
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+
+    fireEvent.change(within(inclineCard).getByLabelText('Weight for set 2'), {
+      target: { value: '52.5' },
+    });
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
+      target: { value: '8' },
+    });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+    expect(screen.queryByText('After Incline Dumbbell Press set 2')).not.toBeInTheDocument();
+
+    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 2' }));
+    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
+      target: { value: '9' },
+    });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
+    expect(screen.queryByText('1:30')).not.toBeInTheDocument();
+
+    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 2' }));
+    expect(screen.queryByText('After Incline Dumbbell Press set 2')).not.toBeInTheDocument();
   });
 
   it('moves from session logging to feedback, summary, and back to workouts', async () => {
@@ -191,8 +246,8 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '65' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -241,9 +296,9 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
-    expect(screen.getByText('Total volume')).toBeInTheDocument();
+    expect(screen.getByText(/Total volume|Tracked metrics/)).toBeInTheDocument();
     expect(screen.getByText('Sets')).toBeInTheDocument();
-    expect(screen.getByText('Reps')).toBeInTheDocument();
+    expect(screen.getAllByText(/Reps|Total reps/).length).toBeGreaterThan(0);
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Exercise results' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();
@@ -754,21 +809,21 @@ describe('ActiveWorkoutPage', () => {
     vi.useRealTimers();
     renderActiveWorkoutPage();
 
-    const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
-    const finishFooter = finishButton.closest('div');
-    expect(finishFooter).not.toBeNull();
+    const completeButton = screen.getByRole('button', { name: 'Complete Workout' });
+    const completeFooter = completeButton.closest('div');
+    expect(completeFooter).not.toBeNull();
     expect(
-      within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
+      within(completeFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
     ).toBeInTheDocument();
 
-    fireEvent.click(finishButton);
+    fireEvent.click(completeButton);
     expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText(/End workout with \d+ sets remaining\?/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -813,11 +868,62 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByTestId('summary-pill-count-sets')).toHaveTextContent(/\d+\/\d+/);
   });
 
+  it('keeps the session active after the last set until completion is explicitly confirmed', () => {
+    vi.useRealTimers();
+    renderActiveWorkoutPage();
+
+    completeSet('Row Erg', 1);
+    completeSet('Banded Shoulder External Rotation', 1);
+    completeSet('Banded Shoulder External Rotation', 2);
+    completeSet('Incline Dumbbell Press', 1);
+    completeSet('Incline Dumbbell Press', 2);
+    completeSet('Incline Dumbbell Press', 3);
+    completeSet('Seated Dumbbell Shoulder Press', 1);
+    completeSet('Seated Dumbbell Shoulder Press', 2);
+    completeSet('Seated Dumbbell Shoulder Press', 3);
+    completeSet('Cable Lateral Raise', 1);
+    completeSet('Cable Lateral Raise', 2);
+    completeSet('Cable Lateral Raise', 3);
+    completeSet('Rope Triceps Pushdown', 1);
+    completeSet('Rope Triceps Pushdown', 2);
+    completeSet('Rope Triceps Pushdown', 3);
+
+    if (!screen.queryByRole('heading', { level: 3, name: 'Couch Stretch' })) {
+      fireEvent.click(screen.getByRole('button', { name: /Cooldown/i }));
+    }
+
+    completeSet('Couch Stretch', 1);
+    completeSet('Couch Stretch', 2);
+
+    expect(screen.getByRole('button', { name: 'Complete Workout' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    expect(screen.getByText('Complete this workout?')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Complete this workout?')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     const rpeGroup = screen.getByRole('group', { name: 'Session RPE rating' });
     expect(rpeGroup).toBeInTheDocument();
@@ -905,6 +1011,114 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
   });
 
+  it('renders reps_only and seconds_only inputs from API template tracking types', async () => {
+    vi.useRealTimers();
+    const templateId = '2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db';
+    const startedAt = Date.parse('2026-03-06T12:00:00.000Z');
+    const mockFetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-templates/${templateId}`)) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: templateId,
+              userId: 'user-1',
+              name: 'Tracking QA',
+              description: null,
+              tags: [],
+              sections: [
+                {
+                  type: 'warmup',
+                  exercises: [],
+                },
+                {
+                  type: 'main',
+                  exercises: [
+                    {
+                      id: 'template-exercise-dead-bug',
+                      exerciseId: 'dead-bug',
+                      exerciseName: 'Dead Bug',
+                      trackingType: 'reps_only',
+                      sets: 1,
+                      repsMin: 12,
+                      repsMax: 12,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                  ],
+                },
+                {
+                  type: 'cooldown',
+                  exercises: [
+                    {
+                      id: 'template-exercise-dead-hang',
+                      exerciseId: 'dead-hang',
+                      exerciseName: 'Dead Hang',
+                      trackingType: 'seconds_only',
+                      sets: 1,
+                      repsMin: 30,
+                      repsMax: 30,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                    {
+                      id: 'template-exercise-couch-stretch',
+                      exerciseId: 'couch-stretch',
+                      exerciseName: 'Couch Stretch',
+                      trackingType: 'seconds_only',
+                      sets: 1,
+                      repsMin: 45,
+                      repsMax: 45,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                  ],
+                },
+              ],
+              createdAt: startedAt,
+              updatedAt: startedAt,
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    renderActiveWorkoutPage(`/workouts/active?template=${templateId}`);
+    await screen.findByRole('heading', { level: 1, name: 'Tracking QA' });
+    await waitFor(() => {
+      expect(screen.getByText('0/3 sets completed')).toBeInTheDocument();
+    });
+
+    const deadBugCard = getExerciseCard('Dead Bug');
+    expect(within(deadBugCard).getByLabelText('Reps for set 1')).toBeInTheDocument();
+    expect(within(deadBugCard).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+
+    const deadHangCard = getExerciseCard('Dead Hang');
+    expect(within(deadHangCard).getByLabelText('Seconds for set 1')).toBeInTheDocument();
+    expect(within(deadHangCard).queryByLabelText('Reps for set 1')).not.toBeInTheDocument();
+    expect(within(deadHangCard).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+
+    const couchStretchCard = getExerciseCard('Couch Stretch');
+    expect(within(couchStretchCard).getByLabelText('Seconds for set 1')).toBeInTheDocument();
+  });
+
   it('creates a completed session without a pre-stored token by using dev auto-session auth', async () => {
     vi.useRealTimers();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
@@ -928,8 +1142,8 @@ describe('ActiveWorkoutPage', () => {
 
     renderActiveWorkoutPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
         name: '7',
@@ -1085,6 +1299,99 @@ describe('ActiveWorkoutPage', () => {
       },
     ]);
   });
+
+  it('forces weight to null for non-weighted tracking types in completion payloads', () => {
+    const payloadSets = buildSessionSetInputs(
+      {
+        'dead-bug': [
+          {
+            completed: true,
+            distance: null,
+            id: 'dead-bug-set-1',
+            number: 1,
+            reps: 12,
+            seconds: null,
+            weight: 0,
+          },
+        ],
+        'dead-hang': [
+          {
+            completed: true,
+            distance: null,
+            id: 'dead-hang-set-1',
+            number: 1,
+            reps: null,
+            seconds: 30,
+            weight: 0,
+          },
+        ],
+      },
+      new Map([
+        [
+          'dead-bug',
+          {
+            exercise: {
+              badges: ['mobility'],
+              exerciseId: 'dead-bug',
+              exerciseName: 'Dead Bug',
+              formCues: [],
+              reps: '12',
+              restSeconds: 45,
+              sets: 1,
+              tempo: '2111',
+              trackingType: 'reps_only',
+            },
+            section: 'main',
+            trackingType: 'reps_only',
+          },
+        ],
+        [
+          'dead-hang',
+          {
+            exercise: {
+              badges: ['mobility'],
+              exerciseId: 'dead-hang',
+              exerciseName: 'Dead Hang',
+              formCues: [],
+              reps: '30 sec',
+              restSeconds: 45,
+              sets: 1,
+              tempo: '2111',
+              trackingType: 'seconds_only',
+            },
+            section: 'cooldown',
+            trackingType: 'seconds_only',
+          },
+        ],
+      ]),
+      {},
+    );
+
+    expect(payloadSets).toEqual([
+      {
+        completed: true,
+        exerciseId: 'dead-bug',
+        notes: null,
+        orderIndex: 0,
+        reps: 12,
+        section: 'main',
+        setNumber: 1,
+        skipped: false,
+        weight: null,
+      },
+      {
+        completed: true,
+        exerciseId: 'dead-hang',
+        notes: null,
+        orderIndex: 0,
+        reps: 30,
+        section: 'cooldown',
+        setNumber: 1,
+        skipped: false,
+        weight: null,
+      },
+    ]);
+  });
 });
 
 function renderActiveWorkoutPage(initialEntry = '/workouts/active?template=upper-push') {
@@ -1158,8 +1465,9 @@ function completeSet(exerciseName: string, setNumber: number) {
       value: '1',
     },
   });
+  fireEvent.click(within(card).getByRole('checkbox', { name: `Complete set ${setNumber}` }));
 
-  const skipButton = screen.queryByRole('button', { name: 'Skip' });
+  const skipButton = screen.queryByRole('button', { name: /Skip rest timer/i });
 
   if (skipButton) {
     fireEvent.click(skipButton);

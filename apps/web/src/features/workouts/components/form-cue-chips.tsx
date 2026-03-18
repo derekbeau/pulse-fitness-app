@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { MarkdownNote } from './markdown-note';
 
 type FormCueChipsProps = {
   exerciseCues: string[];
@@ -75,7 +76,7 @@ export function FormCueChips({
                   <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
                     Exercise coaching notes
                   </p>
-                  <p className="text-sm text-muted">{exerciseCoachingNotes}</p>
+                  <MarkdownNote className="text-sm text-muted" content={exerciseCoachingNotes} />
                 </div>
               ) : null}
               {templateProgrammingNotes ? (
@@ -83,7 +84,7 @@ export function FormCueChips({
                   <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
                     Template programming notes
                   </p>
-                  <p className="text-sm text-muted">{templateProgrammingNotes}</p>
+                  <MarkdownNote className="text-sm text-muted" content={templateProgrammingNotes} />
                 </div>
               ) : null}
             </div>

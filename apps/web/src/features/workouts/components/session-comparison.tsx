@@ -16,8 +16,11 @@ import {
 import { cn } from '@/lib/utils';
 
 import {
+  getDistanceUnit,
+  getSetDistance,
   getSetSeconds,
-  getSetVolume,
+  getSetSummaryMetricValue,
+  getTrackingSummaryMetricLabel,
   getTrackingVolumeLabel,
   resolveTrackingType,
 } from '../lib/tracking';
@@ -88,9 +91,11 @@ export function SessionComparison({
   const currentVolume = getSessionVolume(currentSession);
   const previousVolume = getSessionVolume(previousSession);
   const volumeDelta = currentVolume - previousVolume;
-  const percentChange =
-    previousVolume > 0 ? Math.round((volumeDelta / previousVolume) * 100) : null;
   const volumeLabel = getSessionVolumeLabel(currentSession);
+  const percentChange =
+    volumeLabel !== 'mixed' && previousVolume > 0
+      ? Math.round((volumeDelta / previousVolume) * 100)
+      : null;
 
   return (
     <Card className="border-transparent bg-[var(--color-accent-mint)] text-on-accent dark:bg-card dark:text-foreground">
@@ -125,7 +130,7 @@ export function SessionComparison({
           </p>
           <div className="mt-2 flex items-center gap-2">
             <DeltaIndicator
-              direction={getDirection(volumeDelta)}
+              direction={volumeLabel === 'mixed' ? 'flat' : getDirection(volumeDelta)}
               label={formatVolumeDelta(volumeDelta, volumeLabel, weightUnit)}
             />
             {percentChange != null ? (
@@ -337,12 +342,12 @@ function getSessionVolume(session: WorkoutSession) {
 
   return session.sets.reduce((total, set) => {
     const trackingType = trackingByExerciseId.get(set.exerciseId) ?? 'weight_reps';
-    return total + getSetVolume(trackingType, set);
+    return total + getSetSummaryMetricValue(trackingType, set);
   }, 0);
 }
 
 function getExerciseVolumeFromSets(sets: SessionSet[], trackingType: ExerciseTrackingType) {
-  return sets.reduce((total, set) => total + getSetVolume(trackingType, set), 0);
+  return sets.reduce((total, set) => total + getSetSummaryMetricValue(trackingType, set), 0);
 }
 
 function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType) {
@@ -352,7 +357,7 @@ function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType
     case 'cardio':
       return getSetSeconds(set) ?? 0;
     case 'distance':
-      return 0;
+      return getSetDistance(set) ?? 0;
     default:
       return set.reps ?? 0;
   }
@@ -393,10 +398,10 @@ function getSessionVolumeLabel(session: WorkoutSession) {
 
   if (trackingTypes.size === 1) {
     const only = [...trackingTypes][0];
-    return getTrackingVolumeLabel(only);
+    return getTrackingSummaryMetricLabel(only);
   }
 
-  return 'volume';
+  return 'mixed';
 }
 
 function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
@@ -406,6 +411,14 @@ function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
 
   if (label === 'seconds') {
     return `${formatNumber(value)} sec`;
+  }
+
+  if (label === 'distance') {
+    return `${formatNumber(value)} ${getDistanceUnit(weightUnit)}`;
+  }
+
+  if (label === 'mixed') {
+    return '-';
   }
 
   return `${formatNumber(value)} reps`;
@@ -418,6 +431,14 @@ function formatVolumeDelta(value: number, label: string, weightUnit: WeightUnit)
 
   if (label === 'seconds') {
     return `${formatSignedNumber(value)} sec`;
+  }
+
+  if (label === 'distance') {
+    return `${formatSignedNumber(value)} ${getDistanceUnit(weightUnit)}`;
+  }
+
+  if (label === 'mixed') {
+    return '-';
   }
 
   return `${formatSignedNumber(value)} reps`;

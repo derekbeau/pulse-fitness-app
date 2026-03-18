@@ -67,7 +67,7 @@ import {
   formatRestDuration,
   formatTempo,
 } from '../lib/time-estimates';
-import { getDistanceUnit } from '../lib/tracking';
+import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { SetRow, type SetRowUpdate } from './set-row';
@@ -119,6 +119,22 @@ const supersetAccentStyles = [
   'border-l-rose-500 before:bg-rose-500',
 ] as const;
 
+function isSectionInitiallyOpen(
+  section: ActiveWorkoutSessionData['sections'][number],
+  currentExerciseId: string | null,
+) {
+  return section.exercises.some((exercise) => exercise.id === currentExerciseId);
+}
+
+function createInitialOpenSections(session: ActiveWorkoutSessionData) {
+  return Object.fromEntries(
+    session.sections.map((section) => [
+      section.id,
+      isSectionInitiallyOpen(section, session.currentExerciseId),
+    ]),
+  );
+}
+
 export function SessionExerciseList({
   enableApiLastPerformance = false,
   focusSetId = null,
@@ -134,7 +150,9 @@ export function SessionExerciseList({
   sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    createInitialOpenSections(session),
+  );
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
@@ -181,6 +199,7 @@ export function SessionExerciseList({
     const input = repsInputRefs.current[focusSetId];
 
     if (!input) {
+      onFocusSetHandled?.();
       return;
     }
 
@@ -195,17 +214,16 @@ export function SessionExerciseList({
         const completedExercises = section.exercises.filter(
           (exercise) => exercise.completedSets >= exercise.targetSets,
         ).length;
+        const totalExercises = section.exercises.length;
+        const isSectionCompleted = totalExercises > 0 && completedExercises === totalExercises;
+        const isSectionInProgress = completedExercises > 0 && !isSectionCompleted;
         const exerciseIndexById = new Map(
           section.exercises.map((exercise, index) => [exercise.id, index]),
         );
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
-        const sectionSummary = `${completedExercises}/${section.exercises.length} exercises done`;
         const isOpen =
-          focusTarget?.sectionId === section.id
-            ? true
-            : (openSections[section.id] ??
-              section.exercises.some((exercise) => exercise.id === session.currentExerciseId));
+          openSections[section.id] ?? isSectionInitiallyOpen(section, session.currentExerciseId);
         const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
           if (!onReorderExercises) {
             return;
@@ -239,28 +257,34 @@ export function SessionExerciseList({
               onClick={() =>
                 setOpenSections((current) => ({
                   ...current,
-                  [section.id]: !(
-                    current[section.id] ??
-                    section.exercises.some((exercise) => exercise.id === session.currentExerciseId)
-                  ),
+                  [section.id]:
+                    !(current[section.id] ??
+                      isSectionInitiallyOpen(section, session.currentExerciseId)),
                 }))
               }
               type="button"
             >
-              <div className="space-y-1">
+              <div>
                 <h2 className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
                   {sectionLabel}
                   <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
                 </h2>
-                <p className="text-sm text-muted">{sectionSummary}</p>
               </div>
 
               <div className="flex items-center gap-3">
                 <Badge
-                  className="border-transparent bg-secondary text-secondary-foreground"
+                  className={cn(
+                    isSectionCompleted
+                      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                      : isSectionInProgress
+                        ? 'border-transparent bg-secondary text-secondary-foreground'
+                        : 'border-border/70 bg-muted text-muted-foreground',
+                  )}
                   variant="outline"
                 >
-                  {`${completedExercises}/${section.exercises.length}`}
+                  {isSectionCompleted ? <Check aria-hidden="true" className="size-3.5" /> : null}
+                  {isSectionCompleted ? <span className="sr-only">Section complete</span> : null}
+                  {`${completedExercises}/${totalExercises}`}
                 </Badge>
                 <ChevronDown
                   aria-hidden="true"
@@ -952,27 +976,25 @@ function formatCompactPerformanceSetByTrackingType(
   prescribedReps: string,
   weightUnit: WeightUnit,
 ) {
-  const distanceUnit = getDistanceUnit(weightUnit);
-
-  switch (trackingType) {
-    case 'weight_reps':
-      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
-    case 'weight_seconds':
-      return weight != null ? `${formatWeight(weight)}x${value} sec` : `${value} sec`;
-    case 'bodyweight_reps':
-    case 'reps_only':
-      return formatPerformedReps(value, prescribedReps);
-    case 'seconds_only':
-      return `${value} sec`;
-    case 'reps_seconds':
-      return `${value} reps`;
-    case 'distance':
-      return `${value} ${distanceUnit}`;
-    case 'cardio':
-      return `${value} sec`;
-    default:
-      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
+  if (
+    (trackingType === 'bodyweight_reps' || trackingType === 'reps_only') &&
+    (prescribedReps.includes('min') || prescribedReps.includes('sec'))
+  ) {
+    return formatPerformedReps(value, prescribedReps);
   }
+
+  const setMetrics =
+    trackingType === 'distance'
+      ? { distance: value, weight }
+      : {
+          reps: value,
+          weight,
+        };
+
+  return formatSetSummary(setMetrics, trackingType, {
+    useLegacySecondsFallback: trackingType !== 'reps_seconds',
+    weightUnit,
+  });
 }
 
 function formatExerciseSubtitle({
@@ -983,6 +1005,7 @@ function formatExerciseSubtitle({
   weightUnit: WeightUnit;
 }) {
   const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
+  const trackedTarget = formatTrackedRepTarget(repTarget, exercise.trackingType, weightUnit);
   const sets = exercise.prescribedSets;
   const hasWeightLadder =
     (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
@@ -998,7 +1021,7 @@ function formatExerciseSubtitle({
     const weightLadder = exercise.reversePyramid
       .map((target) => formatWeight(target.targetWeight))
       .join(' → ');
-    return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+    return `${sets} sets, ${trackedTarget}, ${weightLadder} ${weightUnit}`;
   }
 
   if (hasPerSetWeightTargets) {
@@ -1010,7 +1033,7 @@ function formatExerciseSubtitle({
 
     if (uniqueWeights.size === 1) {
       const weight = [...uniqueWeights][0] ?? 0;
-      return `${sets} sets, ${formatWeight(weight)} ${weightUnit} × ${repTarget}`;
+      return `${sets} sets, ${formatWeight(weight)} ${weightUnit} × ${trackedTarget}`;
     }
 
     if (uniqueWeights.size > 1) {
@@ -1021,23 +1044,25 @@ function formatExerciseSubtitle({
         )
         .map((set) => formatWeight(set.targetWeight))
         .join(' → ');
-      return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+      return `${sets} sets, ${trackedTarget}, ${weightLadder} ${weightUnit}`;
     }
 
     const firstRange = exercise.sets.find(
       (set) => set.targetWeightMin != null && set.targetWeightMax != null,
     );
     if (firstRange && firstRange.targetWeightMin != null && firstRange.targetWeightMax != null) {
-      return `${sets} sets, ${firstRange.targetWeightMin}-${firstRange.targetWeightMax} ${weightUnit} × ${repTarget}`;
+      return `${sets} sets, ${firstRange.targetWeightMin}-${firstRange.targetWeightMax} ${weightUnit} × ${trackedTarget}`;
     }
   }
 
-  const needsRepsSuffix =
-    !repTarget.toLowerCase().includes('rep') &&
-    !repTarget.toLowerCase().includes('sec') &&
-    !repTarget.toLowerCase().includes('min');
+  const hasExplicitUnit =
+    repTarget.toLowerCase().includes('rep') ||
+    repTarget.toLowerCase().includes('sec') ||
+    repTarget.toLowerCase().includes('min') ||
+    repTarget.toLowerCase().includes('mi') ||
+    repTarget.toLowerCase().includes('km');
 
-  return needsRepsSuffix ? `${sets} sets × ${repTarget} reps` : `${sets} × ${repTarget}`;
+  return hasExplicitUnit ? `${sets} × ${trackedTarget}` : `${sets} sets × ${trackedTarget}`;
 }
 
 function formatHistoryPreview({
@@ -1082,6 +1107,34 @@ function parsePrescribedRepTarget(prescribedReps: string) {
   return prescribedReps;
 }
 
+function formatTrackedRepTarget(
+  target: string,
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+) {
+  const lower = target.toLowerCase();
+
+  if (
+    trackingType === 'seconds_only' ||
+    trackingType === 'weight_seconds' ||
+    trackingType === 'cardio' ||
+    trackingType === 'reps_seconds'
+  ) {
+    return lower.includes('sec') || lower.includes('min') ? target : `${target} sec`;
+  }
+
+  if (trackingType === 'distance') {
+    const unit = getDistanceUnit(weightUnit);
+    return lower.includes('km') || lower.includes('mi') ? target : `${target} ${unit}`;
+  }
+
+  if (lower.includes('rep') || lower.includes('sec') || lower.includes('min')) {
+    return target;
+  }
+
+  return `${target} reps`;
+}
+
 function formatPerformedReps(reps: number, prescribedReps: string) {
   if (prescribedReps.includes('min')) {
     const minutes = Math.floor(reps / 60);
@@ -1095,7 +1148,7 @@ function formatPerformedReps(reps: number, prescribedReps: string) {
   }
 
   if (prescribedReps.includes('sec')) {
-    return `${reps}s`;
+    return `${reps} sec`;
   }
 
   return `${reps} reps`;

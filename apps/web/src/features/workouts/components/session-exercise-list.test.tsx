@@ -90,7 +90,7 @@ describe('SessionExerciseList', () => {
     );
 
     expect(screen.getByText('Target: 70-90 lbs')).toBeInTheDocument();
-    expect(screen.getByText('Target: 30s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 30 sec')).toBeInTheDocument();
     expect(screen.getByText('Target: 40 mi')).toBeInTheDocument();
   });
 
@@ -130,8 +130,16 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    expect(screen.getByText('2/2 exercises done')).toBeInTheDocument();
-    expect(screen.getByText('0/4 exercises done')).toBeInTheDocument();
+    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+    const warmupBadge = within(warmupButton).getByText('2/2');
+    expect(warmupBadge).toHaveClass('bg-emerald-500/15');
+    expect(within(warmupBadge).getByText('Section complete')).toBeInTheDocument();
+
+    const mainButton = screen.getByRole('button', { name: /Main/i });
+    const mainBadge = within(mainButton).getByText('0/4');
+    expect(mainBadge).toHaveClass('bg-muted');
+    expect(screen.queryByText('2/2 exercises done')).not.toBeInTheDocument();
+    expect(screen.queryByText('0/4 exercises done')).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: /Main \d+-\d+ min/i }),
     ).toBeInTheDocument();
@@ -179,6 +187,51 @@ describe('SessionExerciseList', () => {
 
     expect(optionalCard).not.toBeNull();
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
+  });
+
+  it('applies distinct section badge styles for complete, partial, and zero-complete sections', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(
+        activeTemplate,
+        new Set([
+          createWorkoutSetId('row-erg', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 2),
+          createWorkoutSetId('rope-triceps-pushdown', 1),
+          createWorkoutSetId('rope-triceps-pushdown', 2),
+          createWorkoutSetId('rope-triceps-pushdown', 3),
+        ]),
+      ),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const warmupBadge = within(screen.getByRole('button', { name: /Warmup/i })).getByText('2/2');
+    expect(warmupBadge).toHaveClass('bg-emerald-500/15');
+    expect(within(warmupBadge).getByText('Section complete')).toBeInTheDocument();
+
+    const mainBadge = within(screen.getByRole('button', { name: /Main/i })).getByText('1/4');
+    expect(mainBadge).toHaveClass('bg-secondary');
+    expect(mainBadge).not.toHaveClass('bg-muted');
+
+    const cooldownBadge = within(screen.getByRole('button', { name: /Cooldown/i })).getByText(
+      '0/1',
+    );
+    expect(cooldownBadge).toHaveClass('bg-muted');
+    expect(cooldownBadge).not.toHaveClass('bg-secondary');
   });
 
   it('debounces exercise notes updates until typing pauses', async () => {
@@ -718,6 +771,71 @@ describe('SessionExerciseList', () => {
     ).toHaveClass('line-through');
   });
 
+  it('keeps section open state manual when workout progress moves into the next section', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const initialSession = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const progressedSession = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(
+        activeTemplate,
+        new Set([
+          createWorkoutSetId('row-erg', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 2),
+        ]),
+      ),
+    );
+
+    const queryClient = createAppQueryClient();
+    queryClient.clear();
+
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={initialSession}
+        />
+      </QueryClientProvider>,
+    );
+
+    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+    const mainButton = screen.getByRole('button', { name: /Main/i });
+
+    if (warmupButton.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(warmupButton);
+    }
+    if (mainButton.getAttribute('aria-expanded') === 'true') {
+      fireEvent.click(mainButton);
+    }
+
+    expect(warmupButton).toHaveAttribute('aria-expanded', 'true');
+    expect(mainButton).toHaveAttribute('aria-expanded', 'false');
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={progressedSession}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Main/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -1074,7 +1192,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
     const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
     expect(relatedExerciseLabel).toBeVisible();
-    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60x8/);
+    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60 lbs × 8 reps/);
 
     useLastPerformanceSpy.mockRestore();
   });

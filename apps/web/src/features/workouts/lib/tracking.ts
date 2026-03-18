@@ -3,6 +3,8 @@ import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 type SetMetrics = {
   distance?: number | null;
   reps?: number | null;
+  setNumber?: number | null;
+  skipped?: boolean;
   seconds?: number | null;
   weight?: number | null;
 };
@@ -26,6 +28,9 @@ const TRACKING_TYPE_ORDER: ExerciseTrackingType[] = [
   'distance',
   'cardio',
 ];
+const integerFormatter = new Intl.NumberFormat('en-US');
+
+export type TrackingSummaryMetricLabel = 'distance' | 'reps' | 'seconds' | 'volume';
 
 export function resolveTrackingType({
   category,
@@ -80,18 +85,77 @@ export function getDistanceUnit(weightUnit: WeightUnit) {
   return weightUnit === 'kg' ? 'km' : 'mi';
 }
 
-export function getSetSeconds(set: SetMetrics) {
-  if (set.seconds != null) {
-    return set.seconds;
-  }
+export function isWeightedTrackingType(trackingType: ExerciseTrackingType) {
+  return trackingType === 'weight_reps' || trackingType === 'weight_seconds';
+}
 
-  // Temporary bridge: persisted session sets still store time values in `reps`.
-  // Remove this fallback once session-set `seconds` is migrated end-to-end.
-  return set.reps;
+export function isTimeBasedTrackingType(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_seconds' ||
+    trackingType === 'reps_seconds' ||
+    trackingType === 'seconds_only' ||
+    trackingType === 'cardio'
+  );
+}
+
+export function getSetSeconds(set: SetMetrics) {
+  return getSetSecondsValue(set, true);
 }
 
 export function getSetDistance(set: SetMetrics) {
   return set.distance ?? null;
+}
+
+export function formatSetSummary(
+  set: SetMetrics,
+  trackingType: ExerciseTrackingType,
+  {
+    includeSetNumber = false,
+    useLegacySecondsFallback = true,
+    weightUnit = 'lbs',
+  }: {
+    includeSetNumber?: boolean;
+    useLegacySecondsFallback?: boolean;
+    weightUnit?: WeightUnit;
+  } = {},
+) {
+  const prefix =
+    includeSetNumber && set.setNumber != null ? `Set ${set.setNumber}: ` : '';
+
+  if (set.skipped) {
+    return `${prefix}Skipped`;
+  }
+
+  const weightLabel = set.weight != null ? `${formatWeightNumber(set.weight)} ${weightUnit}` : null;
+  const repsLabel = set.reps != null ? `${formatMetricNumber(set.reps)} reps` : null;
+  const seconds = getSetSecondsValue(set, useLegacySecondsFallback);
+  const secondsLabel = seconds != null ? `${formatMetricNumber(seconds)} sec` : null;
+  const distance = getSetDistance(set);
+  const resolvedDistance = distance ?? (trackingType === 'distance' ? set.reps : null);
+  const distanceLabel =
+    resolvedDistance != null
+      ? `${formatMetricNumber(resolvedDistance)} ${getDistanceUnit(weightUnit)}`
+      : null;
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return `${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`;
+    case 'weight_seconds':
+      return `${prefix}${joinSegments(weightLabel, secondsLabel, ' × ')}`;
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return `${prefix}${repsLabel ?? '-'}`;
+    case 'reps_seconds':
+      return `${prefix}${joinSegments(repsLabel, secondsLabel, ' × ')}`;
+    case 'seconds_only':
+      return `${prefix}${secondsLabel ?? '-'}`;
+    case 'distance':
+      return `${prefix}${distanceLabel ?? '-'}`;
+    case 'cardio':
+      return `${prefix}${joinSegments(secondsLabel, distanceLabel, ' / ')}`;
+    default:
+      return `${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`;
+  }
 }
 
 export function isSetCompleteForTrackingType(trackingType: ExerciseTrackingType, set: SetMetrics) {
@@ -113,7 +177,7 @@ export function isSetCompleteForTrackingType(trackingType: ExerciseTrackingType,
     case 'seconds_only':
       return seconds > 0;
     case 'distance':
-      return distance > 0;
+      return (set.distance ?? set.reps ?? 0) > 0;
     case 'cardio':
       return seconds > 0 && distance > 0;
     default:
@@ -125,7 +189,6 @@ export function getSetVolume(trackingType: ExerciseTrackingType, set: SetMetrics
   const reps = set.reps ?? 0;
   const weight = set.weight ?? 0;
   const seconds = getSetSeconds(set) ?? 0;
-  const distance = getSetDistance(set) ?? 0;
 
   switch (trackingType) {
     case 'weight_reps':
@@ -140,12 +203,57 @@ export function getSetVolume(trackingType: ExerciseTrackingType, set: SetMetrics
     case 'seconds_only':
       return seconds;
     case 'distance':
-      return distance;
+      return set.distance ?? set.reps ?? 0;
     case 'cardio':
       return seconds;
     default:
       return 0;
   }
+}
+
+export function getTrackingSummaryMetricLabel(
+  trackingType: ExerciseTrackingType,
+): TrackingSummaryMetricLabel {
+  switch (trackingType) {
+    case 'weight_reps':
+      return 'volume';
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return 'reps';
+    case 'weight_seconds':
+    case 'reps_seconds':
+    case 'seconds_only':
+    case 'cardio':
+      return 'seconds';
+    case 'distance':
+      return 'distance';
+    default:
+      return 'volume';
+  }
+}
+
+export function getSetSummaryMetricValue(trackingType: ExerciseTrackingType, set: SetMetrics) {
+  switch (getTrackingSummaryMetricLabel(trackingType)) {
+    case 'volume':
+      return getSetVolume(trackingType, set);
+    case 'reps':
+      return set.reps ?? 0;
+    case 'seconds':
+      return getSetSeconds(set) ?? 0;
+    case 'distance':
+      return getSetDistance(set) ?? set.reps ?? 0;
+    default:
+      return 0;
+  }
+}
+
+export function isRepTrackingType(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_reps' ||
+    trackingType === 'bodyweight_reps' ||
+    trackingType === 'reps_only' ||
+    trackingType === 'reps_seconds'
+  );
 }
 
 export function getTrackingVolumeLabel(trackingType: ExerciseTrackingType) {
@@ -216,4 +324,74 @@ export function formatTrackingTypeSummary(trackingTypes: ExerciseTrackingType[])
   );
 
   return uniqueTrackingTypes.map((trackingType) => getTrackingTypeLabel(trackingType)).join(' • ');
+}
+
+export function formatTrackingMetricBreakdown(
+  totals: Record<TrackingSummaryMetricLabel, number>,
+  weightUnit: WeightUnit,
+) {
+  const segments: string[] = [];
+
+  if (totals.volume > 0) {
+    segments.push(`${formatMetricNumber(totals.volume)} ${weightUnit}`);
+  }
+  if (totals.reps > 0) {
+    segments.push(`${formatMetricNumber(totals.reps)} reps`);
+  }
+  if (totals.seconds > 0) {
+    segments.push(`${formatMetricNumber(totals.seconds)} sec`);
+  }
+  if (totals.distance > 0) {
+    segments.push(`${formatMetricNumber(totals.distance)} ${getDistanceUnit(weightUnit)}`);
+  }
+
+  if (segments.length === 0) {
+    return '-';
+  }
+
+  return segments.join(' • ');
+}
+
+function joinSegments(
+  left: string | null,
+  right: string | null,
+  separator: string,
+) {
+  if (left && right) {
+    return `${left}${separator}${right}`;
+  }
+
+  return left ?? right ?? '-';
+}
+
+export function formatMetricNumber(value: number) {
+  const normalized = Math.round(value * 100) / 100;
+  if (Number.isInteger(normalized)) {
+    return integerFormatter.format(normalized);
+  }
+
+  return normalized.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function formatWeightNumber(value: number) {
+  const normalized = Math.round(value * 10) / 10;
+  if (Number.isInteger(normalized)) {
+    return integerFormatter.format(normalized);
+  }
+
+  return normalized.toFixed(1);
+}
+
+function getSetSecondsValue(set: SetMetrics, useLegacyFallback: boolean) {
+  if (set.seconds != null) {
+    return set.seconds;
+  }
+
+  if (useLegacyFallback) {
+    // Temporary bridge: persisted session sets still store time values in `reps`.
+    // Remove this fallback once session-set `seconds` is migrated end-to-end.
+    return set.reps;
+  }
+
+  return null;
 }

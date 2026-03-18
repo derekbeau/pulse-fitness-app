@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { formatServing } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -26,7 +27,9 @@ import {
   TEMPLATE_TAG_LIMIT,
   TEMPLATE_TAG_SUGGESTIONS,
 } from '../lib/template-tags';
+import { getDistanceUnit, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import type { ActiveWorkoutFeedbackDraft } from '../types';
+import { MarkdownNote } from './markdown-note';
 
 type SessionSummaryProps = {
   className?: string;
@@ -40,6 +43,9 @@ type SessionSummaryProps = {
   onNotesChange?: (notes: string) => void;
   sessionNotes?: string;
   sessionId?: string | null;
+  summaryMetricLabel?: TrackingSummaryMetricLabel | 'mixed';
+  summaryMetricMixedValue?: string | null;
+  summaryMetricValue?: number | null;
   completedSets?: number;
   summarySaving?: boolean;
   totalVolume?: number;
@@ -51,12 +57,14 @@ type SessionSummaryProps = {
 
 export type SessionSummaryExerciseResult = {
   id: string;
+  metricLabel?: TrackingSummaryMetricLabel;
+  metricValue?: number;
   name: string;
   notes?: string | null;
   reps: number;
   setsCompleted: number;
   totalSets: number;
-  volume: number;
+  volume?: number;
 };
 
 export function SessionSummary({
@@ -71,6 +79,9 @@ export function SessionSummary({
   onNotesChange,
   sessionNotes: initialSessionNotes = '',
   sessionId = null,
+  summaryMetricLabel = 'volume',
+  summaryMetricMixedValue = null,
+  summaryMetricValue = null,
   completedSets,
   summarySaving = false,
   totalVolume = 0,
@@ -89,6 +100,15 @@ export function SessionSummary({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const hasMaxTemplateTags = templateTags.length >= TEMPLATE_TAG_LIMIT;
+  const resolvedSummaryMetricValue = getSummaryMetricValue({
+    metricLabel: summaryMetricLabel,
+    metricMixedValue: summaryMetricMixedValue,
+    metricValue: summaryMetricValue,
+    totalVolume,
+    totalReps,
+    weightUnit,
+  });
+  const shouldShowRepsPill = totalReps > 0 && summaryMetricLabel !== 'reps';
   const normalizedTagQuery = templateTagInput.trim().toLowerCase();
   const suggestedTemplateTags = useMemo(
     () =>
@@ -149,9 +169,9 @@ export function SessionSummary({
           <div className="flex flex-wrap gap-2">
             <SummaryPill
               icon={Dumbbell}
-              label="Total volume"
-              tone="volume"
-              value={formatWeight(totalVolume, weightUnit)}
+              label={getSummaryMetricLabel(summaryMetricLabel)}
+              tone={getMetricTone(summaryMetricLabel)}
+              value={resolvedSummaryMetricValue}
             />
             <SummaryPill icon={Clock3} label="Duration" tone="time" value={duration} />
             <SummaryPill
@@ -160,7 +180,9 @@ export function SessionSummary({
               tone="count"
               value={completedSets === undefined ? `${totalSets}` : `${completedSets}/${totalSets}`}
             />
-            <SummaryPill icon={CheckCircle2} label="Reps" tone="count" value={`${totalReps}`} />
+            {shouldShowRepsPill ? (
+              <SummaryPill icon={CheckCircle2} label="Reps" tone="count" value={`${totalReps}`} />
+            ) : null}
           </div>
 
           {exerciseResults.length > 0 ? (
@@ -182,14 +204,23 @@ export function SessionSummary({
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       <MetricChip
-                        label="Volume"
-                        tone="volume"
-                        value={formatWeight(exercise.volume, weightUnit)}
+                        label={getExerciseMetricLabel(exercise.metricLabel ?? 'volume')}
+                        tone={getMetricTone(exercise.metricLabel ?? 'volume')}
+                        value={formatSummaryMetricValue(
+                          exercise.metricValue ?? exercise.volume ?? 0,
+                          exercise.metricLabel ?? 'volume',
+                          weightUnit,
+                        )}
                       />
-                      <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
+                      {exercise.reps > 0 && (exercise.metricLabel ?? 'volume') !== 'reps' ? (
+                        <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
+                      ) : null}
                     </div>
                     {exercise.notes?.trim() ? (
-                      <p className="mt-2 text-xs text-muted">{exercise.notes.trim()}</p>
+                      <MarkdownNote
+                        className="mt-2 text-xs text-muted"
+                        content={exercise.notes.trim()}
+                      />
                     ) : null}
                   </article>
                 ))}
@@ -245,7 +276,10 @@ export function SessionSummary({
                       {formatFeedbackFieldValue(field)}
                     </p>
                     {field.notes?.trim() ? (
-                      <p className="mt-1.5 text-xs text-muted">{field.notes.trim()}</p>
+                      <MarkdownNote
+                        className="mt-1.5 text-xs text-muted"
+                        content={field.notes.trim()}
+                      />
                     ) : null}
                   </div>
                 ))}
@@ -464,6 +498,98 @@ function formatFeedbackFieldValue(field: ActiveWorkoutFeedbackDraft[number]) {
     default:
       return '-';
   }
+}
+
+function getSummaryMetricLabel(label: TrackingSummaryMetricLabel | 'mixed') {
+  switch (label) {
+    case 'reps':
+      return 'Total reps';
+    case 'seconds':
+      return 'Total time';
+    case 'distance':
+      return 'Total distance';
+    case 'mixed':
+      return 'Tracked metrics';
+    case 'volume':
+    default:
+      return 'Total volume';
+  }
+}
+
+function getExerciseMetricLabel(label: TrackingSummaryMetricLabel) {
+  switch (label) {
+    case 'reps':
+      return 'Reps';
+    case 'seconds':
+      return 'Seconds';
+    case 'distance':
+      return 'Distance';
+    case 'volume':
+    default:
+      return 'Volume';
+  }
+}
+
+function formatSummaryMetricValue(
+  value: number,
+  label: TrackingSummaryMetricLabel,
+  weightUnit: WeightUnit,
+) {
+  if (label === 'volume') {
+    return formatWeight(value, weightUnit);
+  }
+
+  if (label === 'reps') {
+    return `${Math.round(value)}`;
+  }
+
+  if (label === 'seconds') {
+    return `${formatServing(value)} sec`;
+  }
+
+  return `${formatServing(value)} ${getDistanceUnit(weightUnit)}`;
+}
+
+function getSummaryMetricValue({
+  metricLabel,
+  metricMixedValue,
+  metricValue,
+  totalReps,
+  totalVolume,
+  weightUnit,
+}: {
+  metricLabel: TrackingSummaryMetricLabel | 'mixed';
+  metricMixedValue: string | null;
+  metricValue: number | null;
+  totalReps: number;
+  totalVolume: number;
+  weightUnit: WeightUnit;
+}) {
+  if (metricLabel === 'mixed') {
+    return metricMixedValue ?? '-';
+  }
+
+  if (metricValue != null) {
+    return formatSummaryMetricValue(metricValue, metricLabel, weightUnit);
+  }
+
+  if (metricLabel === 'reps') {
+    return `${totalReps}`;
+  }
+
+  return formatSummaryMetricValue(totalVolume, metricLabel, weightUnit);
+}
+
+function getMetricTone(label: TrackingSummaryMetricLabel | 'mixed'): 'count' | 'time' | 'volume' {
+  if (label === 'seconds') {
+    return 'time';
+  }
+
+  if (label === 'volume') {
+    return 'volume';
+  }
+
+  return 'count';
 }
 
 function SummaryPill({

@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, CalendarClock, Dumbbell, TriangleAlert } from 'lucide-react';
-import type { WorkoutTemplate } from '@pulse/shared';
+import type {
+  WorkoutTemplate,
+  WorkoutTemplateExercise,
+  WeightUnit,
+} from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useStartSession } from '@/hooks/use-workout-session';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +22,7 @@ import {
   useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
+import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
@@ -45,6 +51,7 @@ type ScheduledWorkoutDetailProps = {
 
 export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
   const navigate = useNavigate();
+  const { weightUnit } = useWeightUnit();
   const { data: scheduledWorkout, isLoading, isError } = useScheduledWorkoutDetail(id);
   const startSessionMutation = useStartSession();
   const rescheduleWorkoutMutation = useRescheduleWorkout();
@@ -219,7 +226,7 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
         </CardContent>
       </Card>
 
-      {template ? <TemplateSections template={template} /> : null}
+      {template ? <TemplateSections template={template} weightUnit={weightUnit} /> : null}
 
       {scheduledWorkout ? (
         <ScheduleWorkoutDialog
@@ -253,7 +260,13 @@ function BackLink() {
   );
 }
 
-function TemplateSections({ template }: { template: WorkoutTemplate }) {
+function TemplateSections({
+  template,
+  weightUnit,
+}: {
+  template: WorkoutTemplate;
+  weightUnit: WeightUnit;
+}) {
   const nonEmptySections = template.sections.filter((section) => section.exercises.length > 0);
 
   if (nonEmptySections.length === 0) {
@@ -293,15 +306,7 @@ function TemplateSections({ template }: { template: WorkoutTemplate }) {
                   <p className="truncate text-sm font-medium text-foreground">
                     {exercise.exerciseName}
                   </p>
-                  <p className="text-xs text-muted">
-                    {exercise.sets} set{exercise.sets === 1 ? '' : 's'}
-                    {exercise.repsMin != null && exercise.repsMax != null
-                      ? ` · ${exercise.repsMin}–${exercise.repsMax} reps`
-                      : exercise.repsMin != null
-                        ? ` · ${exercise.repsMin}+ reps`
-                        : ''}
-                    {exercise.restSeconds != null ? ` · ${exercise.restSeconds}s rest` : ''}
-                  </p>
+                  <p className="text-xs text-muted">{formatExerciseSummary(exercise, weightUnit)}</p>
                 </div>
                 {exercise.supersetGroup ? (
                   <Badge className="shrink-0" variant="secondary">
@@ -316,4 +321,106 @@ function TemplateSections({ template }: { template: WorkoutTemplate }) {
       ))}
     </div>
   );
+}
+
+function formatExerciseSummary(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  const segments = [
+    `${exercise.sets} set${exercise.sets === 1 ? '' : 's'}`,
+    formatExerciseTarget(exercise, weightUnit),
+    exercise.restSeconds != null ? `${exercise.restSeconds} sec rest` : null,
+  ].filter((segment): segment is string => segment != null && segment.length > 0);
+
+  return segments.join(' · ');
+}
+
+function formatExerciseTarget(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
+  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
+  const firstTarget = (exercise.setTargets ?? [])[0] ?? null;
+  const targetWeight =
+    firstTarget?.targetWeight != null
+      ? `${firstTarget.targetWeight} ${weightUnit}`
+      : firstTarget?.targetWeightMin != null && firstTarget?.targetWeightMax != null
+        ? `${firstTarget.targetWeightMin}-${firstTarget.targetWeightMax} ${weightUnit}`
+        : null;
+  const targetSeconds =
+    firstTarget?.targetSeconds != null ? `${firstTarget.targetSeconds} sec` : null;
+  const targetDistance =
+    firstTarget?.targetDistance != null
+      ? `${firstTarget.targetDistance} ${getDistanceUnit(weightUnit)}`
+      : null;
+
+  switch (exercise.trackingType) {
+    case 'weight_reps':
+      return targetWeight ?? withRepUnit(repsTarget);
+    case 'weight_seconds':
+      if (targetWeight && targetSeconds) {
+        return `${targetWeight} × ${targetSeconds}`;
+      }
+      return targetWeight ?? targetSeconds ?? withSecUnit(repsTarget);
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return withRepUnit(repsTarget);
+    case 'reps_seconds':
+      if (repsTarget && targetSeconds) {
+        return `${withRepUnit(repsTarget)} × ${targetSeconds}`;
+      }
+      return targetSeconds ?? withSecUnit(repsTarget);
+    case 'seconds_only':
+      return targetSeconds ?? withSecUnit(repsTarget);
+    case 'distance':
+      return targetDistance ?? withDistanceUnit(repsTarget, weightUnit);
+    case 'cardio':
+      if (targetSeconds && targetDistance) {
+        return `${targetSeconds} + ${targetDistance}`;
+      }
+      return targetSeconds ?? targetDistance ?? withSecUnit(repsTarget);
+    default:
+      return withRepUnit(repsTarget);
+  }
+}
+
+function formatRepTarget(repsMin: number | null, repsMax: number | null) {
+  if (repsMin != null && repsMax != null) {
+    return repsMin === repsMax ? `${repsMin}` : `${repsMin}-${repsMax}`;
+  }
+
+  if (repsMin != null) {
+    return `${repsMin}+`;
+  }
+
+  if (repsMax != null) {
+    return `Up to ${repsMax}`;
+  }
+
+  return null;
+}
+
+function withRepUnit(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const lower = value.toLowerCase();
+  return lower.includes('rep') || lower.includes('sec') || lower.includes('min')
+    ? value
+    : `${value} reps`;
+}
+
+function withSecUnit(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const lower = value.toLowerCase();
+  return lower.includes('sec') || lower.includes('min') ? value : `${value} sec`;
+}
+
+function withDistanceUnit(value: string | null, weightUnit: WeightUnit) {
+  if (!value) {
+    return null;
+  }
+
+  const lower = value.toLowerCase();
+  const distanceUnit = getDistanceUnit(weightUnit);
+  return lower.includes('mi') || lower.includes('km') ? value : `${value} ${distanceUnit}`;
 }

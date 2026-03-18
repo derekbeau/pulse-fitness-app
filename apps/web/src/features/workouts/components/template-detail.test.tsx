@@ -639,13 +639,13 @@ describe('WorkoutTemplateDetail', () => {
     );
 
     expect(await screen.findByText('2 x 15')).toBeInTheDocument();
-    expect(screen.getByText('2 x 45s')).toBeInTheDocument();
-    expect(screen.getByText('Set 1: 45s • Set 2: 60s')).toBeInTheDocument();
+    expect(screen.getByText('2 x 45 sec')).toBeInTheDocument();
+    expect(screen.getByText('Set 1: 45 sec • Set 2: 60 sec')).toBeInTheDocument();
     expect(screen.getByText('3 x 6-8 (bodyweight)')).toBeInTheDocument();
-    expect(screen.getByText('2 x 40 lbs x 30s')).toBeInTheDocument();
-    expect(screen.getByText('2 x 10-12 x 30s')).toBeInTheDocument();
+    expect(screen.getByText('2 x 40 lbs x 30 sec')).toBeInTheDocument();
+    expect(screen.getByText('2 x 10-12 x 30 sec')).toBeInTheDocument();
     expect(screen.getByText('3 x 0.25 mi')).toBeInTheDocument();
-    expect(screen.getByText('1 x 300s + 1 mi')).toBeInTheDocument();
+    expect(screen.getByText('1 x 300 sec + 1 mi')).toBeInTheDocument();
   });
 
   it('schedules a workout from the template detail view', async () => {

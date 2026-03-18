@@ -181,4 +181,76 @@ describe('SessionSummary', () => {
 
     expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();
   });
+
+  it('renders tracking-aware summary labels for time-based and mixed sessions', () => {
+    renderWithQueryClient(
+      <SessionSummary
+        duration="12:00"
+        exerciseResults={[
+          {
+            id: 'plank',
+            metricLabel: 'seconds',
+            metricValue: 120,
+            name: 'Plank Hold',
+            reps: 0,
+            setsCompleted: 2,
+            totalSets: 2,
+          },
+        ]}
+        exercisesCompleted={1}
+        onDone={() => {}}
+        summaryMetricLabel="mixed"
+        summaryMetricMixedValue="120 sec • 0.5 mi"
+        totalReps={0}
+        totalSets={2}
+        totalVolume={0}
+        workoutName="Conditioning"
+      />,
+    );
+
+    expect(screen.getByText('Tracked metrics')).toBeInTheDocument();
+    expect(screen.getByText('120 sec • 0.5 mi')).toBeInTheDocument();
+    expect(screen.queryByTestId('summary-pill-count-reps')).not.toBeInTheDocument();
+    expect(screen.getByText('Seconds: 120 sec')).toBeInTheDocument();
+  });
+
+  it('renders markdown in read-only exercise and feedback notes', () => {
+    renderWithQueryClient(
+      <SessionSummary
+        duration="15:24"
+        exerciseResults={[
+          {
+            id: 'incline-press',
+            name: 'Incline Dumbbell Press',
+            notes: '- **Brace** at lockout\n- Keep elbows stacked',
+            reps: 16,
+            setsCompleted: 2,
+            totalSets: 2,
+            volume: 880,
+          },
+        ]}
+        exercisesCompleted={1}
+        feedback={[
+          {
+            id: 'coach-note',
+            label: 'Coach note',
+            notes: 'Stay *conservative* early.\n\n<script>alert("xss")</script>',
+            type: 'text',
+            value: 'Solid pacing.',
+          },
+        ]}
+        onDone={() => {}}
+        totalReps={16}
+        totalSets={2}
+        totalVolume={880}
+        workoutName="Upper Push"
+      />,
+    );
+
+    expect(screen.getByText('Brace').tagName).toBe('STRONG');
+    expect(screen.getByText('Keep elbows stacked').closest('li')).toBeInTheDocument();
+    expect(screen.getByText('conservative').tagName).toBe('EM');
+    expect(screen.getByText('<script>alert("xss")</script>')).toBeInTheDocument();
+    expect(document.querySelector('script')).not.toBeInTheDocument();
+  });
 });

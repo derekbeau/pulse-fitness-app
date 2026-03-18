@@ -211,4 +211,78 @@ describe('active-session helpers', () => {
 
     expect(firstMainExercise?.trackingType).toBe('seconds_only');
   });
+
+  it('honors explicit template tracking type for unknown exercises', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const unknownExerciseTemplate = structuredClone(activeTemplate);
+    const mainSection = unknownExerciseTemplate.sections[1];
+    const firstExercise = mainSection?.exercises[0];
+    if (!mainSection || !firstExercise) {
+      throw new Error('Expected main section with exercises in template.');
+    }
+
+    mainSection.exercises[0] = {
+      ...firstExercise,
+      exerciseId: 'dead-hang',
+      exerciseName: 'Dead Hang',
+      reps: '8',
+      trackingType: 'seconds_only',
+    };
+
+    const session = buildActiveWorkoutSession(
+      unknownExerciseTemplate,
+      createInitialWorkoutSetDrafts(
+        unknownExerciseTemplate,
+        new Set([createWorkoutSetId('dead-hang', 1)]),
+      ),
+    );
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')
+      ?.exercises[0];
+    const firstSet = firstMainExercise?.sets[0];
+
+    expect(firstMainExercise?.trackingType).toBe('seconds_only');
+    expect(firstSet?.seconds).toBe(8);
+    expect(firstSet?.reps).toBeNull();
+    expect(firstSet?.weight).toBeNull();
+  });
+
+  it('honors explicit reps-only tracking type for unknown exercises', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const unknownExerciseTemplate = structuredClone(activeTemplate);
+    const mainSection = unknownExerciseTemplate.sections[1];
+    const firstExercise = mainSection?.exercises[0];
+    if (!mainSection || !firstExercise) {
+      throw new Error('Expected main section with exercises in template.');
+    }
+
+    mainSection.exercises[0] = {
+      ...firstExercise,
+      exerciseId: 'dead-bug',
+      exerciseName: 'Dead Bug',
+      reps: '12',
+      trackingType: 'reps_only',
+    };
+
+    const session = buildActiveWorkoutSession(
+      unknownExerciseTemplate,
+      createInitialWorkoutSetDrafts(
+        unknownExerciseTemplate,
+        new Set([createWorkoutSetId('dead-bug', 1)]),
+      ),
+    );
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')
+      ?.exercises[0];
+    const firstSet = firstMainExercise?.sets[0];
+
+    expect(firstMainExercise?.trackingType).toBe('reps_only');
+    expect(firstSet?.reps).toBe(12);
+    expect(firstSet?.seconds).toBeNull();
+    expect(firstSet?.weight).toBeNull();
+  });
 });
