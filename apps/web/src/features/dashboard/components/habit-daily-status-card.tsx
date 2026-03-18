@@ -61,6 +61,7 @@ function getProgressPercent(target: number | null, value: number | null) {
 
 function getEffectiveEntry(habit: HabitWithTodayEntry, entry: HabitEntry | undefined) {
   const isReferential = habit.referenceSource !== null && habit.referenceSource !== undefined;
+  // For referential habits, use the aggregated `todayEntry` unless there is an explicit manual override.
   const useTodayEntry =
     isReferential &&
     habit.todayEntry !== undefined &&
@@ -94,7 +95,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
 
   if (habitsQuery.isLoading || habitEntriesQuery.isLoading) {
     return (
-      <Card className="gap-2 py-3">
+      <Card className="gap-2 py-3" data-testid={`habit-daily-status-card-loading-${habitId}`}>
         <CardHeader className="px-3 sm:px-4">
           <Skeleton className="h-4 w-40" />
         </CardHeader>
@@ -224,6 +225,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
                       }
 
                       if (event.key === 'Escape') {
+                        setNumericDraftValue(numericValue == null ? '' : String(numericValue));
                         setIsEditingNumericValue(false);
                       }
                     }}

@@ -779,6 +779,63 @@ describe('DashboardPage', () => {
     expect(screen.getAllByText('Meditate').length).toBeGreaterThan(1);
   });
 
+  it('shows habit daily card loading state while habits are still loading', async () => {
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: [...DEFAULT_VISIBLE_WIDGETS, 'habit-daily:habit-meditate'],
+    };
+    const deferredHabits = createDeferredResponse();
+    const defaultFetchImplementation = mockFetch.getMockImplementation() as
+      | ((input: string | URL | Request, init?: RequestInit) => Promise<Response>)
+      | undefined;
+
+    mockFetch.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
+
+      if (url.pathname === '/api/v1/habits' && init?.method === 'GET') {
+        return deferredHabits.promise;
+      }
+
+      return (
+        defaultFetchImplementation?.(input, init) ??
+        Promise.resolve(
+          new Response(JSON.stringify({ error: { code: 'NOT_FOUND', message: 'Not found' } }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 404,
+          }),
+        )
+      );
+    });
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-loading-habit-meditate')).toBeInTheDocument();
+
+    deferredHabits.resolve(
+      new Response(JSON.stringify({ data: habits }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      }),
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+  });
+
   it('hides the weight trend widget when it is excluded from visible widgets', async () => {
     dashboardConfig = {
       habitChainIds: ['habit-meditate'],

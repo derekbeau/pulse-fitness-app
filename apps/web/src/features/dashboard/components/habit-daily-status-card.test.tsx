@@ -208,6 +208,22 @@ describe('HabitDailyStatusCard', () => {
     );
   });
 
+  it('cancels numeric inline edits when pressing Escape', () => {
+    const { mutate } = mockHabitHooks({});
+
+    render(<HabitDailyStatusCard habitId="habit-water" />);
+
+    fireEvent.click(screen.getByTestId('habit-daily-value-button-habit-water'));
+
+    const valueInput = screen.getByTestId('habit-daily-value-input-habit-water');
+    fireEvent.change(valueInput, { target: { value: '67' } });
+    fireEvent.keyDown(valueInput, { key: 'Escape' });
+
+    expect(screen.getByTestId('habit-daily-value-button-habit-water')).toBeInTheDocument();
+    expect(screen.getByText('52 oz')).toBeInTheDocument();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
   it('toggles boolean habit completion and saves immediately', () => {
     const { mutate } = mockHabitHooks({
       entries: [

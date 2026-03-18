@@ -631,17 +631,13 @@ export function DashboardPage() {
             {visibleHabitDailyWidgets.map(({ habitId, widgetId }) => {
               const habit = habitsQuery.data?.find((item) => item.id === habitId);
 
-              if (!habit) {
-                return null;
-              }
-
               return (
                 <DashboardWidgetFrame
                   key={widgetId}
                   dataSlot={`dashboard-habit-daily-card-${habitId}`}
                   isEditMode={isEditMode}
                   onHide={() => hideWidget(widgetId)}
-                  widgetLabel={`${habit.name} daily status`}
+                  widgetLabel={habit ? `${habit.name} daily status` : 'Habit daily status'}
                 >
                   <HabitDailyStatusCard compact habitId={habitId} />
                 </DashboardWidgetFrame>
