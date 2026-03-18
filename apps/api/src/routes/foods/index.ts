@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  agentFoodResultSchema,
   apiDataResponseSchema,
   apiPaginatedResponseSchema,
   createFoodInputSchema,
@@ -12,11 +11,11 @@ import {
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
-import { buildDataResponse } from '../../middleware/agent-enrichment.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -27,15 +26,9 @@ import {
 
 import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
 
-const createFoodResponseSchema = z.union([
-  apiDataResponseSchema(foodSchema),
-  apiDataResponseSchema(agentFoodResultSchema),
-]);
+const createFoodResponseSchema = apiDataResponseSchema(foodSchema);
 
-const listFoodsResponseSchema = z.union([
-  apiPaginatedResponseSchema(foodSchema),
-  apiDataResponseSchema(z.array(agentFoodResultSchema)),
-]);
+const listFoodsResponseSchema = apiPaginatedResponseSchema(foodSchema);
 
 const successResponseSchema = apiDataResponseSchema(successFlagSchema);
 
@@ -47,6 +40,8 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
         body: createFoodInputSchema,
         response: {
@@ -67,30 +62,13 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
         ...body,
       });
 
-      const responseData = isAgentRequest(request)
-        ? {
-            id: food.id,
-            name: food.name,
-            brand: food.brand,
-            servingSize: food.servingSize,
-            calories: food.calories,
-            protein: food.protein,
-            carbs: food.carbs,
-            fat: food.fat,
-          }
-        : food;
+      setAgentEnrichmentContext(request, {
+        endpoint: 'food.create',
+      });
 
-      return reply.code(201).send(
-        buildDataResponse(
-          request,
-          responseData,
-          isAgentRequest(request)
-            ? {
-                endpoint: 'food.create',
-              }
-            : undefined,
-        ),
-      );
+      return reply.code(201).send({
+        data: food,
+      });
     },
   );
 
@@ -114,21 +92,6 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
       const result = await listFoods(request.userId, query);
 
       reply.header('Cache-Control', 'private, no-cache');
-
-      if (isAgentRequest(request)) {
-        return reply.send({
-          data: result.foods.map((food) => ({
-            id: food.id,
-            name: food.name,
-            brand: food.brand,
-            servingSize: food.servingSize,
-            calories: food.calories,
-            protein: food.protein,
-            carbs: food.carbs,
-            fat: food.fat,
-          })),
-        });
-      }
 
       return reply.send({
         data: result.foods,

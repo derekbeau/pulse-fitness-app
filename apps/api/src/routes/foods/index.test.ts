@@ -210,7 +210,7 @@ describe('foods routes', () => {
     }
   });
 
-  it('returns agent-friendly food list payloads for AgentToken requests', async () => {
+  it('returns paginated food list payloads for AgentToken requests', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-1',
@@ -232,18 +232,19 @@ describe('foods routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
-        data: [
-          {
-            id: 'food-1',
-            name: 'Greek Yogurt',
-            brand: 'Fage 0%',
-            servingSize: '170 g',
-            calories: 90,
-            protein: 18,
-            carbs: 5,
-            fat: 0,
-          },
-        ],
+        data: [buildFood()],
+        meta: {
+          page: 1,
+          limit: 5,
+          total: 1,
+        },
+      });
+      expect(vi.mocked(listFoods)).toHaveBeenCalledWith('user-1', {
+        q: 'yogurt',
+        tags: undefined,
+        sort: 'recent',
+        page: 1,
+        limit: 5,
       });
       expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
@@ -251,7 +252,7 @@ describe('foods routes', () => {
     }
   });
 
-  it('returns agent-friendly create payloads for AgentToken requests', async () => {
+  it('creates foods from foodName alias for AgentToken requests and appends enrichment', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-1',
@@ -267,7 +268,7 @@ describe('foods routes', () => {
         url: '/api/v1/foods',
         headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
         payload: {
-          name: 'Greek Yogurt',
+          foodName: 'Greek Yogurt',
           calories: 90,
           protein: 18,
           carbs: 5,
@@ -277,16 +278,9 @@ describe('foods routes', () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.json()).toEqual({
-        data: {
+        data: buildFood({
           id: (response.json() as { data: { id: string } }).data.id,
-          name: 'Greek Yogurt',
-          brand: 'Fage 0%',
-          servingSize: '170 g',
-          calories: 90,
-          protein: 18,
-          carbs: 5,
-          fat: 0,
-        },
+        }),
         agent: {
           hints: [
             'Search for similarly named foods before creating another branded variant to avoid duplicates.',
@@ -303,6 +297,17 @@ describe('foods routes', () => {
             similarFoods: [],
           },
         },
+      });
+      expect(vi.mocked(createFood)).toHaveBeenCalledWith({
+        id: expect.any(String),
+        userId: 'user-1',
+        name: 'Greek Yogurt',
+        calories: 90,
+        protein: 18,
+        carbs: 5,
+        fat: 0,
+        verified: false,
+        tags: [],
       });
     } finally {
       await app.close();

@@ -96,6 +96,26 @@ describe('createFoodInputSchema', () => {
     });
   });
 
+  it('accepts foodName alias and normalizes to name', () => {
+    const payload = createFoodInputSchema.parse({
+      foodName: ' Chicken Breast ',
+      calories: 187,
+      protein: 35,
+      carbs: 0,
+      fat: 4,
+    });
+
+    expect(payload).toEqual({
+      name: 'Chicken Breast',
+      calories: 187,
+      protein: 35,
+      carbs: 0,
+      fat: 4,
+      verified: false,
+      tags: [],
+    });
+  });
+
   it('rejects blank names and negative nutrition values', () => {
     expect(() =>
       createFoodInputSchema.parse({

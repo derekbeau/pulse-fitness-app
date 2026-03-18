@@ -78,10 +78,37 @@ const foodMutationFieldsSchema = z.object({
   tags: foodTagsSchema.optional(),
 });
 
-export const createFoodInputSchema = foodMutationFieldsSchema.extend({
-  verified: z.boolean().optional().default(false),
-  tags: foodTagsSchema.optional().default([]),
-});
+const createFoodInputBaseSchema = foodMutationFieldsSchema
+  .omit({ name: true })
+  .extend({
+    name: requiredText().optional(),
+    foodName: requiredText().optional(),
+    verified: z.boolean().optional().default(false),
+    tags: foodTagsSchema.optional().default([]),
+  })
+  .refine((value) => value.name !== undefined || value.foodName !== undefined, {
+    message: 'name or foodName is required',
+    path: ['name'],
+  });
+
+export const createFoodInputSchema = createFoodInputBaseSchema.transform(
+  ({ name, foodName, ...rest }, ctx) => {
+    const resolvedName = name ?? foodName;
+    if (!resolvedName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['name'],
+        message: 'name or foodName is required',
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...rest,
+      name: resolvedName,
+    };
+  },
+);
 
 export const updateFoodInputSchema = foodMutationFieldsSchema
   .partial()
