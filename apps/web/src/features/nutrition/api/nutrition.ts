@@ -2,6 +2,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 import type {
   DailyNutrition,
   DeleteMealResult,
+  NutritionMeal,
   NutritionSummary,
   NutritionWeekSummary,
 } from '@pulse/shared';
@@ -15,6 +16,16 @@ import { nutritionQueryKeys } from './keys';
 export type DeleteMealInput = {
   date: string;
   mealId: string;
+};
+
+export type RenameMealInput = {
+  date: string;
+  mealId: string;
+  name: string;
+};
+
+type RenameMealMutationContext = {
+  previousDailyNutrition: DailyNutrition | null | undefined;
 };
 
 const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
@@ -45,6 +56,39 @@ const deleteMeal = ({ date, mealId }: DeleteMealInput) =>
   apiRequest<DeleteMealResult>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
     method: 'DELETE',
   });
+
+const renameMeal = ({ date, mealId, name }: RenameMealInput) =>
+  apiRequest<NutritionMeal>(`/api/v1/nutrition/${date}/meals/${mealId}`, {
+    body: {
+      name,
+    },
+    method: 'PATCH',
+  });
+
+const renameMealInDailyNutrition = (
+  dailyNutrition: DailyNutrition | null | undefined,
+  mealId: string,
+  name: string,
+): DailyNutrition | null | undefined => {
+  if (!dailyNutrition) {
+    return dailyNutrition;
+  }
+
+  return {
+    ...dailyNutrition,
+    meals: dailyNutrition.meals.map((entry) =>
+      entry.meal.id === mealId
+        ? {
+            ...entry,
+            meal: {
+              ...entry.meal,
+              name,
+            },
+          }
+        : entry,
+    ),
+  };
+};
 
 export const useDailyNutrition = (date: string) =>
   useQuery({
@@ -96,6 +140,55 @@ export const useDeleteMeal = () => {
         invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.mealMutation()),
       ]);
       toast.success('Meal deleted');
+    },
+  });
+};
+
+export const useRenameMeal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: renameMeal,
+    onMutate: async (variables): Promise<RenameMealMutationContext> => {
+      await queryClient.cancelQueries({
+        queryKey: nutritionQueryKeys.day(variables.date),
+      });
+
+      const previousDailyNutrition = queryClient.getQueryData<DailyNutrition | null>(
+        nutritionQueryKeys.day(variables.date),
+      );
+
+      queryClient.setQueryData<DailyNutrition | null>(
+        nutritionQueryKeys.day(variables.date),
+        (currentDailyNutrition) =>
+          renameMealInDailyNutrition(currentDailyNutrition, variables.mealId, variables.name) ??
+          null,
+      );
+
+      return {
+        previousDailyNutrition,
+      };
+    },
+    onError: (_error, variables, context) => {
+      queryClient.setQueryData(
+        nutritionQueryKeys.day(variables.date),
+        context?.previousDailyNutrition,
+      );
+    },
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.day(variables.date),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.summary(variables.date),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.weekSummary(variables.date),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.mealMutation()),
+      ]);
+      toast.success('Meal renamed');
     },
   });
 };

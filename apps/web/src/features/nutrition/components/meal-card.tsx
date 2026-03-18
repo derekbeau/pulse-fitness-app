@@ -1,8 +1,9 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { ChevronDown, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   formatCalories,
@@ -32,46 +33,154 @@ export type MealCardMeal = {
 type MealCardProps = {
   meal: MealCardMeal;
   onDelete?: (mealId: string) => void;
+  onRename?: (mealId: string, name: string) => void;
   isDeleting?: boolean;
+  isRenaming?: boolean;
 };
 
 const CARD_HORIZONTAL_PADDING = 'px-4 sm:px-5';
 
-export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) {
+export function MealCard({
+  meal,
+  onDelete,
+  onRename,
+  isDeleting = false,
+  isRenaming = false,
+}: MealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(meal.name);
+  const [nameError, setNameError] = useState<string | null>(null);
   const contentId = useId();
+  const skipBlurCommitRef = useRef(false);
   const formattedTime = formatMealTime(meal.time);
   const collapsedSummary = formatCollapsedSummary(meal);
   const canDelete = typeof onDelete === 'function';
+  const canRename = typeof onRename === 'function';
+
+  function beginNameEdit() {
+    if (!canRename || isRenaming) {
+      return;
+    }
+
+    setIsEditingName(true);
+    setNameDraft(meal.name);
+    setNameError(null);
+  }
+
+  function cancelNameEdit() {
+    setIsEditingName(false);
+    setNameDraft(meal.name);
+    setNameError(null);
+  }
+
+  function commitNameEdit() {
+    const nextName = nameDraft.trim();
+    const currentName = meal.name.trim();
+
+    if (!nextName) {
+      setNameError('Meal name is required');
+      return false;
+    }
+
+    if (nextName === currentName) {
+      cancelNameEdit();
+      return true;
+    }
+
+    onRename?.(meal.id, nextName);
+    setIsEditingName(false);
+    setNameError(null);
+    return true;
+  }
 
   return (
     <Card className="gap-0 overflow-hidden rounded-xl border-border/70 bg-[var(--color-card)] py-0 shadow-none">
-      <button
-        aria-controls={contentId}
-        aria-expanded={isExpanded}
-        className={cn(
-          'flex w-full cursor-pointer items-center gap-2 py-3 text-left transition-colors hover:bg-secondary/30',
-          CARD_HORIZONTAL_PADDING,
-        )}
-        onClick={() => setIsExpanded((prev) => !prev)}
-        type="button"
-      >
+      <div className={cn('flex items-start gap-2 py-3', CARD_HORIZONTAL_PADDING)}>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-semibold text-foreground">{meal.name}</h2>
+            <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
+              {isEditingName ? (
+                <Input
+                  aria-invalid={Boolean(nameError)}
+                  aria-label={`Meal name for ${meal.name}`}
+                  autoFocus
+                  className="h-8 max-w-56 text-sm sm:max-w-64"
+                  disabled={isRenaming}
+                  onBlur={() => {
+                    if (skipBlurCommitRef.current) {
+                      skipBlurCommitRef.current = false;
+                      return;
+                    }
+
+                    commitNameEdit();
+                  }}
+                  onChange={(event) => {
+                    setNameDraft(event.target.value);
+                    if (nameError) {
+                      setNameError(null);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      skipBlurCommitRef.current = true;
+                      event.preventDefault();
+                      cancelNameEdit();
+                      return;
+                    }
+
+                    if (event.key === 'Enter') {
+                      skipBlurCommitRef.current = true;
+                      event.preventDefault();
+                      commitNameEdit();
+                    }
+                  }}
+                  readOnly={isRenaming}
+                  value={nameDraft}
+                />
+              ) : (
+                <button
+                  aria-label={`Rename ${meal.name}`}
+                  className="max-w-full cursor-text truncate text-left transition-colors hover:text-primary"
+                  disabled={!canRename || isRenaming}
+                  onClick={beginNameEdit}
+                  type="button"
+                >
+                  {meal.name}
+                </button>
+              )}
+            </h2>
             <span className="shrink-0 text-[11px] text-muted">{formattedTime}</span>
           </div>
+          {nameError ? <p className="mt-1 text-xs text-destructive">{nameError}</p> : null}
           <p className="mt-0.5 truncate text-xs text-muted">{collapsedSummary}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            aria-controls={contentId}
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${meal.name}`}
+            className="shrink-0 px-2.5 text-muted hover:text-foreground"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                'size-4 text-muted transition-transform duration-200',
+                isExpanded && 'rotate-180',
+              )}
+            />
+          </Button>
           {canDelete ? (
             <Button
               aria-label={`Delete ${meal.name}`}
               className="shrink-0 px-2.5 text-muted hover:text-foreground"
               disabled={isDeleting}
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 onDelete(meal.id);
               }}
               size="sm"
@@ -81,15 +190,8 @@ export function MealCard({ meal, onDelete, isDeleting = false }: MealCardProps) 
               <Trash2 className="size-4" />
             </Button>
           ) : null}
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              'size-4 text-muted transition-transform duration-200',
-              isExpanded && 'rotate-180',
-            )}
-          />
         </div>
-      </button>
+      </div>
 
       {isExpanded ? (
         <div

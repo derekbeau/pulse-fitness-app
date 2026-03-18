@@ -13,6 +13,7 @@ import {
   prefetchNutritionDay,
   useDailyNutrition,
   useDeleteMeal,
+  useRenameMeal,
   useNutritionSummary,
   useNutritionWeekSummary,
 } from '@/features/nutrition/api/nutrition';
@@ -38,6 +39,7 @@ export function NutritionPage() {
   const dailySummaryQuery = useNutritionSummary(dateKey);
   const weekSummaryQuery = useNutritionWeekSummary(dateKey);
   const deleteMealMutation = useDeleteMeal();
+  const renameMealMutation = useRenameMeal();
 
   const selectedMeals = sortMeals(
     (dailyNutritionQuery.data?.meals ?? []).map(({ meal, items }) => ({
@@ -76,6 +78,10 @@ export function NutritionPage() {
     deleteMealMutation.isError && deleteMealMutation.error instanceof Error
       ? deleteMealMutation.error.message
       : null;
+  const renameErrorMessage =
+    renameMealMutation.isError && renameMealMutation.error instanceof Error
+      ? renameMealMutation.error.message
+      : null;
 
   useEffect(() => {
     const previousDateKey = formatDateKey(addDays(selectedDate, -1));
@@ -107,6 +113,14 @@ export function NutritionPage() {
           return;
         }
       },
+    });
+  }
+
+  function handleRenameMeal(mealId: string, name: string) {
+    renameMealMutation.mutate({
+      date: dateKey,
+      mealId,
+      name,
     });
   }
 
@@ -183,6 +197,11 @@ export function NutritionPage() {
               {deleteErrorMessage}
             </p>
           ) : null}
+          {renameErrorMessage ? (
+            <p className="text-sm text-destructive" role="alert">
+              {renameErrorMessage}
+            </p>
+          ) : null}
 
           <div className="space-y-2" aria-label="Meals logged section">
             <div className="flex items-center justify-between gap-2">
@@ -221,8 +240,12 @@ export function NutritionPage() {
                   isDeleting={
                     deleteMealMutation.isPending && deleteMealMutation.variables?.mealId === meal.id
                   }
+                  isRenaming={
+                    renameMealMutation.isPending && renameMealMutation.variables?.mealId === meal.id
+                  }
                   meal={meal}
                   onDelete={handleDeleteMeal}
+                  onRename={handleRenameMeal}
                 />
               ))
             ) : (

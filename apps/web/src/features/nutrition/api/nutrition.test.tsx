@@ -11,6 +11,7 @@ import { nutritionQueryKeys } from './keys';
 import {
   useDailyNutrition,
   useDeleteMeal,
+  useRenameMeal,
   useNutritionSummary,
   useNutritionWeekSummary,
 } from './nutrition';
@@ -216,5 +217,118 @@ describe('nutrition api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: habitChainQueryKeys.all,
     });
+  });
+
+  it('renames a meal and invalidates daily + summary + week-summary cache for that date', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'meal-1',
+        nutritionLogId: 'log-1',
+        name: 'Brunch',
+        summary: null,
+        time: '07:20',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useRenameMeal(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        date: '2026-03-09',
+        mealId: 'meal-1',
+        name: 'Brunch',
+      });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/2026-03-09/meals/meal-1',
+      expect.objectContaining({
+        body: JSON.stringify({ name: 'Brunch' }),
+        method: 'PATCH',
+      }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.day('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.summary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.weekSummary('2026-03-09'),
+    });
+  });
+
+  it('optimistically updates meal name and rolls back when rename fails', async () => {
+    let rejectRenameRequest: (error: Error) => void = () => {};
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise<Response>((_resolve, reject) => {
+          rejectRenameRequest = reject;
+        }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setQueryData(nutritionQueryKeys.day('2026-03-09'), {
+      log: {
+        id: 'log-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      meals: [
+        {
+          meal: {
+            id: 'meal-1',
+            nutritionLogId: 'log-1',
+            name: 'Breakfast',
+            summary: null,
+            time: '07:20',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          items: [],
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useRenameMeal(), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        date: '2026-03-09',
+        mealId: 'meal-1',
+        name: 'Brunch',
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<{
+          meals: Array<{ meal: { name: string } }>;
+        }>(nutritionQueryKeys.day('2026-03-09'))?.meals[0]?.meal.name,
+      ).toBe('Brunch');
+    });
+
+    act(() => {
+      rejectRenameRequest(new Error('rename failed'));
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(
+      queryClient.getQueryData<{
+        meals: Array<{ meal: { name: string } }>;
+      }>(nutritionQueryKeys.day('2026-03-09'))?.meals[0]?.meal.name,
+    ).toBe('Breakfast');
   });
 });

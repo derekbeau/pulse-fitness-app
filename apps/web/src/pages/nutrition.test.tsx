@@ -188,6 +188,66 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       });
     }
 
+    if (method === 'PATCH' && pathParts.length === 6 && pathParts[4] === 'meals') {
+      if (!dateState.daily) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'MEAL_NOT_FOUND',
+              message: 'Meal not found',
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 404,
+          },
+        );
+      }
+
+      const mealId = pathParts[5];
+      const rawBody =
+        typeof init?.body === 'string'
+          ? (JSON.parse(init.body) as { name?: string })
+          : ((init?.body ?? {}) as { name?: string });
+      const nextName = rawBody.name?.trim();
+
+      if (!nextName) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Meal name is required',
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 400,
+          },
+        );
+      }
+
+      const mealEntry = dateState.daily.meals.find((entry) => entry.meal.id === mealId);
+      if (!mealEntry) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'MEAL_NOT_FOUND',
+              message: 'Meal not found',
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 404,
+          },
+        );
+      }
+
+      mealEntry.meal.name = nextName;
+      state.set(date, dateState);
+
+      return createJsonResponse(mealEntry.meal);
+    }
+
     if (method === 'DELETE' && pathParts.length === 6 && pathParts[4] === 'meals') {
       const mealId = pathParts[5];
 
@@ -734,9 +794,7 @@ describe('NutritionPage', () => {
 
     expect(getMealHeading('Breakfast')).toBeInTheDocument();
 
-    const breakfastHeading = getMealHeading('Breakfast');
-    const expandButton = breakfastHeading.closest('button[aria-expanded]');
-    if (!expandButton) throw new Error('Expected expand button for Breakfast meal');
+    const expandButton = screen.getByRole('button', { name: 'Expand Breakfast' });
     fireEvent.click(expandButton);
 
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
@@ -763,6 +821,121 @@ describe('NutritionPage', () => {
       );
     });
     expect(didDeleteMeal).toBe(true);
+  });
+
+  it('renames a meal inline and keeps the updated name after reloading the page', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const view = renderNutritionPage();
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    expect(input).toHaveValue('Breakfast');
+    fireEvent.change(input, { target: { value: 'Early Meal' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.advanceTimersByTimeAsync(500);
+    await Promise.resolve();
+
+    expect(getMealHeading('Early Meal')).toBeInTheDocument();
+    const didRenameMeal = fetchMock.mock.calls.some(([inputArg, init]) => {
+      const url = new URL(String(inputArg), 'http://localhost');
+      return (
+        url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' &&
+        init?.method === 'PATCH'
+      );
+    });
+    expect(didRenameMeal).toBe(true);
+
+    view.unmount();
+    renderNutritionPage();
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(getMealHeading('Early Meal')).toBeInTheDocument();
+  });
+
+  it('does not call rename mutation when editing is cancelled or name is empty', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Meal name for Breakfast' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(screen.getByText('Meal name is required')).toBeInTheDocument();
+
+    const renameCalls = fetchMock.mock.calls.filter(([inputArg, init]) => {
+      const url = new URL(String(inputArg), 'http://localhost');
+      return (
+        url.pathname === '/api/v1/nutrition/2026-03-05/meals/meal-breakfast' &&
+        init?.method === 'PATCH'
+      );
+    });
+    expect(renameCalls).toHaveLength(0);
   });
 
   it('shows loading skeletons while daily + summary queries are pending', () => {
