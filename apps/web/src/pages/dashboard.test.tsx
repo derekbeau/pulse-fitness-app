@@ -756,6 +756,29 @@ describe('DashboardPage', () => {
     expect(screen.getByText('No matching habits.')).toBeInTheDocument();
   });
 
+  it('renders habit daily cards from dashboard config and coexists with habit chains', async () => {
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: [...DEFAULT_VISIBLE_WIDGETS, 'habit-daily:habit-meditate'],
+    };
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+    expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
+    expect(screen.getAllByText('Meditate').length).toBeGreaterThan(1);
+  });
+
   it('hides the weight trend widget when it is excluded from visible widgets', async () => {
     dashboardConfig = {
       habitChainIds: ['habit-meditate'],
@@ -831,6 +854,63 @@ describe('DashboardPage', () => {
     expect(saveRequest).toBeDefined();
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
       visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
+    });
+  });
+
+  it('adds and hides habit daily cards directly from dashboard edit mode', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const addCardButton = screen.getByRole('button', { name: 'Add card' });
+    expect(addCardButton).not.toBeDisabled();
+
+    fireEvent.click(addCardButton);
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Meditate daily status widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add card' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+      return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
+    });
+
+    expect(saveRequest).toBeDefined();
+    expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
+      visibleWidgets: expect.arrayContaining(['habit-daily:habit-meditate']),
     });
   });
 

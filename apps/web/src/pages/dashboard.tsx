@@ -11,8 +11,16 @@ import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
+import { HabitDailyStatusCard } from '@/features/dashboard/components/habit-daily-status-card';
 import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
@@ -35,8 +43,15 @@ const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-type DashboardWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
-const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS) as DashboardWidgetId[];
+const HABIT_DAILY_WIDGET_PREFIX = 'habit-daily:';
+const DASHBOARD_CARD_TYPES = {
+  'habit-daily': 'Habit Daily Status',
+} as const;
+type DashboardStaticWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
+type HabitDailyWidgetId = `${typeof HABIT_DAILY_WIDGET_PREFIX}${string}`;
+type DashboardCardTypeId = keyof typeof DASHBOARD_CARD_TYPES;
+type DashboardWidgetId = DashboardStaticWidgetId | HabitDailyWidgetId;
+const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS) as DashboardStaticWidgetId[];
 const DEFAULT_DASHBOARD_CONFIG = {
   habitChainIds: [],
   trendMetrics: ['weight', 'calories', 'protein'] as const,
@@ -72,8 +87,28 @@ function DashboardWidgetEditOverlay({
   );
 }
 
-function isDashboardWidgetId(value: string): value is DashboardWidgetId {
+function isDashboardStaticWidgetId(value: string): value is DashboardStaticWidgetId {
   return value in DASHBOARD_WIDGET_IDS;
+}
+
+function isHabitDailyWidgetId(value: string): value is HabitDailyWidgetId {
+  return value.startsWith(HABIT_DAILY_WIDGET_PREFIX) && value.length > HABIT_DAILY_WIDGET_PREFIX.length;
+}
+
+function isDashboardWidgetId(value: string): value is DashboardWidgetId {
+  return isDashboardStaticWidgetId(value) || isHabitDailyWidgetId(value);
+}
+
+function toHabitDailyWidgetId(habitId: string): HabitDailyWidgetId {
+  return `${HABIT_DAILY_WIDGET_PREFIX}${habitId}`;
+}
+
+function getHabitIdFromDailyWidgetId(widgetId: HabitDailyWidgetId) {
+  return widgetId.slice(HABIT_DAILY_WIDGET_PREFIX.length);
+}
+
+function getUniqueWidgetIds<TWidgetId extends string>(widgetIds: TWidgetId[]) {
+  return Array.from(new Set(widgetIds));
 }
 
 type DashboardWeightStatus = {
@@ -113,6 +148,8 @@ export function DashboardPage() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
+  const [selectedCardType, setSelectedCardType] = useState<DashboardCardTypeId>('habit-daily');
+  const [selectedHabitDailyId, setSelectedHabitDailyId] = useState('');
   const [widgetVisibilityMessage, setWidgetVisibilityMessage] = useState('');
   const logWeightMutation = useLogWeight();
   const saveDashboardConfigMutation = useSaveDashboardConfig();
@@ -128,10 +165,27 @@ export function DashboardPage() {
   const habitsQuery = useHabits();
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey);
   const recentWorkoutsQuery = useRecentWorkouts();
-  const persistedVisibleWidgets = (
+  const persistedVisibleWidgets = getUniqueWidgetIds(
     dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS
   ).filter(isDashboardWidgetId);
   const visibleWidgets = visibleWidgetsDraft ?? persistedVisibleWidgets;
+  const visibleHabitDailyWidgets = visibleWidgets
+    .filter(isHabitDailyWidgetId)
+    .map((widgetId) => ({
+      habitId: getHabitIdFromDailyWidgetId(widgetId),
+      widgetId,
+    }));
+  const visibleHabitDailyHabitIdSet = new Set(
+    visibleHabitDailyWidgets.map((widget) => widget.habitId),
+  );
+  const availableHabitDailyHabits = (habitsQuery.data ?? []).filter(
+    (habit) => !visibleHabitDailyHabitIdSet.has(habit.id),
+  );
+  const selectedHabitDailyCardId = availableHabitDailyHabits.some(
+    (habit) => habit.id === selectedHabitDailyId,
+  )
+    ? selectedHabitDailyId
+    : (availableHabitDailyHabits[0]?.id ?? '');
   const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter(
     (widgetId) => !visibleWidgets.includes(widgetId),
   );
@@ -147,7 +201,7 @@ export function DashboardPage() {
         return current;
       }
 
-      return [...current, widgetId];
+      return getUniqueWidgetIds([...current, widgetId]);
     });
   }
 
@@ -167,7 +221,11 @@ export function DashboardPage() {
   }
 
   function showAllWidgets() {
-    setVisibleWidgetsDraft([...DEFAULT_VISIBLE_WIDGETS]);
+    setVisibleWidgetsDraft((currentDraft) => {
+      const current = currentDraft ?? persistedVisibleWidgets;
+      const habitDailyWidgets = current.filter(isHabitDailyWidgetId);
+      return [...DEFAULT_VISIBLE_WIDGETS, ...habitDailyWidgets];
+    });
   }
 
   function handleStartEditMode() {
@@ -178,8 +236,18 @@ export function DashboardPage() {
 
   function handleCancelEditMode() {
     setVisibleWidgetsDraft(null);
+    setSelectedHabitDailyId('');
     setWidgetVisibilityMessage('');
     setIsEditMode(false);
+  }
+
+  function handleAddDashboardCard() {
+    if (selectedCardType !== 'habit-daily' || selectedHabitDailyCardId.length === 0) {
+      return;
+    }
+
+    showWidget(toHabitDailyWidgetId(selectedHabitDailyCardId));
+    setSelectedHabitDailyId('');
   }
 
   async function handleSaveWidgetVisibility() {
@@ -191,6 +259,7 @@ export function DashboardPage() {
         visibleWidgets,
       });
       setVisibleWidgetsDraft(null);
+      setSelectedHabitDailyId('');
       setWidgetVisibilityMessage('');
       setIsEditMode(false);
     } catch {
@@ -559,6 +628,25 @@ export function DashboardPage() {
             className="order-2 flex min-w-0 flex-col gap-3 sm:gap-4 md:order-2"
             data-slot="dashboard-sidebar-column"
           >
+            {visibleHabitDailyWidgets.map(({ habitId, widgetId }) => {
+              const habit = habitsQuery.data?.find((item) => item.id === habitId);
+
+              if (!habit) {
+                return null;
+              }
+
+              return (
+                <DashboardWidgetFrame
+                  key={widgetId}
+                  dataSlot={`dashboard-habit-daily-card-${habitId}`}
+                  isEditMode={isEditMode}
+                  onHide={() => hideWidget(widgetId)}
+                  widgetLabel={`${habit.name} daily status`}
+                >
+                  <HabitDailyStatusCard compact habitId={habitId} />
+                </DashboardWidgetFrame>
+              );
+            })}
             {visibleWidgets.includes('habit-chain') ? (
               <DashboardWidgetFrame
                 isEditMode={isEditMode}
@@ -614,50 +702,119 @@ export function DashboardPage() {
       )}
 
       {isEditMode ? (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-foreground">Hidden widgets</h2>
-            {hiddenWidgets.length > 1 ? (
-              <Button onClick={showAllWidgets} size="sm" type="button" variant="outline">
-                Show all
-              </Button>
+        <section className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-foreground">Hidden widgets</h2>
+              {hiddenWidgets.length > 1 ? (
+                <Button onClick={showAllWidgets} size="sm" type="button" variant="outline">
+                  Show all
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Use Restore to add cards back before saving.
+            </p>
+            {hiddenWidgets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hidden widgets.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {hiddenWidgets.map((widgetId) => (
+                  <Card
+                    key={widgetId}
+                    className="border-dashed border-border/80 bg-muted/30 py-3"
+                    data-slot={`dashboard-hidden-widget-${widgetId}`}
+                  >
+                    <CardContent className="flex items-center justify-between gap-3 px-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {DASHBOARD_WIDGET_IDS[widgetId]}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Currently hidden</p>
+                      </div>
+                      <Button
+                        aria-label={`Show ${DASHBOARD_WIDGET_IDS[widgetId]} widget`}
+                        onClick={() => showWidget(widgetId)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Plus />
+                        Restore
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground">Add cards</h2>
+            <Card className="border-border/80 bg-muted/20 py-3">
+              <CardContent className="grid gap-3 px-3 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] sm:items-end">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dashboard-add-card-type">Card type</Label>
+                  <Select
+                    onValueChange={(value) => {
+                      if (value in DASHBOARD_CARD_TYPES) {
+                        setSelectedCardType(value as DashboardCardTypeId);
+                      }
+                    }}
+                    value={selectedCardType}
+                  >
+                    <SelectTrigger aria-label="Select card type" id="dashboard-add-card-type">
+                      <SelectValue placeholder="Select card type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(DASHBOARD_CARD_TYPES) as Array<
+                        [DashboardCardTypeId, string]
+                      >).map(([typeId, label]) => (
+                        <SelectItem key={typeId} value={typeId}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="dashboard-add-card-habit">Habit</Label>
+                  <Select
+                    disabled={availableHabitDailyHabits.length === 0}
+                    onValueChange={setSelectedHabitDailyId}
+                    value={selectedHabitDailyCardId}
+                  >
+                    <SelectTrigger aria-label="Select habit for daily status card" id="dashboard-add-card-habit">
+                      <SelectValue placeholder="Select a habit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableHabitDailyHabits.map((habit) => (
+                        <SelectItem key={habit.id} value={habit.id}>
+                          {habit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  disabled={selectedHabitDailyCardId.length === 0}
+                  onClick={handleAddDashboardCard}
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus />
+                  Add card
+                </Button>
+              </CardContent>
+            </Card>
+            {availableHabitDailyHabits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                All active habits already have a daily status card.
+              </p>
             ) : null}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Use Restore to add cards back before saving.
-          </p>
-          {hiddenWidgets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hidden widgets.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {hiddenWidgets.map((widgetId) => (
-                <Card
-                  key={widgetId}
-                  className="border-dashed border-border/80 bg-muted/30 py-3"
-                  data-slot={`dashboard-hidden-widget-${widgetId}`}
-                >
-                  <CardContent className="flex items-center justify-between gap-3 px-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {DASHBOARD_WIDGET_IDS[widgetId]}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Currently hidden</p>
-                    </div>
-                    <Button
-                      aria-label={`Show ${DASHBOARD_WIDGET_IDS[widgetId]} widget`}
-                      onClick={() => showWidget(widgetId)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Plus />
-                      Restore
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
         </section>
       ) : null}
     </main>
