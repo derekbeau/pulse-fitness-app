@@ -90,6 +90,13 @@ type MealInputItemWithMacros = CreateMealInput['items'][number] & {
   fat: number;
 };
 
+export class MealFoodOwnershipError extends Error {
+  constructor() {
+    super('One or more foodIds do not belong to this user');
+    this.name = 'MealFoodOwnershipError';
+  }
+}
+
 const nutritionLogSelection = {
   id: nutritionLogs.id,
   userId: nutritionLogs.userId,
@@ -312,7 +319,7 @@ export const createMealForDate = async (
         .all();
 
       if (ownedFoods.length !== foodIds.length) {
-        throw new Error('One or more foodIds do not belong to this user');
+        throw new MealFoodOwnershipError();
       }
     }
 
@@ -677,7 +684,7 @@ export const addItemsToMeal = async (
         .all();
 
       if (ownedFoods.length !== foodIds.length) {
-        throw new Error('One or more foodIds do not belong to this user');
+        throw new MealFoodOwnershipError();
       }
     }
 

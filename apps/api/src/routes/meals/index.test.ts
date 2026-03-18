@@ -12,6 +12,7 @@ import {
   createMealForDate,
   findMealById,
   findMealItemById,
+  MealFoodOwnershipError,
   patchMealById,
   patchMealItemById,
 } from '../nutrition/store.js';
@@ -269,6 +270,52 @@ describe('meal routes', () => {
         },
       });
       expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns INVALID_MEAL_ITEMS when creating a meal references foods outside user scope', async () => {
+    vi.mocked(createMealForDate).mockRejectedValue(new MealFoodOwnershipError());
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          date: '2026-03-09',
+          name: 'Lunch',
+          items: [
+            {
+              foodId: 'foreign-food-id',
+              name: 'Chicken',
+              amount: 1,
+              unit: 'serving',
+              calories: 300,
+              protein: 40,
+              carbs: 0,
+              fat: 10,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INVALID_MEAL_ITEMS',
+          message: 'One or more meal items reference unavailable foods',
+        },
+      });
+      expect(vi.mocked(createMealForDate)).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }
@@ -773,7 +820,7 @@ describe('meal routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(201);
       expect(response.json()).toEqual({
         data: {
           meal: expect.objectContaining({ id: 'meal-1', updatedAt: 2 }),
@@ -830,6 +877,23 @@ describe('meal routes', () => {
         updatedAt: 2,
       },
       items: [
+        {
+          id: 'item-0',
+          mealId: 'meal-1',
+          foodId: null,
+          name: 'Apple',
+          amount: 1,
+          unit: 'medium',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 95,
+          protein: 0.5,
+          carbs: 25,
+          fat: 0.3,
+          fiber: null,
+          sugar: null,
+          createdAt: 0,
+        },
         {
           id: 'item-1',
           mealId: 'meal-1',
@@ -895,33 +959,31 @@ describe('meal routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toMatchObject({
-        data: {
-          meal: {
-            id: 'meal-1',
-            name: 'Lunch',
-          },
-          items: [
-            {
-              id: 'item-1',
-              foodId: 'food-1',
-            },
-            {
-              id: 'item-2',
-              foodId: null,
-            },
-          ],
-        },
-        agent: {
+      expect(response.statusCode).toBe(201);
+      const body = response.json();
+      expect(body.data.meal).toMatchObject({
+        id: 'meal-1',
+        name: 'Lunch',
+      });
+      expect(body.data.items).toContainEqual(expect.objectContaining({ id: 'item-0', foodId: null }));
+      expect(body.data.items).toContainEqual(
+        expect.objectContaining({ id: 'item-1', foodId: 'food-1' }),
+      );
+      expect(body.data.items).toContainEqual(expect.objectContaining({ id: 'item-2', foodId: null }));
+      expect(body.agent).toEqual(
+        expect.objectContaining({
           hints: expect.any(Array),
           suggestedActions: expect.any(Array),
           relatedState: expect.objectContaining({
             mealName: 'Lunch',
             itemCount: 2,
           }),
-        },
-      });
+        }),
+      );
+      expect(body.agent.relatedState.mealMacros.calories).toBe(515);
+      expect(body.agent.relatedState.mealMacros.protein).toBe(31.5);
+      expect(body.agent.relatedState.mealMacros.carbs).toBe(85);
+      expect(body.agent.relatedState.mealMacros.fat).toBeCloseTo(4.3, 5);
       expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledWith('user-1', 'meal-1', [
         expect.objectContaining({
           foodId: 'food-1',
@@ -984,6 +1046,50 @@ describe('meal routes', () => {
         },
       });
       expect(vi.mocked(addItemsToMeal)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns INVALID_MEAL_ITEMS when appended items reference foods outside user scope', async () => {
+    vi.mocked(addItemsToMeal).mockRejectedValue(new MealFoodOwnershipError());
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals/meal-1/items',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          items: [
+            {
+              foodId: 'foreign-food-id',
+              name: 'Olive Oil',
+              amount: 1,
+              unit: 'tbsp',
+              calories: 120,
+              protein: 0,
+              carbs: 0,
+              fat: 14,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'INVALID_MEAL_ITEMS',
+          message: 'One or more meal items reference unavailable foods',
+        },
+      });
+      expect(vi.mocked(addItemsToMeal)).toHaveBeenCalledTimes(1);
     } finally {
       await app.close();
     }

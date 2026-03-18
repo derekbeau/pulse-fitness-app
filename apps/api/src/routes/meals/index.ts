@@ -29,6 +29,7 @@ import {
   createMealForDate,
   findMealById,
   findMealItemById,
+  MealFoodOwnershipError,
   patchMealById,
   patchMealItemById,
 } from '../nutrition/store.js';
@@ -51,6 +52,20 @@ type PersistedMealCreateItem = {
 
 const MAX_MEAL_SUMMARY_LENGTH = 500;
 const SUMMARY_ELLIPSIS = '...';
+const INVALID_MEAL_ITEMS_MESSAGE = 'One or more meal items reference unavailable foods';
+
+const sumMealMacros = (
+  items: Array<{ calories: number; protein: number; carbs: number; fat: number }>,
+) =>
+  items.reduce(
+    (totals, item) => ({
+      calories: totals.calories + item.calories,
+      protein: totals.protein + item.protein,
+      carbs: totals.carbs + item.carbs,
+      fat: totals.fat + item.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  );
 
 const buildMealSummary = (names: string[], maxLength: number) => {
   let summary = '';
@@ -200,23 +215,24 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
               )
             : undefined;
 
-      const created = await createMealForDate(request.userId, request.body.date, {
-        name: request.body.name,
-        summary,
-        time: request.body.time,
-        notes: request.body.notes,
-        items: resolvedItems,
-      });
+      let created: Awaited<ReturnType<typeof createMealForDate>>;
+      try {
+        created = await createMealForDate(request.userId, request.body.date, {
+          name: request.body.name,
+          summary,
+          time: request.body.time,
+          notes: request.body.notes,
+          items: resolvedItems,
+        });
+      } catch (error) {
+        if (error instanceof MealFoodOwnershipError) {
+          return sendError(reply, 422, 'INVALID_MEAL_ITEMS', INVALID_MEAL_ITEMS_MESSAGE);
+        }
 
-      const mealMacros = created.items.reduce(
-        (totals, item) => ({
-          calories: totals.calories + item.calories,
-          protein: totals.protein + item.protein,
-          carbs: totals.carbs + item.carbs,
-          fat: totals.fat + item.fat,
-        }),
-        { calories: 0, protein: 0, carbs: 0, fat: 0 },
-      );
+        throw error;
+      }
+
+      const mealMacros = sumMealMacros(created.items);
 
       setAgentEnrichmentContext(request, {
         endpoint: 'meal.create',
@@ -241,7 +257,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         params: idParamsSchema,
         body: addMealItemsInputSchema,
         response: {
-          200: apiDataResponseSchema(dailyNutritionMealSchema),
+          201: apiDataResponseSchema(dailyNutritionMealSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
@@ -273,29 +289,31 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         .filter((result): result is { ok: true; item: PersistedMealCreateItem } => result.ok)
         .map((result) => result.item);
 
-      const updatedMeal = await addItemsToMeal(request.userId, request.params.id, resolvedItems);
+      let updatedMeal: Awaited<ReturnType<typeof addItemsToMeal>>;
+      try {
+        updatedMeal = await addItemsToMeal(request.userId, request.params.id, resolvedItems);
+      } catch (error) {
+        if (error instanceof MealFoodOwnershipError) {
+          return sendError(reply, 422, 'INVALID_MEAL_ITEMS', INVALID_MEAL_ITEMS_MESSAGE);
+        }
+
+        throw error;
+      }
+
       if (!updatedMeal) {
         return sendError(reply, 404, 'MEAL_NOT_FOUND', 'Meal not found');
       }
 
-      const addedItemMacros = resolvedItems.reduce(
-        (totals, item) => ({
-          calories: totals.calories + item.calories,
-          protein: totals.protein + item.protein,
-          carbs: totals.carbs + item.carbs,
-          fat: totals.fat + item.fat,
-        }),
-        { calories: 0, protein: 0, carbs: 0, fat: 0 },
-      );
+      const mealMacros = sumMealMacros(updatedMeal.items);
 
       setAgentEnrichmentContext(request, {
         endpoint: 'meal.update',
         mealName: updatedMeal.meal.name,
         itemCount: resolvedItems.length,
-        mealMacros: addedItemMacros,
+        mealMacros,
       });
 
-      return reply.send({
+      return reply.code(201).send({
         data: updatedMeal,
       });
     },
