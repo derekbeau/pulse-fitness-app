@@ -7,7 +7,11 @@ import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
-import { ACTIVE_WORKOUT_SESSION_STORAGE_KEY } from '@/features/workouts/lib/session-persistence';
+import {
+  ACTIVE_WORKOUT_SESSION_STORAGE_KEY,
+  WORKOUT_EXERCISES_STORAGE_PREFIX,
+  WORKOUT_SECTIONS_STORAGE_PREFIX,
+} from '@/features/workouts/lib/session-persistence';
 
 import { ActiveWorkoutPage } from './active-workout';
 
@@ -62,10 +66,15 @@ describe('ActiveWorkoutPage', () => {
     vi.restoreAllMocks();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+    const cleanupPrefixes = [
+      'pulse.active-workout-draft:',
+      `${WORKOUT_SECTIONS_STORAGE_PREFIX}:`,
+      `${WORKOUT_EXERCISES_STORAGE_PREFIX}:`,
+    ];
     const draftKeys: string[] = [];
     for (let index = 0; index < window.localStorage.length; index += 1) {
       const key = window.localStorage.key(index);
-      if (key?.startsWith('pulse.active-workout-draft:')) {
+      if (key && cleanupPrefixes.some((prefix) => key.startsWith(prefix))) {
         draftKeys.push(key);
       }
     }
@@ -314,6 +323,62 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Workouts' })).toBeVisible();
   }, 15_000);
+
+  it('clears persisted section/exercise ui state when a session is already completed', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-completed-1';
+    const sectionStateKey = `${WORKOUT_SECTIONS_STORAGE_PREFIX}:${sessionId}`;
+    const exerciseStateKey = `${WORKOUT_EXERCISES_STORAGE_PREFIX}:${sessionId}`;
+    window.localStorage.setItem(sectionStateKey, JSON.stringify({ warmup: false }));
+    window.localStorage.setItem(exerciseStateKey, JSON.stringify({ 'row-erg': false }));
+
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...buildInProgressSessionResponse(sessionId),
+              completedAt: Date.parse('2026-03-06T12:45:00.000Z'),
+              duration: 45,
+              status: 'completed',
+              timeSegments: [
+                {
+                  start: '2026-03-06T12:00:00.000Z',
+                  end: '2026-03-06T12:45:00.000Z',
+                },
+              ],
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Workouts' })).toBeVisible();
+    expect(window.localStorage.getItem(sectionStateKey)).toBeNull();
+    expect(window.localStorage.getItem(exerciseStateKey)).toBeNull();
+  });
 
   it('uses the selected template from the route query string', () => {
     renderActiveWorkoutPage('/workouts/active?template=lower-quad-dominant');

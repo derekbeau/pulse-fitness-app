@@ -2,6 +2,8 @@ import type { ActiveWorkoutSetDrafts } from '@/features/workouts/types';
 
 export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'pulse.active-workout-session-id';
 export const ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX = 'pulse.active-workout-draft';
+export const WORKOUT_SECTIONS_STORAGE_PREFIX = 'pulse.workout-sections';
+export const WORKOUT_EXERCISES_STORAGE_PREFIX = 'pulse.workout-exercises';
 export const WORKOUT_SESSION_NOTICE_QUERY_KEY = 'sessionNotice';
 export const WORKOUT_SESSION_COMPLETED_NOTICE = 'completed';
 
@@ -13,6 +15,16 @@ type ActiveWorkoutDraft = {
 
 function canUseLocalStorage() {
   return typeof window !== 'undefined';
+}
+
+function getSessionScopedStorageKey(prefix: string, id: string) {
+  const normalizedId = id.trim();
+
+  if (!normalizedId) {
+    return null;
+  }
+
+  return `${prefix}:${normalizedId}`;
 }
 
 export function getStoredActiveWorkoutSessionId() {
@@ -47,13 +59,15 @@ export function clearStoredActiveWorkoutSessionId() {
 }
 
 export function getActiveWorkoutDraftStorageKey(id: string) {
-  const normalizedId = id.trim();
+  return getSessionScopedStorageKey(ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX, id);
+}
 
-  if (!normalizedId) {
-    return null;
-  }
+export function getWorkoutSectionStorageKey(id: string) {
+  return getSessionScopedStorageKey(WORKOUT_SECTIONS_STORAGE_PREFIX, id);
+}
 
-  return `${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${normalizedId}`;
+export function getWorkoutExerciseStorageKey(id: string) {
+  return getSessionScopedStorageKey(WORKOUT_EXERCISES_STORAGE_PREFIX, id);
 }
 
 export function getStoredActiveWorkoutDraft(id: string): ActiveWorkoutDraft | null {
@@ -111,4 +125,21 @@ export function clearStoredActiveWorkoutDraft(id: string) {
   }
 
   window.localStorage.removeItem(key);
+}
+
+export function clearStoredWorkoutSessionUiState(id: string) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  const sectionKey = getWorkoutSectionStorageKey(id);
+  const exerciseKey = getWorkoutExerciseStorageKey(id);
+
+  if (sectionKey) {
+    window.localStorage.removeItem(sectionKey);
+  }
+
+  if (exerciseKey) {
+    window.localStorage.removeItem(exerciseKey);
+  }
 }

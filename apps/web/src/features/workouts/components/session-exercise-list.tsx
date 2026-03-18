@@ -1,6 +1,7 @@
 import {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -48,12 +49,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { useLastPerformance } from '@/hooks/use-last-performance';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { ApiError } from '@/lib/api-client';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import { useRenameExercise } from '../api/workouts';
+import {
+  getWorkoutExerciseStorageKey,
+  getWorkoutSectionStorageKey,
+} from '../lib/session-persistence';
 import type {
   ActiveWorkoutExercise,
   ActiveWorkoutExerciseHistorySummary,
@@ -150,10 +156,22 @@ export function SessionExerciseList({
   sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
-    createInitialOpenSections(session),
+  const sectionStorageKey = useMemo(
+    () => (sessionId ? (getWorkoutSectionStorageKey(sessionId) ?? '') : ''),
+    [sessionId],
   );
-  const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
+  const exerciseStorageKey = useMemo(
+    () => (sessionId ? (getWorkoutExerciseStorageKey(sessionId) ?? '') : ''),
+    [sessionId],
+  );
+  const [openSections, setOpenSections] = usePersistedState<Record<string, boolean>>(
+    sectionStorageKey,
+    () => createInitialOpenSections(session),
+  );
+  const [expandedExercises, setExpandedExercises] = usePersistedState<Record<string, boolean>>(
+    exerciseStorageKey,
+    {},
+  );
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
     exerciseName: string;

@@ -15,6 +15,10 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetId,
 } from '../lib/active-session';
+import {
+  getWorkoutExerciseStorageKey,
+  getWorkoutSectionStorageKey,
+} from '../lib/session-persistence';
 import type { ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
 
@@ -39,6 +43,26 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
 const lowerTemplate = mockTemplates.find((template) => template.id === 'lower-quad-dominant');
+
+function getExercisePanelToggle(exerciseName: string, exerciseId: string) {
+  const card = screen
+    .getByRole('heading', { level: 3, name: exerciseName })
+    .closest('[data-slot="card"]');
+
+  if (!card) {
+    throw new Error(`Expected ${exerciseName} card.`);
+  }
+
+  const toggle = within(card as HTMLElement)
+    .getAllByRole('button')
+    .find((button) => button.getAttribute('aria-controls') === `exercise-panel-${exerciseId}`);
+
+  if (!toggle) {
+    throw new Error(`Expected ${exerciseName} toggle button.`);
+  }
+
+  return toggle;
+}
 
 describe('SessionExerciseList', () => {
   it('renders prescribed set targets from session set data', () => {
@@ -834,6 +858,111 @@ describe('SessionExerciseList', () => {
 
     expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: /Main/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('persists section and exercise collapse state across remounts for the same session id', () => {
+    vi.useFakeTimers();
+
+    try {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const sectionKey = getWorkoutSectionStorageKey('session-persist-a');
+    const exerciseKey = getWorkoutExerciseStorageKey('session-persist-a');
+
+    if (!sectionKey || !exerciseKey) {
+      throw new Error('Expected workout storage keys.');
+    }
+
+    const firstRender = renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-persist-a"
+      />,
+    );
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+    fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    firstRender.unmount();
+
+    const storedSections = window.localStorage.getItem(sectionKey);
+    const storedExercises = window.localStorage.getItem(exerciseKey);
+
+    expect(storedSections).not.toBeNull();
+    expect(storedExercises).not.toBeNull();
+    expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
+    expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': false });
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-persist-a"
+      />,
+    );
+
+    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+    expect(warmupButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(warmupButton);
+
+    expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute('aria-expanded', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('scopes persisted section state by session id', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    const firstRender = renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-scope-a"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
+    firstRender.unmount();
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+        sessionId="session-scope-b"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
