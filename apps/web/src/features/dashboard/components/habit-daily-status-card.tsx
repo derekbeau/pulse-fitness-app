@@ -1,6 +1,6 @@
 import { type Habit, type HabitEntry } from '@pulse/shared';
 import { Pencil } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -60,24 +60,21 @@ function getProgressPercent(target: number | null, value: number | null) {
 }
 
 function getEffectiveEntry(habit: HabitWithTodayEntry, entry: HabitEntry | undefined) {
-  const isReferential = habit.referenceSource !== null && habit.referenceSource !== undefined;
+  const isReferential = habit.referenceSource != null;
   // For referential habits, use the aggregated `todayEntry` unless there is an explicit manual override.
-  const useTodayEntry =
-    isReferential &&
-    habit.todayEntry !== undefined &&
-    habit.todayEntry !== null &&
-    (entry?.isOverride ?? false) !== true;
+  const useTodayEntry = isReferential && habit.todayEntry != null && !entry?.isOverride;
 
   return {
-    completed: useTodayEntry ? (habit.todayEntry?.completed ?? false) : (entry?.completed ?? false),
+    completed: (useTodayEntry ? habit.todayEntry?.completed : entry?.completed) ?? false,
     isReferential,
-    value: useTodayEntry ? (habit.todayEntry?.value ?? null) : (entry?.value ?? null),
+    value: (useTodayEntry ? habit.todayEntry?.value : entry?.value) ?? null,
   };
 }
 
 export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailyStatusCardProps) {
   const [isEditingNumericValue, setIsEditingNumericValue] = useState(false);
   const [numericDraftValue, setNumericDraftValue] = useState('');
+  const isCancellingNumericEditRef = useRef(false);
 
   const todayKey = toDateKey(getToday());
   const habitsQuery = useHabits();
@@ -132,9 +129,10 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
   const { completed, isReferential, value } = getEffectiveEntry(habit, todayEntry);
   const isBooleanHabit = habit.trackingType === 'boolean';
   const numericValue = typeof value === 'number' ? value : null;
+  const hasNumericTarget = habit.target != null && habit.target > 0;
   const progressPercent = getProgressPercent(habit.target, numericValue);
-  const progressTarget =
-    habit.target != null && habit.target > 0 ? habit.target : Math.max(numericValue ?? 0, 1);
+  const progressTarget = habit.target != null && habit.target > 0 ? habit.target : 1;
+  const progressValue = hasNumericTarget ? (numericValue ?? 0) : 0;
   const isSaving = toggleHabitMutation.isPending && toggleHabitMutation.variables?.habitId === habit.id;
 
   const saveHabitValue = (nextCompleted: boolean, nextNumericValue: number | null) => {
@@ -149,6 +147,11 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
   };
 
   const commitNumericValue = () => {
+    if (isCancellingNumericEditRef.current) {
+      isCancellingNumericEditRef.current = false;
+      return;
+    }
+
     const trimmedValue = numericDraftValue.trim();
     const parsedValue = trimmedValue.length === 0 ? null : Number(trimmedValue);
 
@@ -225,6 +228,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
                       }
 
                       if (event.key === 'Escape') {
+                        isCancellingNumericEditRef.current = true;
                         setNumericDraftValue(numericValue == null ? '' : String(numericValue));
                         setIsEditingNumericValue(false);
                       }
@@ -263,7 +267,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
               color="var(--color-accent)"
               max={progressTarget}
               showValue={false}
-              value={numericValue ?? 0}
+              value={progressValue}
             />
           </div>
         )}

@@ -947,8 +947,11 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show Meditate daily status widget' }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add card' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Meditate daily status widget' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
@@ -969,6 +972,45 @@ describe('DashboardPage', () => {
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
       visibleWidgets: expect.arrayContaining(['habit-daily:habit-meditate']),
     });
+  });
+
+  it('restores hidden persisted habit daily widgets when using show all', async () => {
+    dashboardConfig = {
+      habitChainIds: ['habit-meditate'],
+      trendMetrics: ['weight', 'calories', 'protein'],
+      visibleWidgets: [...DEFAULT_VISIBLE_WIDGETS, 'habit-daily:habit-meditate'],
+    };
+
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Meditate daily status widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
   });
 
   it('hides grouped widgets individually and supports bulk restore in edit mode', async () => {

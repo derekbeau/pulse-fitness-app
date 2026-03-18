@@ -148,6 +148,9 @@ export function DashboardPage() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [visibleWidgetsDraft, setVisibleWidgetsDraft] = useState<DashboardWidgetId[] | null>(null);
+  const [editSessionHabitDailyWidgets, setEditSessionHabitDailyWidgets] = useState<
+    HabitDailyWidgetId[]
+  >([]);
   const [selectedCardType, setSelectedCardType] = useState<DashboardCardTypeId>('habit-daily');
   const [selectedHabitDailyId, setSelectedHabitDailyId] = useState('');
   const [widgetVisibilityMessage, setWidgetVisibilityMessage] = useState('');
@@ -168,7 +171,11 @@ export function DashboardPage() {
   const persistedVisibleWidgets = getUniqueWidgetIds(
     dashboardConfigQuery.data?.visibleWidgets ?? DEFAULT_VISIBLE_WIDGETS
   ).filter(isDashboardWidgetId);
+  const persistedHabitDailyWidgets = persistedVisibleWidgets.filter(isHabitDailyWidgetId);
   const visibleWidgets = visibleWidgetsDraft ?? persistedVisibleWidgets;
+  const restorableHabitDailyWidgets = isEditMode
+    ? getUniqueWidgetIds([...persistedHabitDailyWidgets, ...editSessionHabitDailyWidgets])
+    : persistedHabitDailyWidgets;
   const visibleHabitDailyWidgets = visibleWidgets
     .filter(isHabitDailyWidgetId)
     .map((widgetId) => ({
@@ -186,9 +193,26 @@ export function DashboardPage() {
   )
     ? selectedHabitDailyId
     : (availableHabitDailyHabits[0]?.id ?? '');
-  const hiddenWidgets = DEFAULT_VISIBLE_WIDGETS.filter(
-    (widgetId) => !visibleWidgets.includes(widgetId),
-  );
+  const hiddenWidgets = getUniqueWidgetIds<DashboardWidgetId>([
+    ...DEFAULT_VISIBLE_WIDGETS,
+    ...restorableHabitDailyWidgets,
+  ])
+    .filter((widgetId) => !visibleWidgets.includes(widgetId))
+    .map((widgetId) => {
+      if (isHabitDailyWidgetId(widgetId)) {
+        const habitId = getHabitIdFromDailyWidgetId(widgetId);
+        const habitName = habitsQuery.data?.find((habit) => habit.id === habitId)?.name;
+        return {
+          widgetId,
+          widgetLabel: habitName ? `${habitName} daily status` : 'Habit daily status',
+        };
+      }
+
+      return {
+        widgetId,
+        widgetLabel: DASHBOARD_WIDGET_IDS[widgetId],
+      };
+    });
   const showWeightTrendChart = visibleWidgets.includes('weight-trend');
   const isSavingDashboardConfig = saveDashboardConfigMutation.isPending;
   const selectedWeight = snapshotQuery.data?.weight;
@@ -223,19 +247,24 @@ export function DashboardPage() {
   function showAllWidgets() {
     setVisibleWidgetsDraft((currentDraft) => {
       const current = currentDraft ?? persistedVisibleWidgets;
-      const habitDailyWidgets = current.filter(isHabitDailyWidgetId);
-      return [...DEFAULT_VISIBLE_WIDGETS, ...habitDailyWidgets];
+      const habitDailyWidgets = getUniqueWidgetIds([
+        ...current.filter(isHabitDailyWidgetId),
+        ...restorableHabitDailyWidgets,
+      ]);
+      return getUniqueWidgetIds([...DEFAULT_VISIBLE_WIDGETS, ...habitDailyWidgets]);
     });
   }
 
   function handleStartEditMode() {
     setVisibleWidgetsDraft(persistedVisibleWidgets);
+    setEditSessionHabitDailyWidgets(persistedHabitDailyWidgets);
     setWidgetVisibilityMessage('');
     setIsEditMode(true);
   }
 
   function handleCancelEditMode() {
     setVisibleWidgetsDraft(null);
+    setEditSessionHabitDailyWidgets([]);
     setSelectedHabitDailyId('');
     setWidgetVisibilityMessage('');
     setIsEditMode(false);
@@ -246,7 +275,9 @@ export function DashboardPage() {
       return;
     }
 
-    showWidget(toHabitDailyWidgetId(selectedHabitDailyCardId));
+    const widgetId = toHabitDailyWidgetId(selectedHabitDailyCardId);
+    setEditSessionHabitDailyWidgets((current) => getUniqueWidgetIds([...current, widgetId]));
+    showWidget(widgetId);
     setSelectedHabitDailyId('');
   }
 
@@ -259,6 +290,7 @@ export function DashboardPage() {
         visibleWidgets,
       });
       setVisibleWidgetsDraft(null);
+      setEditSessionHabitDailyWidgets([]);
       setSelectedHabitDailyId('');
       setWidgetVisibilityMessage('');
       setIsEditMode(false);
@@ -715,7 +747,7 @@ export function DashboardPage() {
               <p className="text-sm text-muted-foreground">No hidden widgets.</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {hiddenWidgets.map((widgetId) => (
+                {hiddenWidgets.map(({ widgetId, widgetLabel }) => (
                   <Card
                     key={widgetId}
                     className="border-dashed border-border/80 bg-muted/30 py-3"
@@ -723,13 +755,11 @@ export function DashboardPage() {
                   >
                     <CardContent className="flex items-center justify-between gap-3 px-3">
                       <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {DASHBOARD_WIDGET_IDS[widgetId]}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{widgetLabel}</p>
                         <p className="text-xs text-muted-foreground">Currently hidden</p>
                       </div>
                       <Button
-                        aria-label={`Show ${DASHBOARD_WIDGET_IDS[widgetId]} widget`}
+                        aria-label={`Show ${widgetLabel} widget`}
                         onClick={() => showWidget(widgetId)}
                         size="sm"
                         type="button"

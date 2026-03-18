@@ -1,5 +1,5 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -164,6 +164,44 @@ describe('HabitDailyStatusCard', () => {
     expect(screen.getByLabelText('Water daily progress')).toHaveAttribute('aria-valuenow', '52');
   });
 
+  it('keeps numeric progress visuals at 0 when target is not set', () => {
+    mockHabitHooks({
+      entries: [
+        {
+          completed: false,
+          createdAt: 7,
+          date: '2026-03-06',
+          habitId: 'habit-water',
+          id: 'entry-water',
+          userId: 'user-1',
+          value: 52,
+        },
+      ],
+      habits: [
+        {
+          ...habitsFixture[0],
+          id: 'habit-water',
+          name: 'Water',
+          target: null,
+        },
+      ],
+    });
+
+    render(<HabitDailyStatusCard habitId="habit-water" />);
+
+    expect(screen.getByText('52 oz')).toBeInTheDocument();
+    expect(screen.getByText('Target: Not set')).toBeInTheDocument();
+
+    const card = screen.getByTestId('habit-daily-status-card-habit-water');
+    const ring = within(card)
+      .getAllByRole('progressbar')
+      .find((node) => node.getAttribute('aria-valuemax') === '100');
+
+    expect(ring).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByLabelText('Water daily progress')).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByLabelText('Water daily progress')).toHaveAttribute('aria-valuemax', '1');
+  });
+
   it('renders boolean habit cards with checkbox state text', () => {
     mockHabitHooks({
       entries: [
@@ -218,6 +256,7 @@ describe('HabitDailyStatusCard', () => {
     const valueInput = screen.getByTestId('habit-daily-value-input-habit-water');
     fireEvent.change(valueInput, { target: { value: '67' } });
     fireEvent.keyDown(valueInput, { key: 'Escape' });
+    fireEvent.blur(valueInput);
 
     expect(screen.getByTestId('habit-daily-value-button-habit-water')).toBeInTheDocument();
     expect(screen.getByText('52 oz')).toBeInTheDocument();
