@@ -820,7 +820,7 @@ describe('meal routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
         data: {
           meal: expect.objectContaining({ id: 'meal-1', updatedAt: 2 }),
@@ -959,7 +959,7 @@ describe('meal routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.data.meal).toMatchObject({
         id: 'meal-1',

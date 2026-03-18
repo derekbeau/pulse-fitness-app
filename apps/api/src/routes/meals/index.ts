@@ -257,7 +257,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         params: idParamsSchema,
         body: addMealItemsInputSchema,
         response: {
-          201: apiDataResponseSchema(dailyNutritionMealSchema),
+          200: apiDataResponseSchema(dailyNutritionMealSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
@@ -313,7 +313,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         mealMacros,
       });
 
-      return reply.code(201).send({
+      return reply.code(200).send({
         data: updatedMeal,
       });
     },

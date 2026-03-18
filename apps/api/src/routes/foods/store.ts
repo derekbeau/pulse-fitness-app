@@ -457,6 +457,7 @@ export const mergeFoods = async (
       throw new FoodMergeNotFoundError('loser');
     }
 
+    // We scope winner/loser lookup by user first; UUID food IDs are globally unique, so this relink is user-safe.
     tx.update(mealItems).set({ foodId: winnerId }).where(eq(mealItems.foodId, loserId)).run();
 
     const now = Date.now();

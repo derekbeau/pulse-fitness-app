@@ -10,6 +10,7 @@ import {
   createFood,
   deleteFood,
   findFoodById,
+  FoodMergeSameIdError,
   FoodMergeNotFoundError,
   listFoods,
   mergeFoods,
@@ -17,7 +18,11 @@ import {
 } from './store.js';
 
 vi.mock('./store.js', () => ({
-  FoodMergeSameIdError: class FoodMergeSameIdError extends Error {},
+  FoodMergeSameIdError: class FoodMergeSameIdError extends Error {
+    constructor() {
+      super('winnerId and loserId must be different');
+    }
+  },
   FoodMergeNotFoundError: class FoodMergeNotFoundError extends Error {
     constructor(public readonly foodRole: 'winner' | 'loser') {
       super(`Merge ${foodRole} food not found`);
@@ -484,6 +489,8 @@ describe('foods routes', () => {
   });
 
   it('returns 400 for invalid merge requests', async () => {
+    vi.mocked(mergeFoods).mockRejectedValueOnce(new FoodMergeSameIdError());
+
     const app = buildServer();
 
     try {
@@ -519,7 +526,12 @@ describe('foods routes', () => {
           message: 'winnerId and loserId must be different',
         },
       });
-      expect(vi.mocked(mergeFoods)).not.toHaveBeenCalled();
+      expect(vi.mocked(mergeFoods)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(mergeFoods)).toHaveBeenCalledWith(
+        'user-1',
+        '11111111-1111-4111-8111-111111111111',
+        '11111111-1111-4111-8111-111111111111',
+      );
 
       expect(invalidBodyResponse.statusCode).toBe(400);
       expectValidationError(invalidBodyResponse.json(), {

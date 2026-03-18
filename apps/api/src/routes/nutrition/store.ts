@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import type {
   CreateMealInput,
@@ -315,7 +315,7 @@ export const createMealForDate = async (
       const ownedFoods = tx
         .select({ id: foods.id })
         .from(foods)
-        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId)))
+        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId), isNull(foods.deletedAt)))
         .all();
 
       if (ownedFoods.length !== foodIds.length) {
@@ -646,7 +646,16 @@ export const addItemsToMeal = async (
   const { db } = await import('../../db/index.js');
 
   const now = Date.now();
-  const updated = db.transaction((tx) => {
+  type AddItemsToMealTransactionResult =
+    | {
+        meal: MealRecord;
+        items: MealItemRecord[];
+        // Carry newly inserted items outside the transaction for usage tracking side effects.
+        insertedItems: MealItemRecord[];
+      }
+    | undefined;
+
+  const updated: AddItemsToMealTransactionResult = db.transaction((tx) => {
     const meal = tx
       .select(mealSelection)
       .from(meals)
@@ -680,7 +689,7 @@ export const addItemsToMeal = async (
       const ownedFoods = tx
         .select({ id: foods.id })
         .from(foods)
-        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId)))
+        .where(and(inArray(foods.id, foodIds), eq(foods.userId, userId), isNull(foods.deletedAt)))
         .all();
 
       if (ownedFoods.length !== foodIds.length) {

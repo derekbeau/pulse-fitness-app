@@ -199,15 +199,6 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      if (request.params.winnerId === request.body.loserId) {
-        return sendError(
-          reply,
-          400,
-          'INVALID_FOOD_MERGE',
-          'winnerId and loserId must be different',
-        );
-      }
-
       try {
         const mergedFood = await mergeFoods(
           request.userId,
