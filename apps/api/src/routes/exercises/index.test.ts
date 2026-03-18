@@ -1421,7 +1421,7 @@ describe('exercise routes', () => {
     seedMetadataExercise();
     const authToken = createSessionToken();
 
-    await context.app.inject({
+    const patchResponse = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1431,6 +1431,7 @@ describe('exercise routes', () => {
         instructions: 'Stand with feet shoulder-width apart.',
       },
     });
+    expect(patchResponse.statusCode).toBe(200);
 
     const metadataExercise = await listMetadataExercise(authToken);
     expect(metadataExercise).toEqual(
@@ -1474,7 +1475,7 @@ describe('exercise routes', () => {
     seedMetadataExercise();
     const authToken = createSessionToken();
 
-    await context.app.inject({
+    const putResponse = await context.app.inject({
       method: 'PUT',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1485,6 +1486,7 @@ describe('exercise routes', () => {
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
       },
     });
+    expect(putResponse.statusCode).toBe(200);
 
     const patchWithoutMetadataFields = await context.app.inject({
       method: 'PATCH',
@@ -1521,7 +1523,7 @@ describe('exercise routes', () => {
     seedMetadataExercise();
     const authToken = createSessionToken();
 
-    await context.app.inject({
+    const putResponse = await context.app.inject({
       method: 'PUT',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1532,6 +1534,7 @@ describe('exercise routes', () => {
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
       },
     });
+    expect(putResponse.statusCode).toBe(200);
 
     const patchNullMetadataResponse = await context.app.inject({
       method: 'PATCH',
@@ -1567,7 +1570,7 @@ describe('exercise routes', () => {
     seedMetadataExercise();
     const authToken = createSessionToken();
 
-    await context.app.inject({
+    const patchResponse = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1577,8 +1580,9 @@ describe('exercise routes', () => {
         instructions: 'Stand with feet shoulder-width apart.',
       },
     });
+    expect(patchResponse.statusCode).toBe(200);
 
-    await context.app.inject({
+    const putResponse = await context.app.inject({
       method: 'PUT',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1589,8 +1593,9 @@ describe('exercise routes', () => {
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
       },
     });
+    expect(putResponse.statusCode).toBe(200);
 
-    await context.app.inject({
+    const patchNullMetadataResponse = await context.app.inject({
       method: 'PATCH',
       url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
@@ -1599,6 +1604,7 @@ describe('exercise routes', () => {
         instructions: null,
       },
     });
+    expect(patchNullMetadataResponse.statusCode).toBe(200);
 
     const persistedMetadata = context.db
       .select({
