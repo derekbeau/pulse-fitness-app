@@ -130,6 +130,33 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('formats receipt duration from seconds', async () => {
+    const currentSession = createSession({
+      id: 'session-duration-format',
+      templateId: 'template-upper-push',
+      duration: 5400,
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+          duration: currentSession.duration,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(screen.getByText(/1h 30m/)).toBeInTheDocument();
+  });
+
   it('renders markdown in read-only notes and escapes unsafe HTML', async () => {
     const currentSession = createSession({
       id: 'session-markdown-notes',

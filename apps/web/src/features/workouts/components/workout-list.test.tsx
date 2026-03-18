@@ -277,6 +277,25 @@ describe('WorkoutList', () => {
 
     expect(within(completedSection).getByText('Completed 1')).toBeInTheDocument();
   });
+
+  it('formats completed workout durations from seconds', async () => {
+    renderWorkoutList(
+      [
+        createSession({
+          id: 'session-duration-seconds',
+          status: 'completed',
+          templateName: 'Duration Session',
+          duration: 5400,
+        }),
+      ],
+      [],
+    );
+
+    await screen.findByRole('heading', { level: 2, name: 'Completed' });
+    const completedSection = getSectionByTitle('Completed');
+
+    expect(within(completedSection).getByText('1h 30m')).toBeInTheDocument();
+  });
 });
 
 function getSectionByTitle(title: 'In Progress' | 'Scheduled' | 'Completed') {

@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { formatRelativeWorkoutDate } from '@/features/dashboard/lib/recent-workouts';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
+import { formatDuration } from '@/lib/format-utils';
 
 import { RecentWorkouts } from './recent-workouts';
 
@@ -26,21 +27,21 @@ const recentWorkoutsFixture = [
     id: 'session-1',
     name: 'Upper Push A',
     date: '2026-03-05',
-    duration: 62,
+    duration: 3924,
     exerciseCount: 6,
   },
   {
     id: 'session-2',
     name: 'Lower Strength',
     date: '2026-03-03',
-    duration: 70,
+    duration: 3600,
     exerciseCount: 5,
   },
   {
     id: 'session-3',
     name: 'Upper Pull A',
     date: '2026-02-28',
-    duration: 58,
+    duration: 5400,
     exerciseCount: 7,
   },
   {
@@ -103,10 +104,9 @@ describe('RecentWorkouts', () => {
       expect(link).toHaveAttribute('href', `/workouts/sessions/${workout.id}`);
       expect(within(link).getByText(workout.name)).toBeInTheDocument();
       expect(within(link).getByText(`${workout.exerciseCount} exercises`)).toBeInTheDocument();
+      const durationLabel = formatDuration(workout.duration);
       expect(
-        within(link).getByText(
-          workout.duration === null ? 'Duration n/a' : `${workout.duration} min`,
-        ),
+        within(link).getByText(durationLabel === '-' ? 'Duration n/a' : durationLabel),
       ).toBeInTheDocument();
     });
   });

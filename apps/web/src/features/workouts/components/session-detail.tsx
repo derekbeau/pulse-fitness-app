@@ -38,7 +38,11 @@ import { StatCard } from '@/components/ui/stat-card';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { toDateKey } from '@/lib/date-utils';
-import { formatServing, formatWeight as formatWeightValue } from '@/lib/format-utils';
+import {
+  formatDuration,
+  formatServing,
+  formatWeight as formatWeightValue,
+} from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -205,6 +209,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   const sessionDate = new Date(session.startedAt);
+  const durationLabel = formatDuration(session.duration);
   const summary = getSessionSummary(session, template ?? null);
   const shouldShowRepsStat = summary.metricTotals.reps > 0 && summary.metricLabel !== 'reps';
   const sections = buildSections(session, template);
@@ -288,7 +293,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               <p className="max-w-3xl text-sm opacity-80 sm:text-base dark:text-muted dark:opacity-100">
                 {dateFormatter.format(sessionDate)}
                 {' · '}
-                {session.duration != null ? `${session.duration} min` : 'Duration not tracked'}
+                {durationLabel === '-' ? 'Duration not tracked' : durationLabel}
                 {' · '}
                 {`Started ${timeFormatter.format(sessionDate)}`}
               </p>
