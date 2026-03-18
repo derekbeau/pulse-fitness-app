@@ -1345,7 +1345,10 @@ describe('exercise routes', () => {
     });
   });
 
-  it('persists formCues, coachingNotes, and instructions across patch/put read-after-write flows', async () => {
+  const createSessionToken = () =>
+    context.app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: '7d' });
+
+  const seedMetadataExercise = () =>
     seedExercise({
       id: 'metadata-exercise',
       userId: 'user-1',
@@ -1358,10 +1361,39 @@ describe('exercise routes', () => {
       coachingNotes: null,
     });
 
-    const authToken = context.app.jwt.sign(
-      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
-      { expiresIn: '7d' },
-    );
+  const listMetadataExercise = async (authToken: string) => {
+    const listResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises?page=1&limit=100',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const listPayload = listResponse.json() as {
+      data: Array<{
+        id: string;
+        name: string;
+        formCues: string[];
+        coachingNotes: string | null;
+        instructions: string | null;
+      }>;
+    };
+
+    const metadataExercise = listPayload.data.find((exercise) => exercise.id === 'metadata-exercise');
+    expect(metadataExercise).toBeDefined();
+    if (!metadataExercise) {
+      throw new Error('Expected metadata-exercise to be returned from exercise list');
+    }
+
+    return metadataExercise;
+  };
+
+  // Regression note: commit-9 confirmed no active persistence bug; these tests lock the current
+  // metadata write behavior so schema/store regressions are caught early.
+  it('persists formCues, coachingNotes, and instructions on PATCH', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
 
     const patchResponse = await context.app.inject({
       method: 'PATCH',
@@ -1383,29 +1415,36 @@ describe('exercise routes', () => {
         instructions: 'Stand with feet shoulder-width apart.',
       }),
     });
+  });
 
-    const listAfterPatchResponse = await context.app.inject({
-      method: 'GET',
-      url: '/api/v1/exercises?page=1&limit=20',
+  it('returns PATCHed metadata via GET list read-back', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
+
+    await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
+      payload: {
+        formCues: ['Keep elbows tucked'],
+        coachingNotes: 'Focus on form',
+        instructions: 'Stand with feet shoulder-width apart.',
+      },
     });
 
-    expect(listAfterPatchResponse.statusCode).toBe(200);
-    const listAfterPatch = listAfterPatchResponse.json() as {
-      data: Array<{
-        id: string;
-        formCues: string[];
-        coachingNotes: string | null;
-        instructions: string | null;
-      }>;
-    };
-    expect(listAfterPatch.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
+    const metadataExercise = await listMetadataExercise(authToken);
+    expect(metadataExercise).toEqual(
       expect.objectContaining({
         formCues: ['Keep elbows tucked'],
         coachingNotes: 'Focus on form',
         instructions: 'Stand with feet shoulder-width apart.',
       }),
     );
+  });
+
+  it('persists formCues, coachingNotes, and instructions on PUT', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
 
     const putResponse = await context.app.inject({
       method: 'PUT',
@@ -1429,29 +1468,23 @@ describe('exercise routes', () => {
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
       }),
     });
+  });
 
-    const listAfterPutResponse = await context.app.inject({
-      method: 'GET',
-      url: '/api/v1/exercises?page=1&limit=20',
+  it('preserves metadata on partial PATCH and persists it to GET list read-back', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
+
+    await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/metadata-exercise',
       headers: createAuthorizationHeader(authToken),
-    });
-
-    expect(listAfterPutResponse.statusCode).toBe(200);
-    const listAfterPut = listAfterPutResponse.json() as {
-      data: Array<{
-        id: string;
-        formCues: string[];
-        coachingNotes: string | null;
-        instructions: string | null;
-      }>;
-    };
-    expect(listAfterPut.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
-      expect.objectContaining({
+      payload: {
+        name: 'Cable Row v2',
         formCues: ['Brace core and pull elbows back'],
         coachingNotes: 'Drive elbows behind your torso',
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
-      }),
-    );
+      },
+    });
 
     const patchWithoutMetadataFields = await context.app.inject({
       method: 'PATCH',
@@ -1471,6 +1504,33 @@ describe('exercise routes', () => {
         coachingNotes: 'Drive elbows behind your torso',
         instructions: 'Sit tall and pull the handle toward your lower ribs.',
       }),
+    });
+
+    const metadataExercise = await listMetadataExercise(authToken);
+    expect(metadataExercise).toEqual(
+      expect.objectContaining({
+        name: 'Cable Row v3',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      }),
+    );
+  });
+
+  it('handles PATCH null metadata values and preserves non-null formCues', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
+
+    await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Cable Row v2',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      },
     });
 
     const patchNullMetadataResponse = await context.app.inject({
@@ -1493,28 +1553,52 @@ describe('exercise routes', () => {
       }),
     });
 
-    const listAfterNullPatchResponse = await context.app.inject({
-      method: 'GET',
-      url: '/api/v1/exercises?page=1&limit=20',
-      headers: createAuthorizationHeader(authToken),
-    });
-
-    expect(listAfterNullPatchResponse.statusCode).toBe(200);
-    const listAfterNullPatch = listAfterNullPatchResponse.json() as {
-      data: Array<{
-        id: string;
-        formCues: string[];
-        coachingNotes: string | null;
-        instructions: string | null;
-      }>;
-    };
-    expect(listAfterNullPatch.data.find((exercise) => exercise.id === 'metadata-exercise')).toEqual(
+    const metadataExercise = await listMetadataExercise(authToken);
+    expect(metadataExercise).toEqual(
       expect.objectContaining({
         formCues: ['Brace core and pull elbows back'],
         coachingNotes: null,
         instructions: null,
       }),
     );
+  });
+
+  it('persists final metadata state in the database after patch/put updates', async () => {
+    seedMetadataExercise();
+    const authToken = createSessionToken();
+
+    await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        formCues: ['Keep elbows tucked'],
+        coachingNotes: 'Focus on form',
+        instructions: 'Stand with feet shoulder-width apart.',
+      },
+    });
+
+    await context.app.inject({
+      method: 'PUT',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Cable Row v2',
+        formCues: ['Brace core and pull elbows back'],
+        coachingNotes: 'Drive elbows behind your torso',
+        instructions: 'Sit tall and pull the handle toward your lower ribs.',
+      },
+    });
+
+    await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/exercises/metadata-exercise',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        coachingNotes: null,
+        instructions: null,
+      },
+    });
 
     const persistedMetadata = context.db
       .select({
