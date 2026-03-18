@@ -23,6 +23,7 @@ const dbState = vi.hoisted(() => ({
   insertRunResult: { changes: 1 },
   updateRunResult: { changes: 1 },
   deleteRunResult: { changes: 1 },
+  transaction: vi.fn(),
   reset() {
     this.selectResults = [];
     this.selectBuilders = [];
@@ -33,6 +34,7 @@ const dbState = vi.hoisted(() => ({
     this.insertRunResult = { changes: 1 };
     this.updateRunResult = { changes: 1 };
     this.deleteRunResult = { changes: 1 };
+    this.transaction.mockClear();
   },
 }));
 
@@ -92,43 +94,83 @@ const createSelectBuilder = (result: SelectResultConfig) => {
   return builder;
 };
 
+const buildStoredFood = (
+  overrides: Partial<{
+    id: string;
+    userId: string;
+    name: string;
+    usageCount: number;
+    lastUsedAt: number | null;
+    deletedAt: string | null;
+  }> = {},
+) => ({
+  id: '11111111-1111-4111-8111-111111111111',
+  userId: 'user-1',
+  name: 'Greek Yogurt',
+  brand: null,
+  servingSize: '170 g',
+  servingGrams: 170,
+  calories: 90,
+  protein: 18,
+  carbs: 5,
+  fat: 0,
+  fiber: null,
+  sugar: 5,
+  verified: true,
+  source: null,
+  notes: null,
+  usageCount: 4,
+  tags: [],
+  lastUsedAt: 1_700_000_000_000,
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_001,
+  ...overrides,
+});
+
 vi.mock('../../db/index.js', () => ({
-  db: {
-    select: vi.fn(() => createSelectBuilder(dbState.selectResults.shift() ?? {})),
-    insert: vi.fn(() => ({
-      values: vi.fn((values: unknown) => {
-        dbState.insertValues.push(values);
+  db: (() => {
+    const db = {
+      transaction: dbState.transaction,
+      select: vi.fn(() => createSelectBuilder(dbState.selectResults.shift() ?? {})),
+      insert: vi.fn(() => ({
+        values: vi.fn((values: unknown) => {
+          dbState.insertValues.push(values);
 
-        return {
-          run: vi.fn(() => dbState.insertRunResult),
-        };
-      }),
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn((values: unknown) => {
-        dbState.updateSets.push(values);
+          return {
+            run: vi.fn(() => dbState.insertRunResult),
+          };
+        }),
+      })),
+      update: vi.fn(() => ({
+        set: vi.fn((values: unknown) => {
+          dbState.updateSets.push(values);
 
-        return {
-          where: vi.fn((whereClause: unknown) => {
-            dbState.updateWhereCalls.push(whereClause);
+          return {
+            where: vi.fn((whereClause: unknown) => {
+              dbState.updateWhereCalls.push(whereClause);
 
-            return {
-              run: vi.fn(() => dbState.updateRunResult),
-            };
-          }),
-        };
-      }),
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn((whereClause: unknown) => {
-        dbState.deleteWhereCalls.push(whereClause);
+              return {
+                run: vi.fn(() => dbState.updateRunResult),
+              };
+            }),
+          };
+        }),
+      })),
+      delete: vi.fn(() => ({
+        where: vi.fn((whereClause: unknown) => {
+          dbState.deleteWhereCalls.push(whereClause);
 
-        return {
-          run: vi.fn(() => dbState.deleteRunResult),
-        };
-      }),
-    })),
-  },
+          return {
+            run: vi.fn(() => dbState.deleteRunResult),
+          };
+        }),
+      })),
+    };
+
+    dbState.transaction.mockImplementation((callback: (tx: typeof db) => unknown) => callback(db));
+
+    return db;
+  })(),
 }));
 
 describe('foods store', () => {
@@ -419,5 +461,135 @@ describe('foods store', () => {
     expect(flattenSql((dbState.updateSets.at(-1) as { usageCount: unknown }).usageCount)).toContain(
       'case when usage_count > 0 then usage_count - 1 else 0 end',
     );
+  });
+
+  it('merges foods transactionally by relinking meal items, combining usage stats, and soft-deleting the loser', async () => {
+    const winnerId = '11111111-1111-4111-8111-111111111111';
+    const loserId = '22222222-2222-4222-8222-222222222222';
+    dbState.selectResults.push(
+      {
+        get: buildStoredFood({
+          id: winnerId,
+          usageCount: 4,
+          lastUsedAt: 1_700_000_100_000,
+        }),
+      },
+      {
+        get: buildStoredFood({
+          id: loserId,
+          name: 'Skyr',
+          usageCount: 7,
+          lastUsedAt: 1_700_000_400_000,
+        }),
+      },
+      {
+        get: buildStoredFood({
+          id: winnerId,
+          usageCount: 11,
+          lastUsedAt: 1_700_000_400_000,
+        }),
+      },
+    );
+
+    const { mergeFoods } = await import('./store.js');
+    const mergedWinner = await mergeFoods('user-1', winnerId, loserId);
+
+    expect(dbState.transaction).toHaveBeenCalledOnce();
+    expect(mergedWinner).toEqual(
+      expect.objectContaining({
+        id: winnerId,
+        usageCount: 11,
+        lastUsedAt: 1_700_000_400_000,
+      }),
+    );
+    expect(dbState.updateSets).toHaveLength(3);
+    expect(dbState.updateSets[0]).toEqual({
+      foodId: winnerId,
+    });
+    expect(dbState.updateSets[1]).toMatchObject({
+      usageCount: 11,
+      lastUsedAt: 1_700_000_400_000,
+      updatedAt: expect.any(Number),
+    });
+    expect(dbState.updateSets[2]).toMatchObject({
+      deletedAt: expect.any(String),
+      updatedAt: expect.any(Number),
+    });
+
+    const relinkWhereText = flattenSql(dbState.updateWhereCalls[0]);
+    expect(relinkWhereText).toContain(`food_id = ${loserId}`);
+    const winnerWhereText = flattenSql(dbState.updateWhereCalls[1]);
+    expect(winnerWhereText).toContain(`id = ${winnerId}`);
+    expect(winnerWhereText).toContain('user_id = user-1');
+    const loserWhereText = flattenSql(dbState.updateWhereCalls[2]);
+    expect(loserWhereText).toContain(`id = ${loserId}`);
+    expect(loserWhereText).toContain('user_id = user-1');
+  });
+
+  it('uses the max available lastUsedAt when merging nullable timestamps', async () => {
+    const winnerId = '11111111-1111-4111-8111-111111111111';
+    const loserId = '22222222-2222-4222-8222-222222222222';
+    dbState.selectResults.push(
+      {
+        get: buildStoredFood({
+          id: winnerId,
+          usageCount: 2,
+          lastUsedAt: null,
+        }),
+      },
+      {
+        get: buildStoredFood({
+          id: loserId,
+          usageCount: 3,
+          lastUsedAt: 1_700_000_500_000,
+        }),
+      },
+      {
+        get: buildStoredFood({
+          id: winnerId,
+          usageCount: 5,
+          lastUsedAt: 1_700_000_500_000,
+        }),
+      },
+    );
+
+    const { mergeFoods } = await import('./store.js');
+    await mergeFoods('user-1', winnerId, loserId);
+
+    expect(dbState.updateSets[1]).toMatchObject({
+      lastUsedAt: 1_700_000_500_000,
+    });
+  });
+
+  it('rejects invalid merge combinations and missing scoped foods', async () => {
+    const winnerId = '11111111-1111-4111-8111-111111111111';
+    const loserId = '22222222-2222-4222-8222-222222222222';
+    const { FoodMergeSameIdError, mergeFoods } = await import('./store.js');
+
+    await expect(mergeFoods('user-1', winnerId, winnerId)).rejects.toBeInstanceOf(
+      FoodMergeSameIdError,
+    );
+    expect(dbState.transaction).not.toHaveBeenCalled();
+
+    dbState.selectResults.push({
+      get: undefined,
+    });
+    await expect(mergeFoods('user-1', winnerId, loserId)).rejects.toMatchObject({
+      foodRole: 'winner',
+    });
+
+    dbState.selectResults.push(
+      {
+        get: buildStoredFood({
+          id: winnerId,
+        }),
+      },
+      {
+        get: undefined,
+      },
+    );
+    await expect(mergeFoods('user-1', winnerId, loserId)).rejects.toMatchObject({
+      foodRole: 'loser',
+    });
   });
 });

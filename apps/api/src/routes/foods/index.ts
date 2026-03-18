@@ -6,11 +6,13 @@ import {
   createFoodInputSchema,
   foodQueryParamsSchema,
   foodSchema,
+  mergeFoodInputSchema,
   patchFoodInputSchema,
   updateFoodInputSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
@@ -24,13 +26,25 @@ import {
   successFlagSchema,
 } from '../../openapi.js';
 
-import { createFood, deleteFood, findFoodById, listFoods, updateFood } from './store.js';
+import {
+  createFood,
+  deleteFood,
+  findFoodById,
+  FoodMergeNotFoundError,
+  FoodMergeSameIdError,
+  listFoods,
+  mergeFoods,
+  updateFood,
+} from './store.js';
 
 const createFoodResponseSchema = apiDataResponseSchema(foodSchema);
 
 const listFoodsResponseSchema = apiPaginatedResponseSchema(foodSchema);
 
 const successResponseSchema = apiDataResponseSchema(successFlagSchema);
+const mergeFoodParamsSchema = z.object({
+  winnerId: z.string().uuid(),
+});
 
 export const foodsRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -164,6 +178,48 @@ export const foodsRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: food,
       });
+    },
+  );
+
+  typedApp.post(
+    '/:winnerId/merge',
+    {
+      schema: {
+        params: mergeFoodParamsSchema,
+        body: mergeFoodInputSchema,
+        response: {
+          200: apiDataResponseSchema(foodSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['foods'],
+        summary: 'Merge one food into another',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const mergedFood = await mergeFoods(
+          request.userId,
+          request.params.winnerId,
+          request.body.loserId,
+        );
+
+        return reply.send({
+          data: mergedFood,
+        });
+      } catch (error) {
+        if (error instanceof FoodMergeSameIdError) {
+          return sendError(reply, 400, 'INVALID_FOOD_MERGE', error.message);
+        }
+
+        if (error instanceof FoodMergeNotFoundError) {
+          return sendError(reply, 404, 'FOOD_NOT_FOUND', 'Food not found');
+        }
+
+        throw error;
+      }
     },
   );
 

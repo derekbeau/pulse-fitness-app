@@ -116,6 +116,10 @@ export const updateFoodInputSchema = foodMutationFieldsSchema
 
 export const patchFoodInputSchema = updateFoodInputSchema;
 
+export const mergeFoodInputSchema = z.object({
+  loserId: z.string().uuid(),
+});
+
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
   tags: optionalQueryTags,
@@ -129,4 +133,5 @@ export type FoodSort = z.infer<typeof foodSortSchema>;
 export type CreateFoodInput = z.infer<typeof createFoodInputSchema>;
 export type UpdateFoodInput = z.infer<typeof updateFoodInputSchema>;
 export type PatchFoodInput = z.infer<typeof patchFoodInputSchema>;
+export type MergeFoodInput = z.infer<typeof mergeFoodInputSchema>;
 export type FoodQueryParams = z.infer<typeof foodQueryParamsSchema>;

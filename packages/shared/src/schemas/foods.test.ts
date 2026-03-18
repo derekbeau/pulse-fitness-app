@@ -6,8 +6,10 @@ import {
   foodSchema,
   type Food,
   type FoodQueryParams,
+  type MergeFoodInput,
   type PatchFoodInput,
   type UpdateFoodInput,
+  mergeFoodInputSchema,
   patchFoodInputSchema,
   updateFoodInputSchema,
 } from './foods';
@@ -243,6 +245,26 @@ describe('foodQueryParamsSchema', () => {
       foodQueryParamsSchema.parse({
         sort: 'calories',
         page: '0',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('mergeFoodInputSchema', () => {
+  it('accepts uuid loserId', () => {
+    const payload: MergeFoodInput = mergeFoodInputSchema.parse({
+      loserId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(payload).toEqual({
+      loserId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
+  it('rejects invalid loserId values', () => {
+    expect(() =>
+      mergeFoodInputSchema.parse({
+        loserId: 'food-1',
       }),
     ).toThrow();
   });

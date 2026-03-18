@@ -122,6 +122,110 @@ const createTxForMealInsert = (returnedItems: Array<Record<string, unknown>>) =>
   };
 };
 
+const createTxForAddMealItems = (options: {
+  mealExists?: boolean;
+  insertedItems: Array<Record<string, unknown>>;
+  allMealItems: Array<Record<string, unknown>>;
+  updatedAt?: number;
+}) => {
+  const mealExists = options.mealExists ?? true;
+  const existingMeal = mealExists
+    ? {
+        id: 'meal-1',
+        nutritionLogId: 'log-1',
+        name: 'Lunch',
+        summary: null,
+        time: null,
+        notes: null,
+        createdAt: 2,
+        updatedAt: 2,
+      }
+    : undefined;
+  const ownedFoodsAll = vi.fn(() =>
+    options.insertedItems
+      .map((item) => item.foodId)
+      .filter((foodId): foodId is string => typeof foodId === 'string')
+      .filter((foodId, index, foodIds) => foodIds.indexOf(foodId) === index)
+      .map((id) => ({ id })),
+  );
+  const insertedMealItemsAll = vi.fn(() => options.insertedItems);
+  const allMealItemsAll = vi.fn(() => options.allMealItems);
+  const getUpdatedMeal = vi.fn(() =>
+    existingMeal
+      ? {
+          ...existingMeal,
+          updatedAt: options.updatedAt ?? 3,
+        }
+      : undefined,
+  );
+
+  return {
+    select: vi.fn(() => ({
+      from: vi.fn((table) => {
+        if (getTableName(table) === 'meals') {
+          return {
+            innerJoin: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  get: vi.fn(() => existingMeal),
+                })),
+              })),
+            })),
+          };
+        }
+
+        if (getTableName(table) === 'foods') {
+          return {
+            where: vi.fn(() => ({
+              all: ownedFoodsAll,
+            })),
+          };
+        }
+
+        if (getTableName(table) === 'meal_items') {
+          return {
+            where: vi.fn(() => ({
+              orderBy: vi.fn(() => ({
+                all: allMealItemsAll,
+              })),
+            })),
+          };
+        }
+
+        throw new Error(`Unexpected select table: ${String(table)}`);
+      }),
+    })),
+    insert: vi.fn((table) => {
+      if (getTableName(table) === 'meal_items') {
+        return {
+          values: vi.fn(() => ({
+            returning: vi.fn(() => ({
+              all: insertedMealItemsAll,
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected insert table: ${String(table)}`);
+    }),
+    update: vi.fn((table) => {
+      if (getTableName(table) === 'meals') {
+        return {
+          set: vi.fn(() => ({
+            where: vi.fn(() => ({
+              returning: vi.fn(() => ({
+                get: getUpdatedMeal,
+              })),
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected update table: ${String(table)}`);
+    }),
+  };
+};
+
 const createTxForMealDelete = (
   options: { exists?: boolean; foodIds?: Array<string | null> } = {},
 ) => {
@@ -342,6 +446,182 @@ describe('nutrition store food usage tracking', () => {
       ],
     });
 
+    expect(testState.trackFoodUsage).not.toHaveBeenCalled();
+    expect(testState.decrementFoodUsage).not.toHaveBeenCalled();
+  });
+
+  it('appends items to an existing meal, refreshes updatedAt, and tracks saved foods', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForAddMealItems>) => unknown) =>
+        callback(
+          createTxForAddMealItems({
+            updatedAt: 10,
+            insertedItems: [
+              {
+                id: 'item-2',
+                mealId: 'meal-1',
+                foodId: 'food-2',
+                name: 'Rice',
+                amount: 1,
+                unit: 'cup',
+                displayQuantity: null,
+                displayUnit: null,
+                calories: 200,
+                protein: 4,
+                carbs: 45,
+                fat: 1,
+                fiber: null,
+                sugar: null,
+                createdAt: 4,
+              },
+              {
+                id: 'item-3',
+                mealId: 'meal-1',
+                foodId: null,
+                name: 'Olive Oil',
+                amount: 1,
+                unit: 'tbsp',
+                displayQuantity: null,
+                displayUnit: null,
+                calories: 120,
+                protein: 0,
+                carbs: 0,
+                fat: 14,
+                fiber: null,
+                sugar: null,
+                createdAt: 5,
+              },
+            ],
+            allMealItems: [
+              {
+                id: 'item-1',
+                mealId: 'meal-1',
+                foodId: 'food-1',
+                name: 'Chicken',
+                amount: 1,
+                unit: 'serving',
+                displayQuantity: null,
+                displayUnit: null,
+                calories: 300,
+                protein: 40,
+                carbs: 0,
+                fat: 10,
+                fiber: null,
+                sugar: null,
+                createdAt: 3,
+              },
+              {
+                id: 'item-2',
+                mealId: 'meal-1',
+                foodId: 'food-2',
+                name: 'Rice',
+                amount: 1,
+                unit: 'cup',
+                displayQuantity: null,
+                displayUnit: null,
+                calories: 200,
+                protein: 4,
+                carbs: 45,
+                fat: 1,
+                fiber: null,
+                sugar: null,
+                createdAt: 4,
+              },
+              {
+                id: 'item-3',
+                mealId: 'meal-1',
+                foodId: null,
+                name: 'Olive Oil',
+                amount: 1,
+                unit: 'tbsp',
+                displayQuantity: null,
+                displayUnit: null,
+                calories: 120,
+                protein: 0,
+                carbs: 0,
+                fat: 14,
+                fiber: null,
+                sugar: null,
+                createdAt: 5,
+              },
+            ],
+          }),
+        ),
+    );
+
+    const { addItemsToMeal } = await import('./store.js');
+    const updated = await addItemsToMeal('user-1', 'meal-1', [
+      {
+        foodId: 'food-2',
+        name: 'Rice',
+        amount: 1,
+        unit: 'cup',
+        calories: 200,
+        protein: 4,
+        carbs: 45,
+        fat: 1,
+      },
+      {
+        foodId: null,
+        name: 'Olive Oil',
+        amount: 1,
+        unit: 'tbsp',
+        calories: 120,
+        protein: 0,
+        carbs: 0,
+        fat: 14,
+      },
+    ]);
+
+    expect(updated).toBeDefined();
+    expect(updated?.meal.updatedAt).toBe(10);
+    expect(updated?.items).toHaveLength(3);
+    const macroTotals = updated?.items.reduce(
+      (totals, item) => ({
+        calories: totals.calories + item.calories,
+        protein: totals.protein + item.protein,
+        carbs: totals.carbs + item.carbs,
+        fat: totals.fat + item.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    );
+    expect(macroTotals).toEqual({
+      calories: 620,
+      protein: 44,
+      carbs: 45,
+      fat: 25,
+    });
+    expect(testState.trackFoodUsage).toHaveBeenCalledTimes(1);
+    expect(testState.trackFoodUsage).toHaveBeenCalledWith('food-2', 'user-1');
+    expect(testState.decrementFoodUsage).not.toHaveBeenCalled();
+  });
+
+  it('returns undefined when appending items to a missing meal', async () => {
+    testState.db.transaction.mockImplementation(
+      (callback: (tx: ReturnType<typeof createTxForAddMealItems>) => unknown) =>
+        callback(
+          createTxForAddMealItems({
+            mealExists: false,
+            insertedItems: [],
+            allMealItems: [],
+          }),
+        ),
+    );
+
+    const { addItemsToMeal } = await import('./store.js');
+    const updated = await addItemsToMeal('user-1', 'missing-meal', [
+      {
+        name: 'Olive Oil',
+        amount: 1,
+        unit: 'tbsp',
+        calories: 120,
+        protein: 0,
+        carbs: 0,
+        fat: 14,
+      },
+    ]);
+
+    expect(updated).toBeUndefined();
     expect(testState.trackFoodUsage).not.toHaveBeenCalled();
     expect(testState.decrementFoodUsage).not.toHaveBeenCalled();
   });
