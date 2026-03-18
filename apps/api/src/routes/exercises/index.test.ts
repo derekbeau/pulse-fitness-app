@@ -1055,7 +1055,7 @@ describe('exercise routes', () => {
     );
     const response = await context.app.inject({
       method: 'GET',
-      url: '/api/v1/exercises?page=1&limit=20',
+      url: '/api/v1/exercises?page=1&limit=100',
       headers: createAuthorizationHeader(authToken),
     });
     const filtersResponse = await context.app.inject({
@@ -1072,7 +1072,7 @@ describe('exercise routes', () => {
       ],
       meta: {
         page: 1,
-        limit: 20,
+        limit: 100,
         total: 2,
       },
     });
@@ -1170,7 +1170,7 @@ describe('exercise routes', () => {
     );
     const response = await context.app.inject({
       method: 'GET',
-      url: '/api/v1/exercises?page=1&limit=20',
+      url: '/api/v1/exercises?page=1&limit=100',
       headers: createAuthorizationHeader(authToken),
     });
     const filtersResponse = await context.app.inject({
@@ -1184,7 +1184,7 @@ describe('exercise routes', () => {
       data: [],
       meta: {
         page: 1,
-        limit: 20,
+        limit: 100,
         total: 0,
       },
     });
