@@ -1,21 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  agentUpdateWorkoutSessionInputSchema,
+  agentExerciseSearchParamsSchema,
+  agentUpdateHabitEntryInputSchema,
 } from './agent.js';
 
-describe('agentUpdateWorkoutSessionInputSchema', () => {
-  it('accepts mid-session exercise mutations', () => {
-    const payload = agentUpdateWorkoutSessionInputSchema.parse({
-      addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10 }],
-      removeExercises: ['exercise-1'],
-      reorderExercises: ['exercise-2', 'exercise-1'],
+describe('agentExerciseSearchParamsSchema', () => {
+  it('coerces and defaults query params', () => {
+    expect(
+      agentExerciseSearchParamsSchema.parse({
+        q: ' press ',
+      }),
+    ).toEqual({
+      q: 'press',
+      limit: 10,
     });
+  });
+});
 
-    expect(payload).toEqual({
-      addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10, section: 'main' }],
-      removeExercises: ['exercise-1'],
-      reorderExercises: ['exercise-2', 'exercise-1'],
-    });
+describe('agentUpdateHabitEntryInputSchema', () => {
+  it('requires at least one updatable value', () => {
+    expect(() =>
+      agentUpdateHabitEntryInputSchema.parse({
+        date: '2026-03-12',
+      }),
+    ).toThrow('At least one habit entry field must be provided');
   });
 });

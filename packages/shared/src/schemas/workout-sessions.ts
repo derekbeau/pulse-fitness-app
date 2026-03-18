@@ -325,7 +325,8 @@ export const workoutSessionListItemSchema = z
 
 export const sessionSetInputSchema = z
   .object({
-    exerciseId: requiredStringSchema,
+    exerciseId: requiredStringSchema.optional(),
+    exerciseName: requiredStringSchema.optional(),
     orderIndex: z.number().int().min(0).optional().default(0),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable().optional().default(null),
@@ -347,11 +348,55 @@ export const sessionSetInputSchema = z
   .refine(hasValidTargetWeightRange, {
     message: 'targetWeightMin must be less than or equal to targetWeightMax',
     path: ['targetWeightMax'],
+  })
+  .transform((value, context) => {
+    const resolvedExerciseId = value.exerciseId ?? value.exerciseName;
+    if (!resolvedExerciseId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exerciseId or exerciseName is required',
+        path: ['exerciseId'],
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...value,
+      exerciseId: resolvedExerciseId,
+    };
+  });
+
+const workoutSessionExerciseMutationInputSchema = z
+  .object({
+    exerciseId: requiredStringSchema.optional(),
+    exerciseName: requiredStringSchema.optional(),
+    name: requiredStringSchema.optional(),
+    sets: z.number().int().min(1).max(100),
+    reps: z.number().int().min(0).max(1000).nullable().optional(),
+    weight: z.number().min(0).nullable().optional(),
+    section: workoutTemplateSectionTypeSchema.optional().default('main'),
+  })
+  .transform((value, context) => {
+    const resolvedExerciseId = value.exerciseId ?? value.exerciseName ?? value.name;
+    if (!resolvedExerciseId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exerciseId, exerciseName, or name is required',
+        path: ['exerciseId'],
+      });
+      return z.NEVER;
+    }
+
+    return {
+      ...value,
+      exerciseId: resolvedExerciseId,
+    };
   });
 
 export const createWorkoutSessionInputSchema = z
   .object({
     templateId: nullableTemplateIdSchema.optional().default(null),
+    templateName: requiredStringSchema.optional(),
     name: requiredStringSchema,
     date: dateSchema,
     status: workoutSessionStatusSchema.optional().default('in-progress'),
@@ -379,6 +424,9 @@ export const updateWorkoutSessionInputSchema = z
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),
+    addExercises: z.array(workoutSessionExerciseMutationInputSchema).min(1).max(100).optional(),
+    removeExercises: z.array(requiredStringSchema).min(1).max(100).optional(),
+    reorderExercises: z.array(requiredStringSchema).min(1).max(200).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one workout session field must be provided',

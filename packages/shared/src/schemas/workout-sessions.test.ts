@@ -164,6 +164,27 @@ describe('sessionSetInputSchema', () => {
       }),
     ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
   });
+
+  it('accepts exerciseName aliases and normalizes to exerciseId', () => {
+    expect(
+      sessionSetInputSchema.parse({
+        exerciseName: ' Goblet Squat ',
+        setNumber: 1,
+        reps: 12,
+      }),
+    ).toEqual({
+      exerciseId: 'Goblet Squat',
+      exerciseName: 'Goblet Squat',
+      orderIndex: 0,
+      setNumber: 1,
+      weight: null,
+      reps: 12,
+      completed: false,
+      skipped: false,
+      section: null,
+      notes: null,
+    });
+  });
 });
 
 describe('sessionSetSchema', () => {
@@ -508,6 +529,30 @@ describe('createWorkoutSessionInputSchema', () => {
       }).timeSegments,
     ).toEqual([]);
   });
+
+  it('accepts templateName convenience fields', () => {
+    expect(
+      createWorkoutSessionInputSchema.parse({
+        templateName: ' Upper Push ',
+        name: 'Upper Push',
+        date: '2026-03-12',
+        startedAt: 10,
+      }),
+    ).toEqual({
+      templateId: null,
+      templateName: 'Upper Push',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 10,
+      completedAt: null,
+      duration: null,
+      timeSegments: [],
+      feedback: null,
+      notes: null,
+      sets: [],
+    });
+  });
 });
 
 describe('reorderWorkoutSessionExercisesInputSchema', () => {
@@ -658,6 +703,50 @@ describe('updateWorkoutSessionInputSchema', () => {
 
   it('rejects empty updates', () => {
     expect(() => updateWorkoutSessionInputSchema.parse({})).toThrow();
+  });
+
+  it('accepts unified exercise mutation fields', () => {
+    const payload = updateWorkoutSessionInputSchema.parse({
+      sets: [
+        {
+          exerciseName: ' Landmine Press ',
+          setNumber: 1,
+          weight: 95,
+          reps: 10,
+        },
+      ],
+      addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10 }],
+      removeExercises: ['exercise-1'],
+      reorderExercises: ['exercise-2', 'exercise-1'],
+    });
+
+    expect(payload).toEqual({
+      sets: [
+        {
+          exerciseId: 'Landmine Press',
+          exerciseName: 'Landmine Press',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: 95,
+          reps: 10,
+          completed: false,
+          skipped: false,
+          section: null,
+          notes: null,
+        },
+      ],
+      addExercises: [
+        {
+          exerciseId: 'Goblet Squat',
+          name: 'Goblet Squat',
+          sets: 2,
+          reps: 10,
+          section: 'main',
+        },
+      ],
+      removeExercises: ['exercise-1'],
+      reorderExercises: ['exercise-2', 'exercise-1'],
+    });
   });
 });
 

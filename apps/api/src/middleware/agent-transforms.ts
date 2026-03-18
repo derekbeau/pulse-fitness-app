@@ -11,6 +11,7 @@ import {
   findExerciseDedupCandidates,
 } from '../routes/exercises/store.js';
 import { createFood, findFoodByName } from '../routes/foods/store.js';
+import { findWorkoutTemplateByName } from '../routes/workout-templates/store.js';
 
 const DEFAULT_EXERCISE_CATEGORY: ExerciseCategory = 'compound';
 const DEFAULT_EXERCISE_TRACKING_TYPE: ExerciseTrackingType = 'weight_reps';
@@ -401,7 +402,11 @@ const transformExerciseMutation = async ({
 
   if (isAgentExerciseMutation) {
     const namedExercise = trimNonEmptyString(input.name);
-    if (namedExercise && typeof input.exerciseId !== 'string') {
+    const currentExerciseId = trimNonEmptyString(input.exerciseId);
+    if (
+      namedExercise &&
+      (typeof input.exerciseId !== 'string' || currentExerciseId === namedExercise)
+    ) {
       const resolvedId = await resolveExerciseIdFromName({
         name: namedExercise,
         userId,
@@ -422,6 +427,32 @@ const transformExerciseMutation = async ({
     const { repsMin, repsMax } = parseRepsInput(input.reps);
     input.repsMin = repsMin;
     input.repsMax = repsMax;
+  }
+};
+
+const transformTemplateReference = async ({
+  input,
+  userId,
+}: {
+  input: MutableRecord;
+  userId: string;
+}) => {
+  const templateName = trimNonEmptyString(input.templateName);
+  if (!templateName) {
+    return;
+  }
+
+  const currentTemplateId = trimNonEmptyString(input.templateId);
+  if (currentTemplateId && currentTemplateId !== templateName) {
+    return;
+  }
+
+  const resolvedTemplate = await findWorkoutTemplateByName({
+    name: templateName,
+    userId,
+  });
+  if (resolvedTemplate) {
+    input.templateId = resolvedTemplate.id;
   }
 };
 
@@ -446,6 +477,7 @@ export const transformAgentRequestBody = async ({
 
     await transformFoodItem({ item: value, userId });
     await transformExerciseMutation({ input: value, userId });
+    await transformTemplateReference({ input: value, userId });
 
     for (const nestedValue of Object.values(value)) {
       await visit(nestedValue);

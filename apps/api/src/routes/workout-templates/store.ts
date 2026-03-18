@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
   ExerciseTrackingType,
@@ -247,6 +247,52 @@ export const findWorkoutTemplateById = async (
     .where(
       and(
         eq(templateExercises.templateId, id),
+        or(
+          isNull(exercises.userId),
+          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+        ),
+      ),
+    )
+    .all();
+
+  return buildTemplate(template, rows);
+};
+
+export const findWorkoutTemplateByName = async ({
+  name,
+  userId,
+}: {
+  name: string;
+  userId: string;
+}): Promise<WorkoutTemplate | undefined> => {
+  const { db } = await import('../../db/index.js');
+  const normalizedName = name.trim().toLowerCase();
+
+  const template = db
+    .select(templateSelection)
+    .from(workoutTemplates)
+    .where(
+      and(
+        eq(workoutTemplates.userId, userId),
+        isNull(workoutTemplates.deletedAt),
+        sql`lower(${workoutTemplates.name}) = ${normalizedName}`,
+      ),
+    )
+    .orderBy(asc(workoutTemplates.createdAt))
+    .limit(1)
+    .get();
+
+  if (!template) {
+    return undefined;
+  }
+
+  const rows = db
+    .select(templateExerciseSelection)
+    .from(templateExercises)
+    .innerJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
+    .where(
+      and(
+        eq(templateExercises.templateId, template.id),
         or(
           isNull(exercises.userId),
           and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),

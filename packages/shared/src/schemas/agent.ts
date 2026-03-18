@@ -2,74 +2,8 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { habitTrackingTypeSchema } from './habits.js';
-import { workoutSessionStatusSchema } from './workout-sessions.js';
-import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
-
-const optionalText = (maxLength = 4000) =>
-  z.preprocess((value) => {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    if (value === null) {
-      return null;
-    }
-
-    if (typeof value !== 'string') {
-      return value;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }, z.string().trim().min(1).max(maxLength).nullable().optional());
-
-export const agentCreateWorkoutSessionInputSchema = z
-  .object({
-    templateId: z.string().trim().min(1).optional(),
-    name: z.string().trim().min(1).max(255).optional(),
-  })
-  .refine((value) => value.templateId !== undefined || value.name !== undefined, {
-    message: 'templateId or name is required',
-  });
-
-export const agentWorkoutSetUpsertInputSchema = z.object({
-  exerciseName: requiredText(),
-  setNumber: z.number().int().min(1).max(100),
-  weight: z.number().min(0).nullable(),
-  reps: z.number().int().min(0).nullable(),
-});
-
-export const agentWorkoutSessionExerciseMutationSchema = z.object({
-  name: requiredText(),
-  sets: z.number().int().min(1).max(100),
-  reps: z.number().int().min(0).max(1000).nullable().optional(),
-  weight: z.number().min(0).nullable().optional(),
-  section: workoutTemplateSectionTypeSchema.optional().default('main'),
-});
-
-export const agentUpdateWorkoutSessionInputSchema = z
-  .object({
-    sets: z.array(agentWorkoutSetUpsertInputSchema).min(1).max(500).optional(),
-    addExercises: z.array(agentWorkoutSessionExerciseMutationSchema).min(1).max(100).optional(),
-    removeExercises: z.array(z.string().trim().min(1)).min(1).max(100).optional(),
-    reorderExercises: z.array(z.string().trim().min(1)).min(1).max(200).optional(),
-    status: workoutSessionStatusSchema.optional(),
-    notes: optionalText(4000),
-  })
-  .refine(
-    (value) =>
-      value.sets !== undefined ||
-      value.addExercises !== undefined ||
-      value.removeExercises !== undefined ||
-      value.reorderExercises !== undefined ||
-      value.status !== undefined ||
-      value.notes !== undefined,
-    {
-      message: 'At least one workout session field must be provided',
-    },
-  );
 
 export const agentExerciseDedupCandidateSchema = z.object({
   id: z.string(),
@@ -177,9 +111,6 @@ export const agentContextResponseSchema = z.object({
   scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),
 });
 
-export type AgentCreateWorkoutSessionInput = z.infer<typeof agentCreateWorkoutSessionInputSchema>;
-export type AgentWorkoutSetUpsertInput = z.infer<typeof agentWorkoutSetUpsertInputSchema>;
-export type AgentUpdateWorkoutSessionInput = z.infer<typeof agentUpdateWorkoutSessionInputSchema>;
 export type AgentExerciseDedupCandidate = z.infer<typeof agentExerciseDedupCandidateSchema>;
 export type AgentTemplateNewExercise = z.infer<typeof agentTemplateNewExerciseSchema>;
 export type AgentExerciseSearchParams = z.infer<typeof agentExerciseSearchParamsSchema>;

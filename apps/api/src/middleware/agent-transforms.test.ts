@@ -7,6 +7,7 @@ import {
   findVisibleExerciseByName,
 } from '../routes/exercises/store.js';
 import { createFood, findFoodByName } from '../routes/foods/store.js';
+import { findWorkoutTemplateByName } from '../routes/workout-templates/store.js';
 import { agentRequestTransform, parseRepsInput } from './agent-transforms.js';
 
 vi.mock('../routes/exercises/store.js', () => ({
@@ -18,6 +19,10 @@ vi.mock('../routes/exercises/store.js', () => ({
 vi.mock('../routes/foods/store.js', () => ({
   createFood: vi.fn(),
   findFoodByName: vi.fn(),
+}));
+
+vi.mock('../routes/workout-templates/store.js', () => ({
+  findWorkoutTemplateByName: vi.fn(),
 }));
 
 const buildTestApp = async () => {
@@ -79,6 +84,7 @@ describe('agentRequestTransform', () => {
     vi.mocked(findVisibleExerciseByName).mockReset();
     vi.mocked(createFood).mockReset();
     vi.mocked(findFoodByName).mockReset();
+    vi.mocked(findWorkoutTemplateByName).mockReset();
   });
 
   afterEach(() => {
@@ -107,6 +113,47 @@ describe('agentRequestTransform', () => {
       expect(response.json()).toEqual({ data: payload });
       expect(vi.mocked(findVisibleExerciseByName)).not.toHaveBeenCalled();
       expect(vi.mocked(findFoodByName)).not.toHaveBeenCalled();
+      expect(vi.mocked(findWorkoutTemplateByName)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('resolves templateName to templateId for agent requests', async () => {
+    vi.mocked(findWorkoutTemplateByName).mockResolvedValue({
+      id: 'template-1',
+      userId: 'user-1',
+      name: 'Upper Push',
+      description: null,
+      tags: [],
+      sections: [
+        { type: 'warmup', exercises: [] },
+        { type: 'main', exercises: [] },
+        { type: 'cooldown', exercises: [] },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/transform',
+        payload: {
+          templateName: 'Upper Push',
+          templateId: 'Upper Push',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          templateName: 'Upper Push',
+          templateId: 'template-1',
+        },
+      });
     } finally {
       await app.close();
     }
