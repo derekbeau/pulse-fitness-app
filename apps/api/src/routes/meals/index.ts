@@ -13,7 +13,7 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { sendError } from '../../lib/reply.js';
 import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
   apiErrorResponseSchema,
@@ -45,6 +45,31 @@ type PersistedMealCreateItem = {
   fat: number;
   fiber?: number;
   sugar?: number;
+};
+
+const MAX_MEAL_SUMMARY_LENGTH = 500;
+const SUMMARY_ELLIPSIS = '...';
+
+const buildMealSummary = (names: string[], maxLength: number) => {
+  let summary = '';
+
+  for (const name of names) {
+    const candidate = summary ? `${summary}, ${name}` : name;
+    if (candidate.length <= maxLength) {
+      summary = candidate;
+      continue;
+    }
+
+    if (!summary) {
+      return name.slice(0, maxLength);
+    }
+
+    return summary.length + SUMMARY_ELLIPSIS.length <= maxLength
+      ? `${summary}${SUMMARY_ELLIPSIS}`
+      : `${summary.slice(0, maxLength - SUMMARY_ELLIPSIS.length)}${SUMMARY_ELLIPSIS}`;
+  }
+
+  return summary;
 };
 
 const hasInlineMacros = (
@@ -103,7 +128,7 @@ const normalizeMealItemForCreate = async (
     ok: true,
     item: {
       foodId: food.id,
-      name: food.name,
+      name: item.name,
       amount: item.amount,
       unit: item.unit,
       displayQuantity: item.displayQuantity,
@@ -163,9 +188,19 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         .filter((result): result is { ok: true; item: PersistedMealCreateItem } => result.ok)
         .map((result) => result.item);
 
+      const summary =
+        request.body.summary !== undefined
+          ? request.body.summary
+          : isAgentRequest(request)
+            ? buildMealSummary(
+                resolvedItems.map((item) => item.name),
+                MAX_MEAL_SUMMARY_LENGTH,
+              )
+            : undefined;
+
       const created = await createMealForDate(request.userId, request.body.date, {
         name: request.body.name,
-        summary: request.body.summary,
+        summary,
         time: request.body.time,
         notes: request.body.notes,
         items: resolvedItems,

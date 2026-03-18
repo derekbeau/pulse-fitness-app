@@ -150,6 +150,32 @@ describe('mealItemInputSchema', () => {
     ).toThrow();
   });
 
+  it('allows adhoc=false with saveToFoods=false', () => {
+    expect(
+      mealItemInputSchema.parse({
+        foodName: 'Chicken Breast',
+        quantity: 1,
+        adhoc: false,
+        saveToFoods: false,
+        calories: 120,
+        protein: 25,
+        carbs: 0,
+        fat: 2,
+      }),
+    ).toEqual({
+      foodName: 'Chicken Breast',
+      name: 'Chicken Breast',
+      amount: 1,
+      unit: 'serving',
+      adhoc: false,
+      saveToFoods: false,
+      calories: 120,
+      protein: 25,
+      carbs: 0,
+      fat: 2,
+    });
+  });
+
   it('rejects invalid quantities and macros', () => {
     expect(() =>
       mealItemInputSchema.parse({

@@ -229,6 +229,152 @@ describe('meal routes', () => {
     }
   });
 
+  it('returns UNRESOLVED_FOODS when a referenced foodId cannot be loaded', async () => {
+    vi.mocked(findFoodById).mockResolvedValue(undefined);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          date: '2026-03-09',
+          name: 'Lunch',
+          items: [
+            {
+              foodId: 'food-404',
+              name: 'Chicken breast (grilled)',
+              amount: 1,
+              unit: 'serving',
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'UNRESOLVED_FOODS',
+          message: 'Could not find foods: Chicken breast (grilled)',
+        },
+      });
+      expect(vi.mocked(createMealForDate)).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('preserves explicit item names when resolving macros from foodId', async () => {
+    vi.mocked(findFoodById).mockResolvedValue({
+      id: 'food-1',
+      userId: 'user-1',
+      name: 'Chicken Breast',
+      brand: null,
+      servingSize: 'serving',
+      servingGrams: null,
+      calories: 120,
+      protein: 25,
+      carbs: 0,
+      fat: 2,
+      fiber: null,
+      sugar: null,
+      verified: false,
+      source: null,
+      notes: null,
+      usageCount: 0,
+      tags: [],
+      lastUsedAt: null,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    vi.mocked(createMealForDate).mockResolvedValue({
+      meal: {
+        id: 'meal-1',
+        nutritionLogId: 'log-1',
+        name: 'Lunch',
+        summary: null,
+        time: null,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      items: [
+        {
+          id: 'item-1',
+          mealId: 'meal-1',
+          foodId: 'food-1',
+          name: 'Chicken breast (grilled)',
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: null,
+          displayUnit: null,
+          calories: 120,
+          protein: 25,
+          carbs: 0,
+          fat: 2,
+          fiber: null,
+          sugar: null,
+          createdAt: 1,
+        },
+      ],
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/meals',
+        headers: createAuthorizationHeader(token),
+        payload: {
+          date: '2026-03-09',
+          name: 'Lunch',
+          items: [
+            {
+              foodId: 'food-1',
+              name: 'Chicken breast (grilled)',
+              amount: 1,
+              unit: 'serving',
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
+        name: 'Lunch',
+        summary: undefined,
+        time: undefined,
+        notes: undefined,
+        items: [
+          expect.objectContaining({
+            foodId: 'food-1',
+            name: 'Chicken breast (grilled)',
+            amount: 1,
+            calories: 120,
+            protein: 25,
+            carbs: 0,
+            fat: 2,
+          }),
+        ],
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('creates an agent meal via foodName resolution and appends enrichment', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
@@ -294,7 +440,7 @@ describe('meal routes', () => {
       expect(response.statusCode).toBe(201);
       expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
         name: 'Lunch',
-        summary: undefined,
+        summary: 'Chicken Breast',
         time: undefined,
         notes: undefined,
         items: [
@@ -407,7 +553,7 @@ describe('meal routes', () => {
       expect(vi.mocked(findFoodByName)).not.toHaveBeenCalled();
       expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
         name: 'Dinner',
-        summary: undefined,
+        summary: 'Homemade Chili',
         time: undefined,
         notes: undefined,
         items: [
@@ -527,7 +673,7 @@ describe('meal routes', () => {
       );
       expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
         name: 'Lunch',
-        summary: undefined,
+        summary: 'Rice Bowl',
         time: undefined,
         notes: undefined,
         items: [

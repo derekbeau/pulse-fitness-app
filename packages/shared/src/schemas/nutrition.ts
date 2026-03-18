@@ -106,14 +106,10 @@ export const mealItemInputSchema = z.object({
   saveToFoods: z.boolean().optional(),
 })
   .superRefine((value, ctx) => {
-    if (
-      value.adhoc !== undefined &&
-      value.saveToFoods !== undefined &&
-      value.adhoc === value.saveToFoods
-    ) {
+    if (value.adhoc === true && value.saveToFoods === true) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '`adhoc` and `saveToFoods` are aliases; provide at most one',
+        message: '`adhoc: true` conflicts with `saveToFoods: true`; provide only one',
       });
     }
 

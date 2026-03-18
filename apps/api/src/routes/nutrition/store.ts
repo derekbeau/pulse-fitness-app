@@ -83,6 +83,12 @@ type FoodUsageTrackingEffect =
       action: 'decrement';
       foodId: string;
     };
+type MealInputItemWithMacros = CreateMealInput['items'][number] & {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
 
 const nutritionLogSelection = {
   id: nutritionLogs.id,
@@ -279,16 +285,7 @@ export const createMealForDate = async (
       throw new Error('Failed to persist meal');
     }
 
-    const itemValues = input.items.map((item) => {
-      if (
-        item.calories === undefined ||
-        item.protein === undefined ||
-        item.carbs === undefined ||
-        item.fat === undefined
-      ) {
-        throw new Error('Meal item macros are required');
-      }
-
+    const itemValues = (input.items as MealInputItemWithMacros[]).map((item) => {
       return {
         mealId: meal.id,
         foodId: toNullable(item.foodId),
