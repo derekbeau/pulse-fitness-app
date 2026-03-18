@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import { WeightTrendChart } from './weight-trend-chart';
@@ -67,14 +68,18 @@ describe('WeightTrendChart', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   function renderChart() {
-    const { wrapper } = createQueryClientWrapper();
-
-    return render(
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const renderResult = render(
       <MemoryRouter>
         <WeightTrendChart />
       </MemoryRouter>,
       { wrapper },
     );
+
+    return {
+      ...renderResult,
+      queryClient,
+    };
   }
 
   beforeEach(() => {
@@ -116,7 +121,7 @@ describe('WeightTrendChart', () => {
     vi.unstubAllGlobals();
   });
 
-  it('fetches 1M range by default and renders header + insight metrics', async () => {
+  it('fetches the default 1M range with today-inclusive from/to dates', async () => {
     const { container } = renderChart();
 
     await waitFor(() => {
@@ -124,7 +129,7 @@ describe('WeightTrendChart', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      '/api/v1/weight?days=30',
+      '/api/v1/weight?from=2026-02-07&to=2026-03-08',
       expect.objectContaining({ method: 'GET' }),
     );
     expect(screen.getByRole('heading', { name: 'Weight Trend' })).toBeInTheDocument();
@@ -144,23 +149,54 @@ describe('WeightTrendChart', () => {
     expect(container.querySelector('[data-slot="weight-trend-legend"]')).toHaveClass('gap-1.5');
   });
 
-  it('switches ranges and re-fetches weight entries with selected days', async () => {
+  it('switches ranges and re-fetches weight entries with selected from/to dates', async () => {
     renderChart();
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?days=30', expect.any(Object));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/weight?from=2026-02-07&to=2026-03-08',
+        expect.any(Object),
+      );
     });
 
     fireEvent.click(screen.getByRole('button', { name: '1W' }));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?days=7', expect.any(Object));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/weight?from=2026-03-02&to=2026-03-08',
+        expect.any(Object),
+      );
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight', expect.any(Object));
+    });
+  });
+
+  it('refetches after dashboard weight trend invalidation', async () => {
+    const { queryClient } = renderChart();
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/weight?from=2026-02-07&to=2026-03-08',
+        expect.any(Object),
+      );
+    });
+
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: dashboardWeightTrendQueryKeys.all,
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.filter(
+          ([path]) => path === '/api/v1/weight?from=2026-02-07&to=2026-03-08',
+        ).length,
+      ).toBeGreaterThanOrEqual(2);
     });
   });
 

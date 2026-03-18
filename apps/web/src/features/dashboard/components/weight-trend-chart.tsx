@@ -5,6 +5,7 @@ import { computeEWMA, computeWeightInsights } from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
+import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import {
   CartesianGrid,
   Line,
@@ -18,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/api-client';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 import { formatTrendChange, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +33,11 @@ type ChartPoint = {
   date: string;
   scale: number;
   trend: number;
+};
+
+type ResolvedRange = {
+  from: string | null;
+  to: string | null;
 };
 
 const RANGE_OPTIONS: RangeOption[] = [
@@ -59,11 +66,38 @@ const tooltipDateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-const fetchWeightEntries = async (days: number | null) => {
+const resolveRange = (days: number | null): ResolvedRange => {
+  if (days === null) {
+    return {
+      from: null,
+      to: null,
+    };
+  }
+
+  const today = getToday();
+  const to = toDateKey(today);
+  const from = toDateKey(addDays(today, -(days - 1)));
+
+  return { from, to };
+};
+
+const getQueryKeyForRange = ({ from, to }: ResolvedRange) => {
+  if (from && to) {
+    return dashboardWeightTrendQueryKeys.range(from, to);
+  }
+
+  return [...dashboardWeightTrendQueryKeys.all, 'all'] as const;
+};
+
+const fetchWeightEntries = async ({ from, to }: ResolvedRange) => {
   const params = new URLSearchParams();
 
-  if (days !== null) {
-    params.set('days', String(days));
+  if (from) {
+    params.set('from', from);
+  }
+
+  if (to) {
+    params.set('to', to);
   }
 
   const query = params.toString();
@@ -116,10 +150,11 @@ export function WeightTrendChart() {
     scale: true,
     trend: true,
   });
+  const resolvedRange = useMemo(() => resolveRange(selectedRange.days), [selectedRange.days]);
 
   const weightEntriesQuery = useQuery({
-    queryKey: ['dashboard', 'weight-trend-chart', selectedRange.value],
-    queryFn: () => fetchWeightEntries(selectedRange.days),
+    queryKey: getQueryKeyForRange(resolvedRange),
+    queryFn: () => fetchWeightEntries(resolvedRange),
   });
 
   const chartData = useMemo(() => {
