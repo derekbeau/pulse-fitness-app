@@ -29,6 +29,7 @@ import {
 } from '../lib/template-tags';
 import { getDistanceUnit, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import type { ActiveWorkoutFeedbackDraft } from '../types';
+import { MarkdownNote } from './markdown-note';
 
 type SessionSummaryProps = {
   className?: string;
@@ -216,7 +217,10 @@ export function SessionSummary({
                       ) : null}
                     </div>
                     {exercise.notes?.trim() ? (
-                      <p className="mt-2 text-xs text-muted">{exercise.notes.trim()}</p>
+                      <MarkdownNote
+                        className="mt-2 text-xs text-muted"
+                        content={exercise.notes.trim()}
+                      />
                     ) : null}
                   </article>
                 ))}
@@ -272,7 +276,10 @@ export function SessionSummary({
                       {formatFeedbackFieldValue(field)}
                     </p>
                     {field.notes?.trim() ? (
-                      <p className="mt-1.5 text-xs text-muted">{field.notes.trim()}</p>
+                      <MarkdownNote
+                        className="mt-1.5 text-xs text-muted"
+                        content={field.notes.trim()}
+                      />
                     ) : null}
                   </div>
                 ))}

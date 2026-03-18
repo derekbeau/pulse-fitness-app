@@ -64,6 +64,7 @@ import {
 import { findPreviousTemplateSession } from '../lib/session-comparison';
 import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
+import { MarkdownNote } from './markdown-note';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
 type SessionDetailProps = {
@@ -398,9 +399,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="rounded-2xl border border-border bg-secondary/35 px-4 py-3 text-sm leading-6 text-foreground">
-              {session.notes}
-            </p>
+            <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
+              <MarkdownNote className="text-sm text-foreground" content={session.notes} />
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -560,7 +561,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
                           Exercise notes
                         </p>
-                        <p>{exercise.notes}</p>
+                        <MarkdownNote
+                          className="text-sm text-foreground"
+                          content={exercise.notes}
+                        />
                       </div>
                     ) : null}
                   </CardContent>
@@ -592,7 +596,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                         {formatFeedbackResponseValue(response)}
                       </p>
                       {response.notes?.trim() ? (
-                        <p className="mt-2 text-sm text-muted">{response.notes.trim()}</p>
+                        <MarkdownNote
+                          className="mt-2 text-sm text-muted"
+                          content={response.notes.trim()}
+                        />
                       ) : null}
                     </div>
                   ))}
@@ -610,7 +617,10 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
                     Reflection
                   </p>
-                  <p>{session.feedback.notes}</p>
+                  <MarkdownNote
+                    className="text-sm text-foreground"
+                    content={session.feedback.notes}
+                  />
                 </div>
               ) : null}
             </>
@@ -1011,7 +1021,9 @@ function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | 
       }
       metricLabels.add(metricLabel);
       summary.metricLabel =
-        metricLabels.size > 1 ? 'mixed' : (([...metricLabels][0] ?? 'volume') as SessionMetricLabel);
+        metricLabels.size > 1
+          ? 'mixed'
+          : (([...metricLabels][0] ?? 'volume') as SessionMetricLabel);
 
       return summary;
     },

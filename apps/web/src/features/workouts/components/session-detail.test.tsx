@@ -130,6 +130,65 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('renders markdown in read-only notes and escapes unsafe HTML', async () => {
+    const currentSession = createSession({
+      id: 'session-markdown-notes',
+      templateId: 'template-upper-push',
+      notes:
+        '## Session focus\nLine one\nLine two\n\n- **Brace** before unrack\n- Keep a steady tempo\n\n<script>alert("xss")</script>',
+      feedback: {
+        energy: 4,
+        recovery: 4,
+        technique: 5,
+        notes: 'Reflection line one\nReflection line two',
+        responses: [
+          {
+            id: 'coach-note',
+            label: 'Coach note',
+            type: 'text',
+            value: 'Solid pace today.',
+            notes: 'Stay *conservative* on set 1.\n- Add a pause',
+          },
+        ],
+      },
+      sets: [
+        createSet({
+          id: 'set-markdown-note',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          notes: '- Bench at setting 5\n- Keep elbows tucked.',
+          reps: 8,
+          section: 'main',
+          weight: 50,
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(screen.getByText('Session focus').tagName).toBe('H2');
+    expect(screen.getByText('Brace').tagName).toBe('STRONG');
+    expect(screen.getByText('Keep elbows tucked.').closest('li')).toBeInTheDocument();
+    expect(screen.getByText('conservative').tagName).toBe('EM');
+    expect(screen.getByText('<script>alert("xss")</script>')).toBeInTheDocument();
+    expect(document.querySelectorAll('br').length).toBeGreaterThan(0);
+    expect(document.querySelector('script')).not.toBeInTheDocument();
+  });
+
   it('renders structured feedback responses when available', async () => {
     const currentSession = createSession({
       id: 'session-structured-feedback',

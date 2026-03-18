@@ -38,4 +38,23 @@ describe('FormCueChips', () => {
     expect(screen.getByText('Template programming notes')).toBeInTheDocument();
     expect(screen.getByText('Top set at RPE 8, then two back-off sets.')).toBeInTheDocument();
   });
+
+  it('renders markdown in coaching notes and escapes HTML', () => {
+    render(
+      <FormCueChips
+        exerciseCoachingNotes={
+          '## Focus\n- **Brace** first\n- Stay smooth\n\n<script>alert("xss")</script>'
+        }
+        exerciseCues={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show notes' }));
+
+    expect(screen.getByText('Focus').tagName).toBe('H2');
+    expect(screen.getByText('Brace').tagName).toBe('STRONG');
+    expect(screen.getByText('Stay smooth').closest('li')).toBeInTheDocument();
+    expect(screen.getByText('<script>alert("xss")</script>')).toBeInTheDocument();
+    expect(document.querySelector('script')).not.toBeInTheDocument();
+  });
 });
