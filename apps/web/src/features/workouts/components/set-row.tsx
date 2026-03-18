@@ -1,11 +1,12 @@
 import { forwardRef, useState } from 'react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
-import { getDistanceUnit, isSetCompleteForTrackingType } from '../lib/tracking';
+import { getDistanceUnit } from '../lib/tracking';
 
 type SetRowUpdate = {
   completed?: boolean;
@@ -78,7 +79,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   const debouncedOnUpdate = useDebouncedCallback((update: SetRowUpdate) => {
     onUpdate(update);
   });
-  const localCompleted = completed || isSetCompleteForTrackingType(trackingType, resolvedValues);
+  const localCompleted = completed;
   const targetHint = formatTargetHint({
     targetDistance,
     targetSeconds,
@@ -97,9 +98,23 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
       )}
       data-slot="set-row"
     >
-      <div className="shrink-0">
-        <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
-        {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
+      <div className="flex shrink-0 items-start gap-2">
+        <Checkbox
+          aria-label={`Complete set ${setNumber}`}
+          checked={completed}
+          className="mt-0.5 border-border bg-background"
+          onCheckedChange={(nextChecked) => {
+            debouncedOnUpdate.cancel();
+            onUpdate({
+              ...resolvedValues,
+              completed: nextChecked === true,
+            });
+          }}
+        />
+        <div>
+          <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
+          {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
+        </div>
       </div>
 
       <div
@@ -118,16 +133,12 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
                 ...resolvedValues,
                 [input.key]: value,
               };
-              const nextCompleted = isSetCompleteForTrackingType(trackingType, nextValues);
               setLocalOverrides((current) => ({
                 ...current,
                 [input.key]: value,
               }));
 
-              debouncedOnUpdate.run({
-                ...nextValues,
-                completed: nextCompleted,
-              });
+              debouncedOnUpdate.run(nextValues);
             }}
             onBlur={() => {
               debouncedOnUpdate.flush();

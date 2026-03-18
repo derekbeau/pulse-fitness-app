@@ -63,7 +63,6 @@ import {
 } from '@/features/workouts/api/workouts';
 import {
   getSetVolume,
-  isSetCompleteForTrackingType,
   resolveTrackingType,
 } from '@/features/workouts/lib/tracking';
 import { useCompleteSession } from '@/hooks/use-complete-session';
@@ -1060,17 +1059,7 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const mergedSet = {
-      ...previousSet,
-      ...update,
-    };
-    const normalizedUpdate =
-      update.completed === undefined
-        ? {
-            ...update,
-            completed: isSetCompleteForTrackingType(templateExercise.trackingType, mergedSet),
-          }
-        : update;
+    const normalizedUpdate = update;
     const updatedSets = exerciseSets.map((set) =>
       set.id === setId
         ? {
@@ -1127,7 +1116,7 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    if (previousSet.completed || !updatedSet.completed) {
+    if (normalizedUpdate.completed !== true || previousSet.completed || !updatedSet.completed) {
       return;
     }
 

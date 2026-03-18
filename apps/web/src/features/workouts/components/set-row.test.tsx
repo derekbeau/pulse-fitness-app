@@ -12,7 +12,7 @@ describe('SetRow', () => {
     vi.useRealTimers();
   });
 
-  it('renders compact inline inputs and auto-completes from field updates', () => {
+  it('renders compact inline inputs and sends value-only updates while typing', () => {
     const onUpdate = vi.fn();
 
     render(
@@ -43,7 +43,6 @@ describe('SetRow', () => {
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({
-      completed: true,
       distance: null,
       reps: 10,
       seconds: null,
@@ -51,7 +50,7 @@ describe('SetRow', () => {
     });
   });
 
-  it('applies completed styling and handles cleared numeric values', () => {
+  it('applies completed styling and keeps completion unchanged when editing values', () => {
     const onUpdate = vi.fn();
 
     render(<SetRow completed onUpdate={onUpdate} reps={13} setNumber={1} weight={50} />);
@@ -62,13 +61,40 @@ describe('SetRow', () => {
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
     expect(onUpdate).toHaveBeenCalledWith({
-      completed: false,
       distance: null,
       reps: null,
       seconds: null,
       weight: 50,
     });
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
+  });
+
+  it('marks a set complete and incomplete through the explicit checkbox', () => {
+    const onUpdate = vi.fn();
+
+    const { rerender } = render(
+      <SetRow completed={false} onUpdate={onUpdate} reps={8} setNumber={2} weight={60} />,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Complete set 2' }));
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
+      distance: null,
+      reps: 8,
+      seconds: null,
+      weight: 60,
+    });
+
+    onUpdate.mockClear();
+    rerender(<SetRow completed onUpdate={onUpdate} reps={8} setNumber={2} weight={60} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Complete set 2' }));
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: false,
+      distance: null,
+      reps: 8,
+      seconds: null,
+      weight: 60,
+    });
   });
 
   it('renders reps-only rows without weight input', () => {
@@ -86,7 +112,7 @@ describe('SetRow', () => {
     expect(screen.queryByLabelText('Weight for set 2')).not.toBeInTheDocument();
   });
 
-  it('auto-completes seconds-only rows from duration input', () => {
+  it('sends value-only updates for seconds-only rows', () => {
     const onUpdate = vi.fn();
 
     render(
@@ -104,7 +130,6 @@ describe('SetRow', () => {
     vi.advanceTimersByTime(500);
 
     expect(onUpdate).toHaveBeenCalledWith({
-      completed: true,
       distance: null,
       reps: null,
       seconds: 45,
