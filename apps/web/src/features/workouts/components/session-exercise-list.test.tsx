@@ -718,6 +718,71 @@ describe('SessionExerciseList', () => {
     ).toHaveClass('line-through');
   });
 
+  it('keeps section open state manual when workout progress moves into the next section', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const initialSession = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const progressedSession = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(
+        activeTemplate,
+        new Set([
+          createWorkoutSetId('row-erg', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 1),
+          createWorkoutSetId('banded-shoulder-external-rotation', 2),
+        ]),
+      ),
+    );
+
+    const queryClient = createAppQueryClient();
+    queryClient.clear();
+
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={initialSession}
+        />
+      </QueryClientProvider>,
+    );
+
+    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+    const mainButton = screen.getByRole('button', { name: /Main/i });
+
+    if (warmupButton.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(warmupButton);
+    }
+    if (mainButton.getAttribute('aria-expanded') === 'true') {
+      fireEvent.click(mainButton);
+    }
+
+    expect(warmupButton).toHaveAttribute('aria-expanded', 'true');
+    expect(mainButton).toHaveAttribute('aria-expanded', 'false');
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={progressedSession}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Main/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');

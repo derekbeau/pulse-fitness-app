@@ -1135,6 +1135,13 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    const completedSetSectionId = findSetSectionId(updatedSession, updatedSet.id);
+    const nextSetSectionId = findSetSectionId(updatedSession, nextTargetSetId);
+    const shouldFocusNextSet =
+      completedSetSectionId !== null &&
+      nextSetSectionId !== null &&
+      completedSetSectionId === nextSetSectionId;
+
     restTimerTokenRef.current += 1;
     setRestTimer({
       duration: templateExercise.exercise.restSeconds,
@@ -1147,7 +1154,7 @@ export function ActiveWorkoutPage() {
       setNumber: updatedSet.number,
       token: restTimerTokenRef.current,
     });
-    setRestTimerTargetSetId(nextTargetSetId);
+    setRestTimerTargetSetId(shouldFocusNextSet ? nextTargetSetId : null);
     setFocusSetId(null);
   }
 
@@ -1813,6 +1820,18 @@ function findNextPendingSetId(session: ReturnType<typeof buildActiveWorkoutSessi
 
       if (nextSet) {
         return nextSet.id;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findSetSectionId(session: ReturnType<typeof buildActiveWorkoutSession>, setId: string) {
+  for (const section of session.sections) {
+    for (const exercise of section.exercises) {
+      if (exercise.sets.some((set) => set.id === setId)) {
+        return section.id;
       }
     }
   }

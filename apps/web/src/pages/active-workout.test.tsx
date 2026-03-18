@@ -74,7 +74,7 @@ describe('ActiveWorkoutPage', () => {
     }
   });
 
-  it('renders the active workout UI and advances focus after the rest timer completes', () => {
+  it('renders the active workout UI and does not auto-focus a different section after rest timer completion', () => {
     renderActiveWorkoutPage();
 
     const heading = screen.getByRole('heading', { level: 1, name: 'Upper Push' });
@@ -126,7 +126,7 @@ describe('ActiveWorkoutPage', () => {
     });
 
     const nextExerciseCard = getExerciseCard('Row Erg');
-    expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).toHaveFocus();
+    expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).not.toHaveFocus();
     expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');

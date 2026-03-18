@@ -119,6 +119,22 @@ const supersetAccentStyles = [
   'border-l-rose-500 before:bg-rose-500',
 ] as const;
 
+function isSectionInitiallyOpen(
+  section: ActiveWorkoutSessionData['sections'][number],
+  currentExerciseId: string | null,
+) {
+  return section.exercises.some((exercise) => exercise.id === currentExerciseId);
+}
+
+function createInitialOpenSections(session: ActiveWorkoutSessionData) {
+  return Object.fromEntries(
+    session.sections.map((section) => [
+      section.id,
+      isSectionInitiallyOpen(section, session.currentExerciseId),
+    ]),
+  );
+}
+
 export function SessionExerciseList({
   enableApiLastPerformance = false,
   focusSetId = null,
@@ -134,7 +150,9 @@ export function SessionExerciseList({
   sessionCuesByExercise,
   weightUnit = 'lbs',
 }: SessionExerciseListProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    createInitialOpenSections(session),
+  );
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
   const [renameTarget, setRenameTarget] = useState<{
     exerciseId: string;
@@ -181,6 +199,7 @@ export function SessionExerciseList({
     const input = repsInputRefs.current[focusSetId];
 
     if (!input) {
+      onFocusSetHandled?.();
       return;
     }
 
@@ -202,10 +221,7 @@ export function SessionExerciseList({
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
         const sectionSummary = `${completedExercises}/${section.exercises.length} exercises done`;
         const isOpen =
-          focusTarget?.sectionId === section.id
-            ? true
-            : (openSections[section.id] ??
-              section.exercises.some((exercise) => exercise.id === session.currentExerciseId));
+          openSections[section.id] ?? isSectionInitiallyOpen(section, session.currentExerciseId);
         const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
           if (!onReorderExercises) {
             return;
@@ -239,10 +255,9 @@ export function SessionExerciseList({
               onClick={() =>
                 setOpenSections((current) => ({
                   ...current,
-                  [section.id]: !(
-                    current[section.id] ??
-                    section.exercises.some((exercise) => exercise.id === session.currentExerciseId)
-                  ),
+                  [section.id]:
+                    !(current[section.id] ??
+                      isSectionInitiallyOpen(section, session.currentExerciseId)),
                 }))
               }
               type="button"
