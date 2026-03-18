@@ -218,6 +218,10 @@ export function ActiveWorkoutPage() {
   const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
+  const [exerciseSupersetOverrides, setExerciseSupersetOverrides] = useState<
+    Record<string, string | null>
+  >({});
+  const [supersetUpdatePending, setSupersetUpdatePending] = useState(false);
   const { confirm, dialog } = useConfirmation();
   const [isEditTimeDialogOpen, setIsEditTimeDialogOpen] = useState(false);
   const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
@@ -361,6 +365,10 @@ export function ActiveWorkoutPage() {
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
+    setExerciseSupersetOverrides({});
+  }, [activeSession?.id, activeSession?.updatedAt, template.id]);
+
+  useEffect(() => {
     if (activeSession) {
       return;
     }
@@ -414,11 +422,19 @@ export function ActiveWorkoutPage() {
   const session = useMemo(
     () =>
       buildActiveWorkoutSession(template, setDrafts, {
+        exerciseSupersetOverrides,
         exerciseOrderBySection,
         exerciseNotes,
         sessionStartedAt: startTime,
       }),
-    [exerciseOrderBySection, exerciseNotes, setDrafts, startTime, template],
+    [
+      exerciseOrderBySection,
+      exerciseNotes,
+      exerciseSupersetOverrides,
+      setDrafts,
+      startTime,
+      template,
+    ],
   );
   const remainingSetCount = useMemo(
     () => session.totalSets - session.completedSets,
@@ -472,9 +488,10 @@ export function ActiveWorkoutPage() {
     });
 
     return {
-      metricLabel: labels.size > 1 ? 'mixed' : (([...labels][0] ?? 'volume') as
-        | TrackingSummaryMetricLabel
-        | 'mixed'),
+      metricLabel:
+        labels.size > 1
+          ? 'mixed'
+          : (([...labels][0] ?? 'volume') as TrackingSummaryMetricLabel | 'mixed'),
       totals,
     };
   }, [summaryExerciseResults]);
@@ -483,7 +500,9 @@ export function ActiveWorkoutPage() {
     [summaryMetrics.totals.volume],
   );
   const summaryMetricValue =
-    summaryMetrics.metricLabel === 'mixed' ? null : summaryMetrics.totals[summaryMetrics.metricLabel];
+    summaryMetrics.metricLabel === 'mixed'
+      ? null
+      : summaryMetrics.totals[summaryMetrics.metricLabel];
   const summaryMetricMixedValue = useMemo(
     () => formatTrackingMetricBreakdown(summaryMetrics.totals, weightUnit),
     [summaryMetrics.totals, weightUnit],
@@ -708,10 +727,12 @@ export function ActiveWorkoutPage() {
             onReorderExercises={handleReorderExercises}
             onRemoveSet={handleRemoveSet}
             onSetUpdate={handleSetUpdate}
+            onUpdateSupersetGroup={handleUpdateSupersetGroup}
             session={session}
             sessionId={activeSessionId}
             sessionCuesByExercise={sessionCuesByExercise}
             showDragHandles={showDragHandles}
+            supersetUpdatePending={supersetUpdatePending}
             weightUnit={weightUnit}
           />
 
@@ -1165,6 +1186,7 @@ export function ActiveWorkoutPage() {
     }
 
     const updatedSession = buildActiveWorkoutSession(template, nextDrafts, {
+      exerciseSupersetOverrides,
       exerciseOrderBySection,
       exerciseNotes,
       sessionStartedAt: startTime,
@@ -1229,6 +1251,77 @@ export function ActiveWorkoutPage() {
         },
       },
     );
+  }
+
+  async function handleUpdateSupersetGroup(
+    _section: WorkoutTemplateSectionType,
+    exerciseIds: string[],
+    supersetGroup: string | null,
+  ) {
+    if (exerciseIds.length === 0) {
+      return;
+    }
+
+    const previousValues = new Map(
+      exerciseIds.map((exerciseId) => [
+        exerciseId,
+        session.sections
+          .flatMap((section) => section.exercises)
+          .find((exercise) => exercise.id === exerciseId)?.supersetGroup ?? null,
+      ]),
+    );
+    const nextOverrides = Object.fromEntries(
+      exerciseIds.map((exerciseId) => [exerciseId, supersetGroup]),
+    );
+
+    setExerciseSupersetOverrides((current) => ({
+      ...current,
+      ...nextOverrides,
+    }));
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    setSupersetUpdatePending(true);
+    setSessionError(null);
+    try {
+      const updatedSession = await persistSessionSupersetGroups({
+        exerciseUpdates: exerciseIds.map((exerciseId) => ({
+          exerciseId,
+          supersetGroup,
+        })),
+        sessionId: activeSessionId,
+      });
+
+      queryClient.setQueryData(workoutSessionQueryKeys.detail(activeSessionId), updatedSession);
+      queryClient.setQueryData(workoutQueryKeys.session(activeSessionId), updatedSession);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.detail(activeSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(activeSessionId),
+        }),
+      ]);
+    } catch (error) {
+      if (isSessionNotActiveError(error)) {
+        redirectToCompletedSessionNotice();
+        return;
+      }
+
+      setExerciseSupersetOverrides((current) => {
+        const reverted = { ...current };
+        for (const [exerciseId, previousSupersetGroup] of previousValues.entries()) {
+          reverted[exerciseId] = previousSupersetGroup;
+        }
+
+        return reverted;
+      });
+      setSessionError('Unable to update superset. Try again.');
+    } finally {
+      setSupersetUpdatePending(false);
+    }
   }
 
   function handleRestTimerComplete() {
@@ -1826,6 +1919,24 @@ async function persistCompletedSessionNotes({
   });
 }
 
+async function persistSessionSupersetGroups({
+  exerciseUpdates,
+  sessionId,
+}: {
+  exerciseUpdates: Array<{ exerciseId: string; supersetGroup: string | null }>;
+  sessionId: string;
+}) {
+  const payload = updateWorkoutSessionInputSchema.parse({
+    exercises: exerciseUpdates,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(payload),
+    method: 'PATCH',
+  });
+
+  return workoutSessionSchema.parse(data);
+}
+
 async function createCompletedWorkoutSession(
   input: z.input<typeof createWorkoutSessionInputSchema>,
 ) {
@@ -1993,6 +2104,7 @@ function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplat
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
         trackingType: exercise.trackingType,
+        supersetGroup: exercise.supersetGroup,
         sets: exercise.sets ?? 1,
         reps: formatTemplateExerciseReps(exercise.repsMin, exercise.repsMax),
         tempo: exercise.tempo ?? '2111',
@@ -2074,6 +2186,7 @@ function buildTemplateFromSession(
         fallbackExerciseNameById.get(sessionExercise.exerciseId) ||
         'Unknown Exercise',
       trackingType: fallbackExercise?.trackingType ?? sessionExercise.trackingType ?? undefined,
+      supersetGroup: sessionExercise.supersetGroup ?? fallbackExercise?.supersetGroup ?? null,
       sets: Math.max(
         fallbackExercise?.sets ?? 0,
         sessionExercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0),
@@ -2129,6 +2242,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       orderIndex: number;
       trackingType: ExerciseTrackingType | null;
       section: WorkoutTemplateSectionType | null;
+      supersetGroup: string | null;
       sets: SessionSet[];
     }
   >();
@@ -2147,6 +2261,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       orderIndex: set.orderIndex ?? 0,
       trackingType: null,
       section: set.section,
+      supersetGroup: null,
       sets: [set],
     });
   }

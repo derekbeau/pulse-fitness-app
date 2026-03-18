@@ -138,6 +138,7 @@ describe('sessionSetInputSchema', () => {
       reps: null,
       completed: false,
       skipped: false,
+      supersetGroup: null,
       section: null,
       notes: null,
     });
@@ -180,6 +181,7 @@ describe('sessionSetInputSchema', () => {
       reps: 12,
       completed: false,
       skipped: false,
+      supersetGroup: null,
       section: null,
       notes: null,
     });
@@ -368,6 +370,7 @@ describe('workoutSessionSchema', () => {
         {
           exerciseId: 'bench-press',
           exerciseName: 'Bench Press',
+          supersetGroup: null,
           trackingType: 'weight_reps',
           exercise: {
             formCues: ['Drive feet'],
@@ -501,6 +504,7 @@ describe('createWorkoutSessionInputSchema', () => {
           weight: 275,
           completed: true,
           skipped: false,
+          supersetGroup: null,
           section: 'main',
           notes: 'Fast concentric',
         },
@@ -729,6 +733,7 @@ describe('updateWorkoutSessionInputSchema', () => {
           reps: 10,
           completed: false,
           skipped: false,
+          supersetGroup: null,
           section: null,
           notes: null,
         },
@@ -743,6 +748,34 @@ describe('updateWorkoutSessionInputSchema', () => {
       ],
       removeExercises: ['exercise-1'],
       reorderExercises: ['exercise-2', 'exercise-1'],
+    });
+  });
+
+  it('accepts exercise-level superset updates', () => {
+    const payload = updateWorkoutSessionInputSchema.parse({
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          supersetGroup: ' upper-a ',
+        },
+        {
+          exerciseId: 'rope-triceps-pushdown',
+          supersetGroup: null,
+        },
+      ],
+    });
+
+    expect(payload).toEqual({
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          supersetGroup: 'upper-a',
+        },
+        {
+          exerciseId: 'rope-triceps-pushdown',
+          supersetGroup: null,
+        },
+      ],
     });
   });
 });

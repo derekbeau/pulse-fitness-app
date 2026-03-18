@@ -74,6 +74,7 @@ type SessionDetailExercise = {
   notes: string | null;
   phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
   sets: SessionSet[];
+  supersetGroup: string | null;
   trackingType: ExerciseTrackingType;
 };
 
@@ -487,6 +488,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                           >
                             {formatLabel(exercise.phaseBadge)}
                           </Badge>
+                          {exercise.supersetGroup ? (
+                            <Badge variant="secondary">
+                              {`Superset ${formatLabel(exercise.supersetGroup.replace(/^superset-?/i, ''))}`}
+                            </Badge>
+                          ) : null}
                         </div>
                         <p className="text-sm text-muted">
                           {`${exercise.sets.length} logged set${exercise.sets.length === 1 ? '' : 's'}`}
@@ -882,15 +888,20 @@ function buildSections(
 ): SessionDetailSection[] {
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
+  const templateSupersetGroupByExerciseId = new Map<string, string | null>();
   const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
   const sessionTrackingTypeById = new Map(
     (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+  );
+  const sessionSupersetGroupByExerciseId = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.supersetGroup]),
   );
 
   template?.sections.forEach((section) => {
     section.exercises.forEach((exercise) => {
       templateSectionByExerciseId.set(exercise.exerciseId, section.type);
       templateExerciseNameById.set(exercise.exerciseId, exercise.exerciseName);
+      templateSupersetGroupByExerciseId.set(exercise.exerciseId, exercise.supersetGroup);
       if (exercise.trackingType) {
         templateTrackingTypeById.set(exercise.exerciseId, exercise.trackingType);
       }
@@ -929,6 +940,10 @@ function buildSections(
           notes: sets.find((set) => set.notes)?.notes ?? null,
           phaseBadge: inferPhaseBadge(sectionType),
           sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
+          supersetGroup:
+            sessionSupersetGroupByExerciseId.get(exerciseId) ??
+            templateSupersetGroupByExerciseId.get(exerciseId) ??
+            null,
           trackingType: resolveTrackingType({
             trackingType:
               sessionTrackingTypeById.get(exerciseId) ??

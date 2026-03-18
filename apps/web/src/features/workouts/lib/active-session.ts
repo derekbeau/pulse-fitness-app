@@ -15,11 +15,7 @@ import type {
   ActiveWorkoutSet,
   ActiveWorkoutSetDrafts,
 } from '../types';
-import {
-  isWeightedTrackingType,
-  parsePrescribedRepsValue,
-  resolveTrackingType,
-} from './tracking';
+import { isWeightedTrackingType, parsePrescribedRepsValue, resolveTrackingType } from './tracking';
 import { workoutEnhancedExercises } from './mock-data';
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
@@ -45,6 +41,7 @@ export function createWorkoutSetId(exerciseId: string, setNumber: number) {
 }
 
 type BuildActiveWorkoutSessionOptions = {
+  exerciseSupersetOverrides?: Record<string, string | null>;
   exerciseOrderBySection?: Partial<Record<ActiveWorkoutSection['type'], string[]>>;
   exerciseNotes?: Record<string, string>;
   sessionStartedAt?: Date | string;
@@ -68,6 +65,7 @@ export function buildActiveWorkoutSession(
   options: BuildActiveWorkoutSessionOptions = {},
 ): ActiveWorkoutSessionData {
   const {
+    exerciseSupersetOverrides = {},
     exerciseOrderBySection,
     exerciseNotes = {},
     sessionStartedAt = new Date().toISOString(),
@@ -116,7 +114,11 @@ export function buildActiveWorkoutSession(
         restSeconds: templateExercise.restSeconds,
         reversePyramid: enhancedExercise?.reversePyramid ?? [],
         sets,
-        supersetGroup: enhancedExercise?.supersetGroup ?? null,
+        supersetGroup:
+          exerciseSupersetOverrides[templateExercise.exerciseId] ??
+          templateExercise.supersetGroup ??
+          enhancedExercise?.supersetGroup ??
+          null,
         tempo: templateExercise.tempo ?? null,
         targetSets: sets.length,
         trackingType,

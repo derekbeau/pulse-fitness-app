@@ -29,6 +29,7 @@ export function buildInitialSessionSets(template: WorkoutTemplate) {
           reps: null,
           section: section.type,
           setNumber: index + 1,
+          supersetGroup: exercise.supersetGroup ?? null,
           weight: null,
         };
       });

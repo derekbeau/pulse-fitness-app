@@ -28,6 +28,10 @@ const normalizeNullableString = (value: unknown) => {
 
 const requiredStringSchema = z.string().trim().min(1).max(255);
 const requiredLongStringSchema = z.string().trim().min(1).max(4000);
+const nullableShortStringSchema = z.preprocess(
+  normalizeNullableString,
+  requiredStringSchema.nullable(),
+);
 const optionalLongStringSchema = z.preprocess(
   normalizeOptionalString,
   requiredLongStringSchema.optional(),
@@ -273,6 +277,7 @@ export const sessionSetSchema = z
 export const workoutSessionExerciseSchema = z.object({
   exerciseId: requiredStringSchema,
   exerciseName: requiredStringSchema,
+  supersetGroup: nullableShortStringSchema.default(null),
   trackingType: exerciseTrackingTypeSchema.nullable().optional(),
   exercise: z
     .object({
@@ -338,6 +343,7 @@ export const sessionSetInputSchema = z
     targetDistance: z.number().min(0).nullable().optional(),
     completed: z.boolean().optional().default(false),
     skipped: z.boolean().optional().default(false),
+    supersetGroup: nullableShortStringSchema.optional().default(null),
     section: workoutTemplateSectionTypeSchema.nullable().optional().default(null),
     notes: nullableLongStringSchema.optional().default(null),
   })
@@ -401,6 +407,11 @@ const workoutSessionExerciseMutationInputSchema = z
     return normalized;
   });
 
+const workoutSessionExerciseUpdateInputSchema = z.object({
+  exerciseId: requiredStringSchema,
+  supersetGroup: nullableShortStringSchema.optional().default(null),
+});
+
 export const createWorkoutSessionInputSchema = z
   .object({
     templateId: nullableTemplateIdSchema.optional().default(null),
@@ -435,6 +446,7 @@ export const updateWorkoutSessionInputSchema = z
     addExercises: z.array(workoutSessionExerciseMutationInputSchema).min(1).max(100).optional(),
     removeExercises: z.array(requiredStringSchema).min(1).max(100).optional(),
     reorderExercises: z.array(requiredStringSchema).min(1).max(200).optional(),
+    exercises: z.array(workoutSessionExerciseUpdateInputSchema).min(1).max(200).optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one workout session field must be provided',

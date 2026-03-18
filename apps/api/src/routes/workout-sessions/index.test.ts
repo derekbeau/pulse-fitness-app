@@ -3969,4 +3969,63 @@ describe('workout session routes', () => {
       ),
     ).not.toContain('user-1-lat-pulldown');
   });
+
+  it('updates exercise superset groups and returns grouped exercise metadata', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-superset-groups',
+      userId: 'user-1',
+      name: 'Superset Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-superset-groups-bench-1',
+      sessionId: 'session-superset-groups',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-superset-groups-lat-1',
+      sessionId: 'session-superset-groups',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-superset-groups',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exercises: [
+          { exerciseId: 'global-bench-press', supersetGroup: 'push-a' },
+          { exerciseId: 'user-1-lat-pulldown', supersetGroup: 'push-a' },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-superset-groups',
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: 'global-bench-press',
+            supersetGroup: 'push-a',
+          }),
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            supersetGroup: 'push-a',
+          }),
+        ]),
+      }),
+    });
+  });
 });

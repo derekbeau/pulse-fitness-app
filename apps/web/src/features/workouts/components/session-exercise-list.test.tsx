@@ -711,6 +711,85 @@ describe('SessionExerciseList', () => {
     expect(superset).toBeInTheDocument();
   });
 
+  it('collapses superset exercises as a single unit', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      {
+        sessionStartedAt: '2026-03-06T12:00:00Z',
+      },
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
+    fireEvent.click(getExercisePanelToggle('Cable Lateral Raise', 'cable-lateral-raise'));
+
+    expect(document.getElementById('exercise-panel-cable-lateral-raise')).toHaveAttribute('hidden');
+    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).toHaveAttribute(
+      'hidden',
+    );
+  });
+
+  it('supports grouping and ungrouping supersets from workout sections', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onUpdateSupersetGroup = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      {
+        sessionStartedAt: '2026-03-06T12:00:00Z',
+      },
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        onUpdateSupersetGroup={onUpdateSupersetGroup}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Manage supersets' })[0]);
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByText('1. Row Erg'));
+    fireEvent.click(within(dialog).getByText('2. Banded Shoulder External Rotation'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Group as Superset' }));
+
+    expect(onUpdateSupersetGroup).toHaveBeenCalledWith(
+      'warmup',
+      ['row-erg', 'banded-shoulder-external-rotation'],
+      'superset-a',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
+    expect(onUpdateSupersetGroup).toHaveBeenCalledWith(
+      'main',
+      ['cable-lateral-raise', 'rope-triceps-pushdown'],
+      null,
+    );
+  });
+
   it('shows completed exercises with strike-through treatment', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -856,7 +935,10 @@ describe('SessionExerciseList', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByRole('button', { name: /Main/i })).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -864,64 +946,67 @@ describe('SessionExerciseList', () => {
     vi.useFakeTimers();
 
     try {
-    if (!activeTemplate) {
-      throw new Error('Expected upper-push template in mock data.');
-    }
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
 
-    const session = buildActiveWorkoutSession(
-      activeTemplate,
-      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
-    );
-    const sectionKey = getWorkoutSectionStorageKey('session-persist-a');
-    const exerciseKey = getWorkoutExerciseStorageKey('session-persist-a');
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+      const sectionKey = getWorkoutSectionStorageKey('session-persist-a');
+      const exerciseKey = getWorkoutExerciseStorageKey('session-persist-a');
 
-    if (!sectionKey || !exerciseKey) {
-      throw new Error('Expected workout storage keys.');
-    }
+      if (!sectionKey || !exerciseKey) {
+        throw new Error('Expected workout storage keys.');
+      }
 
-    const firstRender = renderWithQueryClient(
-      <SessionExerciseList
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onRemoveSet={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-        sessionId="session-persist-a"
-      />,
-    );
+      const firstRender = renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+          sessionId="session-persist-a"
+        />,
+      );
 
-    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
-    fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-    firstRender.unmount();
+      fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+      fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      firstRender.unmount();
 
-    const storedSections = window.localStorage.getItem(sectionKey);
-    const storedExercises = window.localStorage.getItem(exerciseKey);
+      const storedSections = window.localStorage.getItem(sectionKey);
+      const storedExercises = window.localStorage.getItem(exerciseKey);
 
-    expect(storedSections).not.toBeNull();
-    expect(storedExercises).not.toBeNull();
-    expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
-    expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': false });
+      expect(storedSections).not.toBeNull();
+      expect(storedExercises).not.toBeNull();
+      expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
+      expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': false });
 
-    renderWithQueryClient(
-      <SessionExerciseList
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onRemoveSet={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-        sessionId="session-persist-a"
-      />,
-    );
+      renderWithQueryClient(
+        <SessionExerciseList
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+          sessionId="session-persist-a"
+        />,
+      );
 
-    const warmupButton = screen.getByRole('button', { name: /Warmup/i });
-    expect(warmupButton).toHaveAttribute('aria-expanded', 'false');
+      const warmupButton = screen.getByRole('button', { name: /Warmup/i });
+      expect(warmupButton).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(warmupButton);
+      fireEvent.click(warmupButton);
 
-    expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute('aria-expanded', 'false');
+      expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -962,7 +1047,10 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Warmup/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 
   it('collapses sections, toggles exercise details, and focuses the requested next set input', () => {

@@ -162,8 +162,8 @@ describe('workouts api corrections', () => {
 
     await waitFor(() => {
       expect(
-        queryClient.getQueryData<WorkoutSession>(workoutQueryKeys.session(initialSession.id))?.sets[0]
-          ?.weight,
+        queryClient.getQueryData<WorkoutSession>(workoutQueryKeys.session(initialSession.id))
+          ?.sets[0]?.weight,
       ).toBe(190);
     });
 
@@ -220,6 +220,7 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
       {
         exerciseId: 'global-bench-press',
         exerciseName: 'Bench Press',
+        supersetGroup: null,
         orderIndex: 0,
         section: 'main',
         sets: [

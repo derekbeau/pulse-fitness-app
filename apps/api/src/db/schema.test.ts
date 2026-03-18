@@ -1080,6 +1080,7 @@ describe('sessionSets schema', () => {
       'targetWeightMax',
       'targetSeconds',
       'targetDistance',
+      'supersetGroup',
       'completed',
       'skipped',
       'section',

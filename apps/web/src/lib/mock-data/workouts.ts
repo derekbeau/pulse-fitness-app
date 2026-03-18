@@ -41,6 +41,7 @@ export interface WorkoutTemplateExercise {
   exerciseId: WorkoutExercise['id'];
   exerciseName?: string;
   trackingType?: ExerciseTrackingType;
+  supersetGroup?: string | null;
   sets: number;
   reps: string;
   tempo: string;
