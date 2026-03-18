@@ -79,7 +79,7 @@ import {
   formatWorkoutConflictDescription,
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
-import { getDistanceUnit } from '../lib/tracking';
+import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
@@ -1275,6 +1275,7 @@ function ExerciseDetailModal({
   onOpenChange: (open: boolean) => void;
   onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
 }) {
+  const { weightUnit } = useWeightUnit();
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
   const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
   const [isSaving, setIsSaving] = useState(false);
@@ -1397,7 +1398,7 @@ function ExerciseDetailModal({
               <p className="text-sm text-muted">Loading recent performance...</p>
             ) : (
               <p className="text-sm text-foreground">
-                {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType)}
+                {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType, weightUnit)}
               </p>
             )}
           </div>
@@ -1423,6 +1424,7 @@ function ExerciseDetailModal({
                     {formatLastPerformanceSummary(
                       relatedExercise.history,
                       relatedExercise.trackingType,
+                      weightUnit,
                     )}
                   </p>
                 </div>
@@ -1730,25 +1732,25 @@ function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
 function formatLastPerformanceSummary(
   history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
   trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
 ) {
   if (!history || history.sets.length === 0) {
     return 'No history yet.';
   }
 
   const setSummary = history.sets
-    .map((set) => {
-      switch (trackingType) {
-        case 'weight_reps':
-        case 'weight_seconds':
-          return set.weight != null ? `${set.weight} x ${set.reps}` : `${set.reps}`;
-        case 'seconds_only':
-          return `${set.reps}s`;
-        case 'distance':
-          return `${set.reps} distance`;
-        default:
-          return `${set.reps} reps`;
-      }
-    })
+    .map((set) =>
+      formatSetSummary(
+        trackingType === 'distance'
+          ? { distance: set.reps, weight: set.weight }
+          : { reps: set.reps, weight: set.weight },
+        trackingType,
+        {
+          useLegacySecondsFallback: trackingType !== 'reps_seconds',
+          weightUnit,
+        },
+      ),
+    )
     .join(', ');
 
   return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
@@ -1778,10 +1780,10 @@ function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: Weigh
   if (exercise.trackingType === 'seconds_only') {
     if (repsTarget) {
       if (exercise.sets !== null) {
-        return `${exercise.sets} x ${repsTarget}s`;
+        return `${exercise.sets} x ${repsTarget} sec`;
       }
 
-      return `${repsTarget}s`;
+      return `${repsTarget} sec`;
     }
 
     if (exercise.sets !== null) {
@@ -1893,7 +1895,7 @@ function formatTargetByTrackingType(
   repsTarget: string | null,
 ) {
   const weightLabel = formatTargetWeight(target, weightUnit);
-  const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds}s` : null;
+  const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds} sec` : null;
   const distanceLabel =
     target?.targetDistance != null
       ? `${target.targetDistance} ${getDistanceUnit(weightUnit)}`

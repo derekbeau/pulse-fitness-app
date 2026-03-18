@@ -50,11 +50,14 @@ import {
 } from '../api/workouts';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
+  formatSetSummary,
   getDistanceUnit,
   getSetDistance,
   getSetSeconds,
-  getSetVolume,
-  getTrackingVolumeLabel,
+  getSetSummaryMetricValue,
+  getTrackingSummaryMetricLabel,
+  isRepTrackingType,
+  type TrackingSummaryMetricLabel,
   resolveTrackingType,
 } from '../lib/tracking';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
@@ -97,6 +100,8 @@ type SessionSetEditorField = {
   step: string;
   suffix?: string;
 };
+
+type SessionMetricLabel = TrackingSummaryMetricLabel | 'mixed';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -198,7 +203,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   const sessionDate = new Date(session.startedAt);
-  const summary = getSessionSummary(session);
+  const summary = getSessionSummary(session, template ?? null);
   const sections = buildSections(session, template);
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
@@ -364,14 +369,14 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           className="border-fuchsia-200/70 bg-fuchsia-500/10 dark:border-fuchsia-400/30 dark:bg-fuchsia-500/15"
           icon={<Repeat2 aria-hidden="true" className="size-4" />}
           label="Reps"
-          value={integerFormatter.format(summary.totalReps)}
+          value={integerFormatter.format(summary.metricTotals.reps)}
         />
         <StatCard
           accentTextClassName="text-emerald-900 dark:text-emerald-200"
           className="border-emerald-200/70 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-500/15"
           icon={<Scale aria-hidden="true" className="size-4" />}
-          label={formatLabel(summary.metricLabel)}
-          value={formatSummaryMetric(summary.totalVolume, summary.metricLabel, weightUnit)}
+          label={formatSummaryMetricLabel(summary.metricLabel)}
+          value={formatSummaryMetric(summary.metricTotals, summary.metricLabel, weightUnit)}
         />
       </div>
 
@@ -886,6 +891,7 @@ function buildSections(
 ): SessionDetailSection[] {
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
+  const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
   const sessionTrackingTypeById = new Map(
     (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
   );
@@ -894,6 +900,9 @@ function buildSections(
     section.exercises.forEach((exercise) => {
       templateSectionByExerciseId.set(exercise.exerciseId, section.type);
       templateExerciseNameById.set(exercise.exerciseId, exercise.exerciseName);
+      if (exercise.trackingType) {
+        templateTrackingTypeById.set(exercise.exerciseId, exercise.trackingType);
+      }
     });
   });
 
@@ -930,7 +939,10 @@ function buildSections(
           phaseBadge: inferPhaseBadge(sectionType),
           sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
           trackingType: resolveTrackingType({
-            trackingType: sessionTrackingTypeById.get(exerciseId) ?? undefined,
+            trackingType:
+              sessionTrackingTypeById.get(exerciseId) ??
+              templateTrackingTypeById.get(exerciseId) ??
+              undefined,
             exerciseId,
             exerciseName: name,
           }),
@@ -954,57 +966,56 @@ function buildSectionSubtitle(sectionType: SessionDetailSectionType, count: numb
   return `${count} exercise${count === 1 ? '' : 's'} logged`;
 }
 
-function getSessionSummary(session: WorkoutSession) {
+function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | null) {
   const exerciseIds = new Set<string>();
-  const exerciseTrackingTypeById = new Map<string, ExerciseTrackingType>();
-  let hasVolume = false;
-  let hasReps = false;
-  let hasSeconds = false;
+  const sessionTrackingTypeById = new Map(
+    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+  );
+  const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
+  template?.sections.forEach((section) => {
+    section.exercises.forEach((exercise) => {
+      if (exercise.trackingType) {
+        templateTrackingTypeById.set(exercise.exerciseId, exercise.trackingType);
+      }
+    });
+  });
+  const metricLabels = new Set<TrackingSummaryMetricLabel>();
 
   return session.sets.reduce(
     (summary, set) => {
       exerciseIds.add(set.exerciseId);
       summary.totalSets += 1;
       summary.totalExercises = exerciseIds.size;
-      const trackingType =
-        exerciseTrackingTypeById.get(set.exerciseId) ??
-        resolveTrackingType({ exerciseId: set.exerciseId });
-      exerciseTrackingTypeById.set(set.exerciseId, trackingType);
-
-      if (set.reps != null) {
-        summary.totalReps += set.reps;
+      const trackingType = resolveTrackingType({
+        trackingType:
+          sessionTrackingTypeById.get(set.exerciseId) ??
+          templateTrackingTypeById.get(set.exerciseId) ??
+          undefined,
+        exerciseId: set.exerciseId,
+      });
+      const metricLabel = getTrackingSummaryMetricLabel(trackingType);
+      if (metricLabel !== 'reps') {
+        summary.metricTotals[metricLabel] += getSetSummaryMetricValue(trackingType, set);
       }
-
-      summary.totalVolume += getSetVolume(trackingType, set);
-      const metricLabel = getTrackingVolumeLabel(trackingType);
-
-      if (metricLabel === 'volume') {
-        hasVolume = true;
+      if (isRepTrackingType(trackingType) && set.reps != null) {
+        summary.metricTotals.reps += set.reps;
       }
-      if (metricLabel === 'reps') {
-        hasReps = true;
-      }
-      if (metricLabel === 'seconds') {
-        hasSeconds = true;
-      }
-
+      metricLabels.add(metricLabel);
       summary.metricLabel =
-        hasVolume || (hasReps && hasSeconds)
-          ? 'volume'
-          : hasReps
-            ? 'reps'
-            : hasSeconds
-              ? 'seconds'
-              : 'volume';
+        metricLabels.size > 1 ? 'mixed' : (([...metricLabels][0] ?? 'volume') as SessionMetricLabel);
 
       return summary;
     },
     {
-      metricLabel: 'volume' as 'reps' | 'seconds' | 'volume',
+      metricLabel: 'volume' as SessionMetricLabel,
+      metricTotals: {
+        distance: 0,
+        reps: 0,
+        seconds: 0,
+        volume: 0,
+      },
       totalExercises: 0,
-      totalReps: 0,
       totalSets: 0,
-      totalVolume: 0,
     },
   );
 }
@@ -1153,49 +1164,77 @@ function formatSetLabel(
   trackingType: ExerciseTrackingType,
   weightUnit: WeightUnit,
 ) {
-  if (set.skipped) {
-    return `Set ${set.setNumber}: Skipped`;
-  }
-
-  const repsValue = set.reps != null ? integerFormatter.format(set.reps) : '0';
-  const secondsValue = integerFormatter.format(getSetSeconds(set) ?? 0);
-  const distanceUnit = getDistanceUnit(weightUnit);
-
-  if (trackingType === 'seconds_only') {
-    return `Set ${set.setNumber}: ${secondsValue} sec`;
-  }
-
-  if (trackingType === 'cardio') {
-    const distanceValue = formatNumber(getSetDistance(set) ?? 0);
-    return `Set ${set.setNumber}: ${secondsValue} sec / ${distanceValue} ${distanceUnit}`;
-  }
-
-  if (trackingType === 'weight_seconds') {
-    const weightLabel =
-      set.weight != null ? `${formatWeightValue(set.weight)} ${weightUnit} × ` : '';
-    return `Set ${set.setNumber}: ${weightLabel}${secondsValue} sec`;
-  }
-
-  const repsLabel = `${repsValue} reps`;
-  const weightLabel = set.weight != null ? `${formatWeightValue(set.weight)} ${weightUnit} × ` : '';
-
-  return `Set ${set.setNumber}: ${weightLabel}${repsLabel}`;
+  return formatSetSummary(set, trackingType, {
+    includeSetNumber: true,
+    weightUnit,
+  });
 }
 
 function formatSummaryMetric(
-  value: number,
-  label: 'reps' | 'seconds' | 'volume',
+  totals: Record<TrackingSummaryMetricLabel, number>,
+  label: SessionMetricLabel,
   weightUnit: WeightUnit,
 ) {
-  if (label === 'volume') {
-    return `${formatWeightValue(value)} ${weightUnit}`;
+  switch (label) {
+    case 'volume':
+      return `${formatWeightValue(totals.volume)} ${weightUnit}`;
+    case 'reps':
+      return integerFormatter.format(totals.reps);
+    case 'seconds':
+      return `${formatServing(totals.seconds)} sec`;
+    case 'distance':
+      return `${formatServing(totals.distance)} ${getDistanceUnit(weightUnit)}`;
+    case 'mixed':
+      return formatMixedMetricSummary(totals, weightUnit);
+    default:
+      return '-';
+  }
+}
+
+function formatSummaryMetricLabel(label: SessionMetricLabel) {
+  if (label === 'mixed') {
+    return 'Mixed metrics';
   }
 
   if (label === 'seconds') {
-    return `${formatServing(value)} sec`;
+    return 'Seconds';
   }
 
-  return integerFormatter.format(value);
+  if (label === 'distance') {
+    return 'Distance';
+  }
+
+  if (label === 'reps') {
+    return 'Reps';
+  }
+
+  return 'Volume';
+}
+
+function formatMixedMetricSummary(
+  totals: Record<TrackingSummaryMetricLabel, number>,
+  weightUnit: WeightUnit,
+) {
+  const segments: string[] = [];
+
+  if (totals.volume > 0) {
+    segments.push(`${formatWeightValue(totals.volume)} ${weightUnit}`);
+  }
+  if (totals.reps > 0) {
+    segments.push(`${integerFormatter.format(totals.reps)} reps`);
+  }
+  if (totals.seconds > 0) {
+    segments.push(`${formatServing(totals.seconds)} sec`);
+  }
+  if (totals.distance > 0) {
+    segments.push(`${formatServing(totals.distance)} ${getDistanceUnit(weightUnit)}`);
+  }
+
+  if (segments.length === 0) {
+    return '-';
+  }
+
+  return segments.join(' • ');
 }
 
 function formatLabel(value: string) {

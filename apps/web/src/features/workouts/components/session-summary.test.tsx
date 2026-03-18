@@ -181,4 +181,36 @@ describe('SessionSummary', () => {
 
     expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();
   });
+
+  it('renders tracking-aware summary labels for time-based and mixed sessions', () => {
+    renderWithQueryClient(
+      <SessionSummary
+        duration="12:00"
+        exerciseResults={[
+          {
+            id: 'plank',
+            metricLabel: 'seconds',
+            metricValue: 120,
+            name: 'Plank Hold',
+            reps: 0,
+            setsCompleted: 2,
+            totalSets: 2,
+          },
+        ]}
+        exercisesCompleted={1}
+        onDone={() => {}}
+        summaryMetricLabel="mixed"
+        summaryMetricMixedValue="120 sec • 0.5 mi"
+        totalReps={0}
+        totalSets={2}
+        totalVolume={0}
+        workoutName="Conditioning"
+      />,
+    );
+
+    expect(screen.getByText('Tracked metrics')).toBeInTheDocument();
+    expect(screen.getByText('120 sec • 0.5 mi')).toBeInTheDocument();
+    expect(screen.queryByTestId('summary-pill-count-reps')).not.toBeInTheDocument();
+    expect(screen.getByText('Seconds: 120 sec')).toBeInTheDocument();
+  });
 });

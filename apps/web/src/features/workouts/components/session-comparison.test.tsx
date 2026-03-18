@@ -120,4 +120,22 @@ describe('SessionComparison', () => {
     expect(screen.getByText('90 sec')).toBeInTheDocument();
     expect(screen.getByText('60 sec')).toBeInTheDocument();
   });
+
+  it('uses distance metric labels for distance-tracked sessions', () => {
+    const previousSession = createSession({
+      id: 'previous-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [createSet('distance-run', 1, 1)],
+    });
+    const currentSession = createSession({
+      id: 'current-session',
+      sets: [createSet('distance-run', 1, 2.5)],
+    });
+
+    render(<SessionComparison currentSession={currentSession} previousSession={previousSession} />);
+
+    expect(screen.getByText('Distance progression')).toBeInTheDocument();
+    expect(screen.getByText('2.5 mi')).toBeInTheDocument();
+    expect(screen.getByText('1 mi')).toBeInTheDocument();
+  });
 });

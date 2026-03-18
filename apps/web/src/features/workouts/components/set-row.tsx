@@ -308,7 +308,7 @@ function formatTargetHint({
       : null;
   const weightValue =
     targetWeight !== null ? `${targetWeight} ${weightUnit}` : (weightRange ?? null);
-  const secondsValue = targetSeconds !== null ? `${targetSeconds}s` : null;
+  const secondsValue = targetSeconds !== null ? `${targetSeconds} sec` : null;
   const distanceValue =
     targetDistance !== null ? `${targetDistance} ${getDistanceUnit(weightUnit)}` : null;
 

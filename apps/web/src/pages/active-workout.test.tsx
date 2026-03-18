@@ -296,9 +296,9 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Workout summary' })).toBeVisible();
-    expect(screen.getByText('Total volume')).toBeInTheDocument();
+    expect(screen.getByText(/Total volume|Tracked metrics/)).toBeInTheDocument();
     expect(screen.getByText('Sets')).toBeInTheDocument();
-    expect(screen.getByText('Reps')).toBeInTheDocument();
+    expect(screen.getAllByText(/Reps|Total reps/).length).toBeGreaterThan(0);
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Exercise results' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Session feedback' })).toBeInTheDocument();

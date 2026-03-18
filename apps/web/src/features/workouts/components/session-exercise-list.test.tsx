@@ -90,7 +90,7 @@ describe('SessionExerciseList', () => {
     );
 
     expect(screen.getByText('Target: 70-90 lbs')).toBeInTheDocument();
-    expect(screen.getByText('Target: 30s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 30 sec')).toBeInTheDocument();
     expect(screen.getByText('Target: 40 mi')).toBeInTheDocument();
   });
 
@@ -1192,7 +1192,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
     const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
     expect(relatedExerciseLabel).toBeVisible();
-    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60x8/);
+    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60 lbs × 8 reps/);
 
     useLastPerformanceSpy.mockRestore();
   });

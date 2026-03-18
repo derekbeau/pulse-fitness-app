@@ -13,6 +13,7 @@ import {
   type WorkoutSession as ApiWorkoutSession,
   type SessionSet,
   type WorkoutSessionTimeSegment,
+  type WeightUnit,
   workoutSessionSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionFeedbackResponse,
@@ -28,7 +29,6 @@ import {
   SessionSummary,
   SupplementalMenu,
   buildActiveWorkoutSession,
-  countCompletedReps,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   workoutFeedbackFields,
@@ -62,10 +62,14 @@ import {
   useWorkoutTemplate,
 } from '@/features/workouts/api/workouts';
 import {
-  getSetVolume,
+  getDistanceUnit,
+  getSetSummaryMetricValue,
+  getTrackingSummaryMetricLabel,
+  isRepTrackingType,
   isTimeBasedTrackingType,
   isWeightedTrackingType,
   resolveTrackingType,
+  type TrackingSummaryMetricLabel,
 } from '@/features/workouts/lib/tracking';
 import { useCompleteSession } from '@/hooks/use-complete-session';
 import { useLogSet, useUpdateSet } from '@/hooks/use-session-sets';
@@ -421,31 +425,65 @@ export function ActiveWorkoutPage() {
     () => `${session.completedSets}/${session.totalSets}`,
     [session.completedSets, session.totalSets],
   );
-  const totalCompletedReps = useMemo(() => countCompletedReps(setDrafts), [setDrafts]);
   const summaryExerciseResults = useMemo(
     () =>
       session.sections.flatMap((section) =>
         section.exercises.map((exercise) => {
           const completedSets = exercise.sets.filter((set) => set.completed);
+          const metricLabel = getTrackingSummaryMetricLabel(exercise.trackingType);
           return {
             id: exercise.id,
-            name: exercise.name,
-            notes: exercise.notes,
-            reps: completedSets.reduce((total, set) => total + (set.reps ?? 0), 0),
-            setsCompleted: exercise.completedSets,
-            totalSets: exercise.targetSets,
-            volume: completedSets.reduce(
-              (total, set) => total + getSetVolume(exercise.trackingType, set),
+            metricLabel,
+            metricValue: completedSets.reduce(
+              (total, set) => total + getSetSummaryMetricValue(exercise.trackingType, set),
               0,
             ),
+            name: exercise.name,
+            notes: exercise.notes,
+            reps: isRepTrackingType(exercise.trackingType)
+              ? completedSets.reduce((total, set) => total + (set.reps ?? 0), 0)
+              : 0,
+            setsCompleted: exercise.completedSets,
+            totalSets: exercise.targetSets,
           };
         }),
       ),
     [session.sections],
   );
-  const totalSessionVolume = useMemo(
-    () => summaryExerciseResults.reduce((total, exercise) => total + exercise.volume, 0),
+  const totalCompletedReps = useMemo(
+    () => summaryExerciseResults.reduce((total, exercise) => total + exercise.reps, 0),
     [summaryExerciseResults],
+  );
+  const summaryMetrics = useMemo(() => {
+    const totals: Record<TrackingSummaryMetricLabel, number> = {
+      distance: 0,
+      reps: 0,
+      seconds: 0,
+      volume: 0,
+    };
+    const labels = new Set<TrackingSummaryMetricLabel>();
+
+    summaryExerciseResults.forEach((exercise) => {
+      totals[exercise.metricLabel] += exercise.metricValue;
+      labels.add(exercise.metricLabel);
+    });
+
+    return {
+      metricLabel: labels.size > 1 ? 'mixed' : (([...labels][0] ?? 'volume') as
+        | TrackingSummaryMetricLabel
+        | 'mixed'),
+      totals,
+    };
+  }, [summaryExerciseResults]);
+  const totalSessionVolume = useMemo(
+    () => summaryMetrics.totals.volume,
+    [summaryMetrics.totals.volume],
+  );
+  const summaryMetricValue =
+    summaryMetrics.metricLabel === 'mixed' ? null : summaryMetrics.totals[summaryMetrics.metricLabel];
+  const summaryMetricMixedValue = useMemo(
+    () => formatTrackingMetricBreakdown(summaryMetrics.totals, weightUnit),
+    [summaryMetrics.totals, weightUnit],
   );
   const estimatedTotalSeconds = useMemo(() => estimateTotalTime(session), [session]);
   const remainingEstimatedSeconds = useMemo(() => estimateRemainingTime(session), [session]);
@@ -832,6 +870,9 @@ export function ActiveWorkoutPage() {
           onNotesChange={setSessionNotes}
           sessionNotes={sessionNotes}
           sessionId={activeSessionId}
+          summaryMetricLabel={summaryMetrics.metricLabel}
+          summaryMetricMixedValue={summaryMetricMixedValue}
+          summaryMetricValue={summaryMetricValue}
           summarySaving={summarySaving}
           totalVolume={totalSessionVolume}
           totalReps={totalCompletedReps}
@@ -1881,6 +1922,41 @@ function parseEditableTimeSegments(timeSegments: WorkoutSessionTimeSegment[]) {
       error: 'Time segments must be ordered, non-overlapping, and each end must be after start.',
     };
   }
+}
+
+function formatTrackingMetricBreakdown(
+  totals: Record<TrackingSummaryMetricLabel, number>,
+  weightUnit: WeightUnit,
+) {
+  const segments: string[] = [];
+
+  if (totals.volume > 0) {
+    segments.push(`${formatMetricValue(totals.volume)} ${weightUnit}`);
+  }
+  if (totals.reps > 0) {
+    segments.push(`${formatMetricValue(totals.reps)} reps`);
+  }
+  if (totals.seconds > 0) {
+    segments.push(`${formatMetricValue(totals.seconds)} sec`);
+  }
+  if (totals.distance > 0) {
+    segments.push(`${formatMetricValue(totals.distance)} ${getDistanceUnit(weightUnit)}`);
+  }
+
+  if (segments.length === 0) {
+    return '-';
+  }
+
+  return segments.join(' • ');
+}
+
+function formatMetricValue(value: number) {
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) {
+    return new Intl.NumberFormat('en-US').format(rounded);
+  }
+
+  return rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function buildActiveWorkoutSessionHref(sessionId: string, view: string | null) {

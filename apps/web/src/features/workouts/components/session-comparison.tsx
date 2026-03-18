@@ -16,8 +16,11 @@ import {
 import { cn } from '@/lib/utils';
 
 import {
+  getDistanceUnit,
+  getSetDistance,
   getSetSeconds,
-  getSetVolume,
+  getSetSummaryMetricValue,
+  getTrackingSummaryMetricLabel,
   getTrackingVolumeLabel,
   resolveTrackingType,
 } from '../lib/tracking';
@@ -337,12 +340,12 @@ function getSessionVolume(session: WorkoutSession) {
 
   return session.sets.reduce((total, set) => {
     const trackingType = trackingByExerciseId.get(set.exerciseId) ?? 'weight_reps';
-    return total + getSetVolume(trackingType, set);
+    return total + getSetSummaryMetricValue(trackingType, set);
   }, 0);
 }
 
 function getExerciseVolumeFromSets(sets: SessionSet[], trackingType: ExerciseTrackingType) {
-  return sets.reduce((total, set) => total + getSetVolume(trackingType, set), 0);
+  return sets.reduce((total, set) => total + getSetSummaryMetricValue(trackingType, set), 0);
 }
 
 function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType) {
@@ -352,7 +355,7 @@ function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType
     case 'cardio':
       return getSetSeconds(set) ?? 0;
     case 'distance':
-      return 0;
+      return getSetDistance(set) ?? 0;
     default:
       return set.reps ?? 0;
   }
@@ -393,10 +396,10 @@ function getSessionVolumeLabel(session: WorkoutSession) {
 
   if (trackingTypes.size === 1) {
     const only = [...trackingTypes][0];
-    return getTrackingVolumeLabel(only);
+    return getTrackingSummaryMetricLabel(only);
   }
 
-  return 'volume';
+  return 'mixed';
 }
 
 function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
@@ -406,6 +409,14 @@ function formatVolume(value: number, label: string, weightUnit: WeightUnit) {
 
   if (label === 'seconds') {
     return `${formatNumber(value)} sec`;
+  }
+
+  if (label === 'distance') {
+    return `${formatNumber(value)} ${getDistanceUnit(weightUnit)}`;
+  }
+
+  if (label === 'mixed') {
+    return formatNumber(value);
   }
 
   return `${formatNumber(value)} reps`;
@@ -418,6 +429,14 @@ function formatVolumeDelta(value: number, label: string, weightUnit: WeightUnit)
 
   if (label === 'seconds') {
     return `${formatSignedNumber(value)} sec`;
+  }
+
+  if (label === 'distance') {
+    return `${formatSignedNumber(value)} ${getDistanceUnit(weightUnit)}`;
+  }
+
+  if (label === 'mixed') {
+    return formatSignedNumber(value);
   }
 
   return `${formatSignedNumber(value)} reps`;

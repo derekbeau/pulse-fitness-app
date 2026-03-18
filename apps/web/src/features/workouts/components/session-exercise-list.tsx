@@ -67,7 +67,7 @@ import {
   formatRestDuration,
   formatTempo,
 } from '../lib/time-estimates';
-import { getDistanceUnit } from '../lib/tracking';
+import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { SetRow, type SetRowUpdate } from './set-row';
@@ -976,27 +976,25 @@ function formatCompactPerformanceSetByTrackingType(
   prescribedReps: string,
   weightUnit: WeightUnit,
 ) {
-  const distanceUnit = getDistanceUnit(weightUnit);
-
-  switch (trackingType) {
-    case 'weight_reps':
-      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
-    case 'weight_seconds':
-      return weight != null ? `${formatWeight(weight)}x${value} sec` : `${value} sec`;
-    case 'bodyweight_reps':
-    case 'reps_only':
-      return formatPerformedReps(value, prescribedReps);
-    case 'seconds_only':
-      return `${value} sec`;
-    case 'reps_seconds':
-      return `${value} reps`;
-    case 'distance':
-      return `${value} ${distanceUnit}`;
-    case 'cardio':
-      return `${value} sec`;
-    default:
-      return weight != null ? `${formatWeight(weight)}x${value}` : `${value}`;
+  if (
+    (trackingType === 'bodyweight_reps' || trackingType === 'reps_only') &&
+    (prescribedReps.includes('min') || prescribedReps.includes('sec'))
+  ) {
+    return formatPerformedReps(value, prescribedReps);
   }
+
+  const setMetrics =
+    trackingType === 'distance'
+      ? { distance: value, weight }
+      : {
+          reps: value,
+          weight,
+        };
+
+  return formatSetSummary(setMetrics, trackingType, {
+    useLegacySecondsFallback: trackingType !== 'reps_seconds',
+    weightUnit,
+  });
 }
 
 function formatExerciseSubtitle({
@@ -1007,6 +1005,7 @@ function formatExerciseSubtitle({
   weightUnit: WeightUnit;
 }) {
   const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
+  const trackedTarget = formatTrackedRepTarget(repTarget, exercise.trackingType, weightUnit);
   const sets = exercise.prescribedSets;
   const hasWeightLadder =
     (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
@@ -1022,7 +1021,7 @@ function formatExerciseSubtitle({
     const weightLadder = exercise.reversePyramid
       .map((target) => formatWeight(target.targetWeight))
       .join(' → ');
-    return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+    return `${sets} sets, ${trackedTarget}, ${weightLadder} ${weightUnit}`;
   }
 
   if (hasPerSetWeightTargets) {
@@ -1034,7 +1033,7 @@ function formatExerciseSubtitle({
 
     if (uniqueWeights.size === 1) {
       const weight = [...uniqueWeights][0] ?? 0;
-      return `${sets} sets, ${formatWeight(weight)} ${weightUnit} × ${repTarget}`;
+      return `${sets} sets, ${formatWeight(weight)} ${weightUnit} × ${trackedTarget}`;
     }
 
     if (uniqueWeights.size > 1) {
@@ -1045,23 +1044,25 @@ function formatExerciseSubtitle({
         )
         .map((set) => formatWeight(set.targetWeight))
         .join(' → ');
-      return `${sets} sets, ${repTarget} reps, ${weightLadder} ${weightUnit}`;
+      return `${sets} sets, ${trackedTarget}, ${weightLadder} ${weightUnit}`;
     }
 
     const firstRange = exercise.sets.find(
       (set) => set.targetWeightMin != null && set.targetWeightMax != null,
     );
     if (firstRange && firstRange.targetWeightMin != null && firstRange.targetWeightMax != null) {
-      return `${sets} sets, ${firstRange.targetWeightMin}-${firstRange.targetWeightMax} ${weightUnit} × ${repTarget}`;
+      return `${sets} sets, ${firstRange.targetWeightMin}-${firstRange.targetWeightMax} ${weightUnit} × ${trackedTarget}`;
     }
   }
 
-  const needsRepsSuffix =
-    !repTarget.toLowerCase().includes('rep') &&
-    !repTarget.toLowerCase().includes('sec') &&
-    !repTarget.toLowerCase().includes('min');
+  const hasExplicitUnit =
+    repTarget.toLowerCase().includes('rep') ||
+    repTarget.toLowerCase().includes('sec') ||
+    repTarget.toLowerCase().includes('min') ||
+    repTarget.toLowerCase().includes('mi') ||
+    repTarget.toLowerCase().includes('km');
 
-  return needsRepsSuffix ? `${sets} sets × ${repTarget} reps` : `${sets} × ${repTarget}`;
+  return hasExplicitUnit ? `${sets} × ${trackedTarget}` : `${sets} sets × ${trackedTarget}`;
 }
 
 function formatHistoryPreview({
@@ -1106,6 +1107,34 @@ function parsePrescribedRepTarget(prescribedReps: string) {
   return prescribedReps;
 }
 
+function formatTrackedRepTarget(
+  target: string,
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+) {
+  const lower = target.toLowerCase();
+
+  if (
+    trackingType === 'seconds_only' ||
+    trackingType === 'weight_seconds' ||
+    trackingType === 'cardio' ||
+    trackingType === 'reps_seconds'
+  ) {
+    return lower.includes('sec') || lower.includes('min') ? target : `${target} sec`;
+  }
+
+  if (trackingType === 'distance') {
+    const unit = getDistanceUnit(weightUnit);
+    return lower.includes('km') || lower.includes('mi') ? target : `${target} ${unit}`;
+  }
+
+  if (lower.includes('rep') || lower.includes('sec') || lower.includes('min')) {
+    return target;
+  }
+
+  return `${target} reps`;
+}
+
 function formatPerformedReps(reps: number, prescribedReps: string) {
   if (prescribedReps.includes('min')) {
     const minutes = Math.floor(reps / 60);
@@ -1119,7 +1148,7 @@ function formatPerformedReps(reps: number, prescribedReps: string) {
   }
 
   if (prescribedReps.includes('sec')) {
-    return `${reps}s`;
+    return `${reps} sec`;
   }
 
   return `${reps} reps`;

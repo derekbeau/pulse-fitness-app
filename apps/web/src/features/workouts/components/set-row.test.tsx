@@ -167,7 +167,7 @@ describe('SetRow', () => {
       />,
     );
 
-    expect(screen.getByText('Target: 135 lbs × 45s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 135 lbs × 45 sec')).toBeInTheDocument();
   });
 
   it('prefixes cardio target hints when only one dimension exists', () => {
@@ -183,7 +183,7 @@ describe('SetRow', () => {
       />,
     );
 
-    expect(screen.getByText('Target: 45s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 45 sec')).toBeInTheDocument();
   });
 
   it('renders weight ranges in target hints for weight-rep exercises', () => {
@@ -230,7 +230,7 @@ describe('SetRow', () => {
       />,
     );
 
-    expect(screen.getByText('Target: 45s')).toBeInTheDocument();
+    expect(screen.getByText('Target: 45 sec')).toBeInTheDocument();
   });
 
   it('does not render a target hint when no prescribed targets exist', () => {
