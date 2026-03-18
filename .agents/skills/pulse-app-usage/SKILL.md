@@ -66,6 +66,57 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 - **Log ad-hoc (one-off):** restaurant estimates, custom recipes that will not be reused, temporary experiments, uncertain approximations.
 - If unsure, prefer ad-hoc first; promote to a saved food only after repeated use.
 
+### Food Merge Workflow
+
+Use this when duplicate foods exist and one canonical record should remain.
+
+**When to use:**
+
+- Same food was created twice (name/brand variants, spelling duplicates, accidental duplicate entries).
+- You want historical meal items and usage stats consolidated under one winner food.
+
+**Request format:**
+
+```json
+POST /api/v1/foods/:winnerId/merge
+{
+  "loserId": "<food-uuid>"
+}
+```
+
+**Behavior notes:**
+
+- `winnerId` (path) and `loserId` (body) must be different.
+- Meal-item references are re-linked automatically.
+- Loser food is soft-deleted; winner usage metadata is merged.
+
+### Meal Item Addition Workflow
+
+Use this to append items to an existing meal without recreating or replacing the meal.
+
+**When to use:**
+
+- User says "add this to lunch/breakfast/dinner" after the meal already exists.
+- You need to keep existing meal metadata (`name`, `time`, `notes`) and only append new rows.
+
+**Request format:**
+
+```json
+POST /api/v1/meals/:id/items
+{
+  "items": [
+    { "foodName": "Jasmine Rice", "quantity": 1.5 },
+    { "foodName": "Chicken Breast", "quantity": 1 }
+  ]
+}
+```
+
+**Behavior notes:**
+
+- Uses the same unified item schema as `POST /api/v1/meals/`.
+- Returns the full updated meal snapshot (all items), not only appended items.
+- If any food cannot be resolved, the route returns `422 UNRESOLVED_FOODS`.
+
 ### Hydration Tracking
 
 When a meal includes water or any water-based liquid (protein shakes, electrolyte drinks, plain water, etc.), automatically log the water volume to the "Water" habit.

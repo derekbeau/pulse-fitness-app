@@ -39,6 +39,8 @@ describe('unified API documentation', () => {
     expect(agentConventionDoc).not.toContain('/api/agent/');
     expect(agentConventionDoc).toContain('GET /api/v1/context');
     expect(agentConventionDoc).toContain('GET /api/v1/foods?q=<term>&limit=<n>');
+    expect(agentConventionDoc).toContain('POST /api/v1/foods/:winnerId/merge');
+    expect(agentConventionDoc).toContain('POST /api/v1/meals/:id/items');
     expect(agentConventionDoc).toContain('GET /api/v1/exercises?q=<term>&limit=<n>');
     expect(agentConventionDoc).toContain('Authorization: AgentToken <token>');
     expect(agentConventionDoc).toContain('optional `agent` field');
@@ -54,6 +56,8 @@ describe('unified API documentation', () => {
     expect(skillDoc).toContain('POST /api/v1/workout-templates');
     expect(skillDoc).toContain('PATCH /api/v1/habits/:id/entries');
     expect(skillDoc).toContain('POST /api/v1/meals');
+    expect(skillDoc).toContain('POST /api/v1/foods/:winnerId/merge');
+    expect(skillDoc).toContain('POST /api/v1/meals/:id/items');
     expect(skillDoc).toContain('optional `agent` field');
   });
 });

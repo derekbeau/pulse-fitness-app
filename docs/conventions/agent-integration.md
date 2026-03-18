@@ -180,6 +180,36 @@ Searches user foods by name or brand and returns the standard paginated envelope
 
 Creates a user-scoped food entry.
 
+#### `POST /api/v1/foods/:winnerId/merge`
+
+Merges a duplicate food into a keeper food. The API re-links historical meal items from `loserId` to `winnerId`, combines usage metadata, and soft-deletes the loser food.
+
+Request:
+
+```json
+{
+  "loserId": "22222222-2222-4222-8222-222222222222"
+}
+```
+
+Response (`200`):
+
+```json
+{
+  "data": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "name": "Chicken Breast",
+    "usageCount": 84,
+    "lastUsedAt": 1760000000000
+  }
+}
+```
+
+Error notes:
+
+- `400 INVALID_FOOD_MERGE` when `winnerId === loserId`
+- `404 FOOD_NOT_FOUND` when either food is missing or not user-accessible
+
 #### `POST /api/v1/meals`
 
 Logs a meal for a date from food-name references. Under AgentToken auth:
@@ -235,6 +265,50 @@ Response (`201`):
   }
 }
 ```
+
+#### `POST /api/v1/meals/:id/items`
+
+Appends one or more items to an existing meal without recreating the meal record. Item inputs follow the same unified schema used by meal creation (saved-food or ad-hoc modes).
+
+Request:
+
+```json
+{
+  "items": [{ "foodName": "Jasmine Rice", "quantity": 1.5 }]
+}
+```
+
+Response (`201`):
+
+```json
+{
+  "data": {
+    "meal": {
+      "id": "meal-1",
+      "name": "Lunch"
+    },
+    "items": [
+      {
+        "id": "item-1",
+        "name": "Chicken Breast",
+        "amount": 2,
+        "unit": "serving"
+      },
+      {
+        "id": "item-2",
+        "name": "Jasmine Rice",
+        "amount": 1.5,
+        "unit": "serving"
+      }
+    ]
+  }
+}
+```
+
+Notes:
+
+- Response includes the full updated meal snapshot (all meal items), not only newly appended items.
+- Returns `404 MEAL_NOT_FOUND` if the meal does not exist for the authenticated user.
 
 ### Exercises And Workouts
 

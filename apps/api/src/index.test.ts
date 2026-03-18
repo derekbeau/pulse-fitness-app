@@ -115,6 +115,18 @@ describe('OpenAPI docs', () => {
         security: [{ bearerAuth: [] }, { agentToken: [] }],
       });
       expect(body.paths?.['/api/v1/meals/']?.post.requestBody).toBeTruthy();
+      expect(body.paths?.['/api/v1/foods/{winnerId}/merge']?.post).toMatchObject({
+        summary: 'Merge one food into another',
+        tags: ['foods'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/foods/{winnerId}/merge']?.post.requestBody).toBeTruthy();
+      expect(body.paths?.['/api/v1/meals/{id}/items']?.post).toMatchObject({
+        summary: 'Add items to an existing meal',
+        tags: ['nutrition'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/meals/{id}/items']?.post.requestBody).toBeTruthy();
 
       expect(body.paths?.['/api/v1/nutrition/{date}/summary']?.get).toMatchObject({
         summary: 'Get daily nutrition summary',
