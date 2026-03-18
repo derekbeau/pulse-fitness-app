@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,7 +9,13 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { exercises, templateExercises, users, workoutTemplates } from '../../db/schema/index.js';
+import {
+  agentTokens,
+  exercises,
+  templateExercises,
+  users,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -23,6 +30,10 @@ let context: TestContext;
 
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
+});
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
 });
 
 const expectRequestValidationError = (
@@ -52,6 +63,20 @@ const seedUser = (id: string, username: string) =>
       passwordHash: 'not-used-in-this-suite',
     })
     .run();
+
+const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
+  context.db
+    .insert(agentTokens)
+    .values({
+      id: `agent-token-${userId}`,
+      userId,
+      name: `Agent ${userId}`,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    })
+    .run();
+
+  return token;
+};
 
 const seedExercise = (values: {
   id: string;
@@ -182,6 +207,7 @@ describe('workout template routes', () => {
   });
 
   beforeEach(() => {
+    context.db.delete(agentTokens).run();
     context.db.delete(templateExercises).run();
     context.db.delete(workoutTemplates).run();
     context.db.delete(exercises).run();
@@ -662,6 +688,136 @@ describe('workout template routes', () => {
         code: 'WORKOUT_TEMPLATE_NOT_FOUND',
         message: 'Workout template not found',
       },
+    });
+  });
+
+  it('creates templates for AgentToken callers with exerciseName and reps shorthand', async () => {
+    const agentToken = seedAgentToken('user-1', 'workout-template-agent-create');
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-templates',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        name: 'Agent Push Day',
+        sections: [
+          {
+            type: 'main',
+            exercises: [
+              {
+                exerciseName: 'Incline Dumbbell Press',
+                reps: '8-10',
+                sets: 3,
+                tempo: '3010',
+                setTargets: [{ setNumber: 1, targetWeightMin: 55, targetWeightMax: 60 }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        name: 'Agent Push Day',
+        sections: [
+          { type: 'warmup', exercises: [] },
+          {
+            type: 'main',
+            exercises: [
+              expect.objectContaining({
+                exerciseId: 'user-press',
+                repsMin: 8,
+                repsMax: 10,
+                tempo: '3010',
+                setTargets: [{ setNumber: 1, targetWeightMin: 55, targetWeightMax: 60 }],
+              }),
+            ],
+          },
+          { type: 'cooldown', exercises: [] },
+        ],
+      }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+      }),
+    });
+  });
+
+  it('allows AgentToken patch payloads with setTargets and null rep bounds', async () => {
+    seedTemplate({
+      id: 'template-agent-patch',
+      userId: 'user-1',
+      name: 'Core Builder',
+      description: null,
+      tags: [],
+    });
+    seedTemplateExercise({
+      id: 'template-agent-patch-exercise',
+      templateId: 'template-agent-patch',
+      exerciseId: 'user-plank',
+      orderIndex: 0,
+      section: 'main',
+      sets: 2,
+      repsMin: null,
+      repsMax: null,
+    });
+
+    const agentToken = seedAgentToken('user-1', 'workout-template-agent-patch');
+
+    const patchResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-templates/template-agent-patch',
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        sections: [
+          {
+            type: 'main',
+            exercises: [
+              {
+                exerciseName: 'RKC Plank',
+                sets: 3,
+                repsMin: null,
+                repsMax: null,
+                tempo: null,
+                restSeconds: 75,
+                setTargets: [{ setNumber: 1, targetSeconds: 45 }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(patchResponse.statusCode).toBe(200);
+    expect(patchResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'template-agent-patch',
+        sections: [
+          { type: 'warmup', exercises: [] },
+          {
+            type: 'main',
+            exercises: [
+              expect.objectContaining({
+                exerciseId: 'user-plank',
+                repsMin: null,
+                repsMax: null,
+                restSeconds: 75,
+                setTargets: [{ setNumber: 1, targetSeconds: 45 }],
+              }),
+            ],
+          },
+          { type: 'cooldown', exercises: [] },
+        ],
+      }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        relatedState: expect.objectContaining({
+          action: 'update',
+          exerciseCount: 1,
+        }),
+      }),
     });
   });
 

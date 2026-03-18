@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  agentCreateWorkoutTemplateInputSchema,
-  agentTemplateNewExerciseSchema,
-  agentUpdateWorkoutTemplateInputSchema,
   apiDataResponseSchema,
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
@@ -12,12 +9,14 @@ import {
   updateWorkoutTemplateInputSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
-import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
+import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -27,7 +26,6 @@ import {
   successFlagSchema,
 } from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
-import { buildTemplateSections } from '../workout-agent.js';
 
 import {
   allTemplateExercisesAccessible,
@@ -40,33 +38,6 @@ import {
   updateWorkoutTemplate,
 } from './store.js';
 
-const createWorkoutTemplateRequestSchema = z.union([
-  createWorkoutTemplateInputSchema.transform((data) => ({
-    mode: 'standard' as const,
-    data,
-  })),
-  agentCreateWorkoutTemplateInputSchema.transform((data) => ({
-    mode: 'agent' as const,
-    data,
-  })),
-]);
-
-const updateWorkoutTemplateRequestSchema = z.union([
-  updateWorkoutTemplateInputSchema.transform((data) => ({
-    mode: 'standard' as const,
-    data,
-  })),
-  agentUpdateWorkoutTemplateInputSchema.transform((data) => ({
-    mode: 'agent' as const,
-    data,
-  })),
-]);
-
-const agentWorkoutTemplateMutationSchema = z.object({
-  template: workoutTemplateSchema,
-  newExercises: z.array(agentTemplateNewExerciseSchema),
-});
-
 const templateExerciseParamsSchema = idParamsSchema.extend({
   exerciseId: opaqueIdParamSchema,
 });
@@ -75,21 +46,11 @@ const warningMetaSchema = z.object({
   warning: z.string(),
 });
 
-const workoutTemplateMutationResponseSchema = z.union([
-  apiDataResponseSchema(workoutTemplateSchema),
-  apiDataResponseSchema(agentWorkoutTemplateMutationSchema),
-]);
+const workoutTemplateMutationResponseSchema = apiDataResponseSchema(workoutTemplateSchema);
 
 const swapWorkoutTemplateResponseSchema = apiDataResponseSchema(workoutTemplateSchema).extend({
   meta: warningMetaSchema.optional(),
 });
-
-type UpdateTemplateRequest = {
-  body: z.infer<typeof updateWorkoutTemplateRequestSchema>;
-  params: z.infer<typeof idParamsSchema>;
-  userId: string;
-  authType?: string;
-};
 
 const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
   code: 'WORKOUT_TEMPLATE_NOT_FOUND',
@@ -216,8 +177,10 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
-        body: createWorkoutTemplateRequestSchema,
+        body: createWorkoutTemplateInputSchema,
         response: {
           201: workoutTemplateMutationResponseSchema,
           400: badRequestResponseSchema,
@@ -229,39 +192,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      if (isAgentRequest(request) && request.body.mode !== 'agent') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
-      }
-
-      if (!isAgentRequest(request) && request.body.mode !== 'standard') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
-      }
-
-      if (request.body.mode === 'agent') {
-        const { sections, newExercises } = await buildTemplateSections({
-          sections: request.body.data.sections,
-          userId: request.userId,
-        });
-        const template = await createWorkoutTemplate({
-          id: randomUUID(),
-          userId: request.userId,
-          input: {
-            name: request.body.data.name,
-            description: null,
-            tags: [],
-            sections,
-          },
-        });
-
-        return reply.code(201).send({
-          data: {
-            template,
-            newExercises,
-          },
-        });
-      }
-
-      const exerciseIds = getReferencedExerciseIds(request.body.data.sections);
+      const exerciseIds = getReferencedExerciseIds(request.body.sections);
       const exercisesAccessible = await allTemplateExercisesAccessible({
         userId: request.userId,
         exerciseIds,
@@ -278,7 +209,12 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       const template = await createWorkoutTemplate({
         id: randomUUID(),
         userId: request.userId,
-        input: request.body.data,
+        input: request.body,
+      });
+
+      setAgentEnrichmentContext(request, {
+        endpoint: 'workout-template.mutation',
+        action: 'create',
       });
 
       return reply.code(201).send({
@@ -287,58 +223,11 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  const updateTemplateById = async (request: UpdateTemplateRequest, reply: FastifyReply) => {
-    if (request.authType === 'agent-token') {
-      if (request.body.mode !== 'agent') {
-        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
-      }
+  const updateTemplateById = async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as z.infer<typeof idParamsSchema>;
+    const body = request.body as z.infer<typeof updateWorkoutTemplateInputSchema>;
 
-      const existingTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
-      if (!existingTemplate) {
-        return sendError(
-          reply,
-          404,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
-        );
-      }
-
-      const { sections, newExercises } = await buildTemplateSections({
-        sections: request.body.data.sections,
-        userId: request.userId,
-      });
-      const template = await updateWorkoutTemplate({
-        id: request.params.id,
-        userId: request.userId,
-        input: {
-          name: request.body.data.name,
-          description: null,
-          tags: [],
-          sections,
-        },
-      });
-      if (!template) {
-        return sendError(
-          reply,
-          404,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.code,
-          WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE.message,
-        );
-      }
-
-      return reply.send({
-        data: {
-          template,
-          newExercises,
-        },
-      });
-    }
-
-    if (request.body.mode !== 'standard') {
-      return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout template payload');
-    }
-
-    const existingTemplate = await findWorkoutTemplateById(request.params.id, request.userId);
+    const existingTemplate = await findWorkoutTemplateById(params.id, request.userId);
     if (!existingTemplate) {
       return sendError(
         reply,
@@ -350,7 +239,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
 
     const resolvedInput = resolveTemplateUpdateInput({
       existingTemplate,
-      update: request.body.data,
+      update: body,
     });
 
     const exerciseIds = getReferencedExerciseIds(resolvedInput.sections);
@@ -368,7 +257,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const template = await updateWorkoutTemplate({
-      id: request.params.id,
+      id: params.id,
       userId: request.userId,
       input: resolvedInput,
     });
@@ -381,6 +270,11 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    setAgentEnrichmentContext(request, {
+      endpoint: 'workout-template.mutation',
+      action: 'update',
+    });
+
     return reply.send({
       data: template,
     });
@@ -389,9 +283,11 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   typedApp.put(
     '/:id',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: idParamsSchema,
-        body: updateWorkoutTemplateRequestSchema,
+        body: updateWorkoutTemplateInputSchema,
         response: {
           200: workoutTemplateMutationResponseSchema,
           400: badRequestResponseSchema,
@@ -409,9 +305,11 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   typedApp.patch(
     '/:id',
     {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
       schema: {
         params: idParamsSchema,
-        body: updateWorkoutTemplateRequestSchema,
+        body: updateWorkoutTemplateInputSchema,
         response: {
           200: workoutTemplateMutationResponseSchema,
           400: badRequestResponseSchema,

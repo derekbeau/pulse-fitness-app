@@ -7,28 +7,6 @@ import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
-export const agentWorkoutTemplateExerciseInputSchema = z.object({
-  name: requiredText(),
-  sets: z.number().int().min(1).max(100),
-  reps: z.union([z.number().int().min(1).max(1000), z.string().min(1).max(20)]),
-  restSeconds: z.number().int().min(0).max(3600).optional(),
-  tags: z.array(requiredText()).max(20).optional(),
-  cues: z.array(requiredText(500)).max(50).optional(),
-  formCues: z.array(requiredText(500)).max(50).optional(),
-});
-
-export const agentWorkoutTemplateSectionInputSchema = z.object({
-  name: requiredText(120),
-  exercises: z.array(agentWorkoutTemplateExerciseInputSchema).min(1).max(100),
-});
-
-export const agentCreateWorkoutTemplateInputSchema = z.object({
-  name: requiredText(255),
-  sections: z.array(agentWorkoutTemplateSectionInputSchema).min(1).max(20),
-});
-
-export const agentUpdateWorkoutTemplateInputSchema = agentCreateWorkoutTemplateInputSchema;
-
 const optionalText = (maxLength = 4000) =>
   z.preprocess((value) => {
     if (value === undefined) {
@@ -199,14 +177,6 @@ export const agentContextResponseSchema = z.object({
   scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),
 });
 
-export type AgentWorkoutTemplateExerciseInput = z.infer<
-  typeof agentWorkoutTemplateExerciseInputSchema
->;
-export type AgentWorkoutTemplateSectionInput = z.infer<
-  typeof agentWorkoutTemplateSectionInputSchema
->;
-export type AgentCreateWorkoutTemplateInput = z.infer<typeof agentCreateWorkoutTemplateInputSchema>;
-export type AgentUpdateWorkoutTemplateInput = z.infer<typeof agentUpdateWorkoutTemplateInputSchema>;
 export type AgentCreateWorkoutSessionInput = z.infer<typeof agentCreateWorkoutSessionInputSchema>;
 export type AgentWorkoutSetUpsertInput = z.infer<typeof agentWorkoutSetUpsertInputSchema>;
 export type AgentUpdateWorkoutSessionInput = z.infer<typeof agentUpdateWorkoutSessionInputSchema>;

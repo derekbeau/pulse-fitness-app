@@ -61,6 +61,10 @@ export type AgentEnrichmentContext =
   | {
       endpoint: 'food.create';
       similarFoods?: Array<Pick<FoodSummary, 'id' | 'name' | 'brand'>>;
+    }
+  | {
+      endpoint: 'workout-template.mutation';
+      action: 'create' | 'update';
     };
 
 const requestEnrichmentContext = new WeakMap<FastifyRequest, AgentEnrichmentContext>();
@@ -353,6 +357,40 @@ const buildFoodEnrichment = (
   };
 };
 
+const buildWorkoutTemplateEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'workout-template.mutation' }>,
+): AgentEnrichment | undefined => {
+  if (!isRecord(responseData) || !Array.isArray(responseData.sections)) {
+    return undefined;
+  }
+
+  const sectionCount = responseData.sections.length;
+  const exerciseCount = responseData.sections
+    .filter(isRecord)
+    .reduce((count, section) => count + (Array.isArray(section.exercises) ? section.exercises.length : 0), 0);
+  const templateName = typeof responseData.name === 'string' ? responseData.name : 'Template';
+
+  return {
+    hints: compactStrings([
+      `${templateName} now has ${pluralize(exerciseCount, 'exercise')} across ${pluralize(sectionCount, 'section')}.`,
+      context.action === 'create'
+        ? 'Use this template to start a session when you are ready to train.'
+        : 'Review targets and notes to confirm the update reflects the intended workout plan.',
+    ]),
+    suggestedActions: compactStrings([
+      'Start a workout session from this template when needed.',
+      context.action === 'update' ? 'Re-check set targets for time- and load-based movements.' : undefined,
+    ]),
+    relatedState: compactRecord({
+      action: context.action,
+      templateName,
+      sectionCount,
+      exerciseCount,
+    }),
+  };
+};
+
 export const buildAgentEnrichment = (
   request: FastifyRequest,
   responseData: unknown,
@@ -374,6 +412,8 @@ export const buildAgentEnrichment = (
       return buildWeightEnrichment(responseData, context);
     case 'food.create':
       return buildFoodEnrichment(responseData, context);
+    case 'workout-template.mutation':
+      return buildWorkoutTemplateEnrichment(responseData, context);
     default:
       return undefined;
   }

@@ -1623,7 +1623,7 @@ describe('exercise routes', () => {
     expect(context.db.select({ id: exercises.id }).from(exercises).all()).toHaveLength(2);
   });
 
-  it('agent template creation returns newExercises and creates empty metadata for unknown exercises', async () => {
+  it('agent template creation auto-creates unknown exercises through middleware', async () => {
     seedExercise({
       id: 'similar-global',
       userId: null,
@@ -1642,8 +1642,8 @@ describe('exercise routes', () => {
         name: 'Push Day',
         sections: [
           {
-            name: 'Main',
-            exercises: [{ name: 'Incline Bench Press', sets: 3, reps: 8 }],
+            type: 'main',
+            exercises: [{ exerciseName: 'Incline Bench Press', sets: 3, reps: 8 }],
           },
         ],
       },
@@ -1651,18 +1651,12 @@ describe('exercise routes', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
-      data: {
-        template: expect.objectContaining({
-          name: 'Push Day',
-        }),
-        newExercises: [
-          {
-            id: expect.any(String),
-            name: 'Incline Bench Press',
-            possibleDuplicates: ['similar-global'],
-          },
-        ],
-      },
+      data: expect.objectContaining({
+        name: 'Push Day',
+      }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+      }),
     });
 
     const created = context.db

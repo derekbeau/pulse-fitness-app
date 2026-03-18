@@ -126,6 +126,16 @@ const isAgentExerciseInput = (value: MutableRecord) =>
     'cues' in value ||
     'formCues' in value);
 
+const hasTemplateExerciseFields = (value: MutableRecord) =>
+  'sets' in value ||
+  'repsMin' in value ||
+  'repsMax' in value ||
+  'tempo' in value ||
+  'restSeconds' in value ||
+  'supersetGroup' in value ||
+  'setTargets' in value ||
+  'programmingNotes' in value;
+
 const parseJsonNumberish = (raw: string) => {
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
@@ -369,7 +379,11 @@ const transformExerciseMutation = async ({
   userId: string;
 }) => {
   const exerciseName = trimNonEmptyString(input.exerciseName);
-  if (exerciseName && typeof input.exerciseId !== 'string') {
+  if (
+    exerciseName &&
+    (typeof input.exerciseId !== 'string' ||
+      trimNonEmptyString(input.exerciseId) === exerciseName)
+  ) {
     const resolvedId = await resolveExerciseIdFromName({
       name: exerciseName,
       userId,
@@ -380,7 +394,12 @@ const transformExerciseMutation = async ({
     }
   }
 
-  if (isAgentExerciseInput(input)) {
+  const shouldExpandTemplateReps =
+    hasTemplateExerciseFields(input) &&
+    (exerciseName !== undefined || typeof input.exerciseId === 'string');
+  const isAgentExerciseMutation = isAgentExerciseInput(input);
+
+  if (isAgentExerciseMutation) {
     const namedExercise = trimNonEmptyString(input.name);
     if (namedExercise && typeof input.exerciseId !== 'string') {
       const resolvedId = await resolveExerciseIdFromName({
@@ -392,15 +411,17 @@ const transformExerciseMutation = async ({
         input.exerciseId = resolvedId;
       }
     }
+  }
 
-    if (
-      (typeof input.reps === 'string' || typeof input.reps === 'number') &&
-      !('repsMin' in input)
-    ) {
-      const { repsMin, repsMax } = parseRepsInput(input.reps);
-      input.repsMin = repsMin;
-      input.repsMax = repsMax;
-    }
+  if (
+    (isAgentExerciseMutation || shouldExpandTemplateReps) &&
+    (typeof input.reps === 'string' || typeof input.reps === 'number') &&
+    (input.repsMin === undefined || input.repsMin === null) &&
+    (input.repsMax === undefined || input.repsMax === null)
+  ) {
+    const { repsMin, repsMax } = parseRepsInput(input.reps);
+    input.repsMin = repsMin;
+    input.repsMax = repsMax;
   }
 };
 

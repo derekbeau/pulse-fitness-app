@@ -243,7 +243,7 @@ describe('agentRequestTransform', () => {
     }
   });
 
-  it('expands reps shorthand and resolves exercise names in nested template sections', async () => {
+  it('expands reps shorthand and resolves exerciseName aliases in nested template sections', async () => {
     vi.mocked(findVisibleExerciseByName).mockResolvedValue(buildExercise());
 
     const app = await buildTestApp();
@@ -255,8 +255,17 @@ describe('agentRequestTransform', () => {
         payload: {
           sections: [
             {
-              name: 'Main',
-              exercises: [{ name: 'Bench Press', sets: 3, reps: '8-10' }],
+              type: 'main',
+              exercises: [
+                {
+                  exerciseId: 'Bench Press',
+                  exerciseName: 'Bench Press',
+                  sets: 3,
+                  reps: '8-10',
+                  tempo: '3010',
+                  setTargets: [{ setNumber: 1, targetWeight: 185 }],
+                },
+              ],
             },
           ],
         },
@@ -267,15 +276,17 @@ describe('agentRequestTransform', () => {
         data: {
           sections: [
             {
-              name: 'Main',
+              type: 'main',
               exercises: [
                 {
-                  name: 'Bench Press',
                   exerciseId: 'exercise-1',
+                  exerciseName: 'Bench Press',
                   sets: 3,
                   reps: '8-10',
                   repsMin: 8,
                   repsMax: 10,
+                  tempo: '3010',
+                  setTargets: [{ setNumber: 1, targetWeight: 185 }],
                 },
               ],
             },
