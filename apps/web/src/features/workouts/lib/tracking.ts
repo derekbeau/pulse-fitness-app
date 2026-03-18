@@ -80,6 +80,19 @@ export function getDistanceUnit(weightUnit: WeightUnit) {
   return weightUnit === 'kg' ? 'km' : 'mi';
 }
 
+export function isWeightedTrackingType(trackingType: ExerciseTrackingType) {
+  return trackingType === 'weight_reps' || trackingType === 'weight_seconds';
+}
+
+export function isTimeBasedTrackingType(trackingType: ExerciseTrackingType) {
+  return (
+    trackingType === 'weight_seconds' ||
+    trackingType === 'reps_seconds' ||
+    trackingType === 'seconds_only' ||
+    trackingType === 'cardio'
+  );
+}
+
 export function getSetSeconds(set: SetMetrics) {
   if (set.seconds != null) {
     return set.seconds;

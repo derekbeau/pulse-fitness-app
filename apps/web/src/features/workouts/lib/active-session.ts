@@ -15,7 +15,11 @@ import type {
   ActiveWorkoutSet,
   ActiveWorkoutSetDrafts,
 } from '../types';
-import { parsePrescribedRepsValue, resolveTrackingType } from './tracking';
+import {
+  isWeightedTrackingType,
+  parsePrescribedRepsValue,
+  resolveTrackingType,
+} from './tracking';
 import { workoutEnhancedExercises } from './mock-data';
 
 const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
@@ -83,6 +87,7 @@ export function buildActiveWorkoutSession(
         exerciseId: templateExercise.exerciseId,
         exerciseName: exercise?.name ?? templateExercise.exerciseName,
         prescribedReps: templateExercise.reps,
+        trackingType: templateExercise.trackingType,
       });
       const sets = getWorkoutSets(templateExercise, setDrafts);
       const completedSets = sets.filter((set) => set.completed).length;
@@ -207,6 +212,7 @@ export function createWorkoutSetDraft(
     exerciseId,
     exerciseName: exercise?.name ?? templateExercise.exerciseName,
     prescribedReps: templateExercise.reps,
+    trackingType: templateExercise.trackingType,
   });
   const initialValue = completed ? parsePrescribedRepsValue(templateExercise.reps) : null;
 
@@ -222,7 +228,10 @@ export function createWorkoutSetDraft(
     targetWeight: null,
     targetWeightMax: null,
     targetWeightMin: null,
-    weight: completed ? (sampleWeightByExerciseId.get(exerciseId) ?? null) : null,
+    weight:
+      completed && isWeightedTrackingType(trackingType)
+        ? (sampleWeightByExerciseId.get(exerciseId) ?? null)
+        : null,
   };
 }
 

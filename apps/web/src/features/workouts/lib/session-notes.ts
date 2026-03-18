@@ -7,6 +7,7 @@ import type {
 
 import type { ActiveWorkoutSetDrafts } from '@/features/workouts/types';
 import type { WorkoutTemplate as MockWorkoutTemplate } from '@/lib/mock-data/workouts';
+import { isTimeBasedTrackingType, isWeightedTrackingType } from './tracking';
 
 type TemplateExerciseLookup = Map<
   string,
@@ -55,11 +56,7 @@ export function buildSessionSetInputs(
     const templateExercise = templateExerciseById.get(exerciseId);
     const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[exerciseId]);
     const trackingType = templateExercise?.trackingType ?? 'weight_reps';
-    const isTimeBased =
-      trackingType === 'weight_seconds' ||
-      trackingType === 'reps_seconds' ||
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio';
+    const isTimeBased = isTimeBasedTrackingType(trackingType);
 
     for (const draftSet of [...draftSets].sort((left, right) => left.number - right.number)) {
       sessionSets.push({
@@ -76,7 +73,7 @@ export function buildSessionSetInputs(
         targetWeightMax: draftSet.targetWeightMax,
         targetSeconds: draftSet.targetSeconds,
         targetDistance: draftSet.targetDistance,
-        weight: draftSet.weight,
+        weight: isWeightedTrackingType(trackingType) ? draftSet.weight : null,
       });
     }
   }

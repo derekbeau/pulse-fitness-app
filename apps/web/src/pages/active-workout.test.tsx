@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -1011,6 +1011,114 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
   });
 
+  it('renders reps_only and seconds_only inputs from API template tracking types', async () => {
+    vi.useRealTimers();
+    const templateId = '2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db';
+    const startedAt = Date.parse('2026-03-06T12:00:00.000Z');
+    const mockFetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-templates/${templateId}`)) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: templateId,
+              userId: 'user-1',
+              name: 'Tracking QA',
+              description: null,
+              tags: [],
+              sections: [
+                {
+                  type: 'warmup',
+                  exercises: [],
+                },
+                {
+                  type: 'main',
+                  exercises: [
+                    {
+                      id: 'template-exercise-dead-bug',
+                      exerciseId: 'dead-bug',
+                      exerciseName: 'Dead Bug',
+                      trackingType: 'reps_only',
+                      sets: 1,
+                      repsMin: 12,
+                      repsMax: 12,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                  ],
+                },
+                {
+                  type: 'cooldown',
+                  exercises: [
+                    {
+                      id: 'template-exercise-dead-hang',
+                      exerciseId: 'dead-hang',
+                      exerciseName: 'Dead Hang',
+                      trackingType: 'seconds_only',
+                      sets: 1,
+                      repsMin: 30,
+                      repsMax: 30,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                    {
+                      id: 'template-exercise-couch-stretch',
+                      exerciseId: 'couch-stretch',
+                      exerciseName: 'Couch Stretch',
+                      trackingType: 'seconds_only',
+                      sets: 1,
+                      repsMin: 45,
+                      repsMax: 45,
+                      tempo: '2111',
+                      restSeconds: 60,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                  ],
+                },
+              ],
+              createdAt: startedAt,
+              updatedAt: startedAt,
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    renderActiveWorkoutPage(`/workouts/active?template=${templateId}`);
+    await screen.findByRole('heading', { level: 1, name: 'Tracking QA' });
+    await waitFor(() => {
+      expect(screen.getByText('0/3 sets completed')).toBeInTheDocument();
+    });
+
+    const deadBugCard = getExerciseCard('Dead Bug');
+    expect(within(deadBugCard).getByLabelText('Reps for set 1')).toBeInTheDocument();
+    expect(within(deadBugCard).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+
+    const deadHangCard = getExerciseCard('Dead Hang');
+    expect(within(deadHangCard).getByLabelText('Seconds for set 1')).toBeInTheDocument();
+    expect(within(deadHangCard).queryByLabelText('Reps for set 1')).not.toBeInTheDocument();
+    expect(within(deadHangCard).queryByLabelText('Weight for set 1')).not.toBeInTheDocument();
+
+    const couchStretchCard = getExerciseCard('Couch Stretch');
+    expect(within(couchStretchCard).getByLabelText('Seconds for set 1')).toBeInTheDocument();
+  });
+
   it('creates a completed session without a pre-stored token by using dev auto-session auth', async () => {
     vi.useRealTimers();
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
@@ -1188,6 +1296,99 @@ describe('ActiveWorkoutPage', () => {
         setNumber: 2,
         skipped: false,
         weight: 45,
+      },
+    ]);
+  });
+
+  it('forces weight to null for non-weighted tracking types in completion payloads', () => {
+    const payloadSets = buildSessionSetInputs(
+      {
+        'dead-bug': [
+          {
+            completed: true,
+            distance: null,
+            id: 'dead-bug-set-1',
+            number: 1,
+            reps: 12,
+            seconds: null,
+            weight: 0,
+          },
+        ],
+        'dead-hang': [
+          {
+            completed: true,
+            distance: null,
+            id: 'dead-hang-set-1',
+            number: 1,
+            reps: null,
+            seconds: 30,
+            weight: 0,
+          },
+        ],
+      },
+      new Map([
+        [
+          'dead-bug',
+          {
+            exercise: {
+              badges: ['mobility'],
+              exerciseId: 'dead-bug',
+              exerciseName: 'Dead Bug',
+              formCues: [],
+              reps: '12',
+              restSeconds: 45,
+              sets: 1,
+              tempo: '2111',
+              trackingType: 'reps_only',
+            },
+            section: 'main',
+            trackingType: 'reps_only',
+          },
+        ],
+        [
+          'dead-hang',
+          {
+            exercise: {
+              badges: ['mobility'],
+              exerciseId: 'dead-hang',
+              exerciseName: 'Dead Hang',
+              formCues: [],
+              reps: '30 sec',
+              restSeconds: 45,
+              sets: 1,
+              tempo: '2111',
+              trackingType: 'seconds_only',
+            },
+            section: 'cooldown',
+            trackingType: 'seconds_only',
+          },
+        ],
+      ]),
+      {},
+    );
+
+    expect(payloadSets).toEqual([
+      {
+        completed: true,
+        exerciseId: 'dead-bug',
+        notes: null,
+        orderIndex: 0,
+        reps: 12,
+        section: 'main',
+        setNumber: 1,
+        skipped: false,
+        weight: null,
+      },
+      {
+        completed: true,
+        exerciseId: 'dead-hang',
+        notes: null,
+        orderIndex: 0,
+        reps: 30,
+        section: 'cooldown',
+        setNumber: 1,
+        skipped: false,
+        weight: null,
       },
     ]);
   });

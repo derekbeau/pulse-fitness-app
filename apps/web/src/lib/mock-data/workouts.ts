@@ -1,4 +1,5 @@
 import { addDays, startOfWeek, toDateKey } from '@/lib/date-utils';
+import type { ExerciseTrackingType } from '@pulse/shared';
 
 export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
 
@@ -39,6 +40,7 @@ export interface WorkoutExercise {
 export interface WorkoutTemplateExercise {
   exerciseId: WorkoutExercise['id'];
   exerciseName?: string;
+  trackingType?: ExerciseTrackingType;
   sets: number;
   reps: string;
   tempo: string;

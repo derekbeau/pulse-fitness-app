@@ -63,6 +63,8 @@ import {
 } from '@/features/workouts/api/workouts';
 import {
   getSetVolume,
+  isTimeBasedTrackingType,
+  isWeightedTrackingType,
   resolveTrackingType,
 } from '@/features/workouts/lib/tracking';
 import { useCompleteSession } from '@/hooks/use-complete-session';
@@ -253,16 +255,6 @@ export function ActiveWorkoutPage() {
     });
   }, [activeWorkoutDraftId, navigate]);
 
-  const sessionTrackingTypeById = useMemo(
-    () =>
-      new Map(
-        (activeSession?.exercises ?? []).map((exercise) => [
-          exercise.exerciseId,
-          exercise.trackingType,
-        ]),
-      ),
-    [activeSession?.exercises],
-  );
   const templateExerciseById = useMemo(
     () =>
       new Map(
@@ -273,7 +265,7 @@ export function ActiveWorkoutPage() {
               exercise,
               section: section.type,
               trackingType: resolveTrackingType({
-                trackingType: sessionTrackingTypeById.get(exercise.exerciseId) ?? undefined,
+                trackingType: exercise.trackingType,
                 category: mockExerciseById.get(exercise.exerciseId)?.category,
                 exerciseId: exercise.exerciseId,
                 exerciseName: exercise.exerciseName,
@@ -283,7 +275,7 @@ export function ActiveWorkoutPage() {
           ]),
         ),
       ),
-    [template, sessionTrackingTypeById],
+    [template],
   );
   const exerciseOrderIndexById = useMemo(
     () => buildExerciseOrderIndexById(template, exerciseOrderBySection),
@@ -1059,12 +1051,16 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const normalizedUpdate = update;
     const updatedSets = exerciseSets.map((set) =>
       set.id === setId
         ? {
-            ...set,
-            ...normalizedUpdate,
+            ...normalizeSetDraftForTrackingType(
+              {
+                ...set,
+                ...update,
+              },
+              templateExercise.trackingType,
+            ),
           }
         : set,
     );
@@ -1082,14 +1078,12 @@ export function ActiveWorkoutPage() {
 
     if (activeSessionId) {
       setSessionError(null);
-      const isTimeBased = ['weight_seconds', 'reps_seconds', 'seconds_only', 'cardio'].includes(
-        templateExercise.trackingType,
-      );
+      const isTimeBased = isTimeBasedTrackingType(templateExercise.trackingType);
       const persistedUpdate = {
         completed: updatedSet.completed,
         // Bridge for time-based exercises: store seconds in the `reps` column until DB support lands.
         reps: isTimeBased ? updatedSet.seconds : updatedSet.reps,
-        weight: updatedSet.weight,
+        weight: isWeightedTrackingType(templateExercise.trackingType) ? updatedSet.weight : null,
       };
       updateSetMutation.mutate(
         {
@@ -1109,14 +1103,14 @@ export function ActiveWorkoutPage() {
       );
     }
 
-    if (normalizedUpdate.completed === false) {
+    if (update.completed === false) {
       setRestTimer(null);
       setRestTimerTargetSetId(null);
       setFocusSetId(null);
       return;
     }
 
-    if (normalizedUpdate.completed !== true || previousSet.completed || !updatedSet.completed) {
+    if (update.completed !== true || previousSet.completed || !updatedSet.completed) {
       return;
     }
 
@@ -1381,20 +1375,9 @@ function createSessionSetDrafts(
   for (const sessionSet of sessionSets) {
     const trackingType =
       templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
-    const nextSeconds =
-      trackingType === 'weight_seconds' ||
-      trackingType === 'reps_seconds' ||
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio'
-        ? sessionSet.reps
-        : null;
-    const nextReps =
-      trackingType === 'weight_seconds' ||
-      trackingType === 'reps_seconds' ||
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio'
-        ? null
-        : sessionSet.reps;
+    const isTimeBased = isTimeBasedTrackingType(trackingType);
+    const nextSeconds = isTimeBased ? sessionSet.reps : null;
+    const nextReps = isTimeBased ? null : sessionSet.reps;
     const nextSet = {
       completed: sessionSet.completed,
       distance: null,
@@ -1407,7 +1390,7 @@ function createSessionSetDrafts(
       targetWeight: sessionSet.targetWeight ?? null,
       targetWeightMax: sessionSet.targetWeightMax ?? null,
       targetWeightMin: sessionSet.targetWeightMin ?? null,
-      weight: sessionSet.weight,
+      weight: isWeightedTrackingType(trackingType) ? sessionSet.weight : null,
     };
     const existingSets = drafts[sessionSet.exerciseId] ?? [];
     const existingSetIndex = existingSets.findIndex((set) => set.number === sessionSet.setNumber);
@@ -1839,6 +1822,20 @@ function findSetSectionId(session: ReturnType<typeof buildActiveWorkoutSession>,
   return null;
 }
 
+function normalizeSetDraftForTrackingType<T extends { weight: number | null }>(
+  setDraft: T,
+  trackingType: ExerciseTrackingType,
+) {
+  if (!isWeightedTrackingType(trackingType)) {
+    return {
+      ...setDraft,
+      weight: null,
+    };
+  }
+
+  return setDraft;
+}
+
 function toDateTimeLocalValue(isoString: string) {
   const date = new Date(isoString);
 
@@ -1944,6 +1941,7 @@ function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplat
       exercises: section.exercises.map((exercise) => ({
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
+        trackingType: exercise.trackingType,
         sets: exercise.sets ?? 1,
         reps: formatTemplateExerciseReps(exercise.repsMin, exercise.repsMax),
         tempo: exercise.tempo ?? '2111',
@@ -2024,6 +2022,7 @@ function buildTemplateFromSession(
         sessionExercise.exerciseName ||
         fallbackExerciseNameById.get(sessionExercise.exerciseId) ||
         'Unknown Exercise',
+      trackingType: fallbackExercise?.trackingType ?? sessionExercise.trackingType ?? undefined,
       sets: Math.max(
         fallbackExercise?.sets ?? 0,
         sessionExercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0),
@@ -2077,6 +2076,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       exerciseId: string;
       exerciseName: string;
       orderIndex: number;
+      trackingType: ExerciseTrackingType | null;
       section: WorkoutTemplateSectionType | null;
       sets: SessionSet[];
     }
@@ -2094,6 +2094,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       exerciseId: set.exerciseId,
       exerciseName: namesById.get(set.exerciseId) ?? 'Unknown Exercise',
       orderIndex: set.orderIndex ?? 0,
+      trackingType: null,
       section: set.section,
       sets: [set],
     });
