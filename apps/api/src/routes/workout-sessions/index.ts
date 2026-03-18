@@ -53,7 +53,7 @@ import {
   buildExerciseSectionOrder,
   buildInitialSessionSets,
   reorderSessionSetsByExercise,
-} from '../workout-agent.js';
+} from './session-set-utils.js';
 
 import {
   applySessionCorrections,

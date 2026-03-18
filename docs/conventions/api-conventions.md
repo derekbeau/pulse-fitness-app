@@ -7,6 +7,7 @@ Pulse uses Fastify plugins plus shared Zod schemas. This document defines the un
 - App routes live under `/api/v1/`.
 - Single API surface with auth-aware behavior replaces separate user and agent route trees.
 - Most routes accept either JWT or AgentToken auth on the same endpoint.
+- Use one request schema per endpoint body/params/query definition. Do not branch contracts by auth mode.
 - Agent-only capabilities stay on the same `/api/v1/*` surface and may layer `requireAgentOnly` after `requireAuth`, for example `/api/v1/context`.
 - Health and infrastructure checks may live outside the versioned prefix, for example `/health`.
 - Group routes by domain plugin, then register each plugin with a prefix in `apps/api/src/index.ts`.
@@ -22,6 +23,7 @@ Current examples:
 
 - Validate every request boundary with Zod: body, querystring, params, and headers when applicable.
 - Shared request and response schemas belong in `packages/shared/src/schemas/`.
+- Unified schemas may include optional convenience aliases (for example `foodName`, `exerciseName`, `reps` shorthand); route handlers should consume canonical fields after middleware transforms.
 - Route handlers should use `safeParse` when they need custom error envelopes instead of Fastify's default validation output.
 - Reject malformed input with `400` and the standard error envelope:
 
@@ -40,6 +42,14 @@ Common validation rules:
 - Pagination uses integer `page` and `limit`.
 - Optional strings should be `.trim()`-ed and, when meaningful, `.min(1)`.
 - Auth-normalized identifiers such as usernames should be transformed in the shared schema so register and login behave identically.
+
+## Agent Middleware Pattern
+
+Unified routes with agent conveniences should use middleware hooks instead of route-level auth branching:
+
+- `preHandler: agentRequestTransform` resolves names, expands shorthand fields, and performs agent auto-create behavior for AgentToken requests.
+- `onSend: agentEnrichmentOnSend` appends optional `agent` guidance from request context when available.
+- Handlers should implement one canonical write/read path and avoid `isAgentRequest()` schema branching.
 
 ## Authentication
 

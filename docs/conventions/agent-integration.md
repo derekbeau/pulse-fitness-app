@@ -6,6 +6,7 @@ This document defines how external AI agents should authenticate, call unified `
 
 - Use `/api/v1/*` for both app flows and programmatic agent workflows.
 - Agent-specific conveniences such as name resolution, auto-create behavior, and response hints activate automatically for `Authorization: AgentToken <token>` requests.
+- Convenience request fields (for example `foodName`, `exerciseName`, `templateName`, `reps`) are normalized by middleware; route handlers persist canonical fields.
 - Treat `GET /api/v1/context` as the first call in most agent sessions. It is on the unified route surface but remains AgentToken-only.
 
 ## Authentication
@@ -100,7 +101,7 @@ Notes:
 
 - JWT callers should not depend on `agent`.
 - Agent responses are additive. Core resource data still lives under `data`.
-- List endpoints may omit `meta` for AgentToken callers when the agent-focused shape is intentionally simplified.
+- List endpoints use the same paginated envelope for JWT and AgentToken callers: `{ data, meta }` with optional `agent`.
 
 ## Endpoint Reference
 
@@ -173,7 +174,7 @@ Notes:
 
 #### `GET /api/v1/foods?q=<term>&limit=<n>`
 
-Searches user foods by name or brand. AgentToken callers receive a compact result shape without pagination metadata.
+Searches user foods by name or brand and returns the standard paginated envelope.
 
 #### `POST /api/v1/foods`
 
@@ -187,6 +188,16 @@ Logs a meal for a date from food-name references. Under AgentToken auth:
 - Foods can be auto-created when inline macros are provided.
 - If any food name cannot be resolved, the API returns `422 UNRESOLVED_FOODS`.
 - The response may include an `agent` field with nutrition hints and `suggestedActions`.
+
+Unified-schema convenience example:
+
+```json
+{
+  "date": "2026-03-09",
+  "name": "Lunch",
+  "items": [{ "foodName": "Chicken Breast", "quantity": 2 }]
+}
+```
 
 Response (`201`):
 
@@ -240,15 +251,29 @@ Enriches metadata for a user-owned exercise after creation.
 
 #### `GET /api/v1/exercises?q=<term>&limit=<n>`
 
-Searches visible exercises (shared + user-scoped). AgentToken callers receive the compact exercise list shape.
+Searches visible exercises (shared + user-scoped) and returns the standard paginated envelope.
 
 #### `POST /api/v1/workout-templates`
 
-Creates a template from plain-text sections and exercises. AgentToken auth enables:
+Creates a template from unified template schema fields. AgentToken auth enables:
 
 - name-based exercise resolution
 - auto-create behavior for unknown exercises
-- `newExercises` enrichment for follow-up metadata patching
+- reps shorthand expansion (`reps` -> `repsMin/repsMax`)
+
+Unified-schema convenience example:
+
+```json
+{
+  "name": "Upper A",
+  "sections": [
+    {
+      "type": "main",
+      "exercises": [{ "exerciseName": "Bench Press", "sets": 4, "reps": "6-8" }]
+    }
+  ]
+}
+```
 
 #### `PUT /api/v1/workout-templates/:id`
 
@@ -270,6 +295,14 @@ Starts an in-progress session. AgentToken responses may include `agent.hints`, `
 
 Updates session status, set progress, and agent-driven mid-session changes on the unified route surface.
 
+Unified-schema convenience example:
+
+```json
+{
+  "sets": [{ "exerciseName": "Bench Press", "setNumber": 1, "weight": 185, "reps": 8 }]
+}
+```
+
 ### Weight And Habits
 
 #### `POST /api/v1/weight`
@@ -288,7 +321,7 @@ Upserts a habit entry for a date. AgentToken responses may include completion hi
 
 #### `GET /api/v1/nutrition/:date/summary`
 
-Returns macro totals, targets, and remaining intake for the requested date.
+Returns the shared nutrition-summary schema (`date`, `meals`, `actual`, `target`) for both auth modes, with optional agent enrichment containing remaining-macro guidance.
 
 ## Recommended Workflows
 
@@ -312,9 +345,8 @@ Returns macro totals, targets, and remaining intake for the requested date.
 2. If `POST /api/v1/exercises` returns `created: false`, review `candidates` before retrying with `force: true`.
 3. Create or update templates with `POST` or `PUT /api/v1/workout-templates`.
 4. Schedule training using `POST /api/v1/scheduled-workouts`, then review the plan with `GET /api/v1/scheduled-workouts`.
-5. Read `newExercises` from template creation responses and enrich each via `PATCH /api/v1/exercises/:id`.
-6. Start a session with `POST /api/v1/workout-sessions`.
-7. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
+5. Start a session with `POST /api/v1/workout-sessions`.
+6. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
 
 ## Operational Notes
 

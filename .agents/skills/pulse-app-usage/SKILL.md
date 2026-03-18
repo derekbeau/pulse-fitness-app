@@ -26,6 +26,7 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 
 - All writes go through the `/api/v1/*` API — no direct DB or file editing.
 - Agent-specific convenience features (name resolution, auto-create, workflow hints) activate automatically on `/api/v1/*` when the request uses AgentToken auth.
+- Endpoints use unified shared schemas; middleware expands convenience fields (`foodName`, `exerciseName`, `templateName`, `reps`) into canonical payloads before handlers run.
 - Responses for AgentToken callers can include an optional `agent` field with hints, suggested actions, and related state.
 - Date format: `YYYY-MM-DD`. Time format: `HH:MM` (24h).
 - Before adding new data, inspect recent entries via `/api/v1/context/` for consistency.
@@ -45,9 +46,9 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 
 **Fuzzy input resolution:** When the user references food vaguely, resolve it from recent context before asking. Check recent meal logs, saved foods, and conversation history. Only ask if there is genuine ambiguity that could change the macros meaningfully.
 
-### Meal Item Modes
+### Meal Item Patterns
 
-Use `POST /api/v1/meals/` with one of two item modes:
+`POST /api/v1/meals/` uses one unified meal-item schema with two common patterns:
 
 1. **Saved-food mode (default):**
    - Send `foodName` + `quantity` (+ optional display fields).
@@ -105,7 +106,7 @@ Meals support editing via PATCH:
 
 ### Nutrition Summaries
 
-- `GET /api/v1/nutrition/:date/summary` — detailed meals and macros for a date
+- `GET /api/v1/nutrition/:date/summary` — macro totals/targets summary for a date (with optional agent guidance)
 - `GET /api/v1/nutrition/week-summary` — weekly summary
 
 ### Meal Response Format
@@ -134,7 +135,7 @@ If no new foods were created, explicitly say that existing food entries were reu
 
 - **Search**: `GET /api/v1/exercises/?q=<term>` — always search before creating.
 - **Create with dedup guard**: `POST /api/v1/exercises/` — if the response is `{ "data": { "created": false, "candidates": [...] } }`, inspect candidates and only retry with `force: true` when a true new exercise is required.
-- **Enrich new exercises**: After template creation, read `data.newExercises` and call `PATCH /api/v1/exercises/:id` for each with: `muscleGroups`, `equipment`, `category`, `trackingType`, `instructions`, `formCues`, `tags`.
+- **Enrich exercises**: Use `PATCH /api/v1/exercises/:id` any time you need to improve metadata (`muscleGroups`, `equipment`, `category`, `trackingType`, `instructions`, `formCues`, `tags`).
 - **Last performance**: `GET /api/v1/exercises/:id/last-performance` — useful for programming progression.
 
 ### Templates
@@ -153,7 +154,7 @@ If no new foods were created, explicitly say that existing food entries were reu
 ### Sessions
 
 - **Start**: `POST /api/v1/workout-sessions/` with `{ "templateId": "<id>" }` or `{ "name": "Ad hoc" }`.
-- **Log sets**: `PATCH /api/v1/workout-sessions/:id` with `sets: [{ exerciseName, setNumber, weight, reps }]`.
+- **Log sets**: `PATCH /api/v1/workout-sessions/:id` with `sets: [{ exerciseName, setNumber, weight, reps }]` (middleware resolves `exerciseName` to canonical `exerciseId`).
 - **Add exercises mid-session**: `addExercises: [{ name, sets, reps, section }]`
 - **Remove unstarted exercises**: `removeExercises: [exerciseId]` — returns 409 if exercise has logged sets.
 - **Reorder exercises**: `reorderExercises: [exerciseId, ...]`

@@ -29,6 +29,93 @@ import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 const DEFAULT_OPENAPI_SERVER_URL = 'http://localhost:3001';
+const REQUEST_BODY_ANYOF_BRANCH_SELECTION: Record<string, Partial<Record<string, number>>> = {
+  '/api/v1/exercises/': { post: 1 },
+  '/api/v1/meals/': { post: 1 },
+  '/api/v1/workout-sessions/': { post: 0 },
+  '/api/v1/workout-sessions/{id}': { put: 0, patch: 0 },
+  '/api/v1/workout-templates/': { post: 0 },
+  '/api/v1/workout-templates/{id}': { put: 0, patch: 0 },
+};
+
+const normalizeOpenApiRequestBodySchemas = (openapiObject: unknown) => {
+  if (typeof openapiObject === 'object' && openapiObject !== null) {
+    const wrapper = openapiObject as { openapiObject?: unknown; swaggerObject?: unknown };
+    if (wrapper.openapiObject !== undefined) {
+      return normalizeOpenApiRequestBodySchemas(wrapper.openapiObject);
+    }
+
+    if (wrapper.swaggerObject !== undefined) {
+      return normalizeOpenApiRequestBodySchemas(wrapper.swaggerObject);
+    }
+  }
+
+  if (typeof openapiObject !== 'object' || openapiObject === null) {
+    return openapiObject;
+  }
+
+  const document = openapiObject as {
+    paths?: Record<
+      string,
+      Partial<
+        Record<
+          string,
+          {
+            requestBody?: {
+              content?: {
+                'application/json'?: {
+                  schema?: Record<string, unknown>;
+                };
+              };
+            };
+          }
+        >
+      >
+    >;
+  };
+
+  const paths = document.paths;
+  if (!paths) {
+    return openapiObject;
+  }
+
+  for (const [path, methodSelections] of Object.entries(REQUEST_BODY_ANYOF_BRANCH_SELECTION)) {
+    const pathItem = paths[path];
+    if (!pathItem) {
+      continue;
+    }
+
+    for (const [method, selectedBranchIndex] of Object.entries(methodSelections)) {
+      if (typeof selectedBranchIndex !== 'number') {
+        continue;
+      }
+
+      const operation = pathItem[method];
+      if (!operation) {
+        continue;
+      }
+
+      const schema = operation.requestBody?.content?.['application/json']?.schema;
+      if (!schema || !Array.isArray(schema.anyOf)) {
+        continue;
+      }
+
+      const selectedSchema = schema.anyOf[selectedBranchIndex];
+      if (typeof selectedSchema !== 'object' || selectedSchema === null) {
+        continue;
+      }
+
+      const jsonContent = operation.requestBody?.content?.['application/json'];
+      if (!jsonContent) {
+        continue;
+      }
+
+      jsonContent.schema = selectedSchema as Record<string, unknown>;
+    }
+  }
+
+  return openapiObject;
+};
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
@@ -81,6 +168,8 @@ export const buildServer = () => {
       },
     },
     transform: jsonSchemaTransform,
+    transformObject: (documentObject) =>
+      normalizeOpenApiRequestBodySchemas(documentObject) as Record<string, unknown>,
   });
 
   app.register(swaggerUi, {
