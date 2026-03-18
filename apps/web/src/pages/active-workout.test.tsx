@@ -191,8 +191,8 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '65' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -754,21 +754,21 @@ describe('ActiveWorkoutPage', () => {
     vi.useRealTimers();
     renderActiveWorkoutPage();
 
-    const finishButton = screen.getByRole('button', { name: 'Finish Workout' });
-    const finishFooter = finishButton.closest('div');
-    expect(finishFooter).not.toBeNull();
+    const completeButton = screen.getByRole('button', { name: 'Complete Workout' });
+    const completeFooter = completeButton.closest('div');
+    expect(completeFooter).not.toBeNull();
     expect(
-      within(finishFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
+      within(completeFooter as HTMLElement).getByText(/\d+\/\d+ sets completed/i),
     ).toBeInTheDocument();
 
-    fireEvent.click(finishButton);
+    fireEvent.click(completeButton);
     expect(screen.getByText(/End workout with \d+ sets remaining\?/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText(/End workout with \d+ sets remaining\?/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
@@ -813,11 +813,62 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByTestId('summary-pill-count-sets')).toHaveTextContent(/\d+\/\d+/);
   });
 
+  it('keeps the session active after the last set until completion is explicitly confirmed', () => {
+    vi.useRealTimers();
+    renderActiveWorkoutPage();
+
+    completeSet('Row Erg', 1);
+    completeSet('Banded Shoulder External Rotation', 1);
+    completeSet('Banded Shoulder External Rotation', 2);
+    completeSet('Incline Dumbbell Press', 1);
+    completeSet('Incline Dumbbell Press', 2);
+    completeSet('Incline Dumbbell Press', 3);
+    completeSet('Seated Dumbbell Shoulder Press', 1);
+    completeSet('Seated Dumbbell Shoulder Press', 2);
+    completeSet('Seated Dumbbell Shoulder Press', 3);
+    completeSet('Cable Lateral Raise', 1);
+    completeSet('Cable Lateral Raise', 2);
+    completeSet('Cable Lateral Raise', 3);
+    completeSet('Rope Triceps Pushdown', 1);
+    completeSet('Rope Triceps Pushdown', 2);
+    completeSet('Rope Triceps Pushdown', 3);
+
+    if (!screen.queryByRole('heading', { level: 3, name: 'Couch Stretch' })) {
+      fireEvent.click(screen.getByRole('button', { name: /Cooldown/i }));
+    }
+
+    completeSet('Couch Stretch', 1);
+    completeSet('Couch Stretch', 2);
+
+    expect(screen.getByRole('button', { name: 'Complete Workout' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    expect(screen.getByText('Complete this workout?')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Complete this workout?')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
 
     const rpeGroup = screen.getByRole('group', { name: 'Session RPE rating' });
     expect(rpeGroup).toBeInTheDocument();
@@ -928,8 +979,8 @@ describe('ActiveWorkoutPage', () => {
 
     renderActiveWorkoutPage();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Workout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
     fireEvent.click(
       within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
         name: '7',

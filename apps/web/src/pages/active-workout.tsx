@@ -695,8 +695,8 @@ export function ActiveWorkoutPage() {
           />
 
           <div className="pt-2">
-            <Button className="w-full sm:w-auto" onClick={handleFinishWorkout} type="button">
-              Finish Workout
+            <Button className="w-full sm:w-auto" onClick={handleCompleteWorkout} type="button">
+              Complete Workout
             </Button>
             <p className="mt-2 text-sm text-muted">{`${completedSetsSummary} sets completed`}</p>
           </div>
@@ -1137,11 +1137,6 @@ export function ActiveWorkoutPage() {
       sessionStartedAt: startTime,
     });
 
-    if (updatedSession.completedSets === updatedSession.totalSets) {
-      transitionToFeedbackStage();
-      return;
-    }
-
     const nextTargetSetId = findNextPendingSetId(updatedSession);
 
     if (!nextTargetSetId) {
@@ -1202,19 +1197,17 @@ export function ActiveWorkoutPage() {
     setRestTimerTargetSetId(null);
   }
 
-  function handleFinishWorkout() {
-    if (remainingSetCount > 0) {
-      confirm({
-        title: 'Finish workout early?',
-        description: `End workout with ${remainingSetCount} sets remaining?`,
-        confirmLabel: 'Finish',
-        onConfirm: transitionToFeedbackStage,
-        variant: 'default',
-      });
-      return;
-    }
-
-    transitionToFeedbackStage();
+  function handleCompleteWorkout() {
+    confirm({
+      title: 'Complete this workout?',
+      description:
+        remainingSetCount > 0
+          ? `End workout with ${remainingSetCount} sets remaining?`
+          : 'You can review, add notes, and enter feedback before finalizing.',
+      confirmLabel: 'Complete',
+      onConfirm: transitionToFeedbackStage,
+      variant: 'default',
+    });
   }
 
   function transitionToFeedbackStage() {
