@@ -16,7 +16,6 @@ import { findWorkoutTemplateByName } from '../routes/workout-templates/store.js'
 
 const DEFAULT_EXERCISE_CATEGORY: ExerciseCategory = 'compound';
 const DEFAULT_EXERCISE_TRACKING_TYPE: ExerciseTrackingType = 'weight_reps';
-const DEFAULT_REP_TARGET = 10;
 
 type ResolvedFood = NonNullable<Awaited<ReturnType<typeof findFoodByName>>>;
 type ResolvedExercise = NonNullable<Awaited<ReturnType<typeof findVisibleExerciseByName>>>;
@@ -116,6 +115,8 @@ const applyResolvedFoodMacros = ({
   item.fat = food.fat * amount;
 };
 
+// This intentionally accepts several non-rep fields because some valid
+// agent exercise inputs are time-based or metadata-driven and omit `reps`.
 const isAgentExerciseInput = (value: MutableRecord) =>
   trimNonEmptyString(value.name) !== undefined &&
   isFiniteNumber(value.sets) &&
@@ -257,7 +258,9 @@ export async function autoCreateIfMissing(
   };
 }
 
-export function parseRepsInput(reps: number | string): { repsMin: number; repsMax: number } {
+export function parseRepsInput(
+  reps: number | string,
+): { repsMin: number; repsMax: number } | undefined {
   if (typeof reps === 'number') {
     return { repsMin: reps, repsMax: reps };
   }
@@ -279,7 +282,7 @@ export function parseRepsInput(reps: number | string): { repsMin: number; repsMa
     }
   }
 
-  return { repsMin: DEFAULT_REP_TARGET, repsMax: DEFAULT_REP_TARGET };
+  return undefined;
 }
 
 const resolveExerciseIdFromName = async ({
@@ -444,9 +447,11 @@ const transformExerciseMutation = async ({
     (input.repsMin === undefined || input.repsMin === null) &&
     (input.repsMax === undefined || input.repsMax === null)
   ) {
-    const { repsMin, repsMax } = parseRepsInput(input.reps);
-    input.repsMin = repsMin;
-    input.repsMax = repsMax;
+    const parsedReps = parseRepsInput(input.reps);
+    if (parsedReps) {
+      input.repsMin = parsedReps.repsMin;
+      input.repsMax = parsedReps.repsMax;
+    }
   }
 };
 
@@ -485,9 +490,7 @@ export const transformAgentRequestBody = async ({
 }): Promise<void> => {
   const visit = async (value: unknown): Promise<void> => {
     if (Array.isArray(value)) {
-      for (const entry of value) {
-        await visit(entry);
-      }
+      await Promise.all(value.map(visit));
       return;
     }
 

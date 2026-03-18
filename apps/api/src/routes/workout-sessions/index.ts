@@ -299,6 +299,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       let input: CreateWorkoutSessionInput = request.body;
+      // templateName is an AgentToken-only convenience; JWT callers must send templateId.
       if (request.body.templateName !== undefined && !isAgentRequest(request)) {
         return sendError(
           reply,
@@ -308,6 +309,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      // AgentToken callers passed templateName, but middleware could not resolve it to templateId.
       if (request.body.templateName !== undefined && request.body.templateId === null) {
         return sendError(
           reply,

@@ -77,6 +77,12 @@ describe('parseRepsInput', () => {
     expect(parseRepsInput('8-10')).toEqual({ repsMin: 8, repsMax: 10 });
     expect(parseRepsInput(12)).toEqual({ repsMin: 12, repsMax: 12 });
   });
+
+  it('returns undefined for unrecognized rep shorthand', () => {
+    expect(parseRepsInput('AMRAP')).toBeUndefined();
+    expect(parseRepsInput('8+')).toBeUndefined();
+    expect(parseRepsInput('3x8')).toBeUndefined();
+  });
 });
 
 describe('agentRequestTransform', () => {
@@ -336,6 +342,55 @@ describe('agentRequestTransform', () => {
                   repsMax: 10,
                   tempo: '3010',
                   setTargets: [{ setNumber: 1, targetWeight: 185 }],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('preserves unrecognized reps shorthand without default expansion', async () => {
+    vi.mocked(findVisibleExerciseByName).mockResolvedValue(buildExercise());
+
+    const app = await buildTestApp();
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/transform',
+        payload: {
+          sections: [
+            {
+              type: 'main',
+              exercises: [
+                {
+                  exerciseId: 'Bench Press',
+                  exerciseName: 'Bench Press',
+                  sets: 3,
+                  reps: 'AMRAP',
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: {
+          sections: [
+            {
+              type: 'main',
+              exercises: [
+                {
+                  exerciseId: 'exercise-1',
+                  exerciseName: 'Bench Press',
+                  sets: 3,
+                  reps: 'AMRAP',
                 },
               ],
             },

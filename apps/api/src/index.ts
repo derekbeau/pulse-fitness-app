@@ -29,6 +29,10 @@ import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 const DEFAULT_OPENAPI_SERVER_URL = 'http://localhost:3001';
+// TODO: remove once transformed schemas no longer emit top-level request-body anyOf branches.
+// This transitional map currently normalizes these endpoints:
+// createExerciseInputSchema, createMealInputSchema, create/updateWorkoutSessionInputSchema,
+// and create/updateWorkoutTemplateInputSchema.
 const REQUEST_BODY_ANYOF_BRANCH_SELECTION: Record<string, Partial<Record<string, number>>> = {
   '/api/v1/exercises/': { post: 1 },
   '/api/v1/meals/': { post: 1 },

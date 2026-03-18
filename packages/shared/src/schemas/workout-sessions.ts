@@ -350,6 +350,9 @@ export const sessionSetInputSchema = z
     path: ['targetWeightMax'],
   })
   .transform((value, context) => {
+    // Fastify validates/transforms request bodies before preHandler hooks run.
+    // agentRequestTransform handles exerciseName resolution later via the
+    // "exerciseId as name" fallback when this transform normalizes aliases.
     const resolvedExerciseId = value.exerciseId ?? value.exerciseName;
     if (!resolvedExerciseId) {
       context.addIssue({

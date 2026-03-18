@@ -613,7 +613,6 @@ export const buildDataResponse = <T>(
   data: T,
   context?: AgentEnrichmentContext,
 ) => {
-  setAgentEnrichmentContext(request, context);
   const agent = buildAgentEnrichment(request, data, context);
 
   return agent ? { data, agent } : { data };
