@@ -56,6 +56,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
@@ -207,9 +208,10 @@ export function SessionExerciseList({
     exerciseName: string;
     trackingType: ExerciseTrackingType;
   } | null>(null);
-  const [supersetSectionTarget, setSupersetSectionTarget] = useState<
-    ActiveWorkoutSessionData['sections'][number]['type'] | null
-  >(null);
+  const [supersetSectionTarget, setSupersetSectionTarget] = useState<{
+    sectionType: ActiveWorkoutSessionData['sections'][number]['type'];
+    initialExerciseId?: string;
+  } | null>(null);
   const repsInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const focusTarget = focusSetId ? findSetContext(session, focusSetId) : null;
   const renameExerciseMutation = useRenameExercise();
@@ -347,21 +349,6 @@ export function SessionExerciseList({
               hidden={!isOpen}
               id={`section-panel-${section.id}`}
             >
-              {onUpdateSupersetGroup && section.exercises.length >= 2 ? (
-                <div className="mb-3 flex justify-end">
-                  <Button
-                    disabled={supersetUpdatePending}
-                    onClick={() => setSupersetSectionTarget(section.type)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Braces aria-hidden="true" className="size-4" />
-                    Manage supersets
-                  </Button>
-                </div>
-              ) : null}
-
               <DndContext
                 collisionDetection={closestCenter}
                 onDragEnd={({ active, over }) => {
@@ -393,6 +380,15 @@ export function SessionExerciseList({
                             isMoveDownDisabled={exerciseIndex >= section.exercises.length - 1}
                             isMoveUpDisabled={exerciseIndex <= 0}
                             onAddSet={onAddSet}
+                            onConfigureSuperset={
+                              onUpdateSupersetGroup && section.exercises.length >= 2
+                                ? () =>
+                                    setSupersetSectionTarget({
+                                      sectionType: section.type,
+                                      initialExerciseId: item.exercise.id,
+                                    })
+                                : undefined
+                            }
                             onExerciseNotesChange={onExerciseNotesChange}
                             onMoveDown={() =>
                               reorderSectionExercises(exerciseIndex, exerciseIndex + 1)
@@ -508,6 +504,15 @@ export function SessionExerciseList({
                                     isMoveDownDisabled={itemIndex >= section.exercises.length - 1}
                                     isMoveUpDisabled={itemIndex <= 0}
                                     onAddSet={onAddSet}
+                                    onConfigureSuperset={
+                                      onUpdateSupersetGroup && section.exercises.length >= 2
+                                        ? () =>
+                                            setSupersetSectionTarget({
+                                              sectionType: section.type,
+                                              initialExerciseId: exercise.id,
+                                            })
+                                        : undefined
+                                    }
                                     onExerciseNotesChange={onExerciseNotesChange}
                                     onMoveDown={() =>
                                       reorderSectionExercises(itemIndex, itemIndex + 1)
@@ -563,9 +568,10 @@ export function SessionExerciseList({
 
       {supersetSectionTarget && onUpdateSupersetGroup ? (
         <SessionSupersetManagerDialog
+          initialSelectedExerciseId={supersetSectionTarget.initialExerciseId}
           isPending={supersetUpdatePending}
           onApply={(exerciseIds, supersetGroup) =>
-            onUpdateSupersetGroup(supersetSectionTarget, exerciseIds, supersetGroup)
+            onUpdateSupersetGroup(supersetSectionTarget.sectionType, exerciseIds, supersetGroup)
           }
           onOpenChange={(open) => {
             if (!open) {
@@ -573,7 +579,9 @@ export function SessionExerciseList({
             }
           }}
           section={
-            session.sections.find((section) => section.type === supersetSectionTarget) ?? null
+            session.sections.find(
+              (section) => section.type === supersetSectionTarget.sectionType,
+            ) ?? null
           }
         />
       ) : null}
@@ -659,6 +667,7 @@ type ExerciseCardItemProps = {
   isMoveDownDisabled: boolean;
   isMoveUpDisabled: boolean;
   onAddSet: (exerciseId: string) => void;
+  onConfigureSuperset?: () => void;
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
@@ -687,6 +696,7 @@ function ExerciseCardItem({
   isMoveDownDisabled,
   isMoveUpDisabled,
   onAddSet,
+  onConfigureSuperset,
   onExerciseNotesChange,
   onMoveDown,
   onMoveUp,
@@ -832,6 +842,15 @@ function ExerciseCardItem({
             <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
               Remove Last Set
             </DropdownMenuItem>
+            {onConfigureSuperset ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onConfigureSuperset}>
+                  <Braces aria-hidden="true" className="size-4" />
+                  Configure superset
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -1325,11 +1344,13 @@ function formatPhaseBadge(phaseBadge: ActiveWorkoutPhaseBadge) {
 }
 
 function SessionSupersetManagerDialog({
+  initialSelectedExerciseId,
   isPending,
   onApply,
   onOpenChange,
   section,
 }: {
+  initialSelectedExerciseId?: string;
   isPending: boolean;
   onApply: (exerciseIds: string[], supersetGroup: string | null) => void;
   onOpenChange: (open: boolean) => void;
@@ -1347,7 +1368,9 @@ function SessionSupersetManagerDialog({
     [section],
   );
   const [newSupersetName, setNewSupersetName] = useState(() => getNextSupersetName(supersetGroups));
-  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>(
+    initialSelectedExerciseId ? [initialSelectedExerciseId] : [],
+  );
 
   return (
     <Dialog onOpenChange={onOpenChange} open>

@@ -38,6 +38,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
       {children}
     </button>
   ),
+  DropdownMenuSeparator: () => <hr />,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
@@ -768,10 +769,17 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Manage supersets' })[0]);
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    if (!rowErgCard) throw new Error('Expected Row Erg card.');
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Configure superset' }),
+    );
 
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByText('1. Row Erg'));
+    // Row Erg should already be pre-selected from the menu trigger
     fireEvent.click(within(dialog).getByText('2. Banded Shoulder External Rotation'));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Group as Superset' }));
 
