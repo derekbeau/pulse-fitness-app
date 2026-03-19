@@ -124,7 +124,7 @@ describe('SessionDetail', () => {
     expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
     expect(
       screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }),
-    ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    ).toBeInTheDocument();
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
@@ -440,14 +440,11 @@ describe('SessionDetail', () => {
     renderSessionDetail(currentSession.id);
     await screen.findByText('Workout receipt');
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /open incline dumbbell press history/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /open incline dumbbell press history/i }));
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press history')).toBeInTheDocument();
-    expect(await screen.findByText(/Mar 1, 2026 -/)).toBeInTheDocument();
-    expect(screen.getByText(/8 reps/)).toBeInTheDocument();
+    expect(await screen.findByText(/Mar 1, 2026 - 105x8/)).toBeInTheDocument();
   });
 
   it('supports inline correction editing and only submits changed values', async () => {

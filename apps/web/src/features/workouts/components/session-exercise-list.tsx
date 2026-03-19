@@ -34,7 +34,7 @@ import {
   Circle,
   Dot,
   GripVertical,
-  History,
+  BarChart3,
   Link2Off,
   MoreVertical,
 } from 'lucide-react';
@@ -805,17 +805,6 @@ function ExerciseCardItem({
           </div>
         </button>
 
-        <Button
-          aria-label={`Open ${exercise.name} history`}
-          className="mt-0.5 size-8 shrink-0"
-          onClick={onOpenHistory}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <History aria-hidden="true" className="size-4" />
-        </Button>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -885,9 +874,19 @@ function ExerciseCardItem({
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
-                <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                  History
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                    History
+                  </p>
+                  <button
+                    className="flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline"
+                    onClick={onOpenHistory}
+                    type="button"
+                  >
+                    <BarChart3 aria-hidden="true" className="size-3.5" />
+                    View all
+                  </button>
+                </div>
                 <p className="text-sm text-foreground">
                   {formatHistoryPreview({
                     history: lastPerformance,
@@ -1154,6 +1153,7 @@ function formatCompactPerformanceSetByTrackingType(
         };
 
   return formatSetSummary(setMetrics, trackingType, {
+    compact: true,
     useLegacySecondsFallback: trackingType !== 'reps_seconds',
     weightUnit,
   });

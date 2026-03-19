@@ -110,20 +110,25 @@ export function formatSetSummary(
   set: SetMetrics,
   trackingType: ExerciseTrackingType,
   {
+    compact = false,
     includeSetNumber = false,
     useLegacySecondsFallback = true,
     weightUnit = 'lbs',
   }: {
+    compact?: boolean;
     includeSetNumber?: boolean;
     useLegacySecondsFallback?: boolean;
     weightUnit?: WeightUnit;
   } = {},
 ) {
-  const prefix =
-    includeSetNumber && set.setNumber != null ? `Set ${set.setNumber}: ` : '';
+  const prefix = includeSetNumber && set.setNumber != null ? `Set ${set.setNumber}: ` : '';
 
   if (set.skipped) {
     return `${prefix}Skipped`;
+  }
+
+  if (compact) {
+    return `${prefix}${formatSetCompact(set, trackingType, useLegacySecondsFallback, weightUnit)}`;
   }
 
   const weightLabel = set.weight != null ? `${formatWeightNumber(set.weight)} ${weightUnit}` : null;
@@ -155,6 +160,41 @@ export function formatSetSummary(
       return `${prefix}${joinSegments(secondsLabel, distanceLabel, ' / ')}`;
     default:
       return `${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`;
+  }
+}
+
+function formatSetCompact(
+  set: SetMetrics,
+  trackingType: ExerciseTrackingType,
+  useLegacySecondsFallback: boolean,
+  weightUnit: WeightUnit,
+) {
+  const w = set.weight != null ? formatWeightNumber(set.weight) : null;
+  const r = set.reps != null ? formatMetricNumber(set.reps) : null;
+  const seconds = getSetSecondsValue(set, useLegacySecondsFallback);
+  const s = seconds != null ? `${formatMetricNumber(seconds)}s` : null;
+  const distance = getSetDistance(set) ?? (trackingType === 'distance' ? set.reps : null);
+  const d =
+    distance != null ? `${formatMetricNumber(distance)}${getDistanceUnit(weightUnit)}` : null;
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+    case 'weight_seconds':
+      return w != null && s != null ? `${w}x${s}` : (w ?? s ?? '-');
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return r ?? '-';
+    case 'reps_seconds':
+      return r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
+    case 'seconds_only':
+      return s ?? '-';
+    case 'distance':
+      return d ?? '-';
+    case 'cardio':
+      return s != null && d != null ? `${s}/${d}` : (s ?? d ?? '-');
+    default:
+      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
   }
 }
 
@@ -352,11 +392,7 @@ export function formatTrackingMetricBreakdown(
   return segments.join(' • ');
 }
 
-function joinSegments(
-  left: string | null,
-  right: string | null,
-  separator: string,
-) {
+function joinSegments(left: string | null, right: string | null, separator: string) {
   if (left && right) {
     return `${left}${separator}${right}`;
   }

@@ -69,6 +69,7 @@ export function ExerciseHistoryModal({
                     : { reps: set.reps, weight: set.weight },
                   trackingType,
                   {
+                    compact: true,
                     useLegacySecondsFallback: trackingType !== 'reps_seconds',
                     weightUnit,
                   },
@@ -77,7 +78,10 @@ export function ExerciseHistoryModal({
               .join(', ');
 
             return (
-              <div className="rounded-lg border border-border bg-card px-3 py-2.5" key={session.sessionId}>
+              <div
+                className="rounded-lg border border-border bg-card px-3 py-2.5"
+                key={session.sessionId}
+              >
                 <p className="text-sm font-semibold text-foreground">
                   {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} - ${setSummary}`}
                 </p>

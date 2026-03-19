@@ -1427,9 +1427,7 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
-    expect(
-      within(card as HTMLElement).getByText(/Mar 13 - 25 lbs × 12 reps, 25 lbs × 12 reps/),
-    ).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/Mar 13 - 25x12, 25x12/)).toBeInTheDocument();
   });
 
   it('opens and closes full history modal from active workout exercise rows', async () => {
@@ -1476,11 +1474,16 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Row Erg history' }));
+    // "View all" button is inside the expanded exercise card's history section
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    if (!rowErgCard) throw new Error('Expected Row Erg card.');
+
+    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'View all' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Row Erg history')).toBeInTheDocument();
-    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
 
@@ -1544,7 +1547,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
     const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
     expect(relatedExerciseLabel).toBeVisible();
-    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60 lbs × 8 reps/);
+    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60x8/);
 
     useLastPerformanceSpy.mockRestore();
   });

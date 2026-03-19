@@ -2,9 +2,9 @@ import { useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
+  BarChart3,
   ChevronDown,
   Dumbbell,
-  History,
   ListChecks,
   NotebookPen,
   Repeat2,
@@ -501,13 +501,13 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
                       <Button
                         aria-label={`Open ${exercise.name} history`}
-                        className="size-11 min-h-11 min-w-11 self-start"
+                        className="h-9 self-start gap-1.5 px-3 text-xs"
                         onClick={() => setSelectedExerciseId(exercise.exerciseId)}
-                        size="icon-sm"
                         type="button"
                         variant="outline"
                       >
-                        <History aria-hidden="true" className="size-4" />
+                        <BarChart3 aria-hidden="true" className="size-3.5" />
+                        History
                       </Button>
                     </div>
                   </CardHeader>
