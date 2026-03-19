@@ -124,10 +124,8 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.change(within(inclineCard).getByLabelText('Reps for set 3'), {
       target: { value: '9' },
     });
-    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 3' }));
-
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(250);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 3')).toBeInTheDocument();
@@ -160,7 +158,7 @@ describe('ActiveWorkoutPage', () => {
     ).toBeChecked();
   });
 
-  it('only updates the rest timer on explicit set completion toggles', () => {
+  it('triggers rest timer on auto-completion and clears it when a field is emptied', () => {
     renderActiveWorkoutPage();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
@@ -171,9 +169,8 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.change(within(inclineCard).getByLabelText('Reps for set 1'), {
       target: { value: '8' },
     });
-    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 1' }));
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(250);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
@@ -185,30 +182,34 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '8' },
     });
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(250);
     });
 
-    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
-    expect(screen.queryByText('After Incline Dumbbell Press set 2')).not.toBeInTheDocument();
-
-    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 2' }));
     expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(20_000);
     });
 
+    // Editing a value on an already-completed set does not restart the rest timer
     fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
       target: { value: '9' },
     });
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(250);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
     expect(screen.queryByText('1:30')).not.toBeInTheDocument();
 
-    fireEvent.click(within(inclineCard).getByRole('checkbox', { name: 'Complete set 2' }));
+    // Clearing a required field auto-uncompletes and clears the rest timer
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
+      target: { value: '' },
+    });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
     expect(screen.queryByText('After Incline Dumbbell Press set 2')).not.toBeInTheDocument();
   });
 
@@ -1534,7 +1535,7 @@ function completeSet(exerciseName: string, setNumber: number) {
       value: '1',
     },
   });
-  fireEvent.click(within(card).getByRole('checkbox', { name: `Complete set ${setNumber}` }));
+  fireEvent.blur(input);
 
   const skipButton = screen.queryByRole('button', { name: /Skip rest timer/i });
 

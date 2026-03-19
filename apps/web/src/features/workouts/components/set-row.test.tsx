@@ -12,7 +12,7 @@ describe('SetRow', () => {
     vi.useRealTimers();
   });
 
-  it('renders compact inline inputs and sends value-only updates while typing', () => {
+  it('renders compact inline inputs and auto-completes when all fields are filled', () => {
     const onUpdate = vi.fn();
 
     render(
@@ -39,10 +39,11 @@ describe('SetRow', () => {
 
     expect(onUpdate).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(250);
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
       distance: null,
       reps: 10,
       seconds: null,
@@ -50,7 +51,7 @@ describe('SetRow', () => {
     });
   });
 
-  it('applies completed styling and keeps completion unchanged when editing values', () => {
+  it('applies completed styling and auto-uncompletes when a required field is cleared', () => {
     const onUpdate = vi.fn();
 
     render(<SetRow completed onUpdate={onUpdate} reps={13} setNumber={1} weight={50} />);
@@ -61,35 +62,24 @@ describe('SetRow', () => {
 
     expect(document.querySelector('[data-slot="set-row"]')).toHaveClass('bg-emerald-500/10');
     expect(onUpdate).toHaveBeenCalledWith({
+      completed: false,
       distance: null,
       reps: null,
       seconds: null,
       weight: 50,
     });
-    expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument();
   });
 
-  it('marks a set complete and incomplete through the explicit checkbox', () => {
+  it('auto-completes a set when all required fields are filled', () => {
     const onUpdate = vi.fn();
 
-    const { rerender } = render(
-      <SetRow completed={false} onUpdate={onUpdate} reps={8} setNumber={2} weight={60} />,
-    );
+    render(<SetRow completed={false} onUpdate={onUpdate} reps={null} setNumber={2} weight={60} />);
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Complete set 2' }));
+    fireEvent.change(screen.getByLabelText('Reps for set 2'), { target: { value: '8' } });
+    vi.advanceTimersByTime(250);
+
     expect(onUpdate).toHaveBeenCalledWith({
       completed: true,
-      distance: null,
-      reps: 8,
-      seconds: null,
-      weight: 60,
-    });
-
-    onUpdate.mockClear();
-    rerender(<SetRow completed onUpdate={onUpdate} reps={8} setNumber={2} weight={60} />);
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Complete set 2' }));
-    expect(onUpdate).toHaveBeenCalledWith({
-      completed: false,
       distance: null,
       reps: 8,
       seconds: null,
@@ -112,7 +102,7 @@ describe('SetRow', () => {
     expect(screen.queryByLabelText('Weight for set 2')).not.toBeInTheDocument();
   });
 
-  it('sends value-only updates for seconds-only rows', () => {
+  it('auto-completes seconds-only rows when seconds are entered', () => {
     const onUpdate = vi.fn();
 
     render(
@@ -127,9 +117,10 @@ describe('SetRow', () => {
     );
 
     fireEvent.change(screen.getByLabelText('Seconds for set 4'), { target: { value: '45' } });
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(250);
 
     expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
       distance: null,
       reps: null,
       seconds: 45,

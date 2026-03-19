@@ -1,12 +1,11 @@
 import { forwardRef, useState } from 'react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
-import { getDistanceUnit } from '../lib/tracking';
+import { getDistanceUnit, isSetCompleteForTrackingType } from '../lib/tracking';
 
 type SetRowUpdate = {
   completed?: boolean;
@@ -78,7 +77,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   );
   const debouncedOnUpdate = useDebouncedCallback((update: SetRowUpdate) => {
     onUpdate(update);
-  });
+  }, 250);
   const localCompleted = completed;
   const targetHint = formatTargetHint({
     targetDistance,
@@ -98,23 +97,9 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
       )}
       data-slot="set-row"
     >
-      <div className="flex shrink-0 items-start gap-2">
-        <Checkbox
-          aria-label={`Complete set ${setNumber}`}
-          checked={completed}
-          className="mt-0.5 border-border bg-background"
-          onCheckedChange={(nextChecked) => {
-            debouncedOnUpdate.cancel();
-            onUpdate({
-              ...resolvedValues,
-              completed: nextChecked === true,
-            });
-          }}
-        />
-        <div>
-          <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
-          {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
-        </div>
+      <div className="shrink-0">
+        <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
+        {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
       </div>
 
       <div
@@ -138,7 +123,8 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
                 [input.key]: value,
               }));
 
-              debouncedOnUpdate.run(nextValues);
+              const autoCompleted = isSetCompleteForTrackingType(trackingType, nextValues);
+              debouncedOnUpdate.run({ ...nextValues, completed: autoCompleted });
             }}
             onBlur={() => {
               debouncedOnUpdate.flush();
