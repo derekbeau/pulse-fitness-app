@@ -233,6 +233,7 @@ export function ActiveWorkoutPage() {
   const hydratedDraftKeyRef = useRef<string | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
+  const suppressStructureToastRef = useRef(false);
   const supplementalExercises = workoutSupplementalExercises;
 
   const activeSessionId = activeSession?.id ?? null;
@@ -356,7 +357,11 @@ export function ActiveWorkoutPage() {
         lastSessionStructureRef.current &&
         lastSessionStructureRef.current !== sessionStructureSignature
       ) {
-        toast('Workout updated by agent');
+        if (suppressStructureToastRef.current) {
+          suppressStructureToastRef.current = false;
+        } else {
+          toast('Workout updated by agent');
+        }
       }
     }
 
@@ -1225,6 +1230,7 @@ export function ActiveWorkoutPage() {
   }
 
   function handleReorderExercises(section: WorkoutTemplateSectionType, exerciseIds: string[]) {
+    suppressStructureToastRef.current = true;
     setExerciseOrderBySection((current) => ({
       ...current,
       [section]: exerciseIds,
@@ -1262,15 +1268,52 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const targetSection = session.sections.find((sessionSection) => sessionSection.type === section);
+    const targetSection = session.sections.find(
+      (sessionSection) => sessionSection.type === section,
+    );
     if (!targetSection) {
       return;
     }
 
-    const targetSectionExerciseIds = new Set(targetSection.exercises.map((exercise) => exercise.id));
-    const scopedExerciseIds = exerciseIds.filter((exerciseId) => targetSectionExerciseIds.has(exerciseId));
+    const targetSectionExerciseIds = new Set(
+      targetSection.exercises.map((exercise) => exercise.id),
+    );
+    const scopedExerciseIds = exerciseIds.filter((exerciseId) =>
+      targetSectionExerciseIds.has(exerciseId),
+    );
     if (scopedExerciseIds.length === 0) {
       return;
+    }
+
+    suppressStructureToastRef.current = true;
+
+    // When creating a superset, reorder exercises so the selected ones are adjacent.
+    // Move all selected exercises to be directly after the first selected exercise.
+    if (supersetGroup !== null && scopedExerciseIds.length > 1) {
+      const currentOrder = targetSection.exercises.map((exercise) => exercise.id);
+      const selectedSet = new Set(scopedExerciseIds);
+      const firstSelectedIndex = currentOrder.findIndex((id) => selectedSet.has(id));
+
+      if (firstSelectedIndex !== -1) {
+        const unselected = currentOrder.filter((id) => !selectedSet.has(id));
+        // Preserve the relative order of selected exercises as they appear in the section
+        const selectedInOrder = currentOrder.filter((id) => selectedSet.has(id));
+        // Insert selected exercises at the position of the first selected one
+        const insertIndex = unselected.findIndex((_, i) => i >= firstSelectedIndex);
+        const newOrder =
+          insertIndex === -1
+            ? [...unselected, ...selectedInOrder]
+            : [
+                ...unselected.slice(0, insertIndex),
+                ...selectedInOrder,
+                ...unselected.slice(insertIndex),
+              ];
+
+        const orderChanged = newOrder.some((id, i) => id !== currentOrder[i]);
+        if (orderChanged) {
+          handleReorderExercises(section, newOrder);
+        }
+      }
     }
 
     const allExercises = session.sections.flatMap((sessionSection) => sessionSection.exercises);

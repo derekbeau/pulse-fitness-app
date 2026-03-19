@@ -712,7 +712,7 @@ describe('SessionExerciseList', () => {
     expect(superset).toBeInTheDocument();
   });
 
-  it('collapses superset exercises as a single unit', () => {
+  it('collapses superset exercises independently', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
@@ -739,7 +739,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(getExercisePanelToggle('Cable Lateral Raise', 'cable-lateral-raise'));
 
     expect(document.getElementById('exercise-panel-cable-lateral-raise')).toHaveAttribute('hidden');
-    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).toHaveAttribute(
+    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).not.toHaveAttribute(
       'hidden',
     );
   });
