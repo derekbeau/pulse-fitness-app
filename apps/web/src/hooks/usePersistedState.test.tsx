@@ -75,10 +75,10 @@ describe('usePersistedState', () => {
   });
 
   it('does not throw when localStorage read/write fails', () => {
-    const getItemSpy = vi.spyOn(window.localStorage, 'getItem').mockImplementation(() => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('read blocked');
     });
-    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('write blocked');
     });
 

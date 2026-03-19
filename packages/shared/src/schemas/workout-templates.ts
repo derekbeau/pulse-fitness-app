@@ -203,7 +203,7 @@ export const updateWorkoutTemplateInputSchema = z
     name: requiredStringSchema.optional(),
     description: nullableStringSchema.optional(),
     tags: z.array(requiredStringSchema).max(20).optional(),
-    sections: z.array(workoutTemplateSectionInputSchema).max(3).optional(),
+    sections: z.array(workoutTemplateSectionInputSchema).max(4).optional(),
   })
   .superRefine((value, context) => {
     if (
