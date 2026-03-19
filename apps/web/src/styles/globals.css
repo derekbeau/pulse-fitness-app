@@ -303,9 +303,8 @@ body {
    MICRO-INTERACTIONS
    ============================================ */
 
-/* Button press effect */
-button:not(:disabled):active,
-[role="button"]:not(:disabled):active {
+/* Button press effect — scoped to shadcn Button only */
+[data-slot="button"]:not(:disabled):active {
   transform: scale(0.97);
 }
 
