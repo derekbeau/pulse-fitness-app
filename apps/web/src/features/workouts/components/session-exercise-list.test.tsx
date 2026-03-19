@@ -162,7 +162,7 @@ describe('SessionExerciseList', () => {
 
     const mainButton = screen.getByRole('button', { name: /Main/i });
     const mainBadge = within(mainButton).getByText('0/4');
-    expect(mainBadge).toHaveClass('bg-muted');
+    expect(mainBadge).toHaveClass('bg-secondary');
     expect(screen.queryByText('2/2 exercises done')).not.toBeInTheDocument();
     expect(screen.queryByText('0/4 exercises done')).not.toBeInTheDocument();
     expect(
@@ -180,6 +180,10 @@ describe('SessionExerciseList', () => {
     const currentCard = currentExercise.closest('[data-slot="card"]');
 
     expect(currentCard).not.toBeNull();
+
+    // Exercises default to collapsed — expand before checking panel content
+    fireEvent.click(getExercisePanelToggle('Incline Dumbbell Press', 'incline-dumbbell-press'));
+
     expect(
       within(currentCard as HTMLElement).getByLabelText('Weight for set 1'),
     ).toBeInTheDocument();
@@ -211,6 +215,7 @@ describe('SessionExerciseList', () => {
     const optionalCard = optionalExercise.closest('[data-slot="card"]');
 
     expect(optionalCard).not.toBeNull();
+    fireEvent.click(getExercisePanelToggle('Rope Triceps Pushdown', 'rope-triceps-pushdown'));
     expect(within(optionalCard as HTMLElement).getByText('Optional')).toBeInTheDocument();
   });
 
@@ -255,8 +260,8 @@ describe('SessionExerciseList', () => {
     const cooldownBadge = within(screen.getByRole('button', { name: /Cooldown/i })).getByText(
       '0/1',
     );
-    expect(cooldownBadge).toHaveClass('bg-muted');
-    expect(cooldownBadge).not.toHaveClass('bg-secondary');
+    expect(cooldownBadge).toHaveClass('bg-secondary');
+    expect(cooldownBadge).not.toHaveClass('bg-emerald-500/15');
   });
 
   it('debounces exercise notes updates until typing pauses', async () => {
@@ -671,13 +676,12 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
-
     const squatCard = screen
       .getByRole('heading', { level: 3, name: 'High-Bar Back Squat' })
       .closest('[data-slot="card"]');
 
     expect(squatCard).not.toBeNull();
+    fireEvent.click(getExercisePanelToggle('High-Bar Back Squat', 'high-bar-back-squat'));
     expect(within(squatCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),
@@ -735,7 +739,19 @@ describe('SessionExerciseList', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
+    // Exercises default to collapsed — expand both, then collapse one independently
+    fireEvent.click(getExercisePanelToggle('Cable Lateral Raise', 'cable-lateral-raise'));
+    fireEvent.click(getExercisePanelToggle('Rope Triceps Pushdown', 'rope-triceps-pushdown'));
+
+    // Both should now be expanded
+    expect(document.getElementById('exercise-panel-cable-lateral-raise')).not.toHaveAttribute(
+      'hidden',
+    );
+    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).not.toHaveAttribute(
+      'hidden',
+    );
+
+    // Collapse cable-lateral-raise independently
     fireEvent.click(getExercisePanelToggle('Cable Lateral Raise', 'cable-lateral-raise'));
 
     expect(document.getElementById('exercise-panel-cable-lateral-raise')).toHaveAttribute('hidden');
@@ -789,7 +805,6 @@ describe('SessionExerciseList', () => {
       'superset-a',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
     expect(onUpdateSupersetGroup).toHaveBeenCalledWith(
       'main',
@@ -824,8 +839,6 @@ describe('SessionExerciseList', () => {
         session={session}
       />,
     );
-
-    fireEvent.click(screen.getByRole('button', { name: /Main/i }));
 
     const currentCard = screen
       .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
@@ -980,6 +993,7 @@ describe('SessionExerciseList', () => {
         />,
       );
 
+      // Expand an exercise (default is collapsed) and collapse a section (default is open)
       fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
       fireEvent.click(screen.getByRole('button', { name: /Warmup/i }));
       act(() => {
@@ -993,7 +1007,7 @@ describe('SessionExerciseList', () => {
       expect(storedSections).not.toBeNull();
       expect(storedExercises).not.toBeNull();
       expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
-      expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': false });
+      expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': true });
 
       renderWithQueryClient(
         <SessionExerciseList
@@ -1011,10 +1025,8 @@ describe('SessionExerciseList', () => {
 
       fireEvent.click(warmupButton);
 
-      expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute(
-        'aria-expanded',
-        'false',
-      );
+      // Exercise state was persisted as expanded
+      expect(getExercisePanelToggle('Row Erg', 'row-erg')).toHaveAttribute('aria-expanded', 'true');
     } finally {
       vi.useRealTimers();
     }
@@ -1128,11 +1140,16 @@ describe('SessionExerciseList', () => {
       throw new Error('Expected Row Erg exercise header toggle.');
     }
 
+    // Exercise defaults to collapsed — expand it
+    expect(reopenedRowErgCardHeaderToggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(reopenedRowErgCardHeaderToggle);
+
     const rowErgSecondsInput = within(reopenedRowErgCard as HTMLElement).getByLabelText(
       'Seconds for set 1',
     );
     expect(rowErgSecondsInput).toBeVisible();
 
+    // Collapse it again
     fireEvent.click(reopenedRowErgCardHeaderToggle);
     expect(rowErgSecondsInput).not.toBeVisible();
   });
@@ -1488,6 +1505,7 @@ describe('SessionExerciseList', () => {
       .closest('[data-slot="card"]');
     if (!rowErgCard) throw new Error('Expected Row Erg card.');
 
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
     fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'View all' }));
 
     const dialog = await screen.findByRole('dialog');
@@ -1548,6 +1566,8 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Row Erg' })
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
     expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
     expect(within(rowErgCard as HTMLElement).getByText('Related history')).toBeInTheDocument();
     expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).not.toBeVisible();

@@ -271,10 +271,9 @@ function InProgressWorkoutCard({
   return (
     <Card
       className={cn(
-        'h-full gap-2.5 border-l-4 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        'h-full gap-2.5 py-0 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md',
         session.cardClass,
       )}
-      style={{ borderLeftColor: session.accentColor }}
     >
       <CardHeader className="gap-2.5 py-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
@@ -660,7 +659,7 @@ function getWorkoutPresentation(status: WorkoutSessionStatus) {
   if (status === 'in-progress') {
     return {
       accentColor: 'rgb(249 115 22)',
-      cardClass: 'border-orange-500/40',
+      cardClass: 'border-orange-500',
       statusBadgeClass:
         'bg-orange-500/15 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
       statusLabel: 'In Progress',

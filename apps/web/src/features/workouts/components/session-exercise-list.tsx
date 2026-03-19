@@ -146,20 +146,8 @@ const supersetAccentStyles = [
   'border-l-rose-500',
 ] as const;
 
-function isSectionInitiallyOpen(
-  section: ActiveWorkoutSessionData['sections'][number],
-  currentExerciseId: string | null,
-) {
-  return section.exercises.some((exercise) => exercise.id === currentExerciseId);
-}
-
 function createInitialOpenSections(session: ActiveWorkoutSessionData) {
-  return Object.fromEntries(
-    session.sections.map((section) => [
-      section.id,
-      isSectionInitiallyOpen(section, session.currentExerciseId),
-    ]),
-  );
+  return Object.fromEntries(session.sections.map((section) => [section.id, true]));
 }
 
 export function SessionExerciseList({
@@ -272,8 +260,7 @@ export function SessionExerciseList({
         );
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
-        const isOpen =
-          openSections[section.id] ?? isSectionInitiallyOpen(section, session.currentExerciseId);
+        const isOpen = openSections[section.id] ?? true;
         const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
           if (!onReorderExercises) {
             return;
@@ -307,10 +294,7 @@ export function SessionExerciseList({
               onClick={() =>
                 setOpenSections((current) => ({
                   ...current,
-                  [section.id]: !(
-                    current[section.id] ??
-                    isSectionInitiallyOpen(section, session.currentExerciseId)
-                  ),
+                  [section.id]: !(current[section.id] ?? true),
                 }))
               }
               type="button"
@@ -329,7 +313,7 @@ export function SessionExerciseList({
                       ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
                       : isSectionInProgress
                         ? 'border-transparent bg-secondary text-secondary-foreground'
-                        : 'border-border/70 bg-muted text-muted-foreground',
+                        : 'border-transparent bg-secondary text-secondary-foreground',
                   )}
                   variant="outline"
                 >
@@ -723,7 +707,7 @@ function ExerciseCardItem({
   const isExpanded =
     forceExpanded ||
     focusTargetExerciseId === exercise.id ||
-    (expandedExercises[resolvedCollapseKey] ?? true);
+    (expandedExercises[resolvedCollapseKey] ?? false);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;
@@ -744,7 +728,7 @@ function ExerciseCardItem({
         embeddedInSuperset && 'rounded-none border-none bg-transparent shadow-none',
         priorityAccentClass,
         !embeddedInSuperset && state === 'completed' && 'border-emerald-500/25 bg-emerald-500/5',
-        !embeddedInSuperset && state === 'in-progress' && 'border-primary/35 shadow-md',
+        !embeddedInSuperset && state === 'in-progress' && 'border-primary/50 shadow-md',
       )}
       ref={setNodeRef}
       style={{
@@ -773,7 +757,7 @@ function ExerciseCardItem({
           onClick={() =>
             setExpandedExercises((current) => ({
               ...current,
-              [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? true),
+              [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? false),
             }))
           }
           type="button"
@@ -871,7 +855,7 @@ function ExerciseCardItem({
                   {formatPhaseBadge(exercise.phaseBadge)}
                 </Badge>
               ) : null}
-              <MetadataPill label={exercise.category} />
+              <MetadataPill label={exercise.category.replace(/\b\w/g, (c) => c.toUpperCase())} />
               {exercise.priority === 'optional' ? <MetadataPill label="Optional" /> : null}
               {exercise.tempo ? (
                 <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
@@ -1077,7 +1061,7 @@ function ExerciseStatusIndicator({
         className={cn(
           'inline-flex size-5 items-center justify-center rounded-full sm:size-7',
           priority === 'required'
-            ? 'bg-amber-500/15 text-amber-600'
+            ? 'bg-primary/15 text-primary'
             : 'border border-dashed border-border text-muted',
         )}
       >
