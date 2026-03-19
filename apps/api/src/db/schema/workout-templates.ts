@@ -6,7 +6,7 @@ import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sq
 import { exercises } from './exercises.js';
 import { users } from './users.js';
 
-export type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown';
+export type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown' | 'supplemental';
 export type TemplateExerciseSetTarget = {
   setNumber: number;
   targetWeight?: number | null;
@@ -77,7 +77,7 @@ export const templateExercises = sqliteTable(
     ),
     check(
       'template_exercises_section_check',
-      sql`${table.section} in ('warmup', 'main', 'cooldown')`,
+      sql`${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,
     ),
     check(
       'template_exercises_reps_range_check',

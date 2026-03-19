@@ -5,7 +5,6 @@ export { SessionHeader } from './components/session-header';
 export { SessionDetail } from './components/session-detail';
 export { SessionContext } from './components/session-context';
 export { SessionSummary } from './components/session-summary';
-export { SupplementalMenu } from './components/supplemental-menu';
 export { TemplateBrowser } from './components/template-browser';
 export { ScheduledWorkoutDetail } from './components/scheduled-workout-detail';
 export { WorkoutCalendar } from './components/workout-calendar';
@@ -25,7 +24,6 @@ export {
   workoutEnhancedExercises,
   workoutExerciseHistory,
   workoutSessionContext,
-  workoutSupplementalExercises,
 } from './lib/mock-data';
 export type {
   ActiveWorkoutCompletedSession,
@@ -43,7 +41,5 @@ export type {
   ActiveWorkoutSessionContext,
   ActiveWorkoutSessionData,
   ActiveWorkoutSleepStatus,
-  ActiveWorkoutSupplementalCategory,
-  ActiveWorkoutSupplementalExercise,
   ActiveWorkoutSetDrafts,
 } from './types';

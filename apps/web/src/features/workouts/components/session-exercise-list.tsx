@@ -101,11 +101,11 @@ type SessionExerciseListProps = {
   onExerciseNotesChange: (exerciseId: string, notes: string) => void;
   onFocusSetHandled?: () => void;
   onReorderExercises?: (
-    section: 'warmup' | 'main' | 'cooldown',
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental',
     exerciseIds: string[],
   ) => void | Promise<void>;
   onUpdateSupersetGroup?: (
-    section: 'warmup' | 'main' | 'cooldown',
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental',
     exerciseIds: string[],
     supersetGroup: string | null,
   ) => void | Promise<void>;
@@ -123,6 +123,7 @@ const sectionLabels = {
   warmup: 'Warmup',
   main: 'Main',
   cooldown: 'Cooldown',
+  supplemental: 'Supplemental',
 } as const;
 
 const phaseBadgeStyles: Record<ActiveWorkoutPhaseBadge, string> = {

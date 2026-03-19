@@ -12,7 +12,7 @@ import type {
 
 import { exercises, templateExercises, workoutTemplates } from '../../db/schema/index.js';
 
-const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
 
 type TemplateRecord = {
   id: string;
@@ -87,10 +87,11 @@ const templateExerciseSelection = {
   programmingNotes: templateExercises.programmingNotes,
 };
 
-const buildTemplateSections = (
-  rows: TemplateExerciseRecord[],
-): [WorkoutTemplateSection, WorkoutTemplateSection, WorkoutTemplateSection] =>
-  SECTION_ORDER.map((sectionType) => ({
+const buildTemplateSections = (rows: TemplateExerciseRecord[]): WorkoutTemplateSection[] =>
+  SECTION_ORDER.filter(
+    (sectionType) =>
+      sectionType !== 'supplemental' || rows.some((row) => row.section === 'supplemental'),
+  ).map((sectionType) => ({
     type: sectionType,
     exercises: rows
       .filter((row) => row.section === sectionType)

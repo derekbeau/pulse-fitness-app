@@ -104,12 +104,14 @@ const sectionLabels = {
   warmup: 'Warmup',
   main: 'Main',
   cooldown: 'Cooldown',
+  supplemental: 'Supplemental',
 } as const;
 
 const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'border-l-[var(--color-accent-mint)]',
   main: 'border-l-[var(--color-accent-pink)]',
   cooldown: 'border-l-[var(--color-accent-cream)]',
+  supplemental: 'border-l-[var(--color-accent-cream)]',
 };
 
 const supersetAccentStyles = [
@@ -148,9 +150,8 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     exerciseName: string;
   } | null>(null);
   const [addSectionTarget, setAddSectionTarget] = useState<WorkoutTemplateSectionType | null>(null);
-  const [supersetSectionTarget, setSupersetSectionTarget] = useState<WorkoutTemplateSectionType | null>(
-    null,
-  );
+  const [supersetSectionTarget, setSupersetSectionTarget] =
+    useState<WorkoutTemplateSectionType | null>(null);
   const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
     exerciseId: string;
     templateExerciseId: string;
@@ -629,7 +630,11 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                       return;
                                     }
 
-                                    const reordered = arrayMove(section.exercises, index, index + 1);
+                                    const reordered = arrayMove(
+                                      section.exercises,
+                                      index,
+                                      index + 1,
+                                    );
                                     reorderExercisesMutation.mutate({
                                       templateId: template.id,
                                       section: section.type,
@@ -641,7 +646,11 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                       return;
                                     }
 
-                                    const reordered = arrayMove(section.exercises, index, index - 1);
+                                    const reordered = arrayMove(
+                                      section.exercises,
+                                      index,
+                                      index - 1,
+                                    );
                                     reorderExercisesMutation.mutate({
                                       templateId: template.id,
                                       section: section.type,
@@ -794,7 +803,9 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               setSupersetSectionTarget(null);
             }
           }}
-          section={template.sections.find((section) => section.type === supersetSectionTarget) ?? null}
+          section={
+            template.sections.find((section) => section.type === supersetSectionTarget) ?? null
+          }
         />
       ) : null}
       {exerciseDetailTarget && activeExerciseDetail ? (
@@ -1227,7 +1238,9 @@ function SupersetManagerDialog({
                       </span>
                     </span>
                     {exercise.supersetGroup ? (
-                      <Badge variant="secondary">{formatSupersetLabel(exercise.supersetGroup)}</Badge>
+                      <Badge variant="secondary">
+                        {formatSupersetLabel(exercise.supersetGroup)}
+                      </Badge>
                     ) : (
                       <Badge variant="outline">Ungrouped</Badge>
                     )}
@@ -1342,7 +1355,8 @@ function ExerciseDetailModal({
 
   const matchedExercise = exerciseQuery.data ?? null;
 
-  const formCues = matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
+  const formCues =
+    matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
   const instructionText = matchedExercise?.instructions ?? exercise.exercise?.instructions ?? null;
   const muscleGroups = matchedExercise?.muscleGroups ?? [];
   const trackingType = matchedExercise?.trackingType ?? exercise.trackingType;
@@ -1452,7 +1466,11 @@ function ExerciseDetailModal({
               <p className="text-sm text-muted">Loading recent performance...</p>
             ) : (
               <p className="text-sm text-foreground">
-                {formatLastPerformanceSummary(historyQuery.data?.history ?? null, trackingType, weightUnit)}
+                {formatLastPerformanceSummary(
+                  historyQuery.data?.history ?? null,
+                  trackingType,
+                  weightUnit,
+                )}
               </p>
             )}
           </div>
@@ -1698,7 +1716,10 @@ function buildTemplateExerciseGroups(exercises: WorkoutTemplateExercise[]) {
 
     const groupedExercises = [currentExercise];
     let nextIndex = index + 1;
-    while (nextIndex < exercises.length && exercises[nextIndex]?.supersetGroup === currentExercise.supersetGroup) {
+    while (
+      nextIndex < exercises.length &&
+      exercises[nextIndex]?.supersetGroup === currentExercise.supersetGroup
+    ) {
       const nextExercise = exercises[nextIndex];
       if (nextExercise) {
         groupedExercises.push(nextExercise);
@@ -1740,7 +1761,12 @@ function formatSupersetLabel(groupId: string) {
 function getNextSupersetName(existingGroups: string[]) {
   const used = new Set(
     existingGroups
-      .map((group) => group.replace(/^superset-?/i, '').trim().toUpperCase())
+      .map((group) =>
+        group
+          .replace(/^superset-?/i, '')
+          .trim()
+          .toUpperCase(),
+      )
       .filter(Boolean),
   );
 

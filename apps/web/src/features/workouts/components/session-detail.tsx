@@ -66,7 +66,7 @@ type SessionDetailProps = {
   sessionId: string;
 };
 
-type SessionDetailSectionType = WorkoutTemplateSectionType | 'supplemental';
+type SessionDetailSectionType = WorkoutTemplateSectionType;
 
 type SessionDetailExercise = {
   exerciseId: string;
@@ -955,9 +955,14 @@ function buildSections(
         };
       });
 
+      const filteredExercises =
+        sectionType === 'supplemental'
+          ? exercises.filter((exercise) => exercise.sets.some((set) => set.completed))
+          : exercises;
+
       return {
-        exercises,
-        subtitle: buildSectionSubtitle(sectionType, exercises.length),
+        exercises: filteredExercises,
+        subtitle: buildSectionSubtitle(sectionType, filteredExercises.length),
         type: sectionType,
       };
     })

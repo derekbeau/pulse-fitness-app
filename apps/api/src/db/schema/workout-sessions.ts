@@ -157,7 +157,7 @@ export const sessionSets = sqliteTable(
     check('session_sets_set_number_check', sql`${table.setNumber} > 0`),
     check(
       'session_sets_section_check',
-      sql`${table.section} is null or ${table.section} in ('warmup', 'main', 'cooldown')`,
+      sql`${table.section} is null or ${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,
     ),
     check(
       'session_sets_completion_state_check',

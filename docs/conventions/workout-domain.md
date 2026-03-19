@@ -16,6 +16,7 @@ Template sections use this fixed sequence:
 1. `warmup`
 2. `main`
 3. `cooldown`
+4. `supplemental` — optional add-on exercises; tracked identically to other sections but only shown in history/receipts if at least one set was completed
 
 Each section contains an ordered `exercises` array. Preserve order exactly as authored; the UI should not reorder template exercises automatically.
 

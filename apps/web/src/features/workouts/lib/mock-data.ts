@@ -14,7 +14,6 @@ import type {
   ActiveWorkoutExerciseHistory,
   ActiveWorkoutLastPerformance,
   ActiveWorkoutSessionContext,
-  ActiveWorkoutSupplementalExercise,
 } from '../types';
 import { resolveTrackingType } from './tracking';
 
@@ -35,7 +34,6 @@ type CompletedSessionInput = {
   name: string;
   notes: string;
   startedAtTime: string;
-  supplemental: ActiveWorkoutSupplementalExercise[];
   templateId: string;
 };
 
@@ -91,57 +89,6 @@ export const workoutSessionContext: ActiveWorkoutSessionContext = {
   trainingPhaseLabel: 'Accumulation Block 2 - Rebuild',
 };
 
-const sharedUpperPushSupplemental: ActiveWorkoutSupplementalExercise[] = [
-  {
-    category: 'strength-side',
-    details: 'Rear-delt and scap upward-rotation work after pressing volume.',
-    exerciseId: 'face-pull',
-    name: 'Cable Face Pull',
-    priority: 'required',
-    reps: '15',
-    sets: '3',
-  },
-  {
-    category: 'core-spine',
-    details: 'Reset rib stack after benching and shoulder press volume.',
-    exerciseId: 'dead-bug-breathing',
-    name: 'Dead Bug Breathing',
-    priority: 'required',
-    reps: '5 breaths/side',
-    sets: '2',
-  },
-  {
-    category: 'optional',
-    details: 'Only perform if shoulder feels stable and energy stays above 3/5.',
-    exerciseId: 'bottoms-up-carry',
-    name: 'Bottoms-Up Kettlebell Carry',
-    priority: 'optional',
-    reps: '20 m/side',
-    sets: '2',
-  },
-];
-
-const sharedLowerSupplemental: ActiveWorkoutSupplementalExercise[] = [
-  {
-    category: 'atg',
-    details: 'Knee-over-toe accessory to keep tendon load tolerant.',
-    exerciseId: 'tibialis-raise',
-    name: 'Tibialis Raise',
-    priority: 'required',
-    reps: '20',
-    sets: '3',
-  },
-  {
-    category: 'strength-side',
-    details: 'Single-leg calf and foot strength for deceleration work.',
-    exerciseId: 'single-leg-calf-raise',
-    name: 'Single-Leg Calf Raise',
-    priority: 'required',
-    reps: '12/side',
-    sets: '3',
-  },
-];
-
 export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
   {
     id: 'shoulder-feel',
@@ -159,19 +106,6 @@ export const workoutFeedbackFields: ActiveWorkoutCustomFeedbackField[] = [
     type: 'text',
     value: '',
     notes: '',
-  },
-];
-
-export const workoutSupplementalExercises: ActiveWorkoutSupplementalExercise[] = [
-  ...sharedUpperPushSupplemental,
-  {
-    category: 'atg',
-    details: 'Light anterior-knee resilience work between lower blocks.',
-    exerciseId: 'reverse-sled-drag',
-    name: 'Reverse Sled Drag',
-    priority: 'required',
-    reps: '60 m',
-    sets: '4',
   },
 ];
 
@@ -268,7 +202,6 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         value: 'Top set on incline can move to 52.5s if warm-up stays pain-free.',
       },
     ],
-    supplemental: sharedUpperPushSupplemental,
   }),
   createCompletedSession({
     date: '2026-02-27',
@@ -349,18 +282,6 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         value: 3,
       },
     ],
-    supplemental: [
-      ...sharedLowerSupplemental,
-      {
-        category: 'atg',
-        details: 'Backward drags to pump blood into the tendon before leaving.',
-        exerciseId: 'reverse-sled-drag',
-        name: 'Reverse Sled Drag',
-        priority: 'required',
-        reps: '80 m',
-        sets: '3',
-      },
-    ],
   }),
   createCompletedSession({
     date: '2026-02-24',
@@ -432,17 +353,6 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         label: 'Coach note',
         type: 'text',
         value: 'Bench can stay at 150 next week and chase an extra rep before adding load.',
-      },
-    ],
-    supplemental: [
-      {
-        category: 'core-spine',
-        details: 'Anti-extension work to finish the hinge day.',
-        exerciseId: 'ab-wheel',
-        name: 'Ab Wheel',
-        priority: 'required',
-        reps: '8',
-        sets: '3',
       },
     ],
   }),
@@ -530,7 +440,6 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         value: 'Warm-up with one extra face-pull set next time.',
       },
     ],
-    supplemental: sharedUpperPushSupplemental,
   }),
 ];
 
@@ -708,7 +617,6 @@ export const enhancedWorkoutMockData = {
   enhancedExercises: workoutEnhancedExercises,
   exerciseHistory: workoutExerciseHistory,
   sessionContext: workoutSessionContext,
-  supplementalExercises: workoutSupplementalExercises,
 };
 
 function createCompletedSession(input: CompletedSessionInput): ActiveWorkoutCompletedSession {
@@ -731,7 +639,6 @@ function createCompletedSession(input: CompletedSessionInput): ActiveWorkoutComp
     notes: input.notes,
     startedAt: toIsoTimestamp(input.date, input.startedAtTime),
     status: 'completed',
-    supplemental: input.supplemental,
     templateId: input.templateId,
   };
 }

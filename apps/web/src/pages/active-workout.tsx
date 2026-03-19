@@ -26,13 +26,11 @@ import {
   SessionFeedback,
   SessionHeader,
   SessionSummary,
-  SupplementalMenu,
   buildActiveWorkoutSession,
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   workoutFeedbackFields,
   workoutSessionContext,
-  workoutSupplementalExercises,
   type ActiveWorkoutCustomFeedbackField,
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
@@ -114,8 +112,8 @@ const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
   main: 'Main',
   cooldown: 'Cooldown',
+  supplemental: 'Supplemental',
 };
-// Shared workout schema currently supports only warmup/main/cooldown section types.
 
 const categoryBadgeByExerciseId = new Map(
   mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
@@ -227,14 +225,12 @@ export function ActiveWorkoutPage() {
   const [editableTimeSegments, setEditableTimeSegments] = useState<WorkoutSessionTimeSegment[]>([]);
   const [timeSegmentError, setTimeSegmentError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [supplementalChecks, setSupplementalChecks] = useState<Record<string, boolean>>({});
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
   const hydratedDraftKeyRef = useRef<string | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
   const suppressStructureToastRef = useRef(false);
-  const supplementalExercises = workoutSupplementalExercises;
 
   const activeSessionId = activeSession?.id ?? null;
   const activeSessionStatus = activeSession?.status ?? null;
@@ -452,25 +448,27 @@ export function ActiveWorkoutPage() {
   const summaryExerciseResults = useMemo(
     () =>
       session.sections.flatMap((section) =>
-        section.exercises.map((exercise) => {
-          const completedSets = exercise.sets.filter((set) => set.completed);
-          const metricLabel = getTrackingSummaryMetricLabel(exercise.trackingType);
-          return {
-            id: exercise.id,
-            metricLabel,
-            metricValue: completedSets.reduce(
-              (total, set) => total + getSetSummaryMetricValue(exercise.trackingType, set),
-              0,
-            ),
-            name: exercise.name,
-            notes: exercise.notes,
-            reps: isRepTrackingType(exercise.trackingType)
-              ? completedSets.reduce((total, set) => total + (set.reps ?? 0), 0)
-              : 0,
-            setsCompleted: exercise.completedSets,
-            totalSets: exercise.targetSets,
-          };
-        }),
+        section.exercises
+          .filter((exercise) => section.type !== 'supplemental' || exercise.completedSets > 0)
+          .map((exercise) => {
+            const completedSets = exercise.sets.filter((set) => set.completed);
+            const metricLabel = getTrackingSummaryMetricLabel(exercise.trackingType);
+            return {
+              id: exercise.id,
+              metricLabel,
+              metricValue: completedSets.reduce(
+                (total, set) => total + getSetSummaryMetricValue(exercise.trackingType, set),
+                0,
+              ),
+              name: exercise.name,
+              notes: exercise.notes,
+              reps: isRepTrackingType(exercise.trackingType)
+                ? completedSets.reduce((total, set) => total + (set.reps ?? 0), 0)
+                : 0,
+              setsCompleted: exercise.completedSets,
+              totalSets: exercise.targetSets,
+            };
+          }),
       ),
     [session.sections],
   );
@@ -739,17 +737,6 @@ export function ActiveWorkoutPage() {
             showDragHandles={showDragHandles}
             supersetUpdatePending={supersetUpdatePending}
             weightUnit={weightUnit}
-          />
-
-          <SupplementalMenu
-            checkedByExerciseId={supplementalChecks}
-            exercises={supplementalExercises}
-            onCheckedChange={(exerciseId, checked) =>
-              setSupplementalChecks((current) => ({
-                ...current,
-                [exerciseId]: checked,
-              }))
-            }
           />
 
           <div className="pt-2">
@@ -1692,6 +1679,10 @@ function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): Exercise
       template.sections
         .find((section) => section.type === 'cooldown')
         ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+    supplemental:
+      template.sections
+        .find((section) => section.type === 'supplemental')
+        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
   };
 }
 
@@ -1704,6 +1695,7 @@ function buildExerciseOrderFromSessionSets(
     warmup: [] as string[],
     main: [] as string[],
     cooldown: [] as string[],
+    supplemental: [] as string[],
   };
 
   const sortedSets = [...sessionSets].sort((left, right) => {
@@ -1719,7 +1711,12 @@ function buildExerciseOrderFromSessionSets(
   });
 
   for (const set of sortedSets) {
-    if (set.section !== 'warmup' && set.section !== 'main' && set.section !== 'cooldown') {
+    if (
+      set.section !== 'warmup' &&
+      set.section !== 'main' &&
+      set.section !== 'cooldown' &&
+      set.section !== 'supplemental'
+    ) {
       continue;
     }
 
@@ -1734,6 +1731,7 @@ function buildExerciseOrderFromSessionSets(
     warmup: mergeExerciseOrder(sectionOrder.warmup, templateOrder.warmup),
     main: mergeExerciseOrder(sectionOrder.main, templateOrder.main),
     cooldown: mergeExerciseOrder(sectionOrder.cooldown, templateOrder.cooldown),
+    supplemental: mergeExerciseOrder(sectionOrder.supplemental, templateOrder.supplemental),
   };
 }
 
@@ -2202,7 +2200,7 @@ function buildTemplateFromSession(
     return fallbackTemplate;
   }
 
-  const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+  const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
   const fallbackExerciseById = new Map(
     fallbackTemplate.sections.flatMap((section) =>
       section.exercises.map((exercise) => [

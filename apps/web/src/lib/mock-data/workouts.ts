@@ -12,7 +12,7 @@ export type WorkoutBadgeType =
   | 'cardio'
   | 'mobility';
 
-export type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown';
+export type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown' | 'supplemental';
 
 export type WorkoutSessionStatus = 'scheduled' | 'in-progress' | 'completed';
 

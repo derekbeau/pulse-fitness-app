@@ -36,7 +36,12 @@ const nullablePositiveIntSchema = z.number().int().min(1).max(999).nullable();
 const nullableRestSecondsSchema = z.number().int().min(0).max(3600).nullable();
 const nullableNonNegativeNumberSchema = z.number().min(0).nullable();
 
-export const workoutTemplateSectionTypeSchema = z.enum(['warmup', 'main', 'cooldown']);
+export const workoutTemplateSectionTypeSchema = z.enum([
+  'warmup',
+  'main',
+  'cooldown',
+  'supplemental',
+]);
 export const workoutTemplateExerciseSetSchema = z
   .object({
     setNumber: z.number().int().min(1),
@@ -153,14 +158,16 @@ export const workoutTemplateSchema = z.object({
   tags: z.array(requiredStringSchema).max(20),
   sections: z
     .array(workoutTemplateSectionSchema)
-    .length(3)
+    .min(3)
+    .max(4)
     .refine(
       (sections) =>
         sections[0]?.type === 'warmup' &&
         sections[1]?.type === 'main' &&
-        sections[2]?.type === 'cooldown',
+        sections[2]?.type === 'cooldown' &&
+        (sections.length === 3 || sections[3]?.type === 'supplemental'),
       {
-        message: 'Sections must be ordered warmup, main, cooldown',
+        message: 'Sections must be ordered warmup, main, cooldown, then optional supplemental',
       },
     ),
   createdAt: z.number().int(),
@@ -172,7 +179,7 @@ const createWorkoutTemplateInputSchemaInternal = z
     name: requiredStringSchema,
     description: nullableStringSchema.optional().default(null),
     tags: z.array(requiredStringSchema).max(20).optional().default([]),
-    sections: z.array(workoutTemplateSectionInputSchema).max(3).optional().default([]),
+    sections: z.array(workoutTemplateSectionInputSchema).max(4).optional().default([]),
   })
   .superRefine((value, context) => {
     const seen = new Set<string>();

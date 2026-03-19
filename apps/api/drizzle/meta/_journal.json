@@ -225,6 +225,13 @@
       "when": 1773833262854,
       "tag": "0031_session_set_superset_group",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1774070400000,
+      "tag": "0032_supplemental_section",
+      "breakpoints": true
     }
   ]
 }

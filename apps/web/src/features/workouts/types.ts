@@ -221,18 +221,6 @@ export type ActiveWorkoutCustomFeedbackField =
 
 export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];
 
-export type ActiveWorkoutSupplementalCategory = 'core-spine' | 'atg' | 'strength-side' | 'optional';
-
-export type ActiveWorkoutSupplementalExercise = {
-  category: ActiveWorkoutSupplementalCategory;
-  details: string;
-  exerciseId: string;
-  name: string;
-  priority: ActiveWorkoutPriority;
-  reps: string;
-  sets: string;
-};
-
 export type ActiveWorkoutCompletedSession = {
   customFeedback: ActiveWorkoutCustomFeedbackField[];
   duration: number;
@@ -243,7 +231,6 @@ export type ActiveWorkoutCompletedSession = {
   notes: string;
   startedAt: string;
   status: 'completed';
-  supplemental: ActiveWorkoutSupplementalExercise[];
   templateId: WorkoutSession['templateId'];
 };
 

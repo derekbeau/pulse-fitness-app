@@ -4,14 +4,25 @@ Pulse uses a **Template → Session → Set** model, all managed through `/api/v
 
 ## Template Lifecycle
 
-Templates define the structure: sections (warmup/main/cooldown) with exercises, sets, reps, and rest times. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`).
+Templates define the structure: sections with exercises, sets, reps, and rest times. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`).
+
+### Section Types
+
+Templates use up to four section types, always rendered in this order:
+
+1. **`warmup`** — mobility, activation, and low-intensity prep work before the main block.
+2. **`main`** — the primary working exercises (strength, hypertrophy, skill work).
+3. **`cooldown`** — stretching, breathing, or light movement to close the session.
+4. **`supplemental`** — optional add-on exercises (accessory work, rehab drills, ATG movements). Tracked with the same set-level inputs as other sections, but only shown in history/receipts if at least one set was actually completed. Use this for exercises that are beneficial but skippable depending on time/energy.
+
+Section names are normalized by keyword during template creation: "warm" → warmup, "cool" → cooldown, "supplemental" / "add-on" → supplemental, else → main.
 
 ```
 POST /api/v1/workout-templates/
 ```
 
 - Unknown exercise names are auto-created with placeholder metadata.
-- Section names are normalized by keyword: "warm" → warmup, "cool" → cooldown, else → main.
+- Section type values must be sent exactly as listed above (`warmup`, `main`, `cooldown`, `supplemental`). There is no keyword normalization — send the exact enum value.
 - Read `data.newExercises` from the creation response to identify exercises that need enrichment.
 - `newExercises[*].possibleDuplicates` hints at potential duplicate exercises.
 

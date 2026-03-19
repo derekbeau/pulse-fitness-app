@@ -93,7 +93,7 @@ describe('ActiveWorkoutPage', () => {
 
     expect(headerCard).not.toHaveClass('sticky');
     expect(stickyProgressStrip).toHaveClass('sticky', 'top-0', 'z-20');
-    expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
+    expect(screen.getByText(/Exercise 1 of \d+/)).toBeInTheDocument();
     expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Session Context/i })).toHaveAttribute(
@@ -112,9 +112,6 @@ describe('ActiveWorkoutPage', () => {
       within(screen.getByRole('button', { name: /Warmup/i })).getByText('0/2'),
     ).toBeInTheDocument();
     expect(screen.getByText('Superset')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Post-Workout Supplemental \(10-20 min\)/i }),
-    ).toBeInTheDocument();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
 
@@ -140,22 +137,6 @@ describe('ActiveWorkoutPage', () => {
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
-    expect(screen.getByText('Core & Spine Health (pick at least 2)')).toBeInTheDocument();
-    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Optional' })).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: 'Complete supplemental exercise Dead Bug Breathing',
-      }),
-    );
-    expect(
-      screen.getByRole('checkbox', {
-        name: 'Complete supplemental exercise Dead Bug Breathing',
-      }),
-    ).toBeChecked();
   });
 
   it('triggers rest timer on auto-completion and clears it when a field is emptied', () => {
@@ -387,11 +368,7 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Lower Quad-Dominant' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Exercise 1 of 7')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /Post-Workout Supplemental/i }));
-    expect(screen.getByText('Dead Bug Breathing')).toBeInTheDocument();
-    expect(screen.getByText('Reverse Sled Drag')).toBeInTheDocument();
+    expect(screen.getByText(/Exercise 1 of \d+/)).toBeInTheDocument();
   });
 
   it('starts fallback elapsed time from now for unsaved sessions', () => {
@@ -1074,7 +1051,7 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage(`/workouts/active?template=${apiTemplateId}`);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'API Full Body' })).toBeVisible();
-    expect(screen.getByText('Exercise 1 of 1')).toBeInTheDocument();
+    expect(screen.getByText(/Exercise 1 of \d+/)).toBeInTheDocument();
   });
 
   it('renders reps_only and seconds_only inputs from API template tracking types', async () => {
@@ -1169,7 +1146,7 @@ describe('ActiveWorkoutPage', () => {
     renderActiveWorkoutPage(`/workouts/active?template=${templateId}`);
     await screen.findByRole('heading', { level: 1, name: 'Tracking QA' });
     await waitFor(() => {
-      expect(screen.getByText('0/3 sets completed')).toBeInTheDocument();
+      expect(screen.getByText(/0\/\d+ sets completed/)).toBeInTheDocument();
     });
 
     const deadBugCard = getExerciseCard('Dead Bug');

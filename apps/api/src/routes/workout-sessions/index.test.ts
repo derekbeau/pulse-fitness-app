@@ -542,10 +542,11 @@ describe('workout session routes', () => {
       .all();
 
     const sortedTemplateExercises = [...firstTemplateExercises].sort((left, right) => {
-      const sectionOrder = {
+      const sectionOrder: Record<string, number> = {
         warmup: 0,
         main: 1,
         cooldown: 2,
+        supplemental: 3,
       };
 
       const leftSection = sectionOrder[left.section];

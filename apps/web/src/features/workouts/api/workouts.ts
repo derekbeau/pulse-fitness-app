@@ -88,7 +88,7 @@ type DeleteTemplateResponse = {
 };
 type ReorderTemplateExercisesRequest = {
   templateId: string;
-  section: 'warmup' | 'main' | 'cooldown';
+  section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   exerciseIds: string[];
 };
 type SwapTemplateExerciseRequest = {

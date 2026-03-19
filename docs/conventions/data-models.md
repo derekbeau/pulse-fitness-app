@@ -572,7 +572,7 @@ Planned or domain-level JSON field families should follow the same rule:
 - `reversePyramid`: structured object describing descending load sets, for example `{ enabled: true, dropPercent: 10 }`.
 - `injuryCues`: `string[]` of modifications or pain-avoidance reminders tied to a movement or protocol.
 - `customFeedback`: structured object for feature-specific post-session or post-plan answers that do not justify first-class columns yet.
-- `supplemental`: structured object or array for secondary accessory work that is always edited with its parent record.
+- `supplemental`: deprecated as a JSON field — supplemental exercises are now first-class `template_exercises` and `session_sets` rows with `section = 'supplemental'`.
 
 Rule of thumb:
 
