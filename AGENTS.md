@@ -84,6 +84,20 @@ pnpm --filter shared build  # Build shared package
 - Migrations managed by Drizzle Kit
 - No cross-user data access — every table with user data has a `userId` column
 
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+type(scope): concise summary of the change
+```
+
+- **Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+- **Scopes:** `web`, `api`, `shared`, `workouts`, `nutrition`, `habits`, `dashboard`, or omit for cross-cutting changes
+- Subject line: lowercase, imperative mood, no period, under 72 chars
+- Body (required): explain _why_, not _what_ — the diff shows what changed
+- Prefer a single commit per logical change; don't split trivially related edits across commits
+
 ### Testing
 
 - Unit/integration: Vitest — test files colocated as `*.test.ts(x)`
