@@ -474,7 +474,7 @@ describe('NutritionPage', () => {
     expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go to next week' })).toBeDisabled();
     expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Today$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Today$/ })).toHaveClass('invisible');
     expect(screen.queryByRole('heading', { name: 'Daily totals' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Meals logged' })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
@@ -630,7 +630,7 @@ describe('NutritionPage', () => {
 
     expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No meals logged today' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Today$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Today$/ })).toHaveClass('invisible');
   });
 
   it('renders selected-day meals sorted by time descending by default', async () => {

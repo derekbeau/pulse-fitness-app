@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
@@ -155,17 +156,18 @@ export function NutritionPage() {
         </div>
         <p className="max-w-2xl text-sm text-muted">
           Agent-logged meals for {formatDayLabel(dateKey)}.
-          {!isSelectedDateToday ? (
-            <Button
-              className="ml-2 h-auto p-0 align-baseline text-sm"
-              size="sm"
-              type="button"
-              variant="link"
-              onClick={() => setSelectedDate(startOfDay(new Date()))}
-            >
-              Today
-            </Button>
-          ) : null}
+          <Button
+            className={cn(
+              'ml-2 h-auto min-h-0 p-0 align-baseline text-sm',
+              isSelectedDateToday && 'invisible',
+            )}
+            size="sm"
+            type="button"
+            variant="link"
+            onClick={() => setSelectedDate(startOfDay(new Date()))}
+          >
+            Today
+          </Button>
         </p>
       </header>
 

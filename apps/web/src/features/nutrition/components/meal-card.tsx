@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
+  calculateMacroTotals,
   formatCalories,
   formatDisplayServing,
   formatGrams,
@@ -55,6 +56,7 @@ export function MealCard({
   const skipBlurCommitRef = useRef(false);
   const formattedTime = formatMealTime(meal.time);
   const collapsedSummary = formatCollapsedSummary(meal);
+  const totals = meal.items.length > 0 ? calculateMacroTotals(meal.items) : null;
   const canDelete = typeof onDelete === 'function';
   const canRename = typeof onRename === 'function';
 
@@ -96,7 +98,21 @@ export function MealCard({
 
   return (
     <Card className="gap-0 overflow-hidden rounded-xl border-border/70 bg-[var(--color-card)] py-0 shadow-none">
-      <div className={cn('flex items-start gap-2 py-3', CARD_HORIZONTAL_PADDING)}>
+      <div
+        aria-controls={contentId}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${meal.name}`}
+        className={cn('flex cursor-pointer items-start gap-2 py-3', CARD_HORIZONTAL_PADDING)}
+        onClick={() => setIsExpanded((prev) => !prev)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded((prev) => !prev);
+          }
+        }}
+      >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
@@ -107,6 +123,7 @@ export function MealCard({
                   autoFocus
                   className="h-8 max-w-56 text-sm sm:max-w-64"
                   disabled={isRenaming}
+                  onClick={(e) => e.stopPropagation()}
                   onBlur={() => {
                     if (skipBlurCommitRef.current) {
                       skipBlurCommitRef.current = false;
@@ -143,7 +160,10 @@ export function MealCard({
                   aria-label={`Rename ${meal.name}`}
                   className="max-w-full cursor-text truncate text-left transition-colors hover:text-primary"
                   disabled={!canRename || isRenaming}
-                  onClick={beginNameEdit}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    beginNameEdit();
+                  }}
                   type="button"
                 >
                   {meal.name}
@@ -154,19 +174,20 @@ export function MealCard({
           </div>
           {nameError ? <p className="mt-1 text-xs text-destructive">{nameError}</p> : null}
           <p className="mt-0.5 truncate text-xs text-muted">{collapsedSummary}</p>
+          {totals ? (
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+              <span className="font-semibold text-foreground">
+                {formatCalories(totals.calories, { compact: true })}
+              </span>
+              <span>{formatGrams(totals.protein, { compact: true, suffix: 'P' })}</span>
+              <span>{formatGrams(totals.carbs, { compact: true, suffix: 'C' })}</span>
+              <span>{formatGrams(totals.fat, { compact: true, suffix: 'F' })}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button
-            aria-controls={contentId}
-            aria-expanded={isExpanded}
-            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${meal.name}`}
-            className="shrink-0 px-2.5 text-muted hover:text-foreground"
-            onClick={() => setIsExpanded((prev) => !prev)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
+          <span className="flex shrink-0 items-center px-2.5">
             <ChevronDown
               aria-hidden="true"
               className={cn(
@@ -174,13 +195,14 @@ export function MealCard({
                 isExpanded && 'rotate-180',
               )}
             />
-          </Button>
+          </span>
           {canDelete ? (
             <Button
               aria-label={`Delete ${meal.name}`}
               className="shrink-0 px-2.5 text-muted hover:text-foreground"
               disabled={isDeleting}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onDelete(meal.id);
               }}
               size="sm"

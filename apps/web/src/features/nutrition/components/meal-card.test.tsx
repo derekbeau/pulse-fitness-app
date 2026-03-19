@@ -49,12 +49,25 @@ const breakfastMeal = {
 };
 
 describe('MealCard', () => {
+  it('shows macro totals in collapsed header', () => {
+    render(<MealCard meal={breakfastMeal} />);
+
+    expect(screen.getByText('535cal')).toBeInTheDocument();
+    expect(screen.getByText('29P')).toBeInTheDocument();
+    expect(screen.getByText('72C')).toBeInTheDocument();
+    expect(screen.getByText('17F')).toBeInTheDocument();
+  });
+
+  it('hides macro totals when meal has no items', () => {
+    render(<MealCard meal={{ ...breakfastMeal, items: [] }} />);
+
+    expect(screen.queryByText(/cal/)).not.toBeInTheDocument();
+  });
+
   it('renders summary text while collapsed and expands on click', () => {
     render(<MealCard meal={breakfastMeal} />);
 
     expect(screen.getByText('Large Eggs, Whole Wheat Bread, Whey Protein')).toBeInTheDocument();
-    expect(screen.queryByText(/535cal · 29P · 72C · 17F/)).not.toBeInTheDocument();
-    expect(screen.queryByText('3 foods', { exact: false })).not.toBeInTheDocument();
     expect(screen.getByText('7:20 AM')).toBeInTheDocument();
     expect(screen.queryByText('Large Eggs', { selector: 'li p' })).not.toBeInTheDocument();
 
@@ -62,7 +75,6 @@ describe('MealCard', () => {
 
     expect(screen.getByText('Large Eggs')).toBeInTheDocument();
     expect(screen.getByText('3 eggs')).toBeInTheDocument();
-    expect(screen.getByText('210cal')).toBeInTheDocument();
     expect(screen.getByText('5.5 oz')).toBeInTheDocument();
   });
 
