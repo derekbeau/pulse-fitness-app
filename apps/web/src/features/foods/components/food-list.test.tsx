@@ -495,39 +495,6 @@ describe('FoodList', () => {
     expect(lastUrl.searchParams.get('page')).toBe('1');
   });
 
-  it.skip('changes server sort and saves inline edits through the API', async () => {
-    const api = createFoodsApiMock(paginatedFoods);
-    vi.stubGlobal('fetch', api.fetchMock);
-
-    renderFoodList();
-
-    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
-    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
-    expect(initialUrl.searchParams.get('sort')).toBe('recently-updated');
-
-    selectSortOption('Most Used');
-
-    expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
-    expect(window.location.search).toContain('sort=most-used');
-
-    let lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
-    expect(lastUrl.searchParams.get('sort')).toBe('most-used');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
-    const editInput = await screen.findByRole('textbox', { name: 'Edit Whey Protein name' });
-
-    fireEvent.change(editInput, { target: { value: 'Casein Protein' } });
-    fireEvent.submit(editInput.closest('form') as HTMLFormElement);
-
-    expect(
-      await screen.findByRole('heading', { level: 3, name: 'Casein Protein' }),
-    ).toBeInTheDocument();
-    expect(api.getFoods().find((food) => food.id === 'food-13')?.name).toBe('Casein Protein');
-    expect(window.location.search).toContain('sort=most-used');
-    lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
-    expect(lastUrl.searchParams.get('sort')).toBe('most-used');
-  });
-
   it('paginates while preserving sort query params', async () => {
     const api = createFoodsApiMock(paginatedFoods);
     vi.stubGlobal('fetch', api.fetchMock);
