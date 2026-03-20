@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 import { FoodCardSkeleton } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
@@ -20,11 +21,9 @@ type FoodListProps = {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE = 1;
 const DEFAULT_SORT_BY: FoodSort = 'recently-updated';
 const FOOD_TAG_LIMIT = 20;
-const pageSizeOptions = [10, 25, 50] as const;
 
 const FOOD_SORT_VALUES: FoodSort[] = [
   'name-asc',
@@ -135,21 +134,6 @@ export function FoodList({ now = new Date() }: FoodListProps) {
     };
   }, [searchInput]);
 
-  useEffect(() => {
-    if (searchParams.get('sort') === sortBy) {
-      return;
-    }
-
-    setSearchParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.set('sort', sortBy);
-        return next;
-      },
-      { replace: true },
-    );
-  }, [searchParams, setSearchParams, sortBy]);
-
   const foodsQuery = useFoods(
     {
       q: debouncedSearchQuery || undefined,
@@ -177,8 +161,9 @@ export function FoodList({ now = new Date() }: FoodListProps) {
 
     return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
   }, [activeSelectedTags, availableTags]);
-  const totalFoods = foodsQuery.data?.meta.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalFoods / pageSize));
+  const totalFoods = foodsQuery.data?.meta.total;
+  const resolvedTotalFoods = totalFoods ?? foods.length;
+  const totalPages = totalFoods === undefined ? undefined : Math.max(1, Math.ceil(totalFoods / pageSize));
   const updateErrorMessage =
     updateFood.isError && updateFood.error instanceof Error ? updateFood.error.message : null;
   const deleteErrorMessage =
@@ -188,16 +173,18 @@ export function FoodList({ now = new Date() }: FoodListProps) {
     (editingFoodId !== null && updateFood.isPending && updateFood.variables?.id === editingFoodId);
 
   useEffect(() => {
-    if (page > totalPages) {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          next.set('page', String(totalPages));
-          return next;
-        },
-        { replace: true },
-      );
+    if (totalPages === undefined || page <= totalPages) {
+      return;
     }
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('page', String(totalPages));
+        return next;
+      },
+      { replace: true },
+    );
   }, [page, setSearchParams, totalPages]);
 
   function beginEditing(food: Food) {
@@ -423,7 +410,7 @@ export function FoodList({ now = new Date() }: FoodListProps) {
         <CardContent className="px-5 pt-0 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
             <p>
-              Showing {foods.length} of {totalFoods} foods
+              Showing {foods.length} of {resolvedTotalFoods} foods
             </p>
             {isRefreshing ? <p>Refreshing foods…</p> : null}
           </div>
@@ -684,7 +671,7 @@ export function FoodList({ now = new Date() }: FoodListProps) {
             })}
           </div>
 
-          {totalFoods > pageSize ? (
+          {totalFoods !== undefined && totalPages !== undefined && totalFoods > pageSize ? (
             <div className="flex items-center justify-between gap-3">
               <PerPageSelector
                 ariaLabel="Foods per page"
@@ -750,9 +737,9 @@ function parsePage(value: string | null) {
 }
 
 function parsePageSize(value: string | null) {
-  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
 
-  return pageSizeOptions.includes(parsedValue as (typeof pageSizeOptions)[number])
+  return PER_PAGE_OPTIONS.includes(parsedValue as (typeof PER_PAGE_OPTIONS)[number])
     ? parsedValue
-    : DEFAULT_PAGE_SIZE;
+    : DEFAULT_PER_PAGE;
 }

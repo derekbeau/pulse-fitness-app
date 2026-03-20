@@ -342,43 +342,37 @@ const reorderTemplateExercisesInCache = (
   return reorderTemplateExercisesInTemplate(cache, request);
 };
 
-const isExercisesResponse = (value: RenameExerciseCache | undefined): value is ExercisesResponse =>
+const isPaginatedResponse = (value: unknown): value is { data: unknown[]; meta: PaginationMeta } =>
   typeof value === 'object' &&
   value !== null &&
   'data' in value &&
   Array.isArray(value.data) &&
-  (value.data.length === 0 ||
-    value.data.every((entry) => typeof entry === 'object' && entry !== null && 'muscleGroups' in entry)) &&
   'meta' in value;
 
-const isWorkoutTemplatesResponse = (
-  value: RenameTemplateCache | RenameExerciseCache | undefined,
-): value is WorkoutTemplatesResponse =>
-  typeof value === 'object' &&
-  value !== null &&
-  'data' in value &&
-  Array.isArray(value.data) &&
-  (value.data.length === 0 ||
-    value.data.every((entry) => typeof entry === 'object' && entry !== null && 'sections' in entry)) &&
-  'meta' in value;
+const isExerciseListQueryKey = (queryKey: QueryKey | undefined) =>
+  Array.isArray(queryKey) && queryKey[0] === 'workouts' && queryKey[1] === 'exercises';
 
-const isExerciseRecord = (value: RenameExerciseCache | undefined): value is Exercise =>
+const isTemplateListQueryKey = (queryKey: QueryKey | undefined) =>
+  Array.isArray(queryKey) && queryKey[0] === 'workouts' && queryKey[1] === 'templates';
+
+const isWorkoutTemplatesResponse = (value: RenameTemplateCache | undefined): value is WorkoutTemplatesResponse =>
+  isPaginatedResponse(value) && value.data.every((entry) => isWorkoutTemplateRecord(entry));
+
+const isExerciseRecord = (value: unknown): value is Exercise =>
   typeof value === 'object' &&
   value !== null &&
   'muscleGroups' in value &&
   'equipment' in value &&
   'category' in value;
 
-const isWorkoutTemplateRecord = (
-  value: RenameExerciseCache | undefined,
-): value is WorkoutTemplate =>
+const isWorkoutTemplateRecord = (value: unknown): value is WorkoutTemplate =>
   typeof value === 'object' &&
   value !== null &&
   'sections' in value &&
   Array.isArray(value.sections) &&
   'name' in value;
 
-const isWorkoutSessionRecord = (value: RenameExerciseCache | undefined): value is WorkoutSession =>
+const isWorkoutSessionRecord = (value: unknown): value is WorkoutSession =>
   typeof value === 'object' &&
   value !== null &&
   'sets' in value &&
@@ -415,6 +409,7 @@ const renameExerciseInSession = (session: WorkoutSession, request: RenameExercis
 const updateExerciseNameInCache = (
   cache: RenameExerciseCache | undefined,
   request: RenameExerciseRequest,
+  queryKey?: QueryKey,
 ) => {
   if (!cache) {
     return cache;
@@ -437,25 +432,38 @@ const updateExerciseNameInCache = (
     };
   }
 
-  if (isExercisesResponse(cache)) {
-    return {
-      ...cache,
-      data: cache.data.map((exercise) =>
-        exercise.id === request.id
-          ? {
-              ...exercise,
-              name: request.name,
-            }
-          : exercise,
-      ),
-    };
-  }
+  if (isPaginatedResponse(cache)) {
+    const hasExerciseShape =
+      isExerciseListQueryKey(queryKey) ||
+      (cache.data.length > 0 && cache.data.every((entry) => isExerciseRecord(entry)));
+    const hasTemplateShape =
+      isTemplateListQueryKey(queryKey) ||
+      (cache.data.length > 0 && cache.data.every((entry) => isWorkoutTemplateRecord(entry)));
 
-  if (isWorkoutTemplatesResponse(cache)) {
-    return {
-      ...cache,
-      data: cache.data.map((template) => renameExerciseInTemplate(template, request)),
-    };
+    if (hasExerciseShape && !hasTemplateShape) {
+      return {
+        ...cache,
+        data: cache.data.map((entry) =>
+          isExerciseRecord(entry) && entry.id === request.id
+            ? {
+                ...entry,
+                name: request.name,
+              }
+            : entry,
+        ),
+      } as ExercisesResponse;
+    }
+
+    if (hasTemplateShape && !hasExerciseShape) {
+      return {
+        ...cache,
+        data: cache.data.map((entry) =>
+          isWorkoutTemplateRecord(entry) ? renameExerciseInTemplate(entry, request) : entry,
+        ),
+      } as WorkoutTemplatesResponse;
+    }
+
+    return cache;
   }
 
   if (isWorkoutTemplateRecord(cache)) {
@@ -1056,12 +1064,13 @@ export function useRenameExercise() {
       workoutQueryKeys.templateDetailPrefix(),
       workoutQueryKeys.sessionDetailPrefix(),
     ],
-    reconcile: (current, exercise, variables) =>
+    reconcile: (current, exercise, variables, context) =>
       updateExerciseNameInCache(current, {
         id: variables.id,
         name: exercise.name,
-      }),
-    updater: (current, variables) => updateExerciseNameInCache(current, variables),
+      }, context.queryKey),
+    updater: (current, variables, context) =>
+      updateExerciseNameInCache(current, variables, context.queryKey),
   });
 }
 

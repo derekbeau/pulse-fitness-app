@@ -350,7 +350,7 @@ describe('App', () => {
       expect(window.location.pathname).toBe('/nutrition');
       const params = new URLSearchParams(window.location.search);
       expect(params.get('view')).toBe('foods');
-      expect(params.get('sort')).toBe('recently-updated');
+      expect(params.get('sort')).toBeNull();
     });
   });
 

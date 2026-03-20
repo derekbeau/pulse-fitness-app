@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -35,8 +36,6 @@ const WORKOUT_TEMPLATE_SORT_VALUES: WorkoutTemplateSort[] = [
   'recently-updated',
 ];
 const DEFAULT_TEMPLATE_PAGE = 1;
-const DEFAULT_TEMPLATE_LIMIT = 25;
-const templatePageSizeOptions = [10, 25, 50] as const;
 type WorkoutView = (typeof WORKOUT_VIEWS)[number];
 
 function isWorkoutView(value: string | null): value is WorkoutView {
@@ -265,7 +264,7 @@ export function WorkoutsPage() {
           <TemplateBrowser
             buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
             templates={templatesQuery.data?.data ?? undefined}
-            totalTemplates={templatesQuery.data?.meta.total ?? 0}
+            totalTemplates={templatesQuery.data?.meta.total}
           />
         )
       ) : (
@@ -290,9 +289,9 @@ function parsePageParam(value: string | null) {
 }
 
 function parsePageSizeParam(value: string | null) {
-  const limit = Number.parseInt(value ?? String(DEFAULT_TEMPLATE_LIMIT), 10);
+  const limit = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
 
-  return templatePageSizeOptions.includes(limit as (typeof templatePageSizeOptions)[number])
+  return PER_PAGE_OPTIONS.includes(limit as (typeof PER_PAGE_OPTIONS)[number])
     ? limit
-    : DEFAULT_TEMPLATE_LIMIT;
+    : DEFAULT_PER_PAGE;
 }

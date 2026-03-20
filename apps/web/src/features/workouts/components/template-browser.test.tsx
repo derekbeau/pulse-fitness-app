@@ -189,6 +189,20 @@ describe('TemplateBrowser', () => {
     expect(screen.getByText('Page 1 of 4')).toBeInTheDocument();
   });
 
+  it('keeps deep-linked page params while template totals are still unknown', async () => {
+    window.history.pushState({}, '', '/workouts?view=templates&page=2');
+
+    render(
+      <BrowserRouter>
+        <TemplateBrowser buildTemplateHref={(templateId) => `/workouts/template/${templateId}`} />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+  });
+
   it('filters templates by selected tags using AND logic', () => {
     render(
       <MemoryRouter>

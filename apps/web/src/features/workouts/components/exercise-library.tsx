@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
@@ -50,8 +51,6 @@ const exerciseSortOptions: SortOption[] = [
   { value: 'oldest', label: 'Oldest', direction: 'asc' },
   { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
 ];
-const pageSizeOptions = [10, 25, 50] as const;
-const DEFAULT_PAGE_SIZE = 25;
 const EXERCISE_LIBRARY_VIEW_STORAGE_KEY = 'exercise-library-view';
 
 type ExerciseLibraryView = 'card' | 'table';
@@ -628,11 +627,11 @@ function parsePage(value: string | null) {
 }
 
 function parsePageSize(value: string | null) {
-  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
 
-  return pageSizeOptions.includes(parsedValue as (typeof pageSizeOptions)[number])
+  return PER_PAGE_OPTIONS.includes(parsedValue as (typeof PER_PAGE_OPTIONS)[number])
     ? parsedValue
-    : DEFAULT_PAGE_SIZE;
+    : DEFAULT_PER_PAGE;
 }
 
 function isExerciseSort(value: string): value is ExerciseSort {

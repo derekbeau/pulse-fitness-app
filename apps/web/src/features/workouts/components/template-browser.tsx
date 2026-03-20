@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
@@ -73,8 +74,6 @@ const templateSortOptions: SortOption[] = [
   { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
 ];
 const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 25;
-const pageSizeOptions = [10, 25, 50] as const;
 
 export function TemplateBrowser({
   buildTemplateHref,
@@ -95,7 +94,10 @@ export function TemplateBrowser({
   const sort = parseTemplateSort(searchParams.get('sort'));
   const page = parsePage(searchParams.get('page'));
   const limit = parsePageSize(searchParams.get('limit'));
+  const hasKnownTotalTemplates = totalTemplates !== undefined;
   const resolvedTotalTemplates = totalTemplates ?? templates.length;
+  const totalPages =
+    totalTemplates !== undefined ? Math.max(1, Math.ceil(totalTemplates / limit)) : undefined;
   const requestedDate = searchParams.get('date');
   const scheduleInitialDate =
     requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
@@ -146,7 +148,6 @@ export function TemplateBrowser({
     [activeSelectedTags, normalizedQuery, templates],
   );
   const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
-  const totalPages = Math.max(1, Math.ceil(resolvedTotalTemplates / limit));
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
@@ -156,7 +157,7 @@ export function TemplateBrowser({
     !renameTemplateMutation.isPending;
 
   useEffect(() => {
-    if (page <= totalPages) {
+    if (totalPages === undefined || page <= totalPages) {
       return;
     }
 
@@ -298,8 +299,9 @@ export function TemplateBrowser({
         </div>
       ) : null}
 
-      {resolvedTotalTemplates > limit ? (
+      {totalPages !== undefined && hasKnownTotalTemplates && resolvedTotalTemplates > limit ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Search/tag filters run on the current server page; total/meta stay unfiltered until API-side filters exist. */}
           <p className="text-sm text-muted">{`Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`}</p>
           <div className="flex items-center gap-2">
             <PerPageSelector
@@ -578,11 +580,11 @@ function parsePage(value: string | null) {
 }
 
 function parsePageSize(value: string | null) {
-  const limit = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+  const limit = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
 
-  return pageSizeOptions.includes(limit as (typeof pageSizeOptions)[number])
+  return PER_PAGE_OPTIONS.includes(limit as (typeof PER_PAGE_OPTIONS)[number])
     ? limit
-    : DEFAULT_PAGE_SIZE;
+    : DEFAULT_PER_PAGE;
 }
 
 function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) {

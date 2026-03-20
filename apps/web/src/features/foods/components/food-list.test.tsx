@@ -409,6 +409,57 @@ describe('FoodList', () => {
     expect(screen.getAllByText('Verified').length).toBeGreaterThan(0);
   });
 
+  it('keeps deep-linked page params while food totals are still loading', async () => {
+    window.history.pushState({}, '', '/nutrition?view=foods&page=2');
+    const deferredFoods = createDeferredResponse();
+    const delayedFetch = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+
+      if (url.pathname === '/api/v1/foods') {
+        return deferredFoods.promise.then((response) => response.clone());
+      }
+
+      throw new Error(`Unhandled request ${url.pathname}`);
+    });
+
+    vi.stubGlobal('fetch', delayedFetch);
+
+    renderFoodList();
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+
+    deferredFoods.resolve(
+      new Response(
+        JSON.stringify({
+          data: paginatedFoods.slice(25),
+          meta: {
+            page: 2,
+            limit: 25,
+            total: paginatedFoods.length,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+    );
+  });
+
+  it('does not normalize the URL with a default sort param on initial load', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    expect(window.location.search).toBe('?view=foods');
+  });
+
   it('debounces search and sends the query to the foods API', async () => {
     const api = createFoodsApiMock(paginatedFoods);
     vi.stubGlobal('fetch', api.fetchMock);
