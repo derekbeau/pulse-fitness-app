@@ -1153,7 +1153,7 @@ describe('ActiveWorkoutPage', () => {
           urlText.includes('includeRelated=true')
         );
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       mockFetch.mock.calls.some(([url]) => {
         const urlText = String(url);

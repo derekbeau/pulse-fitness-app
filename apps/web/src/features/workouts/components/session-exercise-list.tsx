@@ -694,6 +694,11 @@ function ExerciseCardItem({
     (notes: string) => onExerciseNotesChange(exercise.id, notes),
     500,
   );
+  const resolvedCollapseKey = collapseKey ?? exercise.id;
+  const isExpanded =
+    forceExpanded ||
+    focusTargetExerciseId === exercise.id ||
+    (expandedExercises[resolvedCollapseKey] ?? false);
 
   const historyEntriesQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
@@ -701,9 +706,8 @@ function ExerciseCardItem({
     limit: 3,
   });
   const relatedHistoryQuery = useLastPerformance(exercise.id, {
-    enabled: enableApiLastPerformance,
+    enabled: enableApiLastPerformance && isExpanded,
     includeRelated: true,
-    limit: 1,
   });
   const historySummary: ActiveWorkoutExerciseHistorySummary = enableApiLastPerformance
     ? {
@@ -718,11 +722,6 @@ function ExerciseCardItem({
       };
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
-  const resolvedCollapseKey = collapseKey ?? exercise.id;
-  const isExpanded =
-    forceExpanded ||
-    focusTargetExerciseId === exercise.id ||
-    (expandedExercises[resolvedCollapseKey] ?? false);
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const hasInjuryCues = exercise.injuryCues.length > 0;

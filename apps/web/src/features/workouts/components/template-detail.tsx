@@ -1815,7 +1815,7 @@ function formatLastPerformanceSummary(
     },
   );
 
-  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`;
 }
 
 function formatLabel(value: string) {

@@ -1370,6 +1370,7 @@ describe('WorkoutTemplateDetail', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
     expect(await within(dialog).findByText(/Mar/i)).toBeInTheDocument();
+    expect(within(dialog).getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Related' }));
     expect(await within(dialog).findByText('Seated Dumbbell Shoulder Press')).toBeInTheDocument();

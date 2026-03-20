@@ -393,6 +393,8 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (request.query.includeRelated) {
+        // `limit` applies only to the non-related array response shape.
+        // The related-history branch always returns one latest entry per exercise.
         const historyWithRelated = await findExerciseHistoryWithRelated({
           exerciseId: request.params.id,
           relatedExerciseIds: exercise.relatedExerciseIds,
