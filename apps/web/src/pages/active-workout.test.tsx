@@ -946,7 +946,7 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();

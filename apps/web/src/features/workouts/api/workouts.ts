@@ -31,11 +31,13 @@ import {
   type WorkoutSession,
   type WorkoutSessionListItem,
   type WorkoutSessionQueryParams,
+  type WorkoutTemplateListQueryParams,
   type WorkoutTemplate,
   type SetCorrection,
   workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
   workoutSessionSchema,
+  workoutTemplateListQueryParamsSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -177,6 +179,15 @@ const normalizeExerciseParams = (params: ExerciseQueryParams) => {
     muscleGroup: parsedParams.muscleGroup ?? null,
     page: parsedParams.page,
     q: parsedParams.q ?? null,
+    sort: parsedParams.sort,
+  };
+};
+
+const normalizeTemplateListParams = (params: Partial<WorkoutTemplateListQueryParams> = {}) => {
+  const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
+
+  return {
+    sort: parsedParams.sort,
   };
 };
 
@@ -213,7 +224,10 @@ const scheduledWorkoutsKey = (params?: ScheduledWorkoutQueryParams) =>
 const sessionListKey = (params: WorkoutSessionQueryParams = {}) =>
   ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const;
 const templatePrefixKey = () => ['workouts', 'template'] as const;
-const templatesKey = () => ['workouts', 'templates'] as const;
+const templatesKey = (params?: Partial<WorkoutTemplateListQueryParams>) =>
+  params
+    ? (['workouts', 'templates', normalizeTemplateListParams(params)] as const)
+    : (['workouts', 'templates'] as const);
 
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
@@ -451,8 +465,12 @@ const removeScheduledWorkoutFromList = (
   request: DeleteScheduledWorkoutRequest,
 ) => current?.filter((item) => item.id !== request.id);
 
-async function getWorkoutTemplates() {
-  const data = await apiRequest<unknown>('/api/v1/workout-templates');
+async function getWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
+  const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
+  const searchParams = new URLSearchParams({
+    sort: parsedParams.sort,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-templates?${searchParams.toString()}`);
   const payload = workoutTemplatesResponseSchema.parse({ data });
 
   return payload.data;
@@ -580,6 +598,7 @@ async function getExercises(params: ExerciseQueryParams) {
     searchParams.set('category', parsedParams.category);
   }
 
+  searchParams.set('sort', parsedParams.sort);
   searchParams.set('page', String(parsedParams.page));
   searchParams.set('limit', String(parsedParams.limit));
 
@@ -789,10 +808,10 @@ async function deleteScheduledWorkout(input: DeleteScheduledWorkoutRequest) {
     .parse({ data }) as DeleteScheduledWorkoutResponse;
 }
 
-export function useWorkoutTemplates() {
+export function useWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
   return useQuery<WorkoutTemplate[]>({
-    queryFn: getWorkoutTemplates,
-    queryKey: workoutQueryKeys.templateList(),
+    queryFn: () => getWorkoutTemplates(params),
+    queryKey: workoutQueryKeys.templateList(params),
   });
 }
 

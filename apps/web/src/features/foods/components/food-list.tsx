@@ -1,19 +1,14 @@
 import { CheckCircle2Icon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { FoodCardSkeleton } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteFood, useFoods, useUpdateFood } from '@/features/foods/api/foods';
 import { accentCardStyles } from '@/lib/accent-card-styles';
@@ -28,14 +23,31 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_PAGE_SIZE = 12;
 const DEFAULT_PAGE = 1;
-const DEFAULT_SORT_BY: FoodSort = 'recent';
+const DEFAULT_SORT_BY: FoodSort = 'recently-updated';
 const FOOD_TAG_LIMIT = 20;
 
-const SORT_OPTIONS: Array<{ label: string; value: FoodSort }> = [
-  { label: 'Recent', value: 'recent' },
-  { label: 'Popular', value: 'popular' },
-  { label: 'A-Z', value: 'name' },
+const FOOD_SORT_VALUES: FoodSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+  'most-used',
+  'least-used',
 ];
+const SORT_OPTIONS: SortOption[] = [
+  { label: 'Name (A-Z)', value: 'name-asc', direction: 'asc' },
+  { label: 'Name (Z-A)', value: 'name-desc', direction: 'desc' },
+  { label: 'Newest', value: 'newest', direction: 'desc' },
+  { label: 'Oldest', value: 'oldest', direction: 'asc' },
+  { label: 'Recently Updated', value: 'recently-updated', direction: 'desc' },
+  { label: 'Most Used', value: 'most-used', direction: 'desc' },
+  { label: 'Least Used', value: 'least-used', direction: 'asc' },
+];
+
+function isFoodSort(value: string | null): value is FoodSort {
+  return value !== null && FOOD_SORT_VALUES.includes(value as FoodSort);
+}
 
 function normalizeFoodTag(tag: string) {
   return tag.trim().toLowerCase();
@@ -103,10 +115,14 @@ export function FoodList({
   pageSize = DEFAULT_PAGE_SIZE,
   foodsQuery: pageFoodsQuery,
 }: FoodListProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
+  const [sortBy, setSortBy] = useState<FoodSort>(() => {
+    const sortFromUrl = searchParams.get('sort');
+    return isFoodSort(sortFromUrl) ? sortFromUrl : DEFAULT_SORT_BY;
+  });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
@@ -124,6 +140,31 @@ export function FoodList({
       window.clearTimeout(timeoutId);
     };
   }, [searchInput]);
+
+  useEffect(() => {
+    const sortFromUrl = searchParams.get('sort');
+    if (!isFoodSort(sortFromUrl) || sortFromUrl === sortBy) {
+      return;
+    }
+
+    setSortBy(sortFromUrl);
+    setPage(DEFAULT_PAGE);
+  }, [searchParams, sortBy]);
+
+  useEffect(() => {
+    if (searchParams.get('sort') === sortBy) {
+      return;
+    }
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('sort', sortBy);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams, sortBy]);
 
   const shouldUsePageFoodsQuery =
     pageFoodsQuery !== undefined &&
@@ -289,8 +330,7 @@ export function FoodList({
         <CardHeader className="gap-1 px-5 sm:px-6">
           <CardTitle className="text-xl">Search your foods database</CardTitle>
           <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
-            Search by food name or brand, then switch between recency, popularity, or alphabetical
-            views.
+            Search by food name or brand, then sort by name, freshness, updates, or usage.
           </CardDescription>
         </CardHeader>
 
@@ -317,27 +357,20 @@ export function FoodList({
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-on-cream dark:text-foreground">Sort by</span>
-            <Select
-              onValueChange={(value) => {
-                setSortBy(value as FoodSort);
+            <SortSelector
+              ariaLabel="Sort foods"
+              onChange={(value) => {
+                if (!isFoodSort(value)) {
+                  return;
+                }
+
+                setSortBy(value);
                 setPage(1);
               }}
+              options={SORT_OPTIONS}
+              triggerClassName="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
               value={sortBy}
-            >
-              <SelectTrigger
-                aria-label="Sort foods"
-                className="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </label>
         </CardContent>
 

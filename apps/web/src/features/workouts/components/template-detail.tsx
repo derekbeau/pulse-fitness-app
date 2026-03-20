@@ -1313,6 +1313,7 @@ function AddExerciseDialog({
       limit: 8,
       page: 1,
       q: query.trim() || undefined,
+      sort: 'name-asc',
     },
     { enabled: open },
   );

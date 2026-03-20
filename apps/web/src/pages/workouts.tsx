@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { WorkoutSessionStatus } from '@pulse/shared';
+import type { WorkoutSessionStatus, WorkoutTemplateSort } from '@pulse/shared';
 import { useEffect, useState } from 'react';
 import { Dumbbell, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
@@ -27,6 +27,13 @@ import {
 
 const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises'] as const;
 const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
+const WORKOUT_TEMPLATE_SORT_VALUES: WorkoutTemplateSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+];
 type WorkoutView = (typeof WORKOUT_VIEWS)[number];
 
 function isWorkoutView(value: string | null): value is WorkoutView {
@@ -49,7 +56,8 @@ export function WorkoutsPage() {
   });
   const viewParam = searchParams.get('view');
   const activeView: WorkoutView = isWorkoutView(viewParam) ? viewParam : 'calendar';
-  const templatesQuery = useWorkoutTemplates();
+  const templateSort = parseWorkoutTemplateSort(searchParams.get('sort'));
+  const templatesQuery = useWorkoutTemplates({ sort: templateSort });
   const completedSessionsQuery = useCompletedSessions();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
@@ -255,4 +263,12 @@ export function WorkoutsPage() {
       )}
     </section>
   );
+}
+
+function parseWorkoutTemplateSort(value: string | null): WorkoutTemplateSort {
+  if (value !== null && WORKOUT_TEMPLATE_SORT_VALUES.includes(value as WorkoutTemplateSort)) {
+    return value as WorkoutTemplateSort;
+  }
+
+  return 'newest';
 }

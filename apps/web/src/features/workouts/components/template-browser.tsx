@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, MoreVertical, Search, Tag, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
+import type { WorkoutTemplateSort } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
   useDeleteTemplate,
   useRenameTemplate,
@@ -43,6 +45,8 @@ interface TemplateSummary {
   name: string;
   description: string | null;
   tags: string[];
+  createdAt?: number;
+  updatedAt?: number;
   sections: Array<{ exercises: unknown[] }>;
 }
 
@@ -52,12 +56,27 @@ type TemplateBrowserProps = {
   templates?: TemplateSummary[];
 };
 
+const templateSortValues: WorkoutTemplateSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+];
+const templateSortOptions: SortOption[] = [
+  { value: 'newest', label: 'Newest', direction: 'desc' },
+  { value: 'oldest', label: 'Oldest', direction: 'asc' },
+  { value: 'name-asc', label: 'Name (A-Z)', direction: 'asc' },
+  { value: 'name-desc', label: 'Name (Z-A)', direction: 'desc' },
+  { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
+];
+
 export function TemplateBrowser({
   buildTemplateHref,
   className,
   templates = [],
 }: TemplateBrowserProps) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -67,6 +86,7 @@ export function TemplateBrowser({
   const renameTemplateMutation = useRenameTemplate();
   const deleteTemplateMutation = useDeleteTemplate();
   const scheduleWorkoutMutation = useScheduleWorkout();
+  const sort = parseTemplateSort(searchParams.get('sort'));
   const requestedDate = searchParams.get('date');
   const scheduleInitialDate =
     requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
@@ -116,6 +136,7 @@ export function TemplateBrowser({
       }),
     [activeSelectedTags, normalizedQuery, templates],
   );
+  const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
@@ -171,22 +192,44 @@ export function TemplateBrowser({
         </p>
       </div>
 
-      <label className="relative block" htmlFor="template-search">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-        />
-        <Input
-          aria-label="Search templates by name"
-          autoComplete="off"
-          className="pl-9"
-          id="template-search"
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search templates by name"
-          type="search"
-          value={searchQuery}
-        />
-      </label>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem] sm:items-end">
+        <label className="relative block" htmlFor="template-search">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+          />
+          <Input
+            aria-label="Search templates by name"
+            autoComplete="off"
+            className="pl-9"
+            id="template-search"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search templates by name"
+            type="search"
+            value={searchQuery}
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-muted">Sort</span>
+          <SortSelector
+            ariaLabel="Sort templates"
+            onChange={(value) => {
+              if (!isTemplateSort(value)) {
+                return;
+              }
+
+              setSearchParams((current) => {
+                const next = new URLSearchParams(current);
+                next.set('sort', value);
+                return next;
+              });
+            }}
+            options={templateSortOptions}
+            value={sort}
+          />
+        </label>
+      </div>
 
       {availableTags.length > 0 ? (
         <div className="space-y-2" role="group" aria-label="Filter templates by tag">
@@ -235,7 +278,7 @@ export function TemplateBrowser({
             <p className="text-sm text-muted">No templates yet — create your first one.</p>
           </CardContent>
         </Card>
-      ) : filteredTemplates.length === 0 ? (
+      ) : sortedTemplates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted">No templates match the selected filters.</p>
@@ -243,7 +286,7 @@ export function TemplateBrowser({
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {filteredTemplates.map((template) => {
+          {sortedTemplates.map((template) => {
             const exerciseCount = countTemplateExercises(template);
 
             return (
@@ -441,6 +484,40 @@ export function TemplateBrowser({
       {dialog}
     </section>
   );
+}
+
+function isTemplateSort(value: string): value is WorkoutTemplateSort {
+  return templateSortValues.includes(value as WorkoutTemplateSort);
+}
+
+function parseTemplateSort(value: string | null): WorkoutTemplateSort {
+  return value !== null && isTemplateSort(value) ? value : 'newest';
+}
+
+function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) {
+  const copy = [...templates];
+  const byName = (left: TemplateSummary, right: TemplateSummary) =>
+    left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+
+  switch (sort) {
+    case 'name-asc':
+      return copy.sort(byName);
+    case 'name-desc':
+      return copy.sort((left, right) => byName(right, left));
+    case 'oldest':
+      return copy.sort(
+        (left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0) || byName(left, right),
+      );
+    case 'recently-updated':
+      return copy.sort(
+        (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0) || byName(left, right),
+      );
+    case 'newest':
+    default:
+      return copy.sort(
+        (left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0) || byName(left, right),
+      );
+  }
 }
 
 function countTemplateExercises(template: TemplateSummary) {

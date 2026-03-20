@@ -6,10 +6,13 @@ import {
   swapWorkoutTemplateExerciseInputSchema,
   type CreateWorkoutTemplateInput,
   type SwapWorkoutTemplateExerciseInput,
+  type WorkoutTemplateSort,
   type UpdateWorkoutTemplateInput,
   type WorkoutTemplate,
   type WorkoutTemplateSectionType,
+  workoutTemplateListQueryParamsSchema,
   workoutTemplateSchema,
+  workoutTemplateSortSchema,
   updateWorkoutTemplateInputSchema,
   workoutTemplateSectionTypeSchema,
 } from './workout-templates';
@@ -19,6 +22,22 @@ describe('workoutTemplateSectionTypeSchema', () => {
     const section: WorkoutTemplateSectionType = workoutTemplateSectionTypeSchema.parse('main');
 
     expect(section).toBe('main');
+  });
+});
+
+describe('workoutTemplateListQueryParamsSchema', () => {
+  it('defaults sort to newest and infers the sort type', () => {
+    const payload = workoutTemplateListQueryParamsSchema.parse({});
+    const sort: WorkoutTemplateSort = workoutTemplateSortSchema.parse('name-desc');
+
+    expect(payload).toEqual({
+      sort: 'newest',
+    });
+    expect(sort).toBe('name-desc');
+  });
+
+  it('rejects unsupported sort options', () => {
+    expect(() => workoutTemplateListQueryParamsSchema.parse({ sort: 'popular' })).toThrow();
   });
 });
 

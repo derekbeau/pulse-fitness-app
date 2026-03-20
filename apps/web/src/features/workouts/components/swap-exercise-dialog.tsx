@@ -42,6 +42,7 @@ export function SwapExerciseDialog({
       limit: 100,
       page: 1,
       q: search.trim() ? search.trim() : undefined,
+      sort: 'name-asc',
     },
     {
       enabled: open,

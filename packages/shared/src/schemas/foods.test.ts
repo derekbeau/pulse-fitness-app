@@ -204,7 +204,7 @@ describe('foodQueryParamsSchema', () => {
     const payload = foodQueryParamsSchema.parse({
       q: '  yogurt ',
       tags: ' dairy , breakfast ',
-      sort: 'popular',
+      sort: 'most-used',
       page: '2',
       limit: '25',
     });
@@ -212,7 +212,7 @@ describe('foodQueryParamsSchema', () => {
     expect(payload).toEqual({
       q: 'yogurt',
       tags: ['dairy', 'breakfast'],
-      sort: 'popular',
+      sort: 'most-used',
       page: 2,
       limit: 25,
     });
@@ -226,10 +226,16 @@ describe('foodQueryParamsSchema', () => {
     expect(payload).toEqual({
       q: undefined,
       tags: undefined,
-      sort: 'recent',
+      sort: 'recently-updated',
       page: 1,
       limit: 50,
     });
+  });
+
+  it('maps legacy sort aliases to canonical sort values', () => {
+    expect(foodQueryParamsSchema.parse({ sort: 'name' }).sort).toBe('name-asc');
+    expect(foodQueryParamsSchema.parse({ sort: 'recent' }).sort).toBe('recently-updated');
+    expect(foodQueryParamsSchema.parse({ sort: 'popular' }).sort).toBe('most-used');
   });
 
   it('parses repeated and comma-delimited tag query params', () => {

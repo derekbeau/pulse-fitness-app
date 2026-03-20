@@ -343,7 +343,9 @@ describe('App', () => {
     expect(await screen.findByText('Search your foods database')).toBeInTheDocument();
     await waitFor(() => {
       expect(window.location.pathname).toBe('/nutrition');
-      expect(window.location.search).toBe('?view=foods');
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('view')).toBe('foods');
+      expect(params.get('sort')).toBe('recently-updated');
     });
   });
 

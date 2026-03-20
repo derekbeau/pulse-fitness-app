@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
   ExerciseTrackingType,
   WorkoutTemplate,
   WorkoutTemplateExercise,
+  WorkoutTemplateSort,
   WorkoutTemplateSection,
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -162,14 +163,32 @@ const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInpu
     }));
   });
 
-const findTemplateRows = async (userId: string): Promise<TemplateRecord[]> => {
+const buildTemplateSort = (sort: WorkoutTemplateSort) => {
+  switch (sort) {
+    case 'name-asc':
+      return [sql`lower(${workoutTemplates.name}) asc`, asc(workoutTemplates.createdAt)] as const;
+    case 'name-desc':
+      return [sql`lower(${workoutTemplates.name}) desc`, desc(workoutTemplates.createdAt)] as const;
+    case 'oldest':
+      return [asc(workoutTemplates.createdAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+    case 'recently-updated':
+      return [desc(workoutTemplates.updatedAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+    case 'newest':
+    default:
+      return [desc(workoutTemplates.createdAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+  }
+};
+
+const findTemplateRows = async (userId: string, sort: WorkoutTemplateSort): Promise<TemplateRecord[]> => {
   const { db } = await import('../../db/index.js');
+
+  const orderBy = buildTemplateSort(sort);
 
   return db
     .select(templateSelection)
     .from(workoutTemplates)
     .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
-    .orderBy(asc(workoutTemplates.name), asc(workoutTemplates.createdAt))
+    .orderBy(...orderBy)
     .all();
 };
 
@@ -199,8 +218,11 @@ const findTemplateExerciseRows = async (
     .all();
 };
 
-export const listWorkoutTemplates = async (userId: string): Promise<WorkoutTemplate[]> => {
-  const templates = await findTemplateRows(userId);
+export const listWorkoutTemplates = async (
+  userId: string,
+  sort: WorkoutTemplateSort,
+): Promise<WorkoutTemplate[]> => {
+  const templates = await findTemplateRows(userId, sort);
   if (templates.length === 0) {
     return [];
   }

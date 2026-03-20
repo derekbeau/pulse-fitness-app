@@ -222,7 +222,7 @@ describe('foods routes', () => {
       expect(vi.mocked(listFoods)).toHaveBeenCalledWith('user-1', {
         q: 'yogurt',
         tags: ['protein', 'dairy'],
-        sort: 'popular',
+        sort: 'most-used',
         page: 2,
         limit: 1,
       });
@@ -263,7 +263,7 @@ describe('foods routes', () => {
       expect(vi.mocked(listFoods)).toHaveBeenCalledWith('user-1', {
         q: 'yogurt',
         tags: undefined,
-        sort: 'recent',
+        sort: 'recently-updated',
         page: 1,
         limit: 5,
       });

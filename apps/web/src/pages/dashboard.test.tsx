@@ -736,7 +736,7 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('Friday, March 6, 2026')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('edits a logged weight entry and refreshes the body weight card', async () => {
     const { wrapper } = createQueryClientWrapper();

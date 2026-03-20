@@ -290,7 +290,7 @@ describe('foods store', () => {
     const result = await listFoods('user-1', {
       q: '50%_off',
       tags: ['protein', 'dairy'],
-      sort: 'popular',
+      sort: 'most-used',
       page: 2,
       limit: 1,
     });
@@ -319,7 +319,7 @@ describe('foods store', () => {
     expect(whereClauseText.toLowerCase()).toContain('dairy');
   });
 
-  it('supports recent sorting without pagination errors when the query is absent', async () => {
+  it('supports recently-updated sorting without pagination errors when the query is absent', async () => {
     dbState.selectResults.push(
       {
         all: [
@@ -357,7 +357,7 @@ describe('foods store', () => {
     const { listFoods } = await import('./store.js');
 
     const result = await listFoods('user-1', {
-      sort: 'recent',
+      sort: 'recently-updated',
       page: 1,
       limit: 10,
     });

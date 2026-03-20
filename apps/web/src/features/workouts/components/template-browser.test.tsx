@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { BrowserRouter, MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -46,6 +46,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 describe('TemplateBrowser', () => {
   beforeEach(() => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    window.history.pushState({}, '', '/workouts?view=templates');
     renameMutateMock.mockReset();
     deleteMutateMock.mockReset().mockResolvedValue({ id: 'template-1' });
     scheduleMutateAsyncMock.mockReset();
@@ -116,6 +117,41 @@ describe('TemplateBrowser', () => {
 
     expect(screen.getByRole('link', { name: 'Lower Body' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Upper Push' })).not.toBeInTheDocument();
+  });
+
+  it('persists template sort selection in URL search params', async () => {
+    render(
+      <BrowserRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            {
+              id: 'template-1',
+              name: 'Upper Push',
+              description: 'Chest and shoulders',
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            },
+            {
+              id: 'template-2',
+              name: 'Lower Body',
+              description: 'Leg day',
+              tags: ['legs'],
+              sections: [{ exercises: [] }],
+            },
+          ]}
+        />
+      </BrowserRouter>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Sort templates' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('Name (Z-A)'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('sort=name-desc');
+    });
   });
 
   it('filters templates by selected tags using AND logic', () => {

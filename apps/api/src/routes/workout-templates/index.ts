@@ -5,6 +5,7 @@ import {
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
+  workoutTemplateListQueryParamsSchema,
   type UpdateWorkoutTemplateInput,
   updateWorkoutTemplateInputSchema,
   workoutTemplateSchema,
@@ -123,6 +124,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     '/',
     {
       schema: {
+        querystring: workoutTemplateListQueryParamsSchema,
         response: {
           200: apiDataResponseSchema(z.array(workoutTemplateSchema)),
           401: apiErrorResponseSchema,
@@ -133,7 +135,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const templates = await listWorkoutTemplates(request.userId);
+      const templates = await listWorkoutTemplates(request.userId, request.query.sort);
 
       return reply.send({
         data: templates,

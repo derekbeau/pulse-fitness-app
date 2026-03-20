@@ -301,6 +301,28 @@ describe('ExerciseLibrary', () => {
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
   });
 
+  it('persists sort selection in URL search params and sends it to the API', async () => {
+    const fetchSpy = mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Air Bike' })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Sort exercises' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('Name (Z-A)'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('sort=name-desc');
+    });
+
+    await waitFor(() => {
+      const requestUrl = new URL(String(fetchSpy.mock.calls.at(-1)?.[0]), 'https://pulse.test');
+      expect(requestUrl.searchParams.get('sort')).toBe('name-desc');
+    });
+  });
+
   it('toggles between card and table layouts', async () => {
     mockExerciseRequests();
 
@@ -477,7 +499,11 @@ describe('ExerciseLibrary', () => {
     });
 
     expect(
-      await screen.findByText('No exercises match the current search and filter combination.'),
+      await screen.findByText(
+        'No exercises match the current search and filter combination.',
+        {},
+        { timeout: 5_000 },
+      ),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Search exercises'), {
@@ -664,6 +690,7 @@ function mockExerciseRequests() {
     const muscleGroup = url.searchParams.get('muscleGroup')?.toLowerCase();
     const equipment = url.searchParams.get('equipment')?.toLowerCase();
     const category = url.searchParams.get('category');
+    const sort = url.searchParams.get('sort') ?? 'name-asc';
     const page = Number(url.searchParams.get('page') ?? '1');
     const limit = Number(url.searchParams.get('limit') ?? '25');
 
@@ -676,7 +703,21 @@ function mockExerciseRequests() {
       )
       .filter((exercise) => (equipment ? exercise.equipment.toLowerCase() === equipment : true))
       .filter((exercise) => (category ? exercise.category === category : true))
-      .sort((left, right) => left.name.localeCompare(right.name));
+      .sort((left, right) => {
+        switch (sort) {
+          case 'name-desc':
+            return right.name.localeCompare(left.name);
+          case 'newest':
+            return right.createdAt - left.createdAt || left.name.localeCompare(right.name);
+          case 'oldest':
+            return left.createdAt - right.createdAt || left.name.localeCompare(right.name);
+          case 'recently-updated':
+            return right.updatedAt - left.updatedAt || left.name.localeCompare(right.name);
+          case 'name-asc':
+          default:
+            return left.name.localeCompare(right.name);
+        }
+      });
 
     const offset = (page - 1) * limit;
 

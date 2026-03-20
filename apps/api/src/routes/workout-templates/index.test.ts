@@ -518,6 +518,45 @@ describe('workout template routes', () => {
     });
   });
 
+  it('sorts template list results by name-desc', async () => {
+    seedTemplate({
+      id: 'template-alpha',
+      userId: 'user-1',
+      name: 'Alpha Builder',
+      tags: [],
+    });
+    seedTemplate({
+      id: 'template-zeta',
+      userId: 'user-1',
+      name: 'Zeta Builder',
+      tags: [],
+    });
+    seedTemplate({
+      id: 'template-mid',
+      userId: 'user-1',
+      name: 'Middle Builder',
+      tags: [],
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-templates?sort=name-desc',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect((response.json() as { data: Array<{ id: string }> }).data.map((template) => template.id)).toEqual([
+      'template-zeta',
+      'template-mid',
+      'template-alpha',
+    ]);
+  });
+
   it('updates only owned templates by replacing nested exercise rows', async () => {
     seedTemplate({
       id: 'template-1',

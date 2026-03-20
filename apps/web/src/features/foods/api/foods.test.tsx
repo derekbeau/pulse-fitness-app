@@ -94,7 +94,7 @@ describe('foods api hooks', () => {
         useFoods({
           q: 'chicken',
           tags: ['protein', 'dinner'],
-          sort: 'popular',
+          sort: 'most-used',
           page: 2,
           limit: 5,
         }),
@@ -112,7 +112,7 @@ describe('foods api hooks', () => {
         foodQueryKeys.list({
           q: 'chicken',
           tags: ['protein', 'dinner'],
-          sort: 'popular',
+          sort: 'most-used',
           page: 2,
           limit: 5,
         }),
@@ -129,7 +129,7 @@ describe('foods api hooks', () => {
     expect(request.pathname).toBe('/api/v1/foods');
     expect(request.searchParams.get('q')).toBe('chicken');
     expect(request.searchParams.get('tags')).toBe('protein,dinner');
-    expect(request.searchParams.get('sort')).toBe('popular');
+    expect(request.searchParams.get('sort')).toBe('most-used');
     expect(request.searchParams.get('page')).toBe('2');
     expect(request.searchParams.get('limit')).toBe('5');
   });
@@ -149,7 +149,10 @@ describe('foods api hooks', () => {
       },
     };
 
-    queryClient.setQueryData(foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }), initialData);
+    queryClient.setQueryData(
+      foodQueryKeys.list({ page: 1, limit: 12, sort: 'name-asc' }),
+      initialData,
+    );
 
     const { result } = renderHook(() => useDeleteFood(), { wrapper });
 
@@ -160,7 +163,7 @@ describe('foods api hooks', () => {
     await waitFor(() => {
       expect(
         queryClient.getQueryData<FoodListResponse>(
-          foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }),
+          foodQueryKeys.list({ page: 1, limit: 12, sort: 'name-asc' }),
         )?.data,
       ).toHaveLength(1);
     });
@@ -188,7 +191,7 @@ describe('foods api hooks', () => {
 
     expect(
       queryClient.getQueryData<FoodListResponse>(
-        foodQueryKeys.list({ page: 1, limit: 12, sort: 'name' }),
+        foodQueryKeys.list({ page: 1, limit: 12, sort: 'name-asc' }),
       ),
     ).toEqual(initialData);
   });

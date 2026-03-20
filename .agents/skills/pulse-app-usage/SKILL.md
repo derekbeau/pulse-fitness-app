@@ -190,13 +190,16 @@ If no new foods were created, explicitly say that existing food entries were reu
 
 ### Exercise Management
 
-- **Search**: `GET /api/v1/exercises/?q=<term>` — always search before creating.
+- **Search**: `GET /api/v1/exercises/?q=<term>&sort=<sort>` — always search before creating.
+  - `sort` options: `name-asc` (default), `name-desc`, `newest`, `oldest`, `recently-updated`
 - **Create with dedup guard**: `POST /api/v1/exercises/` — if the response is `{ "data": { "created": false, "candidates": [...] } }`, inspect candidates and only retry with `force: true` when a true new exercise is required.
 - **Enrich exercises**: Use `PATCH /api/v1/exercises/:id` any time you need to improve metadata (`muscleGroups`, `equipment`, `category`, `trackingType`, `instructions`, `formCues`, `tags`).
 - **Last performance**: `GET /api/v1/exercises/:id/last-performance` — useful for programming progression.
 
 ### Templates
 
+- **List**: `GET /api/v1/workout-templates/?sort=<sort>`
+  - `sort` options: `newest` (default), `oldest`, `name-asc`, `name-desc`, `recently-updated`
 - **Create**: `POST /api/v1/workout-templates/` — sections (warmup/main/cooldown/supplemental) with exercises, sets, reps, rest times. Unknown exercise names are auto-created. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`). See `references/workout-workflow.md` for section type details.
 - **Update**: `PUT /api/v1/workout-templates/:id` or `PATCH /api/v1/workout-templates/:id`
 - **Swap exercise**: `PATCH /api/v1/workout-templates/:id/exercises/:exerciseId/swap`

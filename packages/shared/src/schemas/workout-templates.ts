@@ -104,6 +104,16 @@ export const workoutTemplateSectionSchema = z.object({
   type: workoutTemplateSectionTypeSchema,
   exercises: z.array(workoutTemplateExerciseSchema),
 });
+export const workoutTemplateSortSchema = z.enum([
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+]);
+export const workoutTemplateListQueryParamsSchema = z.object({
+  sort: workoutTemplateSortSchema.default('newest'),
+});
 
 const workoutTemplateExerciseInputSchema = z
   .object({
@@ -248,6 +258,8 @@ export const swapWorkoutTemplateExerciseInputSchema = z.object({
 });
 
 export type WorkoutTemplateSectionType = z.infer<typeof workoutTemplateSectionTypeSchema>;
+export type WorkoutTemplateSort = z.infer<typeof workoutTemplateSortSchema>;
+export type WorkoutTemplateListQueryParams = z.infer<typeof workoutTemplateListQueryParamsSchema>;
 export type WorkoutTemplateExerciseSet = z.infer<typeof workoutTemplateExerciseSetSchema>;
 export type WorkoutTemplateExercise = z.infer<typeof workoutTemplateExerciseSchema>;
 export type WorkoutTemplateSection = z.infer<typeof workoutTemplateSectionSchema>;
