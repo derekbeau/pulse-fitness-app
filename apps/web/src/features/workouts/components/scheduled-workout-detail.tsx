@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, CalendarClock, Dumbbell, History, TriangleAlert } from 'lucide-react';
-import type {
-  ExerciseTrackingType,
-  WorkoutTemplate,
-  WorkoutTemplateExercise,
-  WeightUnit,
-} from '@pulse/shared';
+import type { WorkoutTemplate, WorkoutTemplateExercise, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,7 +20,7 @@ import {
 } from '../api/workouts';
 import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
-import { ExerciseHistoryModal } from './exercise-history-modal';
+import { ExerciseDetailModal } from './exercise-detail-modal';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -64,7 +59,6 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
   const [historyTarget, setHistoryTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
-    trackingType: ExerciseTrackingType;
   } | null>(null);
 
   const template = scheduledWorkout?.template ?? null;
@@ -239,7 +233,6 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
             setHistoryTarget({
               exerciseId: exercise.exerciseId,
               exerciseName: exercise.exerciseName,
-              trackingType: exercise.trackingType,
             })
           }
           template={template}
@@ -263,17 +256,15 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
         />
       ) : null}
       {historyTarget ? (
-        <ExerciseHistoryModal
+        <ExerciseDetailModal
+          context="receipt"
           exerciseId={historyTarget.exerciseId}
-          exerciseName={historyTarget.exerciseName}
           onOpenChange={(open) => {
             if (!open) {
               setHistoryTarget(null);
             }
           }}
           open={historyTarget != null}
-          trackingType={historyTarget.trackingType}
-          weightUnit={weightUnit}
         />
       ) : null}
       {confirmDialog}

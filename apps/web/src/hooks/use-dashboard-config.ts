@@ -38,7 +38,25 @@ export const useSaveDashboardConfig = () => {
 
   return useMutation({
     mutationFn: putDashboardConfig,
-    onSuccess: async () => {
+    onMutate: async (nextConfig) => {
+      await queryClient.cancelQueries({ queryKey: dashboardConfigQueryKeys.detail() });
+      const previousConfig = queryClient.getQueryData<DashboardConfig>(
+        dashboardConfigQueryKeys.detail(),
+      );
+
+      queryClient.setQueryData<DashboardConfig>(dashboardConfigQueryKeys.detail(), nextConfig);
+
+      return { previousConfig };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousConfig) {
+        queryClient.setQueryData<DashboardConfig>(
+          dashboardConfigQueryKeys.detail(),
+          context.previousConfig,
+        );
+      }
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: dashboardConfigQueryKeys.all });
     },
   });

@@ -84,6 +84,29 @@ describe('ScheduledWorkoutDetail', () => {
         );
       }
 
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'incline-dumbbell-press',
+              userId: 'user-1',
+              name: 'Incline Dumbbell Press',
+              muscleGroups: ['upper chest', 'triceps'],
+              equipment: 'Dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: ['Tuck shoulder blades'],
+              instructions: 'Lower with control and drive up.',
+              coachingNotes: 'Keep your upper back pinned.',
+              relatedExerciseIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
         return Promise.resolve(
           jsonResponse({
@@ -116,13 +139,13 @@ describe('ScheduledWorkoutDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Incline Dumbbell Press history')).toBeInTheDocument();
-    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('Mar 12, 2026 · 70x10, 70x9')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
 
     await waitFor(() => {
-      expect(screen.queryByText('Incline Dumbbell Press history')).not.toBeInTheDocument();
+      expect(screen.queryByText('Mar 12, 2026 · 70x10, 70x9')).not.toBeInTheDocument();
     });
   });
 });

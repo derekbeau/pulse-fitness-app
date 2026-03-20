@@ -1545,6 +1545,29 @@ describe('SessionExerciseList', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
+      if (url.pathname === '/api/v1/exercises/row-erg') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'row-erg',
+              userId: 'user-1',
+              name: 'Row Erg',
+              muscleGroups: ['conditioning', 'upper back'],
+              equipment: 'rower',
+              category: 'cardio',
+              trackingType: 'cardio',
+              tags: [],
+              formCues: ['Stay tall'],
+              instructions: 'Drive through legs, then finish with arms.',
+              coachingNotes: null,
+              relatedExerciseIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
       if (url.pathname === '/api/v1/exercises/row-erg/history') {
         return Promise.resolve(
           jsonResponse({
@@ -1591,12 +1614,13 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'View all' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Row Erg history')).toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('Session history')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
 
     await waitFor(() => {
-      expect(screen.queryByText('Row Erg history')).not.toBeInTheDocument();
+      expect(screen.queryByText('Session history')).not.toBeInTheDocument();
     });
   });
 

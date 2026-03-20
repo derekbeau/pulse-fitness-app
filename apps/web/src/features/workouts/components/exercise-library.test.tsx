@@ -369,8 +369,9 @@ describe('ExerciseLibrary', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Air Bike' }));
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Add to template' })).toBeInTheDocument();
   });
 
   it('does not write the initial view preference to localStorage on mount', async () => {
@@ -430,9 +431,10 @@ describe('ExerciseLibrary', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
 
-    expect(await screen.findByText('Incline Dumbbell Press trends')).toBeInTheDocument();
-    expect((await screen.findAllByText(/Latest/)).length).toBeGreaterThan(0);
-    expect(screen.queryByText('No history yet')).not.toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('Mar 8, 2026 · 70x10, 70x9')).toBeInTheDocument();
+    expect(within(dialog).queryByText('No history yet')).not.toBeInTheDocument();
   });
 
   it('renames an exercise from the card actions menu', async () => {
@@ -465,7 +467,7 @@ describe('ExerciseLibrary', () => {
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
   });
 
-  it('shows an empty state and still supports the exercise trend dialog', async () => {
+  it('shows an empty state and still supports the unified exercise detail modal', async () => {
     mockExerciseRequests();
 
     renderExerciseLibrary();
@@ -484,9 +486,10 @@ describe('ExerciseLibrary', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Air Bike' }));
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
-    expect(screen.getByText('No history yet')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('No completed history yet.')).toBeInTheDocument();
   });
 
   it('falls back to the no-results state when the exercises request fails', async () => {
@@ -609,6 +612,36 @@ function mockExerciseRequests() {
       return Promise.resolve(
         jsonResponse({
           data: exercise,
+        }),
+      );
+    }
+
+    if (url.pathname.startsWith('/api/v1/exercises/') && !url.pathname.endsWith('/history')) {
+      const exerciseId = url.pathname.split('/').at(-1) ?? '';
+      const exercise = mockExercises.find((item) => item.id === exerciseId);
+
+      if (!exercise) {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'EXERCISE_NOT_FOUND',
+                message: 'Exercise not found',
+              },
+            },
+            { status: 404 },
+          ),
+        );
+      }
+
+      return Promise.resolve(
+        jsonResponse({
+          data: {
+            ...exercise,
+            coachingNotes: null,
+            formCues: [],
+            relatedExerciseIds: [],
+          },
         }),
       );
     }

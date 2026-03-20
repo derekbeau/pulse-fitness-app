@@ -58,7 +58,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useLastPerformance } from '@/hooks/use-last-performance';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
@@ -67,12 +66,10 @@ import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import {
-  useExercise,
   useExercises,
   useRenameExercise,
   useReorderTemplateExercises,
   useScheduleWorkout,
-  useUpdateExercise,
   useUpdateTemplate,
   useWorkoutTemplate,
 } from '../api/workouts';
@@ -81,10 +78,11 @@ import {
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
-import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
+import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
+import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { ExerciseDetailModal } from './exercise-detail-modal';
 import { FormCueChips } from './form-cue-chips';
-import { ExerciseHistoryModal } from './exercise-history-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
@@ -122,12 +120,6 @@ const supersetAccentStyles = [
 ] as const;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-});
-
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const { weightUnit } = useWeightUnit();
   const navigate = useNavigate();
@@ -137,7 +129,6 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const scheduleWorkoutMutation = useScheduleWorkout();
   const renameExerciseMutation = useRenameExercise();
   const reorderExercisesMutation = useReorderTemplateExercises();
-  const updateExerciseMutation = useUpdateExercise();
   const updateTemplateMutation = useUpdateTemplate();
   const template = templateQuery.data ?? null;
 
@@ -155,11 +146,6 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
     exerciseId: string;
     templateExerciseId: string;
-  } | null>(null);
-  const [historyTarget, setHistoryTarget] = useState<{
-    exerciseId: string;
-    exerciseName: string;
-    trackingType: ExerciseTrackingType;
   } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
@@ -569,10 +555,9 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                               })
                             }
                             onOpenHistory={() =>
-                              setHistoryTarget({
+                              setExerciseDetailTarget({
                                 exerciseId: exercise.exerciseId,
-                                exerciseName: exercise.exerciseName,
-                                trackingType: exercise.trackingType,
+                                templateExerciseId: exercise.id,
                               })
                             }
                             onRename={() =>
@@ -664,10 +649,9 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                     })
                                   }
                                   onOpenHistory={() =>
-                                    setHistoryTarget({
+                                    setExerciseDetailTarget({
                                       exerciseId: exercise.exerciseId,
-                                      exerciseName: exercise.exerciseName,
-                                      trackingType: exercise.trackingType,
+                                      templateExerciseId: exercise.id,
                                     })
                                   }
                                   onRename={() =>
@@ -810,37 +794,15 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       ) : null}
       {exerciseDetailTarget && activeExerciseDetail ? (
         <ExerciseDetailModal
-          key={exerciseDetailTarget.templateExerciseId}
-          exercise={activeExerciseDetail.exercise}
-          isPending={updateExerciseMutation.isPending}
+          context="template"
+          exerciseId={activeExerciseDetail.exercise.exerciseId}
           onOpenChange={(open) => {
             if (!open) {
               setExerciseDetailTarget(null);
             }
           }}
-          onSaveCoachingNotes={(exerciseId, coachingNotes) =>
-            updateExerciseMutation.mutateAsync({
-              id: exerciseId,
-              input: {
-                coachingNotes,
-              },
-            })
-          }
-          weightUnit={weightUnit}
-        />
-      ) : null}
-      {historyTarget ? (
-        <ExerciseHistoryModal
-          exerciseId={historyTarget.exerciseId}
-          exerciseName={historyTarget.exerciseName}
-          onOpenChange={(open) => {
-            if (!open) {
-              setHistoryTarget(null);
-            }
-          }}
-          open={historyTarget != null}
-          trackingType={historyTarget.trackingType}
-          weightUnit={weightUnit}
+          open={exerciseDetailTarget != null}
+          templateExerciseId={activeExerciseDetail.exercise.id}
         />
       ) : null}
 
@@ -978,6 +940,7 @@ function TemplateExerciseCard({
   return (
     <Card
       className="gap-1.5 py-0"
+      id={getTemplateExerciseElementId(exercise.id)}
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
@@ -1332,191 +1295,6 @@ function SupersetManagerDialog({
   );
 }
 
-function ExerciseDetailModal({
-  exercise,
-  isPending,
-  onOpenChange,
-  onSaveCoachingNotes,
-  weightUnit,
-}: {
-  exercise: WorkoutTemplateExercise;
-  isPending: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
-  weightUnit: WeightUnit;
-}) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
-  const [coachingNotesDraft, setCoachingNotesDraft] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const exerciseQuery = useExercise(exercise.exerciseId, { enabled: true });
-  const historyQuery = useLastPerformance(exercise.exerciseId, {
-    enabled: true,
-    includeRelated: true,
-  });
-
-  const matchedExercise = exerciseQuery.data ?? null;
-  const coachingNotes =
-    coachingNotesDraft ?? matchedExercise?.coachingNotes ?? exercise.exercise?.coachingNotes ?? '';
-
-  const formCues =
-    matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
-  const instructionText = matchedExercise?.instructions ?? exercise.exercise?.instructions ?? null;
-  const muscleGroups = matchedExercise?.muscleGroups ?? [];
-  const trackingType = matchedExercise?.trackingType ?? exercise.trackingType;
-
-  return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{exercise.exerciseName}</DialogTitle>
-          <DialogDescription>
-            {formatTrackingTypeLabel(trackingType)} •{' '}
-            {muscleGroups.length > 0 ? muscleGroups.join(', ') : 'Muscle groups not specified'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex gap-2 border-b border-border pb-2">
-          <Button
-            onClick={() => setActiveTab('overview')}
-            size="sm"
-            type="button"
-            variant={activeTab === 'overview' ? 'default' : 'outline'}
-          >
-            Overview
-          </Button>
-          <Button
-            onClick={() => setActiveTab('history')}
-            size="sm"
-            type="button"
-            variant={activeTab === 'history' ? 'default' : 'outline'}
-          >
-            History
-          </Button>
-          <Button
-            onClick={() => setActiveTab('related')}
-            size="sm"
-            type="button"
-            variant={activeTab === 'related' ? 'default' : 'outline'}
-          >
-            Related
-          </Button>
-        </div>
-
-        {activeTab === 'overview' ? (
-          <div className="space-y-4">
-            {formCues.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                  Form cues
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {formCues.map((cue) => (
-                    <Badge key={cue} variant="secondary">
-                      {cue}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {instructionText ? (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                  Instructions
-                </p>
-                <p className="text-sm text-foreground">{instructionText}</p>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
-                Coaching notes
-              </p>
-              <Textarea
-                aria-label="Coaching notes"
-                onChange={(event) => setCoachingNotesDraft(event.currentTarget.value)}
-                rows={4}
-                value={coachingNotes}
-              />
-              <Button
-                disabled={isPending || isSaving}
-                onClick={() => {
-                  setIsSaving(true);
-                  onSaveCoachingNotes(exercise.exerciseId, toNullableString(coachingNotes))
-                    .then(() => {
-                      toast.success('Coaching notes saved');
-                    })
-                    .catch((error) => {
-                      const message =
-                        error instanceof Error ? error.message : 'Unable to save coaching notes';
-                      toast.error(message);
-                    })
-                    .finally(() => {
-                      setIsSaving(false);
-                    });
-                }}
-                type="button"
-              >
-                Save coaching notes
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {activeTab === 'history' ? (
-          <div className="space-y-2">
-            {historyQuery.isPending ? (
-              <p className="text-sm text-muted">Loading recent performance...</p>
-            ) : (
-              <p className="text-sm text-foreground">
-                {historyQuery.data?.history
-                  ? formatLastPerformanceSummary(
-                      historyQuery.data.history,
-                      trackingType,
-                      weightUnit,
-                    )
-                  : 'No history available.'}
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        {activeTab === 'related' ? (
-          <div className="space-y-2">
-            {historyQuery.isPending ? (
-              <p className="text-sm text-muted">Loading related exercises...</p>
-            ) : historyQuery.data?.related.length ? (
-              historyQuery.data.related.map((relatedExercise) => (
-                <div
-                  className="space-y-1 rounded-lg border border-border bg-card px-3 py-2"
-                  key={relatedExercise.exerciseId}
-                >
-                  <p className="text-sm font-semibold text-foreground">
-                    {relatedExercise.exerciseName}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {formatTrackingTypeLabel(relatedExercise.trackingType)}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {formatLastPerformanceSummary(
-                      relatedExercise.history,
-                      relatedExercise.trackingType,
-                      weightUnit,
-                    )}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted">No related exercises configured.</p>
-            )}
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function AddExerciseDialog({
   isPending,
   onOpenChange,
@@ -1799,35 +1577,6 @@ function toSupersetGroupId(value: string) {
   }
 
   return `superset-${normalized}`.slice(0, 255);
-}
-
-function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
-  return trackingType.replaceAll('_', ' ');
-}
-
-function formatLastPerformanceSummary(
-  history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
-  trackingType: ExerciseTrackingType,
-  weightUnit: WeightUnit,
-) {
-  if (!history || history.sets.length === 0) {
-    return 'No history yet.';
-  }
-
-  const setSummary = formatCompactSets(
-    history.sets.map((set) =>
-      trackingType === 'distance'
-        ? { distance: set.reps, weight: set.weight }
-        : { reps: set.reps, weight: set.weight },
-    ),
-    trackingType,
-    {
-      useLegacySecondsFallback: trackingType !== 'reps_seconds',
-      weightUnit,
-    },
-  );
-
-  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`;
 }
 
 function formatLabel(value: string) {

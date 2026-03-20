@@ -1221,12 +1221,35 @@ describe('WorkoutTemplateDetail', () => {
     expect(await screen.findByText('Superset A')).toBeInTheDocument();
   });
 
-  it('opens exercise history modal from template exercise rows', async () => {
+  it('opens unified exercise detail modal from template exercise history actions', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-templates/upper-push') {
         return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'incline-dumbbell-press',
+              userId: 'user-1',
+              name: 'Incline Dumbbell Press',
+              muscleGroups: ['upper chest', 'triceps'],
+              equipment: 'Dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: ['Tuck shoulder blades'],
+              instructions: 'Lower dumbbells with control, then drive up.',
+              coachingNotes: 'Keep your upper back pinned to the bench.',
+              relatedExerciseIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
       }
 
       if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
@@ -1261,24 +1284,27 @@ describe('WorkoutTemplateDetail', () => {
     );
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Incline Dumbbell Press history')).toBeInTheDocument();
-    expect(within(dialog).getByText('Last 10 completed sessions')).toBeInTheDocument();
+    expect(within(dialog).getByText('Exercise details')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Edit exercise' })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
     await waitFor(() => {
-      expect(screen.queryByText('Incline Dumbbell Press history')).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
 
-  it('opens exercise detail modal with overview, history, and related data and saves coaching notes', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+  it('opens exercise detail modal and renders overview plus history tabs', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-templates/upper-push') {
         return Promise.resolve(jsonResponse(templatePayload));
       }
 
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method !== 'PATCH') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press') {
         return Promise.resolve(
           jsonResponse({
             data: {
@@ -1293,7 +1319,7 @@ describe('WorkoutTemplateDetail', () => {
               formCues: ['Tuck shoulder blades', 'Drive elbows 45°'],
               instructions: 'Lower dumbbells with control, then drive up.',
               coachingNotes: 'Keep your upper back pinned to the bench.',
-              relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
+              relatedExerciseIds: [],
               createdAt: 1,
               updatedAt: 1,
             },
@@ -1301,54 +1327,26 @@ describe('WorkoutTemplateDetail', () => {
         );
       }
 
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/last-performance') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              history: {
+            data: [
+              {
                 sessionId: 'session-1',
                 date: '2026-03-06',
+                notes: null,
                 sets: [
                   { setNumber: 1, reps: 10, weight: 70 },
                   { setNumber: 2, reps: 9, weight: 70 },
                 ],
               },
-              related: [
-                {
-                  exerciseId: 'seated-dumbbell-shoulder-press',
-                  exerciseName: 'Seated Dumbbell Shoulder Press',
-                  trackingType: 'weight_reps',
-                  history: {
-                    sessionId: 'session-2',
-                    date: '2026-03-04',
-                    sets: [{ setNumber: 1, reps: 8, weight: 55 }],
-                  },
-                },
-              ],
-            },
-          }),
-        );
-      }
-
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method === 'PATCH') {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              id: 'incline-dumbbell-press',
-              userId: 'user-1',
-              name: 'Incline Dumbbell Press',
-              muscleGroups: ['upper chest', 'triceps'],
-              equipment: 'Dumbbells',
-              category: 'compound',
-              trackingType: 'weight_reps',
-              tags: [],
-              formCues: ['Tuck shoulder blades'],
-              instructions: 'Lower dumbbells with control, then drive up.',
-              coachingNotes: JSON.parse(String(init.body ?? '{}')).coachingNotes,
-              relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
-              createdAt: 1,
-              updatedAt: 2,
-            },
+              {
+                sessionId: 'session-2',
+                date: '2026-03-04',
+                notes: null,
+                sets: [{ setNumber: 1, reps: 8, weight: 55 }],
+              },
+            ],
           }),
         );
       }
@@ -1365,37 +1363,18 @@ describe('WorkoutTemplateDetail', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(await within(dialog).findByText(/upper chest, triceps/i)).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('Weight Reps • Upper Chest, Triceps'),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText('Form cues')).toBeInTheDocument();
+    expect(within(dialog).getByText('Drive elbows 45°')).toBeInTheDocument();
+    expect(within(dialog).getByText('Keep your upper back pinned to the bench.')).toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
-    expect(await within(dialog).findByText(/Mar/i)).toBeInTheDocument();
-    expect(within(dialog).getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Related' }));
-    expect(await within(dialog).findByText('Seated Dumbbell Shoulder Press')).toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Overview' }));
-    const notesField = within(dialog).getByLabelText('Coaching notes');
-    fireEvent.change(notesField, {
-      target: { value: 'Keep upper back pinned and pause for one count.' },
-    });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save coaching notes' }));
-
-    await waitFor(() => {
-      expect(
-        fetchSpy.mock.calls.some(
-          ([input, init]) =>
-            String(input).includes('/api/v1/exercises/incline-dumbbell-press') &&
-            init?.method === 'PATCH' &&
-            JSON.parse(String(init.body ?? '{}')).coachingNotes ===
-              'Keep upper back pinned and pause for one count.',
-        ),
-      ).toBe(true);
-    });
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
+    expect(await within(dialog).findByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
   });
 
-  it('hydrates coaching notes from the exercise lookup when template notes are missing', async () => {
+  it('hydrates coaching notes text from the exercise lookup when template notes are missing', async () => {
     const templateWithoutEmbeddedNotes = structuredClone(templatePayload);
     const inclineExercise = templateWithoutEmbeddedNotes.data.sections[1]
       .exercises[0] as MutableTemplateExercise;
@@ -1405,14 +1384,14 @@ describe('WorkoutTemplateDetail', () => {
       instructions: null,
     };
 
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-templates/upper-push') {
         return Promise.resolve(jsonResponse(templateWithoutEmbeddedNotes));
       }
 
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method !== 'PATCH') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press') {
         return Promise.resolve(
           jsonResponse({
             data: {
@@ -1427,7 +1406,7 @@ describe('WorkoutTemplateDetail', () => {
               formCues: ['Tuck shoulder blades', 'Drive elbows 45°'],
               instructions: 'Lower dumbbells with control, then drive up.',
               coachingNotes: 'Keep your upper back pinned to the bench.',
-              relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
+              relatedExerciseIds: [],
               createdAt: 1,
               updatedAt: 1,
             },
@@ -1435,13 +1414,17 @@ describe('WorkoutTemplateDetail', () => {
         );
       }
 
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/last-performance') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              history: null,
-              related: [],
-            },
+            data: [
+              {
+                sessionId: 'session-1',
+                date: '2026-03-06',
+                notes: null,
+                sets: [{ setNumber: 1, reps: 10, weight: 70 }],
+              },
+            ],
           }),
         );
       }
@@ -1458,11 +1441,7 @@ describe('WorkoutTemplateDetail', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
     const dialog = await screen.findByRole('dialog');
 
-    await waitFor(() => {
-      expect(within(dialog).getByLabelText('Coaching notes')).toHaveValue(
-        'Keep your upper back pinned to the bench.',
-      );
-    });
+    expect(await within(dialog).findByText('Keep your upper back pinned to the bench.')).toBeInTheDocument();
   });
 
   it('shows history fallback without error toast when exercise detail queries return 404', async () => {
@@ -1489,7 +1468,7 @@ describe('WorkoutTemplateDetail', () => {
         );
       }
 
-      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/last-performance') {
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/history') {
         return Promise.resolve(
           jsonResponse(
             {
@@ -1514,9 +1493,9 @@ describe('WorkoutTemplateDetail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
 
-    expect(await within(dialog).findByText('No history available.')).toBeInTheDocument();
+    expect(await within(dialog).findByText('No completed history yet.')).toBeInTheDocument();
     expect(toastErrorSpy).not.toHaveBeenCalled();
   });
 
