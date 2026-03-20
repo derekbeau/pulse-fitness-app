@@ -302,6 +302,7 @@ describe('exercise routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('private, no-cache');
     expect(response.json()).toMatchObject({
       data: {
         id: 'global-bench',
@@ -2184,7 +2185,7 @@ describe('exercise routes', () => {
       error: {
         code: 'EXERCISE_IN_USE',
         message:
-          'This exercise is referenced by workout templates or sessions. Remove it from all templates first.',
+          'This exercise is referenced by active workout templates or sessions and cannot be deleted.',
       },
     });
 

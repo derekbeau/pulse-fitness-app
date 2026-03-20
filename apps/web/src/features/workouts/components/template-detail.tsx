@@ -826,6 +826,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               },
             })
           }
+          weightUnit={weightUnit}
         />
       ) : null}
       {historyTarget ? (
@@ -1336,14 +1337,16 @@ function ExerciseDetailModal({
   isPending,
   onOpenChange,
   onSaveCoachingNotes,
+  weightUnit,
 }: {
   exercise: WorkoutTemplateExercise;
   isPending: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
+  weightUnit: WeightUnit;
 }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
-  const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
+  const [coachingNotesDraft, setCoachingNotesDraft] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const exerciseQuery = useExercise(exercise.exerciseId, { enabled: true });
@@ -1353,6 +1356,8 @@ function ExerciseDetailModal({
   });
 
   const matchedExercise = exerciseQuery.data ?? null;
+  const coachingNotes =
+    coachingNotesDraft ?? matchedExercise?.coachingNotes ?? exercise.exercise?.coachingNotes ?? '';
 
   const formCues =
     matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
@@ -1430,7 +1435,7 @@ function ExerciseDetailModal({
               </p>
               <Textarea
                 aria-label="Coaching notes"
-                onChange={(event) => setCoachingNotes(event.currentTarget.value)}
+                onChange={(event) => setCoachingNotesDraft(event.currentTarget.value)}
                 rows={4}
                 value={coachingNotes}
               />
@@ -1466,7 +1471,11 @@ function ExerciseDetailModal({
             ) : (
               <p className="text-sm text-foreground">
                 {historyQuery.data?.history
-                  ? formatLastPerformanceSummary(historyQuery.data.history, trackingType)
+                  ? formatLastPerformanceSummary(
+                      historyQuery.data.history,
+                      trackingType,
+                      weightUnit,
+                    )
                   : 'No history available.'}
               </p>
             )}
@@ -1493,6 +1502,7 @@ function ExerciseDetailModal({
                     {formatLastPerformanceSummary(
                       relatedExercise.history,
                       relatedExercise.trackingType,
+                      weightUnit,
                     )}
                   </p>
                 </div>
@@ -1798,6 +1808,7 @@ function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
 function formatLastPerformanceSummary(
   history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
   trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
 ) {
   if (!history || history.sets.length === 0) {
     return 'No history yet.';
@@ -1812,6 +1823,7 @@ function formatLastPerformanceSummary(
     trackingType,
     {
       useLegacySecondsFallback: trackingType !== 'reps_seconds',
+      weightUnit,
     },
   );
 

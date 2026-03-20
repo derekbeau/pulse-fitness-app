@@ -898,6 +898,7 @@ function ExerciseCardItem({
                   const previewEntries = formatHistoryPreviewEntries({
                     historyEntries: historySummary.historyEntries,
                     trackingType: exercise.trackingType,
+                    weightUnit,
                   });
 
                   if (previewEntries.length === 0) {
@@ -959,6 +960,7 @@ function ExerciseCardItem({
                               : [],
                             maxEntries: 1,
                             trackingType: relatedExercise.trackingType,
+                            weightUnit,
                           });
 
                           if (previewEntries.length === 0) {
@@ -1229,10 +1231,12 @@ function formatHistoryPreviewEntries({
   historyEntries,
   maxEntries = 3,
   trackingType,
+  weightUnit,
 }: {
   historyEntries: ActiveWorkoutExerciseHistorySummary['historyEntries'];
   maxEntries?: number;
   trackingType: ExerciseTrackingType;
+  weightUnit: WeightUnit;
 }) {
   if (historyEntries.length === 0) {
     return [];
@@ -1248,6 +1252,7 @@ function formatHistoryPreviewEntries({
       trackingType,
       {
         useLegacySecondsFallback: trackingType !== 'reps_seconds',
+        weightUnit,
       },
     );
 

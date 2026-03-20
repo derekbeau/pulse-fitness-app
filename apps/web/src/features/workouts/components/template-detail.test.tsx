@@ -1395,6 +1395,76 @@ describe('WorkoutTemplateDetail', () => {
     });
   });
 
+  it('hydrates coaching notes from the exercise lookup when template notes are missing', async () => {
+    const templateWithoutEmbeddedNotes = structuredClone(templatePayload);
+    const inclineExercise = templateWithoutEmbeddedNotes.data.sections[1]
+      .exercises[0] as MutableTemplateExercise;
+    inclineExercise.exercise = {
+      formCues: inclineExercise.exercise?.formCues ?? [],
+      coachingNotes: null,
+      instructions: null,
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(templateWithoutEmbeddedNotes));
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press' && init?.method !== 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'incline-dumbbell-press',
+              userId: 'user-1',
+              name: 'Incline Dumbbell Press',
+              muscleGroups: ['upper chest', 'triceps'],
+              equipment: 'Dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: ['Tuck shoulder blades', 'Drive elbows 45°'],
+              instructions: 'Lower dumbbells with control, then drive up.',
+              coachingNotes: 'Keep your upper back pinned to the bench.',
+              relatedExerciseIds: ['seated-dumbbell-shoulder-press'],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/last-performance') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              history: null,
+              related: [],
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Coaching notes')).toHaveValue(
+        'Keep your upper back pinned to the bench.',
+      );
+    });
+  });
+
   it('shows history fallback without error toast when exercise detail queries return 404', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
 

@@ -594,7 +594,7 @@ export const reconcileFoodUsage = async (
         continue;
       }
 
-      if (usageChanged) {
+      if (usageChanged || lastUsedAtChanged) {
         updated += 1;
       }
 

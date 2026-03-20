@@ -294,7 +294,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       </div>
 
       {exercisesQuery.isPending ? (
-        <ExerciseLibrarySkeleton />
+        <ExerciseLibrarySkeleton view={view} />
       ) : filteredExercises.length === 0 ? (
         <Card>
           <CardContent className="py-6">
@@ -523,7 +523,48 @@ function ExerciseTable({
   );
 }
 
-function ExerciseLibrarySkeleton() {
+function ExerciseLibrarySkeleton({ view }: { view: ExerciseLibraryView }) {
+  if (view === 'table') {
+    return (
+      <Card aria-label="Loading exercises table view" className="gap-0 py-0">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted">
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Category</th>
+                <th className="px-4 py-3 font-medium">Muscle Group</th>
+                <th className="px-4 py-3 font-medium">Equipment</th>
+                <th className="px-4 py-3 font-medium">Tracking Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <tr className="border-b border-border/70" key={index}>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-40 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-32 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-28 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <div aria-label="Loading exercises" className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 4 }).map((_, index) => (

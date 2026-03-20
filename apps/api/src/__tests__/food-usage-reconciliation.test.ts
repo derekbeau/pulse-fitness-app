@@ -258,6 +258,44 @@ describe('food usage reconciliation endpoint', () => {
     });
   });
 
+  it('counts rows as updated when only lastUsedAt changes', async () => {
+    seedFood({
+      id: 'food-timestamp',
+      userId: 'user-1',
+      usageCount: 1,
+      lastUsedAt: 1_800_000_001_000,
+    });
+    seedMeal({ id: 'meal-1', userId: 'user-1', date: '2026-03-20' });
+    seedMealItem({
+      id: 'meal-item-1',
+      mealId: 'meal-1',
+      foodId: 'food-timestamp',
+      createdAt: 1_800_000_090_000,
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/reconcile-food-usage',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        reconciled: 1,
+        updated: 1,
+      },
+    });
+    expect(getFoodUsage('food-timestamp')).toEqual({
+      usageCount: 1,
+      lastUsedAt: 1_800_000_090_000,
+    });
+  });
+
   it('sets usageCount to 0 and clears lastUsedAt for foods with no references', async () => {
     seedFood({ id: 'food-unused', userId: 'user-1', usageCount: 5, lastUsedAt: 1_800_000_020_000 });
     seedFood({ id: 'food-used', userId: 'user-1', usageCount: 1, lastUsedAt: 1_800_000_030_000 });

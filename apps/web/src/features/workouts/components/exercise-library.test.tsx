@@ -327,6 +327,38 @@ describe('ExerciseLibrary', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders a table skeleton while loading when table view is selected', async () => {
+    window.localStorage.setItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'table');
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return new Promise(() => {
+          // Keep the request pending to assert loading state.
+        });
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderExerciseLibrary();
+
+    expect(await screen.findByLabelText('Loading exercises table view')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Tracking Type' })).toBeInTheDocument();
+  });
+
   it('opens the trend dialog from the exercise name button in table view', async () => {
     mockExerciseRequests();
 

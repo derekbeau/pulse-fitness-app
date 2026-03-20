@@ -36,6 +36,7 @@ export function ExerciseHistoryModal({
   onOpenChange,
   open,
   trackingType,
+  weightUnit = 'lbs',
 }: ExerciseHistoryModalProps) {
   const historyQuery = useExerciseHistory(exerciseId, {
     enabled: open,
@@ -69,6 +70,7 @@ export function ExerciseHistoryModal({
               trackingType,
               {
                 useLegacySecondsFallback: trackingType !== 'reps_seconds',
+                weightUnit,
               },
             );
 

@@ -21,10 +21,10 @@ describe('use-last-performance hook', () => {
     vi.stubGlobal('fetch', mockFetch);
   });
 
-  it('loads and maps exact history data for an exercise', async () => {
+  it('loads and maps exact history data for an exercise by default', async () => {
     mockFetch.mockResolvedValueOnce(
-      createJsonResponse({
-        history: {
+      createJsonResponse([
+        {
           sessionId: 'session-2',
           date: '2026-03-08',
           sets: [
@@ -40,8 +40,7 @@ describe('use-last-performance hook', () => {
             },
           ],
         },
-        related: [],
-      }),
+      ]),
     );
 
     const { wrapper } = createQueryClientWrapper();
@@ -96,7 +95,7 @@ describe('use-last-performance hook', () => {
       expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance?'),
       expect.any(Object),
     );
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(mockFetch).not.toHaveBeenCalledWith(
       expect.stringContaining('includeRelated=true'),
       expect.any(Object),
     );
@@ -129,7 +128,13 @@ describe('use-last-performance hook', () => {
     );
 
     const { wrapper } = createQueryClientWrapper();
-    const { result } = renderHook(() => useLastPerformance('global-bench-press'), { wrapper });
+    const { result } = renderHook(
+      () =>
+        useLastPerformance('global-bench-press', {
+          includeRelated: true,
+        }),
+      { wrapper },
+    );
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -158,6 +163,10 @@ describe('use-last-performance hook', () => {
         },
       ],
     });
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('includeRelated=true'),
+      expect.any(Object),
+    );
   });
 
   it('returns null for not-found exercises', async () => {

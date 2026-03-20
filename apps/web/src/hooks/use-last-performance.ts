@@ -112,7 +112,7 @@ export function useLastPerformance(
   const normalizedExerciseId = exerciseId.trim();
   const enabled = options?.enabled ?? true;
   const { includeRelated, limit } = exerciseLastPerformanceQuerySchema.parse({
-    includeRelated: options?.includeRelated ?? true,
+    includeRelated: options?.includeRelated ?? false,
     limit: options?.limit,
   });
 

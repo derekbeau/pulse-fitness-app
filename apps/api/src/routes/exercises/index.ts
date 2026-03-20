@@ -65,7 +65,7 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
 const EXERCISE_IN_USE_RESPONSE = {
   code: 'EXERCISE_IN_USE',
   message:
-    'This exercise is referenced by workout templates or sessions. Remove it from all templates first.',
+    'This exercise is referenced by active workout templates or sessions and cannot be deleted.',
 } as const;
 
 const isSqliteForeignKeyConstraintError = (error: unknown): error is { code: string } => {
@@ -322,6 +322,8 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
           EXERCISE_NOT_FOUND_RESPONSE.message,
         );
       }
+
+      reply.header('Cache-Control', 'private, no-cache');
 
       return reply.send({
         data: exercise,

@@ -168,8 +168,10 @@ export function formatCompactSets(
   trackingType: ExerciseTrackingType,
   {
     useLegacySecondsFallback = true,
+    weightUnit = 'lbs',
   }: {
     useLegacySecondsFallback?: boolean;
+    weightUnit?: WeightUnit;
   } = {},
 ) {
   if (sets.length === 0) {
@@ -177,7 +179,7 @@ export function formatCompactSets(
   }
 
   return sets
-    .map((set) => formatCompactHistorySet(set, trackingType, useLegacySecondsFallback))
+    .map((set) => formatCompactHistorySet(set, trackingType, useLegacySecondsFallback, weightUnit))
     .join(', ');
 }
 
@@ -220,13 +222,15 @@ function formatCompactHistorySet(
   set: SetMetrics,
   trackingType: ExerciseTrackingType,
   useLegacySecondsFallback: boolean,
+  weightUnit: WeightUnit,
 ) {
   const w = set.weight != null ? formatWeightNumber(set.weight) : null;
   const r = set.reps != null ? formatMetricNumber(set.reps) : null;
   const seconds = getSetSecondsValue(set, useLegacySecondsFallback);
   const s = seconds != null ? `${formatMetricNumber(seconds)}s` : null;
   const distance = getSetDistance(set) ?? (trackingType === 'distance' ? set.reps : null);
-  const d = distance != null ? `${formatMetricNumber(distance)}m` : null;
+  const d =
+    distance != null ? `${formatMetricNumber(distance)}${getDistanceUnit(weightUnit)}` : null;
 
   switch (trackingType) {
     case 'weight_reps':

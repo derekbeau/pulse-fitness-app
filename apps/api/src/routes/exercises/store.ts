@@ -320,35 +320,39 @@ export const isExerciseInUse = async ({
 }): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
-    .select({
-      inUse: sql<number>`(
-        exists (
-          select 1
-          from template_exercises
-          inner join workout_templates
-            on workout_templates.id = template_exercises.template_id
-          where template_exercises.exercise_id = ${exerciseId}
-            and workout_templates.user_id = ${userId}
-            and workout_templates.deleted_at is null
-        )
-        or exists (
-          select 1
-          from session_sets
-          inner join workout_sessions
-            on workout_sessions.id = session_sets.session_id
-          where session_sets.exercise_id = ${exerciseId}
-            and workout_sessions.user_id = ${userId}
-            and workout_sessions.deleted_at is null
-        )
-      )`,
-    })
-    .from(exercises)
-    .where(eq(exercises.id, exerciseId))
+  const templateReference = db
+    .select({ id: templateExercises.id })
+    .from(templateExercises)
+    .innerJoin(workoutTemplates, eq(workoutTemplates.id, templateExercises.templateId))
+    .where(
+      and(
+        eq(templateExercises.exerciseId, exerciseId),
+        eq(workoutTemplates.userId, userId),
+        isNull(workoutTemplates.deletedAt),
+      ),
+    )
     .limit(1)
     .get();
 
-  return Boolean(result?.inUse);
+  if (templateReference) {
+    return true;
+  }
+
+  const sessionReference = db
+    .select({ id: sessionSets.id })
+    .from(sessionSets)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+    .where(
+      and(
+        eq(sessionSets.exerciseId, exerciseId),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
+    .limit(1)
+    .get();
+
+  return Boolean(sessionReference);
 };
 
 export const findVisibleExerciseById = async ({

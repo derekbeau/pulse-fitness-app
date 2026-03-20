@@ -121,9 +121,11 @@ describe('tracking format helpers', () => {
     expect(formatCompactSets([{ reps: 60 }, { reps: 45 }], 'seconds_only')).toBe('60s, 45s');
   });
 
-  it('formats compact distance sets with meter suffix', () => {
-    expect(formatCompactSets([{ distance: 400 }, { distance: 400 }], 'distance')).toBe(
-      '400m, 400m',
-    );
+  it('formats compact distance sets with configured distance units', () => {
+    expect(
+      formatCompactSets([{ distance: 4 }, { distance: 2.5 }], 'distance', {
+        weightUnit: 'kg',
+      }),
+    ).toBe('4km, 2.5km');
   });
 });
