@@ -52,6 +52,21 @@ function toElapsedSeconds(value: string) {
   return minutes * 60 + seconds;
 }
 
+function toRestTimerSeconds(timerText: string) {
+  const minuteSecondMatch = timerText.match(/(\d+):(\d{2})/);
+  if (minuteSecondMatch) {
+    const [, minutes, seconds] = minuteSecondMatch;
+    return Number(minutes) * 60 + Number(seconds);
+  }
+
+  const secondsMatch = timerText.match(/(\d+)s/);
+  if (secondsMatch) {
+    return Number(secondsMatch[1]);
+  }
+
+  throw new Error(`Unable to parse rest timer text: ${timerText}`);
+}
+
 async function ensureSectionIsExpanded(page: Page, sectionName: 'Warmup' | 'Main' | 'Cooldown') {
   const sectionButton = page.getByRole('button', { name: new RegExp(sectionName, 'i') }).first();
   const sectionButtonCount = await sectionButton.count();
@@ -345,5 +360,50 @@ test.describe.serial('workout session flow', () => {
     } finally {
       await apiContext.dispose();
     }
+  });
+
+  test('keeps sticky rest timer running while entering data in another set', async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await authenticatePage(page);
+    await page.goto('/workouts');
+
+    await page.getByRole('button', { name: 'Templates' }).click();
+    await page.getByRole('link', { name: seededTemplate.name }).first().click();
+    await expect(page.getByRole('heading', { level: 1, name: seededTemplate.name })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Start Workout' }).click();
+    await expect(page).toHaveURL(/\/workouts\/active\?/);
+
+    await ensureSectionIsExpanded(page, 'Warmup');
+    await ensureSectionIsExpanded(page, 'Main');
+    await ensureAllExercisePanelsExpanded(page);
+
+    const benchHeading = page.getByRole('heading', {
+      level: 3,
+      name: seededExercises[1].name,
+    });
+    await expect(benchHeading).toBeVisible();
+    const benchCard = benchHeading.locator('xpath=ancestor::*[@data-slot="card"][1]');
+
+    await benchCard.getByLabel('Weight for set 1').fill('135');
+    await benchCard.getByLabel('Reps for set 1').fill('8');
+
+    const restTimer = page.getByRole('timer', { name: 'Rest timer' });
+    await expect(restTimer).toBeVisible({ timeout: 5_000 });
+
+    const countdownBeforeInput = toRestTimerSeconds(await restTimer.innerText());
+    await page.waitForTimeout(1_200);
+
+    await benchCard.getByLabel('Weight for set 2').fill('140');
+    await page.waitForTimeout(400);
+
+    await expect(restTimer).toBeVisible();
+    const countdownAfterInput = toRestTimerSeconds(await restTimer.innerText());
+    expect(countdownAfterInput).toBeLessThanOrEqual(countdownBeforeInput);
+
+    await page.waitForTimeout(1_200);
+    const countdownAfterTick = toRestTimerSeconds(await restTimer.innerText());
+    expect(countdownAfterTick).toBeLessThan(countdownAfterInput);
   });
 });

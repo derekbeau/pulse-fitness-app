@@ -139,7 +139,7 @@ describe('ActiveWorkoutPage', () => {
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
   });
 
-  it('triggers rest timer on auto-completion and clears it when a field is emptied', () => {
+  it('keeps the rest timer running when editing an incomplete set', () => {
     renderActiveWorkoutPage();
 
     const inclineCard = getExerciseCard('Incline Dumbbell Press');
@@ -155,43 +155,29 @@ describe('ActiveWorkoutPage', () => {
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+
+    const remainingBeforeEdit = getRestTimerRemainingSeconds();
 
     fireEvent.change(within(inclineCard).getByLabelText('Weight for set 2'), {
       target: { value: '52.5' },
     });
-    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
-      target: { value: '8' },
-    });
     act(() => {
       vi.advanceTimersByTime(250);
     });
 
-    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
+    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+    const remainingAfterEdit = getRestTimerRemainingSeconds();
+    expect(remainingAfterEdit).toBeLessThanOrEqual(remainingBeforeEdit);
 
     act(() => {
-      vi.advanceTimersByTime(20_000);
+      vi.advanceTimersByTime(2_000);
     });
 
-    // Editing a value on an already-completed set does not restart the rest timer
-    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
-      target: { value: '9' },
-    });
-    act(() => {
-      vi.advanceTimersByTime(250);
-    });
-
-    expect(screen.getByText('After Incline Dumbbell Press set 2')).toBeInTheDocument();
-    expect(screen.queryByText('1:30')).not.toBeInTheDocument();
-
-    // Clearing a required field auto-uncompletes and clears the rest timer
-    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 2'), {
-      target: { value: '' },
-    });
-    act(() => {
-      vi.advanceTimersByTime(250);
-    });
-
-    expect(screen.queryByText('After Incline Dumbbell Press set 2')).not.toBeInTheDocument();
+    const remainingAfterTick = getRestTimerRemainingSeconds();
+    expect(remainingAfterTick).toBeLessThan(remainingAfterEdit);
   });
 
   it('moves from session logging to feedback, summary, and back to workouts', async () => {
@@ -1612,6 +1598,25 @@ function completeSet(exerciseName: string, setNumber: number) {
   if (skipButton) {
     fireEvent.click(skipButton);
   }
+}
+
+function getRestTimerRemainingSeconds() {
+  const restTimer = screen.getByRole('timer', { name: 'Rest timer' });
+  const timerText = restTimer.textContent ?? '';
+  const minuteSecondMatch = timerText.match(/(\d+):(\d{2})/);
+
+  if (minuteSecondMatch) {
+    const [, minutes, seconds] = minuteSecondMatch;
+    return Number(minutes) * 60 + Number(seconds);
+  }
+
+  const secondsMatch = timerText.match(/(\d+)s/);
+
+  if (secondsMatch) {
+    return Number(secondsMatch[1]);
+  }
+
+  throw new Error(`Unable to parse rest timer text: ${timerText}`);
 }
 
 function buildCompletedSessionResponse() {

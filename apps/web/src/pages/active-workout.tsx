@@ -1167,13 +1167,6 @@ export function ActiveWorkoutPage() {
       );
     }
 
-    if (update.completed === false) {
-      setRestTimer(null);
-      setRestTimerTargetSetId(null);
-      setFocusSetId(null);
-      return;
-    }
-
     if (update.completed !== true || previousSet.completed || !updatedSet.completed) {
       return;
     }
