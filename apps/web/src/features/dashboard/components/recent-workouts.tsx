@@ -104,7 +104,7 @@ export function RecentWorkouts() {
                             </time>
                           </div>
 
-                          <span className="shrink-0 rounded-full bg-[var(--color-accent-cream)] px-2 py-1 text-[11px] font-semibold text-on-cream dark:bg-amber-500/20 dark:text-amber-400">
+                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
                             {formatRelativeWorkoutDate(workout.date)}
                           </span>
                         </div>

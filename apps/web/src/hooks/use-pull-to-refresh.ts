@@ -56,6 +56,7 @@ export function usePullToRefresh({
   const canPullRef = useRef(false);
   const pullDistanceRef = useRef(0);
   const refreshingRef = useRef(false);
+  const hapticFiredRef = useRef(false);
 
   const updatePullDistance = useCallback((nextDistance: number) => {
     pullDistanceRef.current = nextDistance;
@@ -100,6 +101,7 @@ export function usePullToRefresh({
     const resetPullState = () => {
       isTouchActiveRef.current = false;
       canPullRef.current = false;
+      hapticFiredRef.current = false;
       setPulling(false);
       updatePullDistance(0);
     };
@@ -116,6 +118,7 @@ export function usePullToRefresh({
 
       isTouchActiveRef.current = true;
       canPullRef.current = isAtTop();
+      hapticFiredRef.current = false;
       touchStartYRef.current = touch.clientY;
     };
 
@@ -140,6 +143,12 @@ export function usePullToRefresh({
       const nextDistance = Math.min(deltaY, maxPullDistance);
       setPulling(true);
       updatePullDistance(nextDistance);
+
+      if (nextDistance >= threshold && !hapticFiredRef.current) {
+        hapticFiredRef.current = true;
+        window.navigator.vibrate?.(10);
+      }
+
       event.preventDefault();
     };
 
