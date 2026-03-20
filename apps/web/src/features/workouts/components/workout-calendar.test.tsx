@@ -119,11 +119,23 @@ describe('WorkoutCalendar', () => {
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
     expect(screen.getByText('+2')).toHaveClass('hidden', 'sm:inline-flex');
     expect(screen.getByRole('button', { name: 'Previous month' })).toHaveClass('size-8');
-    expect(getCalendarDayTile(sessionDate)).toHaveClass('overflow-hidden');
-    expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute(
+    const calendarDayTile = getCalendarDayTile(sessionDate);
+    expect(calendarDayTile).toHaveClass('overflow-hidden');
+    expect(calendarDayTile).toHaveClass('text-center', 'sm:text-left');
+    expect(calendarDayTile.querySelector('div')).toHaveClass(
+      'items-center',
+      'justify-center',
+      'sm:justify-between',
+    );
+    expect(calendarDayTile.querySelector('.mt-auto')).toHaveClass('justify-center', 'sm:justify-start');
+
+    const doneLink = screen.getByRole('link', { name: 'Done' });
+    expect(doneLink).toHaveClass('h-2', 'w-2', 'sm:h-auto', 'sm:w-auto');
+    expect(doneLink).toHaveAttribute(
       'href',
       '/workouts/session/session-1',
     );
+    expect(within(doneLink).getByText('Done')).toHaveClass('hidden', 'sm:inline');
   });
 
   it('shows selected-day workouts with status-aware actions', async () => {

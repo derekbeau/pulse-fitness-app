@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { formatElapsedTime } from '../lib/elapsed-time';
 import { SessionHeader } from './session-header';
+
+describe('formatElapsedTime', () => {
+  it('formats elapsed seconds as zero-padded mm:ss', () => {
+    expect(formatElapsedTime(0)).toBe('00:00');
+    expect(formatElapsedTime(9)).toBe('00:09');
+    expect(formatElapsedTime(65)).toBe('01:05');
+    expect(formatElapsedTime(3605)).toBe('60:05');
+  });
+});
 
 describe('SessionHeader', () => {
   beforeEach(() => {

@@ -9,6 +9,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { cn } from '@/lib/utils';
 
+import { formatElapsedTime } from '../lib/elapsed-time';
 import { formatEstimateMinutes } from '../lib/time-estimates';
 import { StickyRestTimerBar } from './sticky-rest-timer-bar';
 
@@ -266,13 +267,6 @@ function getActiveElapsedSeconds(timeSegments: WorkoutSessionTimeSegment[], curr
 
     return total + Math.floor((endedAt - startedAt) / 1000);
   }, 0);
-}
-
-function formatElapsedTime(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`;
 }
 
 function formatStartTime(startTime: Date | string) {

@@ -574,7 +574,7 @@ function RpeScaleHelp() {
             <CircleHelp className="size-4" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="top-auto bottom-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 p-5 sm:top-[50%] sm:bottom-auto sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6">
+        <DialogContent className="self-end rounded-t-2xl rounded-b-none border-b-0 p-5 sm:self-center sm:rounded-lg sm:border-b sm:p-6">
           <DialogHeader>
             <DialogTitle>Session RPE Guide</DialogTitle>
             <DialogDescription className="sr-only">

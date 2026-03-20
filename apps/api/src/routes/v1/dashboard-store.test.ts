@@ -325,7 +325,7 @@ describe('dashboard store', () => {
     expect(testState.select).toHaveBeenCalledTimes(1);
   });
 
-  it('fills missing macro trend days with zero totals', async () => {
+  it('returns macro trend points only for days with logged meal data', async () => {
     testState.selectAllResults.push([
       {
         date: '2026-03-07',
@@ -353,13 +353,6 @@ describe('dashboard store', () => {
         protein: 170,
         carbs: 230,
         fat: 68,
-      },
-      {
-        date: '2026-03-08',
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
       },
       {
         date: '2026-03-09',

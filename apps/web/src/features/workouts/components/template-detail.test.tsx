@@ -231,6 +231,46 @@ describe('WorkoutTemplateDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders supplemental section label and accent styling', async () => {
+    const templateWithSupplemental = {
+      data: {
+        ...templatePayload.data,
+        sections: [
+          ...templatePayload.data.sections,
+          {
+            type: 'supplemental',
+            exercises: [],
+          },
+        ],
+      },
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templateWithSupplemental));
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const supplementalHeading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Supplemental',
+    });
+    const supplementalSection = supplementalHeading.closest('details');
+
+    expect(supplementalSection).not.toBeNull();
+    expect(supplementalSection).toHaveClass('border-l-[var(--color-accent-cream)]');
+  });
+
   it('saves inline sets, reps, rest, and notes on blur with debounce', async () => {
     const mutableTemplate = structuredClone(templatePayload);
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
@@ -1215,7 +1255,9 @@ describe('WorkoutTemplateDetail', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Incline Dumbbell Press history' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Open Incline Dumbbell Press history' }),
+    );
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Incline Dumbbell Press history')).toBeInTheDocument();

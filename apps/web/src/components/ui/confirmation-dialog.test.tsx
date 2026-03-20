@@ -17,7 +17,11 @@ describe('ConfirmationDialog', () => {
 
     expect(screen.getByText('Delete template?')).toBeInTheDocument();
     expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument();
-    expect(screen.getByRole('alertdialog')).toHaveClass('gap-3', 'p-5');
+    const alertDialog = screen.getByRole('alertdialog');
+
+    expect(alertDialog.parentElement).toHaveClass('fixed', 'inset-0', 'flex', 'items-center', 'justify-center');
+    expect(alertDialog).toHaveClass('gap-3', 'p-5', 'max-h-[calc(100dvh-2rem)]', 'overflow-y-auto');
+    expect(alertDialog).not.toHaveClass('translate-x-[-50%]', 'translate-y-[-50%]');
     expect(document.querySelector('[data-slot="alert-dialog-footer"]')).toHaveClass('pt-1');
   });
 

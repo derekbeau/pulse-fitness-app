@@ -123,6 +123,8 @@ const getChangeDirection = (changePercent: number): ChangeDirection => {
   return 'neutral';
 };
 
+const formatLookbackLabel = (days: number): string => `${days}-day avg`;
+
 const resolveTrendRange = (endDate?: string) => {
   const resolvedEndDate = endDate ?? toDateKey(new Date());
   const startDate = toDateKey(addDays(parseDateInput(resolvedEndDate), -(TREND_DAYS - 1)));
@@ -379,11 +381,13 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const latestWeight = getLatestTrend(weightSeries, 0);
   const latestCalories = getLatestTrend(calorieSeries, 0);
   const latestProtein = getLatestTrend(proteinSeries, 0);
-  const lookbackLabel = `${TREND_DAYS}d avg`;
+  const weightLookbackLabel = formatLookbackLabel(weightSeries.length);
+  const calorieLookbackLabel = formatLookbackLabel(calorieSeries.length);
+  const proteinLookbackLabel = formatLookbackLabel(proteinSeries.length);
   const allConfigs = {
     weight: {
       label: 'Weight Trend',
-      subtitle: lookbackLabel,
+      subtitle: weightLookbackLabel,
       to: '/weight/history',
       currentValue: weightSeries.length > 0 ? formatWeight(latestWeight, 'lbs') : '--',
       changePercent:
@@ -398,7 +402,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     calories: {
       label: 'Calorie Trend',
-      subtitle: lookbackLabel,
+      subtitle: calorieLookbackLabel,
       to: '/nutrition',
       currentValue: calorieSeries.length > 0 ? `${formatCalories(latestCalories)} kcal` : '--',
       changePercent:
@@ -416,7 +420,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     },
     protein: {
       label: 'Protein Trend',
-      subtitle: lookbackLabel,
+      subtitle: proteinLookbackLabel,
       to: '/nutrition',
       currentValue: proteinSeries.length > 0 ? formatGrams(latestProtein) : '--',
       changePercent:

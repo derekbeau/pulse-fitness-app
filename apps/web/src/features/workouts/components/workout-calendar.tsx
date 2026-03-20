@@ -268,7 +268,7 @@ export function WorkoutCalendar({
                   aria-label={`${fullDateFormatter.format(day)}${isSelected ? ', selected' : ''}`}
                   aria-pressed={isSelected}
                   className={cn(
-                    'flex min-h-14 min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border px-1 py-1 text-left transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3',
+                    'flex min-h-14 min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border px-1 py-1 text-center transition-all duration-200 sm:min-h-28 sm:rounded-2xl sm:px-3 sm:py-3 sm:text-left',
                     isInMonth
                       ? 'bg-card hover:border-primary/40 hover:bg-secondary/50'
                       : 'bg-secondary/35 opacity-55',
@@ -287,10 +287,10 @@ export function WorkoutCalendar({
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="flex min-w-0 items-start justify-between gap-0.5">
+                  <div className="flex min-w-0 items-center justify-center gap-1 sm:items-start sm:justify-between sm:gap-0.5">
                     <span
                       className={cn(
-                        'shrink-0 text-xs font-semibold sm:text-sm',
+                        'shrink-0 text-center text-xs font-semibold sm:text-sm',
                         isToday ? 'text-primary' : 'text-foreground',
                         !isInMonth && 'text-muted',
                       )}
@@ -300,7 +300,8 @@ export function WorkoutCalendar({
                     <div className="flex min-w-0 items-center gap-1">
                       {details.completedSession ? (
                         <Link
-                          className="max-w-full rounded-full bg-emerald-500/15 px-1 py-0.5 text-[8px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 sm:px-1.5 sm:text-[9px]"
+                          aria-label="Done"
+                          className="inline-flex h-2 w-2 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 p-0 text-[8px] font-bold uppercase leading-none tracking-wide text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 sm:h-auto sm:w-auto sm:px-1.5 sm:py-0.5 sm:text-[9px]"
                           onClick={(event) => event.stopPropagation()}
                           to={
                             buildSessionHref?.(
@@ -309,7 +310,7 @@ export function WorkoutCalendar({
                             ) ?? `/workouts/session/${details.completedSession.id}`
                           }
                         >
-                          Done
+                          <span className="hidden sm:inline">Done</span>
                         </Link>
                       ) : null}
                       {details.workouts.some((workout) => workout.isUnavailable) ? (
@@ -337,7 +338,7 @@ export function WorkoutCalendar({
                     </p>
                   </div>
 
-                  <div className="mt-auto flex min-w-0 items-center gap-1 pt-1 sm:gap-1.5 sm:pt-3">
+                  <div className="mt-auto flex min-w-0 items-center justify-center gap-1 pt-1 sm:justify-start sm:gap-1.5 sm:pt-3">
                     {getTileIndicators(details.workoutIndicators).map((indicator) => (
                       <span
                         aria-label={`${statusToLabel(indicator.status)} workout`}

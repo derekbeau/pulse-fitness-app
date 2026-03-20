@@ -32,7 +32,7 @@ const createTouchEvent = (type: string, y?: number) => {
   return event;
 };
 
-const dispatchTouch = (type: 'touchstart' | 'touchmove' | 'touchend', y?: number) => {
+const dispatchTouch = (type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel', y?: number) => {
   const event = createTouchEvent(type, y);
   window.dispatchEvent(event);
   return event;
@@ -158,5 +158,70 @@ describe('usePullToRefresh', () => {
     await waitFor(() => {
       expect(result.current.refreshing).toBe(false);
     });
+  });
+
+  it('vibrates once when pull distance crosses the threshold during touch move', async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const vibrateMock = vi.fn();
+    Object.defineProperty(window.navigator, 'vibrate', {
+      configurable: true,
+      value: vibrateMock,
+      writable: true,
+    });
+
+    renderHook(() => usePullToRefresh({ onRefresh, threshold: 80 }));
+
+    act(() => {
+      dispatchTouch('touchstart', 0);
+      dispatchTouch('touchmove', 50);
+      dispatchTouch('touchmove', 85);
+      dispatchTouch('touchmove', 120);
+    });
+
+    expect(vibrateMock).toHaveBeenCalledTimes(1);
+    expect(vibrateMock).toHaveBeenCalledWith(10);
+
+    act(() => {
+      dispatchTouch('touchend');
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+    expect(vibrateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets threshold haptic state after touchcancel so the next gesture can vibrate again', async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const vibrateMock = vi.fn();
+    Object.defineProperty(window.navigator, 'vibrate', {
+      configurable: true,
+      value: vibrateMock,
+      writable: true,
+    });
+
+    renderHook(() => usePullToRefresh({ onRefresh, threshold: 80 }));
+
+    act(() => {
+      dispatchTouch('touchstart', 0);
+      dispatchTouch('touchmove', 100);
+      dispatchTouch('touchcancel');
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+    expect(vibrateMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      dispatchTouch('touchstart', 0);
+      dispatchTouch('touchmove', 100);
+      dispatchTouch('touchend');
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(2);
+    });
+    expect(vibrateMock).toHaveBeenCalledTimes(2);
   });
 });

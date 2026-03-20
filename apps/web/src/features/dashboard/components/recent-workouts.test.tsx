@@ -182,6 +182,12 @@ describe('RecentWorkouts', () => {
     expect(screen.getByText('6 days ago')).toBeInTheDocument();
     expect(screen.getByText('1 week ago')).toBeInTheDocument();
     expect(screen.getByText('2 weeks ago')).toBeInTheDocument();
+
+    const relativeDateBadge = screen.getByText('Yesterday');
+    expect(relativeDateBadge).toHaveClass('bg-emerald-500/15');
+    expect(relativeDateBadge).toHaveClass('text-emerald-700');
+    expect(relativeDateBadge).toHaveClass('dark:bg-emerald-500/15');
+    expect(relativeDateBadge).toHaveClass('dark:text-emerald-400');
   });
 
   it('renders skeleton rows while loading', () => {

@@ -149,6 +149,46 @@ describe('workoutTemplateSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts all four section types and rejects payloads with a fifth section', () => {
+    const fourSectionPayload = {
+      id: 'template-1',
+      userId: 'user-1',
+      name: 'Full Session',
+      description: null,
+      tags: [],
+      sections: [
+        { type: 'warmup', exercises: [] },
+        { type: 'main', exercises: [] },
+        { type: 'cooldown', exercises: [] },
+        { type: 'supplemental', exercises: [] },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    } as const;
+
+    const parsed = workoutTemplateSchema.parse(fourSectionPayload);
+    expect(parsed.sections.map((section) => section.type)).toEqual([
+      'warmup',
+      'main',
+      'cooldown',
+      'supplemental',
+    ]);
+
+    const fiveSectionResult = workoutTemplateSchema.safeParse({
+      ...fourSectionPayload,
+      sections: [...fourSectionPayload.sections, { type: 'supplemental', exercises: [] }],
+    });
+
+    expect(fiveSectionResult.success).toBe(false);
+    if (!fiveSectionResult.success) {
+      expect(
+        fiveSectionResult.error.issues.some(
+          (issue) => issue.path.join('.') === 'sections' && issue.code === 'too_big',
+        ),
+      ).toBe(true);
+    }
+  });
 });
 
 describe('createWorkoutTemplateInputSchema', () => {
