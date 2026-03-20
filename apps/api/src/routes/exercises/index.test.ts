@@ -2010,6 +2010,69 @@ describe('exercise routes', () => {
     });
   });
 
+  it('returns 409 when deleting an exercise referenced by a workout template', async () => {
+    seedExercise({
+      id: 'referenced-exercise',
+      userId: 'user-1',
+      name: 'Bulgarian Split Squat',
+      muscleGroups: ['quads', 'glutes'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'template-1',
+        userId: 'user-1',
+        name: 'Lower Body',
+        description: null,
+        tags: [],
+      })
+      .run();
+
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'template-exercise-1',
+        templateId: 'template-1',
+        exerciseId: 'referenced-exercise',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/referenced-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'EXERCISE_IN_USE',
+        message:
+          'This exercise is referenced by workout templates or sessions. Remove it from all templates first.',
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'referenced-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: null,
+    });
+  });
+
   it('returns validation errors for invalid create payloads and query params', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },

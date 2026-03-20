@@ -311,6 +311,29 @@ export const deleteOwnedExercise = async (id: string, userId: string): Promise<b
   return result.changes === 1;
 };
 
+export const isExerciseInUse = async (exerciseId: string): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  const templateReference = db
+    .select({ id: templateExercises.id })
+    .from(templateExercises)
+    .where(eq(templateExercises.exerciseId, exerciseId))
+    .limit(1)
+    .get();
+  if (templateReference) {
+    return true;
+  }
+
+  const sessionReference = db
+    .select({ id: sessionSets.id })
+    .from(sessionSets)
+    .where(eq(sessionSets.exerciseId, exerciseId))
+    .limit(1)
+    .get();
+
+  return Boolean(sessionReference);
+};
+
 export const findVisibleExerciseById = async ({
   id,
   userId,

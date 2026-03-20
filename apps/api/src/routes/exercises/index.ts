@@ -41,6 +41,7 @@ import {
   findExerciseOwnership,
   findVisibleExerciseDetailsById,
   findVisibleExerciseById,
+  isExerciseInUse,
   listExerciseFilters,
   listExercises,
   updateOwnedExercise,
@@ -60,6 +61,20 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
   code: 'VALIDATION_ERROR',
   message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
+
+const EXERCISE_IN_USE_RESPONSE = {
+  code: 'EXERCISE_IN_USE',
+  message:
+    'This exercise is referenced by workout templates or sessions. Remove it from all templates first.',
+} as const;
+
+const isSqliteForeignKeyConstraintError = (error: unknown): error is { code: string } => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_FOREIGNKEY';
+};
 
 const exerciseCreateDedupResponseSchema = z.object({
   created: z.literal(false),
@@ -470,6 +485,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
           401: apiErrorResponseSchema,
           403: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
         },
         tags: ['exercises'],
         summary: 'Delete an exercise',
@@ -486,7 +502,32 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         return reply;
       }
 
-      const deleted = await deleteOwnedExercise(request.params.id, request.userId);
+      const inUse = await isExerciseInUse(request.params.id);
+      if (inUse) {
+        return sendError(
+          reply,
+          409,
+          EXERCISE_IN_USE_RESPONSE.code,
+          EXERCISE_IN_USE_RESPONSE.message,
+        );
+      }
+
+      let deleted: boolean;
+      try {
+        deleted = await deleteOwnedExercise(request.params.id, request.userId);
+      } catch (error) {
+        if (isSqliteForeignKeyConstraintError(error)) {
+          return sendError(
+            reply,
+            409,
+            EXERCISE_IN_USE_RESPONSE.code,
+            EXERCISE_IN_USE_RESPONSE.message,
+          );
+        }
+
+        throw error;
+      }
+
       if (!deleted) {
         return sendError(
           reply,
