@@ -177,7 +177,9 @@ test.describe.serial('workout scheduling flow', () => {
     }
   });
 
-  test('schedules a workout from template actions and renders in calendar/list', async ({ page }) => {
+  test('schedules a workout from template actions and renders in calendar/list', async ({
+    page,
+  }) => {
     test.setTimeout(90_000);
 
     await authenticatePage(page);
@@ -210,11 +212,19 @@ test.describe.serial('workout scheduling flow', () => {
 
     const apiContext = await createAuthorizedApiContext();
     try {
-      const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
-      const targetSchedule = scheduledRows.find(
-        (row) => row.templateId === seededTemplateId && row.date === secondDate,
-      );
-      expect(targetSchedule).toBeTruthy();
+      await expect
+        .poll(
+          async () => {
+            const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+            return scheduledRows.some(
+              (row) => row.templateId === seededTemplateId && row.date === secondDate,
+            );
+          },
+          {
+            timeout: 15_000,
+          },
+        )
+        .toBeTruthy();
     } finally {
       await apiContext.dispose();
     }

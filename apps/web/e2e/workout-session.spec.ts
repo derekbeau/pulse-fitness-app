@@ -379,15 +379,25 @@ test.describe.serial('workout session flow', () => {
     await ensureSectionIsExpanded(page, 'Main');
     await ensureAllExercisePanelsExpanded(page);
 
-    const benchHeading = page.getByRole('heading', {
-      level: 3,
-      name: seededExercises[1].name,
-    });
-    await expect(benchHeading).toBeVisible();
-    const benchCard = benchHeading.locator('xpath=ancestor::*[@data-slot="card"][1]');
+    const benchToggle = page
+      .getByRole('button')
+      .filter({ has: page.getByRole('heading', { level: 3, name: seededExercises[1].name }) })
+      .first();
+    await expect(benchToggle).toBeVisible();
+    if ((await benchToggle.getAttribute('aria-expanded')) !== 'true') {
+      await benchToggle.click();
+    }
 
-    await benchCard.locator('input[aria-label="Reps for set 1"]:visible').first().fill('8');
-    await benchCard.getByLabel('Complete set 1').check();
+    const benchPanelId = await benchToggle.getAttribute('aria-controls');
+    expect(benchPanelId).toBeTruthy();
+    const benchPanel = page.locator(`#${benchPanelId}`);
+    await expect(benchPanel).toBeVisible();
+
+    const benchWeightInputs = benchPanel.locator('input[aria-label^="Weight for set "]:visible');
+    const benchRepsInputs = benchPanel.locator('input[aria-label^="Reps for set "]:visible');
+    await benchWeightInputs.first().fill('135');
+    await benchRepsInputs.first().fill('8');
+    await benchRepsInputs.first().blur();
 
     const restTimer = page.getByRole('timer', { name: 'Rest timer' });
     await expect(restTimer).toBeVisible({ timeout: 5_000 });
@@ -395,7 +405,7 @@ test.describe.serial('workout session flow', () => {
     const countdownBeforeInput = toRestTimerSeconds(await restTimer.innerText());
     await page.waitForTimeout(1_200);
 
-    await benchCard.locator('input[aria-label="Reps for set 2"]:visible').first().fill('6');
+    await benchRepsInputs.nth(1).fill('6');
     await page.waitForTimeout(400);
 
     await expect(restTimer).toBeVisible();
