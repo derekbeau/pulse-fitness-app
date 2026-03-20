@@ -30,6 +30,7 @@ const MACRO_SERIES = [
 
 type NutritionTrendRange = (typeof NUTRITION_TREND_RANGES)[number]['value'];
 type MacroSeriesKey = (typeof MACRO_SERIES)[number]['key'];
+type NutritionTrendRangeOption = (typeof NUTRITION_TREND_RANGES)[number];
 
 type NutritionTrendChartPoint = {
   date: string;
@@ -145,13 +146,18 @@ function formatMacroValue(metric: MacroSeriesKey, value: number) {
   return formatGrams(value);
 }
 
+const NUTRITION_TREND_RANGE_OPTIONS: Record<NutritionTrendRange, NutritionTrendRangeOption> = {
+  '7d': NUTRITION_TREND_RANGES[0],
+  '30d': NUTRITION_TREND_RANGES[1],
+  '90d': NUTRITION_TREND_RANGES[2],
+};
+
 export function NutritionTrends() {
   const [range, setRange] = useState<NutritionTrendRange>('30d');
-  const selectedRange =
-    NUTRITION_TREND_RANGES.find((rangeOption) => rangeOption.value === range) ??
-    NUTRITION_TREND_RANGES[1];
+  const selectedRange = NUTRITION_TREND_RANGE_OPTIONS[range];
   const dateRange = useMemo(() => resolveDateRange(selectedRange.days), [selectedRange.days]);
   const macroTrendQuery = useMacroTrend(dateRange.from, dateRange.to);
+  const loggedDayCount = macroTrendQuery.data?.length ?? 0;
 
   const chartData = useMemo(
     () => buildChartData(macroTrendQuery.data, dateRange.from, dateRange.to),
@@ -268,8 +274,11 @@ export function NutritionTrends() {
 
       <section className="space-y-2 rounded-2xl border border-border/70 bg-card px-4 py-4">
         <h3 className="text-sm font-semibold text-foreground">
-          Daily averages ({selectedRange.label})
+          Avg per logged day ({selectedRange.label})
         </h3>
+        <p className="text-xs text-muted">
+          {loggedDayCount} logged {loggedDayCount === 1 ? 'day' : 'days'}
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <AverageStat
             label="Calories"

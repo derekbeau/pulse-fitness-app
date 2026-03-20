@@ -55,10 +55,15 @@ export function NutritionPage() {
       return;
     }
 
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('view', 'log');
-    setSearchParams(nextSearchParams, { replace: true });
-  }, [searchParams, setSearchParams, viewParam]);
+    setSearchParams(
+      (previousSearchParams) => {
+        const nextSearchParams = new URLSearchParams(previousSearchParams);
+        nextSearchParams.set('view', 'log');
+        return nextSearchParams;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams, viewParam]);
 
   function setActiveView(view: NutritionView) {
     const nextSearchParams = new URLSearchParams(searchParams);
