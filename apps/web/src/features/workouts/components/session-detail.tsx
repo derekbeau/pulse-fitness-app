@@ -2,7 +2,6 @@ import { useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
-  BarChart3,
   ChevronDown,
   Dumbbell,
   ListChecks,
@@ -58,7 +57,7 @@ import {
   resolveTrackingType,
 } from '../lib/tracking';
 import { findPreviousTemplateSession } from '../lib/session-comparison';
-import { ExerciseHistoryModal } from './exercise-history-modal';
+import { ExerciseDetailModal } from './exercise-detail-modal';
 import { MarkdownNote } from './markdown-note';
 import { SessionComparison, SessionExerciseComparison } from './session-comparison';
 
@@ -478,7 +477,15 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <CardTitle>{exercise.name}</CardTitle>
+                          <CardTitle>
+                            <button
+                              className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onClick={() => setSelectedExerciseId(exercise.exerciseId)}
+                              type="button"
+                            >
+                              {exercise.name}
+                            </button>
+                          </CardTitle>
                           <Badge
                             className={cn(
                               'border-transparent',
@@ -501,12 +508,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
                       <Button
                         aria-label={`Open ${exercise.name} history`}
-                        className="h-9 self-start gap-1.5 px-3 text-xs"
+                        className="h-9 self-start px-3 text-xs"
                         onClick={() => setSelectedExerciseId(exercise.exerciseId)}
                         type="button"
                         variant="outline"
                       >
-                        <BarChart3 aria-hidden="true" className="size-3.5" />
                         History
                       </Button>
                     </div>
@@ -636,13 +642,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       ) : null}
 
       {selectedExercise ? (
-        <ExerciseHistoryModal
+        <ExerciseDetailModal
+          context="receipt"
           exerciseId={selectedExercise.exerciseId}
-          exerciseName={selectedExercise.name}
           onOpenChange={(open) => (!open ? setSelectedExerciseId(null) : null)}
           open={selectedExercise != null}
-          trackingType={selectedExercise.trackingType}
-          weightUnit={weightUnit}
         />
       ) : null}
       {confirmDialog}

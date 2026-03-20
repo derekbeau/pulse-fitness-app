@@ -443,7 +443,9 @@ describe('SessionDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /open incline dumbbell press history/i }));
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Incline Dumbbell Press history')).toBeInTheDocument();
+    expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'History' }));
     expect(await screen.findByText(/Mar 1, 2026 · 105x8/)).toBeInTheDocument();
   });
 
@@ -746,6 +748,29 @@ function mockSessionDetailRequests({
               ],
             },
           ],
+        }),
+      );
+    }
+
+    if (url.includes('/api/v1/exercises/incline-dumbbell-press')) {
+      return Promise.resolve(
+        jsonResponse({
+          data: {
+            id: 'incline-dumbbell-press',
+            userId: 'user-1',
+            name: 'Incline Dumbbell Press',
+            muscleGroups: ['upper chest', 'triceps'],
+            equipment: 'Dumbbells',
+            category: 'compound',
+            trackingType: 'weight_reps',
+            tags: ['upper body', 'push'],
+            formCues: ['Drive elbows 45 degrees'],
+            instructions: 'Lower with control and press explosively.',
+            coachingNotes: 'Keep your upper back pinned.',
+            relatedExerciseIds: [],
+            createdAt: 1,
+            updatedAt: 1,
+          },
         }),
       );
     }

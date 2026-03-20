@@ -89,7 +89,7 @@ import {
 import { getSupersetAccentClass } from '../lib/superset-utils';
 import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
-import { ExerciseHistoryModal } from './exercise-history-modal';
+import { ExerciseDetailModal } from './exercise-detail-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { SetRow, type SetRowUpdate } from './set-row';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
@@ -195,7 +195,6 @@ export function SessionExerciseList({
   const [historyTarget, setHistoryTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
-    trackingType: ExerciseTrackingType;
   } | null>(null);
   const [supersetSectionTarget, setSupersetSectionTarget] = useState<{
     sectionType: ActiveWorkoutSessionData['sections'][number]['type'];
@@ -391,7 +390,6 @@ export function SessionExerciseList({
                               setHistoryTarget({
                                 exerciseId: item.exercise.id,
                                 exerciseName: item.exercise.name,
-                                trackingType: item.exercise.trackingType,
                               })
                             }
                             onSwapExercise={() =>
@@ -507,7 +505,6 @@ export function SessionExerciseList({
                                     setHistoryTarget({
                                       exerciseId: exercise.id,
                                       exerciseName: exercise.name,
-                                      trackingType: exercise.trackingType,
                                     })
                                   }
                                   onSwapExercise={() =>
@@ -613,17 +610,21 @@ export function SessionExerciseList({
         />
       ) : null}
       {historyTarget ? (
-        <ExerciseHistoryModal
+        <ExerciseDetailModal
+          context="session"
           exerciseId={historyTarget.exerciseId}
-          exerciseName={historyTarget.exerciseName}
+          onSwapExercise={() =>
+            setSwapTarget({
+              exerciseId: historyTarget.exerciseId,
+              exerciseName: historyTarget.exerciseName,
+            })
+          }
           onOpenChange={(open) => {
             if (!open) {
               setHistoryTarget(null);
             }
           }}
           open={historyTarget != null}
-          trackingType={historyTarget.trackingType}
-          weightUnit={weightUnit}
         />
       ) : null}
     </div>
@@ -764,18 +765,7 @@ function ExerciseCardItem({
             <GripVertical aria-hidden="true" className="size-4" />
           </Button>
         ) : null}
-        <button
-          aria-controls={`exercise-panel-${exercise.id}`}
-          aria-expanded={isExpanded}
-          className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-4 text-left"
-          onClick={() =>
-            setExpandedExercises((current) => ({
-              ...current,
-              [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? false),
-            }))
-          }
-          type="button"
-        >
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <ExerciseStatusIndicator priority={exercise.priority} state={state} />
             <div className="min-w-0">
@@ -785,7 +775,13 @@ function ExerciseCardItem({
                   isExerciseComplete && 'text-muted line-through',
                 )}
               >
-                {exercise.name}
+                <button
+                  className="cursor-pointer truncate text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={onOpenHistory}
+                  type="button"
+                >
+                  {exercise.name}
+                </button>
               </h3>
               <p className="text-xs text-muted sm:text-sm">
                 {`${exercise.completedSets}/${exercise.targetSets} sets`}
@@ -794,14 +790,25 @@ function ExerciseCardItem({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <button
+            aria-controls={`exercise-panel-${exercise.id}`}
+            aria-expanded={isExpanded}
+            className="flex shrink-0 cursor-pointer items-center gap-2 sm:gap-3"
+            onClick={() =>
+              setExpandedExercises((current) => ({
+                ...current,
+                [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? false),
+              }))
+            }
+            type="button"
+          >
             <span className="text-xs font-medium text-muted sm:text-sm">{`#${exerciseNumber}`}</span>
             <ChevronDown
               aria-hidden="true"
               className={cn('size-4 text-muted transition-transform', isExpanded && 'rotate-180')}
             />
-          </div>
-        </button>
+          </button>
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

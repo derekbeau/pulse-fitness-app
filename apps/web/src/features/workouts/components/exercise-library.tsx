@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { LayoutGrid, List, MoreVertical } from 'lucide-react';
-import type { Exercise, ExerciseTrackingType } from '@pulse/shared';
+import type { Exercise } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -21,17 +14,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useExerciseHistory } from '@/hooks/use-exercise-history';
-import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 import { useExerciseFilters, useExercises, useRenameExercise } from '../api/workouts';
-import type {
-  ActiveWorkoutExerciseHistoryPoint,
-  ActiveWorkoutPerformanceHistorySession,
-} from '../types';
-import { ExerciseTrendChart } from './exercise-trend-chart';
+import { ExerciseDetailModal } from './exercise-detail-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { TagChips } from './tag-chips';
 
@@ -57,7 +44,7 @@ type ExerciseLibraryProps = {
 };
 
 export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
-  const { weightUnit } = useWeightUnit();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -127,23 +114,6 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
     () => exerciseFiltersQuery.data?.data.equipment ?? [],
     [exerciseFiltersQuery.data],
   );
-
-  const selectedExercise =
-    filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
-  const selectedExerciseHistoryQuery = useExerciseHistory(selectedExercise?.id ?? '', {
-    enabled: selectedExercise != null,
-    limit: 30,
-  });
-  const selectedExerciseTrendHistory = useMemo(() => {
-    if (!selectedExercise) {
-      return [];
-    }
-
-    return toExerciseTrendHistory(
-      selectedExerciseHistoryQuery.data ?? [],
-      selectedExercise.trackingType,
-    );
-  }, [selectedExercise, selectedExerciseHistoryQuery.data]);
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -355,44 +325,21 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
         value={renameTarget?.name ?? ''}
       />
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedExerciseId(null);
-          }
-        }}
-        open={selectedExercise != null}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl border-border p-0 sm:max-w-4xl sm:rounded-3xl">
-          {selectedExercise ? (
-            <div className="space-y-0">
-              <DialogHeader className="px-6 pt-6">
-                <DialogTitle>{`${selectedExercise.name} trends`}</DialogTitle>
-                <DialogDescription>
-                  Review weight and rep progression across completed sessions.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
-                {selectedExercise.instructions ? (
-                  <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">Instructions</p>
-                    <p className="mt-1 text-sm text-muted">{selectedExercise.instructions}</p>
-                  </div>
-                ) : null}
-                {selectedExerciseHistoryQuery.isPending ? (
-                  <p className="text-sm text-muted">Loading exercise history...</p>
-                ) : null}
-                <ExerciseTrendChart
-                  exerciseName={selectedExercise.name}
-                  history={selectedExerciseTrendHistory}
-                  trackingType={selectedExercise.trackingType}
-                  weightUnit={weightUnit}
-                />
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      {selectedExerciseId ? (
+        <ExerciseDetailModal
+          context="library"
+          exerciseId={selectedExerciseId}
+          onAddToTemplate={() => {
+            navigate('/workouts?view=templates');
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedExerciseId(null);
+            }
+          }}
+          open={selectedExerciseId != null}
+        />
+      ) : null}
     </section>
   );
 }
@@ -652,76 +599,4 @@ function formatLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function toExerciseTrendHistory(
-  sessions: ActiveWorkoutPerformanceHistorySession[],
-  trackingType: ExerciseTrackingType,
-): ActiveWorkoutExerciseHistoryPoint[] {
-  return sessions.flatMap((session) => {
-    const topSet = pickTopSessionSet(session.sets, trackingType);
-
-    if (!topSet || topSet.reps == null) {
-      return [];
-    }
-
-    return [
-      {
-        date: session.date,
-        distance: trackingType === 'distance' ? topSet.reps : null,
-        reps: topSet.reps,
-        seconds:
-          trackingType === 'seconds_only' ||
-          trackingType === 'cardio' ||
-          trackingType === 'weight_seconds'
-            ? topSet.reps
-            : null,
-        trackingType,
-        weight: topSet.weight ?? 0,
-      },
-    ];
-  });
-}
-
-function pickTopSessionSet(
-  sets: ActiveWorkoutPerformanceHistorySession['sets'],
-  trackingType: ExerciseTrackingType,
-) {
-  const [firstSet, ...remainingSets] = sets;
-  if (!firstSet) {
-    return null;
-  }
-
-  return remainingSets.reduce((bestSet, currentSet) => {
-    if (currentSet.reps == null) {
-      return bestSet;
-    }
-
-    if (bestSet.reps == null) {
-      return currentSet;
-    }
-
-    if (
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio' ||
-      trackingType === 'weight_seconds' ||
-      trackingType === 'distance' ||
-      trackingType === 'reps_only' ||
-      trackingType === 'bodyweight_reps'
-    ) {
-      return currentSet.reps > bestSet.reps ? currentSet : bestSet;
-    }
-
-    const currentWeight = currentSet.weight ?? 0;
-    const bestWeight = bestSet.weight ?? 0;
-    if (currentWeight > bestWeight) {
-      return currentSet;
-    }
-
-    if (currentWeight === bestWeight && currentSet.reps > bestSet.reps) {
-      return currentSet;
-    }
-
-    return bestSet;
-  }, firstSet);
 }
