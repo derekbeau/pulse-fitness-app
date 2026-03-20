@@ -235,6 +235,7 @@ export function ActiveWorkoutPage() {
   const activeSessionId = activeSession?.id ?? null;
   const activeSessionStatus = activeSession?.status ?? null;
   const isPaused = activeSessionStatus === 'paused';
+  const enableApiLastPerformance = Boolean(activeSessionId) || shouldLoadApiTemplate;
   const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
     startTimeOverride ??
@@ -717,7 +718,7 @@ export function ActiveWorkoutPage() {
           <SessionContext context={sessionContext} />
 
           <SessionExerciseList
-            enableApiLastPerformance={Boolean(activeSessionId)}
+            enableApiLastPerformance={enableApiLastPerformance}
             focusSetId={focusSetId}
             onAddSet={handleAddSet}
             onExerciseNotesChange={(exerciseId, notes) =>

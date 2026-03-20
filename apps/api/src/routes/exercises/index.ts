@@ -39,6 +39,7 @@ import {
   findExerciseLastPerformance,
   findExercisePerformanceHistory,
   findExerciseOwnership,
+  findVisibleExerciseDetailsById,
   findVisibleExerciseById,
   listExerciseFilters,
   listExercises,
@@ -274,6 +275,41 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.send({
         data: filters,
+      });
+    },
+  );
+
+  typedApp.get(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(exerciseSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Get a visible exercise by id',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const exercise = await findVisibleExerciseDetailsById({
+        id: request.params.id,
+        userId: request.userId,
+      });
+      if (!exercise) {
+        return sendError(
+          reply,
+          404,
+          EXERCISE_NOT_FOUND_RESPONSE.code,
+          EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send({
+        data: exercise,
       });
     },
   );

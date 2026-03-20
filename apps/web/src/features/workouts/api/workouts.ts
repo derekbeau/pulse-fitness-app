@@ -41,7 +41,7 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
+import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { createOptimisticMutation } from '@/lib/optimistic';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
@@ -590,14 +590,22 @@ async function getExercises(params: ExerciseQueryParams) {
   return exercisesResponseSchema.parse(payload);
 }
 
-async function getExercise(id: string, signal?: AbortSignal) {
-  const data = await apiRequest<unknown>(`/api/v1/exercises/${id}`, {
-    method: 'GET',
-    signal,
-  });
-  const payload = z.object({ data: exerciseSchema }).parse({ data });
+async function getExercise(id: string, signal?: AbortSignal): Promise<Exercise | null> {
+  try {
+    const data = await apiRequest<unknown>(`/api/v1/exercises/${id}`, {
+      method: 'GET',
+      signal,
+    });
+    const payload = z.object({ data: exerciseSchema }).parse({ data });
 
-  return payload.data;
+    return payload.data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 async function getExerciseFilters() {
@@ -860,7 +868,7 @@ export function useExercises(params: ExerciseQueryParams, options?: { enabled?: 
 }
 
 export function useExercise(id: string, options?: { enabled?: boolean }) {
-  return useQuery<Exercise>({
+  return useQuery<Exercise | null>({
     enabled: (options?.enabled ?? true) && id.trim().length > 0,
     queryFn: ({ signal }) => getExercise(id, signal),
     queryKey: workoutQueryKeys.exercise(id),

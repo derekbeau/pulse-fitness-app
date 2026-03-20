@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { MouseEvent, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -1391,6 +1392,61 @@ describe('WorkoutTemplateDetail', () => {
         ),
       ).toBe(true);
     });
+  });
+
+  it('shows history fallback without error toast when exercise detail queries return 404', async () => {
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press') {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'EXERCISE_NOT_FOUND',
+                message: 'Exercise not found',
+              },
+            },
+            { status: 404 },
+          ),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-dumbbell-press/last-performance') {
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'EXERCISE_NOT_FOUND',
+                message: 'Exercise not found',
+              },
+            },
+            { status: 404 },
+          ),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
+
+    expect(await within(dialog).findByText('No history available.')).toBeInTheDocument();
+    expect(toastErrorSpy).not.toHaveBeenCalled();
   });
 
   it('renders a fallback state when the template request returns 404', async () => {

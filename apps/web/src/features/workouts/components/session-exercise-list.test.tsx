@@ -1562,6 +1562,15 @@ describe('SessionExerciseList', () => {
       />,
     );
 
+    expect(
+      useLastPerformanceSpy.mock.calls.some(
+        ([exerciseId, options]) =>
+          exerciseId === 'row-erg' &&
+          options?.enabled === true &&
+          options?.includeRelated !== false,
+      ),
+    ).toBe(true);
+
     const rowErgCard = screen
       .getByRole('heading', { level: 3, name: 'Row Erg' })
       .closest('[data-slot="card"]');

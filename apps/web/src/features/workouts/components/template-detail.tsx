@@ -1466,11 +1466,13 @@ function ExerciseDetailModal({
               <p className="text-sm text-muted">Loading recent performance...</p>
             ) : (
               <p className="text-sm text-foreground">
-                {formatLastPerformanceSummary(
-                  historyQuery.data?.history ?? null,
-                  trackingType,
-                  weightUnit,
-                )}
+                {historyQuery.data?.history
+                  ? formatLastPerformanceSummary(
+                      historyQuery.data.history,
+                      trackingType,
+                      weightUnit,
+                    )
+                  : 'No history available.'}
               </p>
             )}
           </div>

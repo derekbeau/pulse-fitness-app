@@ -1054,6 +1054,99 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText(/Exercise 1 of \d+/)).toBeInTheDocument();
   });
 
+  it('fetches inline last performance from the API for server-backed template sessions', async () => {
+    vi.useRealTimers();
+    const templateId = '2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db';
+
+    const mockFetch = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.endsWith(`/api/v1/workout-templates/${templateId}`)) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: templateId,
+              userId: 'user-1',
+              name: 'API Full Body',
+              description: 'Loaded from API',
+              tags: ['strength'],
+              sections: [
+                {
+                  type: 'warmup',
+                  exercises: [],
+                },
+                {
+                  type: 'main',
+                  exercises: [
+                    {
+                      id: 'template-exercise-1',
+                      exerciseId: 'incline-dumbbell-press',
+                      exerciseName: 'Incline Dumbbell Press',
+                      sets: 3,
+                      repsMin: 8,
+                      repsMax: 10,
+                      tempo: '3110',
+                      restSeconds: 90,
+                      supersetGroup: null,
+                      notes: null,
+                      cues: [],
+                    },
+                  ],
+                },
+                {
+                  type: 'cooldown',
+                  exercises: [],
+                },
+              ],
+              createdAt: 100,
+              updatedAt: 100,
+            },
+          }),
+        );
+      }
+
+      if (
+        url.includes(
+          '/api/v1/exercises/incline-dumbbell-press/last-performance?includeRelated=true',
+        )
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              history: {
+                sessionId: 'session-1',
+                date: '2026-03-08',
+                sets: [{ setNumber: 1, weight: 70, reps: 10 }],
+              },
+              related: [],
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    renderActiveWorkoutPage(`/workouts/active?template=${templateId}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'API Full Body' })).toBeVisible();
+
+    await waitFor(() => {
+      expect(
+        mockFetch.mock.calls.some(([url]) =>
+          String(url).includes(
+            '/api/v1/exercises/incline-dumbbell-press/last-performance?includeRelated=true',
+          ),
+        ),
+      ).toBe(true);
+    });
+  });
+
   it('renders reps_only and seconds_only inputs from API template tracking types', async () => {
     vi.useRealTimers();
     const templateId = '2679a7dd-4a40-4c3e-8bf6-7a70eb4ab5db';

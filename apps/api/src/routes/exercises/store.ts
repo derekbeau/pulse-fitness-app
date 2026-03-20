@@ -120,6 +120,15 @@ const buildListWhereClause = ({
     category ? eq(exercises.category, category) : undefined,
   );
 
+const buildVisibleByIdWhereClause = ({ id, userId }: { id: string; userId: string }) =>
+  and(
+    eq(exercises.id, id),
+    or(
+      and(isNull(exercises.userId), isNull(exercises.deletedAt)),
+      and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+    ),
+  );
+
 export const createExercise = async ({
   id,
   userId,
@@ -317,15 +326,24 @@ export const findVisibleExerciseById = async ({
       relatedExerciseIds: exercises.relatedExerciseIds,
     })
     .from(exercises)
-    .where(
-      and(
-        eq(exercises.id, id),
-        or(
-          isNull(exercises.userId),
-          and(eq(exercises.userId, userId), isNull(exercises.deletedAt)),
-        ),
-      ),
-    )
+    .where(buildVisibleByIdWhereClause({ id, userId }))
+    .limit(1)
+    .get();
+};
+
+export const findVisibleExerciseDetailsById = async ({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}): Promise<Exercise | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db
+    .select(exerciseSelection)
+    .from(exercises)
+    .where(buildVisibleByIdWhereClause({ id, userId }))
     .limit(1)
     .get();
 };
@@ -777,7 +795,9 @@ const findExercisesLastPerformanceById = async ({
     }
   }
 
-  const latestSessionIds = [...new Set([...latestSessionByExerciseId.values()].map((row) => row.sessionId))];
+  const latestSessionIds = [
+    ...new Set([...latestSessionByExerciseId.values()].map((row) => row.sessionId)),
+  ];
   if (latestSessionIds.length === 0) {
     return new Map();
   }
@@ -914,12 +934,14 @@ export const findExerciseHistoryWithRelated = async ({
   });
 
   const history = historiesByExerciseId.get(exerciseId) ?? null;
-  const relatedHistory: RelatedExerciseLastPerformance[] = orderedRelated.map((relatedExercise) => ({
-    exerciseId: relatedExercise.id,
-    exerciseName: relatedExercise.name,
-    trackingType: relatedExercise.trackingType,
-    history: historiesByExerciseId.get(relatedExercise.id) ?? null,
-  }));
+  const relatedHistory: RelatedExerciseLastPerformance[] = orderedRelated.map(
+    (relatedExercise) => ({
+      exerciseId: relatedExercise.id,
+      exerciseName: relatedExercise.name,
+      trackingType: relatedExercise.trackingType,
+      history: historiesByExerciseId.get(relatedExercise.id) ?? null,
+    }),
+  );
 
   return {
     history,

@@ -217,7 +217,7 @@ describe('exercise routes', () => {
     seedUser('user-2', 'alex');
   });
 
-  it('requires auth for create, list, history, last-performance, update, and delete', async () => {
+  it('requires auth for create, list, read, history, last-performance, update, and delete', async () => {
     const responses = await Promise.all([
       context.app.inject({
         method: 'POST',
@@ -232,6 +232,10 @@ describe('exercise routes', () => {
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises',
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/exercise-1',
       }),
       context.app.inject({
         method: 'GET',
@@ -261,6 +265,68 @@ describe('exercise routes', () => {
         },
       });
     }
+  });
+
+  it('returns a visible exercise by id', async () => {
+    seedExercise({
+      id: 'global-bench',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+      tags: ['strength'],
+      formCues: ['Brace and drive'],
+      instructions: 'Lower to sternum, press to lockout.',
+      coachingNotes: 'Keep elbows 45 degrees.',
+      relatedExerciseIds: [],
+    });
+    seedExercise({
+      id: 'private-exercise',
+      userId: 'user-2',
+      name: 'Private Exercise',
+      muscleGroups: ['back'],
+      equipment: 'cable',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-bench',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: {
+        id: 'global-bench',
+        userId: null,
+        name: 'Bench Press',
+        muscleGroups: ['chest'],
+        equipment: 'barbell',
+        category: 'compound',
+        trackingType: 'weight_reps',
+      },
+    });
+
+    const notFoundResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/private-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(notFoundResponse.statusCode).toBe(404);
+    expect(notFoundResponse.json()).toEqual({
+      error: {
+        code: 'EXERCISE_NOT_FOUND',
+        message: 'Exercise not found',
+      },
+    });
   });
 
   it('returns most recent completed last performance for a visible exercise', async () => {
@@ -1534,7 +1600,9 @@ describe('exercise routes', () => {
       }>;
     };
 
-    const metadataExercise = listPayload.data.find((exercise) => exercise.id === 'metadata-exercise');
+    const metadataExercise = listPayload.data.find(
+      (exercise) => exercise.id === 'metadata-exercise',
+    );
     expect(metadataExercise).toBeDefined();
     if (!metadataExercise) {
       throw new Error('Expected metadata-exercise to be returned from exercise list');
