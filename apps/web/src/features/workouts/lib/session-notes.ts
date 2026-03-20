@@ -5,14 +5,13 @@ import type {
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
 
-import type { ActiveWorkoutSetDrafts } from '@/features/workouts/types';
-import type { WorkoutTemplate as MockWorkoutTemplate } from '@/lib/mock-data/workouts';
+import type { ActiveWorkoutSetDrafts, ActiveWorkoutTemplate } from '@/features/workouts/types';
 import { isTimeBasedTrackingType, isWeightedTrackingType } from './tracking';
 
 type TemplateExerciseLookup = Map<
   string,
   {
-    exercise: MockWorkoutTemplate['sections'][number]['exercises'][number];
+    exercise: ActiveWorkoutTemplate['sections'][number]['exercises'][number];
     section: WorkoutTemplateSectionType;
     trackingType: ExerciseTrackingType;
   }

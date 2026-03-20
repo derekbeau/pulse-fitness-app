@@ -1,24 +1,20 @@
-import {
-  mockExercises,
-  type WorkoutSession,
-  type WorkoutTemplate,
-  type WorkoutTemplateExercise,
-} from '@/lib/mock-data/workouts';
 import type { ExerciseTrackingType } from '@pulse/shared';
 
 import type {
   ActiveWorkoutEnhancedExercise,
   ActiveWorkoutExercise,
+  ActiveWorkoutHistoricalSession,
   ActiveWorkoutLastPerformance,
   ActiveWorkoutSection,
   ActiveWorkoutSessionData,
   ActiveWorkoutSet,
   ActiveWorkoutSetDrafts,
+  ActiveWorkoutTemplate,
+  ActiveWorkoutTemplateExercise,
 } from '../types';
 import { isWeightedTrackingType, parsePrescribedRepsValue, resolveTrackingType } from './tracking';
 import { workoutEnhancedExercises } from './mock-data';
 
-const exerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
 const sampleWeightByExerciseId = new Map<string, number>([
   ['incline-dumbbell-press', 60],
   ['seated-dumbbell-shoulder-press', 40],
@@ -45,7 +41,7 @@ type BuildActiveWorkoutSessionOptions = {
   exerciseOrderBySection?: Partial<Record<ActiveWorkoutSection['type'], string[]>>;
   exerciseNotes?: Record<string, string>;
   sessionStartedAt?: Date | string;
-  sessions?: WorkoutSession[];
+  sessions?: ActiveWorkoutHistoricalSession[];
 };
 
 type TemplateExerciseMetadata = {
@@ -54,13 +50,13 @@ type TemplateExerciseMetadata = {
   instructions?: string | null;
 };
 
-type WorkoutTemplateExerciseWithMetadata = WorkoutTemplateExercise & {
+type WorkoutTemplateExerciseWithMetadata = ActiveWorkoutTemplateExercise & {
   exercise?: TemplateExerciseMetadata | null;
   programmingNotes?: string | null;
 };
 
 export function buildActiveWorkoutSession(
-  template: WorkoutTemplate,
+  template: ActiveWorkoutTemplate,
   setDrafts: ActiveWorkoutSetDrafts,
   options: BuildActiveWorkoutSessionOptions = {},
 ): ActiveWorkoutSessionData {
@@ -78,12 +74,13 @@ export function buildActiveWorkoutSession(
     );
     const exercises = orderedTemplateExercises.map((templateExercise): ActiveWorkoutExercise => {
       const templateExerciseWithMetadata = templateExercise as WorkoutTemplateExerciseWithMetadata;
-      const exercise = exerciseById.get(templateExercise.exerciseId);
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
+      const fallbackExerciseName =
+        templateExercise.exerciseName ?? startCase(templateExercise.exerciseId);
       const trackingType = resolveTrackingType({
-        category: exercise?.category,
+        category: enhancedExercise?.category,
         exerciseId: templateExercise.exerciseId,
-        exerciseName: exercise?.name ?? templateExercise.exerciseName,
+        exerciseName: enhancedExercise?.name ?? fallbackExerciseName,
         prescribedReps: templateExercise.reps,
         trackingType: templateExercise.trackingType,
       });
@@ -92,7 +89,7 @@ export function buildActiveWorkoutSession(
 
       return {
         badges: templateExercise.badges,
-        category: exercise?.category ?? 'compound',
+        category: enhancedExercise?.category ?? 'compound',
         coachingNotes: templateExerciseWithMetadata.exercise?.coachingNotes ?? null,
         completedSets,
         formCues:
@@ -104,7 +101,7 @@ export function buildActiveWorkoutSession(
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
-        name: exercise?.name ?? templateExercise.exerciseName ?? 'Unknown Exercise',
+        name: enhancedExercise?.name ?? fallbackExerciseName,
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         programmingNotes: templateExerciseWithMetadata.programmingNotes ?? null,
@@ -159,7 +156,7 @@ export function buildActiveWorkoutSession(
 }
 
 function sortTemplateExercisesByOrder(
-  exercises: WorkoutTemplate['sections'][number]['exercises'],
+  exercises: ActiveWorkoutTemplate['sections'][number]['exercises'],
   orderedExerciseIds: string[] | undefined,
 ) {
   if (!orderedExerciseIds || orderedExerciseIds.length === 0) {
@@ -183,7 +180,7 @@ function sortTemplateExercisesByOrder(
 }
 
 export function createInitialWorkoutSetDrafts(
-  template: WorkoutTemplate,
+  template: ActiveWorkoutTemplate,
   completedSetIds: ReadonlySet<string>,
 ): ActiveWorkoutSetDrafts {
   return Object.fromEntries(
@@ -203,16 +200,17 @@ export function createInitialWorkoutSetDrafts(
 }
 
 export function createWorkoutSetDraft(
-  templateExercise: WorkoutTemplateExercise,
+  templateExercise: ActiveWorkoutTemplateExercise,
   setNumber: number,
   completed = false,
 ): ActiveWorkoutSet {
   const exerciseId = templateExercise.exerciseId;
-  const exercise = exerciseById.get(exerciseId);
+  const enhancedExercise = enhancedExerciseById.get(exerciseId);
+  const fallbackExerciseName = templateExercise.exerciseName ?? startCase(exerciseId);
   const trackingType = resolveTrackingType({
-    category: exercise?.category,
+    category: enhancedExercise?.category,
     exerciseId,
-    exerciseName: exercise?.name ?? templateExercise.exerciseName,
+    exerciseName: enhancedExercise?.name ?? fallbackExerciseName,
     prescribedReps: templateExercise.reps,
     trackingType: templateExercise.trackingType,
   });
@@ -238,7 +236,7 @@ export function createWorkoutSetDraft(
 }
 
 function getWorkoutSets(
-  templateExercise: WorkoutTemplateExercise,
+  templateExercise: ActiveWorkoutTemplateExercise,
   setDrafts: ActiveWorkoutSetDrafts,
 ) {
   return [...(setDrafts[templateExercise.exerciseId] ?? [])].sort(
@@ -249,7 +247,7 @@ function getWorkoutSets(
 function getLastPerformance(
   exerciseId: string,
   sessionStartedAt: Date | string,
-  sessions: WorkoutSession[],
+  sessions: ActiveWorkoutHistoricalSession[],
 ): ActiveWorkoutLastPerformance | null {
   const parsedStartTime = new Date(sessionStartedAt).getTime();
   const currentStartedAt = Number.isNaN(parsedStartTime)
@@ -313,4 +311,11 @@ function shouldSeedSeconds(trackingType: ExerciseTrackingType) {
     trackingType === 'seconds_only' ||
     trackingType === 'cardio'
   );
+}
+
+function startCase(value: string) {
+  return value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

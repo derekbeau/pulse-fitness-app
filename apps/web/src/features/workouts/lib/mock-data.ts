@@ -1,11 +1,4 @@
-import {
-  type WorkoutBadgeType,
-  type WorkoutExerciseCategory,
-  type WorkoutSessionExerciseLog,
-  type WorkoutSessionFeedback,
-  mockExercises,
-  mockTemplates,
-} from '@/lib/mock-data/workouts';
+import type { ExerciseCategory, WorkoutSessionFeedback } from '@pulse/shared';
 
 import type {
   ActiveWorkoutCompletedSession,
@@ -14,6 +7,7 @@ import type {
   ActiveWorkoutExerciseHistory,
   ActiveWorkoutLastPerformance,
   ActiveWorkoutSessionContext,
+  WorkoutBadgeType,
 } from '../types';
 import { resolveTrackingType } from './tracking';
 
@@ -37,7 +31,79 @@ type CompletedSessionInput = {
   templateId: string;
 };
 
-const exerciseCatalog = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
+type ExerciseCatalogEntry = {
+  category: ExerciseCategory;
+  name: string;
+};
+
+type TemplateExerciseCatalogEntry = {
+  badges: WorkoutBadgeType[];
+  reps: string;
+  restSeconds: number;
+  sets: number;
+  tempo: string;
+};
+
+const exerciseCatalog = new Map<string, ExerciseCatalogEntry>([
+  ['row-erg', { category: 'cardio', name: 'Row Erg' }],
+  [
+    'banded-shoulder-external-rotation',
+    { category: 'mobility', name: 'Banded Shoulder External Rotation' },
+  ],
+  ['incline-dumbbell-press', { category: 'compound', name: 'Incline Dumbbell Press' }],
+  [
+    'seated-dumbbell-shoulder-press',
+    { category: 'compound', name: 'Seated Dumbbell Shoulder Press' },
+  ],
+  ['cable-lateral-raise', { category: 'isolation', name: 'Cable Lateral Raise' }],
+  ['rope-triceps-pushdown', { category: 'isolation', name: 'Rope Triceps Pushdown' }],
+  ['face-pull', { category: 'isolation', name: 'Face Pull' }],
+  ['air-bike', { category: 'cardio', name: 'Air Bike' }],
+  ["worlds-greatest-stretch", { category: 'mobility', name: "World's Greatest Stretch" }],
+  ['high-bar-back-squat', { category: 'compound', name: 'High-Bar Back Squat' }],
+  ['leg-press', { category: 'compound', name: 'Leg Press' }],
+  ['bulgarian-split-squat', { category: 'compound', name: 'Bulgarian Split Squat' }],
+  ['leg-extension', { category: 'isolation', name: 'Leg Extension' }],
+  ['jump-rope', { category: 'cardio', name: 'Jump Rope' }],
+  ['goblet-squat', { category: 'compound', name: 'Goblet Squat' }],
+  ['barbell-bench-press', { category: 'compound', name: 'Barbell Bench Press' }],
+  ['romanian-deadlift', { category: 'compound', name: 'Romanian Deadlift' }],
+  ['lat-pulldown', { category: 'compound', name: 'Lat Pulldown' }],
+  ['couch-stretch', { category: 'mobility', name: 'Couch Stretch' }],
+]);
+
+const templateExerciseCatalog = new Map<string, TemplateExerciseCatalogEntry>([
+  [
+    'row-erg',
+    { badges: ['cardio'], reps: '4 min', restSeconds: 30, sets: 1, tempo: '1111' },
+  ],
+  [
+    'banded-shoulder-external-rotation',
+    {
+      badges: ['mobility', 'push'],
+      reps: '12/side',
+      restSeconds: 30,
+      sets: 2,
+      tempo: '2111',
+    },
+  ],
+  [
+    'incline-dumbbell-press',
+    { badges: ['compound', 'push'], reps: '8-10', restSeconds: 90, sets: 3, tempo: '3110' },
+  ],
+  [
+    'seated-dumbbell-shoulder-press',
+    { badges: ['compound', 'push'], reps: '8-10', restSeconds: 90, sets: 3, tempo: '2110' },
+  ],
+  [
+    'cable-lateral-raise',
+    { badges: ['isolation', 'push'], reps: '12-15', restSeconds: 60, sets: 3, tempo: '2011' },
+  ],
+  [
+    'rope-triceps-pushdown',
+    { badges: ['isolation', 'push'], reps: '10-12', restSeconds: 60, sets: 3, tempo: '2011' },
+  ],
+]);
 
 export const workoutSessionContext: ActiveWorkoutSessionContext = {
   recentSessions: [
@@ -684,24 +750,15 @@ function createEnhancedExercise(input: {
 }
 
 function findTemplateExercise(exerciseId: string) {
-  return mockTemplates
-    .flatMap((template) => template.sections)
-    .flatMap((section) => section.exercises)
-    .find((exercise) => exercise.exerciseId === exerciseId);
+  return templateExerciseCatalog.get(exerciseId);
 }
 
 function getLastPerformance(exerciseId: string): ActiveWorkoutLastPerformance | null {
   const session = [...workoutCompletedSessions]
     .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())
-    .find((item) =>
-      item.exercises.some(
-        (exercise: WorkoutSessionExerciseLog) => exercise.exerciseId === exerciseId,
-      ),
-    );
+    .find((item) => item.exercises.some((exercise) => exercise.exerciseId === exerciseId));
 
-  const exerciseLog = session?.exercises.find(
-    (exercise: WorkoutSessionExerciseLog) => exercise.exerciseId === exerciseId,
-  );
+  const exerciseLog = session?.exercises.find((exercise) => exercise.exerciseId === exerciseId);
 
   if (!session || !exerciseLog) {
     return null;
@@ -720,7 +777,7 @@ function getLastPerformance(exerciseId: string): ActiveWorkoutLastPerformance | 
 }
 
 function inferBadgesFromCategory(
-  category: WorkoutExerciseCategory | undefined,
+  category: ExerciseCategory | undefined,
 ): WorkoutBadgeType[] {
   switch (category) {
     case 'cardio':

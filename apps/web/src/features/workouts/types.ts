@@ -1,12 +1,81 @@
-import type { ExerciseTrackingType } from '@pulse/shared';
-
 import type {
-  WorkoutBadgeType,
-  WorkoutExerciseCategory,
-  WorkoutSession,
+  ExerciseCategory,
+  ExerciseTrackingType,
   WorkoutSessionFeedback,
   WorkoutTemplateSectionType,
-} from '@/lib/mock-data/workouts';
+} from '@pulse/shared';
+
+export type WorkoutBadgeType =
+  | 'compound'
+  | 'isolation'
+  | 'push'
+  | 'pull'
+  | 'legs'
+  | 'cardio'
+  | 'mobility';
+
+export type ActiveWorkoutTemplateExercise = {
+  badges: WorkoutBadgeType[];
+  exercise?: {
+    coachingNotes?: string | null;
+    formCues?: string[] | null;
+    instructions?: string | null;
+  } | null;
+  exerciseId: string;
+  exerciseName?: string;
+  formCues: string[];
+  programmingNotes?: string | null;
+  reps: string;
+  restSeconds: number;
+  sets: number;
+  supersetGroup?: string | null;
+  targetDistance?: number | null;
+  targetSeconds?: number | null;
+  targetWeight?: number | null;
+  targetWeightMax?: number | null;
+  targetWeightMin?: number | null;
+  tempo: string;
+  templateCues?: string[];
+  trackingType?: ExerciseTrackingType;
+};
+
+export type ActiveWorkoutTemplateSection = {
+  exercises: ActiveWorkoutTemplateExercise[];
+  title: string;
+  type: WorkoutTemplateSectionType;
+};
+
+export type ActiveWorkoutTemplate = {
+  description: string;
+  id: string;
+  name: string;
+  sections: ActiveWorkoutTemplateSection[];
+  tags: string[];
+};
+
+export type ActiveWorkoutHistoricalLoggedSet = {
+  completed: boolean;
+  reps: number;
+  setNumber: number;
+  timestamp: string;
+  weight?: number;
+};
+
+export type ActiveWorkoutHistoricalExerciseLog = {
+  exerciseId: string;
+  sets: ActiveWorkoutHistoricalLoggedSet[];
+};
+
+export type ActiveWorkoutHistoricalSession = {
+  completedAt?: string;
+  duration: number;
+  exercises: ActiveWorkoutHistoricalExerciseLog[];
+  feedback?: WorkoutSessionFeedback;
+  id: string;
+  startedAt: string;
+  status: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
+  templateId: string;
+};
 
 export type ActiveWorkoutSet = {
   id: string;
@@ -66,7 +135,7 @@ export type ActiveWorkoutExerciseHistorySummary = {
 
 export type ActiveWorkoutExerciseMetadata = {
   badges: WorkoutBadgeType[];
-  category: WorkoutExerciseCategory;
+  category: ExerciseCategory;
   coachingNotes?: string | null;
   formCues: string[];
   instructions?: string | null;
@@ -225,14 +294,14 @@ export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];
 export type ActiveWorkoutCompletedSession = {
   customFeedback: ActiveWorkoutCustomFeedbackField[];
   duration: number;
-  exercises: WorkoutSession['exercises'];
+  exercises: ActiveWorkoutHistoricalExerciseLog[];
   feedback: WorkoutSessionFeedback;
   id: string;
   name: string;
   notes: string;
   startedAt: string;
   status: 'completed';
-  templateId: WorkoutSession['templateId'];
+  templateId: string;
 };
 
 export type ActiveWorkoutExerciseHistoryPoint = {

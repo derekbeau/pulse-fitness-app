@@ -1,0 +1,276 @@
+import type { ActiveWorkoutTemplate } from '@/features/workouts/types';
+
+export const mockTemplates: ActiveWorkoutTemplate[] = [
+  {
+    id: 'upper-push',
+    name: 'Upper Push',
+    description: 'Chest, shoulders, and triceps emphasis with controlled tempo work.',
+    tags: ['strength', 'push', 'upper-body'],
+    sections: [
+      {
+        type: 'warmup',
+        title: 'Warm-Up',
+        exercises: [
+          {
+            exerciseId: 'row-erg',
+            sets: 1,
+            reps: '4 min',
+            tempo: '1111',
+            restSeconds: 30,
+            formCues: ['Build heat without sprinting', 'Finish breathing through the nose'],
+            badges: ['cardio'],
+          },
+          {
+            exerciseId: 'banded-shoulder-external-rotation',
+            sets: 2,
+            reps: '12/side',
+            tempo: '2111',
+            restSeconds: 30,
+            formCues: ['Keep elbow pinned', 'Rotate only through the shoulder'],
+            badges: ['mobility', 'push'],
+          },
+        ],
+      },
+      {
+        type: 'main',
+        title: 'Main Work',
+        exercises: [
+          {
+            exerciseId: 'incline-dumbbell-press',
+            sets: 3,
+            reps: '8-10',
+            tempo: '3110',
+            restSeconds: 90,
+            formCues: ['Drive feet into the floor', 'Keep wrists stacked over elbows'],
+            badges: ['compound', 'push'],
+          },
+          {
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            sets: 3,
+            reps: '8-10',
+            tempo: '2110',
+            restSeconds: 90,
+            formCues: ['Brace before each press', 'Finish with biceps by the ears'],
+            badges: ['compound', 'push'],
+          },
+          {
+            exerciseId: 'cable-lateral-raise',
+            sets: 3,
+            reps: '12-15',
+            tempo: '2111',
+            restSeconds: 60,
+            formCues: ['Lead with elbows', 'Stop when shoulders stay quiet'],
+            badges: ['isolation', 'push'],
+          },
+          {
+            exerciseId: 'rope-triceps-pushdown',
+            sets: 3,
+            reps: '10-12',
+            tempo: '2111',
+            restSeconds: 60,
+            formCues: ['Pin elbows to ribs', 'Split the rope hard at lockout'],
+            badges: ['isolation', 'push'],
+          },
+        ],
+      },
+      {
+        type: 'cooldown',
+        title: 'Cooldown',
+        exercises: [
+          {
+            exerciseId: 'couch-stretch',
+            sets: 2,
+            reps: '45 sec/side',
+            tempo: '2222',
+            restSeconds: 20,
+            formCues: ['Stay tall through the torso', 'Squeeze the glute of the back leg'],
+            badges: ['mobility'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'lower-quad-dominant',
+    name: 'Lower Quad-Dominant',
+    description:
+      'Quad-focused lower session with bilateral work first and single-leg volume second.',
+    tags: ['strength', 'legs', 'lower-body'],
+    sections: [
+      {
+        type: 'warmup',
+        title: 'Warm-Up',
+        exercises: [
+          {
+            exerciseId: 'air-bike',
+            sets: 1,
+            reps: '5 min',
+            tempo: '1111',
+            restSeconds: 30,
+            formCues: ['Build cadence gradually', 'Keep the first minute conversational'],
+            badges: ['cardio'],
+          },
+          {
+            exerciseId: 'worlds-greatest-stretch',
+            sets: 2,
+            reps: '5/side',
+            tempo: '2122',
+            restSeconds: 30,
+            formCues: ['Reach long through the front knee', 'Rotate from the mid-back'],
+            badges: ['mobility', 'legs'],
+          },
+        ],
+      },
+      {
+        type: 'main',
+        title: 'Main Work',
+        exercises: [
+          {
+            exerciseId: 'high-bar-back-squat',
+            sets: 4,
+            reps: '5-6',
+            tempo: '3110',
+            restSeconds: 150,
+            formCues: ['Sit between the hips', 'Keep chest tall out of the hole'],
+            badges: ['compound', 'legs'],
+          },
+          {
+            exerciseId: 'leg-press',
+            sets: 3,
+            reps: '10-12',
+            tempo: '3110',
+            restSeconds: 90,
+            formCues: ['Control the bottom range', 'Drive through mid-foot'],
+            badges: ['compound', 'legs'],
+          },
+          {
+            exerciseId: 'bulgarian-split-squat',
+            sets: 3,
+            reps: '8/side',
+            tempo: '3010',
+            restSeconds: 75,
+            formCues: ['Let the front knee travel forward', 'Stay heavy on the front leg'],
+            badges: ['compound', 'legs'],
+          },
+          {
+            exerciseId: 'leg-extension',
+            sets: 3,
+            reps: '12-15',
+            tempo: '2111',
+            restSeconds: 60,
+            formCues: ['Pause at the top', 'Lower without bouncing the stack'],
+            badges: ['isolation', 'legs'],
+          },
+        ],
+      },
+      {
+        type: 'cooldown',
+        title: 'Cooldown',
+        exercises: [
+          {
+            exerciseId: 'couch-stretch',
+            sets: 2,
+            reps: '60 sec/side',
+            tempo: '2222',
+            restSeconds: 20,
+            formCues: ['Posteriorly tilt the pelvis', 'Keep ribs stacked over hips'],
+            badges: ['mobility', 'legs'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'full-body',
+    name: 'Full Body',
+    description: 'Balanced full-body session with squat, hinge, push, and pull coverage.',
+    tags: ['strength', 'full-body', 'general-fitness'],
+    sections: [
+      {
+        type: 'warmup',
+        title: 'Warm-Up',
+        exercises: [
+          {
+            exerciseId: 'jump-rope',
+            sets: 1,
+            reps: '3 min',
+            tempo: '1111',
+            restSeconds: 30,
+            formCues: ['Stay light through the ankles', 'Keep shoulders relaxed'],
+            badges: ['cardio'],
+          },
+          {
+            exerciseId: 'worlds-greatest-stretch',
+            sets: 1,
+            reps: '6/side',
+            tempo: '2122',
+            restSeconds: 30,
+            formCues: ['Exhale into the rotation', 'Reach the back heel long'],
+            badges: ['mobility'],
+          },
+        ],
+      },
+      {
+        type: 'main',
+        title: 'Main Work',
+        exercises: [
+          {
+            exerciseId: 'goblet-squat',
+            sets: 3,
+            reps: '10',
+            tempo: '3110',
+            restSeconds: 75,
+            formCues: ['Use elbows to pry the knees out', 'Own the bottom position'],
+            badges: ['compound', 'legs'],
+          },
+          {
+            exerciseId: 'barbell-bench-press',
+            sets: 4,
+            reps: '6-8',
+            tempo: '2110',
+            restSeconds: 120,
+            formCues: ['Pull shoulder blades into the bench', 'Press back toward the rack'],
+            badges: ['compound', 'push'],
+          },
+          {
+            exerciseId: 'romanian-deadlift',
+            sets: 3,
+            reps: '8',
+            tempo: '3110',
+            restSeconds: 120,
+            formCues: ['Reach hips back first', 'Keep the bar glued to the legs'],
+            badges: ['compound', 'legs', 'pull'],
+          },
+          {
+            exerciseId: 'lat-pulldown',
+            sets: 3,
+            reps: '10-12',
+            tempo: '2111',
+            restSeconds: 75,
+            formCues: ['Lead with elbows', 'Finish with upper arms by the ribs'],
+            badges: ['compound', 'pull'],
+          },
+        ],
+      },
+      {
+        type: 'cooldown',
+        title: 'Cooldown',
+        exercises: [
+          {
+            exerciseId: 'couch-stretch',
+            sets: 1,
+            reps: '60 sec/side',
+            tempo: '2222',
+            restSeconds: 20,
+            formCues: ['Breathe slowly through the nose', 'Do not arch the lower back'],
+            badges: ['mobility'],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+export function getMockTemplate(templateId: string) {
+  return mockTemplates.find((template) => template.id === templateId);
+}
