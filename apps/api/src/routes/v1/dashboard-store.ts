@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 import type {
   DashboardConfig,
@@ -523,24 +523,18 @@ export const getDashboardMacrosTrend = async (
     .from(nutritionLogs)
     .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
     .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
-    .where(and(eq(nutritionLogs.userId, userId), between(nutritionLogs.date, from, to)))
+    .where(
+      and(
+        eq(nutritionLogs.userId, userId),
+        between(nutritionLogs.date, from, to),
+        isNotNull(meals.id),
+      ),
+    )
     .groupBy(nutritionLogs.date)
     .orderBy(asc(nutritionLogs.date))
     .all();
 
-  const rowsByDate = new Map(
-    rows.map((row) => [
-      row.date,
-      {
-        calories: row.calories,
-        protein: row.protein,
-        carbs: row.carbs,
-        fat: row.fat,
-      },
-    ]),
-  );
-
-  return getDatesInRange(from, to).map((date) => toMacroTrendPoint(date, rowsByDate.get(date)));
+  return rows.map((row) => toMacroTrendPoint(row.date, row));
 };
 
 export const getDashboardConsistencyTrend = async (
