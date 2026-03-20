@@ -1,8 +1,8 @@
-import { ArrowLeftIcon, CalendarDaysIcon, MapPinIcon } from 'lucide-react';
+import { CalendarDaysIcon, MapPinIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProtocolList } from './protocol-list';
 import { SeverityChart } from './severity-chart';
@@ -131,34 +131,25 @@ export function ConditionDetail({ condition }: ConditionDetailProps) {
 
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
-      <Button asChild className="w-fit gap-2" size="sm" variant="ghost">
-        <Link to="/profile/injuries">
-          <ArrowLeftIcon aria-hidden="true" className="size-4" />
-          Back to Health Tracking
-        </Link>
-      </Button>
+      <PageHeader
+        actions={
+          <Badge className={STATUS_META[condition.status].badgeClassName}>
+            {STATUS_META[condition.status].label}
+          </Badge>
+        }
+        description={condition.description}
+        showBack
+        title={condition.name}
+      />
 
       <Card className="overflow-hidden border-transparent bg-gradient-to-br from-[var(--color-accent-pink)]/35 via-card to-[var(--color-accent-cream)]/45 py-0 shadow-sm dark:border-border/60 dark:from-secondary dark:via-card dark:to-secondary">
-        <CardHeader className="gap-5 border-b border-border/50 py-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                Condition overview
-              </p>
-              <div className="space-y-2">
-                <CardTitle className="text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
-                  {condition.name}
-                </CardTitle>
-                <CardDescription className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                  {condition.description}
-                </CardDescription>
-              </div>
-            </div>
-
-            <Badge className={STATUS_META[condition.status].badgeClassName}>
-              {STATUS_META[condition.status].label}
-            </Badge>
-          </div>
+        <CardHeader className="gap-2 border-b border-border/50 py-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Condition overview
+          </p>
+          <CardDescription className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+            Body area and onset date for quick reference.
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="grid gap-3 px-6 py-5 sm:grid-cols-2">

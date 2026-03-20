@@ -97,7 +97,17 @@ const testState = vi.hoisted(() => {
 
 const getLogKey = (userId: string, date: string) => `${userId}:${date}`;
 
-const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => {
+const sortFoods = (
+  foods: StoredFood[],
+  sort:
+    | 'name-asc'
+    | 'name-desc'
+    | 'newest'
+    | 'oldest'
+    | 'recently-updated'
+    | 'most-used'
+    | 'least-used',
+) => {
   const byName = (left: StoredFood, right: StoredFood) => {
     const nameCompare = left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
     if (nameCompare !== 0) {
@@ -109,7 +119,7 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => 
     });
   };
 
-  if (sort === 'popular') {
+  if (sort === 'most-used') {
     return [...foods].sort((left, right) => {
       if (left.usageCount !== right.usageCount) {
         return right.usageCount - left.usageCount;
@@ -119,7 +129,17 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => 
     });
   }
 
-  if (sort === 'recent') {
+  if (sort === 'least-used') {
+    return [...foods].sort((left, right) => {
+      if (left.usageCount !== right.usageCount) {
+        return left.usageCount - right.usageCount;
+      }
+
+      return byName(left, right);
+    });
+  }
+
+  if (sort === 'recently-updated') {
     return [...foods].sort((left, right) => {
       const leftNull = left.lastUsedAt === null ? 1 : 0;
       const rightNull = right.lastUsedAt === null ? 1 : 0;
@@ -134,6 +154,18 @@ const sortFoods = (foods: StoredFood[], sort: 'name' | 'popular' | 'recent') => 
 
       return byName(left, right);
     });
+  }
+
+  if (sort === 'newest') {
+    return [...foods].sort((left, right) => right.createdAt - left.createdAt || byName(left, right));
+  }
+
+  if (sort === 'oldest') {
+    return [...foods].sort((left, right) => left.createdAt - right.createdAt || byName(left, right));
+  }
+
+  if (sort === 'name-desc') {
+    return [...foods].sort((left, right) => byName(right, left));
   }
 
   return [...foods].sort(byName);
@@ -207,7 +239,14 @@ vi.mock('../routes/foods/store.js', () => ({
       userId: string,
       query: {
         q?: string;
-        sort: 'name' | 'popular' | 'recent';
+        sort:
+          | 'name-asc'
+          | 'name-desc'
+          | 'newest'
+          | 'oldest'
+          | 'recently-updated'
+          | 'most-used'
+          | 'least-used';
         page: number;
         limit: number;
       },
@@ -697,7 +736,7 @@ describe('foods and nutrition integration', () => {
 
       const popularResponse = await app.inject({
         method: 'GET',
-        url: '/api/v1/foods?sort=popular',
+        url: '/api/v1/foods?sort=most-used',
         headers: createAuthorizationHeader(userToken),
       });
       expect(popularResponse.statusCode).toBe(200);

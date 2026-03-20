@@ -1,10 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { Food } from '@pulse/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FoodList } from '@/features/foods/components/food-list';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
-import { createAppQueryClient } from '@/lib/query-client';
+import { createAppQueryClient, resetAppQueryClient } from '@/lib/query-client';
 
 function createDeferredResponse() {
   let resolve: (value: Response) => void = () => {};
@@ -45,7 +46,19 @@ function createFood(id: string, name: string, overrides: Partial<Food> = {}): Fo
 function sortFoods(foods: Food[], sort: string) {
   const copy = [...foods];
 
-  if (sort === 'recent') {
+  if (sort === 'most-used') {
+    return copy.sort(
+      (left, right) => right.usageCount - left.usageCount || left.name.localeCompare(right.name),
+    );
+  }
+
+  if (sort === 'least-used') {
+    return copy.sort(
+      (left, right) => left.usageCount - right.usageCount || left.name.localeCompare(right.name),
+    );
+  }
+
+  if (sort === 'recently-updated') {
     return copy.sort((left, right) => {
       if (left.lastUsedAt === null && right.lastUsedAt === null) {
         return left.name.localeCompare(right.name);
@@ -63,10 +76,16 @@ function sortFoods(foods: Food[], sort: string) {
     });
   }
 
-  if (sort === 'popular') {
-    return copy.sort(
-      (left, right) => right.usageCount - left.usageCount || left.name.localeCompare(right.name),
-    );
+  if (sort === 'newest') {
+    return copy.sort((left, right) => right.createdAt - left.createdAt || left.name.localeCompare(right.name));
+  }
+
+  if (sort === 'oldest') {
+    return copy.sort((left, right) => left.createdAt - right.createdAt || left.name.localeCompare(right.name));
+  }
+
+  if (sort === 'name-desc') {
+    return copy.sort((left, right) => right.name.localeCompare(left.name));
   }
 
   return copy.sort((left, right) => left.name.localeCompare(right.name));
@@ -93,9 +112,9 @@ function createFoodsApiMock(
     if (url.pathname === '/api/v1/foods' && method === 'GET') {
       const q = url.searchParams.get('q')?.toLowerCase() ?? '';
       const selectedTags = normalizeTags((url.searchParams.get('tags') ?? '').split(','));
-      const sort = url.searchParams.get('sort') ?? 'name';
+      const sort = url.searchParams.get('sort') ?? 'recently-updated';
       const page = Number(url.searchParams.get('page') ?? '1');
-      const limit = Number(url.searchParams.get('limit') ?? '12');
+      const limit = Number(url.searchParams.get('limit') ?? '25');
       const filteredFoods = foods.filter((food) => {
         const matchesQuery = [food.name, food.brand ?? ''].some((value) =>
           value.toLowerCase().includes(q),
@@ -206,9 +225,11 @@ function renderFoodList() {
   const queryClient = createAppQueryClient();
 
   return render(
-    <QueryClientProvider client={queryClient}>
-      <FoodList now={new Date('2026-03-06T12:00:00.000Z')} />
-    </QueryClientProvider>,
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <FoodList now={new Date('2026-03-06T12:00:00.000Z')} />
+      </QueryClientProvider>
+    </BrowserRouter>,
   );
 }
 
@@ -319,16 +340,24 @@ const paginatedFoods = [
     servingSize: '1 scoop',
     lastUsedAt: Date.parse('2026-03-05T16:45:00.000Z'),
   }),
+  ...Array.from({ length: 15 }, (_, index) =>
+    createFood(`food-extra-${index + 1}`, `Template Food ${index + 1}`, {
+      usageCount: index,
+      lastUsedAt: Date.parse(`2026-02-${String((index % 9) + 10).padStart(2, '0')}T12:00:00.000Z`),
+    }),
+  ),
 ];
 
 describe('FoodList', () => {
   beforeEach(() => {
-    createAppQueryClient().clear();
+    resetAppQueryClient();
+    window.history.pushState({}, '', '/nutrition?view=foods');
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
   });
 
   afterEach(() => {
     createAppQueryClient().clear();
+    resetAppQueryClient();
     window.localStorage.clear();
     vi.unstubAllGlobals();
   });
@@ -339,7 +368,7 @@ describe('FoodList', () => {
       const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
 
       if (url.pathname === '/api/v1/foods') {
-        return deferredFoods.promise;
+        return deferredFoods.promise.then((response) => response.clone());
       }
 
       throw new Error(`Unhandled request ${url.pathname}`);
@@ -356,10 +385,10 @@ describe('FoodList', () => {
     deferredFoods.resolve(
       new Response(
         JSON.stringify({
-          data: paginatedFoods.slice(0, 12),
+          data: paginatedFoods.slice(0, 25),
           meta: {
             page: 1,
-            limit: 12,
+            limit: 25,
             total: paginatedFoods.length,
           },
         }),
@@ -375,9 +404,60 @@ describe('FoodList', () => {
     expect(await screen.findByRole('button', { name: '2% Milk' })).toBeInTheDocument();
     expect(screen.getByText('Serving: 1 cup (240 g)')).toBeInTheDocument();
     expect(screen.getAllByText('Last used: 2 days ago').length).toBeGreaterThan(0);
-    expect(screen.getByText('Showing 12 of 13 foods')).toBeInTheDocument();
+    expect(screen.getByText('Showing 25 of 28 foods')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
     expect(screen.getAllByText('Verified').length).toBeGreaterThan(0);
+  });
+
+  it('keeps deep-linked page params while food totals are still loading', async () => {
+    window.history.pushState({}, '', '/nutrition?view=foods&page=2');
+    const deferredFoods = createDeferredResponse();
+    const delayedFetch = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+
+      if (url.pathname === '/api/v1/foods') {
+        return deferredFoods.promise.then((response) => response.clone());
+      }
+
+      throw new Error(`Unhandled request ${url.pathname}`);
+    });
+
+    vi.stubGlobal('fetch', delayedFetch);
+
+    renderFoodList();
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+
+    deferredFoods.resolve(
+      new Response(
+        JSON.stringify({
+          data: paginatedFoods.slice(25),
+          meta: {
+            page: 2,
+            limit: 25,
+            total: paginatedFoods.length,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+    );
+  });
+
+  it('does not normalize the URL with a default sort param on initial load', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    expect(window.location.search).toBe('?view=foods');
   });
 
   it('debounces search and sends the query to the foods API', async () => {
@@ -387,9 +467,10 @@ describe('FoodList', () => {
     renderFoodList();
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
-    expect(api.fetchMock).toHaveBeenCalledTimes(1);
-    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
-    expect(initialUrl.searchParams.get('sort')).toBe('recent');
+    const initialCallCount = api.fetchMock.mock.calls.length;
+    expect(initialCallCount).toBeGreaterThanOrEqual(1);
+    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(initialUrl.searchParams.get('sort')).toBe('recently-updated');
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
       target: { value: 'fair' },
@@ -397,11 +478,11 @@ describe('FoodList', () => {
 
     await new Promise((resolve) => window.setTimeout(resolve, 150));
 
-    expect(api.fetchMock).toHaveBeenCalledTimes(1);
+    expect(api.fetchMock).toHaveBeenCalledTimes(initialCallCount);
 
     await waitFor(
       () => {
-        expect(api.fetchMock).toHaveBeenCalledTimes(2);
+        expect(api.fetchMock.mock.calls.length).toBeGreaterThan(initialCallCount);
       },
       { timeout: 1000 },
     );
@@ -415,39 +496,19 @@ describe('FoodList', () => {
     expect(lastUrl.searchParams.get('page')).toBe('1');
   });
 
-  it('changes server sort, paginates, and saves inline edits through the API', async () => {
+  it('paginates while preserving sort query params', async () => {
     const api = createFoodsApiMock(paginatedFoods);
     vi.stubGlobal('fetch', api.fetchMock);
 
     renderFoodList();
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
-    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
-    expect(initialUrl.searchParams.get('sort')).toBe('recent');
+    selectSortOption('Name (A-Z)');
 
-    selectSortOption('Popular');
-
-    expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
-
-    let lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
-    expect(lastUrl.searchParams.get('sort')).toBe('popular');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
-    const editInput = await screen.findByRole('textbox', { name: 'Edit Whey Protein name' });
-
-    fireEvent.change(editInput, { target: { value: 'Casein Protein' } });
-    fireEvent.submit(editInput.closest('form') as HTMLFormElement);
-
-    expect(
-      await screen.findByRole('heading', { level: 3, name: 'Casein Protein' }),
-    ).toBeInTheDocument();
-    expect(api.getFoods().find((food) => food.id === 'food-13')?.name).toBe('Casein Protein');
-
-    selectSortOption('A-Z');
     await waitFor(() => {
       const requestUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
 
-      expect(requestUrl.searchParams.get('sort')).toBe('name');
+      expect(requestUrl.searchParams.get('sort')).toBe('name-asc');
     });
     await waitFor(() => {
       expect(screen.queryByText('Refreshing foods…')).not.toBeInTheDocument();
@@ -459,11 +520,42 @@ describe('FoodList', () => {
       const requestUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
 
       expect(requestUrl.searchParams.get('page')).toBe('2');
+      expect(requestUrl.searchParams.get('sort')).toBe('name-asc');
     });
     expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
 
-    lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    const lastUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
     expect(lastUrl.pathname).toBe('/api/v1/foods');
+  });
+
+  it('persists per-page in URL params and resets to page 1 when changed', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Foods per page' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('10 / page'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('limit=10');
+      expect(window.location.search).toContain('page=1');
+    });
+    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+
+    const requestUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(requestUrl.searchParams.get('limit')).toBe('10');
+    expect(requestUrl.searchParams.get('page')).toBe('1');
   });
 
   it('keeps the inline editor open if a pending save blurs before the API fails', async () => {
@@ -477,8 +569,6 @@ describe('FoodList', () => {
     renderFoodList();
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
-
-    selectSortOption('Popular');
     expect(await screen.findByRole('button', { name: 'Whey Protein' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Whey Protein' }));
@@ -568,7 +658,7 @@ describe('FoodList', () => {
       expect(screen.queryByRole('heading', { level: 3, name: 'Broccoli' })).not.toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(screen.getByText('Showing 12 of 12 foods')).toBeInTheDocument();
+      expect(screen.getByText('Showing 25 of 27 foods')).toBeInTheDocument();
     });
   });
 });

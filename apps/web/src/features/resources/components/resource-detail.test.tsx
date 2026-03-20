@@ -17,11 +17,8 @@ describe('ResourceDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Back to Resources' })).toHaveAttribute(
-      'href',
-      '/profile/resources',
-    );
-    expect(screen.getByRole('heading', { name: 'McGill Big 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'McGill Big 3' })).toBeInTheDocument();
     expect(screen.getByText('Program')).toBeInTheDocument();
     expect(screen.getByText('Dr. Stuart McGill')).toBeInTheDocument();
     expect(screen.getByText('spine health')).toBeInTheDocument();
@@ -68,9 +65,13 @@ describe('ResourceDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Resource not found' })).toBeInTheDocument();
     expect(
-      screen.getByText('The requested resource is not available in the current prototype library.'),
+      screen.getByRole('heading', { level: 1, name: 'Resource not found' }),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'The requested resource is not available in the current prototype library.',
+      ).length,
+    ).toBeGreaterThan(0);
   });
 });

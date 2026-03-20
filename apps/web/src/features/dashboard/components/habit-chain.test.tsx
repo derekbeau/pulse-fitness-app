@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUpdateHabitEntry } from '@/features/habits/api/habits';
-import { mockHabits } from '@/lib/mock-data/dashboard';
 
 import { HabitChain } from './habit-chain';
 
@@ -13,6 +12,53 @@ vi.mock('@/features/habits/api/habits', () => ({
 }));
 
 const mockedUseUpdateHabitEntry = vi.mocked(useUpdateHabitEntry);
+
+type HabitMockEntry = {
+  completed: boolean;
+  date: string;
+};
+
+type HabitMock = {
+  entries: HabitMockEntry[];
+  id: string;
+  name: string;
+};
+
+const DAYS = 30;
+const dayOffsets = Array.from({ length: DAYS }, (_, index) => DAYS - 1 - index);
+
+const today = new Date();
+today.setUTCHours(12, 0, 0, 0);
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const formatDateKey = (date: Date) => date.toISOString().slice(0, 10);
+
+const buildHabit = (id: string, name: string, missedOffsets: number[]): HabitMock => {
+  const missedDays = new Set(missedOffsets);
+
+  return {
+    id,
+    name,
+    entries: dayOffsets.map((daysAgo) => ({
+      date: formatDateKey(addDays(today, -daysAgo)),
+      completed: !missedDays.has(daysAgo),
+    })),
+  };
+};
+
+const mockHabits: HabitMock[] = [
+  buildHabit('habit-creatine', 'Creatine', [22, 14, 6]),
+  buildHabit('habit-steps', '10k Steps', [24, 20, 16, 12, 9, 4]),
+  buildHabit('habit-meditate', 'Meditate', [27, 26, 19, 13, 8, 7, 2]),
+  buildHabit('habit-sleep', 'Sleep 7h+', [21, 18, 17, 15, 11, 5, 1]),
+  buildHabit('habit-read', 'Read 30min', [28, 23, 22, 20, 18, 10, 3]),
+  buildHabit('habit-stretch', 'Stretch', [25, 24, 14, 9, 6, 5]),
+];
 
 type HabitChainProps = Parameters<typeof HabitChain>[0];
 

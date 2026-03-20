@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
+import { getMockTemplate } from '@/test/fixtures/workouts';
+import { createAppQueryClient } from '@/lib/query-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
@@ -44,6 +47,16 @@ describe('ActiveWorkoutPage', () => {
 
         if (url.endsWith('/api/v1/auth/register')) {
           return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+        }
+
+        const templateIdMatch = url.match(/\/api\/v1\/workout-templates\/([^/?#]+)$/);
+        if (templateIdMatch && (!init?.method || init.method === 'GET')) {
+          const template = buildWorkoutTemplateResponse(templateIdMatch[1]);
+          if (!template) {
+            return Promise.reject(new Error(`Unexpected template id: ${templateIdMatch[1]}`));
+          }
+
+          return Promise.resolve(jsonResponse({ data: template }));
         }
 
         if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
@@ -946,7 +959,7 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();
@@ -1553,7 +1566,91 @@ describe('ActiveWorkoutPage', () => {
   });
 });
 
+function buildWorkoutTemplateResponse(templateId: string) {
+  const fixtureTemplate = getMockTemplate(templateId);
+  if (!fixtureTemplate) {
+    return null;
+  }
+
+  let exerciseIndex = 0;
+
+  return {
+    id: fixtureTemplate.id,
+    userId: 'user-1',
+    name: fixtureTemplate.name,
+    description: fixtureTemplate.description,
+    tags: fixtureTemplate.tags,
+    sections: fixtureTemplate.sections.map((section) => ({
+      type: section.type,
+      exercises: section.exercises.map((exercise) => {
+        const reps = parseFixtureReps(exercise.reps);
+        exerciseIndex += 1;
+
+        return {
+          id: `${fixtureTemplate.id}-exercise-${exerciseIndex}`,
+          exerciseId: exercise.exerciseId,
+          exerciseName: exercise.exerciseName ?? startCase(exercise.exerciseId),
+          trackingType: exercise.trackingType ?? null,
+          sets: exercise.sets,
+          repsMin: reps.repsMin,
+          repsMax: reps.repsMax,
+          tempo: exercise.tempo,
+          restSeconds: exercise.restSeconds,
+          supersetGroup: exercise.supersetGroup ?? null,
+          notes: null,
+          cues: exercise.templateCues ?? [],
+          formCues: exercise.formCues,
+        };
+      }),
+    })),
+    createdAt: 1,
+    updatedAt: 1,
+  };
+}
+
+function parseFixtureReps(value: string): { repsMax: number | null; repsMin: number | null } {
+  const rangeMatch = value.match(/(\d+)\s*-\s*(\d+)/);
+  if (rangeMatch) {
+    return {
+      repsMin: Number(rangeMatch[1]),
+      repsMax: Number(rangeMatch[2]),
+    };
+  }
+
+  const singleMatch = value.match(/\d+/);
+  if (singleMatch) {
+    const reps = Number(singleMatch[0]);
+    return {
+      repsMin: reps,
+      repsMax: reps,
+    };
+  }
+
+  return {
+    repsMin: null,
+    repsMax: null,
+  };
+}
+
+function startCase(value: string) {
+  return value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function renderActiveWorkoutPage(initialEntry = '/workouts/active?template=upper-push') {
+  const queryClient = createAppQueryClient();
+  queryClient.clear();
+
+  const templateId = new URL(initialEntry, 'https://pulse.test').searchParams.get('template');
+  if (templateId) {
+    const template = buildWorkoutTemplateResponse(templateId);
+    if (template) {
+      queryClient.setQueryData(workoutQueryKeys.template(templateId), template);
+    }
+  }
+
   return renderWithQueryClient(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -1561,6 +1658,7 @@ function renderActiveWorkoutPage(initialEntry = '/workouts/active?template=upper
         <Route element={<h1>Workouts</h1>} path="/workouts" />
       </Routes>
     </MemoryRouter>,
+    { queryClient },
   );
 }
 

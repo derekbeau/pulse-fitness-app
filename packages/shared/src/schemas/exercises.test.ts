@@ -15,6 +15,7 @@ import {
   type ExerciseLastPerformance,
   type ExerciseLastPerformanceQuery,
   type ExerciseQueryParams,
+  type ExerciseSort,
   type ExerciseTrackingType,
   type UpdateExerciseInput,
   updateExerciseInputSchema,
@@ -286,17 +287,23 @@ describe('exerciseQueryParamsSchema', () => {
       muscleGroup: 'lats',
       equipment: 'cable machine',
       category: undefined,
+      sort: 'name-asc',
       page: 1,
       limit: 20,
     });
   });
 
-  it('rejects invalid pagination and infers the ExerciseQueryParams type', () => {
+  it('rejects invalid sort/pagination and infers the ExerciseQueryParams type', () => {
     expect(() => exerciseQueryParamsSchema.parse({ page: 0 })).toThrow();
+    expect(() => exerciseQueryParamsSchema.parse({ sort: 'popular' })).toThrow();
+
+    const sort: ExerciseSort = 'newest';
+    expect(sort).toBe('newest');
 
     const payload: ExerciseQueryParams = {
       q: 'press',
       category: 'compound',
+      sort: 'name-desc',
       page: 2,
       limit: 10,
     };

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Calendar, LayoutDashboard, Pencil } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -359,27 +360,25 @@ export function DashboardPage() {
 
   return (
     <main className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6">
-      <header className="animate-fade-in space-y-2">
+      <div className="animate-fade-in space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
         </p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                Dashboard
-              </h1>
+        <PageHeader
+          actions={
+            <>
               <HelpIcon title="Dashboard help">
                 <p>
-                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits, and
-                  recent workout activity.
+                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits,
+                  and recent workout activity.
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>
                     Nutrition totals come from meals logged by your AI agent, not manual entry.
                   </li>
                   <li>
-                    Use Weight Trend range buttons to zoom and compare short vs long-term direction.
+                    Use Weight Trend range buttons to zoom and compare short vs long-term
+                    direction.
                   </li>
                   <li>
                     The trend line smooths daily swings so it is easier to spot overall momentum.
@@ -389,48 +388,48 @@ export function DashboardPage() {
                   </li>
                 </ul>
               </HelpIcon>
-            </div>
-            {!isViewingToday ? (
+              {!isViewingToday ? (
+                <Button
+                  onClick={() => handleSelectedDateChange(getToday())}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Back to today
+                </Button>
+              ) : null}
               <Button
-                onClick={() => handleSelectedDateChange(getToday())}
-                size="sm"
+                aria-label="Edit dashboard widgets"
+                onClick={openWidgetSidebar}
+                size="icon-sm"
                 type="button"
                 variant="outline"
               >
-                Back to today
+                <Pencil />
               </Button>
-            ) : null}
-          </div>
+            </>
+          }
+          title="Dashboard"
+        >
           <div className="flex items-center gap-2">
-            <Button
-              aria-label="Edit dashboard widgets"
-              onClick={openWidgetSidebar}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <Pencil />
-            </Button>
+            <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button aria-label="Change date" size="icon-sm" type="button" variant="ghost">
+                  <Calendar className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <CalendarPicker
+                  className="border-0"
+                  onDateSelect={handleSelectedDateChange}
+                  selectedDate={selectedDate}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button aria-label="Change date" size="icon-sm" type="button" variant="ghost">
-                <Calendar className="size-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <CalendarPicker
-                className="border-0"
-                onDateSelect={handleSelectedDateChange}
-                selectedDate={selectedDate}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </header>
+        </PageHeader>
+      </div>
 
       {shouldShowEmptyState ? (
         <EmptyState

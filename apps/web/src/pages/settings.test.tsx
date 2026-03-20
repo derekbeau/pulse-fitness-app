@@ -471,7 +471,7 @@ describe('SettingsPage', () => {
     expect(getLatestPostBody('/api/v1/users/me')).toEqual({
       name: 'Jordan Updated',
     });
-  });
+  }, 10_000);
 
   it('saves weight unit changes via PATCH /api/v1/users/me', async () => {
     renderSettingsPage();

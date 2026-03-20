@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 
 import * as lastPerformanceHooks from '@/hooks/use-last-performance';
-import { createAppQueryClient } from '@/lib/query-client';
-import { mockTemplates } from '@/lib/mock-data/workouts';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { mockTemplates } from '@/test/fixtures/workouts';
 import { jsonResponse } from '@/test/test-utils';
+import { createAppQueryClient } from '@/lib/query-client';
 
 import {
   buildActiveWorkoutSession,
@@ -677,11 +677,11 @@ describe('SessionExerciseList', () => {
     );
 
     const squatCard = screen
-      .getByRole('heading', { level: 3, name: 'High-Bar Back Squat' })
+      .getByRole('heading', { level: 3, name: 'High Bar Back Squat' })
       .closest('[data-slot="card"]');
 
     expect(squatCard).not.toBeNull();
-    fireEvent.click(getExercisePanelToggle('High-Bar Back Squat', 'high-bar-back-squat'));
+    fireEvent.click(getExercisePanelToggle('High Bar Back Squat', 'high-bar-back-squat'));
     expect(within(squatCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     expect(
       within(squatCard as HTMLElement).queryByText('Injury-aware cues'),

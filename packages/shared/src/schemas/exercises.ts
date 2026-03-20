@@ -39,6 +39,13 @@ const nullableCoachingNotesSchema = z.preprocess(
 );
 
 export const exerciseCategorySchema = z.enum(['compound', 'isolation', 'cardio', 'mobility']);
+export const exerciseSortSchema = z.enum([
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+]);
 export const exerciseTrackingTypeSchema = z.enum([
   'weight_reps',
   'weight_seconds',
@@ -128,6 +135,7 @@ export const exerciseQueryParamsSchema = z.object({
   muscleGroup: optionalStringSchema,
   equipment: optionalStringSchema,
   category: exerciseCategorySchema.optional(),
+  sort: exerciseSortSchema.default('name-asc'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -179,6 +187,7 @@ export const exercisePerformanceHistorySchema = z
   .max(50);
 
 export type ExerciseCategory = z.infer<typeof exerciseCategorySchema>;
+export type ExerciseSort = z.infer<typeof exerciseSortSchema>;
 export type ExerciseTrackingType = z.infer<typeof exerciseTrackingTypeSchema>;
 export type Exercise = z.infer<typeof exerciseSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseInputSchema>;

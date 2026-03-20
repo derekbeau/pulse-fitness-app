@@ -128,7 +128,7 @@ describe('WeightHistoryPage', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Weight History' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Back to Dashboard' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight history trend chart' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '30D' })).toHaveAttribute('aria-pressed', 'true');
 
@@ -227,9 +227,15 @@ describe('WeightHistoryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save entry' }));
 
     await waitFor(() => {
-      expect(within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('180.2 lbs')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('180.2 lbs'),
+      ).toBeInTheDocument();
     });
-    expect(within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('After travel')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Weight history entries' })).getByText(
+        'After travel',
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Add weight entry' })).not.toBeInTheDocument();
   });
 
@@ -306,9 +312,15 @@ describe('WeightHistoryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('180.2 lbs')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('180.2 lbs'),
+      ).toBeInTheDocument();
     });
-    expect(within(screen.getByRole('list', { name: 'Weight history entries' })).getByText('Adjusted after retest')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Weight history entries' })).getByText(
+        'Adjusted after retest',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows validation feedback when saving an invalid inline weight edit', async () => {
@@ -463,7 +475,9 @@ describe('WeightHistoryPage', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'No weight entries yet' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'No weight entries yet' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add entry' })).toBeInTheDocument();
   });
 
@@ -507,10 +521,14 @@ describe('WeightHistoryPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('The dashboard trend line uses an exponentially weighted moving average (EWMA).'),
+      screen.getByText(
+        'The dashboard trend line uses an exponentially weighted moving average (EWMA).',
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Use the range selector to zoom from the last 30 days out to your full history.'),
+      screen.getByText(
+        'Use the range selector to zoom from the last 30 days out to your full history.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Edit buttons let you correct a value or note without leaving the page.'),

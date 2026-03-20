@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import {
   apiDataResponseSchema,
+  apiPaginatedResponseSchema,
   createWorkoutTemplateInputSchema,
   reorderWorkoutTemplateExercisesInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
+  workoutTemplateListQueryParamsSchema,
   type UpdateWorkoutTemplateInput,
   updateWorkoutTemplateInputSchema,
   workoutTemplateSchema,
@@ -123,8 +125,9 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
     '/',
     {
       schema: {
+        querystring: workoutTemplateListQueryParamsSchema,
         response: {
-          200: apiDataResponseSchema(z.array(workoutTemplateSchema)),
+          200: apiPaginatedResponseSchema(workoutTemplateSchema),
           401: apiErrorResponseSchema,
         },
         tags: ['workout-templates'],
@@ -133,11 +136,14 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const templates = await listWorkoutTemplates(request.userId);
+      const templates = await listWorkoutTemplates(
+        request.userId,
+        request.query.sort,
+        request.query.page,
+        request.query.limit,
+      );
 
-      return reply.send({
-        data: templates,
-      });
+      return reply.send(templates);
     },
   );
 

@@ -1,8 +1,9 @@
-import { ArrowLeft, FileUp } from 'lucide-react';
+import { FileUp } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -25,22 +26,20 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
         resource ? 'max-w-5xl' : 'max-w-4xl',
       )}
     >
-      <Button
-        asChild
-        className="w-fit gap-2 px-0 text-muted-foreground hover:text-foreground"
-        size="sm"
-        variant="ghost"
-      >
-        <Link to="/profile/resources">
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Back to Resources
-        </Link>
-      </Button>
+      <PageHeader
+        description={
+          resource
+            ? `${resourceTypeLabels[resource.type]} by ${resource.author}`
+            : 'The requested resource is not available in the current prototype library.'
+        }
+        showBack
+        title={resource ? resource.title : 'Resource not found'}
+      />
 
       {!resource ? (
         <Card>
           <CardHeader className="space-y-2">
-            <h1 className="text-2xl font-semibold text-foreground">Resource not found</h1>
+            <h2 className="text-2xl font-semibold text-foreground">Resource not found</h2>
             <CardDescription>
               The requested resource is not available in the current prototype library.
             </CardDescription>
@@ -65,9 +64,9 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
                 </div>
 
                 <div className="space-y-3">
-                  <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                    {resource.title}
-                  </h1>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Overview
+                  </p>
                   <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
                     {resource.description}
                   </p>

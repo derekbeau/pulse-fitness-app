@@ -1264,6 +1264,69 @@ describe('exercise routes', () => {
     });
   });
 
+  it('supports exercise list sorting by name and newest', async () => {
+    seedExercise({
+      id: 'exercise-zeta',
+      userId: 'user-1',
+      name: 'Zeta Raise',
+      muscleGroups: ['shoulders'],
+      equipment: 'dumbbell',
+      category: 'isolation',
+    });
+    seedExercise({
+      id: 'exercise-alpha',
+      userId: 'user-1',
+      name: 'Alpha Squat',
+      muscleGroups: ['quads'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: 'exercise-mid',
+      userId: 'user-1',
+      name: 'Middle Row',
+      muscleGroups: ['lats'],
+      equipment: 'machine',
+      category: 'compound',
+    });
+
+    context.db.update(exercises).set({ createdAt: 1000 }).where(eq(exercises.id, 'exercise-zeta')).run();
+    context.db.update(exercises).set({ createdAt: 2000 }).where(eq(exercises.id, 'exercise-alpha')).run();
+    context.db.update(exercises).set({ createdAt: 3000 }).where(eq(exercises.id, 'exercise-mid')).run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const [nameAscResponse, newestResponse] = await Promise.all([
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises?sort=name-asc&page=1&limit=10',
+        headers: createAuthorizationHeader(authToken),
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises?sort=newest&page=1&limit=10',
+        headers: createAuthorizationHeader(authToken),
+      }),
+    ]);
+
+    expect(nameAscResponse.statusCode).toBe(200);
+    expect((nameAscResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id)).toEqual([
+      'exercise-alpha',
+      'exercise-mid',
+      'exercise-zeta',
+    ]);
+
+    expect(newestResponse.statusCode).toBe(200);
+    expect((newestResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id)).toEqual([
+      'exercise-mid',
+      'exercise-alpha',
+      'exercise-zeta',
+    ]);
+  });
+
   it('returns the same paginated list format for JWT and AgentToken auth', async () => {
     seedExercise({
       id: 'global-row',

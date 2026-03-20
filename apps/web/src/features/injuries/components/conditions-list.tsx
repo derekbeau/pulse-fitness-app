@@ -1,7 +1,8 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
-import { ArrowLeftIcon, ArrowUpDownIcon, CalendarDaysIcon, ClipboardPlusIcon } from 'lucide-react';
+import { ArrowUpDownIcon, CalendarDaysIcon, ClipboardPlusIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -233,30 +234,8 @@ export function ConditionsList({ conditions = mockHealthConditions }: Conditions
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
-      <header className="flex flex-col gap-4">
-        <Button asChild className="w-fit gap-2" size="sm" variant="ghost">
-          <Link to="/profile">
-            <ArrowLeftIcon aria-hidden="true" className="size-4" />
-            Profile
-          </Link>
-        </Button>
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Recovery and readiness
-            </p>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
-                Health Tracking
-              </h1>
-              <p className="max-w-3xl text-sm text-muted-foreground sm:text-base">
-                Keep the current condition list visible, sort the recovery picture quickly, and
-                capture new issues without leaving the prototype flow.
-              </p>
-            </div>
-          </div>
-
+      <PageHeader
+        actions={
           <Button
             className="gap-2 self-start lg:self-auto"
             onClick={() => setIsAddDialogOpen(true)}
@@ -264,8 +243,11 @@ export function ConditionsList({ conditions = mockHealthConditions }: Conditions
             <ClipboardPlusIcon aria-hidden="true" className="size-4" />
             Add Condition
           </Button>
-        </div>
-      </header>
+        }
+        description="Keep the current condition list visible, sort the recovery picture quickly, and capture new issues without leaving the prototype flow."
+        showBack
+        title="Health Tracking"
+      />
 
       <Card className="gap-5 overflow-hidden border-transparent bg-gradient-to-br from-[var(--color-accent-pink)]/40 via-card to-[var(--color-accent-cream)]/45 py-0 shadow-sm dark:border-border/60 dark:from-secondary dark:via-card dark:to-secondary">
         <CardHeader className="gap-4 border-b border-border/50 py-6">
@@ -337,7 +319,11 @@ export function ConditionsList({ conditions = mockHealthConditions }: Conditions
       <div className="grid gap-4 lg:grid-cols-2">
         {visibleConditions.map((condition) => {
           return (
-            <Link className="block cursor-pointer" key={condition.id} to={`/profile/injuries/${condition.id}`}>
+            <Link
+              className="block cursor-pointer"
+              key={condition.id}
+              to={`/profile/injuries/${condition.id}`}
+            >
               <Card className="h-full gap-4 py-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50">
                 <CardHeader className="gap-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">

@@ -2,7 +2,7 @@ import { PlusCircle } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useId, useRef, useState } from 'react';
 
-import { BackLink } from '@/components/layout/back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -136,40 +136,32 @@ export function EquipmentPage() {
   return (
     <>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
-        <BackLink />
+        <PageHeader
+          actions={
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="rounded-2xl border border-border/70 bg-secondary/35 px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  Inventory summary
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {locations.length} locations, {totalItems} total items
+                </p>
+              </div>
 
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              Profile inventory
-            </p>
-            <h1 className="text-3xl font-semibold text-primary">Equipment</h1>
-            <p className="max-w-3xl text-sm text-muted">
-              Keep a clear view of what is available in each training space before planning sessions
-              or swapping exercises.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="rounded-2xl border border-border/70 bg-secondary/35 px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                Inventory summary
-              </p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {locations.length} locations, {totalItems} total items
-              </p>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => setIsAddLocationOpen(true)}
+                type="button"
+              >
+                <PlusCircle aria-hidden="true" className="size-4" />
+                Add Location
+              </Button>
             </div>
-
-            <Button
-              className="w-full sm:w-auto"
-              onClick={() => setIsAddLocationOpen(true)}
-              type="button"
-            >
-              <PlusCircle aria-hidden="true" className="size-4" />
-              Add Location
-            </Button>
-          </div>
-        </header>
+          }
+          description="Keep a clear view of what is available in each training space before planning sessions or swapping exercises."
+          showBack
+          title="Equipment"
+        />
 
         <div
           className="grid grid-cols-1 gap-4 lg:grid-cols-2"

@@ -7,18 +7,18 @@ This document is the source of truth for Pulse UI tokens and theme behavior.
 All colors are defined as CSS custom properties on the root theme class.
 
 | Token                  | Light (`:root`) | Dark (`.dark`) | Midnight (`.theme-midnight`) |
-| ---------------------- | ---------------- | -------------- | ----------------------------- |
-| `--color-background`   | `#FFFFFF`        | `#1A1A2E`      | `#0D1B2A`                     |
-| `--color-foreground`   | `#1A1A2E`        | `#E8E8E8`      | `#CCD6F6`                     |
-| `--color-card`         | `#F8F9FA`        | `#202942`      | `#1B2838`                     |
-| `--color-on-accent`    | `#111827`        | `#111827`      | `#111827`                     |
-| `--color-primary`      | `#3F63C7`        | `#9BB1FF`      | `#3B82F6`                     |
-| `--color-secondary`    | `#EEF2F7`        | `#16213E`      | `#14263A`                     |
-| `--color-accent-cream` | `#F7E8C4`        | `#F3D7A8`      | `#F4C95D`                     |
-| `--color-accent-pink`  | `#F4CADB`        | `#F5B5CB`      | `#B8A1FF`                     |
-| `--color-accent-mint`  | `#CDEEE2`        | `#9EDCC9`      | `#6EC3FF`                     |
-| `--color-muted`        | `#5D6476`        | `#AEB6CC`      | `#91A2BF`                     |
-| `--color-border`       | `#D6DCE8`        | `#303B59`      | `#31465F`                     |
+| ---------------------- | --------------- | -------------- | ---------------------------- |
+| `--color-background`   | `#FFFFFF`       | `#1A1A2E`      | `#0D1B2A`                    |
+| `--color-foreground`   | `#1A1A2E`       | `#E8E8E8`      | `#CCD6F6`                    |
+| `--color-card`         | `#F8F9FA`       | `#202942`      | `#1B2838`                    |
+| `--color-on-accent`    | `#111827`       | `#111827`      | `#111827`                    |
+| `--color-primary`      | `#3F63C7`       | `#9BB1FF`      | `#3B82F6`                    |
+| `--color-secondary`    | `#EEF2F7`       | `#16213E`      | `#14263A`                    |
+| `--color-accent-cream` | `#F7E8C4`       | `#F3D7A8`      | `#F4C95D`                    |
+| `--color-accent-pink`  | `#F4CADB`       | `#F5B5CB`      | `#B8A1FF`                    |
+| `--color-accent-mint`  | `#CDEEE2`       | `#9EDCC9`      | `#6EC3FF`                    |
+| `--color-muted`        | `#5D6476`       | `#AEB6CC`      | `#91A2BF`                    |
+| `--color-border`       | `#D6DCE8`       | `#303B59`      | `#31465F`                    |
 
 ## Spacing Scale
 
@@ -112,6 +112,33 @@ export function Card({ className, ...props }: Props) {
   return <div className={cn('rounded-xl border bg-card', className)} {...props} />;
 }
 ```
+
+## Page Header Pattern
+
+Use `PageHeader` (`apps/web/src/components/layout/page-header.tsx`) as the default heading primitive for app routes.
+
+Props:
+
+- `title: string | ReactNode` (required)
+- `description?: string`
+- `showBack?: boolean` (uses `window.history.back()`)
+- `actions?: ReactNode` (right-aligned controls such as help, add, edit)
+- `icon?: ReactNode` (accent icon treatment for pages such as Activity/Journal)
+- `children?: ReactNode` (tabs, filters, or other controls rendered below the main row)
+- `className?: string`
+
+Visual contract:
+
+- Header container uses `space-y-3`
+- Title uses `text-2xl font-semibold md:text-3xl`
+- Description uses `text-sm text-muted-foreground`
+- Back button tap target is at least `44x44` via `min-h-[44px] min-w-[44px]`
+
+Usage rules:
+
+- Top-level routes (`/`, `/workouts`, `/nutrition`, `/habits`, `/profile`, `/activity`, `/journal`) should use `PageHeader` without `showBack`.
+- Nested/detail routes should use `showBack` instead of custom backlink components.
+- Prefer `actions` for compact controls and `children` for secondary controls (tabs, filters, segmented switches).
 
 ## Interaction Affordance
 

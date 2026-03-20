@@ -1,8 +1,14 @@
 import { WorkoutTemplateDetail } from '@/features/workouts';
+import { PageHeader } from '@/components/layout/page-header';
 import { useParams } from 'react-router';
 
 export function WorkoutTemplateDetailPage() {
   const { templateId = '' } = useParams();
 
-  return <WorkoutTemplateDetail templateId={templateId} />;
+  return (
+    <section className="space-y-6">
+      <PageHeader backFallbackHref="/workouts?view=templates" showBack title="Workout Template" />
+      <WorkoutTemplateDetail templateId={templateId} />
+    </section>
+  );
 }

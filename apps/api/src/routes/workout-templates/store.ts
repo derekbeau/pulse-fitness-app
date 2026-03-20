@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   CreateWorkoutTemplateInput,
   ExerciseTrackingType,
   WorkoutTemplate,
   WorkoutTemplateExercise,
+  WorkoutTemplateSort,
   WorkoutTemplateSection,
   WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -162,15 +163,58 @@ const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInpu
     }));
   });
 
-const findTemplateRows = async (userId: string): Promise<TemplateRecord[]> => {
-  const { db } = await import('../../db/index.js');
+const buildTemplateSort = (sort: WorkoutTemplateSort) => {
+  switch (sort) {
+    case 'name-asc':
+      return [sql`lower(${workoutTemplates.name}) asc`, asc(workoutTemplates.createdAt)] as const;
+    case 'name-desc':
+      return [sql`lower(${workoutTemplates.name}) desc`, desc(workoutTemplates.createdAt)] as const;
+    case 'oldest':
+      return [asc(workoutTemplates.createdAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+    case 'recently-updated':
+      return [desc(workoutTemplates.updatedAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+    case 'newest':
+    default:
+      return [desc(workoutTemplates.createdAt), sql`lower(${workoutTemplates.name}) asc`] as const;
+  }
+};
 
-  return db
-    .select(templateSelection)
-    .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
-    .orderBy(asc(workoutTemplates.name), asc(workoutTemplates.createdAt))
-    .all();
+const findTemplateRows = async ({
+  userId,
+  sort,
+  page,
+  limit,
+}: {
+  userId: string;
+  sort: WorkoutTemplateSort;
+  page: number;
+  limit: number;
+}): Promise<{ data: TemplateRecord[]; total: number }> => {
+  const { db } = await import('../../db/index.js');
+  const offset = (page - 1) * limit;
+
+  const orderBy = buildTemplateSort(sort);
+
+  const [data, totalResult] = await Promise.all([
+    db
+      .select(templateSelection)
+      .from(workoutTemplates)
+      .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
+      .orderBy(...orderBy)
+      .limit(limit)
+      .offset(offset)
+      .all(),
+    db
+      .select({ total: sql<number>`count(*)` })
+      .from(workoutTemplates)
+      .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
+      .get(),
+  ]);
+
+  return {
+    data,
+    total: totalResult?.total ?? 0,
+  };
 };
 
 const findTemplateExerciseRows = async (
@@ -199,10 +243,28 @@ const findTemplateExerciseRows = async (
     .all();
 };
 
-export const listWorkoutTemplates = async (userId: string): Promise<WorkoutTemplate[]> => {
-  const templates = await findTemplateRows(userId);
+export const listWorkoutTemplates = async (
+  userId: string,
+  sort: WorkoutTemplateSort,
+  page: number,
+  limit: number,
+): Promise<{ data: WorkoutTemplate[]; meta: { page: number; limit: number; total: number } }> => {
+  const { data: templates, total } = await findTemplateRows({
+    userId,
+    sort,
+    page,
+    limit,
+  });
+
   if (templates.length === 0) {
-    return [];
+    return {
+      data: [],
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
   }
 
   const exerciseRows = await findTemplateExerciseRows(
@@ -210,12 +272,19 @@ export const listWorkoutTemplates = async (userId: string): Promise<WorkoutTempl
     templates.map((template) => template.id),
   );
 
-  return templates.map((template) =>
-    buildTemplate(
-      template,
-      exerciseRows.filter((row) => row.templateId === template.id),
+  return {
+    data: templates.map((template) =>
+      buildTemplate(
+        template,
+        exerciseRows.filter((row) => row.templateId === template.id),
+      ),
     ),
-  );
+    meta: {
+      page,
+      limit,
+      total,
+    },
+  };
 };
 
 export const findWorkoutTemplateById = async (

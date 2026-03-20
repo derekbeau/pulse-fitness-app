@@ -36,7 +36,28 @@ const optionalQueryTags = z.preprocess((value) => {
   return normalizedTags.length > 0 ? normalizedTags : undefined;
 }, foodTagsSchema.optional());
 
-export const foodSortSchema = z.enum(['name', 'recent', 'popular']);
+const canonicalFoodSortSchema = z.enum([
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+  'most-used',
+  'least-used',
+]);
+const legacyFoodSortAliasMap = {
+  name: 'name-asc',
+  recent: 'recently-updated',
+  popular: 'most-used',
+} as const;
+
+export const foodSortSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return legacyFoodSortAliasMap[value as keyof typeof legacyFoodSortAliasMap] ?? value;
+}, canonicalFoodSortSchema);
 
 export const foodSchema = z.object({
   id: z.string(),
@@ -123,7 +144,8 @@ export const mergeFoodInputSchema = z.object({
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
   tags: optionalQueryTags,
-  sort: foodSortSchema.default('recent'),
+  // Default sort is canonical `recently-updated`; legacy `recent` callers are normalized above.
+  sort: foodSortSchema.default('recently-updated'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

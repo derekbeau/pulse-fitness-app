@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { BrowserRouter, MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -10,6 +10,34 @@ import { TemplateBrowser } from './template-browser';
 const renameMutateMock = vi.fn();
 const deleteMutateMock = vi.fn();
 const scheduleMutateAsyncMock = vi.fn();
+
+function createTemplate({
+  id,
+  name,
+  description = null,
+  tags = [],
+  sections = [{ exercises: [] }],
+  createdAt = 1,
+  updatedAt = 1,
+}: {
+  id: string;
+  name: string;
+  description?: string | null;
+  tags?: string[];
+  sections?: Array<{ exercises: unknown[] }>;
+  createdAt?: number;
+  updatedAt?: number;
+}) {
+  return {
+    id,
+    name,
+    description,
+    tags,
+    sections,
+    createdAt,
+    updatedAt,
+  };
+}
 
 vi.mock('@/features/workouts/api/workouts', () => ({
   useRenameTemplate: () => ({
@@ -46,6 +74,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 describe('TemplateBrowser', () => {
   beforeEach(() => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    window.history.pushState({}, '', '/workouts?view=templates');
     renameMutateMock.mockReset();
     deleteMutateMock.mockReset().mockResolvedValue({ id: 'template-1' });
     scheduleMutateAsyncMock.mockReset();
@@ -91,20 +120,20 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-2',
               name: 'Lower Body',
               description: 'Leg training',
               tags: ['legs'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -118,33 +147,117 @@ describe('TemplateBrowser', () => {
     expect(screen.queryByRole('link', { name: 'Upper Push' })).not.toBeInTheDocument();
   });
 
+  it('persists template sort selection in URL search params', async () => {
+    render(
+      <BrowserRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            createTemplate({
+              id: 'template-1',
+              name: 'Upper Push',
+              description: 'Chest and shoulders',
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            }),
+            createTemplate({
+              id: 'template-2',
+              name: 'Lower Body',
+              description: 'Leg day',
+              tags: ['legs'],
+              sections: [{ exercises: [] }],
+            }),
+          ]}
+        />
+      </BrowserRouter>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Sort templates' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('Name (Z-A)'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('sort=name-desc');
+    });
+  });
+
+  it('persists per-page in URL params and resets page to 1 when changed', async () => {
+    window.history.pushState({}, '', '/workouts?view=templates&page=2');
+
+    render(
+      <BrowserRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            createTemplate({
+              id: 'template-1',
+              name: 'Upper Push',
+              description: null,
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            }),
+          ]}
+          totalTemplates={40}
+        />
+      </BrowserRouter>,
+    );
+
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Templates per page' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('10 / page'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('limit=10');
+      expect(window.location.search).toContain('page=1');
+    });
+    expect(screen.getByText('Page 1 of 4')).toBeInTheDocument();
+  });
+
+  it('keeps deep-linked page params while template totals are still unknown', async () => {
+    window.history.pushState({}, '', '/workouts?view=templates&page=2');
+
+    render(
+      <BrowserRouter>
+        <TemplateBrowser buildTemplateHref={(templateId) => `/workouts/template/${templateId}`} />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+  });
+
   it('filters templates by selected tags using AND logic', () => {
     render(
       <MemoryRouter>
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push Strength',
               description: null,
               tags: ['push', 'strength'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-2',
               name: 'Upper Push Volume',
               description: null,
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-3',
               name: 'Lower Strength',
               description: null,
               tags: ['strength'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -175,13 +288,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -215,13 +328,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -251,13 +364,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -315,13 +428,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,

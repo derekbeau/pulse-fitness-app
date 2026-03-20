@@ -187,7 +187,7 @@ describe('WorkoutsPage', () => {
             data: [],
             meta: {
               page: Number(url.searchParams.get('page') ?? '1'),
-              limit: Number(url.searchParams.get('limit') ?? '8'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
               total: 0,
             },
           }),
@@ -209,6 +209,11 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: templatesResponse,
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
+              total: templatesResponse.length,
+            },
           }),
         );
       }
@@ -455,7 +460,7 @@ describe('WorkoutsPage', () => {
             data: [],
             meta: {
               page: Number(url.searchParams.get('page') ?? '1'),
-              limit: Number(url.searchParams.get('limit') ?? '8'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
               total: 0,
             },
           }),
@@ -489,7 +494,16 @@ describe('WorkoutsPage', () => {
     expect(screen.getByLabelText('Loading workout templates')).toBeInTheDocument();
     expect(screen.getAllByTestId('workout-card-skeleton')).toHaveLength(4);
 
-    deferredTemplates.resolve(jsonResponse({ data: templatesResponse }));
+    deferredTemplates.resolve(
+      jsonResponse({
+        data: templatesResponse,
+        meta: {
+          page: 1,
+          limit: 25,
+          total: templatesResponse.length,
+        },
+      }),
+    );
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Templates' })).toBeInTheDocument();
   });
@@ -503,6 +517,11 @@ describe('WorkoutsPage', () => {
         return Promise.resolve(
           jsonResponse({
             data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
+              total: 0,
+            },
           }),
         );
       }
@@ -532,7 +551,7 @@ describe('WorkoutsPage', () => {
             data: [],
             meta: {
               page: Number(url.searchParams.get('page') ?? '1'),
-              limit: Number(url.searchParams.get('limit') ?? '8'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
               total: 0,
             },
           }),
@@ -592,7 +611,16 @@ describe('WorkoutsPage', () => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-templates') {
-        return Promise.resolve(jsonResponse({ data: templatesResponse }));
+        return Promise.resolve(
+          jsonResponse({
+            data: templatesResponse,
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
+              total: templatesResponse.length,
+            },
+          }),
+        );
       }
 
       if (url.pathname === '/api/v1/workout-sessions') {
@@ -609,7 +637,7 @@ describe('WorkoutsPage', () => {
             data: [],
             meta: {
               page: Number(url.searchParams.get('page') ?? '1'),
-              limit: Number(url.searchParams.get('limit') ?? '8'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
               total: 0,
             },
           }),
@@ -667,7 +695,16 @@ describe('WorkoutsPage', () => {
       const url = new URL(String(input), 'https://pulse.test');
 
       if (url.pathname === '/api/v1/workout-templates') {
-        return Promise.resolve(jsonResponse({ data: templatesResponse }));
+        return Promise.resolve(
+          jsonResponse({
+            data: templatesResponse,
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
+              total: templatesResponse.length,
+            },
+          }),
+        );
       }
 
       if (url.pathname === '/api/v1/workout-sessions') {
@@ -684,7 +721,7 @@ describe('WorkoutsPage', () => {
             data: [],
             meta: {
               page: Number(url.searchParams.get('page') ?? '1'),
-              limit: Number(url.searchParams.get('limit') ?? '8'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
               total: 0,
             },
           }),

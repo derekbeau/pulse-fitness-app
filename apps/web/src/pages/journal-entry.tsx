@@ -1,7 +1,7 @@
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { PageHeader } from '@/components/layout/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
 import { JournalEntryDetail, mockJournalEntries } from '@/features/journal';
 
 export function JournalEntryPage() {
@@ -10,19 +10,19 @@ export function JournalEntryPage() {
 
   if (!entry) {
     return (
-      <Card>
-        <CardHeader className="space-y-2">
-          <h1 className="text-2xl font-semibold text-foreground">Journal entry not found</h1>
-          <p className="text-sm text-muted">
-            The requested journal entry is not available in the current prototype data.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full sm:w-auto">
-            <Link to="/journal">Back to Journal</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="space-y-4">
+        <PageHeader
+          description="The requested journal entry is not available in the current prototype data."
+          showBack
+          title="Journal entry not found"
+        />
+        <Card>
+          <CardHeader className="space-y-2">
+            <h2 className="text-2xl font-semibold text-foreground">Entry unavailable</h2>
+            <p className="text-sm text-muted">Return to the journal feed and select another entry.</p>
+          </CardHeader>
+        </Card>
+      </section>
     );
   }
 

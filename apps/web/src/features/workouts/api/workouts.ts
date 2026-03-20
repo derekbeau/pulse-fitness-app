@@ -31,11 +31,13 @@ import {
   type WorkoutSession,
   type WorkoutSessionListItem,
   type WorkoutSessionQueryParams,
+  type WorkoutTemplateListQueryParams,
   type WorkoutTemplate,
   type SetCorrection,
   workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
   workoutSessionSchema,
+  workoutTemplateListQueryParamsSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -53,7 +55,7 @@ const paginationMetaSchema = z.object({
 
 type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 type WorkoutTemplateResponse = { data: WorkoutTemplate };
-type WorkoutTemplatesResponse = { data: WorkoutTemplate[] };
+type WorkoutTemplatesResponse = { data: WorkoutTemplate[]; meta: PaginationMeta };
 type ExercisesResponse = { data: Exercise[]; meta: PaginationMeta };
 type ExerciseFiltersResponse = {
   data: {
@@ -129,12 +131,13 @@ type SwapSessionExerciseResponse = {
   data: WorkoutSession;
   meta?: SwapResponseMeta;
 };
-type RenameTemplateCache = WorkoutTemplate | WorkoutTemplate[];
+type RenameTemplateCache = WorkoutTemplate | WorkoutTemplate[] | WorkoutTemplatesResponse;
 type RenameExerciseCache =
   | Exercise
   | ExercisesResponse
   | WorkoutTemplate
   | WorkoutTemplate[]
+  | WorkoutTemplatesResponse
   | WorkoutSession;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -145,6 +148,7 @@ const workoutTemplateResponseSchema = z.object({
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutTemplatesResponseSchema = z.object({
   data: z.array(workoutTemplateSchema),
+  meta: paginationMetaSchema,
 }) as unknown as z.ZodType<WorkoutTemplatesResponse>;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -177,6 +181,17 @@ const normalizeExerciseParams = (params: ExerciseQueryParams) => {
     muscleGroup: parsedParams.muscleGroup ?? null,
     page: parsedParams.page,
     q: parsedParams.q ?? null,
+    sort: parsedParams.sort,
+  };
+};
+
+const normalizeTemplateListParams = (params: Partial<WorkoutTemplateListQueryParams> = {}) => {
+  const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
+
+  return {
+    limit: parsedParams.limit,
+    page: parsedParams.page,
+    sort: parsedParams.sort,
   };
 };
 
@@ -213,7 +228,10 @@ const scheduledWorkoutsKey = (params?: ScheduledWorkoutQueryParams) =>
 const sessionListKey = (params: WorkoutSessionQueryParams = {}) =>
   ['workouts', 'sessions', normalizeWorkoutSessionParams(params)] as const;
 const templatePrefixKey = () => ['workouts', 'template'] as const;
-const templatesKey = () => ['workouts', 'templates'] as const;
+const templatesKey = (params?: Partial<WorkoutTemplateListQueryParams>) =>
+  params
+    ? (['workouts', 'templates', normalizeTemplateListParams(params)] as const)
+    : (['workouts', 'templates'] as const);
 
 export const workoutQueryKeys = {
   all: ['workouts'] as const,
@@ -288,9 +306,18 @@ const updateTemplateNameInCache = (
     return cache;
   }
 
-  return Array.isArray(cache)
-    ? cache.map((template) => renameTemplateInTemplate(template, request))
-    : renameTemplateInTemplate(cache, request);
+  if (Array.isArray(cache)) {
+    return cache.map((template) => renameTemplateInTemplate(template, request));
+  }
+
+  if (isWorkoutTemplatesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((template) => renameTemplateInTemplate(template, request)),
+    };
+  }
+
+  return renameTemplateInTemplate(cache, request);
 };
 
 const reorderTemplateExercisesInCache = (
@@ -301,31 +328,53 @@ const reorderTemplateExercisesInCache = (
     return cache;
   }
 
-  return Array.isArray(cache)
-    ? cache.map((template) => reorderTemplateExercisesInTemplate(template, request))
-    : reorderTemplateExercisesInTemplate(cache, request);
+  if (Array.isArray(cache)) {
+    return cache.map((template) => reorderTemplateExercisesInTemplate(template, request));
+  }
+
+  if (isWorkoutTemplatesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((template) => reorderTemplateExercisesInTemplate(template, request)),
+    };
+  }
+
+  return reorderTemplateExercisesInTemplate(cache, request);
 };
 
-const isExercisesResponse = (value: RenameExerciseCache | undefined): value is ExercisesResponse =>
-  typeof value === 'object' && value !== null && 'data' in value && 'meta' in value;
+const isPaginatedResponse = (value: unknown): value is { data: unknown[]; meta: PaginationMeta } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'data' in value &&
+  Array.isArray(value.data) &&
+  'meta' in value;
 
-const isExerciseRecord = (value: RenameExerciseCache | undefined): value is Exercise =>
+const isExerciseListQueryKey = (queryKey: QueryKey | undefined) =>
+  Array.isArray(queryKey) && queryKey[0] === 'workouts' && queryKey[1] === 'exercises';
+
+const isTemplateListQueryKey = (queryKey: QueryKey | undefined) =>
+  Array.isArray(queryKey) && queryKey[0] === 'workouts' && queryKey[1] === 'templates';
+
+// Empty paginated arrays are shape-ambiguous (exercise list vs template list). This remains safe because
+// callers of template cache updaters are already scoped by template query keys upstream.
+const isWorkoutTemplatesResponse = (value: RenameTemplateCache | undefined): value is WorkoutTemplatesResponse =>
+  isPaginatedResponse(value) && value.data.every((entry) => isWorkoutTemplateRecord(entry));
+
+const isExerciseRecord = (value: unknown): value is Exercise =>
   typeof value === 'object' &&
   value !== null &&
   'muscleGroups' in value &&
   'equipment' in value &&
   'category' in value;
 
-const isWorkoutTemplateRecord = (
-  value: RenameExerciseCache | undefined,
-): value is WorkoutTemplate =>
+const isWorkoutTemplateRecord = (value: unknown): value is WorkoutTemplate =>
   typeof value === 'object' &&
   value !== null &&
   'sections' in value &&
   Array.isArray(value.sections) &&
   'name' in value;
 
-const isWorkoutSessionRecord = (value: RenameExerciseCache | undefined): value is WorkoutSession =>
+const isWorkoutSessionRecord = (value: unknown): value is WorkoutSession =>
   typeof value === 'object' &&
   value !== null &&
   'sets' in value &&
@@ -362,6 +411,7 @@ const renameExerciseInSession = (session: WorkoutSession, request: RenameExercis
 const updateExerciseNameInCache = (
   cache: RenameExerciseCache | undefined,
   request: RenameExerciseRequest,
+  queryKey?: QueryKey,
 ) => {
   if (!cache) {
     return cache;
@@ -384,18 +434,38 @@ const updateExerciseNameInCache = (
     };
   }
 
-  if (isExercisesResponse(cache)) {
-    return {
-      ...cache,
-      data: cache.data.map((exercise) =>
-        exercise.id === request.id
-          ? {
-              ...exercise,
-              name: request.name,
-            }
-          : exercise,
-      ),
-    };
+  if (isPaginatedResponse(cache)) {
+    const hasExerciseShape =
+      isExerciseListQueryKey(queryKey) ||
+      (cache.data.length > 0 && cache.data.every((entry) => isExerciseRecord(entry)));
+    const hasTemplateShape =
+      isTemplateListQueryKey(queryKey) ||
+      (cache.data.length > 0 && cache.data.every((entry) => isWorkoutTemplateRecord(entry)));
+
+    if (hasExerciseShape && !hasTemplateShape) {
+      return {
+        ...cache,
+        data: cache.data.map((entry) =>
+          isExerciseRecord(entry) && entry.id === request.id
+            ? {
+                ...entry,
+                name: request.name,
+              }
+            : entry,
+        ),
+      } as ExercisesResponse;
+    }
+
+    if (hasTemplateShape && !hasExerciseShape) {
+      return {
+        ...cache,
+        data: cache.data.map((entry) =>
+          isWorkoutTemplateRecord(entry) ? renameExerciseInTemplate(entry, request) : entry,
+        ),
+      } as WorkoutTemplatesResponse;
+    }
+
+    return cache;
   }
 
   if (isWorkoutTemplateRecord(cache)) {
@@ -451,11 +521,18 @@ const removeScheduledWorkoutFromList = (
   request: DeleteScheduledWorkoutRequest,
 ) => current?.filter((item) => item.id !== request.id);
 
-async function getWorkoutTemplates() {
-  const data = await apiRequest<unknown>('/api/v1/workout-templates');
-  const payload = workoutTemplatesResponseSchema.parse({ data });
+async function getWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
+  const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
+  const searchParams = new URLSearchParams({
+    limit: String(parsedParams.limit),
+    page: String(parsedParams.page),
+    sort: parsedParams.sort,
+  });
+  const payload = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/workout-templates?${searchParams.toString()}`,
+  );
 
-  return payload.data;
+  return workoutTemplatesResponseSchema.parse(payload);
 }
 
 const sessionListResponseSchema = z.object({
@@ -580,6 +657,7 @@ async function getExercises(params: ExerciseQueryParams) {
     searchParams.set('category', parsedParams.category);
   }
 
+  searchParams.set('sort', parsedParams.sort);
   searchParams.set('page', String(parsedParams.page));
   searchParams.set('limit', String(parsedParams.limit));
 
@@ -789,10 +867,10 @@ async function deleteScheduledWorkout(input: DeleteScheduledWorkoutRequest) {
     .parse({ data }) as DeleteScheduledWorkoutResponse;
 }
 
-export function useWorkoutTemplates() {
-  return useQuery<WorkoutTemplate[]>({
-    queryFn: getWorkoutTemplates,
-    queryKey: workoutQueryKeys.templateList(),
+export function useWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
+  return useQuery<WorkoutTemplatesResponse>({
+    queryFn: () => getWorkoutTemplates(params),
+    queryKey: workoutQueryKeys.templateList(params),
   });
 }
 
@@ -988,12 +1066,13 @@ export function useRenameExercise() {
       workoutQueryKeys.templateDetailPrefix(),
       workoutQueryKeys.sessionDetailPrefix(),
     ],
-    reconcile: (current, exercise, variables) =>
+    reconcile: (current, exercise, variables, context) =>
       updateExerciseNameInCache(current, {
         id: variables.id,
         name: exercise.name,
-      }),
-    updater: (current, variables) => updateExerciseNameInCache(current, variables),
+      }, context.queryKey),
+    updater: (current, variables, context) =>
+      updateExerciseNameInCache(current, variables, context.queryKey),
   });
 }
 

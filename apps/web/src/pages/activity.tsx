@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Activity as ActivityGlyph } from 'lucide-react';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { PreviewBanner } from '@/components/ui/preview-banner';
 import {
   ActivityForm,
@@ -20,20 +21,15 @@ export function ActivityPage() {
       <div className="mx-auto w-full max-w-6xl">
         <PreviewBanner />
       </div>
-      <header className="space-y-4">
-        <div className="flex items-start gap-3">
+      <PageHeader
+        description="Review recent movement sessions outside structured workouts, with quick filtering by activity type and linked journal context."
+        icon={
           <div className="rounded-2xl bg-[var(--color-accent-mint)] p-3 text-on-mint shadow-sm dark:bg-emerald-500/20 dark:text-emerald-400">
             <ActivityGlyph aria-hidden="true" className="size-6" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold text-primary">Activity</h1>
-            <p className="max-w-2xl text-sm text-muted">
-              Review recent movement sessions outside structured workouts, with quick filtering by
-              activity type and linked journal context.
-            </p>
-          </div>
-        </div>
-      </header>
+        }
+        title="Activity"
+      />
 
       <ActivityForm
         onSubmit={(activity) =>

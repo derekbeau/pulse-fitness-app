@@ -1,41 +1,52 @@
 import { CheckCircle2Icon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import type { Food, FoodSort } from '@pulse/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { FoodCardSkeleton } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
+import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteFood, useFoods, useUpdateFood } from '@/features/foods/api/foods';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 
 type FoodListProps = {
   now?: Date;
-  pageSize?: number;
-  foodsQuery?: ReturnType<typeof useFoods>;
 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_PAGE_SIZE = 12;
 const DEFAULT_PAGE = 1;
-const DEFAULT_SORT_BY: FoodSort = 'recent';
+const DEFAULT_SORT_BY: FoodSort = 'recently-updated';
 const FOOD_TAG_LIMIT = 20;
 
-const SORT_OPTIONS: Array<{ label: string; value: FoodSort }> = [
-  { label: 'Recent', value: 'recent' },
-  { label: 'Popular', value: 'popular' },
-  { label: 'A-Z', value: 'name' },
+const FOOD_SORT_VALUES: FoodSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+  'most-used',
+  'least-used',
 ];
+const SORT_OPTIONS: SortOption[] = [
+  { label: 'Name (A-Z)', value: 'name-asc', direction: 'asc' },
+  { label: 'Name (Z-A)', value: 'name-desc', direction: 'desc' },
+  { label: 'Newest', value: 'newest', direction: 'desc' },
+  { label: 'Oldest', value: 'oldest', direction: 'asc' },
+  { label: 'Recently Updated', value: 'recently-updated', direction: 'desc' },
+  { label: 'Most Used', value: 'most-used', direction: 'desc' },
+  { label: 'Least Used', value: 'least-used', direction: 'asc' },
+];
+
+function isFoodSort(value: string | null): value is FoodSort {
+  return value !== null && FOOD_SORT_VALUES.includes(value as FoodSort);
+}
 
 function normalizeFoodTag(tag: string) {
   return tag.trim().toLowerCase();
@@ -98,22 +109,20 @@ function formatServing(food: Food) {
   return 'Not provided';
 }
 
-export function FoodList({
-  now = new Date(),
-  pageSize = DEFAULT_PAGE_SIZE,
-  foodsQuery: pageFoodsQuery,
-}: FoodListProps) {
+export function FoodList({ now = new Date() }: FoodListProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>(DEFAULT_SORT_BY);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
   const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editCancelledRef = useRef(false);
+  const sortBy = parseFoodSort(searchParams.get('sort'));
+  const page = parsePage(searchParams.get('page'));
+  const pageSize = parsePageSize(searchParams.get('limit'));
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -125,14 +134,7 @@ export function FoodList({
     };
   }, [searchInput]);
 
-  const shouldUsePageFoodsQuery =
-    pageFoodsQuery !== undefined &&
-    debouncedSearchQuery.length === 0 &&
-    selectedTags.length === 0 &&
-    sortBy === DEFAULT_SORT_BY &&
-    page === DEFAULT_PAGE &&
-    pageSize === DEFAULT_PAGE_SIZE;
-  const fallbackFoodsQuery = useFoods(
+  const foodsQuery = useFoods(
     {
       q: debouncedSearchQuery || undefined,
       tags: selectedTags.length > 0 ? normalizeFoodTags(selectedTags) : undefined,
@@ -140,9 +142,7 @@ export function FoodList({
       page,
       limit: pageSize,
     },
-    { enabled: !shouldUsePageFoodsQuery },
   );
-  const foodsQuery = shouldUsePageFoodsQuery ? pageFoodsQuery : fallbackFoodsQuery;
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 
@@ -161,8 +161,9 @@ export function FoodList({
 
     return Array.from(tagSet).sort((left, right) => left.localeCompare(right));
   }, [activeSelectedTags, availableTags]);
-  const totalFoods = foodsQuery.data?.meta.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalFoods / pageSize));
+  const totalFoods = foodsQuery.data?.meta.total;
+  const resolvedTotalFoods = totalFoods ?? foods.length;
+  const totalPages = totalFoods === undefined ? undefined : Math.max(1, Math.ceil(totalFoods / pageSize));
   const updateErrorMessage =
     updateFood.isError && updateFood.error instanceof Error ? updateFood.error.message : null;
   const deleteErrorMessage =
@@ -172,10 +173,19 @@ export function FoodList({
     (editingFoodId !== null && updateFood.isPending && updateFood.variables?.id === editingFoodId);
 
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
+    if (totalPages === undefined || page <= totalPages) {
+      return;
     }
-  }, [page, totalPages]);
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('page', String(totalPages));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [page, setSearchParams, totalPages]);
 
   function beginEditing(food: Food) {
     editCancelledRef.current = false;
@@ -289,8 +299,7 @@ export function FoodList({
         <CardHeader className="gap-1 px-5 sm:px-6">
           <CardTitle className="text-xl">Search your foods database</CardTitle>
           <CardDescription className="text-sm opacity-70 dark:text-muted dark:opacity-100">
-            Search by food name or brand, then switch between recency, popularity, or alphabetical
-            views.
+            Search by food name or brand, then sort by name, freshness, updates, or usage.
           </CardDescription>
         </CardHeader>
 
@@ -306,7 +315,14 @@ export function FoodList({
                 className="border-black/10 bg-white/80 pl-9 text-on-cream placeholder:text-gray-500 dark:border-border dark:bg-background dark:text-foreground dark:placeholder:text-muted"
                 onChange={(event) => {
                   setSearchInput(event.target.value);
-                  setPage(1);
+                  setSearchParams(
+                    (current) => {
+                      const next = new URLSearchParams(current);
+                      next.set('page', String(DEFAULT_PAGE));
+                      return next;
+                    },
+                    { replace: true },
+                  );
                 }}
                 placeholder="Chicken, Fairlife, oats..."
                 type="search"
@@ -317,27 +333,27 @@ export function FoodList({
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-on-cream dark:text-foreground">Sort by</span>
-            <Select
-              onValueChange={(value) => {
-                setSortBy(value as FoodSort);
-                setPage(1);
+            <SortSelector
+              ariaLabel="Sort foods"
+              onChange={(value) => {
+                if (!isFoodSort(value)) {
+                  return;
+                }
+
+                setSearchParams(
+                  (current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('sort', value);
+                    next.set('page', String(DEFAULT_PAGE));
+                    return next;
+                  },
+                  { replace: true },
+                );
               }}
+              options={SORT_OPTIONS}
+              triggerClassName="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
               value={sortBy}
-            >
-              <SelectTrigger
-                aria-label="Sort foods"
-                className="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </label>
         </CardContent>
 
@@ -360,7 +376,14 @@ export function FoodList({
                             ? normalizeFoodTags(current).filter((currentTag) => currentTag !== tag)
                             : [...normalizeFoodTags(current), tag],
                         );
-                        setPage(1);
+                        setSearchParams(
+                          (current) => {
+                            const next = new URLSearchParams(current);
+                            next.set('page', String(DEFAULT_PAGE));
+                            return next;
+                          },
+                          { replace: true },
+                        );
                       }}
                       type="button"
                       variant={isSelected ? 'default' : 'outline'}
@@ -387,7 +410,7 @@ export function FoodList({
         <CardContent className="px-5 pt-0 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
             <p>
-              Showing {foods.length} of {totalFoods} foods
+              Showing {foods.length} of {resolvedTotalFoods} foods
             </p>
             {isRefreshing ? <p>Refreshing foods…</p> : null}
           </div>
@@ -648,11 +671,30 @@ export function FoodList({
             })}
           </div>
 
-          {totalFoods > pageSize ? (
+          {totalFoods !== undefined && totalPages !== undefined && totalFoods > pageSize ? (
             <div className="flex items-center justify-between gap-3">
+              <PerPageSelector
+                ariaLabel="Foods per page"
+                onChange={(value) => {
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('limit', String(value));
+                    next.set('page', String(DEFAULT_PAGE));
+                    return next;
+                  });
+                }}
+                triggerClassName="border-border bg-background"
+                value={pageSize}
+              />
               <Button
                 disabled={page === 1 || foodsQuery.isFetching}
-                onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                onClick={() =>
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('page', String(Math.max(DEFAULT_PAGE, page - 1)));
+                    return next;
+                  })
+                }
                 type="button"
                 variant="outline"
               >
@@ -663,7 +705,13 @@ export function FoodList({
               </p>
               <Button
                 disabled={page >= totalPages || foodsQuery.isFetching}
-                onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                onClick={() =>
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('page', String(Math.min(totalPages, page + 1)));
+                    return next;
+                  })
+                }
                 type="button"
                 variant="outline"
               >
@@ -676,4 +724,22 @@ export function FoodList({
       {dialog}
     </div>
   );
+}
+
+function parseFoodSort(value: string | null): FoodSort {
+  return isFoodSort(value) ? value : DEFAULT_SORT_BY;
+}
+
+function parsePage(value: string | null) {
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE), 10);
+
+  return Number.isNaN(parsedValue) || parsedValue < DEFAULT_PAGE ? DEFAULT_PAGE : parsedValue;
+}
+
+function parsePageSize(value: string | null) {
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
+
+  return PER_PAGE_OPTIONS.includes(parsedValue as (typeof PER_PAGE_OPTIONS)[number])
+    ? parsedValue
+    : DEFAULT_PER_PAGE;
 }

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, MoreVertical, Search, Tag, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
+import type { WorkoutTemplate, WorkoutTemplateSort } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
+import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
   useDeleteTemplate,
   useRenameTemplate,
@@ -37,27 +41,43 @@ import {
 } from '@/features/workouts/lib/day-workout-conflicts';
 import { normalizeTemplateTag } from '@/features/workouts/lib/template-tags';
 
-// Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
-interface TemplateSummary {
-  id: string;
-  name: string;
-  description: string | null;
-  tags: string[];
+type TemplateSummary = Pick<
+  WorkoutTemplate,
+  'id' | 'name' | 'description' | 'tags' | 'createdAt' | 'updatedAt'
+> & {
   sections: Array<{ exercises: unknown[] }>;
-}
+};
 
 type TemplateBrowserProps = {
   buildTemplateHref: (templateId: string) => string;
   className?: string;
+  totalTemplates?: number;
   templates?: TemplateSummary[];
 };
+
+const templateSortValues: WorkoutTemplateSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+];
+const templateSortOptions: SortOption[] = [
+  { value: 'newest', label: 'Newest', direction: 'desc' },
+  { value: 'oldest', label: 'Oldest', direction: 'asc' },
+  { value: 'name-asc', label: 'Name (A-Z)', direction: 'asc' },
+  { value: 'name-desc', label: 'Name (Z-A)', direction: 'desc' },
+  { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
+];
+const DEFAULT_PAGE = 1;
 
 export function TemplateBrowser({
   buildTemplateHref,
   className,
+  totalTemplates,
   templates = [],
 }: TemplateBrowserProps) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -67,6 +87,13 @@ export function TemplateBrowser({
   const renameTemplateMutation = useRenameTemplate();
   const deleteTemplateMutation = useDeleteTemplate();
   const scheduleWorkoutMutation = useScheduleWorkout();
+  const sort = parseTemplateSort(searchParams.get('sort'));
+  const page = parsePage(searchParams.get('page'));
+  const limit = parsePageSize(searchParams.get('limit'));
+  const hasKnownTotalTemplates = totalTemplates !== undefined;
+  const resolvedTotalTemplates = totalTemplates ?? templates.length;
+  const totalPages =
+    totalTemplates !== undefined ? Math.max(1, Math.ceil(totalTemplates / limit)) : undefined;
   const requestedDate = searchParams.get('date');
   const scheduleInitialDate =
     requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
@@ -116,6 +143,15 @@ export function TemplateBrowser({
       }),
     [activeSelectedTags, normalizedQuery, templates],
   );
+  const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
+  const hasLocalFilters = normalizedQuery.length > 0 || activeSelectedTags.length > 0;
+  const templateCountLabel = hasLocalFilters
+    ? hasKnownTotalTemplates
+      ? `Showing ${sortedTemplates.length} matching templates on this page (${resolvedTotalTemplates} total)`
+      : `Showing ${sortedTemplates.length} matching templates on this page`
+    : hasKnownTotalTemplates
+      ? `Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`
+      : `Showing ${sortedTemplates.length} templates`;
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
@@ -123,6 +159,21 @@ export function TemplateBrowser({
     trimmedRenameValue.length > 0 &&
     trimmedRenameValue !== renameTarget.name &&
     !renameTemplateMutation.isPending;
+
+  useEffect(() => {
+    if (totalPages === undefined || page <= totalPages) {
+      return;
+    }
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('page', String(totalPages));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [page, setSearchParams, totalPages]);
 
   async function handleDeleteTemplate(templateId: string) {
     try {
@@ -171,22 +222,45 @@ export function TemplateBrowser({
         </p>
       </div>
 
-      <label className="relative block" htmlFor="template-search">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-        />
-        <Input
-          aria-label="Search templates by name"
-          autoComplete="off"
-          className="pl-9"
-          id="template-search"
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search templates by name"
-          type="search"
-          value={searchQuery}
-        />
-      </label>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem] sm:items-end">
+        <label className="relative block" htmlFor="template-search">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+          />
+          <Input
+            aria-label="Search templates by name"
+            autoComplete="off"
+            className="pl-9"
+            id="template-search"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search templates by name"
+            type="search"
+            value={searchQuery}
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-muted">Sort</span>
+          <SortSelector
+            ariaLabel="Sort templates"
+            onChange={(value) => {
+              if (!isTemplateSort(value)) {
+                return;
+              }
+
+              setSearchParams((current) => {
+                const next = new URLSearchParams(current);
+                next.set('sort', value);
+                next.set('page', String(DEFAULT_PAGE));
+                return next;
+              });
+            }}
+            options={templateSortOptions}
+            value={sort}
+          />
+        </label>
+      </div>
 
       {availableTags.length > 0 ? (
         <div className="space-y-2" role="group" aria-label="Filter templates by tag">
@@ -229,13 +303,65 @@ export function TemplateBrowser({
         </div>
       ) : null}
 
+      {totalPages !== undefined && hasKnownTotalTemplates && resolvedTotalTemplates > limit ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Search/tag filters run on the current server page; total/meta stay unfiltered until API-side filters exist. */}
+          <p className="text-sm text-muted">{templateCountLabel}</p>
+          <div className="flex items-center gap-2">
+            <PerPageSelector
+              ariaLabel="Templates per page"
+              onChange={(value) => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('limit', String(value));
+                  next.set('page', String(DEFAULT_PAGE));
+                  return next;
+                });
+              }}
+              value={limit}
+            />
+            <Button
+              disabled={page <= DEFAULT_PAGE}
+              onClick={() => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('page', String(Math.max(DEFAULT_PAGE, page - 1)));
+                  return next;
+                });
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted">{`Page ${page} of ${totalPages}`}</span>
+            <Button
+              disabled={page >= totalPages}
+              onClick={() => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('page', String(Math.min(totalPages, page + 1)));
+                  return next;
+                });
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {templates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted">No templates yet — create your first one.</p>
           </CardContent>
         </Card>
-      ) : filteredTemplates.length === 0 ? (
+      ) : sortedTemplates.length === 0 ? (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted">No templates match the selected filters.</p>
@@ -243,7 +369,7 @@ export function TemplateBrowser({
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {filteredTemplates.map((template) => {
+          {sortedTemplates.map((template) => {
             const exerciseCount = countTemplateExercises(template);
 
             return (
@@ -441,6 +567,52 @@ export function TemplateBrowser({
       {dialog}
     </section>
   );
+}
+
+function isTemplateSort(value: string): value is WorkoutTemplateSort {
+  return templateSortValues.includes(value as WorkoutTemplateSort);
+}
+
+function parseTemplateSort(value: string | null): WorkoutTemplateSort {
+  return value !== null && isTemplateSort(value) ? value : 'newest';
+}
+
+function parsePage(value: string | null) {
+  const page = Number.parseInt(value ?? String(DEFAULT_PAGE), 10);
+
+  return Number.isNaN(page) || page < DEFAULT_PAGE ? DEFAULT_PAGE : page;
+}
+
+function parsePageSize(value: string | null) {
+  const limit = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
+
+  return PER_PAGE_OPTIONS.includes(limit as (typeof PER_PAGE_OPTIONS)[number])
+    ? limit
+    : DEFAULT_PER_PAGE;
+}
+
+function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) {
+  const copy = [...templates];
+  const byName = (left: TemplateSummary, right: TemplateSummary) =>
+    left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+
+  switch (sort) {
+    case 'name-asc':
+      return copy.sort(byName);
+    case 'name-desc':
+      return copy.sort((left, right) => byName(right, left));
+    case 'oldest':
+      return copy.sort((left, right) => left.createdAt - right.createdAt || byName(left, right));
+    case 'recently-updated':
+      return copy.sort(
+        (left, right) => right.updatedAt - left.updatedAt || byName(left, right),
+      );
+    case 'newest':
+    default:
+      return copy.sort(
+        (left, right) => right.createdAt - left.createdAt || byName(left, right),
+      );
+  }
 }
 
 function countTemplateExercises(template: TemplateSummary) {

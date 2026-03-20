@@ -61,6 +61,9 @@ const foodSelection = {
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
 const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
+// Intentionally store-local: API schemas normalize legacy aliases at parse-time, but store utilities
+// still accept aliases for internal call sites and defensive compatibility.
+type LegacyFoodSort = 'name' | 'recent' | 'popular';
 
 const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {
   const filters: SQL<unknown>[] = [eq(foods.userId, userId), isNull(foods.deletedAt)];
@@ -91,12 +94,23 @@ const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {
   return and(...filters);
 };
 
-const buildFoodSort = (sort: FoodSort) => {
+const buildFoodSort = (sort: FoodSort | LegacyFoodSort) => {
   switch (sort) {
+    case 'newest':
+      return sql`${foods.createdAt} desc, lower(${foods.name}) asc`;
+    case 'oldest':
+      return sql`${foods.createdAt} asc, lower(${foods.name}) asc`;
+    case 'recently-updated':
     case 'recent':
-      return sql`case when ${foods.lastUsedAt} is null then 1 else 0 end asc, ${foods.lastUsedAt} desc, lower(${foods.name}) asc`;
+      return sql`${foods.updatedAt} desc, lower(${foods.name}) asc`;
+    case 'most-used':
     case 'popular':
       return sql`${foods.usageCount} desc, lower(${foods.name}) asc`;
+    case 'least-used':
+      return sql`${foods.usageCount} asc, lower(${foods.name}) asc`;
+    case 'name-desc':
+      return sql`lower(${foods.name}) desc, lower(coalesce(${foods.brand}, '')) desc`;
+    case 'name-asc':
     case 'name':
     default:
       return sql`lower(${foods.name}) asc, lower(coalesce(${foods.brand}, '')) asc`;
@@ -242,7 +256,7 @@ export const searchFoodsByName = async (
     })
     .from(foods)
     .where(and(...filters))
-    .orderBy(buildFoodSort('recent'))
+    .orderBy(buildFoodSort('recently-updated'))
     .limit(limit)
     .all();
 };
@@ -285,7 +299,7 @@ export const findFoodByName = async (
         sql`lower(${foods.name}) = ${nameLower}`,
       ),
     )
-    .orderBy(buildFoodSort('recent'))
+    .orderBy(buildFoodSort('recently-updated'))
     .limit(1)
     .get();
 
@@ -313,7 +327,7 @@ export const findFoodByName = async (
         sql`lower(${foods.name}) like ${pattern} escape '\\'`,
       ),
     )
-    .orderBy(buildFoodSort('recent'))
+    .orderBy(buildFoodSort('recently-updated'))
     .limit(1)
     .get();
 };

@@ -7,6 +7,7 @@ import type {
   ExerciseLastPerformance,
   ExerciseLastPerformances,
   ExercisePerformanceHistory,
+  ExerciseSort,
   ExerciseTrackingType,
   RelatedExerciseLastPerformance,
   UpdateExerciseInput,
@@ -26,6 +27,7 @@ type ListExercisesInput = {
   muscleGroup?: string;
   equipment?: string;
   category?: ExerciseCategory;
+  sort: ExerciseSort;
   page: number;
   limit: number;
 };
@@ -75,7 +77,7 @@ const buildListWhereClause = ({
   muscleGroup,
   equipment,
   category,
-}: Omit<ListExercisesInput, 'page' | 'limit'>) =>
+}: Omit<ListExercisesInput, 'page' | 'limit' | 'sort'>) =>
   and(
     or(
       and(isNull(exercises.userId), isNull(exercises.deletedAt)),
@@ -130,6 +132,22 @@ const buildVisibleByIdWhereClause = ({ id, userId }: { id: string; userId: strin
     ),
   );
 
+const buildExerciseSort = (sort: ExerciseSort) => {
+  switch (sort) {
+    case 'name-desc':
+      return sql`lower(${exercises.name}) desc, ${exercises.createdAt} desc`;
+    case 'newest':
+      return sql`${exercises.createdAt} desc, lower(${exercises.name}) asc`;
+    case 'oldest':
+      return sql`${exercises.createdAt} asc, lower(${exercises.name}) asc`;
+    case 'recently-updated':
+      return sql`${exercises.updatedAt} desc, lower(${exercises.name}) asc`;
+    case 'name-asc':
+    default:
+      return sql`lower(${exercises.name}) asc, ${exercises.createdAt} asc`;
+  }
+};
+
 export const createExercise = async ({
   id,
   userId,
@@ -182,6 +200,7 @@ export const listExercises = async ({
   muscleGroup,
   equipment,
   category,
+  sort,
   page,
   limit,
 }: ListExercisesInput): Promise<{
@@ -197,7 +216,7 @@ export const listExercises = async ({
       .select(exerciseSelection)
       .from(exercises)
       .where(whereClause)
-      .orderBy(asc(exercises.name), asc(exercises.createdAt))
+      .orderBy(buildExerciseSort(sort))
       .limit(limit)
       .offset(offset)
       .all(),

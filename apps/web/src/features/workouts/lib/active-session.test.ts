@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { WorkoutSession } from '@/lib/mock-data/workouts';
-import { mockTemplates } from '@/lib/mock-data/workouts';
+import type { ActiveWorkoutHistoricalSession } from '../types';
+import { mockTemplates } from '@/test/fixtures/workouts';
 
 import {
   buildActiveWorkoutSession,
@@ -18,7 +18,7 @@ describe('active-session helpers', () => {
       throw new Error('Expected upper-push template in mock data.');
     }
 
-    const sessions: WorkoutSession[] = [
+    const sessions: ActiveWorkoutHistoricalSession[] = [
       {
         completedAt: '2026-03-01T11:00:00Z',
         duration: 60,

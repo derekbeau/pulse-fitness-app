@@ -91,22 +91,10 @@ import {
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
+import { startCase } from '@/features/workouts/lib/start-case';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
-import {
-  mockExercises,
-  mockTemplates,
-  type WorkoutBadgeType as MockWorkoutBadgeType,
-  type WorkoutTemplate as MockWorkoutTemplate,
-} from '@/lib/mock-data/workouts';
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const defaultTemplate =
-  mockTemplates.find((template) => template.id === 'upper-push') ??
-  (() => {
-    throw new Error('Expected upper-push template in mock data.');
-  })();
+import type { ActiveWorkoutTemplate } from '@/features/workouts/types';
 
 const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
@@ -115,10 +103,14 @@ const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   supplemental: 'Supplemental',
 };
 
-const categoryBadgeByExerciseId = new Map(
-  mockExercises.map((exercise) => [exercise.id, exercise.category as MockWorkoutBadgeType]),
-);
-const mockExerciseById = new Map(mockExercises.map((exercise) => [exercise.id, exercise]));
+const createEmptyTemplate = (templateId: string): ActiveWorkoutTemplate => ({
+  description: '',
+  id: templateId || 'unsaved-template',
+  name: 'Workout',
+  sections: [],
+  tags: [],
+});
+
 type ExerciseOrderBySection = Record<WorkoutTemplateSectionType, string[]>;
 
 type RestTimerState = {
@@ -182,19 +174,19 @@ export function ActiveWorkoutPage() {
   const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
   const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
-  const shouldLoadApiTemplate = UUID_PATTERN.test(resolvedTemplateId);
-  const templateQuery = useWorkoutTemplate(shouldLoadApiTemplate ? resolvedTemplateId : '');
-
-  const selectedMockTemplate = mockTemplates.find((template) => template.id === resolvedTemplateId);
+  const shouldLoadApiTemplate = Boolean(requestedTemplateId);
+  const templateQuery = useWorkoutTemplate(requestedTemplateId ?? '', {
+    enabled: shouldLoadApiTemplate,
+  });
   const apiTemplate = useMemo(
-    () => (templateQuery.data ? toMockWorkoutTemplate(templateQuery.data) : null),
+    () => (templateQuery.data ? toActiveWorkoutTemplate(templateQuery.data) : null),
     [templateQuery.data],
   );
-  const fallbackTemplate = apiTemplate ?? selectedMockTemplate ?? defaultTemplate;
+  const fallbackTemplate = useMemo(() => createEmptyTemplate(resolvedTemplateId), [resolvedTemplateId]);
   const activeSession = sessionQuery.data;
   const template = useMemo(
-    () => buildTemplateFromSession(activeSession, fallbackTemplate),
-    [activeSession, fallbackTemplate],
+    () => buildTemplateFromSession(activeSession, apiTemplate ?? fallbackTemplate),
+    [activeSession, apiTemplate, fallbackTemplate],
   );
 
   const [fallbackStartTime] = useState(() => new Date().toISOString());
@@ -235,7 +227,7 @@ export function ActiveWorkoutPage() {
   const activeSessionId = activeSession?.id ?? null;
   const activeSessionStatus = activeSession?.status ?? null;
   const isPaused = activeSessionStatus === 'paused';
-  const enableApiLastPerformance = Boolean(activeSessionId) || shouldLoadApiTemplate;
+  const enableApiLastPerformance = Boolean(activeSessionId) || Boolean(requestedTemplateId);
   const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
     startTimeOverride ??
@@ -275,7 +267,6 @@ export function ActiveWorkoutPage() {
               section: section.type,
               trackingType: resolveTrackingType({
                 trackingType: exercise.trackingType,
-                category: mockExerciseById.get(exercise.exerciseId)?.category,
                 exerciseId: exercise.exerciseId,
                 exerciseName: exercise.exerciseName,
                 prescribedReps: exercise.reps,
@@ -314,9 +305,11 @@ export function ActiveWorkoutPage() {
 
     if (isSessionSwitch) {
       const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
-      setSetDrafts(autosavedDraft?.setDrafts ?? serverSetDrafts);
-      setExerciseNotes(autosavedDraft?.exerciseNotes ?? serverExerciseNotes);
-      setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+      const shouldUseAutosavedDraft =
+        autosavedDraft && (!hasDraftStructure(serverSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
+      setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : serverSetDrafts);
+      setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : serverExerciseNotes);
+      setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
       hydratedDraftKeyRef.current = activeSession.id;
@@ -377,10 +370,12 @@ export function ActiveWorkoutPage() {
 
     const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
+    const shouldUseAutosavedDraft =
+      autosavedDraft && (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
 
-    setSetDrafts(autosavedDraft?.setDrafts ?? initialSetDrafts);
-    setExerciseNotes(autosavedDraft?.exerciseNotes ?? {});
-    setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+    setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
+    setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : {});
+    setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
     setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedSessionIdRef.current = null;
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
@@ -782,7 +777,7 @@ export function ActiveWorkoutPage() {
                   name: session.workoutName,
                   sets: sessionSetInputs,
                   startedAt: new Date(startTime).getTime(),
-                  templateId: shouldLoadApiTemplate ? template.id : null,
+                  templateId: requestedTemplateId ? template.id : null,
                 });
                 setCompletedSessionId(createdSession.id);
               } catch {
@@ -1540,12 +1535,12 @@ export function ActiveWorkoutPage() {
 }
 
 function createSessionSetDrafts(
-  template: MockWorkoutTemplate,
+  template: ActiveWorkoutTemplate,
   sessionSets: SessionSet[],
   templateExerciseById: Map<
     string,
     {
-      exercise: MockWorkoutTemplate['sections'][number]['exercises'][number];
+      exercise: ActiveWorkoutTemplate['sections'][number]['exercises'][number];
       section: WorkoutTemplateSectionType;
       trackingType: ExerciseTrackingType;
     }
@@ -1633,6 +1628,10 @@ function mergeServerSetDrafts(
   return nextDrafts;
 }
 
+function hasDraftStructure(setDrafts: ActiveWorkoutSetDrafts) {
+  return Object.values(setDrafts).some((exerciseDrafts) => exerciseDrafts.length > 0);
+}
+
 function buildSessionStructureSignature(session: ApiWorkoutSession) {
   const sortedSets = [...session.sets].sort((left, right) => {
     const leftSection = left.section ?? 'main';
@@ -1659,7 +1658,7 @@ function buildSessionStructureSignature(session: ApiWorkoutSession) {
     .join('|');
 }
 
-function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): ExerciseOrderBySection {
+function buildExerciseOrderFromTemplate(template: ActiveWorkoutTemplate): ExerciseOrderBySection {
   return {
     warmup:
       template.sections
@@ -1681,7 +1680,7 @@ function buildExerciseOrderFromTemplate(template: MockWorkoutTemplate): Exercise
 }
 
 function buildExerciseOrderFromSessionSets(
-  template: MockWorkoutTemplate,
+  template: ActiveWorkoutTemplate,
   sessionSets: SessionSet[],
 ): ExerciseOrderBySection {
   const templateOrder = buildExerciseOrderFromTemplate(template);
@@ -1734,7 +1733,7 @@ function mergeExerciseOrder(primary: string[], fallback: string[]) {
 }
 
 function buildExerciseOrderIndexById(
-  template: MockWorkoutTemplate,
+  template: ActiveWorkoutTemplate,
   exerciseOrderBySection: ExerciseOrderBySection,
 ) {
   const fallbackOrder = buildExerciseOrderFromTemplate(template);
@@ -2139,7 +2138,7 @@ function formatElapsedTime(totalSeconds: number) {
   return `${`${minutes}`.padStart(2, '0')}:${`${seconds}`.padStart(2, '0')}`;
 }
 
-function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplate {
+function toActiveWorkoutTemplate(template: ApiWorkoutTemplate): ActiveWorkoutTemplate {
   return {
     id: template.id,
     name: template.name,
@@ -2159,7 +2158,7 @@ function toMockWorkoutTemplate(template: ApiWorkoutTemplate): MockWorkoutTemplat
         restSeconds: exercise.restSeconds ?? 60,
         formCues: exercise.formCues ?? [],
         templateCues: exercise.cues,
-        badges: getDefaultExerciseBadges(exercise.exerciseId),
+        badges: [],
       })),
     })),
   };
@@ -2181,15 +2180,10 @@ function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | nu
   return '';
 }
 
-function getDefaultExerciseBadges(exerciseId: string): MockWorkoutBadgeType[] {
-  const categoryBadge = categoryBadgeByExerciseId.get(exerciseId);
-  return categoryBadge ? [categoryBadge] : [];
-}
-
 function buildTemplateFromSession(
   activeSession: ApiWorkoutSession | undefined,
-  fallbackTemplate: MockWorkoutTemplate,
-): MockWorkoutTemplate {
+  fallbackTemplate: ActiveWorkoutTemplate,
+): ActiveWorkoutTemplate {
   if (!activeSession) {
     return fallbackTemplate;
   }
@@ -2214,7 +2208,7 @@ function buildTemplateFromSession(
       : buildSessionExercisesFromSets(activeSession);
   const sectionsByType = new Map<
     WorkoutTemplateSectionType,
-    MockWorkoutTemplate['sections'][number]
+    ActiveWorkoutTemplate['sections'][number]
   >(sectionOrder.map((type) => [type, { type, title: sectionTitleByType[type], exercises: [] }]));
 
   for (const sessionExercise of sessionExercises) {
@@ -2244,7 +2238,7 @@ function buildTemplateFromSession(
       restSeconds: fallbackExercise?.restSeconds ?? 60,
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
-      badges: fallbackExercise?.badges ?? getDefaultExerciseBadges(sessionExercise.exerciseId),
+      badges: fallbackExercise?.badges ?? [],
     });
   }
 
@@ -2269,7 +2263,7 @@ function buildTemplateFromSession(
     name: activeSession.name,
     sections: sectionOrder
       .map((type) => sectionsByType.get(type))
-      .filter((section): section is MockWorkoutTemplate['sections'][number] =>
+      .filter((section): section is ActiveWorkoutTemplate['sections'][number] =>
         Boolean(section && section.exercises.length > 0),
       ),
   };
@@ -2279,7 +2273,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
   const namesById = new Map(
     session.sets.map((set) => [
       set.exerciseId,
-      mockExerciseById.get(set.exerciseId)?.name ?? 'Unknown Exercise',
+      startCase(set.exerciseId),
     ]),
   );
   const grouped = new Map<

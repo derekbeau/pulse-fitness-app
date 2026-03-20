@@ -27,6 +27,15 @@ describe('workoutQueryKeys', () => {
 
   it('returns a stable template list key', () => {
     expect(workoutQueryKeys.templateList()).toEqual(['workouts', 'templates']);
+    expect(workoutQueryKeys.templateList({ sort: 'name-desc' })).toEqual([
+      'workouts',
+      'templates',
+      {
+        limit: 25,
+        page: 1,
+        sort: 'name-desc',
+      },
+    ]);
   });
 
   it('returns a stable template detail prefix key', () => {

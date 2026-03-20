@@ -1,13 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { WorkoutSessionStatus } from '@pulse/shared';
+import type { WorkoutSessionStatus, WorkoutTemplateSort } from '@pulse/shared';
 import { useEffect, useState } from 'react';
 import { Dumbbell, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 
 import { WorkoutCardSkeleton } from '@/components/skeletons';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
 import {
   WORKOUT_SESSION_COMPLETED_NOTICE,
   WORKOUT_SESSION_NOTICE_QUERY_KEY,
@@ -26,6 +28,14 @@ import {
 
 const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises'] as const;
 const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
+const WORKOUT_TEMPLATE_SORT_VALUES: WorkoutTemplateSort[] = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'oldest',
+  'recently-updated',
+];
+const DEFAULT_TEMPLATE_PAGE = 1;
 type WorkoutView = (typeof WORKOUT_VIEWS)[number];
 
 function isWorkoutView(value: string | null): value is WorkoutView {
@@ -48,14 +58,21 @@ export function WorkoutsPage() {
   });
   const viewParam = searchParams.get('view');
   const activeView: WorkoutView = isWorkoutView(viewParam) ? viewParam : 'calendar';
-  const templatesQuery = useWorkoutTemplates();
+  const templateSort = parseWorkoutTemplateSort(searchParams.get('sort'));
+  const templatePage = parsePageParam(searchParams.get('page'));
+  const templateLimit = parsePageSizeParam(searchParams.get('limit'));
+  const templatesQuery = useWorkoutTemplates({
+    sort: templateSort,
+    page: templatePage,
+    limit: templateLimit,
+  });
   const completedSessionsQuery = useCompletedSessions();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
   const shouldShowTemplatesEmptyState =
     !templatesQuery.isLoading &&
     !templatesQuery.isError &&
-    (templatesQuery.data?.length ?? 0) === 0;
+    (templatesQuery.data?.meta.total ?? 0) === 0;
   const shouldShowOnboardingCard =
     !onboardingDismissed &&
     !completedSessionsQuery.isLoading &&
@@ -77,7 +94,7 @@ export function WorkoutsPage() {
       return;
     }
 
-    const topTemplateIds = (templatesQuery.data ?? []).slice(0, 3).map((template) => template.id);
+    const topTemplateIds = (templatesQuery.data?.data ?? []).slice(0, 3).map((template) => template.id);
     for (const templateId of topTemplateIds) {
       void prefetchWorkoutTemplate(queryClient, templateId);
     }
@@ -112,24 +129,30 @@ export function WorkoutsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-3xl font-semibold text-primary">Workouts</h1>
-        <HelpIcon title="Workouts help">
-          <p>
-            Pulse workouts follow a Templates {'>'} Sessions {'>'} Sets flow.
-          </p>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Start a workout from Templates, then log each exercise set during the session.</li>
-            <li>Active sessions are saved in localStorage so you can recover if the app closes.</li>
-            <li>
-              Pause to stop active timing, resume when ready, or cancel if you need to end early.
-            </li>
-            <li>
-              Scheduled workouts appear in Calendar and can be used to plan upcoming sessions.
-            </li>
-          </ul>
-        </HelpIcon>
-      </div>
+      <PageHeader
+        actions={
+          <HelpIcon title="Workouts help">
+            <p>
+              Pulse workouts follow a Templates {'>'} Sessions {'>'} Sets flow.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                Start a workout from Templates, then log each exercise set during the session.
+              </li>
+              <li>
+                Active sessions are saved in localStorage so you can recover if the app closes.
+              </li>
+              <li>
+                Pause to stop active timing, resume when ready, or cancel if you need to end early.
+              </li>
+              <li>
+                Scheduled workouts appear in Calendar and can be used to plan upcoming sessions.
+              </li>
+            </ul>
+          </HelpIcon>
+        }
+        title="Workouts"
+      />
 
       {shouldShowOnboardingCard ? (
         <div className="rounded-2xl border border-border bg-card p-4">
@@ -240,7 +263,8 @@ export function WorkoutsPage() {
         ) : (
           <TemplateBrowser
             buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
-            templates={templatesQuery.data ?? undefined}
+            templates={templatesQuery.data?.data ?? undefined}
+            totalTemplates={templatesQuery.data?.meta.total}
           />
         )
       ) : (
@@ -248,4 +272,26 @@ export function WorkoutsPage() {
       )}
     </section>
   );
+}
+
+function parseWorkoutTemplateSort(value: string | null): WorkoutTemplateSort {
+  if (value !== null && WORKOUT_TEMPLATE_SORT_VALUES.includes(value as WorkoutTemplateSort)) {
+    return value as WorkoutTemplateSort;
+  }
+
+  return 'newest';
+}
+
+function parsePageParam(value: string | null) {
+  const page = Number.parseInt(value ?? String(DEFAULT_TEMPLATE_PAGE), 10);
+
+  return Number.isNaN(page) || page < DEFAULT_TEMPLATE_PAGE ? DEFAULT_TEMPLATE_PAGE : page;
+}
+
+function parsePageSizeParam(value: string | null) {
+  const limit = Number.parseInt(value ?? String(DEFAULT_PER_PAGE), 10);
+
+  return PER_PAGE_OPTIONS.includes(limit as (typeof PER_PAGE_OPTIONS)[number])
+    ? limit
+    : DEFAULT_PER_PAGE;
 }

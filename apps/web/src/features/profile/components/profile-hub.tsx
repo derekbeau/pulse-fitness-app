@@ -2,6 +2,7 @@ import { BookOpen, Heart, Settings, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser } from '@/hooks/use-user';
 import { cn } from '@/lib/utils';
@@ -16,10 +17,7 @@ type ProfileDestination = {
 };
 
 function getInitials(value: string) {
-  const segments = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const segments = value.trim().split(/\s+/).filter(Boolean);
 
   if (segments.length === 0) {
     return 'U';
@@ -80,14 +78,10 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8">
-      <header className="space-y-1.5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Profile hub</p>
-        <h1 className="text-3xl font-semibold text-primary">Profile</h1>
-        <p className="max-w-3xl text-sm text-muted">
-          Keep your training context organized, from equipment inventory to health notes and saved
-          resources.
-        </p>
-      </header>
+      <PageHeader
+        description="Keep your training context organized, from equipment inventory to health notes and saved resources."
+        title="Profile"
+      />
 
       <Card className="overflow-hidden border-border/70 bg-card/95 shadow-sm">
         <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">

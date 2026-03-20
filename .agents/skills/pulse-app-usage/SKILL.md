@@ -39,7 +39,9 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 
 1. **Check recent food logs first.** Before asking clarifying questions, look at the last 2-3 days of nutrition logs. If the user gives vague or fuzzy details ("had some of that rice," "more chicken," "same as yesterday"), assume they mean something recently logged. Recent logs represent what is currently in the fridge/pantry.
 2. Parse meal or food request into concrete items, amounts, and units.
-3. Search existing foods first (`GET /api/v1/foods/?q=<term>`) before creating new entries.
+3. Search existing foods first (`GET /api/v1/foods/?q=<term>&sort=<sort>&page=<page>&limit=<limit>`) before creating new entries.
+   - `sort` options: `recently-updated` (default), `newest`, `oldest`, `name-asc`, `name-desc`, `most-used`, `least-used`
+   - `page` default: `1`; `limit` default: `50` (max `100`)
 4. For missing foods, follow lookup rules in `references/macro-lookup.md`, then create via `POST /api/v1/foods/`.
 5. Log the meal via `POST /api/v1/meals/` with food name references and quantities.
 6. If any food names fail to resolve (422 UNRESOLVED_FOODS), create the missing foods first, then retry.
@@ -190,13 +192,21 @@ If no new foods were created, explicitly say that existing food entries were reu
 
 ### Exercise Management
 
-- **Search**: `GET /api/v1/exercises/?q=<term>` — always search before creating.
+- **Search**: `GET /api/v1/exercises/?q=<term>&sort=<sort>&page=<page>&limit=<limit>` — always search before creating.
+  - `sort` options: `name-asc` (default), `name-desc`, `newest`, `oldest`, `recently-updated`
+  - `page` default: `1`; `limit` default: `20` (max `100`)
 - **Create with dedup guard**: `POST /api/v1/exercises/` — if the response is `{ "data": { "created": false, "candidates": [...] } }`, inspect candidates and only retry with `force: true` when a true new exercise is required.
 - **Enrich exercises**: Use `PATCH /api/v1/exercises/:id` any time you need to improve metadata (`muscleGroups`, `equipment`, `category`, `trackingType`, `instructions`, `formCues`, `tags`).
-- **Last performance**: `GET /api/v1/exercises/:id/last-performance` — useful for programming progression.
+- **Last performance**: `GET /api/v1/exercises/:id/last-performance?limit=<n>` — useful for programming progression.
+  - `limit` range: `1-10` (default `3`) for quick recent-history lookups.
+  - If `includeRelated=true`, the endpoint returns the related-history response shape and ignores `limit`.
 
 ### Templates
 
+- **List**: `GET /api/v1/workout-templates/?sort=<sort>&page=<page>&limit=<limit>`
+  - `sort` options: `newest` (default), `oldest`, `name-asc`, `name-desc`, `recently-updated`
+  - `page` default: `1`; `limit` default: `25` (max `100`)
+  - Response is paginated: `{ data: WorkoutTemplate[], meta: { page, limit, total } }`
 - **Create**: `POST /api/v1/workout-templates/` — sections (warmup/main/cooldown/supplemental) with exercises, sets, reps, rest times. Unknown exercise names are auto-created. The `reps` field accepts a number (e.g., `12`) or a string range (e.g., `"8-12"`). See `references/workout-workflow.md` for section type details.
 - **Update**: `PUT /api/v1/workout-templates/:id` or `PATCH /api/v1/workout-templates/:id`
 - **Swap exercise**: `PATCH /api/v1/workout-templates/:id/exercises/:exerciseId/swap`

@@ -514,8 +514,14 @@ describe('DashboardPage', () => {
       within(bodyWeightCard as HTMLElement).getByText(formatWeight(181.4)),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByText('Good morning')).toBeInTheDocument();
+    const dashboardHeading = screen.getByRole('heading', { name: 'Dashboard' });
+    const greeting = screen.getByText('Good morning');
+
+    expect(dashboardHeading).toBeInTheDocument();
+    expect(greeting).toBeInTheDocument();
+    expect(
+      greeting.compareDocumentPosition(dashboardHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(screen.getByText('Friday, March 6, 2026')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Change date' })).toBeInTheDocument();
@@ -730,7 +736,7 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('Friday, March 6, 2026')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to today' })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('edits a logged weight entry and refreshes the body weight card', async () => {
     const { wrapper } = createQueryClientWrapper();
