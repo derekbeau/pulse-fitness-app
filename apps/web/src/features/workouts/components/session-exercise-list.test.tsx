@@ -1452,7 +1452,89 @@ describe('SessionExerciseList', () => {
       .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
       .closest('[data-slot="card"]');
     expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText(/Mar 13 - 25x12, 25x12/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/Mar 13 · 25x12, 25x12/)).toBeInTheDocument();
+  });
+
+  it('renders up to 3 inline history entries when API history is enabled', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+    useLastPerformanceSpy.mockImplementation((_, options) => {
+      if (options?.includeRelated === false) {
+        return {
+          data: {
+            history: {
+              date: '2026-03-20',
+              sessionId: 'session-4',
+              sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
+            },
+            historyEntries: [
+              {
+                date: '2026-03-20',
+                sessionId: 'session-4',
+                sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
+              },
+              {
+                date: '2026-03-18',
+                sessionId: 'session-3',
+                sets: [{ completed: true, reps: 8, setNumber: 1, weight: 70 }],
+              },
+              {
+                date: '2026-03-15',
+                sessionId: 'session-2',
+                sets: [{ completed: true, reps: 10, setNumber: 1, weight: 65 }],
+              },
+              {
+                date: '2026-03-10',
+                sessionId: 'session-1',
+                sets: [{ completed: true, reps: 12, setNumber: 1, weight: 60 }],
+              },
+            ],
+            related: [],
+          },
+        } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+      }
+
+      return {
+        data: {
+          history: null,
+          historyEntries: [],
+          related: [],
+        },
+      } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+    });
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        enableApiLastPerformance
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'Incline Dumbbell Press' })
+      .closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+
+    fireEvent.click(getExercisePanelToggle('Incline Dumbbell Press', 'incline-dumbbell-press'));
+
+    expect(within(card as HTMLElement).getByText(/Mar 20 · 75x6/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/Mar 18 · 70x8/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/Mar 15 · 65x10/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).queryByText(/Mar 10 · 60x12/)).not.toBeInTheDocument();
+
+    useLastPerformanceSpy.mockRestore();
   });
 
   it('opens and closes full history modal from active workout exercise rows', async () => {
@@ -1524,27 +1606,49 @@ describe('SessionExerciseList', () => {
     }
 
     const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
-    useLastPerformanceSpy.mockReturnValue({
-      data: {
-        history: {
-          date: '2026-03-12',
-          sessionId: 'session-10',
-          sets: [{ completed: true, reps: 10, setNumber: 1, weight: 55 }],
-        },
-        related: [
-          {
-            exerciseId: 'incline-bench',
-            exerciseName: 'Incline Bench Press',
-            trackingType: 'weight_reps',
+    useLastPerformanceSpy.mockImplementation((_, options) => {
+      if (options?.includeRelated === false) {
+        return {
+          data: {
             history: {
-              date: '2026-03-08',
-              sessionId: 'session-8',
-              sets: [{ completed: true, reps: 8, setNumber: 1, weight: 60 }],
+              date: '2026-03-12',
+              sessionId: 'session-10',
+              sets: [{ completed: true, reps: 10, setNumber: 1, weight: 55 }],
             },
+            historyEntries: [
+              {
+                date: '2026-03-12',
+                sessionId: 'session-10',
+                sets: [{ completed: true, reps: 10, setNumber: 1, weight: 55 }],
+              },
+            ],
+            related: [],
           },
-        ],
-      },
-    } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);
+        } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+      }
+
+      return {
+        data: {
+          history: null,
+          historyEntries: [],
+          related:
+            options?.enabled === true
+              ? [
+                  {
+                    exerciseId: 'incline-bench',
+                    exerciseName: 'Incline Bench Press',
+                    trackingType: 'weight_reps',
+                    history: {
+                      date: '2026-03-08',
+                      sessionId: 'session-8',
+                      sets: [{ completed: true, reps: 8, setNumber: 1, weight: 60 }],
+                    },
+                  },
+                ]
+              : [],
+        },
+      } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+    });
 
     const session = buildActiveWorkoutSession(
       activeTemplate,
@@ -1562,12 +1666,36 @@ describe('SessionExerciseList', () => {
       />,
     );
 
+    expect(
+      useLastPerformanceSpy.mock.calls.some(
+        ([exerciseId, options]) =>
+          exerciseId === 'row-erg' &&
+          options?.enabled === true &&
+          options?.includeRelated === false &&
+          options?.limit === 3,
+      ),
+    ).toBe(true);
+    expect(
+      useLastPerformanceSpy.mock.calls.some(
+        ([exerciseId, options]) =>
+          exerciseId === 'row-erg' &&
+          options?.enabled === false &&
+          options?.includeRelated === true,
+      ),
+    ).toBe(true);
+
     const rowErgCard = screen
       .getByRole('heading', { level: 3, name: 'Row Erg' })
       .closest('[data-slot="card"]');
     expect(rowErgCard).not.toBeNull();
 
     fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+    expect(
+      useLastPerformanceSpy.mock.calls.some(
+        ([exerciseId, options]) =>
+          exerciseId === 'row-erg' && options?.enabled === true && options?.includeRelated === true,
+      ),
+    ).toBe(true);
     expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
     expect(within(rowErgCard as HTMLElement).getByText('Related history')).toBeInTheDocument();
     expect(within(rowErgCard as HTMLElement).getByText('Incline Bench Press')).not.toBeVisible();
@@ -1589,6 +1717,7 @@ describe('SessionExerciseList', () => {
     useLastPerformanceSpy.mockReturnValue({
       data: {
         history: null,
+        historyEntries: [],
         related: [],
       },
     } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);

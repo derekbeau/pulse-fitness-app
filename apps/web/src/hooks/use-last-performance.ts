@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   exerciseHistoryWithRelatedSchema,
-  exerciseLastPerformanceSchema,
+  exerciseLastPerformanceQuerySchema,
+  exerciseLastPerformancesSchema,
   type ExerciseLastPerformance,
 } from '@pulse/shared';
 
@@ -13,8 +14,8 @@ import { ApiError, apiRequest } from '@/lib/api-client';
 
 const lastPerformanceQueryKeys = {
   all: ['exercise-last-performance'] as const,
-  detail: (exerciseId: string, includeRelated: boolean) =>
-    ['exercise-last-performance', exerciseId, { includeRelated }] as const,
+  detail: (exerciseId: string, includeRelated: boolean, limit: number) =>
+    ['exercise-last-performance', exerciseId, { includeRelated, limit }] as const,
 };
 
 function mapLastPerformance(
@@ -47,10 +48,18 @@ function mapLastPerformance(
 async function getLastPerformance(
   exerciseId: string,
   includeRelated: boolean,
+  limit: number,
 ): Promise<ActiveWorkoutExerciseHistorySummary | null> {
+  const query = new URLSearchParams({
+    limit: String(limit),
+  });
+  if (includeRelated) {
+    query.set('includeRelated', 'true');
+  }
+
   try {
     const data = await apiRequest<unknown>(
-      `/api/v1/exercises/${exerciseId}/last-performance${includeRelated ? '?includeRelated=true' : ''}`,
+      `/api/v1/exercises/${exerciseId}/last-performance?${query}`,
     );
 
     if (data == null) {
@@ -58,17 +67,24 @@ async function getLastPerformance(
     }
 
     if (!includeRelated) {
-      const payload = exerciseLastPerformanceSchema.parse(data);
+      const payload = exerciseLastPerformancesSchema.parse(data);
+      const historyEntries = payload
+        .map((entry) => mapLastPerformance(entry))
+        .filter((entry): entry is ActiveWorkoutLastPerformance => entry != null);
+
       return {
-        history: mapLastPerformance(payload),
+        history: historyEntries[0] ?? null,
+        historyEntries,
         related: [],
       };
     }
 
     const payload = exerciseHistoryWithRelatedSchema.parse(data);
+    const history = mapLastPerformance(payload.history);
 
     return {
-      history: mapLastPerformance(payload.history),
+      history,
+      historyEntries: history ? [history] : [],
       related: payload.related.map((relatedExercise) => ({
         exerciseId: relatedExercise.exerciseId,
         exerciseName: relatedExercise.exerciseName,
@@ -90,16 +106,20 @@ export function useLastPerformance(
   options?: {
     enabled?: boolean;
     includeRelated?: boolean;
+    limit?: number;
   },
 ) {
   const normalizedExerciseId = exerciseId.trim();
   const enabled = options?.enabled ?? true;
-  const includeRelated = options?.includeRelated ?? true;
+  const { includeRelated, limit } = exerciseLastPerformanceQuerySchema.parse({
+    includeRelated: options?.includeRelated ?? false,
+    limit: options?.limit,
+  });
 
   return useQuery<ActiveWorkoutExerciseHistorySummary | null>({
     enabled: enabled && normalizedExerciseId.length > 0,
-    queryFn: () => getLastPerformance(normalizedExerciseId, includeRelated),
-    queryKey: lastPerformanceQueryKeys.detail(normalizedExerciseId, includeRelated),
+    queryFn: () => getLastPerformance(normalizedExerciseId, includeRelated, limit),
+    queryKey: lastPerformanceQueryKeys.detail(normalizedExerciseId, includeRelated, limit),
   });
 }
 

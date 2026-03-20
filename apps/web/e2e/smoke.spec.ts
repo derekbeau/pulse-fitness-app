@@ -1,7 +1,7 @@
 import { expect, request, test, type Page } from '@playwright/test';
+import { apiBaseURL } from './test-env';
 
 const authTokenStorageKey = 'pulse-auth-token';
-const apiBaseURL = process.env.API_BASE_URL ?? 'http://127.0.0.1:3001';
 const testUsername = `smoke-e2e-${Date.now()}`;
 const testPassword = 'super-secret-password';
 

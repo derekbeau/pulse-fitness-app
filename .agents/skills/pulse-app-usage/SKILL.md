@@ -155,6 +155,11 @@ Meals support editing via PATCH:
 - `DELETE /api/v1/nutrition/:date/meals/:mealId` — delete a meal entirely
 - Meal-level PATCH supports `summary`: send text to override, send `null` to clear, omit to leave unchanged.
 
+### Maintenance (JWT-only)
+
+- `POST /api/v1/admin/reconcile-food-usage` recomputes each food's `usageCount` from actual `meal_items` references and resets unreferenced foods to `usageCount: 0`.
+- This endpoint is JWT-only and is intended for maintenance/admin sessions, not AgentToken calls.
+
 ### Nutrition Summaries
 
 - `GET /api/v1/nutrition/:date/summary` — macro totals/targets summary for a date (with optional agent guidance)

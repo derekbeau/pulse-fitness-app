@@ -7,7 +7,7 @@ import {
   createExerciseInputSchema,
   exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
-  exerciseLastPerformanceSchema,
+  exerciseLastPerformancesSchema,
   exercisePerformanceHistoryQuerySchema,
   exercisePerformanceHistorySchema,
   exerciseQueryParamsSchema,
@@ -39,7 +39,9 @@ import {
   findExerciseLastPerformance,
   findExercisePerformanceHistory,
   findExerciseOwnership,
+  findVisibleExerciseDetailsById,
   findVisibleExerciseById,
+  isExerciseInUse,
   listExerciseFilters,
   listExercises,
   updateOwnedExercise,
@@ -59,6 +61,20 @@ const INVALID_RELATED_EXERCISES_RESPONSE = {
   code: 'VALIDATION_ERROR',
   message: 'relatedExerciseIds must reference existing user-owned exercises',
 } as const;
+
+const EXERCISE_IN_USE_RESPONSE = {
+  code: 'EXERCISE_IN_USE',
+  message:
+    'This exercise is referenced by active workout templates or sessions and cannot be deleted.',
+} as const;
+
+const isSqliteForeignKeyConstraintError = (error: unknown): error is { code: string } => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_FOREIGNKEY';
+};
 
 const exerciseCreateDedupResponseSchema = z.object({
   created: z.literal(false),
@@ -279,6 +295,43 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   );
 
   typedApp.get(
+    '/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(exerciseSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Get a visible exercise by id',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const exercise = await findVisibleExerciseDetailsById({
+        id: request.params.id,
+        userId: request.userId,
+      });
+      if (!exercise) {
+        return sendError(
+          reply,
+          404,
+          EXERCISE_NOT_FOUND_RESPONSE.code,
+          EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      reply.header('Cache-Control', 'private, no-cache');
+
+      return reply.send({
+        data: exercise,
+      });
+    },
+  );
+
+  typedApp.get(
     '/:id/history',
     {
       schema: {
@@ -331,14 +384,14 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         querystring: exerciseLastPerformanceQuerySchema,
         response: {
           200: apiDataResponseSchema(
-            z.union([exerciseLastPerformanceSchema.nullable(), exerciseHistoryWithRelatedSchema]),
+            z.union([exerciseLastPerformancesSchema, exerciseHistoryWithRelatedSchema]),
           ),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
         },
         tags: ['exercises'],
-        summary: 'Get the latest completed performance for an exercise',
+        summary: 'Get recent completed performances for an exercise',
         security: authSecurity,
       },
     },
@@ -357,6 +410,8 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (request.query.includeRelated) {
+        // `limit` applies only to the non-related array response shape.
+        // The related-history branch always returns one latest entry per exercise.
         const historyWithRelated = await findExerciseHistoryWithRelated({
           exerciseId: request.params.id,
           relatedExerciseIds: exercise.relatedExerciseIds,
@@ -368,11 +423,11 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      const lastPerformance =
-        (await findExerciseLastPerformance({
-          exerciseId: request.params.id,
-          userId: request.userId,
-        })) ?? null;
+      const lastPerformance = await findExerciseLastPerformance({
+        exerciseId: request.params.id,
+        limit: request.query.limit,
+        userId: request.userId,
+      });
 
       return reply.send({
         data: lastPerformance,
@@ -432,6 +487,7 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
           401: apiErrorResponseSchema,
           403: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
         },
         tags: ['exercises'],
         summary: 'Delete an exercise',
@@ -448,7 +504,35 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         return reply;
       }
 
-      const deleted = await deleteOwnedExercise(request.params.id, request.userId);
+      const inUse = await isExerciseInUse({
+        exerciseId: request.params.id,
+        userId: request.userId,
+      });
+      if (inUse) {
+        return sendError(
+          reply,
+          409,
+          EXERCISE_IN_USE_RESPONSE.code,
+          EXERCISE_IN_USE_RESPONSE.message,
+        );
+      }
+
+      let deleted: boolean;
+      try {
+        deleted = await deleteOwnedExercise(request.params.id, request.userId);
+      } catch (error) {
+        if (isSqliteForeignKeyConstraintError(error)) {
+          return sendError(
+            reply,
+            409,
+            EXERCISE_IN_USE_RESPONSE.code,
+            EXERCISE_IN_USE_RESPONSE.message,
+          );
+        }
+
+        throw error;
+      }
+
       if (!deleted) {
         return sendError(
           reply,

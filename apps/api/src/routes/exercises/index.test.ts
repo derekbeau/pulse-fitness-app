@@ -217,7 +217,7 @@ describe('exercise routes', () => {
     seedUser('user-2', 'alex');
   });
 
-  it('requires auth for create, list, history, last-performance, update, and delete', async () => {
+  it('requires auth for create, list, read, history, last-performance, update, and delete', async () => {
     const responses = await Promise.all([
       context.app.inject({
         method: 'POST',
@@ -232,6 +232,10 @@ describe('exercise routes', () => {
       context.app.inject({
         method: 'GET',
         url: '/api/v1/exercises',
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/exercise-1',
       }),
       context.app.inject({
         method: 'GET',
@@ -263,7 +267,70 @@ describe('exercise routes', () => {
     }
   });
 
-  it('returns most recent completed last performance for a visible exercise', async () => {
+  it('returns a visible exercise by id', async () => {
+    seedExercise({
+      id: 'global-bench',
+      userId: null,
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+      tags: ['strength'],
+      formCues: ['Brace and drive'],
+      instructions: 'Lower to sternum, press to lockout.',
+      coachingNotes: 'Keep elbows 45 degrees.',
+      relatedExerciseIds: [],
+    });
+    seedExercise({
+      id: 'private-exercise',
+      userId: 'user-2',
+      name: 'Private Exercise',
+      muscleGroups: ['back'],
+      equipment: 'cable',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-bench',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('private, no-cache');
+    expect(response.json()).toMatchObject({
+      data: {
+        id: 'global-bench',
+        userId: null,
+        name: 'Bench Press',
+        muscleGroups: ['chest'],
+        equipment: 'barbell',
+        category: 'compound',
+        trackingType: 'weight_reps',
+      },
+    });
+
+    const notFoundResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/private-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(notFoundResponse.statusCode).toBe(404);
+    expect(notFoundResponse.json()).toEqual({
+      error: {
+        code: 'EXERCISE_NOT_FOUND',
+        message: 'Exercise not found',
+      },
+    });
+  });
+
+  it('returns up to 3 most recent completed performances for a visible exercise by default', async () => {
     seedExercise({
       id: 'global-bench',
       userId: null,
@@ -290,6 +357,15 @@ describe('exercise routes', () => {
     });
 
     seedWorkoutSession({
+      id: 'session-oldest',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-02-20',
+      status: 'completed',
+      startedAt: 1_699_000_000_000,
+      completedAt: 1_699_000_003_000,
+    });
+    seedWorkoutSession({
       id: 'session-old',
       userId: 'user-1',
       name: 'Upper Push',
@@ -306,6 +382,15 @@ describe('exercise routes', () => {
       status: 'completed',
       startedAt: 1_700_000_010_000,
       completedAt: 1_700_000_015_000,
+    });
+    seedWorkoutSession({
+      id: 'session-newest',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_030_000,
+      completedAt: 1_700_000_035_000,
     });
     seedWorkoutSession({
       id: 'session-in-progress',
@@ -325,6 +410,14 @@ describe('exercise routes', () => {
       completedAt: 1_700_000_025_000,
     });
 
+    seedSessionSet({
+      id: 'set-oldest-1',
+      sessionId: 'session-oldest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 95,
+      reps: 10,
+    });
     seedSessionSet({
       id: 'set-old-1',
       sessionId: 'session-old',
@@ -358,6 +451,14 @@ describe('exercise routes', () => {
       reps: 8,
     });
     seedSessionSet({
+      id: 'set-newest-1',
+      sessionId: 'session-newest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 110,
+      reps: 6,
+    });
+    seedSessionSet({
       id: 'set-in-progress',
       sessionId: 'session-in-progress',
       exerciseId: 'global-bench',
@@ -387,22 +488,51 @@ describe('exercise routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      data: {
-        sessionId: 'session-latest',
-        date: '2026-03-08',
-        sets: [
-          {
-            setNumber: 1,
-            weight: 105,
-            reps: 9,
-          },
-          {
-            setNumber: 2,
-            weight: 100,
-            reps: 8,
-          },
-        ],
-      },
+      data: [
+        {
+          sessionId: 'session-newest',
+          date: '2026-03-10',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 110,
+              reps: 6,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-latest',
+          date: '2026-03-08',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 105,
+              reps: 9,
+            },
+            {
+              setNumber: 2,
+              weight: 100,
+              reps: 8,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-old',
+          date: '2026-03-01',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 100,
+              reps: 8,
+            },
+            {
+              setNumber: 2,
+              weight: 100,
+              reps: 7,
+            },
+          ],
+        },
+      ],
     });
 
     const noDataResponse = await context.app.inject({
@@ -413,7 +543,7 @@ describe('exercise routes', () => {
 
     expect(noDataResponse.statusCode).toBe(200);
     expect(noDataResponse.json()).toEqual({
-      data: null,
+      data: [],
     });
 
     const privateExerciseResponse = await context.app.inject({
@@ -431,7 +561,7 @@ describe('exercise routes', () => {
     });
   });
 
-  it('returns the newest same-day completed performance for history lookups', async () => {
+  it('returns up to requested limit of completed performances in descending order', async () => {
     seedExercise({
       id: 'global-squat',
       userId: null,
@@ -459,6 +589,15 @@ describe('exercise routes', () => {
       startedAt: Date.parse('2026-03-12T17:00:00.000Z'),
       completedAt: Date.parse('2026-03-12T17:42:00.000Z'),
     });
+    seedWorkoutSession({
+      id: 'session-older',
+      userId: 'user-1',
+      name: 'Lower Body Previous',
+      date: '2026-03-09',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-09T08:00:00.000Z'),
+      completedAt: Date.parse('2026-03-09T08:44:00.000Z'),
+    });
 
     seedSessionSet({
       id: 'set-early',
@@ -476,6 +615,14 @@ describe('exercise routes', () => {
       weight: 235,
       reps: 4,
     });
+    seedSessionSet({
+      id: 'set-older',
+      sessionId: 'session-older',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 215,
+      reps: 6,
+    });
 
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -484,23 +631,47 @@ describe('exercise routes', () => {
 
     const response = await context.app.inject({
       method: 'GET',
-      url: '/api/v1/exercises/global-squat/last-performance',
+      url: '/api/v1/exercises/global-squat/last-performance?limit=3',
       headers: createAuthorizationHeader(authToken),
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      data: {
-        sessionId: 'session-late',
-        date: '2026-03-12',
-        sets: [
-          {
-            setNumber: 1,
-            weight: 235,
-            reps: 4,
-          },
-        ],
-      },
+      data: [
+        {
+          sessionId: 'session-late',
+          date: '2026-03-12',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 235,
+              reps: 4,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-early',
+          date: '2026-03-12',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 225,
+              reps: 5,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-older',
+          date: '2026-03-09',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 215,
+              reps: 6,
+            },
+          ],
+        },
+      ],
     });
   });
 
@@ -1534,7 +1705,9 @@ describe('exercise routes', () => {
       }>;
     };
 
-    const metadataExercise = listPayload.data.find((exercise) => exercise.id === 'metadata-exercise');
+    const metadataExercise = listPayload.data.find(
+      (exercise) => exercise.id === 'metadata-exercise',
+    );
     expect(metadataExercise).toBeDefined();
     if (!metadataExercise) {
       throw new Error('Expected metadata-exercise to be returned from exercise list');
@@ -1835,6 +2008,195 @@ describe('exercise routes', () => {
         code: 'GLOBAL_EXERCISE_READ_ONLY',
         message: 'Global exercises cannot be modified',
       },
+    });
+  });
+
+  it('deletes an unreferenced user exercise with 200', async () => {
+    seedExercise({
+      id: 'unreferenced-exercise',
+      userId: 'user-1',
+      name: 'Landmine Press',
+      muscleGroups: ['shoulders', 'upper chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/unreferenced-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        success: true,
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'unreferenced-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: expect.any(String),
+    });
+  });
+
+  it('ignores references from deleted templates and sessions when deleting an exercise', async () => {
+    seedExercise({
+      id: 'soft-deleted-reference-exercise',
+      userId: 'user-1',
+      name: 'Paused Lunge',
+      muscleGroups: ['quads', 'glutes'],
+      equipment: 'bodyweight',
+      category: 'isolation',
+    });
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'deleted-template-reference',
+        userId: 'user-1',
+        name: 'Archived Lower Body',
+        description: null,
+        tags: [],
+      })
+      .run();
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'deleted-template-reference-exercise',
+        templateId: 'deleted-template-reference',
+        exerciseId: 'soft-deleted-reference-exercise',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(workoutTemplates.id, 'deleted-template-reference'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'deleted-session-reference',
+      userId: 'user-1',
+      name: 'Archived Session',
+      date: '2026-03-01',
+      startedAt: Date.parse('2026-03-01T08:00:00.000Z'),
+      status: 'completed',
+      completedAt: Date.parse('2026-03-01T08:30:00.000Z'),
+    });
+    seedSessionSet({
+      id: 'deleted-session-reference-set',
+      sessionId: 'deleted-session-reference',
+      exerciseId: 'soft-deleted-reference-exercise',
+      setNumber: 1,
+      reps: 12,
+    });
+    context.db
+      .update(workoutSessions)
+      .set({ deletedAt: '2026-03-02T00:00:00.000Z' })
+      .where(eq(workoutSessions.id, 'deleted-session-reference'))
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/soft-deleted-reference-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        success: true,
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'soft-deleted-reference-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: expect.any(String),
+    });
+  });
+
+  it('returns 409 when deleting an exercise referenced by a workout template', async () => {
+    seedExercise({
+      id: 'referenced-exercise',
+      userId: 'user-1',
+      name: 'Bulgarian Split Squat',
+      muscleGroups: ['quads', 'glutes'],
+      equipment: 'dumbbell',
+      category: 'compound',
+    });
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'template-1',
+        userId: 'user-1',
+        name: 'Lower Body',
+        description: null,
+        tags: [],
+      })
+      .run();
+
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'template-exercise-1',
+        templateId: 'template-1',
+        exerciseId: 'referenced-exercise',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/referenced-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'EXERCISE_IN_USE',
+        message:
+          'This exercise is referenced by active workout templates or sessions and cannot be deleted.',
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'referenced-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: null,
     });
   });
 

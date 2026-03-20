@@ -60,6 +60,7 @@ export type ActiveWorkoutRelatedLastPerformance = {
 
 export type ActiveWorkoutExerciseHistorySummary = {
   history: ActiveWorkoutLastPerformance | null;
+  historyEntries: ActiveWorkoutLastPerformance[];
   related: ActiveWorkoutRelatedLastPerformance[];
 };
 

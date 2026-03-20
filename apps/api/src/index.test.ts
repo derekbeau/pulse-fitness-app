@@ -138,7 +138,7 @@ describe('OpenAPI docs', () => {
       );
 
       expect(body.paths?.['/api/v1/exercises/{id}/last-performance']?.get).toMatchObject({
-        summary: 'Get the latest completed performance for an exercise',
+        summary: 'Get recent completed performances for an exercise',
         tags: ['exercises'],
         security: [{ bearerAuth: [] }, { agentToken: [] }],
       });
@@ -146,6 +146,7 @@ describe('OpenAPI docs', () => {
         expect.arrayContaining([
           expect.objectContaining({ name: 'id', in: 'path' }),
           expect.objectContaining({ name: 'includeRelated', in: 'query' }),
+          expect.objectContaining({ name: 'limit', in: 'query' }),
         ]),
       );
 
@@ -211,7 +212,10 @@ describe('OpenAPI docs', () => {
       expect(response.statusCode).toBe(200);
 
       const body = response.json() as {
-        paths: Record<string, Partial<Record<(typeof HTTP_METHODS)[number], Record<string, unknown>>>>;
+        paths: Record<
+          string,
+          Partial<Record<(typeof HTTP_METHODS)[number], Record<string, unknown>>>
+        >;
       };
 
       const operationsWithRequestBody = Object.entries(body.paths).flatMap(([routePath, methods]) =>
@@ -288,7 +292,10 @@ describe('OpenAPI docs', () => {
       expect(response.statusCode).toBe(200);
 
       const body = response.json() as {
-        paths: Record<string, Partial<Record<(typeof HTTP_METHODS)[number], Record<string, unknown>>>>;
+        paths: Record<
+          string,
+          Partial<Record<(typeof HTTP_METHODS)[number], Record<string, unknown>>>
+        >;
       };
 
       const versionedOperations = Object.entries(body.paths)
@@ -311,7 +318,10 @@ describe('OpenAPI docs', () => {
           continue;
         }
 
-        if (routePath.startsWith('/api/v1/users/') || routePath.startsWith('/api/v1/agent-tokens/')) {
+        if (
+          routePath.startsWith('/api/v1/users/') ||
+          routePath.startsWith('/api/v1/agent-tokens/')
+        ) {
           expect(operation.security).toEqual([{ bearerAuth: [] }]);
           continue;
         }
@@ -375,8 +385,12 @@ describe('OpenAPI docs', () => {
       readFile(PULSE_APP_USAGE_SKILL, 'utf8'),
     ]);
 
-    expect(agentsDoc).toContain('API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`');
-    expect(agentsDoc).toContain('Request and response schemas are auto-generated from Zod schemas into the OpenAPI spec');
+    expect(agentsDoc).toContain(
+      'API documentation: OpenAPI spec at `GET /api/docs/json`, Swagger UI at `/api/docs`',
+    );
+    expect(agentsDoc).toContain(
+      'Request and response schemas are auto-generated from Zod schemas into the OpenAPI spec',
+    );
     expect(agentsDoc).toContain(
       'OpenAPI-generated clients using the `agentToken` security scheme must still send the full header value as `Authorization: AgentToken <token>`; the prefix is not implied automatically.',
     );
@@ -384,7 +398,9 @@ describe('OpenAPI docs', () => {
     expect(readme).toContain(
       'API documentation available at `/api/docs` (Swagger UI) and `/api/docs/json` (OpenAPI 3.1 spec).',
     );
-    expect(readme).toContain('Response schemas are Zod-validated and documented in the OpenAPI spec.');
+    expect(readme).toContain(
+      'Response schemas are Zod-validated and documented in the OpenAPI spec.',
+    );
     expect(readme).toContain(
       'OpenAPI-generated clients using the `agentToken` security scheme must still prefix the header value manually as `AgentToken <token>`.',
     );

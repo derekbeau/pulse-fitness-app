@@ -9,6 +9,8 @@ import { jsonResponse } from '@/test/test-utils';
 
 import { ExerciseLibrary } from './exercise-library';
 
+const EXERCISE_LIBRARY_VIEW_STORAGE_KEY = 'exercise-library-view';
+
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -50,7 +52,7 @@ vi.mock('recharts', async () => {
   };
 });
 
-const exerciseFixtures = [
+const baseExerciseFixtures = [
   {
     id: 'air-bike',
     userId: null,
@@ -58,6 +60,7 @@ const exerciseFixtures = [
     muscleGroups: ['conditioning'],
     equipment: 'bike',
     category: 'cardio',
+    trackingType: 'cardio',
     tags: ['conditioning', 'intervals'],
     instructions: null,
     createdAt: 1,
@@ -70,6 +73,7 @@ const exerciseFixtures = [
     muscleGroups: ['rear delts', 'rotator cuff'],
     equipment: 'resistance band',
     category: 'mobility',
+    trackingType: 'weight_reps',
     tags: ['prehab'],
     instructions: 'Keep your elbow pinned and move slowly.',
     createdAt: 1,
@@ -82,6 +86,7 @@ const exerciseFixtures = [
     muscleGroups: ['chest', 'triceps'],
     equipment: 'barbell',
     category: 'compound',
+    trackingType: 'weight_reps',
     tags: ['pressing'],
     instructions: null,
     createdAt: 1,
@@ -94,6 +99,7 @@ const exerciseFixtures = [
     muscleGroups: ['lats', 'upper back'],
     equipment: 'machine',
     category: 'compound',
+    trackingType: 'weight_reps',
     tags: ['back'],
     instructions: null,
     createdAt: 1,
@@ -106,6 +112,7 @@ const exerciseFixtures = [
     muscleGroups: ['hip flexors', 'quads'],
     equipment: 'bodyweight',
     category: 'mobility',
+    trackingType: 'weight_reps',
     tags: ['recovery'],
     instructions: null,
     createdAt: 1,
@@ -118,6 +125,7 @@ const exerciseFixtures = [
     muscleGroups: ['quads', 'glutes'],
     equipment: 'dumbbell',
     category: 'compound',
+    trackingType: 'weight_reps',
     tags: ['legs'],
     instructions: null,
     createdAt: 1,
@@ -130,6 +138,7 @@ const exerciseFixtures = [
     muscleGroups: ['upper chest', 'front delts', 'triceps'],
     equipment: 'dumbbells',
     category: 'compound',
+    trackingType: 'weight_reps',
     tags: ['upper body', 'push'],
     instructions: 'Drive feet into the floor and keep wrists stacked.',
     createdAt: 1,
@@ -142,6 +151,7 @@ const exerciseFixtures = [
     muscleGroups: ['lats', 'upper back'],
     equipment: 'cable machine',
     category: 'compound',
+    trackingType: 'weight_reps',
     tags: ['pull'],
     instructions: null,
     createdAt: 1,
@@ -154,6 +164,7 @@ const exerciseFixtures = [
     muscleGroups: ['quads'],
     equipment: 'machine',
     category: 'isolation',
+    trackingType: 'weight_reps',
     tags: ['accessory'],
     instructions: null,
     createdAt: 1,
@@ -166,12 +177,29 @@ const exerciseFixtures = [
     muscleGroups: ['conditioning', 'upper back'],
     equipment: 'rower',
     category: 'cardio',
+    trackingType: 'cardio',
     tags: ['conditioning'],
     instructions: null,
     createdAt: 1,
     updatedAt: 1,
   },
 ];
+
+const generatedExerciseFixtures = Array.from({ length: 20 }, (_, index) => ({
+  id: `zz-generated-${index + 1}`,
+  userId: null,
+  name: `ZZ Generated Exercise ${String(index + 1).padStart(2, '0')}`,
+  muscleGroups: ['full body'],
+  equipment: 'machine',
+  category: 'compound',
+  trackingType: 'weight_reps',
+  tags: [],
+  instructions: null,
+  createdAt: 1,
+  updatedAt: 1,
+}));
+
+const exerciseFixtures = [...baseExerciseFixtures, ...generatedExerciseFixtures];
 
 beforeEach(() => {
   window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
@@ -180,6 +208,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY);
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
@@ -202,7 +231,9 @@ describe('ExerciseLibrary', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'Chest Supported Row' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+    });
   });
 
   it('filters exercises by muscle group, equipment, and category together', async () => {
@@ -252,7 +283,9 @@ describe('ExerciseLibrary', () => {
 
     renderExerciseLibrary();
 
-    expect(await screen.findByText('10 exercises shown')).toBeInTheDocument();
+    expect(
+      await screen.findByText(`${exerciseFixtures.length} exercises shown`),
+    ).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -262,8 +295,115 @@ describe('ExerciseLibrary', () => {
     });
 
     expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Row Erg' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'ZZ Generated Exercise 20' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+  });
+
+  it('toggles between card and table layouts', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Air Bike' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: 'Exercise library table view' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+
+    expect(
+      await screen.findByRole('table', { name: 'Exercise library table view' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Tracking Type' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Card view' }));
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Air Bike' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: 'Exercise library table view' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders a table skeleton while loading when table view is selected', async () => {
+    window.localStorage.setItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'table');
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/filters') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              equipment: [],
+              muscleGroups: [],
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises') {
+        return new Promise(() => {
+          // Keep the request pending to assert loading state.
+        });
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderExerciseLibrary();
+
+    expect(await screen.findByLabelText('Loading exercises table view')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Tracking Type' })).toBeInTheDocument();
+  });
+
+  it('opens the trend dialog from the exercise name button in table view', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Exercise library table view' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Air Bike' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
+  });
+
+  it('does not write the initial view preference to localStorage on mount', async () => {
+    mockExerciseRequests();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    renderExerciseLibrary();
+    await screen.findByRole('heading', { level: 3, name: 'Air Bike' });
+
+    expect(setItemSpy).not.toHaveBeenCalledWith(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'card');
+    expect(setItemSpy).not.toHaveBeenCalledWith(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'table');
+  });
+
+  it('persists the selected view in localStorage', async () => {
+    mockExerciseRequests();
+
+    const firstRender = renderExerciseLibrary();
+    await screen.findByRole('heading', { level: 3, name: 'Air Bike' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+
+    expect(
+      await screen.findByRole('table', { name: 'Exercise library table view' }),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY)).toBe('table');
+
+    firstRender.unmount();
+
+    renderExerciseLibrary();
+
+    expect(
+      await screen.findByRole('table', { name: 'Exercise library table view' }),
+    ).toBeInTheDocument();
   });
 
   it('renders exercise tags as muted chips in the library cards', async () => {
@@ -271,10 +411,12 @@ describe('ExerciseLibrary', () => {
 
     renderExerciseLibrary();
 
-    const pressCard = (await screen.findByRole('heading', {
-      level: 3,
-      name: 'Incline Dumbbell Press',
-    })).closest('[data-slot="card"]');
+    const pressCard = (
+      await screen.findByRole('heading', {
+        level: 3,
+        name: 'Incline Dumbbell Press',
+      })
+    ).closest('[data-slot="card"]');
 
     expect(pressCard).not.toBeNull();
     expect(within(pressCard as HTMLElement).getByText('Upper Body')).toBeInTheDocument();
@@ -298,13 +440,15 @@ describe('ExerciseLibrary', () => {
 
     renderExerciseLibrary();
 
-    const airBikeCard = (await screen.findByRole('heading', { level: 3, name: 'Air Bike' })).closest(
-      '[data-slot="card"]',
-    );
+    const airBikeCard = (
+      await screen.findByRole('heading', { level: 3, name: 'Air Bike' })
+    ).closest('[data-slot="card"]');
     expect(airBikeCard).not.toBeNull();
 
     fireEvent.click(
-      within(airBikeCard as HTMLElement).getByRole('button', { name: 'Exercise actions for Air Bike' }),
+      within(airBikeCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Air Bike',
+      }),
     );
     fireEvent.click(within(airBikeCard as HTMLElement).getByRole('button', { name: 'Rename' }));
 
@@ -315,7 +459,9 @@ describe('ExerciseLibrary', () => {
     fireEvent.change(input, { target: { value: 'Assault Bike' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
 
-    expect(await screen.findByRole('heading', { level: 3, name: 'Assault Bike' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 3, name: 'Assault Bike' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
   });
 
@@ -486,7 +632,7 @@ function mockExerciseRequests() {
     const equipment = url.searchParams.get('equipment')?.toLowerCase();
     const category = url.searchParams.get('category');
     const page = Number(url.searchParams.get('page') ?? '1');
-    const limit = Number(url.searchParams.get('limit') ?? '20');
+    const limit = Number(url.searchParams.get('limit') ?? '25');
 
     const filteredExercises = [...mockExercises]
       .filter((exercise) => (q ? exercise.name.toLowerCase().includes(q) : true))

@@ -163,7 +163,62 @@ export function formatSetSummary(
   }
 }
 
+export function formatCompactSets(
+  sets: SetMetrics[],
+  trackingType: ExerciseTrackingType,
+  {
+    useLegacySecondsFallback = true,
+    weightUnit = 'lbs',
+  }: {
+    useLegacySecondsFallback?: boolean;
+    weightUnit?: WeightUnit;
+  } = {},
+) {
+  if (sets.length === 0) {
+    return '-';
+  }
+
+  return sets
+    .map((set) => formatCompactHistorySet(set, trackingType, useLegacySecondsFallback, weightUnit))
+    .join(', ');
+}
+
 function formatSetCompact(
+  set: SetMetrics,
+  trackingType: ExerciseTrackingType,
+  useLegacySecondsFallback: boolean,
+  weightUnit: WeightUnit,
+) {
+  const w = set.weight != null ? formatWeightNumber(set.weight) : null;
+  const r = set.reps != null ? formatMetricNumber(set.reps) : null;
+  const seconds = getSetSecondsValue(set, useLegacySecondsFallback);
+  const s = seconds != null ? `${formatMetricNumber(seconds)}s` : null;
+  const distance = getSetDistance(set) ?? (trackingType === 'distance' ? set.reps : null);
+  const d =
+    distance != null ? `${formatMetricNumber(distance)}${getDistanceUnit(weightUnit)}` : null;
+
+  switch (trackingType) {
+    case 'weight_reps':
+      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+    case 'weight_seconds':
+      return w != null && s != null ? `${w}x${s}` : (w ?? s ?? '-');
+    case 'bodyweight_reps':
+    case 'reps_only':
+      return r ?? '-';
+    case 'reps_seconds':
+      return r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
+    case 'seconds_only':
+      return s ?? '-';
+    case 'distance':
+      return d ?? '-';
+    case 'cardio':
+      return s != null && d != null ? `${s}/${d}` : (s ?? d ?? '-');
+    default:
+      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+  }
+}
+
+function formatCompactHistorySet(
   set: SetMetrics,
   trackingType: ExerciseTrackingType,
   useLegacySecondsFallback: boolean,

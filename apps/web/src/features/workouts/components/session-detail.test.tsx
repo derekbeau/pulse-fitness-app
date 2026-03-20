@@ -444,7 +444,7 @@ describe('SessionDetail', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press history')).toBeInTheDocument();
-    expect(await screen.findByText(/Mar 1, 2026 - 105x8/)).toBeInTheDocument();
+    expect(await screen.findByText(/Mar 1, 2026 · 105x8/)).toBeInTheDocument();
   });
 
   it('supports inline correction editing and only submits changed values', async () => {

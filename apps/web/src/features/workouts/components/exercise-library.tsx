@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { MoreVertical } from 'lucide-react';
+import { LayoutGrid, List, MoreVertical } from 'lucide-react';
 import type { Exercise, ExerciseTrackingType } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -47,7 +47,10 @@ const categoryBadgeStyles = {
 } as const;
 
 const categoryOptions = ['compound', 'isolation', 'cardio', 'mobility'] as const;
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 25;
+const EXERCISE_LIBRARY_VIEW_STORAGE_KEY = 'exercise-library-view';
+
+type ExerciseLibraryView = 'card' | 'table';
 
 type ExerciseLibraryProps = {
   className?: string;
@@ -59,6 +62,8 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<Exercise | null>(null);
+  const [view, setView] = useState<ExerciseLibraryView>(() => loadExerciseLibraryViewPreference());
+  const initialViewRef = useRef(view);
 
   const currentQuery = searchParams.get('q') ?? '';
   const muscleGroup = searchParams.get('muscleGroup') ?? 'all';
@@ -90,6 +95,14 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
 
     return () => window.clearTimeout(timeoutId);
   }, [currentQuery, searchTerm, setSearchParams]);
+
+  useEffect(() => {
+    if (view === initialViewRef.current) {
+      return;
+    }
+
+    window.localStorage.setItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, view);
+  }, [view]);
 
   const exercisesQuery = useExercises({
     category: parseCategory(category),
@@ -126,7 +139,10 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       return [];
     }
 
-    return toExerciseTrendHistory(selectedExerciseHistoryQuery.data ?? [], selectedExercise.trackingType);
+    return toExerciseTrendHistory(
+      selectedExerciseHistoryQuery.data ?? [],
+      selectedExercise.trackingType,
+    );
   }, [selectedExercise, selectedExerciseHistoryQuery.data]);
 
   return (
@@ -140,7 +156,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       </div>
 
       <Card className="gap-4 py-0">
-        <CardContent className="grid gap-4 py-5 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-4 py-5 md:grid-cols-2 xl:grid-cols-5">
           <FilterField label="Search by name">
             <Input
               aria-label="Search exercises"
@@ -209,6 +225,37 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
               ))}
             </select>
           </FilterField>
+
+          <FilterField label="View">
+            <div
+              aria-label="Exercise library view"
+              className="inline-flex min-h-[44px] w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
+              role="group"
+            >
+              <Button
+                aria-label="Card view"
+                aria-pressed={view === 'card'}
+                className="h-8 w-8 rounded-full p-0"
+                onClick={() => setView('card')}
+                size="sm"
+                type="button"
+                variant={view === 'card' ? 'default' : 'ghost'}
+              >
+                <LayoutGrid aria-hidden="true" className="size-4" />
+              </Button>
+              <Button
+                aria-label="Table view"
+                aria-pressed={view === 'table'}
+                className="h-8 w-8 rounded-full p-0"
+                onClick={() => setView('table')}
+                size="sm"
+                type="button"
+                variant={view === 'table' ? 'default' : 'ghost'}
+              >
+                <List aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
+          </FilterField>
         </CardContent>
       </Card>
 
@@ -247,7 +294,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
       </div>
 
       {exercisesQuery.isPending ? (
-        <ExerciseLibrarySkeleton />
+        <ExerciseLibrarySkeleton view={view} />
       ) : filteredExercises.length === 0 ? (
         <Card>
           <CardContent className="py-6">
@@ -256,6 +303,8 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
             </p>
           </CardContent>
         </Card>
+      ) : view === 'table' ? (
+        <ExerciseTable exercises={filteredExercises} onSelectTrend={setSelectedExerciseId} />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredExercises.map((exercise) => (
@@ -424,7 +473,98 @@ function ExerciseCard({
   );
 }
 
-function ExerciseLibrarySkeleton() {
+function ExerciseTable({
+  exercises,
+  onSelectTrend,
+}: {
+  exercises: Exercise[];
+  onSelectTrend: (exerciseId: string) => void;
+}) {
+  return (
+    <Card className="gap-0 py-0">
+      <div className="overflow-x-auto">
+        <table aria-label="Exercise library table view" className="min-w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border text-muted">
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Category</th>
+              <th className="px-4 py-3 font-medium">Muscle Group</th>
+              <th className="px-4 py-3 font-medium">Equipment</th>
+              <th className="px-4 py-3 font-medium">Tracking Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {exercises.map((exercise) => (
+              <tr
+                className="border-b border-border/70 transition-colors hover:bg-secondary/35 focus-within:bg-secondary/35"
+                key={exercise.id}
+              >
+                <td className="px-4 py-3 font-medium text-foreground">
+                  <button
+                    className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onSelectTrend(exercise.id)}
+                    type="button"
+                  >
+                    {exercise.name}
+                  </button>
+                </td>
+                <td className="px-4 py-3 text-muted">{formatLabel(exercise.category)}</td>
+                <td className="px-4 py-3 text-muted">
+                  {exercise.muscleGroups.map((group) => formatLabel(group)).join(', ')}
+                </td>
+                <td className="px-4 py-3 text-muted">{formatLabel(exercise.equipment)}</td>
+                <td className="px-4 py-3 text-muted">{formatLabel(exercise.trackingType)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function ExerciseLibrarySkeleton({ view }: { view: ExerciseLibraryView }) {
+  if (view === 'table') {
+    return (
+      <Card aria-label="Loading exercises table view" className="gap-0 py-0">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted">
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Category</th>
+                <th className="px-4 py-3 font-medium">Muscle Group</th>
+                <th className="px-4 py-3 font-medium">Equipment</th>
+                <th className="px-4 py-3 font-medium">Tracking Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <tr className="border-b border-border/70" key={index}>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-40 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-32 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-28 animate-pulse rounded-full bg-secondary" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <div aria-label="Loading exercises" className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 4 }).map((_, index) => (
@@ -496,9 +636,19 @@ function parsePage(value: string | null) {
   return Number.isNaN(page) || page < 1 ? 1 : page;
 }
 
+function loadExerciseLibraryViewPreference(): ExerciseLibraryView {
+  const storedValue = window.localStorage.getItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY);
+
+  if (storedValue === 'table') {
+    return 'table';
+  }
+
+  return 'card';
+}
+
 function formatLabel(value: string) {
   return value
-    .split(/[- ]+/)
+    .split(/[-_ ]+/)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');

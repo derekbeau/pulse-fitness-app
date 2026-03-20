@@ -81,7 +81,7 @@ import {
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
-import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
+import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseHistoryModal } from './exercise-history-modal';
@@ -826,6 +826,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
               },
             })
           }
+          weightUnit={weightUnit}
         />
       ) : null}
       {historyTarget ? (
@@ -1336,15 +1337,16 @@ function ExerciseDetailModal({
   isPending,
   onOpenChange,
   onSaveCoachingNotes,
+  weightUnit,
 }: {
   exercise: WorkoutTemplateExercise;
   isPending: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
+  weightUnit: WeightUnit;
 }) {
-  const { weightUnit } = useWeightUnit();
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
-  const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
+  const [coachingNotesDraft, setCoachingNotesDraft] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const exerciseQuery = useExercise(exercise.exerciseId, { enabled: true });
@@ -1354,6 +1356,8 @@ function ExerciseDetailModal({
   });
 
   const matchedExercise = exerciseQuery.data ?? null;
+  const coachingNotes =
+    coachingNotesDraft ?? matchedExercise?.coachingNotes ?? exercise.exercise?.coachingNotes ?? '';
 
   const formCues =
     matchedExercise?.formCues ?? exercise.exercise?.formCues ?? exercise.formCues ?? [];
@@ -1431,7 +1435,7 @@ function ExerciseDetailModal({
               </p>
               <Textarea
                 aria-label="Coaching notes"
-                onChange={(event) => setCoachingNotes(event.currentTarget.value)}
+                onChange={(event) => setCoachingNotesDraft(event.currentTarget.value)}
                 rows={4}
                 value={coachingNotes}
               />
@@ -1466,11 +1470,13 @@ function ExerciseDetailModal({
               <p className="text-sm text-muted">Loading recent performance...</p>
             ) : (
               <p className="text-sm text-foreground">
-                {formatLastPerformanceSummary(
-                  historyQuery.data?.history ?? null,
-                  trackingType,
-                  weightUnit,
-                )}
+                {historyQuery.data?.history
+                  ? formatLastPerformanceSummary(
+                      historyQuery.data.history,
+                      trackingType,
+                      weightUnit,
+                    )
+                  : 'No history available.'}
               </p>
             )}
           </div>
@@ -1808,22 +1814,20 @@ function formatLastPerformanceSummary(
     return 'No history yet.';
   }
 
-  const setSummary = history.sets
-    .map((set) =>
-      formatSetSummary(
-        trackingType === 'distance'
-          ? { distance: set.reps, weight: set.weight }
-          : { reps: set.reps, weight: set.weight },
-        trackingType,
-        {
-          useLegacySecondsFallback: trackingType !== 'reps_seconds',
-          weightUnit,
-        },
-      ),
-    )
-    .join(', ');
+  const setSummary = formatCompactSets(
+    history.sets.map((set) =>
+      trackingType === 'distance'
+        ? { distance: set.reps, weight: set.weight }
+        : { reps: set.reps, weight: set.weight },
+    ),
+    trackingType,
+    {
+      useLegacySecondsFallback: trackingType !== 'reps_seconds',
+      weightUnit,
+    },
+  );
 
-  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
+  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`;
 }
 
 function formatLabel(value: string) {
