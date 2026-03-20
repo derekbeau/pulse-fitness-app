@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, CalendarClock, Dumbbell, History, TriangleAlert } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { CalendarClock, Dumbbell, History, TriangleAlert } from 'lucide-react';
 import type { WorkoutTemplate, WorkoutTemplateExercise, WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -140,27 +140,21 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <BackLink />
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-muted">Loading scheduled workout…</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted">Loading scheduled workout…</p>
+        </CardContent>
+      </Card>
     );
   }
 
   if (isError || !scheduledWorkout) {
     return (
-      <div className="space-y-4">
-        <BackLink />
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-muted">Scheduled workout not found.</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted">Scheduled workout not found.</p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -168,8 +162,6 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
 
   return (
     <div className="space-y-4">
-      <BackLink />
-
       <Card>
         <CardHeader className="gap-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -272,18 +264,6 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
   );
 }
 
-function BackLink() {
-  return (
-    <Link
-      className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
-      to="/workouts"
-    >
-      <ArrowLeft aria-hidden="true" className="size-4" />
-      Back to workouts
-    </Link>
-  );
-}
-
 function TemplateSections({
   onOpenHistory,
   template,
@@ -332,7 +312,9 @@ function TemplateSections({
                   <p className="truncate text-sm font-medium text-foreground">
                     {exercise.exerciseName}
                   </p>
-                  <p className="text-xs text-muted">{formatExerciseSummary(exercise, weightUnit)}</p>
+                  <p className="text-xs text-muted">
+                    {formatExerciseSummary(exercise, weightUnit)}
+                  </p>
                 </div>
                 {exercise.supersetGroup ? (
                   <Badge className="shrink-0" variant="secondary">

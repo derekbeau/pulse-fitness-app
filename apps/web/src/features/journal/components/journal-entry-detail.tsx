@@ -1,8 +1,7 @@
-import { ArrowLeft, Sparkles } from 'lucide-react';
-import { Link } from 'react-router';
+import { Sparkles } from 'lucide-react';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -25,12 +24,7 @@ export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
 
   return (
     <section className="space-y-6">
-      <Button asChild className="gap-2" size="sm" variant="ghost">
-        <Link to="/journal">
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Back to Journal
-        </Link>
-      </Button>
+      <PageHeader description={formatJournalEntryDate(entry.date)} showBack title="Journal entry" />
 
       <Card className="gap-4 overflow-hidden border-transparent bg-card/80 py-0">
         <div className="space-y-4 bg-[var(--color-accent-cream)] px-6 py-6 text-on-cream dark:border-b dark:border-border dark:bg-card dark:text-foreground">

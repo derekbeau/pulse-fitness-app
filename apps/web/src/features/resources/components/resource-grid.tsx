@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,33 +47,16 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10">
-      <header className="space-y-4">
-        <Button
-          asChild
-          className="w-fit gap-2 px-0 text-muted-foreground hover:text-foreground"
-          size="sm"
-          variant="ghost"
-        >
-          <Link to="/profile">
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            Back to Profile
-          </Link>
-        </Button>
-
-        <div className="space-y-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1">
-              <h1 className="text-3xl font-semibold text-primary">Resources</h1>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                Browse saved programs, books, and creators with quick tag search and type filters.
-              </p>
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">
-              {`${filteredResources.length} resource${filteredResources.length === 1 ? '' : 's'}`}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        actions={
+          <p className="text-sm font-medium text-muted-foreground">
+            {`${filteredResources.length} resource${filteredResources.length === 1 ? '' : 's'}`}
+          </p>
+        }
+        description="Browse saved programs, books, and creators with quick tag search and type filters."
+        showBack
+        title="Resources"
+      />
 
       <Card className="gap-4 border-border/70 bg-card/80 py-4">
         <CardContent className="space-y-4 px-4 sm:px-6">

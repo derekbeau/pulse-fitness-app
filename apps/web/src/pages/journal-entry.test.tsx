@@ -22,10 +22,7 @@ describe('JournalEntryPage', () => {
     renderWithRoute('missing-entry');
 
     expect(screen.getByRole('heading', { name: 'Journal entry not found' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to Journal' })).toHaveAttribute(
-      'href',
-      '/journal',
-    );
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
   it('renders full entry content and linked entities for a valid entry', () => {
@@ -35,7 +32,7 @@ describe('JournalEntryPage', () => {
       screen.getByRole('heading', { level: 1, name: 'Upper A Session Notes' }),
     ).toBeInTheDocument();
     expect(screen.getByText('post workout')).toBeInTheDocument();
-    expect(screen.getByText('Mar 5, 2026')).toBeInTheDocument();
+    expect(screen.getAllByText('Mar 5, 2026').length).toBeGreaterThan(0);
     expect(screen.getByText('Created by agent')).toBeInTheDocument();
     expect(
       screen.getByText('Detailed session debrief with linked training and recovery context.'),
@@ -44,10 +41,7 @@ describe('JournalEntryPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Wins' })).toBeInTheDocument();
     expect(screen.getByText(/Session focus:/)).toBeInTheDocument();
     expect(screen.getByText('Linked To')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to Journal' })).toHaveAttribute(
-      'href',
-      '/journal',
-    );
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upper Push' })).toHaveAttribute(
       'href',
       '/workouts/template/upper-push',

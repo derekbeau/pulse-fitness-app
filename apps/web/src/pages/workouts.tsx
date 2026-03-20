@@ -5,6 +5,7 @@ import { Dumbbell, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 
 import { WorkoutCardSkeleton } from '@/components/skeletons';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
@@ -112,24 +113,30 @@ export function WorkoutsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-3xl font-semibold text-primary">Workouts</h1>
-        <HelpIcon title="Workouts help">
-          <p>
-            Pulse workouts follow a Templates {'>'} Sessions {'>'} Sets flow.
-          </p>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Start a workout from Templates, then log each exercise set during the session.</li>
-            <li>Active sessions are saved in localStorage so you can recover if the app closes.</li>
-            <li>
-              Pause to stop active timing, resume when ready, or cancel if you need to end early.
-            </li>
-            <li>
-              Scheduled workouts appear in Calendar and can be used to plan upcoming sessions.
-            </li>
-          </ul>
-        </HelpIcon>
-      </div>
+      <PageHeader
+        actions={
+          <HelpIcon title="Workouts help">
+            <p>
+              Pulse workouts follow a Templates {'>'} Sessions {'>'} Sets flow.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                Start a workout from Templates, then log each exercise set during the session.
+              </li>
+              <li>
+                Active sessions are saved in localStorage so you can recover if the app closes.
+              </li>
+              <li>
+                Pause to stop active timing, resume when ready, or cancel if you need to end early.
+              </li>
+              <li>
+                Scheduled workouts appear in Calendar and can be used to plan upcoming sessions.
+              </li>
+            </ul>
+          </HelpIcon>
+        }
+        title="Workouts"
+      />
 
       {shouldShowOnboardingCard ? (
         <div className="rounded-2xl border border-border bg-card p-4">

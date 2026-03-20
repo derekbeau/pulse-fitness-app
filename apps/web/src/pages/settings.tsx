@@ -7,7 +7,7 @@ import {
   type UpdateUserInput,
   type WeightUnit,
 } from '@pulse/shared';
-import { BackLink } from '@/components/layout/back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -488,14 +488,11 @@ export function SettingsPage() {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8">
-      <BackLink />
-
-      <header className="space-y-1.5">
-        <h1 className="text-3xl font-semibold text-primary">Settings</h1>
-        <p className="max-w-3xl text-sm text-muted">
-          Manage the profile and appearance details that shape the Pulse experience across devices.
-        </p>
-      </header>
+      <PageHeader
+        description="Manage the profile and appearance details that shape the Pulse experience across devices."
+        showBack
+        title="Settings"
+      />
 
       <Card className="gap-4 border-border/70 shadow-sm">
         <CardHeader className="space-y-1.5">

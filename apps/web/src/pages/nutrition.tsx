@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 
 import { MealCardSkeleton } from '@/components/skeletons';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -73,9 +74,8 @@ export function NutritionPage() {
 
   return (
     <section className="space-y-4 sm:space-y-5">
-      <header className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
+      <PageHeader
+        actions={
           <HelpIcon title="Nutrition help">
             <p>
               Nutrition is read-only for meal data. Your AI agent logs meals and updates your daily
@@ -88,52 +88,53 @@ export function NutritionPage() {
               <li>Food definition edits later will not retroactively change past meal macros.</li>
             </ul>
           </HelpIcon>
-        </div>
-        <p className="max-w-2xl text-sm text-muted">
-          {activeView === 'log'
+        }
+        description={
+          activeView === 'log'
             ? 'Review daily meal logs and macro progress.'
             : activeView === 'foods'
               ? 'Browse and manage your saved foods library.'
-              : 'Track calories and macros across 7, 30, or 90 days.'}
-        </p>
-      </header>
-
-      <div
-        aria-label="Nutrition views"
-        className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
-        role="group"
+              : 'Track calories and macros across 7, 30, or 90 days.'
+        }
+        title="Nutrition"
       >
-        <Button
-          aria-pressed={activeView === 'log'}
-          className="rounded-full"
-          onClick={() => setActiveView('log')}
-          size="sm"
-          type="button"
-          variant={activeView === 'log' ? 'default' : 'ghost'}
+        <div
+          aria-label="Nutrition views"
+          className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
+          role="group"
         >
-          Log
-        </Button>
-        <Button
-          aria-pressed={activeView === 'foods'}
-          className="rounded-full"
-          onClick={() => setActiveView('foods')}
-          size="sm"
-          type="button"
-          variant={activeView === 'foods' ? 'default' : 'ghost'}
-        >
-          Foods
-        </Button>
-        <Button
-          aria-pressed={activeView === 'trends'}
-          className="rounded-full"
-          onClick={() => setActiveView('trends')}
-          size="sm"
-          type="button"
-          variant={activeView === 'trends' ? 'default' : 'ghost'}
-        >
-          Trends
-        </Button>
-      </div>
+          <Button
+            aria-pressed={activeView === 'log'}
+            className="rounded-full"
+            onClick={() => setActiveView('log')}
+            size="sm"
+            type="button"
+            variant={activeView === 'log' ? 'default' : 'ghost'}
+          >
+            Log
+          </Button>
+          <Button
+            aria-pressed={activeView === 'foods'}
+            className="rounded-full"
+            onClick={() => setActiveView('foods')}
+            size="sm"
+            type="button"
+            variant={activeView === 'foods' ? 'default' : 'ghost'}
+          >
+            Foods
+          </Button>
+          <Button
+            aria-pressed={activeView === 'trends'}
+            className="rounded-full"
+            onClick={() => setActiveView('trends')}
+            size="sm"
+            type="button"
+            variant={activeView === 'trends' ? 'default' : 'ghost'}
+          >
+            Trends
+          </Button>
+        </div>
+      </PageHeader>
 
       {activeView === 'log' ? (
         <NutritionLogTab />

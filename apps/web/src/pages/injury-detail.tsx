@@ -1,7 +1,6 @@
-import { ArrowLeftIcon } from 'lucide-react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConditionDetail, mockHealthConditions } from '@/features/injuries';
 
@@ -12,16 +11,17 @@ export function InjuryDetailPage() {
   if (!condition) {
     return (
       <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-10">
-        <Button asChild className="w-fit gap-2" size="sm" variant="ghost">
-          <Link to="/profile/injuries">
-            <ArrowLeftIcon aria-hidden="true" className="size-4" />
-            Back to Health Tracking
-          </Link>
-        </Button>
+        <PageHeader
+          description="The requested condition ID is not present in the mock injuries dataset."
+          showBack
+          title="Condition not found"
+        />
 
         <Card className="py-6 shadow-sm">
           <CardHeader className="gap-2">
-            <CardTitle className="text-2xl text-foreground">Condition not found</CardTitle>
+            <CardTitle className="text-2xl text-foreground">
+              Requested condition unavailable
+            </CardTitle>
             <CardDescription>
               The requested condition ID is not present in the mock injuries dataset.
             </CardDescription>

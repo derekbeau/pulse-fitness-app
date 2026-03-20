@@ -1,9 +1,15 @@
 import { useParams } from 'react-router';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { SessionDetail } from '@/features/workouts';
 
 export function WorkoutSessionDetailPage() {
   const { sessionId = '' } = useParams();
 
-  return <SessionDetail sessionId={sessionId} />;
+  return (
+    <section className="space-y-6">
+      <PageHeader showBack title="Workout Session" />
+      <SessionDetail sessionId={sessionId} />
+    </section>
+  );
 }
