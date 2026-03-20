@@ -329,7 +329,7 @@ describe('exercise routes', () => {
     });
   });
 
-  it('returns most recent completed last performance for a visible exercise', async () => {
+  it('returns up to 3 most recent completed performances for a visible exercise by default', async () => {
     seedExercise({
       id: 'global-bench',
       userId: null,
@@ -356,6 +356,15 @@ describe('exercise routes', () => {
     });
 
     seedWorkoutSession({
+      id: 'session-oldest',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-02-20',
+      status: 'completed',
+      startedAt: 1_699_000_000_000,
+      completedAt: 1_699_000_003_000,
+    });
+    seedWorkoutSession({
       id: 'session-old',
       userId: 'user-1',
       name: 'Upper Push',
@@ -372,6 +381,15 @@ describe('exercise routes', () => {
       status: 'completed',
       startedAt: 1_700_000_010_000,
       completedAt: 1_700_000_015_000,
+    });
+    seedWorkoutSession({
+      id: 'session-newest',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-10',
+      status: 'completed',
+      startedAt: 1_700_000_030_000,
+      completedAt: 1_700_000_035_000,
     });
     seedWorkoutSession({
       id: 'session-in-progress',
@@ -391,6 +409,14 @@ describe('exercise routes', () => {
       completedAt: 1_700_000_025_000,
     });
 
+    seedSessionSet({
+      id: 'set-oldest-1',
+      sessionId: 'session-oldest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 95,
+      reps: 10,
+    });
     seedSessionSet({
       id: 'set-old-1',
       sessionId: 'session-old',
@@ -424,6 +450,14 @@ describe('exercise routes', () => {
       reps: 8,
     });
     seedSessionSet({
+      id: 'set-newest-1',
+      sessionId: 'session-newest',
+      exerciseId: 'global-bench',
+      setNumber: 1,
+      weight: 110,
+      reps: 6,
+    });
+    seedSessionSet({
       id: 'set-in-progress',
       sessionId: 'session-in-progress',
       exerciseId: 'global-bench',
@@ -453,22 +487,51 @@ describe('exercise routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      data: {
-        sessionId: 'session-latest',
-        date: '2026-03-08',
-        sets: [
-          {
-            setNumber: 1,
-            weight: 105,
-            reps: 9,
-          },
-          {
-            setNumber: 2,
-            weight: 100,
-            reps: 8,
-          },
-        ],
-      },
+      data: [
+        {
+          sessionId: 'session-newest',
+          date: '2026-03-10',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 110,
+              reps: 6,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-latest',
+          date: '2026-03-08',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 105,
+              reps: 9,
+            },
+            {
+              setNumber: 2,
+              weight: 100,
+              reps: 8,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-old',
+          date: '2026-03-01',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 100,
+              reps: 8,
+            },
+            {
+              setNumber: 2,
+              weight: 100,
+              reps: 7,
+            },
+          ],
+        },
+      ],
     });
 
     const noDataResponse = await context.app.inject({
@@ -479,7 +542,7 @@ describe('exercise routes', () => {
 
     expect(noDataResponse.statusCode).toBe(200);
     expect(noDataResponse.json()).toEqual({
-      data: null,
+      data: [],
     });
 
     const privateExerciseResponse = await context.app.inject({
@@ -497,7 +560,7 @@ describe('exercise routes', () => {
     });
   });
 
-  it('returns the newest same-day completed performance for history lookups', async () => {
+  it('returns up to requested limit of completed performances in descending order', async () => {
     seedExercise({
       id: 'global-squat',
       userId: null,
@@ -525,6 +588,15 @@ describe('exercise routes', () => {
       startedAt: Date.parse('2026-03-12T17:00:00.000Z'),
       completedAt: Date.parse('2026-03-12T17:42:00.000Z'),
     });
+    seedWorkoutSession({
+      id: 'session-older',
+      userId: 'user-1',
+      name: 'Lower Body Previous',
+      date: '2026-03-09',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-09T08:00:00.000Z'),
+      completedAt: Date.parse('2026-03-09T08:44:00.000Z'),
+    });
 
     seedSessionSet({
       id: 'set-early',
@@ -542,6 +614,14 @@ describe('exercise routes', () => {
       weight: 235,
       reps: 4,
     });
+    seedSessionSet({
+      id: 'set-older',
+      sessionId: 'session-older',
+      exerciseId: 'global-squat',
+      setNumber: 1,
+      weight: 215,
+      reps: 6,
+    });
 
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -550,23 +630,47 @@ describe('exercise routes', () => {
 
     const response = await context.app.inject({
       method: 'GET',
-      url: '/api/v1/exercises/global-squat/last-performance',
+      url: '/api/v1/exercises/global-squat/last-performance?limit=3',
       headers: createAuthorizationHeader(authToken),
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      data: {
-        sessionId: 'session-late',
-        date: '2026-03-12',
-        sets: [
-          {
-            setNumber: 1,
-            weight: 235,
-            reps: 4,
-          },
-        ],
-      },
+      data: [
+        {
+          sessionId: 'session-late',
+          date: '2026-03-12',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 235,
+              reps: 4,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-early',
+          date: '2026-03-12',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 225,
+              reps: 5,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-older',
+          date: '2026-03-09',
+          sets: [
+            {
+              setNumber: 1,
+              weight: 215,
+              reps: 6,
+            },
+          ],
+        },
+      ],
     });
   });
 

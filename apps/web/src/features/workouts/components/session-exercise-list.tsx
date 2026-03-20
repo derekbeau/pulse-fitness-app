@@ -87,7 +87,7 @@ import {
   formatTempo,
 } from '../lib/time-estimates';
 import { getSupersetAccentClass } from '../lib/superset-utils';
-import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
+import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseHistoryModal } from './exercise-history-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
@@ -695,13 +695,27 @@ function ExerciseCardItem({
     500,
   );
 
-  const lastPerformanceQuery = useLastPerformance(exercise.id, {
+  const historyEntriesQuery = useLastPerformance(exercise.id, {
     enabled: enableApiLastPerformance,
+    includeRelated: false,
+    limit: 3,
+  });
+  const relatedHistoryQuery = useLastPerformance(exercise.id, {
+    enabled: enableApiLastPerformance,
+    includeRelated: true,
+    limit: 1,
   });
   const historySummary: ActiveWorkoutExerciseHistorySummary = enableApiLastPerformance
-    ? (lastPerformanceQuery.data ?? { history: null, related: [] })
-    : { history: exercise.lastPerformance, related: [] };
-  const lastPerformance = historySummary.history;
+    ? {
+        history: historyEntriesQuery.data?.history ?? null,
+        historyEntries: historyEntriesQuery.data?.historyEntries ?? [],
+        related: relatedHistoryQuery.data?.related ?? [],
+      }
+    : {
+        history: exercise.lastPerformance,
+        historyEntries: exercise.lastPerformance ? [exercise.lastPerformance] : [],
+        related: [],
+      };
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
   const resolvedCollapseKey = collapseKey ?? exercise.id;
@@ -881,14 +895,26 @@ function ExerciseCardItem({
                     View all
                   </button>
                 </div>
-                <p className="text-sm text-foreground">
-                  {formatHistoryPreview({
-                    history: lastPerformance,
-                    prescribedReps: exercise.prescribedReps,
+                {(() => {
+                  const previewEntries = formatHistoryPreviewEntries({
+                    historyEntries: historySummary.historyEntries,
                     trackingType: exercise.trackingType,
-                    weightUnit,
-                  })}
-                </p>
+                  });
+
+                  if (previewEntries.length === 0) {
+                    return <p className="text-sm text-foreground">No completed history yet.</p>;
+                  }
+
+                  return (
+                    <div className="space-y-1">
+                      {previewEntries.map((entry) => (
+                        <p className="text-sm text-foreground" key={entry.key}>
+                          {entry.text}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
@@ -927,13 +953,21 @@ function ExerciseCardItem({
                         {relatedExercise.exerciseName}
                       </p>
                       <p className="mt-1 text-sm text-foreground">
-                        {formatHistoryPreview({
-                          history: relatedExercise.history,
-                          prescribedReps: '',
-                          trackingType: relatedExercise.trackingType,
-                          weightUnit,
-                          emptyLabel: 'No completed sets yet.',
-                        })}
+                        {(() => {
+                          const previewEntries = formatHistoryPreviewEntries({
+                            historyEntries: relatedExercise.history
+                              ? [relatedExercise.history]
+                              : [],
+                            maxEntries: 1,
+                            trackingType: relatedExercise.trackingType,
+                          });
+
+                          if (previewEntries.length === 0) {
+                            return 'No completed sets yet.';
+                          }
+
+                          return previewEntries[0]?.text;
+                        })()}
                       </p>
                     </div>
                   ))}
@@ -1124,35 +1158,6 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
   return null;
 }
 
-function formatCompactPerformanceSetByTrackingType(
-  trackingType: ExerciseTrackingType,
-  weight: number | null,
-  value: number,
-  prescribedReps: string,
-  weightUnit: WeightUnit,
-) {
-  if (
-    (trackingType === 'bodyweight_reps' || trackingType === 'reps_only') &&
-    (prescribedReps.includes('min') || prescribedReps.includes('sec'))
-  ) {
-    return formatPerformedReps(value, prescribedReps);
-  }
-
-  const setMetrics =
-    trackingType === 'distance'
-      ? { distance: value, weight }
-      : {
-          reps: value,
-          weight,
-        };
-
-  return formatSetSummary(setMetrics, trackingType, {
-    compact: true,
-    useLegacySecondsFallback: trackingType !== 'reps_seconds',
-    weightUnit,
-  });
-}
-
 function formatExerciseSubtitle({
   exercise,
   weightUnit,
@@ -1221,36 +1226,37 @@ function formatExerciseSubtitle({
   return hasExplicitUnit ? `${sets} × ${trackedTarget}` : `${sets} sets × ${trackedTarget}`;
 }
 
-function formatHistoryPreview({
-  history,
-  prescribedReps,
+function formatHistoryPreviewEntries({
+  historyEntries,
+  maxEntries = 3,
   trackingType,
-  weightUnit,
-  emptyLabel = 'No completed history yet.',
 }: {
-  history: ActiveWorkoutExercise['lastPerformance'];
-  prescribedReps: string;
+  historyEntries: ActiveWorkoutExerciseHistorySummary['historyEntries'];
+  maxEntries?: number;
   trackingType: ExerciseTrackingType;
-  weightUnit: WeightUnit;
-  emptyLabel?: string;
 }) {
-  if (!history || history.sets.length === 0) {
-    return emptyLabel;
+  if (historyEntries.length === 0) {
+    return [];
   }
 
-  const setSummary = history.sets
-    .map((set) =>
-      formatCompactPerformanceSetByTrackingType(
-        trackingType,
-        set.weight,
-        set.reps,
-        prescribedReps,
-        weightUnit,
+  return historyEntries.slice(0, maxEntries).map((history) => {
+    const setSummary = formatCompactSets(
+      history.sets.map((set) =>
+        trackingType === 'distance'
+          ? { distance: set.reps, weight: set.weight }
+          : { reps: set.reps, weight: set.weight },
       ),
-    )
-    .join(', ');
+      trackingType,
+      {
+        useLegacySecondsFallback: trackingType !== 'reps_seconds',
+      },
+    );
 
-  return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} - ${setSummary}`;
+    return {
+      key: history.sessionId,
+      text: `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`,
+    };
+  });
 }
 
 function parsePrescribedRepTarget(prescribedReps: string) {
@@ -1289,25 +1295,6 @@ function formatTrackedRepTarget(
   }
 
   return `${target} reps`;
-}
-
-function formatPerformedReps(reps: number, prescribedReps: string) {
-  if (prescribedReps.includes('min')) {
-    const minutes = Math.floor(reps / 60);
-    const seconds = reps % 60;
-
-    if (seconds === 0) {
-      return `${minutes} min`;
-    }
-
-    return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
-  }
-
-  if (prescribedReps.includes('sec')) {
-    return `${reps} sec`;
-  }
-
-  return `${reps} reps`;
 }
 
 function formatWeight(weight: number) {

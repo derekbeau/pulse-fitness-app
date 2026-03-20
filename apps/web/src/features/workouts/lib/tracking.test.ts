@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatCompactSets,
   formatMetricNumber,
   formatSetSummary,
   formatTrackingMetricBreakdown,
@@ -96,5 +97,33 @@ describe('tracking format helpers', () => {
     expect(formatMetricNumber(135)).toBe('135');
     expect(formatMetricNumber(135.5)).toBe('135.5');
     expect(formatMetricNumber(135.678)).toBe('135.68');
+  });
+
+  it('formats compact weighted sets as weight x reps', () => {
+    expect(
+      formatCompactSets(
+        [
+          { reps: 12, weight: 60 },
+          { reps: 8, weight: 60 },
+        ],
+        'weight_reps',
+      ),
+    ).toBe('60x12, 60x8');
+  });
+
+  it('formats compact reps-only sets as rep counts', () => {
+    expect(formatCompactSets([{ reps: 10 }, { reps: 8 }, { reps: 8 }], 'reps_only')).toBe(
+      '10, 8, 8',
+    );
+  });
+
+  it('formats compact time sets with seconds suffix', () => {
+    expect(formatCompactSets([{ reps: 60 }, { reps: 45 }], 'seconds_only')).toBe('60s, 45s');
+  });
+
+  it('formats compact distance sets with meter suffix', () => {
+    expect(formatCompactSets([{ distance: 400 }, { distance: 400 }], 'distance')).toBe(
+      '400m, 400m',
+    );
   });
 });

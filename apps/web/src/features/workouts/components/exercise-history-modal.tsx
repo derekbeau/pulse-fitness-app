@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { useExerciseHistory } from '@/hooks/use-exercise-history';
 
-import { formatSetSummary } from '../lib/tracking';
+import { formatCompactSets } from '../lib/tracking';
 
 const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -36,7 +36,6 @@ export function ExerciseHistoryModal({
   onOpenChange,
   open,
   trackingType,
-  weightUnit = 'lbs',
 }: ExerciseHistoryModalProps) {
   const historyQuery = useExerciseHistory(exerciseId, {
     enabled: open,
@@ -61,21 +60,17 @@ export function ExerciseHistoryModal({
           ) : null}
 
           {historyQuery.data?.map((session) => {
-            const setSummary = session.sets
-              .map((set) =>
-                formatSetSummary(
-                  trackingType === 'distance'
-                    ? { distance: set.reps, weight: set.weight }
-                    : { reps: set.reps, weight: set.weight },
-                  trackingType,
-                  {
-                    compact: true,
-                    useLegacySecondsFallback: trackingType !== 'reps_seconds',
-                    weightUnit,
-                  },
-                ),
-              )
-              .join(', ');
+            const setSummary = formatCompactSets(
+              session.sets.map((set) =>
+                trackingType === 'distance'
+                  ? { distance: set.reps, weight: set.weight }
+                  : { reps: set.reps, weight: set.weight },
+              ),
+              trackingType,
+              {
+                useLegacySecondsFallback: trackingType !== 'reps_seconds',
+              },
+            );
 
             return (
               <div
@@ -83,7 +78,7 @@ export function ExerciseHistoryModal({
                 key={session.sessionId}
               >
                 <p className="text-sm font-semibold text-foreground">
-                  {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} - ${setSummary}`}
+                  {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} · ${setSummary}`}
                 </p>
                 {session.notes?.trim() ? (
                   <p className="mt-1 text-xs text-muted">{`Notes: ${session.notes.trim()}`}</p>

@@ -7,7 +7,7 @@ import {
   createExerciseInputSchema,
   exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
-  exerciseLastPerformanceSchema,
+  exerciseLastPerformancesSchema,
   exercisePerformanceHistoryQuerySchema,
   exercisePerformanceHistorySchema,
   exerciseQueryParamsSchema,
@@ -367,14 +367,14 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         querystring: exerciseLastPerformanceQuerySchema,
         response: {
           200: apiDataResponseSchema(
-            z.union([exerciseLastPerformanceSchema.nullable(), exerciseHistoryWithRelatedSchema]),
+            z.union([exerciseLastPerformancesSchema, exerciseHistoryWithRelatedSchema]),
           ),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
         },
         tags: ['exercises'],
-        summary: 'Get the latest completed performance for an exercise',
+        summary: 'Get recent completed performances for an exercise',
         security: authSecurity,
       },
     },
@@ -404,11 +404,11 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      const lastPerformance =
-        (await findExerciseLastPerformance({
-          exerciseId: request.params.id,
-          userId: request.userId,
-        })) ?? null;
+      const lastPerformance = await findExerciseLastPerformance({
+        exerciseId: request.params.id,
+        limit: request.query.limit,
+        userId: request.userId,
+      });
 
       return reply.send({
         data: lastPerformance,

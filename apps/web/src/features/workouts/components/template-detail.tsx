@@ -81,7 +81,7 @@ import {
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
-import { formatSetSummary, getDistanceUnit } from '../lib/tracking';
+import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseHistoryModal } from './exercise-history-modal';
@@ -1342,7 +1342,6 @@ function ExerciseDetailModal({
   onOpenChange: (open: boolean) => void;
   onSaveCoachingNotes: (exerciseId: string, coachingNotes: string | null) => Promise<unknown>;
 }) {
-  const { weightUnit } = useWeightUnit();
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'related'>('overview');
   const [coachingNotes, setCoachingNotes] = useState(exercise.exercise?.coachingNotes ?? '');
   const [isSaving, setIsSaving] = useState(false);
@@ -1467,11 +1466,7 @@ function ExerciseDetailModal({
             ) : (
               <p className="text-sm text-foreground">
                 {historyQuery.data?.history
-                  ? formatLastPerformanceSummary(
-                      historyQuery.data.history,
-                      trackingType,
-                      weightUnit,
-                    )
+                  ? formatLastPerformanceSummary(historyQuery.data.history, trackingType)
                   : 'No history available.'}
               </p>
             )}
@@ -1498,7 +1493,6 @@ function ExerciseDetailModal({
                     {formatLastPerformanceSummary(
                       relatedExercise.history,
                       relatedExercise.trackingType,
-                      weightUnit,
                     )}
                   </p>
                 </div>
@@ -1804,26 +1798,22 @@ function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
 function formatLastPerformanceSummary(
   history: { date: string; sets: Array<{ reps: number; weight: number | null }> } | null,
   trackingType: ExerciseTrackingType,
-  weightUnit: WeightUnit,
 ) {
   if (!history || history.sets.length === 0) {
     return 'No history yet.';
   }
 
-  const setSummary = history.sets
-    .map((set) =>
-      formatSetSummary(
-        trackingType === 'distance'
-          ? { distance: set.reps, weight: set.weight }
-          : { reps: set.reps, weight: set.weight },
-        trackingType,
-        {
-          useLegacySecondsFallback: trackingType !== 'reps_seconds',
-          weightUnit,
-        },
-      ),
-    )
-    .join(', ');
+  const setSummary = formatCompactSets(
+    history.sets.map((set) =>
+      trackingType === 'distance'
+        ? { distance: set.reps, weight: set.weight }
+        : { reps: set.reps, weight: set.weight },
+    ),
+    trackingType,
+    {
+      useLegacySecondsFallback: trackingType !== 'reps_seconds',
+    },
+  );
 
   return `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} • ${setSummary}`;
 }

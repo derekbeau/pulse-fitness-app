@@ -5,6 +5,7 @@ import type {
   ExerciseCategory,
   ExerciseHistoryWithRelated,
   ExerciseLastPerformance,
+  ExerciseLastPerformances,
   ExercisePerformanceHistory,
   ExerciseTrackingType,
   RelatedExerciseLastPerformance,
@@ -572,71 +573,91 @@ export const findExerciseDedupCandidates = async ({
 
 export const findExerciseLastPerformance = async ({
   exerciseId,
+  limit,
   userId,
 }: {
   exerciseId: string;
+  limit: number;
   userId: string;
-}): Promise<ExerciseLastPerformance | undefined> => {
+}): Promise<ExerciseLastPerformances> => {
   const { db } = await import('../../db/index.js');
 
-  const latestSession = db
+  const recentSessions = await db
     .select({
-      id: workoutSessions.id,
+      sessionId: workoutSessions.id,
       date: workoutSessions.date,
+      completedAt: workoutSessions.completedAt,
+      startedAt: workoutSessions.startedAt,
+      createdAt: workoutSessions.createdAt,
     })
-    .from(workoutSessions)
+    .from(sessionSets)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
     .where(
       and(
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         eq(workoutSessions.status, 'completed'),
-        sql`exists (
-          select 1
-          from ${sessionSets}
-          where ${sessionSets.sessionId} = ${workoutSessions.id}
-            and ${sessionSets.exerciseId} = ${exerciseId}
-        )`,
+        eq(sessionSets.exerciseId, exerciseId),
       ),
+    )
+    .groupBy(
+      workoutSessions.id,
+      workoutSessions.date,
+      workoutSessions.completedAt,
+      workoutSessions.startedAt,
+      workoutSessions.createdAt,
     )
     .orderBy(
       desc(workoutSessions.completedAt),
       desc(workoutSessions.startedAt),
       desc(workoutSessions.createdAt),
     )
-    .limit(1)
-    .as('latest_session');
+    .limit(limit)
+    .all();
 
-  const latestSets = db
+  if (recentSessions.length === 0) {
+    return [];
+  }
+
+  const sessionIds = recentSessions.map((session) => session.sessionId);
+  const recentSets = await db
     .select({
-      sessionId: latestSession.id,
-      date: latestSession.date,
+      sessionId: sessionSets.sessionId,
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
+      createdAt: sessionSets.createdAt,
     })
-    .from(latestSession)
-    .innerJoin(
-      sessionSets,
-      and(eq(sessionSets.sessionId, latestSession.id), eq(sessionSets.exerciseId, exerciseId)),
-    )
-    .orderBy(asc(sessionSets.setNumber), asc(sessionSets.createdAt))
+    .from(sessionSets)
+    .where(and(inArray(sessionSets.sessionId, sessionIds), eq(sessionSets.exerciseId, exerciseId)))
+    .orderBy(asc(sessionSets.sessionId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
     .all();
 
-  if (latestSets.length === 0) {
-    return undefined;
-  }
-
-  const [{ sessionId, date }] = latestSets;
-
-  return {
-    sessionId,
-    date,
-    sets: latestSets.map((set) => ({
+  const setsBySessionId = new Map<string, ExerciseLastPerformance['sets']>();
+  for (const set of recentSets) {
+    const currentSets = setsBySessionId.get(set.sessionId) ?? [];
+    currentSets.push({
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
-    })),
-  };
+    });
+    setsBySessionId.set(set.sessionId, currentSets);
+  }
+
+  return recentSessions.flatMap((session) => {
+    const sets = setsBySessionId.get(session.sessionId);
+    if (!sets || sets.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        sessionId: session.sessionId,
+        date: session.date,
+        sets,
+      },
+    ];
+  });
 };
 
 export const findExercisePerformanceHistory = async ({

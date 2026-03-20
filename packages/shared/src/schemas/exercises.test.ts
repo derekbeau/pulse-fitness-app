@@ -360,20 +360,31 @@ describe('exerciseLastPerformanceSchema', () => {
 });
 
 describe('exerciseLastPerformanceQuerySchema', () => {
-  it('defaults includeRelated to false', () => {
+  it('defaults includeRelated to false and limit to 3', () => {
     const payload: ExerciseLastPerformanceQuery = exerciseLastPerformanceQuerySchema.parse({});
 
     expect(payload).toEqual({
       includeRelated: false,
+      limit: 3,
     });
   });
 
-  it('coerces includeRelated query string values', () => {
+  it('coerces includeRelated and limit query string values', () => {
     const payload = exerciseLastPerformanceQuerySchema.parse({
       includeRelated: 'true',
+      limit: '5',
     });
 
     expect(payload.includeRelated).toBe(true);
+    expect(payload.limit).toBe(5);
+  });
+
+  it('enforces a maximum limit of 10', () => {
+    expect(() =>
+      exerciseLastPerformanceQuerySchema.parse({
+        limit: 11,
+      }),
+    ).toThrow();
   });
 });
 

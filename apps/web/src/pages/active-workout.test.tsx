@@ -1096,9 +1096,8 @@ describe('ActiveWorkoutPage', () => {
       }
 
       if (
-        url.includes(
-          '/api/v1/exercises/incline-dumbbell-press/last-performance?includeRelated=true',
-        )
+        url.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+        url.includes('includeRelated=true')
       ) {
         return Promise.resolve(
           jsonResponse({
@@ -1114,6 +1113,23 @@ describe('ActiveWorkoutPage', () => {
         );
       }
 
+      if (
+        url.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+        !url.includes('includeRelated=true')
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                sessionId: 'session-1',
+                date: '2026-03-08',
+                sets: [{ setNumber: 1, weight: 70, reps: 10 }],
+              },
+            ],
+          }),
+        );
+      }
+
       return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
     });
     vi.stubGlobal('fetch', mockFetch);
@@ -1125,12 +1141,29 @@ describe('ActiveWorkoutPage', () => {
     await waitFor(() => {
       expect(
         mockFetch.mock.calls.some(([url]) =>
-          String(url).includes(
-            '/api/v1/exercises/incline-dumbbell-press/last-performance?includeRelated=true',
-          ),
+          String(url).includes('/api/v1/exercises/incline-dumbbell-press/last-performance'),
         ),
       ).toBe(true);
     });
+    expect(
+      mockFetch.mock.calls.some(([url]) => {
+        const urlText = String(url);
+        return (
+          urlText.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+          urlText.includes('includeRelated=true')
+        );
+      }),
+    ).toBe(true);
+    expect(
+      mockFetch.mock.calls.some(([url]) => {
+        const urlText = String(url);
+        return (
+          urlText.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+          !urlText.includes('includeRelated=true') &&
+          urlText.includes('limit=3')
+        );
+      }),
+    ).toBe(true);
   });
 
   it('renders reps_only and seconds_only inputs from API template tracking types', async () => {
