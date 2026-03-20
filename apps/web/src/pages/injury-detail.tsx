@@ -23,7 +23,7 @@ export function InjuryDetailPage() {
               Requested condition unavailable
             </CardTitle>
             <CardDescription>
-              The requested condition ID is not present in the mock injuries dataset.
+              This preview includes only the seeded mock conditions.
             </CardDescription>
           </CardHeader>
           <CardContent>

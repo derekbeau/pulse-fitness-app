@@ -45,7 +45,9 @@ export function PageHeader({
           ) : null}
           <div className="space-y-1" data-slot="page-header-title-block">
             <h1 className="text-2xl font-semibold md:text-3xl">{title}</h1>
-            {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+            {description ? (
+              <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
+            ) : null}
           </div>
         </div>
 

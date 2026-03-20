@@ -360,70 +360,76 @@ export function DashboardPage() {
 
   return (
     <main className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6">
-      <PageHeader
-        actions={
-          <>
-            <HelpIcon title="Dashboard help">
-              <p>
-                Dashboard gives you a daily snapshot of nutrition, body weight trend, habits, and
-                recent workout activity.
-              </p>
-              <ul className="list-disc space-y-1 pl-5">
-                <li>Nutrition totals come from meals logged by your AI agent, not manual entry.</li>
-                <li>
-                  Use Weight Trend range buttons to zoom and compare short vs long-term direction.
-                </li>
-                <li>
-                  The trend line smooths daily swings so it is easier to spot overall momentum.
-                </li>
-                <li>Habit streaks show how many consecutive days each habit has been completed.</li>
-              </ul>
-            </HelpIcon>
-            {!isViewingToday ? (
-              <Button
-                onClick={() => handleSelectedDateChange(getToday())}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Back to today
-              </Button>
-            ) : null}
-            <Button
-              aria-label="Edit dashboard widgets"
-              onClick={openWidgetSidebar}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <Pencil />
-            </Button>
-          </>
-        }
-        className="animate-fade-in"
-        title="Dashboard"
-      >
+      <div className="animate-fade-in space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted sm:text-sm">
           {greeting}
         </p>
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button aria-label="Change date" size="icon-sm" type="button" variant="ghost">
-                <Calendar className="size-4" />
+        <PageHeader
+          actions={
+            <>
+              <HelpIcon title="Dashboard help">
+                <p>
+                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits,
+                  and recent workout activity.
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    Nutrition totals come from meals logged by your AI agent, not manual entry.
+                  </li>
+                  <li>
+                    Use Weight Trend range buttons to zoom and compare short vs long-term
+                    direction.
+                  </li>
+                  <li>
+                    The trend line smooths daily swings so it is easier to spot overall momentum.
+                  </li>
+                  <li>
+                    Habit streaks show how many consecutive days each habit has been completed.
+                  </li>
+                </ul>
+              </HelpIcon>
+              {!isViewingToday ? (
+                <Button
+                  onClick={() => handleSelectedDateChange(getToday())}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Back to today
+                </Button>
+              ) : null}
+              <Button
+                aria-label="Edit dashboard widgets"
+                onClick={openWidgetSidebar}
+                size="icon-sm"
+                type="button"
+                variant="outline"
+              >
+                <Pencil />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <CalendarPicker
-                className="border-0"
-                onDateSelect={handleSelectedDateChange}
-                selectedDate={selectedDate}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </PageHeader>
+            </>
+          }
+          title="Dashboard"
+        >
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button aria-label="Change date" size="icon-sm" type="button" variant="ghost">
+                  <Calendar className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <CalendarPicker
+                  className="border-0"
+                  onDateSelect={handleSelectedDateChange}
+                  selectedDate={selectedDate}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </PageHeader>
+      </div>
 
       {shouldShowEmptyState ? (
         <EmptyState
