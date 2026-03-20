@@ -24,6 +24,24 @@ describe('PageHeader', () => {
     expect(historyBackSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('falls back to backFallbackHref when there is no previous history entry', () => {
+    const historyLengthSpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(1);
+    const locationAssignSpy = vi.fn();
+    vi.stubGlobal('location', {
+      ...window.location,
+      assign: locationAssignSpy,
+    });
+
+    render(<PageHeader backFallbackHref="/workouts" showBack title="Settings" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(locationAssignSpy).toHaveBeenCalledWith('/workouts');
+
+    vi.unstubAllGlobals();
+    historyLengthSpy.mockRestore();
+  });
+
   it('renders actions in the actions container', () => {
     const { container } = render(
       <PageHeader actions={<button type="button">Save</button>} title="Profile" />,

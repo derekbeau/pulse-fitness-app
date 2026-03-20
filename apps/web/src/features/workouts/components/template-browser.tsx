@@ -149,7 +149,9 @@ export function TemplateBrowser({
     ? hasKnownTotalTemplates
       ? `Showing ${sortedTemplates.length} matching templates on this page (${resolvedTotalTemplates} total)`
       : `Showing ${sortedTemplates.length} matching templates on this page`
-    : `Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`;
+    : hasKnownTotalTemplates
+      ? `Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`
+      : `Showing ${sortedTemplates.length} templates`;
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
