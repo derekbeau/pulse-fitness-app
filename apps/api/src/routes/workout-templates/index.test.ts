@@ -507,6 +507,11 @@ describe('workout template routes', () => {
           name: 'Upper Push',
         }),
       ],
+      meta: {
+        page: 1,
+        limit: 25,
+        total: 1,
+      },
     });
 
     expect(getResponse.statusCode).toBe(200);
@@ -550,11 +555,62 @@ describe('workout template routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect((response.json() as { data: Array<{ id: string }> }).data.map((template) => template.id)).toEqual([
+    const payload = response.json() as {
+      data: Array<{ id: string }>;
+      meta: { page: number; limit: number; total: number };
+    };
+    expect(payload.data.map((template) => template.id)).toEqual([
       'template-zeta',
       'template-mid',
       'template-alpha',
     ]);
+    expect(payload.meta).toEqual({
+      page: 1,
+      limit: 25,
+      total: 3,
+    });
+  });
+
+  it('returns paginated template results with page, limit, and total meta', async () => {
+    seedTemplate({
+      id: 'template-1',
+      userId: 'user-1',
+      name: 'Template 1',
+      tags: [],
+    });
+    seedTemplate({
+      id: 'template-2',
+      userId: 'user-1',
+      name: 'Template 2',
+      tags: [],
+    });
+    seedTemplate({
+      id: 'template-3',
+      userId: 'user-1',
+      name: 'Template 3',
+      tags: [],
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-templates?page=2&limit=2&sort=oldest',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      data: [expect.objectContaining({ id: 'template-3' })],
+      meta: {
+        page: 2,
+        limit: 2,
+        total: 3,
+      },
+    });
   });
 
   it('updates only owned templates by replacing nested exercise rows', async () => {
@@ -1207,10 +1263,18 @@ describe('workout template routes', () => {
       url: '/api/v1/workout-templates',
       headers: createAuthorizationHeader(authToken),
     });
-    const listPayload = listResponse.json() as { data: Array<{ id: string }> };
+    const listPayload = listResponse.json() as {
+      data: Array<{ id: string }>;
+      meta: { page: number; limit: number; total: number };
+    };
 
     expect(listResponse.statusCode).toBe(200);
     expect(listPayload.data.map((template) => template.id)).toEqual([]);
+    expect(listPayload.meta).toEqual({
+      page: 1,
+      limit: 25,
+      total: 0,
+    });
 
     const otherUserResponse = await context.app.inject({
       method: 'DELETE',

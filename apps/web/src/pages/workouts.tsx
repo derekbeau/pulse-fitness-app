@@ -34,6 +34,9 @@ const WORKOUT_TEMPLATE_SORT_VALUES: WorkoutTemplateSort[] = [
   'oldest',
   'recently-updated',
 ];
+const DEFAULT_TEMPLATE_PAGE = 1;
+const DEFAULT_TEMPLATE_LIMIT = 25;
+const templatePageSizeOptions = [10, 25, 50] as const;
 type WorkoutView = (typeof WORKOUT_VIEWS)[number];
 
 function isWorkoutView(value: string | null): value is WorkoutView {
@@ -57,14 +60,20 @@ export function WorkoutsPage() {
   const viewParam = searchParams.get('view');
   const activeView: WorkoutView = isWorkoutView(viewParam) ? viewParam : 'calendar';
   const templateSort = parseWorkoutTemplateSort(searchParams.get('sort'));
-  const templatesQuery = useWorkoutTemplates({ sort: templateSort });
+  const templatePage = parsePageParam(searchParams.get('page'));
+  const templateLimit = parsePageSizeParam(searchParams.get('limit'));
+  const templatesQuery = useWorkoutTemplates({
+    sort: templateSort,
+    page: templatePage,
+    limit: templateLimit,
+  });
   const completedSessionsQuery = useCompletedSessions();
   const showCompletedSessionNotice =
     searchParams.get(WORKOUT_SESSION_NOTICE_QUERY_KEY) === WORKOUT_SESSION_COMPLETED_NOTICE;
   const shouldShowTemplatesEmptyState =
     !templatesQuery.isLoading &&
     !templatesQuery.isError &&
-    (templatesQuery.data?.length ?? 0) === 0;
+    (templatesQuery.data?.meta.total ?? 0) === 0;
   const shouldShowOnboardingCard =
     !onboardingDismissed &&
     !completedSessionsQuery.isLoading &&
@@ -86,7 +95,7 @@ export function WorkoutsPage() {
       return;
     }
 
-    const topTemplateIds = (templatesQuery.data ?? []).slice(0, 3).map((template) => template.id);
+    const topTemplateIds = (templatesQuery.data?.data ?? []).slice(0, 3).map((template) => template.id);
     for (const templateId of topTemplateIds) {
       void prefetchWorkoutTemplate(queryClient, templateId);
     }
@@ -255,7 +264,8 @@ export function WorkoutsPage() {
         ) : (
           <TemplateBrowser
             buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
-            templates={templatesQuery.data ?? undefined}
+            templates={templatesQuery.data?.data ?? undefined}
+            totalTemplates={templatesQuery.data?.meta.total ?? 0}
           />
         )
       ) : (
@@ -271,4 +281,18 @@ function parseWorkoutTemplateSort(value: string | null): WorkoutTemplateSort {
   }
 
   return 'newest';
+}
+
+function parsePageParam(value: string | null) {
+  const page = Number.parseInt(value ?? String(DEFAULT_TEMPLATE_PAGE), 10);
+
+  return Number.isNaN(page) || page < DEFAULT_TEMPLATE_PAGE ? DEFAULT_TEMPLATE_PAGE : page;
+}
+
+function parsePageSizeParam(value: string | null) {
+  const limit = Number.parseInt(value ?? String(DEFAULT_TEMPLATE_LIMIT), 10);
+
+  return templatePageSizeOptions.includes(limit as (typeof templatePageSizeOptions)[number])
+    ? limit
+    : DEFAULT_TEMPLATE_LIMIT;
 }

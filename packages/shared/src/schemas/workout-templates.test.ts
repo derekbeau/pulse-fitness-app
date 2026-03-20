@@ -31,6 +31,8 @@ describe('workoutTemplateListQueryParamsSchema', () => {
     const sort: WorkoutTemplateSort = workoutTemplateSortSchema.parse('name-desc');
 
     expect(payload).toEqual({
+      limit: 25,
+      page: 1,
       sort: 'newest',
     });
     expect(sort).toBe('name-desc');
@@ -38,6 +40,12 @@ describe('workoutTemplateListQueryParamsSchema', () => {
 
   it('rejects unsupported sort options', () => {
     expect(() => workoutTemplateListQueryParamsSchema.parse({ sort: 'popular' })).toThrow();
+  });
+
+  it('rejects invalid pagination values', () => {
+    expect(() => workoutTemplateListQueryParamsSchema.parse({ page: 0 })).toThrow();
+    expect(() => workoutTemplateListQueryParamsSchema.parse({ limit: 0 })).toThrow();
+    expect(() => workoutTemplateListQueryParamsSchema.parse({ limit: 101 })).toThrow();
   });
 });
 

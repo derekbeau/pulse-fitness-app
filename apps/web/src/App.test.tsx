@@ -201,6 +201,11 @@ describe('App', () => {
         return Promise.resolve(
           jsonResponse({
             data: [workoutTemplatePayload.data],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '25'),
+              total: 1,
+            },
           }),
         );
       }

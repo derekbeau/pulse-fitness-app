@@ -113,6 +113,8 @@ export const workoutTemplateSortSchema = z.enum([
 ]);
 export const workoutTemplateListQueryParamsSchema = z.object({
   sort: workoutTemplateSortSchema.default('newest'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 const workoutTemplateExerciseInputSchema = z

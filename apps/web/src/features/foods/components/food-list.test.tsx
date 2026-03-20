@@ -114,7 +114,7 @@ function createFoodsApiMock(
       const selectedTags = normalizeTags((url.searchParams.get('tags') ?? '').split(','));
       const sort = url.searchParams.get('sort') ?? 'recently-updated';
       const page = Number(url.searchParams.get('page') ?? '1');
-      const limit = Number(url.searchParams.get('limit') ?? '12');
+      const limit = Number(url.searchParams.get('limit') ?? '25');
       const filteredFoods = foods.filter((food) => {
         const matchesQuery = [food.name, food.brand ?? ''].some((value) =>
           value.toLowerCase().includes(q),
@@ -340,6 +340,12 @@ const paginatedFoods = [
     servingSize: '1 scoop',
     lastUsedAt: Date.parse('2026-03-05T16:45:00.000Z'),
   }),
+  ...Array.from({ length: 15 }, (_, index) =>
+    createFood(`food-extra-${index + 1}`, `Template Food ${index + 1}`, {
+      usageCount: index,
+      lastUsedAt: Date.parse(`2026-02-${String((index % 9) + 10).padStart(2, '0')}T12:00:00.000Z`),
+    }),
+  ),
 ];
 
 describe('FoodList', () => {
@@ -379,10 +385,10 @@ describe('FoodList', () => {
     deferredFoods.resolve(
       new Response(
         JSON.stringify({
-          data: paginatedFoods.slice(0, 12),
+          data: paginatedFoods.slice(0, 25),
           meta: {
             page: 1,
-            limit: 12,
+            limit: 25,
             total: paginatedFoods.length,
           },
         }),
@@ -398,7 +404,7 @@ describe('FoodList', () => {
     expect(await screen.findByRole('button', { name: '2% Milk' })).toBeInTheDocument();
     expect(screen.getByText('Serving: 1 cup (240 g)')).toBeInTheDocument();
     expect(screen.getAllByText('Last used: 2 days ago').length).toBeGreaterThan(0);
-    expect(screen.getByText('Showing 12 of 13 foods')).toBeInTheDocument();
+    expect(screen.getByText('Showing 25 of 28 foods')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
     expect(screen.getAllByText('Verified').length).toBeGreaterThan(0);
   });
@@ -503,6 +509,36 @@ describe('FoodList', () => {
     expect(lastUrl.pathname).toBe('/api/v1/foods');
   });
 
+  it('persists per-page in URL params and resets to page 1 when changed', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('page=2');
+    });
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Foods per page' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('10 / page'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('limit=10');
+      expect(window.location.search).toContain('page=1');
+    });
+    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+
+    const requestUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(requestUrl.searchParams.get('limit')).toBe('10');
+    expect(requestUrl.searchParams.get('page')).toBe('1');
+  });
+
   it('keeps the inline editor open if a pending save blurs before the API fails', async () => {
     const deferredUpdate = createDeferredResponse();
     const api = createFoodsApiMock(paginatedFoods, {
@@ -603,7 +639,7 @@ describe('FoodList', () => {
       expect(screen.queryByRole('heading', { level: 3, name: 'Broccoli' })).not.toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(screen.getByText('Showing 12 of 12 foods')).toBeInTheDocument();
+      expect(screen.getByText('Showing 25 of 27 foods')).toBeInTheDocument();
     });
   });
 });

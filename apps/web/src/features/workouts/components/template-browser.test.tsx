@@ -154,6 +154,41 @@ describe('TemplateBrowser', () => {
     });
   });
 
+  it('persists per-page in URL params and resets page to 1 when changed', async () => {
+    window.history.pushState({}, '', '/workouts?view=templates&page=2');
+
+    render(
+      <BrowserRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[
+            {
+              id: 'template-1',
+              name: 'Upper Push',
+              description: null,
+              tags: ['push'],
+              sections: [{ exercises: [] }],
+            },
+          ]}
+          totalTemplates={40}
+        />
+      </BrowserRouter>,
+    );
+
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Templates per page' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('10 / page'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('limit=10');
+      expect(window.location.search).toContain('page=1');
+    });
+    expect(screen.getByText('Page 1 of 4')).toBeInTheDocument();
+  });
+
   it('filters templates by selected tags using AND logic', () => {
     render(
       <MemoryRouter>

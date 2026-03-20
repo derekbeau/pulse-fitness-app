@@ -31,6 +31,8 @@ describe('workoutQueryKeys', () => {
       'workouts',
       'templates',
       {
+        limit: 25,
+        page: 1,
         sort: 'name-desc',
       },
     ]);

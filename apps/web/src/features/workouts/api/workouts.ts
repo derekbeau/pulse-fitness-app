@@ -55,7 +55,7 @@ const paginationMetaSchema = z.object({
 
 type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 type WorkoutTemplateResponse = { data: WorkoutTemplate };
-type WorkoutTemplatesResponse = { data: WorkoutTemplate[] };
+type WorkoutTemplatesResponse = { data: WorkoutTemplate[]; meta: PaginationMeta };
 type ExercisesResponse = { data: Exercise[]; meta: PaginationMeta };
 type ExerciseFiltersResponse = {
   data: {
@@ -131,12 +131,13 @@ type SwapSessionExerciseResponse = {
   data: WorkoutSession;
   meta?: SwapResponseMeta;
 };
-type RenameTemplateCache = WorkoutTemplate | WorkoutTemplate[];
+type RenameTemplateCache = WorkoutTemplate | WorkoutTemplate[] | WorkoutTemplatesResponse;
 type RenameExerciseCache =
   | Exercise
   | ExercisesResponse
   | WorkoutTemplate
   | WorkoutTemplate[]
+  | WorkoutTemplatesResponse
   | WorkoutSession;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -147,6 +148,7 @@ const workoutTemplateResponseSchema = z.object({
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
 const workoutTemplatesResponseSchema = z.object({
   data: z.array(workoutTemplateSchema),
+  meta: paginationMetaSchema,
 }) as unknown as z.ZodType<WorkoutTemplatesResponse>;
 
 // Preprocess in shared schemas widens inference here, so we pin the parsed response shape explicitly.
@@ -187,6 +189,8 @@ const normalizeTemplateListParams = (params: Partial<WorkoutTemplateListQueryPar
   const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
 
   return {
+    limit: parsedParams.limit,
+    page: parsedParams.page,
     sort: parsedParams.sort,
   };
 };
@@ -302,9 +306,18 @@ const updateTemplateNameInCache = (
     return cache;
   }
 
-  return Array.isArray(cache)
-    ? cache.map((template) => renameTemplateInTemplate(template, request))
-    : renameTemplateInTemplate(cache, request);
+  if (Array.isArray(cache)) {
+    return cache.map((template) => renameTemplateInTemplate(template, request));
+  }
+
+  if (isWorkoutTemplatesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((template) => renameTemplateInTemplate(template, request)),
+    };
+  }
+
+  return renameTemplateInTemplate(cache, request);
 };
 
 const reorderTemplateExercisesInCache = (
@@ -315,13 +328,39 @@ const reorderTemplateExercisesInCache = (
     return cache;
   }
 
-  return Array.isArray(cache)
-    ? cache.map((template) => reorderTemplateExercisesInTemplate(template, request))
-    : reorderTemplateExercisesInTemplate(cache, request);
+  if (Array.isArray(cache)) {
+    return cache.map((template) => reorderTemplateExercisesInTemplate(template, request));
+  }
+
+  if (isWorkoutTemplatesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((template) => reorderTemplateExercisesInTemplate(template, request)),
+    };
+  }
+
+  return reorderTemplateExercisesInTemplate(cache, request);
 };
 
 const isExercisesResponse = (value: RenameExerciseCache | undefined): value is ExercisesResponse =>
-  typeof value === 'object' && value !== null && 'data' in value && 'meta' in value;
+  typeof value === 'object' &&
+  value !== null &&
+  'data' in value &&
+  Array.isArray(value.data) &&
+  (value.data.length === 0 ||
+    value.data.every((entry) => typeof entry === 'object' && entry !== null && 'muscleGroups' in entry)) &&
+  'meta' in value;
+
+const isWorkoutTemplatesResponse = (
+  value: RenameTemplateCache | RenameExerciseCache | undefined,
+): value is WorkoutTemplatesResponse =>
+  typeof value === 'object' &&
+  value !== null &&
+  'data' in value &&
+  Array.isArray(value.data) &&
+  (value.data.length === 0 ||
+    value.data.every((entry) => typeof entry === 'object' && entry !== null && 'sections' in entry)) &&
+  'meta' in value;
 
 const isExerciseRecord = (value: RenameExerciseCache | undefined): value is Exercise =>
   typeof value === 'object' &&
@@ -412,6 +451,13 @@ const updateExerciseNameInCache = (
     };
   }
 
+  if (isWorkoutTemplatesResponse(cache)) {
+    return {
+      ...cache,
+      data: cache.data.map((template) => renameExerciseInTemplate(template, request)),
+    };
+  }
+
   if (isWorkoutTemplateRecord(cache)) {
     return renameExerciseInTemplate(cache, request);
   }
@@ -468,12 +514,15 @@ const removeScheduledWorkoutFromList = (
 async function getWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
   const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
   const searchParams = new URLSearchParams({
+    limit: String(parsedParams.limit),
+    page: String(parsedParams.page),
     sort: parsedParams.sort,
   });
-  const data = await apiRequest<unknown>(`/api/v1/workout-templates?${searchParams.toString()}`);
-  const payload = workoutTemplatesResponseSchema.parse({ data });
+  const payload = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/workout-templates?${searchParams.toString()}`,
+  );
 
-  return payload.data;
+  return workoutTemplatesResponseSchema.parse(payload);
 }
 
 const sessionListResponseSchema = z.object({
@@ -809,7 +858,7 @@ async function deleteScheduledWorkout(input: DeleteScheduledWorkoutRequest) {
 }
 
 export function useWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
-  return useQuery<WorkoutTemplate[]>({
+  return useQuery<WorkoutTemplatesResponse>({
     queryFn: () => getWorkoutTemplates(params),
     queryKey: workoutQueryKeys.templateList(params),
   });

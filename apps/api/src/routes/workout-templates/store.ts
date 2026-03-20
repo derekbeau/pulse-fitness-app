@@ -179,17 +179,42 @@ const buildTemplateSort = (sort: WorkoutTemplateSort) => {
   }
 };
 
-const findTemplateRows = async (userId: string, sort: WorkoutTemplateSort): Promise<TemplateRecord[]> => {
+const findTemplateRows = async ({
+  userId,
+  sort,
+  page,
+  limit,
+}: {
+  userId: string;
+  sort: WorkoutTemplateSort;
+  page: number;
+  limit: number;
+}): Promise<{ data: TemplateRecord[]; total: number }> => {
   const { db } = await import('../../db/index.js');
+  const offset = (page - 1) * limit;
 
   const orderBy = buildTemplateSort(sort);
 
-  return db
-    .select(templateSelection)
-    .from(workoutTemplates)
-    .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
-    .orderBy(...orderBy)
-    .all();
+  const [data, totalResult] = await Promise.all([
+    db
+      .select(templateSelection)
+      .from(workoutTemplates)
+      .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
+      .orderBy(...orderBy)
+      .limit(limit)
+      .offset(offset)
+      .all(),
+    db
+      .select({ total: sql<number>`count(*)` })
+      .from(workoutTemplates)
+      .where(and(eq(workoutTemplates.userId, userId), isNull(workoutTemplates.deletedAt)))
+      .get(),
+  ]);
+
+  return {
+    data,
+    total: totalResult?.total ?? 0,
+  };
 };
 
 const findTemplateExerciseRows = async (
@@ -221,10 +246,25 @@ const findTemplateExerciseRows = async (
 export const listWorkoutTemplates = async (
   userId: string,
   sort: WorkoutTemplateSort,
-): Promise<WorkoutTemplate[]> => {
-  const templates = await findTemplateRows(userId, sort);
+  page: number,
+  limit: number,
+): Promise<{ data: WorkoutTemplate[]; meta: { page: number; limit: number; total: number } }> => {
+  const { data: templates, total } = await findTemplateRows({
+    userId,
+    sort,
+    page,
+    limit,
+  });
+
   if (templates.length === 0) {
-    return [];
+    return {
+      data: [],
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
   }
 
   const exerciseRows = await findTemplateExerciseRows(
@@ -232,12 +272,19 @@ export const listWorkoutTemplates = async (
     templates.map((template) => template.id),
   );
 
-  return templates.map((template) =>
-    buildTemplate(
-      template,
-      exerciseRows.filter((row) => row.templateId === template.id),
+  return {
+    data: templates.map((template) =>
+      buildTemplate(
+        template,
+        exerciseRows.filter((row) => row.templateId === template.id),
+      ),
     ),
-  );
+    meta: {
+      page,
+      limit,
+      total,
+    },
+  };
 };
 
 export const findWorkoutTemplateById = async (

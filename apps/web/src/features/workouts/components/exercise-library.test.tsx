@@ -301,6 +301,31 @@ describe('ExerciseLibrary', () => {
     expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
   });
 
+  it('persists per-page in the URL and resets to page 1 when changed', async () => {
+    const fetchSpy = mockExerciseRequests();
+    window.history.pushState({}, '', '/workouts?page=2');
+
+    renderExerciseLibrary();
+
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Exercises per page' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.click(screen.getByText('10 / page'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('limit=10');
+      expect(window.location.search).toContain('page=1');
+    });
+    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    await waitFor(() => {
+      const requestUrl = new URL(String(fetchSpy.mock.calls.at(-1)?.[0]), 'https://pulse.test');
+      expect(requestUrl.searchParams.get('limit')).toBe('10');
+      expect(requestUrl.searchParams.get('page')).toBe('1');
+    });
+  });
+
   it('persists sort selection in URL search params and sends it to the API', async () => {
     const fetchSpy = mockExerciseRequests();
 

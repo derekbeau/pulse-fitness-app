@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, MoreVertical, Search, Tag, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import type { WorkoutTemplateSort } from '@pulse/shared';
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
   useDeleteTemplate,
@@ -53,6 +54,7 @@ interface TemplateSummary {
 type TemplateBrowserProps = {
   buildTemplateHref: (templateId: string) => string;
   className?: string;
+  totalTemplates?: number;
   templates?: TemplateSummary[];
 };
 
@@ -70,10 +72,14 @@ const templateSortOptions: SortOption[] = [
   { value: 'name-desc', label: 'Name (Z-A)', direction: 'desc' },
   { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
 ];
+const DEFAULT_PAGE = 1;
+const DEFAULT_PAGE_SIZE = 25;
+const pageSizeOptions = [10, 25, 50] as const;
 
 export function TemplateBrowser({
   buildTemplateHref,
   className,
+  totalTemplates,
   templates = [],
 }: TemplateBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,6 +93,9 @@ export function TemplateBrowser({
   const deleteTemplateMutation = useDeleteTemplate();
   const scheduleWorkoutMutation = useScheduleWorkout();
   const sort = parseTemplateSort(searchParams.get('sort'));
+  const page = parsePage(searchParams.get('page'));
+  const limit = parsePageSize(searchParams.get('limit'));
+  const resolvedTotalTemplates = totalTemplates ?? templates.length;
   const requestedDate = searchParams.get('date');
   const scheduleInitialDate =
     requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
@@ -137,6 +146,7 @@ export function TemplateBrowser({
     [activeSelectedTags, normalizedQuery, templates],
   );
   const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
+  const totalPages = Math.max(1, Math.ceil(resolvedTotalTemplates / limit));
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
@@ -144,6 +154,21 @@ export function TemplateBrowser({
     trimmedRenameValue.length > 0 &&
     trimmedRenameValue !== renameTarget.name &&
     !renameTemplateMutation.isPending;
+
+  useEffect(() => {
+    if (page <= totalPages) {
+      return;
+    }
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('page', String(totalPages));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [page, setSearchParams, totalPages]);
 
   async function handleDeleteTemplate(templateId: string) {
     try {
@@ -222,6 +247,7 @@ export function TemplateBrowser({
               setSearchParams((current) => {
                 const next = new URLSearchParams(current);
                 next.set('sort', value);
+                next.set('page', String(DEFAULT_PAGE));
                 return next;
               });
             }}
@@ -268,6 +294,57 @@ export function TemplateBrowser({
                 </Button>
               );
             })}
+          </div>
+        </div>
+      ) : null}
+
+      {resolvedTotalTemplates > limit ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted">{`Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`}</p>
+          <div className="flex items-center gap-2">
+            <PerPageSelector
+              ariaLabel="Templates per page"
+              onChange={(value) => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('limit', String(value));
+                  next.set('page', String(DEFAULT_PAGE));
+                  return next;
+                });
+              }}
+              value={limit}
+            />
+            <Button
+              disabled={page <= DEFAULT_PAGE}
+              onClick={() => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('page', String(Math.max(DEFAULT_PAGE, page - 1)));
+                  return next;
+                });
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted">{`Page ${page} of ${totalPages}`}</span>
+            <Button
+              disabled={page >= totalPages}
+              onClick={() => {
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('page', String(Math.min(totalPages, page + 1)));
+                  return next;
+                });
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Next
+            </Button>
           </div>
         </div>
       ) : null}
@@ -492,6 +569,20 @@ function isTemplateSort(value: string): value is WorkoutTemplateSort {
 
 function parseTemplateSort(value: string | null): WorkoutTemplateSort {
   return value !== null && isTemplateSort(value) ? value : 'newest';
+}
+
+function parsePage(value: string | null) {
+  const page = Number.parseInt(value ?? String(DEFAULT_PAGE), 10);
+
+  return Number.isNaN(page) || page < DEFAULT_PAGE ? DEFAULT_PAGE : page;
+}
+
+function parsePageSize(value: string | null) {
+  const limit = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+
+  return pageSizeOptions.includes(limit as (typeof pageSizeOptions)[number])
+    ? limit
+    : DEFAULT_PAGE_SIZE;
 }
 
 function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) {

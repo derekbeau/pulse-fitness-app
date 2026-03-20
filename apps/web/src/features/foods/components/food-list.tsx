@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteFood, useFoods, useUpdateFood } from '@/features/foods/api/foods';
@@ -15,16 +16,15 @@ import { accentCardStyles } from '@/lib/accent-card-styles';
 
 type FoodListProps = {
   now?: Date;
-  pageSize?: number;
-  foodsQuery?: ReturnType<typeof useFoods>;
 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_PAGE_SIZE = 12;
+const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE = 1;
 const DEFAULT_SORT_BY: FoodSort = 'recently-updated';
 const FOOD_TAG_LIMIT = 20;
+const pageSizeOptions = [10, 25, 50] as const;
 
 const FOOD_SORT_VALUES: FoodSort[] = [
   'name-asc',
@@ -110,26 +110,20 @@ function formatServing(food: Food) {
   return 'Not provided';
 }
 
-export function FoodList({
-  now = new Date(),
-  pageSize = DEFAULT_PAGE_SIZE,
-  foodsQuery: pageFoodsQuery,
-}: FoodListProps) {
+export function FoodList({ now = new Date() }: FoodListProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<FoodSort>(() => {
-    const sortFromUrl = searchParams.get('sort');
-    return isFoodSort(sortFromUrl) ? sortFromUrl : DEFAULT_SORT_BY;
-  });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [page, setPage] = useState(DEFAULT_PAGE);
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [draftFoodName, setDraftFoodName] = useState('');
   const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editCancelledRef = useRef(false);
+  const sortBy = parseFoodSort(searchParams.get('sort'));
+  const page = parsePage(searchParams.get('page'));
+  const pageSize = parsePageSize(searchParams.get('limit'));
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -140,16 +134,6 @@ export function FoodList({
       window.clearTimeout(timeoutId);
     };
   }, [searchInput]);
-
-  useEffect(() => {
-    const sortFromUrl = searchParams.get('sort');
-    if (!isFoodSort(sortFromUrl) || sortFromUrl === sortBy) {
-      return;
-    }
-
-    setSortBy(sortFromUrl);
-    setPage(DEFAULT_PAGE);
-  }, [searchParams, sortBy]);
 
   useEffect(() => {
     if (searchParams.get('sort') === sortBy) {
@@ -166,14 +150,7 @@ export function FoodList({
     );
   }, [searchParams, setSearchParams, sortBy]);
 
-  const shouldUsePageFoodsQuery =
-    pageFoodsQuery !== undefined &&
-    debouncedSearchQuery.length === 0 &&
-    selectedTags.length === 0 &&
-    sortBy === DEFAULT_SORT_BY &&
-    page === DEFAULT_PAGE &&
-    pageSize === DEFAULT_PAGE_SIZE;
-  const fallbackFoodsQuery = useFoods(
+  const foodsQuery = useFoods(
     {
       q: debouncedSearchQuery || undefined,
       tags: selectedTags.length > 0 ? normalizeFoodTags(selectedTags) : undefined,
@@ -181,9 +158,7 @@ export function FoodList({
       page,
       limit: pageSize,
     },
-    { enabled: !shouldUsePageFoodsQuery },
   );
-  const foodsQuery = shouldUsePageFoodsQuery ? pageFoodsQuery : fallbackFoodsQuery;
   const updateFood = useUpdateFood();
   const deleteFood = useDeleteFood();
 
@@ -214,9 +189,16 @@ export function FoodList({
 
   useEffect(() => {
     if (page > totalPages) {
-      setPage(totalPages);
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.set('page', String(totalPages));
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, [page, totalPages]);
+  }, [page, setSearchParams, totalPages]);
 
   function beginEditing(food: Food) {
     editCancelledRef.current = false;
@@ -346,7 +328,14 @@ export function FoodList({
                 className="border-black/10 bg-white/80 pl-9 text-on-cream placeholder:text-gray-500 dark:border-border dark:bg-background dark:text-foreground dark:placeholder:text-muted"
                 onChange={(event) => {
                   setSearchInput(event.target.value);
-                  setPage(1);
+                  setSearchParams(
+                    (current) => {
+                      const next = new URLSearchParams(current);
+                      next.set('page', String(DEFAULT_PAGE));
+                      return next;
+                    },
+                    { replace: true },
+                  );
                 }}
                 placeholder="Chicken, Fairlife, oats..."
                 type="search"
@@ -364,8 +353,15 @@ export function FoodList({
                   return;
                 }
 
-                setSortBy(value);
-                setPage(1);
+                setSearchParams(
+                  (current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('sort', value);
+                    next.set('page', String(DEFAULT_PAGE));
+                    return next;
+                  },
+                  { replace: true },
+                );
               }}
               options={SORT_OPTIONS}
               triggerClassName="border-black/10 bg-white/80 text-on-cream dark:border-border dark:bg-background dark:text-foreground"
@@ -393,7 +389,14 @@ export function FoodList({
                             ? normalizeFoodTags(current).filter((currentTag) => currentTag !== tag)
                             : [...normalizeFoodTags(current), tag],
                         );
-                        setPage(1);
+                        setSearchParams(
+                          (current) => {
+                            const next = new URLSearchParams(current);
+                            next.set('page', String(DEFAULT_PAGE));
+                            return next;
+                          },
+                          { replace: true },
+                        );
                       }}
                       type="button"
                       variant={isSelected ? 'default' : 'outline'}
@@ -683,9 +686,28 @@ export function FoodList({
 
           {totalFoods > pageSize ? (
             <div className="flex items-center justify-between gap-3">
+              <PerPageSelector
+                ariaLabel="Foods per page"
+                onChange={(value) => {
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('limit', String(value));
+                    next.set('page', String(DEFAULT_PAGE));
+                    return next;
+                  });
+                }}
+                triggerClassName="border-border bg-background"
+                value={pageSize}
+              />
               <Button
                 disabled={page === 1 || foodsQuery.isFetching}
-                onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                onClick={() =>
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('page', String(Math.max(DEFAULT_PAGE, page - 1)));
+                    return next;
+                  })
+                }
                 type="button"
                 variant="outline"
               >
@@ -696,7 +718,13 @@ export function FoodList({
               </p>
               <Button
                 disabled={page >= totalPages || foodsQuery.isFetching}
-                onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                onClick={() =>
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('page', String(Math.min(totalPages, page + 1)));
+                    return next;
+                  })
+                }
                 type="button"
                 variant="outline"
               >
@@ -709,4 +737,22 @@ export function FoodList({
       {dialog}
     </div>
   );
+}
+
+function parseFoodSort(value: string | null): FoodSort {
+  return isFoodSort(value) ? value : DEFAULT_SORT_BY;
+}
+
+function parsePage(value: string | null) {
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE), 10);
+
+  return Number.isNaN(parsedValue) || parsedValue < DEFAULT_PAGE ? DEFAULT_PAGE : parsedValue;
+}
+
+function parsePageSize(value: string | null) {
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+
+  return pageSizeOptions.includes(parsedValue as (typeof pageSizeOptions)[number])
+    ? parsedValue
+    : DEFAULT_PAGE_SIZE;
 }

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import {
   DropdownMenu,
@@ -49,7 +50,8 @@ const exerciseSortOptions: SortOption[] = [
   { value: 'oldest', label: 'Oldest', direction: 'asc' },
   { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
 ];
-const PAGE_SIZE = 25;
+const pageSizeOptions = [10, 25, 50] as const;
+const DEFAULT_PAGE_SIZE = 25;
 const EXERCISE_LIBRARY_VIEW_STORAGE_KEY = 'exercise-library-view';
 
 type ExerciseLibraryView = 'card' | 'table';
@@ -73,6 +75,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const category = searchParams.get('category') ?? 'all';
   const sort = parseExerciseSort(searchParams.get('sort'));
   const page = parsePage(searchParams.get('page'));
+  const limit = parsePageSize(searchParams.get('limit'));
 
   useEffect(() => {
     setSearchTerm(currentQuery);
@@ -110,7 +113,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const exercisesQuery = useExercises({
     category: parseCategory(category),
     equipment: normalizeFilterParam(equipment),
-    limit: PAGE_SIZE,
+    limit,
     muscleGroup: normalizeFilterParam(muscleGroup),
     page,
     q: currentQuery || undefined,
@@ -121,7 +124,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const renameExerciseMutation = useRenameExercise();
   const filteredExercises: Exercise[] = exercisesQuery.data?.data ?? [];
   const totalResults = exercisesQuery.data?.meta.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalResults / limit));
 
   const muscleGroupOptions = useMemo(
     () => exerciseFiltersQuery.data?.data.muscleGroups ?? [],
@@ -271,6 +274,13 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
         </p>
 
         <div className="flex items-center gap-2">
+          <PerPageSelector
+            ariaLabel="Exercises per page"
+            onChange={(value) =>
+              updateSearchParams(searchParams, setSearchParams, { limit: String(value) })
+            }
+            value={limit}
+          />
           <Button
             disabled={page <= 1 || exercisesQuery.isFetching}
             onClick={() =>
@@ -615,6 +625,14 @@ function parsePage(value: string | null) {
   const page = Number.parseInt(value ?? '1', 10);
 
   return Number.isNaN(page) || page < 1 ? 1 : page;
+}
+
+function parsePageSize(value: string | null) {
+  const parsedValue = Number.parseInt(value ?? String(DEFAULT_PAGE_SIZE), 10);
+
+  return pageSizeOptions.includes(parsedValue as (typeof pageSizeOptions)[number])
+    ? parsedValue
+    : DEFAULT_PAGE_SIZE;
 }
 
 function isExerciseSort(value: string): value is ExerciseSort {
