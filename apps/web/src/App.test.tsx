@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -27,7 +27,7 @@ const protectedRoutes = [
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },
   { heading: 'Activity', path: '/activity' },
-  { heading: 'Foods', path: '/foods' },
+  { heading: 'Nutrition', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
   { heading: 'Weight History', path: '/weight' },
   { heading: 'Profile', path: '/profile' },
@@ -44,7 +44,6 @@ const navRoutes = [
   { heading: 'Nutrition', path: '/nutrition' },
   { heading: 'Habits', path: '/habits' },
   { heading: 'Activity', path: '/activity' },
-  { heading: 'Foods', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
   { heading: 'Profile', path: '/profile' },
 ] as const;
@@ -229,6 +228,61 @@ describe('App', () => {
         );
       }
 
+      if (url.pathname === '/api/v1/nutrition/week-summary') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      if (/^\/api\/v1\/nutrition\/\d{4}-\d{2}-\d{2}\/summary$/.test(url.pathname)) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              date: '2026-03-06',
+              meals: 0,
+              actual: {
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+              },
+              target: null,
+            },
+          }),
+        );
+      }
+
+      if (/^\/api\/v1\/nutrition\/\d{4}-\d{2}-\d{2}$/.test(url.pathname)) {
+        return Promise.resolve(
+          jsonResponse({
+            data: null,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/foods') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+            meta: {
+              page: Number(url.searchParams.get('page') ?? '1'),
+              limit: Number(url.searchParams.get('limit') ?? '12'),
+              total: 0,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/macros') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
       if (url.pathname.startsWith('/api/v1/workout-sessions/')) {
         return Promise.resolve(jsonResponse(workoutSessionPayload));
       }
@@ -278,6 +332,20 @@ describe('App', () => {
       expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
     },
   );
+
+  it('redirects /foods to /nutrition?view=foods when signed in', async () => {
+    setAuthenticatedState();
+    window.history.pushState({}, '', '/foods');
+
+    renderApp();
+
+    expect(await screen.findByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
+    expect(await screen.findByText('Search your foods database')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/nutrition');
+      expect(window.location.search).toBe('?view=foods');
+    });
+  });
 
   it('renders navigation links for all app routes', async () => {
     setAuthenticatedState();

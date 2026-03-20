@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  BarChart3,
   CalendarCheck,
   CalendarX,
   LayoutDashboard,
@@ -67,6 +68,9 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
   const saveDashboardConfig = useSaveDashboardConfig();
 
   const isOnDashboard = dashboardConfigQuery.data?.habitChainIds.includes(habit.id) ?? false;
+  const dailyStatusWidgetId = `habit-daily:${habit.id}`;
+  const isDailyStatusOnDashboard =
+    dashboardConfigQuery.data?.visibleWidgets.includes(dailyStatusWidgetId) ?? false;
 
   const currentIndex = habits.findIndex((item) => item.id === habit.id);
   const canMoveUp = currentIndex > 0;
@@ -88,6 +92,17 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
       : Array.from(new Set([...config.habitChainIds, habit.id]));
 
     saveDashboardConfig.mutate({ ...config, habitChainIds: nextIds });
+  }
+
+  function handleToggleDailyStatusDashboard() {
+    const config = dashboardConfigQuery.data;
+    if (!config) return;
+
+    const nextVisibleWidgets = isDailyStatusOnDashboard
+      ? config.visibleWidgets.filter((widgetId) => widgetId !== dailyStatusWidgetId)
+      : Array.from(new Set([...config.visibleWidgets, dailyStatusWidgetId]));
+
+    saveDashboardConfig.mutate({ ...config, visibleWidgets: nextVisibleWidgets });
   }
 
   async function handleMove(direction: 'up' | 'down') {
@@ -194,6 +209,14 @@ export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
             <DropdownMenuItem onClick={handleToggleDashboard}>
               <LayoutDashboard />
               {isOnDashboard ? 'Remove from dashboard' : 'Show on dashboard'}
+            </DropdownMenuItem>
+          ) : null}
+          {dashboardConfigQuery.data ? (
+            <DropdownMenuItem onClick={handleToggleDailyStatusDashboard}>
+              <BarChart3 />
+              {isDailyStatusOnDashboard
+                ? 'Remove daily status from dashboard'
+                : 'Show daily status on dashboard'}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onClick={() => void handleToggleActive()}>

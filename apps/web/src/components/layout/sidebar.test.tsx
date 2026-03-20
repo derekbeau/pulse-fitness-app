@@ -50,7 +50,6 @@ const navLinks = [
   { label: 'Nutrition', path: '/nutrition' },
   { label: 'Habits', path: '/habits' },
   { label: 'Activity', path: '/activity' },
-  { label: 'Foods', path: '/foods' },
   { label: 'Journal', path: '/journal' },
   { label: 'Profile', path: '/profile' },
 ] as const;

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDeleteHabit, useReorderHabits, useUpdateHabit } from '@/features/habits/api/habits';
 import { HabitCardMenu } from '@/features/habits/components/habit-card-menu';
+import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -56,11 +57,34 @@ vi.mock('@/hooks/use-dashboard-config', () => ({
 const mockedUseDeleteHabit = vi.mocked(useDeleteHabit);
 const mockedUseReorderHabits = vi.mocked(useReorderHabits);
 const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
+const mockedUseDashboardConfig = vi.mocked(useDashboardConfig);
+const mockedUseSaveDashboardConfig = vi.mocked(useSaveDashboardConfig);
 
 function createMutationMock() {
   return {
     isPending: false,
     mutateAsync: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createDashboardConfig({
+  habitChainIds = [],
+  visibleWidgets = [],
+}: {
+  habitChainIds?: string[];
+  visibleWidgets?: string[];
+} = {}) {
+  return {
+    habitChainIds,
+    trendMetrics: [],
+    visibleWidgets,
+  };
+}
+
+function createSaveDashboardConfigMutationMock() {
+  return {
+    mutate: vi.fn(),
+    isPending: false,
   };
 }
 
@@ -133,6 +157,14 @@ function getHabitById(id: string) {
 describe('HabitCardMenu', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedUseDashboardConfig.mockReturnValue({
+      data: createDashboardConfig(),
+      isError: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useDashboardConfig>);
+    mockedUseSaveDashboardConfig.mockReturnValue(
+      createSaveDashboardConfigMutationMock() as unknown as ReturnType<typeof useSaveDashboardConfig>,
+    );
     mockedUseDeleteHabit.mockReturnValue(
       createMutationMock() as unknown as ReturnType<typeof useDeleteHabit>,
     );
@@ -152,6 +184,84 @@ describe('HabitCardMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
     expect(onEdit).toHaveBeenCalledWith(sleepHabit);
+  });
+
+  it('adds a habit chain to dashboard config when show on dashboard is selected', async () => {
+    const sleepHabit = getHabitById('sleep');
+    const saveDashboardConfigMutation = createSaveDashboardConfigMutationMock();
+    mockedUseSaveDashboardConfig.mockReturnValue(
+      saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
+    );
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show on dashboard' }));
+
+    expect(saveDashboardConfigMutation.mutate).toHaveBeenCalledWith({
+      habitChainIds: ['sleep'],
+      trendMetrics: [],
+      visibleWidgets: [],
+    });
+  });
+
+  it('adds habit daily status widget to dashboard config when selected', async () => {
+    const sleepHabit = getHabitById('sleep');
+    const saveDashboardConfigMutation = createSaveDashboardConfigMutationMock();
+    mockedUseSaveDashboardConfig.mockReturnValue(
+      saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
+    );
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show daily status on dashboard' }));
+
+    expect(saveDashboardConfigMutation.mutate).toHaveBeenCalledWith({
+      habitChainIds: [],
+      trendMetrics: [],
+      visibleWidgets: ['habit-daily:sleep'],
+    });
+  });
+
+  it('removes habit daily status widget from dashboard config when already visible', async () => {
+    const sleepHabit = getHabitById('sleep');
+    const saveDashboardConfigMutation = createSaveDashboardConfigMutationMock();
+    mockedUseDashboardConfig.mockReturnValue({
+      data: createDashboardConfig({
+        visibleWidgets: ['snapshot-cards', 'habit-daily:sleep'],
+      }),
+      isError: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useDashboardConfig>);
+    mockedUseSaveDashboardConfig.mockReturnValue(
+      saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
+    );
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove daily status from dashboard' }));
+
+    expect(saveDashboardConfigMutation.mutate).toHaveBeenCalledWith({
+      habitChainIds: [],
+      trendMetrics: [],
+      visibleWidgets: ['snapshot-cards'],
+    });
+  });
+
+  it('shows remove daily status label when the widget is already visible', async () => {
+    const sleepHabit = getHabitById('sleep');
+    mockedUseDashboardConfig.mockReturnValue({
+      data: createDashboardConfig({
+        visibleWidgets: ['habit-daily:sleep'],
+      }),
+      isError: false,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useDashboardConfig>);
+
+    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Remove daily status from dashboard' }),
+    ).toBeInTheDocument();
   });
 
   it('reorders habits when move down is selected', async () => {
