@@ -530,11 +530,87 @@ export const trackFoodUsage = async (
 export const decrementFoodUsage = async (foodId: string, userId: string): Promise<void> => {
   const { db } = await import('../../db/index.js');
 
-  db
-    .update(foods)
+  db.update(foods)
     .set({
       usageCount: sql`case when usage_count > 0 then usage_count - 1 else 0 end`,
     })
     .where(and(eq(foods.id, foodId), eq(foods.userId, userId)))
     .run();
+};
+
+export const reconcileFoodUsage = async (
+  userId: string,
+): Promise<{ reconciled: number; updated: number }> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const foodsForUser = tx
+      .select({
+        id: foods.id,
+        usageCount: foods.usageCount,
+        lastUsedAt: foods.lastUsedAt,
+      })
+      .from(foods)
+      .where(and(eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .all();
+
+    if (foodsForUser.length === 0) {
+      return { reconciled: 0, updated: 0 };
+    }
+
+    const usageRows = tx
+      .select({
+        foodId: mealItems.foodId,
+        usageCount: sql<number>`cast(count(*) as integer)`,
+        lastUsedAt: sql<number | null>`max(${mealItems.createdAt})`,
+      })
+      .from(mealItems)
+      .innerJoin(foods, eq(foods.id, mealItems.foodId))
+      .where(and(eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .groupBy(mealItems.foodId)
+      .all();
+
+    const usageByFoodId = new Map<string, { usageCount: number; lastUsedAt: number | null }>();
+    for (const row of usageRows) {
+      if (typeof row.foodId !== 'string') {
+        continue;
+      }
+
+      usageByFoodId.set(row.foodId, {
+        usageCount: Number(row.usageCount ?? 0),
+        lastUsedAt: row.lastUsedAt === null ? null : Number(row.lastUsedAt),
+      });
+    }
+
+    let updated = 0;
+    const now = Date.now();
+
+    for (const food of foodsForUser) {
+      const nextUsage = usageByFoodId.get(food.id) ?? { usageCount: 0, lastUsedAt: null };
+      const usageChanged = food.usageCount !== nextUsage.usageCount;
+      const lastUsedAtChanged = food.lastUsedAt !== nextUsage.lastUsedAt;
+
+      if (!usageChanged && !lastUsedAtChanged) {
+        continue;
+      }
+
+      if (usageChanged) {
+        updated += 1;
+      }
+
+      tx.update(foods)
+        .set({
+          usageCount: nextUsage.usageCount,
+          lastUsedAt: nextUsage.lastUsedAt,
+          updatedAt: now,
+        })
+        .where(and(eq(foods.id, food.id), eq(foods.userId, userId), isNull(foods.deletedAt)))
+        .run();
+    }
+
+    return {
+      reconciled: foodsForUser.length,
+      updated,
+    };
+  });
 };

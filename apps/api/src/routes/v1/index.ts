@@ -3,8 +3,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { requireAuth } from '../../middleware/auth.js';
-import { apiErrorResponseSchema, authSecurity } from '../../openapi.js';
+import { requireAuth, requireJwtOnly } from '../../middleware/auth.js';
+import { apiErrorResponseSchema, authSecurity, jwtSecurity } from '../../openapi.js';
+import { reconcileFoodUsage } from '../foods/store.js';
 import { usersRoutes } from '../users/index.js';
 
 import { contextRoutes } from './context.js';
@@ -12,6 +13,11 @@ import { dashboardRoutes } from './dashboard.js';
 
 const pingResponseSchema = z.object({
   userId: z.string(),
+});
+
+const reconcileFoodUsageResponseSchema = z.object({
+  reconciled: z.number().int().nonnegative(),
+  updated: z.number().int().nonnegative(),
 });
 
 export const v1Routes: FastifyPluginAsync = async (app) => {
@@ -36,6 +42,27 @@ export const v1Routes: FastifyPluginAsync = async (app) => {
         userId: request.userId,
       },
     }),
+  );
+
+  typedApp.post(
+    '/admin/reconcile-food-usage',
+    {
+      onRequest: [requireAuth, requireJwtOnly],
+      schema: {
+        response: {
+          200: apiDataResponseSchema(reconcileFoodUsageResponseSchema),
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+        },
+        tags: ['admin'],
+        summary: 'Reconcile food usage metadata from meal item references',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      const result = await reconcileFoodUsage(request.userId);
+      return reply.send({ data: result });
+    },
   );
 
   app.register(contextRoutes, { prefix: '/context' });
