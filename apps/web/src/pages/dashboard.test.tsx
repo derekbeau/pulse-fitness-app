@@ -6,6 +6,7 @@ import {
   type HabitEntry,
 } from '@pulse/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { type ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,6 +49,72 @@ vi.mock('recharts', async () => {
     ),
   };
 });
+
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({
+    children,
+    onDragEnd,
+  }: {
+    children: ReactNode;
+    onDragEnd?: (event: { active: { id: string }; over: { id: string } | null }) => void;
+  }) => (
+    <div data-testid="mock-dnd-context">
+      <button
+        aria-label="Mock reorder widgets"
+        onClick={() =>
+          onDragEnd?.({
+            active: { id: 'recent-workouts' },
+            over: { id: 'snapshot-cards' },
+          })
+        }
+        type="button"
+      >
+        reorder
+      </button>
+      {children}
+    </div>
+  ),
+  KeyboardSensor: function KeyboardSensor() {
+    return undefined;
+  },
+  PointerSensor: function PointerSensor() {
+    return undefined;
+  },
+  closestCenter: () => null,
+  useSensor: () => ({}),
+  useSensors: (...sensors: unknown[]) => sensors,
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: { children: ReactNode }) => children,
+  arrayMove: (items: unknown[], oldIndex: number, newIndex: number) => {
+    if (oldIndex === newIndex) {
+      return [...items];
+    }
+
+    const copy = [...items];
+    const [moved] = copy.splice(oldIndex, 1);
+    copy.splice(newIndex, 0, moved);
+    return copy;
+  },
+  sortableKeyboardCoordinates: () => ({ x: 0, y: 0 }),
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => undefined,
+    transform: null,
+    transition: undefined,
+  }),
+  verticalListSortingStrategy: () => null,
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: () => '',
+    },
+  },
+}));
 
 const habits: Habit[] = [
   {
@@ -821,7 +888,9 @@ describe('DashboardPage', () => {
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByTestId('habit-daily-status-card-loading-habit-meditate')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('habit-daily-status-card-loading-habit-meditate'),
+    ).toBeInTheDocument();
 
     deferredHabits.resolve(
       new Response(JSON.stringify({ data: habits }), {
@@ -860,7 +929,7 @@ describe('DashboardPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('supports dashboard widget edit mode with save and cancel behavior', async () => {
+  it('opens the dashboard widget sidebar when edit is clicked', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -874,34 +943,34 @@ describe('DashboardPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
 
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-widget-sidebar')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard widgets')).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+  it('toggles widget visibility from sidebar switches and saves via PUT', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
     await vi.runAllTimersAsync();
     await Promise.resolve();
-    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
-    expect(screen.getByText('Recent Workouts')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show Recent Workouts widget' }));
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
-    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
 
     const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
       const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
@@ -914,7 +983,37 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('adds and hides habit daily cards directly from dashboard edit mode', async () => {
+  it('toggles habit daily sub-switches from the sidebar', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Meditate daily status widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Meditate daily status widget' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
+  });
+
+  it('updates visibleWidgets order when drag reorder completes', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -927,37 +1026,7 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    const addCardButton = screen.getByRole('button', { name: 'Add card' });
-    expect(addCardButton).not.toBeDisabled();
-
-    fireEvent.click(addCardButton);
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Meditate daily status widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Show Meditate daily status widget' }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show Meditate daily status widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
-
+    fireEvent.click(screen.getByRole('button', { name: 'Mock reorder widgets' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await vi.runAllTimersAsync();
@@ -970,17 +1039,12 @@ describe('DashboardPage', () => {
 
     expect(saveRequest).toBeDefined();
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
-      visibleWidgets: expect.arrayContaining(['habit-daily:habit-meditate']),
+      visibleWidgets: expect.arrayContaining(DEFAULT_VISIBLE_WIDGETS),
     });
+    expect(JSON.parse(String(saveRequest?.[1]?.body)).visibleWidgets[0]).toBe('recent-workouts');
   });
 
-  it('restores hidden persisted habit daily widgets when using show all', async () => {
-    dashboardConfig = {
-      habitChainIds: ['habit-meditate'],
-      trendMetrics: ['weight', 'calories', 'protein'],
-      visibleWidgets: [...DEFAULT_VISIBLE_WIDGETS, 'habit-daily:habit-meditate'],
-    };
-
+  it('saves dashboard config when the sidebar closes', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -993,75 +1057,28 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Meditate daily status widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    const sidebar = screen.getByTestId('dashboard-widget-sidebar');
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Close' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
-    expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-widget-sidebar')).not.toBeInTheDocument();
+
+    const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+      return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
+    });
+
+    expect(saveRequest).toBeDefined();
+    expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
+      visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
+    });
   });
 
-  it('hides grouped widgets individually and supports bulk restore in edit mode', async () => {
-    const { wrapper } = createQueryClientWrapper();
-    const { container } = render(
-      <MemoryRouter>
-        <DashboardPage />
-      </MemoryRouter>,
-      { wrapper },
-    );
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-
-    expect(screen.getByRole('button', { name: 'Hide Daily Snapshot widget' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Hide Log Weight widget' })).toBeInTheDocument();
-    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Daily Snapshot widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show Daily Snapshot widget' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Show all' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Log Weight widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(container.querySelector('[data-widget-label="Log Weight"]')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-slot="dashboard-snapshot-panel"]')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(container.querySelector('[data-widget-label="Daily Snapshot"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-widget-label="Log Weight"]')).toBeInTheDocument();
-    expect(screen.getByText('No hidden widgets.')).toBeInTheDocument();
-  });
-
-  it('stays in edit mode and shows an error when widget visibility save fails', async () => {
+  it('saves changes when the sidebar closes and keeps it open on save failure', async () => {
     shouldFailDashboardConfigSave = true;
     const { wrapper } = createQueryClientWrapper();
     render(
@@ -1075,16 +1092,18 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Recent Workouts widget' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
+
+    const sidebar = screen.getByTestId('dashboard-widget-sidebar');
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Close' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
+
+    expect(screen.getByTestId('dashboard-widget-sidebar')).toBeInTheDocument();
     expect(
-      screen.getByText('Unable to save widget visibility. Please try again.'),
+      screen.getByText('Unable to save dashboard widgets. Please try again.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Hidden widgets' })).toBeInTheDocument();
   });
 
   it('renders the dashboard empty state when there are no habits and no recent workouts', async () => {
