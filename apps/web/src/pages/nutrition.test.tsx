@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
 import type { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NutritionPage } from '@/pages/nutrition';
@@ -281,13 +281,34 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
   return { fetchMock };
 }
 
-function renderNutritionPage() {
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
+}
+
+function renderNutritionPage(
+  initialEntry = '/nutrition',
+  options: { includeLocationProbe?: boolean } = {},
+) {
   const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
+  const { includeLocationProbe = false } = options;
 
   return render(<NutritionPage />, {
     wrapper: ({ children }: { children: ReactNode }) => (
-      <MemoryRouter>
-        <QueryClientWrapper>{children}</QueryClientWrapper>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <QueryClientWrapper>
+          <Routes>
+            <Route
+              element={
+                <>
+                  {children}
+                  {includeLocationProbe ? <LocationProbe /> : null}
+                </>
+              }
+              path="/nutrition"
+            />
+          </Routes>
+        </QueryClientWrapper>
       </MemoryRouter>
     ),
   });
@@ -440,6 +461,189 @@ describe('NutritionPage', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('renders log, foods, and trends tabs and syncs the active view to search params', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/foods' && method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: 'food-1',
+                userId: 'user-1',
+                name: 'Chicken Breast',
+                brand: null,
+                servingSize: '100 g',
+                servingGrams: 100,
+                calories: 165,
+                protein: 31,
+                carbs: 0,
+                fat: 4,
+                fiber: null,
+                sugar: null,
+                verified: true,
+                source: 'USDA',
+                notes: null,
+                usageCount: 3,
+                tags: ['protein'],
+                lastUsedAt: Date.parse('2026-03-05T12:00:00.000Z'),
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+            meta: {
+              page: 1,
+              limit: 12,
+              total: 1,
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        );
+      }
+
+      if (url.pathname === '/api/v1/dashboard/trends/macros' && method === 'GET') {
+        return createJsonResponse([
+          {
+            date: '2026-03-04',
+            calories: 2100,
+            protein: 185,
+            carbs: 220,
+            fat: 70,
+          },
+          {
+            date: '2026-03-05',
+            calories: 2250,
+            protein: 192,
+            carbs: 235,
+            fat: 73,
+          },
+        ]);
+      }
+
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition', { includeLocationProbe: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Log' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Foods' }));
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=foods');
+    expect(screen.getByText('Search your foods database')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trends' }));
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=trends');
+    expect(screen.getByRole('heading', { name: 'Macro trends' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log' }));
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Log' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
+    expect(screen.getByRole('heading', { name: 'Meals logged' })).toBeInTheDocument();
+  });
+
+  it('loads tab content from a foods view search param', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+
+      if (url.pathname === '/api/v1/foods' && (init?.method ?? 'GET') === 'GET') {
+        return new Response(
+          JSON.stringify({
+            data: [],
+            meta: {
+              page: 1,
+              limit: 12,
+              total: 0,
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        );
+      }
+
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=foods', { includeLocationProbe: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=foods');
+    expect(screen.getByText('Search your foods database')).toBeInTheDocument();
+  });
+
+  it('loads tab content from a trends view search param', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+
+      if (url.pathname === '/api/v1/dashboard/trends/macros' && (init?.method ?? 'GET') === 'GET') {
+        return createJsonResponse([
+          {
+            date: '2026-03-05',
+            calories: 2200,
+            protein: 185,
+            carbs: 230,
+            fat: 74,
+          },
+        ]);
+      }
+
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=trends', { includeLocationProbe: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=trends');
+    expect(screen.getByRole('heading', { name: 'Macro trends' })).toBeInTheDocument();
   });
 
   it('loads today from API, shows empty state, and blocks future navigation', async () => {

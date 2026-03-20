@@ -1,6 +1,6 @@
 import { Suspense, lazy, type ReactNode, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Toaster } from 'sonner';
 import { GuestRoute } from '@/components/auth/guest-route';
 import { AuthRouteLoader } from '@/components/auth/auth-route-loader';
@@ -34,11 +34,6 @@ const DesignSystemPage = lazy(async () => {
 const EquipmentRoutePage = lazy(async () => {
   const module = await import('./pages/equipment');
   return { default: module.EquipmentRoutePage };
-});
-
-const FoodsPage = lazy(async () => {
-  const module = await import('./pages/foods');
-  return { default: module.FoodsPage };
 });
 
 const HabitsPage = lazy(async () => {
@@ -184,7 +179,7 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<NutritionPage />)} path="nutrition" />
         <Route element={renderWithPageFallback(<HabitsPage />)} path="habits" />
         <Route element={renderWithPageFallback(<ActivityPage />)} path="activity" />
-        <Route element={renderWithPageFallback(<FoodsPage />)} path="foods" />
+        <Route element={<Navigate replace to="/nutrition?view=foods" />} path="foods" />
         <Route element={renderWithPageFallback(<JournalPage />)} path="journal" />
         <Route element={renderWithPageFallback(<JournalEntryPage />)} path="journal/:entryId" />
         <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight" />

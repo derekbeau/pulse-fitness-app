@@ -21,6 +21,7 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 6. For the full list of endpoints, request/response schemas, and auth requirements, fetch the OpenAPI spec.
 7. OpenAPI-generated clients using the `agentToken` security scheme must still send the full `Authorization: AgentToken <token>` header manually; the prefix is not implied by the spec metadata.
 8. Always read context first: `GET /api/v1/context/` — returns user profile, recent workouts, today's nutrition, weight trend, habits, and scheduled workouts.
+9. Web UI navigation: Foods now lives inside Nutrition tabs at `/nutrition?view=foods`; `/foods` redirects there.
 
 ### Core Rules
 

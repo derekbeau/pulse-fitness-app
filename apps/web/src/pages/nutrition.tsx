@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FoodList } from '@/features/foods';
+import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
 import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
 import {
   prefetchNutritionDay,
@@ -34,7 +37,111 @@ import {
   type MealSortDirection,
 } from '@/features/nutrition/lib/nutrition-utils';
 
+const NUTRITION_VIEWS = ['log', 'foods', 'trends'] as const;
+
+type NutritionView = (typeof NUTRITION_VIEWS)[number];
+
+function isNutritionView(value: string | null): value is NutritionView {
+  return value != null && NUTRITION_VIEWS.includes(value as NutritionView);
+}
+
 export function NutritionPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const activeView: NutritionView = isNutritionView(viewParam) ? viewParam : 'log';
+
+  useEffect(() => {
+    if (isNutritionView(viewParam)) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('view', 'log');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams, viewParam]);
+
+  function setActiveView(view: NutritionView) {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('view', view);
+    setSearchParams(nextSearchParams);
+  }
+
+  return (
+    <section className="space-y-4 sm:space-y-5">
+      <header className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
+          <HelpIcon title="Nutrition help">
+            <p>
+              Nutrition is read-only for meal data. Your AI agent logs meals and updates your daily
+              totals.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Ask the agent to log, correct, or delete meals when something is off.</li>
+              <li>Daily summary and macro rings show actual intake compared with your targets.</li>
+              <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
+              <li>Food definition edits later will not retroactively change past meal macros.</li>
+            </ul>
+          </HelpIcon>
+        </div>
+        <p className="max-w-2xl text-sm text-muted">
+          {activeView === 'log'
+            ? 'Review daily meal logs and macro progress.'
+            : activeView === 'foods'
+              ? 'Browse and manage your saved foods library.'
+              : 'Track calories and macros across 7, 30, or 90 days.'}
+        </p>
+      </header>
+
+      <div
+        aria-label="Nutrition views"
+        className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
+        role="group"
+      >
+        <Button
+          aria-pressed={activeView === 'log'}
+          className="rounded-full"
+          onClick={() => setActiveView('log')}
+          size="sm"
+          type="button"
+          variant={activeView === 'log' ? 'default' : 'ghost'}
+        >
+          Log
+        </Button>
+        <Button
+          aria-pressed={activeView === 'foods'}
+          className="rounded-full"
+          onClick={() => setActiveView('foods')}
+          size="sm"
+          type="button"
+          variant={activeView === 'foods' ? 'default' : 'ghost'}
+        >
+          Foods
+        </Button>
+        <Button
+          aria-pressed={activeView === 'trends'}
+          className="rounded-full"
+          onClick={() => setActiveView('trends')}
+          size="sm"
+          type="button"
+          variant={activeView === 'trends' ? 'default' : 'ghost'}
+        >
+          Trends
+        </Button>
+      </div>
+
+      {activeView === 'log' ? (
+        <NutritionLogTab />
+      ) : activeView === 'foods' ? (
+        <FoodList />
+      ) : (
+        <NutritionTrends />
+      )}
+    </section>
+  );
+}
+
+function NutritionLogTab() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
@@ -137,39 +244,22 @@ export function NutritionPage() {
   }
 
   return (
-    <section className="space-y-4 sm:space-y-5">
-      <header className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-semibold text-primary">Nutrition</h1>
-          <HelpIcon title="Nutrition help">
-            <p>
-              Nutrition is read-only for meal data. Your AI agent logs meals and updates your daily
-              totals.
-            </p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Ask the agent to log, correct, or delete meals when something is off.</li>
-              <li>Daily summary and macro rings show actual intake compared with your targets.</li>
-              <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
-              <li>Food definition edits later will not retroactively change past meal macros.</li>
-            </ul>
-          </HelpIcon>
-        </div>
-        <p className="max-w-2xl text-sm text-muted">
-          Agent-logged meals for {formatDayLabel(dateKey)}.
-          <Button
-            className={cn(
-              'ml-2 h-auto min-h-0 p-0 align-baseline text-sm',
-              isSelectedDateToday && 'invisible',
-            )}
-            size="sm"
-            type="button"
-            variant="link"
-            onClick={() => setSelectedDate(startOfDay(new Date()))}
-          >
-            Today
-          </Button>
-        </p>
-      </header>
+    <>
+      <p className="max-w-2xl text-sm text-muted">
+        Agent-logged meals for {formatDayLabel(dateKey)}.
+        <Button
+          className={cn(
+            'ml-2 h-auto min-h-0 p-0 align-baseline text-sm',
+            isSelectedDateToday && 'invisible',
+          )}
+          size="sm"
+          type="button"
+          variant="link"
+          onClick={() => setSelectedDate(startOfDay(new Date()))}
+        >
+          Today
+        </Button>
+      </p>
 
       {weekSummaryQuery.isLoading ? (
         <NutritionWeekStripSkeleton />
@@ -282,7 +372,7 @@ export function NutritionPage() {
         </>
       )}
       {dialog}
-    </section>
+    </>
   );
 }
 
