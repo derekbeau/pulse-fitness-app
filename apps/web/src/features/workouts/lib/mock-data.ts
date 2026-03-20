@@ -9,6 +9,7 @@ import type {
   ActiveWorkoutSessionContext,
   WorkoutBadgeType,
 } from '../types';
+import { startCase } from './start-case';
 import { resolveTrackingType } from './tracking';
 
 type CompletedSessionInput = {
@@ -793,11 +794,4 @@ function inferBadgesFromCategory(
 
 function toIsoTimestamp(date: string, time: string) {
   return `${date}T${time}`;
-}
-
-function startCase(value: string) {
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

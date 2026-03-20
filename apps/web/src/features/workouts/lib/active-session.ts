@@ -12,6 +12,7 @@ import type {
   ActiveWorkoutTemplate,
   ActiveWorkoutTemplateExercise,
 } from '../types';
+import { startCase } from './start-case';
 import { isWeightedTrackingType, parsePrescribedRepsValue, resolveTrackingType } from './tracking';
 import { workoutEnhancedExercises } from './mock-data';
 
@@ -311,11 +312,4 @@ function shouldSeedSeconds(trackingType: ExerciseTrackingType) {
     trackingType === 'seconds_only' ||
     trackingType === 'cardio'
   );
-}
-
-function startCase(value: string) {
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

@@ -91,9 +91,10 @@ import {
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
+import { startCase } from '@/features/workouts/lib/start-case';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
-import type { ActiveWorkoutTemplate, WorkoutBadgeType } from '@/features/workouts/types';
+import type { ActiveWorkoutTemplate } from '@/features/workouts/types';
 
 const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
@@ -2157,7 +2158,7 @@ function toActiveWorkoutTemplate(template: ApiWorkoutTemplate): ActiveWorkoutTem
         restSeconds: exercise.restSeconds ?? 60,
         formCues: exercise.formCues ?? [],
         templateCues: exercise.cues,
-        badges: getDefaultExerciseBadges(),
+        badges: [],
       })),
     })),
   };
@@ -2177,10 +2178,6 @@ function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | nu
   }
 
   return '';
-}
-
-function getDefaultExerciseBadges(): WorkoutBadgeType[] {
-  return [];
 }
 
 function buildTemplateFromSession(
@@ -2241,7 +2238,7 @@ function buildTemplateFromSession(
       restSeconds: fallbackExercise?.restSeconds ?? 60,
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
-      badges: fallbackExercise?.badges ?? getDefaultExerciseBadges(),
+      badges: fallbackExercise?.badges ?? [],
     });
   }
 
@@ -2333,11 +2330,4 @@ function inferExerciseRepsFromSets(sets: SessionSet[]) {
   }
 
   return '';
-}
-
-function startCase(value: string) {
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

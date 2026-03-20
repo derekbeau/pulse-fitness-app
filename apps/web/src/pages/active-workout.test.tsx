@@ -1609,7 +1609,7 @@ function buildWorkoutTemplateResponse(templateId: string) {
 }
 
 function parseFixtureReps(value: string): { repsMax: number | null; repsMin: number | null } {
-  const rangeMatch = value.match(/(\\d+)\\s*-\\s*(\\d+)/);
+  const rangeMatch = value.match(/(\d+)\s*-\s*(\d+)/);
   if (rangeMatch) {
     return {
       repsMin: Number(rangeMatch[1]),
@@ -1617,7 +1617,7 @@ function parseFixtureReps(value: string): { repsMax: number | null; repsMin: num
     };
   }
 
-  const singleMatch = value.match(/\\d+/);
+  const singleMatch = value.match(/\d+/);
   if (singleMatch) {
     const reps = Number(singleMatch[0]);
     return {
