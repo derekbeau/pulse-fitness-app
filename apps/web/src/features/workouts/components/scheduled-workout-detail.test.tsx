@@ -139,7 +139,7 @@ describe('ScheduledWorkoutDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }));
 
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'History' }));
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Mar 12, 2026 · 70x10, 70x9')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { ExerciseTrackingType } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { useExerciseHistory } from '@/hooks/use-exercise-history';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 
 import { useExercise } from '../api/workouts';
+import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
 import { formatCompactSets } from '../lib/tracking';
 import type {
   ActiveWorkoutExerciseHistoryPoint,
@@ -50,8 +51,13 @@ export function ExerciseDetailModal({
   open,
   templateExerciseId,
 }: ExerciseDetailModalProps) {
+  const tabId = useId();
   const { weightUnit } = useWeightUnit();
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const overviewTabId = `${tabId}-overview-tab`;
+  const historyTabId = `${tabId}-history-tab`;
+  const overviewPanelId = `${tabId}-overview-panel`;
+  const historyPanelId = `${tabId}-history-panel`;
   const exerciseQuery = useExercise(exerciseId, { enabled: open });
   const historyQuery = useExerciseHistory(exerciseId, {
     enabled: open,
@@ -87,18 +93,32 @@ export function ExerciseDetailModal({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 border-b border-border pb-2">
+        <div
+          aria-label="Exercise detail sections"
+          className="flex gap-2 border-b border-border pb-2"
+          role="tablist"
+        >
           <Button
+            aria-controls={overviewPanelId}
+            aria-selected={activeTab === 'overview'}
+            id={overviewTabId}
             onClick={() => setActiveTab('overview')}
+            role="tab"
             size="sm"
+            tabIndex={activeTab === 'overview' ? 0 : -1}
             type="button"
             variant={activeTab === 'overview' ? 'default' : 'outline'}
           >
             Overview
           </Button>
           <Button
+            aria-controls={historyPanelId}
+            aria-selected={activeTab === 'history'}
+            id={historyTabId}
             onClick={() => setActiveTab('history')}
+            role="tab"
             size="sm"
+            tabIndex={activeTab === 'history' ? 0 : -1}
             type="button"
             variant={activeTab === 'history' ? 'default' : 'outline'}
           >
@@ -107,7 +127,12 @@ export function ExerciseDetailModal({
         </div>
 
         {activeTab === 'overview' ? (
-          <div className="space-y-4">
+          <div
+            aria-labelledby={overviewTabId}
+            className="space-y-4"
+            id={overviewPanelId}
+            role="tabpanel"
+          >
             {exerciseQuery.isPending ? (
               <p className="text-sm text-muted">Loading exercise details...</p>
             ) : null}
@@ -172,7 +197,12 @@ export function ExerciseDetailModal({
         ) : null}
 
         {activeTab === 'history' ? (
-          <div className="space-y-4">
+          <div
+            aria-labelledby={historyTabId}
+            className="space-y-4"
+            id={historyPanelId}
+            role="tabpanel"
+          >
             {historyQuery.isPending ? (
               <p className="text-sm text-muted">Loading exercise history...</p>
             ) : (
@@ -232,7 +262,9 @@ export function ExerciseDetailModal({
             <Button
               onClick={() => {
                 if (templateExerciseId) {
-                  const target = document.getElementById(`template-exercise-${templateExerciseId}`);
+                  const target = document.getElementById(
+                    getTemplateExerciseElementId(templateExerciseId),
+                  );
                   target?.scrollIntoView?.({
                     behavior: 'smooth',
                     block: 'center',
@@ -327,7 +359,8 @@ function toExerciseTrendHistory(
         seconds:
           trackingType === 'seconds_only' ||
           trackingType === 'cardio' ||
-          trackingType === 'weight_seconds'
+          trackingType === 'weight_seconds' ||
+          trackingType === 'reps_seconds'
             ? topSet.reps
             : null,
         trackingType,
@@ -359,6 +392,7 @@ function pickTopSessionSet(
       trackingType === 'seconds_only' ||
       trackingType === 'cardio' ||
       trackingType === 'weight_seconds' ||
+      trackingType === 'reps_seconds' ||
       trackingType === 'distance' ||
       trackingType === 'reps_only' ||
       trackingType === 'bodyweight_reps'

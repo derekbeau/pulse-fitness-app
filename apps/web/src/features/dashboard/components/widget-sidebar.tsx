@@ -18,7 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { DASHBOARD_WIDGET_IDS, type Habit } from '@pulse/shared';
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useId, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -34,8 +34,8 @@ import { Switch } from '@/components/ui/switch';
 const HABIT_DAILY_WIDGET_PREFIX = 'habit-daily:';
 
 type WidgetCategoryId = 'overview' | 'workouts' | 'habits' | 'nutrition';
-type DashboardStaticWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
-type HabitDailyWidgetId = `${typeof HABIT_DAILY_WIDGET_PREFIX}${string}`;
+export type DashboardStaticWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
+export type HabitDailyWidgetId = `${typeof HABIT_DAILY_WIDGET_PREFIX}${string}`;
 
 type WidgetSidebarProps = {
   habitChainIds: string[];
@@ -188,9 +188,12 @@ function HabitWidgetSection({
   onExpandedChange: (expanded: boolean) => void;
   title: string;
 }) {
+  const contentId = useId();
+
   return (
     <div className="space-y-2">
       <button
+        aria-controls={contentId}
         aria-expanded={expanded}
         className="flex w-full items-center justify-between rounded-md px-1 py-1 text-left hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
         onClick={() => onExpandedChange(!expanded)}
@@ -203,7 +206,9 @@ function HabitWidgetSection({
           <ChevronRight className="size-4 text-muted-foreground" />
         )}
       </button>
-      {expanded ? <ul className="space-y-2 pl-3">{children}</ul> : null}
+      <ul className="space-y-2 pl-3" hidden={!expanded} id={contentId}>
+        {children}
+      </ul>
     </div>
   );
 }

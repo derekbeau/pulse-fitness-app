@@ -445,7 +445,7 @@ describe('SessionDetail', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'History' }));
     expect(await screen.findByText(/Mar 1, 2026 · 105x8/)).toBeInTheDocument();
   });
 

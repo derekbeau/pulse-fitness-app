@@ -432,7 +432,7 @@ describe('ExerciseLibrary', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
 
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'History' }));
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Mar 8, 2026 · 70x10, 70x9')).toBeInTheDocument();
     expect(within(dialog).queryByText('No history yet')).not.toBeInTheDocument();
   });
@@ -488,7 +488,7 @@ describe('ExerciseLibrary', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'History' }));
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('No completed history yet.')).toBeInTheDocument();
   });
 

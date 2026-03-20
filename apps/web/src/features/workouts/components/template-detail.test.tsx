@@ -1287,7 +1287,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(within(dialog).getByText('Exercise details')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Edit exercise' })).toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);
@@ -1370,7 +1370,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(within(dialog).getByText('Drive elbows 45°')).toBeInTheDocument();
     expect(within(dialog).getByText('Keep your upper back pinned to the bench.')).toBeInTheDocument();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
   });
 
@@ -1493,7 +1493,7 @@ describe('WorkoutTemplateDetail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
 
     expect(await within(dialog).findByText('No completed history yet.')).toBeInTheDocument();
     expect(toastErrorSpy).not.toHaveBeenCalled();

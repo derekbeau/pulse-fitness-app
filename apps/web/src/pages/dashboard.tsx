@@ -1,7 +1,7 @@
 import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar, LayoutDashboard, Pencil } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ import {
   isHabitDailyWidgetId,
   isDashboardStaticWidgetId,
   toHabitDailyWidgetId,
+  type DashboardStaticWidgetId,
+  type HabitDailyWidgetId,
 } from '@/features/dashboard/components/widget-sidebar';
 import { useHabits } from '@/features/habits/api/habits';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
@@ -48,8 +50,6 @@ const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   year: 'numeric',
 });
-type DashboardStaticWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
-type HabitDailyWidgetId = `habit-daily:${string}`;
 type DashboardWidgetId = DashboardStaticWidgetId | HabitDailyWidgetId;
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS) as DashboardStaticWidgetId[];
 const DEFAULT_DASHBOARD_CONFIG = {
@@ -98,6 +98,7 @@ function DashboardWidgetFrame({
 }
 
 export function DashboardPage() {
+  const isMountedRef = useRef(true);
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
@@ -147,6 +148,13 @@ export function DashboardPage() {
       !areWidgetArraysEqual(habitChainIds, persistedHabitChainIds));
   const selectedWeight = snapshotQuery.data?.weight;
   const hasWeightForSelectedDay = selectedWeight?.date === selectedDateKey;
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
 
   function openWidgetSidebar() {
     setVisibleWidgetsDraft(persistedVisibleWidgets);
@@ -241,7 +249,9 @@ export function DashboardPage() {
 
   async function saveWidgetSidebarChanges() {
     if (!hasSidebarChanges) {
-      resetWidgetSidebarDraft();
+      if (isMountedRef.current) {
+        resetWidgetSidebarDraft();
+      }
       return true;
     }
 
@@ -253,11 +263,22 @@ export function DashboardPage() {
         trendMetrics: [...sourceConfig.trendMetrics],
         visibleWidgets,
       });
-      resetWidgetSidebarDraft();
+      if (isMountedRef.current) {
+        resetWidgetSidebarDraft();
+      }
       return true;
     } catch {
-      setWidgetSidebarMessage('Unable to save dashboard widgets. Please try again.');
+      if (isMountedRef.current) {
+        setWidgetSidebarMessage('Unable to save dashboard widgets. Please try again.');
+      }
       return false;
+    }
+  }
+
+  async function saveWidgetSidebarAndClose() {
+    const didSave = await saveWidgetSidebarChanges();
+    if (didSave && isMountedRef.current) {
+      setIsWidgetSidebarOpen(false);
     }
   }
 
@@ -276,12 +297,7 @@ export function DashboardPage() {
       return;
     }
 
-    void (async () => {
-      const didSave = await saveWidgetSidebarChanges();
-      if (didSave) {
-        setIsWidgetSidebarOpen(false);
-      }
-    })();
+    void saveWidgetSidebarAndClose();
   }
 
   function handleWidgetSidebarSave() {
@@ -289,12 +305,7 @@ export function DashboardPage() {
       return;
     }
 
-    void (async () => {
-      const didSave = await saveWidgetSidebarChanges();
-      if (didSave) {
-        setIsWidgetSidebarOpen(false);
-      }
-    })();
+    void saveWidgetSidebarAndClose();
   }
 
   useEffect(() => {

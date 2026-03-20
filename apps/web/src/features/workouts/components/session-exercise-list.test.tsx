@@ -1614,7 +1614,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'View all' }));
 
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'History' }));
+    fireEvent.click(await within(dialog).findByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Session history')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' })[0] as HTMLElement);

@@ -97,7 +97,7 @@ describe('ExerciseDetailModal', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'History' }));
 
     expect(screen.getByTestId('exercise-trend-chart')).toBeInTheDocument();
     expect(screen.getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
@@ -118,32 +118,44 @@ describe('ExerciseDetailModal', () => {
     expect(screen.getByRole('button', { name: 'Edit exercise' })).toBeInTheDocument();
   });
 
-  it('shows swap button in session context', () => {
+  it('shows swap button in session context and invokes swap callback', () => {
+    const onOpenChange = vi.fn();
+    const onSwapExercise = vi.fn();
+
     render(
       <ExerciseDetailModal
         context="session"
         exerciseId="incline-dumbbell-press"
-        onOpenChange={vi.fn()}
-        onSwapExercise={vi.fn()}
+        onOpenChange={onOpenChange}
+        onSwapExercise={onSwapExercise}
         open
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Swap exercise' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Swap exercise' }));
+
+    expect(onSwapExercise).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('shows add-to-template button in library context', () => {
+  it('shows add-to-template button in library context and invokes callback', () => {
+    const onAddToTemplate = vi.fn();
+    const onOpenChange = vi.fn();
+
     render(
       <ExerciseDetailModal
         context="library"
         exerciseId="incline-dumbbell-press"
-        onAddToTemplate={vi.fn()}
-        onOpenChange={vi.fn()}
+        onAddToTemplate={onAddToTemplate}
+        onOpenChange={onOpenChange}
         open
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Add to template' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to template' }));
+
+    expect(onAddToTemplate).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('shows no context action buttons in receipt context', () => {

@@ -78,6 +78,7 @@ import {
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
+import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
 import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { ExerciseDetailModal } from './exercise-detail-modal';
@@ -939,7 +940,7 @@ function TemplateExerciseCard({
   return (
     <Card
       className="gap-1.5 py-0"
-      id={`template-exercise-${exercise.id}`}
+      id={getTemplateExerciseElementId(exercise.id)}
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
