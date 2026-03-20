@@ -7,7 +7,7 @@ export function WorkoutTemplateDetailPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader showBack title="Workout Template" />
+      <PageHeader backFallbackHref="/workouts?view=templates" showBack title="Workout Template" />
       <WorkoutTemplateDetail templateId={templateId} />
     </section>
   );

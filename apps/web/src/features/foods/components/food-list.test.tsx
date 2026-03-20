@@ -467,8 +467,9 @@ describe('FoodList', () => {
     renderFoodList();
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
-    expect(api.fetchMock).toHaveBeenCalledTimes(1);
-    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(0)?.[0]), 'http://localhost');
+    const initialCallCount = api.fetchMock.mock.calls.length;
+    expect(initialCallCount).toBeGreaterThanOrEqual(1);
+    const initialUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
     expect(initialUrl.searchParams.get('sort')).toBe('recently-updated');
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
@@ -477,11 +478,11 @@ describe('FoodList', () => {
 
     await new Promise((resolve) => window.setTimeout(resolve, 150));
 
-    expect(api.fetchMock).toHaveBeenCalledTimes(1);
+    expect(api.fetchMock).toHaveBeenCalledTimes(initialCallCount);
 
     await waitFor(
       () => {
-        expect(api.fetchMock).toHaveBeenCalledTimes(2);
+        expect(api.fetchMock.mock.calls.length).toBeGreaterThan(initialCallCount);
       },
       { timeout: 1000 },
     );

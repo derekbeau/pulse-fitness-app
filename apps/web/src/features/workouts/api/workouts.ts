@@ -355,6 +355,8 @@ const isExerciseListQueryKey = (queryKey: QueryKey | undefined) =>
 const isTemplateListQueryKey = (queryKey: QueryKey | undefined) =>
   Array.isArray(queryKey) && queryKey[0] === 'workouts' && queryKey[1] === 'templates';
 
+// Empty paginated arrays are shape-ambiguous (exercise list vs template list). This remains safe because
+// callers of template cache updaters are already scoped by template query keys upstream.
 const isWorkoutTemplatesResponse = (value: RenameTemplateCache | undefined): value is WorkoutTemplatesResponse =>
   isPaginatedResponse(value) && value.data.every((entry) => isWorkoutTemplateRecord(entry));
 

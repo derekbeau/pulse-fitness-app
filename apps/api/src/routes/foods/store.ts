@@ -61,6 +61,8 @@ const foodSelection = {
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
 const escapeLikePattern = (value: string) => value.toLowerCase().replace(/[%_\\]/g, '\\$&');
+// Intentionally store-local: API schemas normalize legacy aliases at parse-time, but store utilities
+// still accept aliases for internal call sites and defensive compatibility.
 type LegacyFoodSort = 'name' | 'recent' | 'popular';
 
 const buildFoodFilters = (userId: string, query?: string, tags?: string[]) => {

@@ -144,6 +144,7 @@ export const mergeFoodInputSchema = z.object({
 export const foodQueryParamsSchema = z.object({
   q: optionalQueryText,
   tags: optionalQueryTags,
+  // Default sort is canonical `recently-updated`; legacy `recent` callers are normalized above.
   sort: foodSortSchema.default('recently-updated'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),

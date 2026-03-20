@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ListChecks, MoreVertical, Search, Tag, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
-import type { WorkoutTemplateSort } from '@pulse/shared';
+import type { WorkoutTemplate, WorkoutTemplateSort } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -41,16 +41,12 @@ import {
 } from '@/features/workouts/lib/day-workout-conflicts';
 import { normalizeTemplateTag } from '@/features/workouts/lib/template-tags';
 
-// Minimal structural interface — satisfied by both mock and API WorkoutTemplate shapes.
-interface TemplateSummary {
-  id: string;
-  name: string;
-  description: string | null;
-  tags: string[];
-  createdAt?: number;
-  updatedAt?: number;
+type TemplateSummary = Pick<
+  WorkoutTemplate,
+  'id' | 'name' | 'description' | 'tags' | 'createdAt' | 'updatedAt'
+> & {
   sections: Array<{ exercises: unknown[] }>;
-}
+};
 
 type TemplateBrowserProps = {
   buildTemplateHref: (templateId: string) => string;
@@ -148,6 +144,12 @@ export function TemplateBrowser({
     [activeSelectedTags, normalizedQuery, templates],
   );
   const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
+  const hasLocalFilters = normalizedQuery.length > 0 || activeSelectedTags.length > 0;
+  const templateCountLabel = hasLocalFilters
+    ? hasKnownTotalTemplates
+      ? `Showing ${sortedTemplates.length} matching templates on this page (${resolvedTotalTemplates} total)`
+      : `Showing ${sortedTemplates.length} matching templates on this page`
+    : `Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`;
 
   const trimmedRenameValue = renameValue.trim();
   const canSubmitRename =
@@ -302,7 +304,7 @@ export function TemplateBrowser({
       {totalPages !== undefined && hasKnownTotalTemplates && resolvedTotalTemplates > limit ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Search/tag filters run on the current server page; total/meta stay unfiltered until API-side filters exist. */}
-          <p className="text-sm text-muted">{`Showing ${sortedTemplates.length} of ${resolvedTotalTemplates} templates`}</p>
+          <p className="text-sm text-muted">{templateCountLabel}</p>
           <div className="flex items-center gap-2">
             <PerPageSelector
               ariaLabel="Templates per page"
@@ -598,17 +600,15 @@ function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) 
     case 'name-desc':
       return copy.sort((left, right) => byName(right, left));
     case 'oldest':
-      return copy.sort(
-        (left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0) || byName(left, right),
-      );
+      return copy.sort((left, right) => left.createdAt - right.createdAt || byName(left, right));
     case 'recently-updated':
       return copy.sort(
-        (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0) || byName(left, right),
+        (left, right) => right.updatedAt - left.updatedAt || byName(left, right),
       );
     case 'newest':
     default:
       return copy.sort(
-        (left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0) || byName(left, right),
+        (left, right) => right.createdAt - left.createdAt || byName(left, right),
       );
   }
 }

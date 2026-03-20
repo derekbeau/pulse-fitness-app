@@ -7,7 +7,7 @@ export function ScheduledWorkoutDetailPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader showBack title="Scheduled Workout" />
+      <PageHeader backFallbackHref="/workouts?view=schedule" showBack title="Scheduled Workout" />
       <ScheduledWorkoutDetail id={id} />
     </section>
   );

@@ -11,6 +11,34 @@ const renameMutateMock = vi.fn();
 const deleteMutateMock = vi.fn();
 const scheduleMutateAsyncMock = vi.fn();
 
+function createTemplate({
+  id,
+  name,
+  description = null,
+  tags = [],
+  sections = [{ exercises: [] }],
+  createdAt = 1,
+  updatedAt = 1,
+}: {
+  id: string;
+  name: string;
+  description?: string | null;
+  tags?: string[];
+  sections?: Array<{ exercises: unknown[] }>;
+  createdAt?: number;
+  updatedAt?: number;
+}) {
+  return {
+    id,
+    name,
+    description,
+    tags,
+    sections,
+    createdAt,
+    updatedAt,
+  };
+}
+
 vi.mock('@/features/workouts/api/workouts', () => ({
   useRenameTemplate: () => ({
     isPending: false,
@@ -92,20 +120,20 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-2',
               name: 'Lower Body',
               description: 'Leg training',
               tags: ['legs'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -125,20 +153,20 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-2',
               name: 'Lower Body',
               description: 'Leg day',
               tags: ['legs'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </BrowserRouter>,
@@ -162,13 +190,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: null,
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
           totalTemplates={40}
         />
@@ -209,27 +237,27 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push Strength',
               description: null,
               tags: ['push', 'strength'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-2',
               name: 'Upper Push Volume',
               description: null,
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
-            {
+            }),
+            createTemplate({
               id: 'template-3',
               name: 'Lower Strength',
               description: null,
               tags: ['strength'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -260,13 +288,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -300,13 +328,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -336,13 +364,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -400,13 +428,13 @@ describe('TemplateBrowser', () => {
         <TemplateBrowser
           buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
           templates={[
-            {
+            createTemplate({
               id: 'template-1',
               name: 'Upper Push',
               description: 'Chest and shoulders',
               tags: ['push'],
               sections: [{ exercises: [] }],
-            },
+            }),
           ]}
         />
       </MemoryRouter>,

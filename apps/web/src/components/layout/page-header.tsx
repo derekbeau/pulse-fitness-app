@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 type PageHeaderProps = {
   actions?: ReactNode;
+  backFallbackHref?: string;
   children?: ReactNode;
   className?: string;
   description?: string;
@@ -15,6 +16,7 @@ type PageHeaderProps = {
 
 export function PageHeader({
   actions,
+  backFallbackHref,
   children,
   className,
   description,
@@ -22,13 +24,24 @@ export function PageHeader({
   showBack = false,
   title,
 }: PageHeaderProps) {
+  const handleBackClick = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    if (backFallbackHref) {
+      window.location.assign(backFallbackHref);
+    }
+  };
+
   return (
     <header className={cn('space-y-3', className)}>
       {showBack ? (
         <button
           className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           data-slot="page-header-back-button"
-          onClick={() => window.history.back()}
+          onClick={handleBackClick}
           type="button"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />

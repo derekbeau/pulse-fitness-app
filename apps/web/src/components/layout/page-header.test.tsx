@@ -13,6 +13,7 @@ describe('PageHeader', () => {
 
   it('renders a back button when showBack is true', () => {
     const historyBackSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    window.history.pushState({}, '', '/settings');
 
     render(<PageHeader showBack title="Settings" />);
 

@@ -8,7 +8,7 @@ export function WorkoutSessionDetailPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader showBack title="Workout Session" />
+      <PageHeader backFallbackHref="/workouts?view=history" showBack title="Workout Session" />
       <SessionDetail sessionId={sessionId} />
     </section>
   );
