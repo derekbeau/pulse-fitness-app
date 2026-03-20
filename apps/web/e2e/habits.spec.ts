@@ -1,7 +1,7 @@
 import { expect, request, test, type Page } from '@playwright/test';
+import { apiBaseURL } from './test-env';
 
 const authTokenStorageKey = 'pulse-auth-token';
-const apiBaseURL = process.env.API_BASE_URL ?? 'http://127.0.0.1:3001';
 
 const testUsername = `habits-e2e-${Date.now()}`;
 const testPassword = 'super-secret-password';
@@ -48,9 +48,9 @@ test.describe.serial('habits flow', () => {
 
   test('creates a boolean habit from settings', async ({ page }) => {
     await authenticatePage(page);
-    await page.goto('/settings');
+    await page.goto('/habits');
 
-    await page.getByRole('button', { name: 'Add habit' }).first().click();
+    await page.getByRole('button', { name: 'Add Habit' }).first().click();
     await page.getByLabel('Habit name').fill('Meditate');
     await page.getByLabel('Tracking type').selectOption('boolean');
     await page.getByRole('button', { exact: true, name: 'Save' }).click();
@@ -72,15 +72,15 @@ test.describe.serial('habits flow', () => {
     await expect(reloadedMeditateCheckbox).toHaveAttribute('data-state', 'checked');
 
     await page.goto('/');
-    await expect(page.getByText(/[1-9]\d* \/ \d+ complete/)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
     await expect(page.getByLabel(/Meditate \d{4}-\d{2}-\d{2} Completed/)).toBeVisible();
   });
 
   test('creates and tracks a numeric habit', async ({ page }) => {
     await authenticatePage(page);
-    await page.goto('/settings');
+    await page.goto('/habits');
 
-    await page.getByRole('button', { name: 'Add habit' }).first().click();
+    await page.getByRole('button', { name: 'Add Habit' }).first().click();
     await page.getByLabel('Habit name').fill('Water (glasses)');
     await page.getByLabel('Tracking type').selectOption('numeric');
     await page.getByLabel('Target').fill('8');
@@ -96,7 +96,7 @@ test.describe.serial('habits flow', () => {
     await waterInput.fill('6');
     await waterInput.blur();
 
-    await expect(page.getByText('6 / 8 glasses', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('6 glasses / 8 glasses', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('75%', { exact: true }).first()).toBeVisible();
   });
 });

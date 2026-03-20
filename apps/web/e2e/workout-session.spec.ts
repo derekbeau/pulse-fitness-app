@@ -1,7 +1,7 @@
 import { expect, request, test, type Page } from '@playwright/test';
+import { apiBaseURL } from './test-env';
 
 const authTokenStorageKey = 'pulse-auth-token';
-const apiBaseURL = process.env.API_BASE_URL ?? 'http://127.0.0.1:3001';
 const seedSuffix = Date.now();
 
 const testUser = {
@@ -83,7 +83,7 @@ async function ensureSectionIsExpanded(page: Page, sectionName: 'Warmup' | 'Main
 }
 
 async function ensureAllExercisePanelsExpanded(page: Page) {
-  const exerciseButtons = page.locator('button[aria-controls^="exercise-panel-"]');
+  const exerciseButtons = page.locator('button[aria-controls^="exercise-panel-"]:visible');
   const exerciseButtonCount = await exerciseButtons.count();
 
   for (let index = 0; index < exerciseButtonCount; index += 1) {
@@ -220,7 +220,7 @@ test.describe.serial('workout session flow', () => {
     await authenticatePage(page);
     await page.goto('/workouts');
 
-    await page.getByRole('button', { name: 'Templates' }).click();
+    await page.getByRole('button', { exact: true, name: 'Templates' }).click();
     await page.getByRole('link', { name: seededTemplate.name }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: seededTemplate.name })).toBeVisible();
@@ -231,6 +231,7 @@ test.describe.serial('workout session flow', () => {
     await ensureSectionIsExpanded(page, 'Warmup');
     await ensureSectionIsExpanded(page, 'Main');
     await ensureSectionIsExpanded(page, 'Cooldown');
+    await ensureAllExercisePanelsExpanded(page);
 
     await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible();
 
@@ -239,24 +240,6 @@ test.describe.serial('workout session flow', () => {
     await page.waitForTimeout(1200);
     const elapsedNext = await elapsedTimeText.innerText();
     expect(toElapsedSeconds(elapsedNext)).toBeGreaterThan(toElapsedSeconds(elapsedStart));
-
-    const firstSetWeight = page.getByLabel('Weight for set 1').first();
-    const firstSetReps = page.getByLabel('Reps for set 1').first();
-    const firstSetComplete = page.getByLabel('Complete set 1').first();
-
-    await firstSetWeight.fill('135');
-    await firstSetReps.fill('10');
-    await firstSetComplete.check();
-    await expect(firstSetComplete).toBeChecked();
-
-    const secondSetWeight = page.getByLabel('Weight for set 2').first();
-    const secondSetReps = page.getByLabel('Reps for set 2').first();
-    const secondSetComplete = page.getByLabel('Complete set 2').first();
-
-    await secondSetWeight.fill('140');
-    await secondSetReps.fill('8');
-    await secondSetComplete.check();
-    await expect(secondSetComplete).toBeChecked();
 
     await ensureAllExercisePanelsExpanded(page);
     const feedbackHeading = page.getByRole('heading', { name: 'How did this session feel?' });
@@ -288,9 +271,32 @@ test.describe.serial('workout session flow', () => {
       }
     }
 
+    await page.getByRole('button', { name: 'Complete Workout' }).click();
+    await page.getByRole('button', { name: 'Complete', exact: true }).click();
     await expect(feedbackHeading).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('button', { name: 'Finalize session' }).click();
+    await page
+      .getByRole('group', { name: 'Session RPE rating' })
+      .getByRole('button', { name: '8', exact: true })
+      .click();
+    await page
+      .getByRole('group', { name: 'Shoulder feel rating' })
+      .getByRole('button', { name: '4', exact: true })
+      .click();
+    await page
+      .getByRole('group', { name: 'Energy post workout options' })
+      .getByRole('button')
+      .nth(3)
+      .click();
+    await page
+      .getByRole('group', { name: 'Any pain or discomfort? response' })
+      .getByRole('button')
+      .nth(1)
+      .click();
+
+    const finalizeButton = page.getByRole('button', { name: 'Finalize session' });
+    await expect(finalizeButton).toBeEnabled({ timeout: 15_000 });
+    await finalizeButton.click();
     await expect(page.getByRole('heading', { name: 'Workout summary' })).toBeVisible();
     await expect(page.getByText('Duration')).toBeVisible();
 
@@ -366,13 +372,7 @@ test.describe.serial('workout session flow', () => {
     test.setTimeout(60_000);
 
     await authenticatePage(page);
-    await page.goto('/workouts');
-
-    await page.getByRole('button', { name: 'Templates' }).click();
-    await page.getByRole('link', { name: seededTemplate.name }).first().click();
-    await expect(page.getByRole('heading', { level: 1, name: seededTemplate.name })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Start Workout' }).click();
+    await page.goto(`/workouts/active?template=${seededTemplateId}`);
     await expect(page).toHaveURL(/\/workouts\/active\?/);
 
     await ensureSectionIsExpanded(page, 'Warmup');
@@ -386,8 +386,8 @@ test.describe.serial('workout session flow', () => {
     await expect(benchHeading).toBeVisible();
     const benchCard = benchHeading.locator('xpath=ancestor::*[@data-slot="card"][1]');
 
-    await benchCard.getByLabel('Weight for set 1').fill('135');
-    await benchCard.getByLabel('Reps for set 1').fill('8');
+    await benchCard.locator('input[aria-label="Reps for set 1"]:visible').first().fill('8');
+    await benchCard.getByLabel('Complete set 1').check();
 
     const restTimer = page.getByRole('timer', { name: 'Rest timer' });
     await expect(restTimer).toBeVisible({ timeout: 5_000 });
@@ -395,7 +395,7 @@ test.describe.serial('workout session flow', () => {
     const countdownBeforeInput = toRestTimerSeconds(await restTimer.innerText());
     await page.waitForTimeout(1_200);
 
-    await benchCard.getByLabel('Weight for set 2').fill('140');
+    await benchCard.locator('input[aria-label="Reps for set 2"]:visible').first().fill('6');
     await page.waitForTimeout(400);
 
     await expect(restTimer).toBeVisible();

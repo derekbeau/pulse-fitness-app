@@ -1,7 +1,7 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
+import { apiBaseURL } from './test-env';
 
 const authTokenStorageKey = 'pulse-auth-token';
-const apiBaseURL = process.env.API_BASE_URL ?? 'http://127.0.0.1:3001';
 const seedSuffix = Date.now();
 
 const testUser = {
@@ -232,8 +232,9 @@ test.describe.serial('workout scheduling flow', () => {
     const scheduledCard = getScheduledCard(page);
     await expect(scheduledCard).toBeVisible();
 
-    await scheduledCard.getByRole('button', { name: 'Remove from schedule' }).click();
-    await page.getByRole('button', { name: 'Remove' }).click();
+    await scheduledCard.getByRole('button', { name: 'Reschedule' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Remove from schedule' }).click();
+    await page.getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(getScheduledCard(page)).toHaveCount(0);
 
     const apiContext = await createAuthorizedApiContext();
@@ -246,7 +247,7 @@ test.describe.serial('workout scheduling flow', () => {
     }
   });
 
-  test('starts now from a scheduled workout and links schedule to session', async ({ page }) => {
+  test('starts a scheduled workout and removes it from the schedule list', async ({ page }) => {
     test.setTimeout(90_000);
 
     const today = toDateKey(new Date());
@@ -260,7 +261,7 @@ test.describe.serial('workout scheduling flow', () => {
     await page.getByRole('button', { exact: true, name: 'List' }).click();
     const startCard = getScheduledCard(page);
     await expect(startCard).toBeVisible();
-    await startCard.getByRole('button', { name: 'Start now' }).click();
+    await startCard.getByRole('button', { name: 'Start' }).click();
     await expect(page).toHaveURL(/\/workouts\/active\?/);
 
     const sessionId = new URL(page.url()).searchParams.get('sessionId');
@@ -272,7 +273,7 @@ test.describe.serial('workout scheduling flow', () => {
       const linkedRow = postStartRows.find(
         (row) => row.templateId === seededTemplateId && row.date === today,
       );
-      expect(linkedRow?.sessionId).toBe(sessionId);
+      expect(linkedRow).toBeUndefined();
     } finally {
       await apiContext.dispose();
     }
