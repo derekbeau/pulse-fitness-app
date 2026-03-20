@@ -311,27 +311,44 @@ export const deleteOwnedExercise = async (id: string, userId: string): Promise<b
   return result.changes === 1;
 };
 
-export const isExerciseInUse = async (exerciseId: string): Promise<boolean> => {
+export const isExerciseInUse = async ({
+  exerciseId,
+  userId,
+}: {
+  exerciseId: string;
+  userId: string;
+}): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
-  const templateReference = db
-    .select({ id: templateExercises.id })
-    .from(templateExercises)
-    .where(eq(templateExercises.exerciseId, exerciseId))
+  const result = db
+    .select({
+      inUse: sql<number>`(
+        exists (
+          select 1
+          from template_exercises
+          inner join workout_templates
+            on workout_templates.id = template_exercises.template_id
+          where template_exercises.exercise_id = ${exerciseId}
+            and workout_templates.user_id = ${userId}
+            and workout_templates.deleted_at is null
+        )
+        or exists (
+          select 1
+          from session_sets
+          inner join workout_sessions
+            on workout_sessions.id = session_sets.session_id
+          where session_sets.exercise_id = ${exerciseId}
+            and workout_sessions.user_id = ${userId}
+            and workout_sessions.deleted_at is null
+        )
+      )`,
+    })
+    .from(exercises)
+    .where(eq(exercises.id, exerciseId))
     .limit(1)
     .get();
-  if (templateReference) {
-    return true;
-  }
 
-  const sessionReference = db
-    .select({ id: sessionSets.id })
-    .from(sessionSets)
-    .where(eq(sessionSets.exerciseId, exerciseId))
-    .limit(1)
-    .get();
-
-  return Boolean(sessionReference);
+  return Boolean(result?.inUse);
 };
 
 export const findVisibleExerciseById = async ({

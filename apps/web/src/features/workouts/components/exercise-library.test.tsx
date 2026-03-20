@@ -327,6 +327,31 @@ describe('ExerciseLibrary', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('opens the trend dialog from the exercise name button in table view', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Exercise library table view' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Air Bike' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Air Bike trends')).toBeInTheDocument();
+  });
+
+  it('does not write the initial view preference to localStorage on mount', async () => {
+    mockExerciseRequests();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    renderExerciseLibrary();
+    await screen.findByRole('heading', { level: 3, name: 'Air Bike' });
+
+    expect(setItemSpy).not.toHaveBeenCalledWith(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'card');
+    expect(setItemSpy).not.toHaveBeenCalledWith(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, 'table');
+  });
+
   it('persists the selected view in localStorage', async () => {
     mockExerciseRequests();
 

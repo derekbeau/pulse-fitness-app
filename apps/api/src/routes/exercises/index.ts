@@ -502,7 +502,10 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
         return reply;
       }
 
-      const inUse = await isExerciseInUse(request.params.id);
+      const inUse = await isExerciseInUse({
+        exerciseId: request.params.id,
+        userId: request.userId,
+      });
       if (inUse) {
         return sendError(
           reply,

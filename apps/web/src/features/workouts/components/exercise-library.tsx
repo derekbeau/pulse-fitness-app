@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { LayoutGrid, List, MoreVertical } from 'lucide-react';
 import type { Exercise, ExerciseTrackingType } from '@pulse/shared';
@@ -63,6 +63,7 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<Exercise | null>(null);
   const [view, setView] = useState<ExerciseLibraryView>(() => loadExerciseLibraryViewPreference());
+  const initialViewRef = useRef(view);
 
   const currentQuery = searchParams.get('q') ?? '';
   const muscleGroup = searchParams.get('muscleGroup') ?? 'all';
@@ -96,6 +97,10 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   }, [currentQuery, searchTerm, setSearchParams]);
 
   useEffect(() => {
+    if (view === initialViewRef.current) {
+      return;
+    }
+
     window.localStorage.setItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, view);
   }, [view]);
 
@@ -491,19 +496,18 @@ function ExerciseTable({
           <tbody>
             {exercises.map((exercise) => (
               <tr
-                className="cursor-pointer border-b border-border/70 transition-colors hover:bg-secondary/35 focus-within:bg-secondary/35"
+                className="border-b border-border/70 transition-colors hover:bg-secondary/35 focus-within:bg-secondary/35"
                 key={exercise.id}
-                onClick={() => onSelectTrend(exercise.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onSelectTrend(exercise.id);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
               >
-                <td className="px-4 py-3 font-medium text-foreground">{exercise.name}</td>
+                <td className="px-4 py-3 font-medium text-foreground">
+                  <button
+                    className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onSelectTrend(exercise.id)}
+                    type="button"
+                  >
+                    {exercise.name}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-muted">{formatLabel(exercise.category)}</td>
                 <td className="px-4 py-3 text-muted">
                   {exercise.muscleGroups.map((group) => formatLabel(group)).join(', ')}

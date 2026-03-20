@@ -2010,6 +2010,132 @@ describe('exercise routes', () => {
     });
   });
 
+  it('deletes an unreferenced user exercise with 200', async () => {
+    seedExercise({
+      id: 'unreferenced-exercise',
+      userId: 'user-1',
+      name: 'Landmine Press',
+      muscleGroups: ['shoulders', 'upper chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/unreferenced-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        success: true,
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'unreferenced-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: expect.any(String),
+    });
+  });
+
+  it('ignores references from deleted templates and sessions when deleting an exercise', async () => {
+    seedExercise({
+      id: 'soft-deleted-reference-exercise',
+      userId: 'user-1',
+      name: 'Paused Lunge',
+      muscleGroups: ['quads', 'glutes'],
+      equipment: 'bodyweight',
+      category: 'isolation',
+    });
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'deleted-template-reference',
+        userId: 'user-1',
+        name: 'Archived Lower Body',
+        description: null,
+        tags: [],
+      })
+      .run();
+    context.db
+      .insert(templateExercises)
+      .values({
+        id: 'deleted-template-reference-exercise',
+        templateId: 'deleted-template-reference',
+        exerciseId: 'soft-deleted-reference-exercise',
+        orderIndex: 0,
+        section: 'main',
+      })
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({ deletedAt: '2026-03-01T00:00:00.000Z' })
+      .where(eq(workoutTemplates.id, 'deleted-template-reference'))
+      .run();
+
+    seedWorkoutSession({
+      id: 'deleted-session-reference',
+      userId: 'user-1',
+      name: 'Archived Session',
+      date: '2026-03-01',
+      startedAt: Date.parse('2026-03-01T08:00:00.000Z'),
+      status: 'completed',
+      completedAt: Date.parse('2026-03-01T08:30:00.000Z'),
+    });
+    seedSessionSet({
+      id: 'deleted-session-reference-set',
+      sessionId: 'deleted-session-reference',
+      exerciseId: 'soft-deleted-reference-exercise',
+      setNumber: 1,
+      reps: 12,
+    });
+    context.db
+      .update(workoutSessions)
+      .set({ deletedAt: '2026-03-02T00:00:00.000Z' })
+      .where(eq(workoutSessions.id, 'deleted-session-reference'))
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/exercises/soft-deleted-reference-exercise',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        success: true,
+      },
+    });
+
+    const persistedExercise = context.db
+      .select({ deletedAt: exercises.deletedAt })
+      .from(exercises)
+      .where(eq(exercises.id, 'soft-deleted-reference-exercise'))
+      .get();
+
+    expect(persistedExercise).toEqual({
+      deletedAt: expect.any(String),
+    });
+  });
+
   it('returns 409 when deleting an exercise referenced by a workout template', async () => {
     seedExercise({
       id: 'referenced-exercise',
