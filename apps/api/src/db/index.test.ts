@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const pragmaCalls: string[] = [];
 const openedPaths: string[] = [];
+let walCheckpointError: Error | null = null;
 
 vi.mock('better-sqlite3', () => ({
   default: class Database {
@@ -15,6 +16,10 @@ vi.mock('better-sqlite3', () => ({
 
     pragma(value: string, options?: { simple?: boolean }) {
       pragmaCalls.push(value);
+
+      if (value === 'wal_checkpoint(TRUNCATE)' && walCheckpointError) {
+        throw walCheckpointError;
+      }
 
       if (value === 'foreign_keys' && options?.simple) {
         return 1;
@@ -42,6 +47,7 @@ describe('db bootstrap', () => {
   beforeEach(() => {
     pragmaCalls.length = 0;
     openedPaths.length = 0;
+    walCheckpointError = null;
   });
 
   afterEach(async () => {
@@ -80,6 +86,36 @@ describe('db bootstrap', () => {
     try {
       expect(openedPaths).toEqual(['file:./data/pulse.db']);
       expect(existsSync(join(tempRoot, 'data'))).toBe(true);
+    } finally {
+      module.sqlite.close();
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('logs periodic WAL checkpoint failures for file-backed databases', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'pulse-db-'));
+    const checkpointError = new Error('checkpoint failed');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+    process.chdir(tempRoot);
+    process.env.DATABASE_URL = './data/pulse.db';
+    walCheckpointError = checkpointError;
+    vi.resetModules();
+
+    const module = await importDbModule();
+
+    try {
+      const checkpointCallback = setIntervalSpy.mock.calls.at(-1)?.[0] as (() => void) | undefined;
+
+      expect(checkpointCallback).toBeTypeOf('function');
+
+      checkpointCallback?.();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Periodic WAL checkpoint failed:',
+        checkpointError,
+      );
     } finally {
       module.sqlite.close();
       rmSync(tempRoot, { recursive: true, force: true });
