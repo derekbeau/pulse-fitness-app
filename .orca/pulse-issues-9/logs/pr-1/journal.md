@@ -59,3 +59,9 @@
 - **What was wrong**: This iteration-2 handoff still lacked a same-turn record that the branch stayed clean through both the manual gate run and the commit-hook gate run. Because the reviewed code was already correct, the remaining risk was traceability drift rather than behavior drift.
 - **How I fixed it**: Reconfirmed the four reviewed files already satisfy the feedback, reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully, then attempted the required commit flow and observed the pre-commit hooks rerun the repo gates cleanly before Git reported there was no tracked source diff beyond PR-log traceability.
 - **Lessons learned**: When a review pass collapses to verification-only work, it is still worth recording whether the commit path itself stayed green. That extra confirmation helps distinguish a true no-op branch from an unverified handoff.
+
+## [pr-1] — Fix Agent
+
+- **What was wrong**: This iteration-2 closeout still needed a current audit from the live checkout rather than relying on prior notes. The reviewed code paths were already correct, but the branch needed fresh proof that the exact files still matched the four comments and that the full local gate suite remained green.
+- **How I fixed it**: Re-read `apps/web/src/features/dashboard/components/trend-sparkline.tsx`, `apps/api/src/index.ts`, `apps/api/src/db/index.ts`, and `apps/web/src/features/workouts/components/workout-calendar.tsx`, confirmed the existing `LOOKBACK_LABEL`, guarded shutdown flow, WAL checkpoint error logging, and mobile unavailable-workout warning behavior, then reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully before recording this handoff.
+- **Lessons learned**: When a review round is already satisfied in source, the remaining engineering work is evidence. Audit the live files, rerun the gates, and keep the closeout traceable instead of creating redundant code churn.

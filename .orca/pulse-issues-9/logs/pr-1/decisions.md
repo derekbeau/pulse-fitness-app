@@ -19,3 +19,8 @@
 **Choice:** Leave application source unchanged and complete this pass with a fresh audit of the four reviewed files plus updated PR traceability notes.
 **Rationale:** The live worktree already contains the reviewer-requested outcomes in both web and API code, so additional source edits would be redundant churn. The missing work for this iteration was proving the checked-out branch still matches those comments and passes `build`, `typecheck`, `lint`, and `test` locally right before handoff.
 **Alternatives considered:** Reapplying already-landed fixes to the same files to force a source diff; widening the scope beyond the explicit review feedback.
+
+## [pr-1] Close iteration-2 from the current clean checkout
+**Choice:** Preserve the clean reviewed source, rerun the full required gate suite, and record only fresh PR traceability for this handoff.
+**Rationale:** The checked-out branch already satisfies all four review comments: the dashboard sparkline uses `LOOKBACK_LABEL`, API shutdown cleanup is wrapped in `try/catch`, periodic WAL checkpoint failures are logged, and the workout calendar keeps unavailable scheduled workouts visible on mobile. The remaining useful work was current proof that this exact checkout still passes `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test`.
+**Alternatives considered:** Re-touching the same application files to manufacture a diff; shipping without a same-turn audit record.
