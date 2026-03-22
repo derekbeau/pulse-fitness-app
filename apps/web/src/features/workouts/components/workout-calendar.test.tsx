@@ -136,6 +136,7 @@ describe('WorkoutCalendar', () => {
       '/workouts/session/session-1',
     );
     expect(within(doneLink).getByText('Done')).toHaveClass('hidden', 'sm:inline');
+    expect(doneLink.parentElement).toHaveClass('hidden', 'sm:flex');
   });
 
   it('shows selected-day workouts with status-aware actions', async () => {

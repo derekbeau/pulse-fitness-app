@@ -297,7 +297,7 @@ export function WorkoutCalendar({
                     >
                       {day.getDate()}
                     </span>
-                    <div className="flex min-w-0 items-center gap-1">
+                    <div className="hidden min-w-0 items-center gap-1 sm:flex">
                       {details.completedSession ? (
                         <Link
                           aria-label="Done"
