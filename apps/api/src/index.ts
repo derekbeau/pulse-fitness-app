@@ -265,10 +265,15 @@ const start = async () => {
 
     const shutdown = async () => {
       app.log.info('Shutting down…');
-      await app.close();
-      sqlite.pragma('wal_checkpoint(TRUNCATE)');
-      sqlite.close();
-      process.exit(0);
+      try {
+        await app.close();
+        sqlite.pragma('wal_checkpoint(TRUNCATE)');
+        sqlite.close();
+        process.exit(0);
+      } catch (error) {
+        app.log.error({ err: error }, 'Error during shutdown');
+        process.exit(1);
+      }
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);

@@ -61,8 +61,9 @@ if (!isInMemoryDatabase(databaseUrl)) {
   setInterval(() => {
     try {
       sqlite.pragma('wal_checkpoint(TRUNCATE)');
-    } catch {
-      // DB may be closed during shutdown — ignore
+    } catch (error) {
+      // DB may already be closing during shutdown; log other failures for diagnosis.
+      console.error('Periodic WAL checkpoint failed:', error);
     }
   }, WAL_CHECKPOINT_INTERVAL_MS).unref();
 }
