@@ -297,7 +297,15 @@ export function WorkoutCalendar({
                     >
                       {day.getDate()}
                     </span>
-                    <div className="flex min-w-0 items-center gap-1">
+                    {details.workouts.some((workout) => workout.isUnavailable) ? (
+                      <span
+                        aria-label="Unavailable scheduled workout"
+                        className="inline-flex items-center rounded-full border border-destructive/50 bg-destructive/10 p-1 text-destructive sm:hidden"
+                      >
+                        <TriangleAlert aria-hidden="true" className="size-3" />
+                      </span>
+                    ) : null}
+                    <div className="hidden min-w-0 items-center gap-1 sm:flex">
                       {details.completedSession ? (
                         <Link
                           aria-label="Done"
@@ -310,7 +318,7 @@ export function WorkoutCalendar({
                             ) ?? `/workouts/session/${details.completedSession.id}`
                           }
                         >
-                          <span className="hidden sm:inline">Done</span>
+                          <span>Done</span>
                         </Link>
                       ) : null}
                       {details.workouts.some((workout) => workout.isUnavailable) ? (

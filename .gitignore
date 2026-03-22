@@ -15,6 +15,7 @@ node_modules/
 **/*.tsbuildinfo
 skills-lock.json
 data/
+logs/
 .env
 .env.local
 .env*.local

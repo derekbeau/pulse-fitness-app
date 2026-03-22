@@ -263,6 +263,21 @@ const start = async () => {
     migrate(db, { migrationsFolder });
     sqlite.pragma('foreign_keys = ON');
 
+    const shutdown = async () => {
+      app.log.info('Shutting down…');
+      try {
+        await app.close();
+        sqlite.pragma('wal_checkpoint(TRUNCATE)');
+        sqlite.close();
+        process.exit(0);
+      } catch (error) {
+        app.log.error({ err: error }, 'Error during shutdown');
+        process.exit(1);
+      }
+    };
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+
     const address = await app.listen({
       host: process.env.HOST || '0.0.0.0',
       port: Number(process.env.PORT) || 3001,

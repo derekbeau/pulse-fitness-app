@@ -32,6 +32,7 @@ RUN cd packages/shared && \
 # ---------- Stage 2: API runtime ----------
 FROM node:22-slim AS api
 
+RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 
 WORKDIR /app
