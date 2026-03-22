@@ -35,3 +35,9 @@
 - **What was wrong**: This pass still needed a current, branch-owned closeout for the inline review comments. The implementation work was already present, but it had to be revalidated against the live files and backed by a fresh full-suite run before handoff.
 - **How I fixed it**: Re-audited the four reviewed files, confirmed the branch still has the sparkline label constant, guarded shutdown path, WAL checkpoint error logging, and mobile unavailable-workout warning behavior, then reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully and recorded this audit in the PR logs.
 - **Lessons learned**: On late review iterations, verify the exact checked-out branch before editing. If the requested behavior is already there, the right finish is disciplined verification and traceability, not more code churn.
+
+## [pr-1] — Fix Agent
+
+- **What was wrong**: This iteration-1 follow-up still needed a checkout-specific audit for the four review comments. The fixes were already in the branch, but there was no fresh record from this worktree confirming the exact files and gate results immediately before handoff.
+- **How I fixed it**: Re-read `trend-sparkline.tsx`, `apps/api/src/index.ts`, `apps/api/src/db/index.ts`, and `workout-calendar.tsx`, confirmed the existing implementations already satisfy the label, shutdown, checkpoint logging, and mobile warning feedback, then reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully before recording this closeout note.
+- **Lessons learned**: Verification-only review rounds still need a concrete artifact in the branch. When the code already matches review intent, the disciplined move is to document the audit and avoid unnecessary product edits.
