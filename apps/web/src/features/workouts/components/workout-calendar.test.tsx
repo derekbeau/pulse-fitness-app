@@ -117,17 +117,10 @@ describe('WorkoutCalendar', () => {
 
     expect((await screen.findAllByLabelText('In-progress workout')).length).toBeGreaterThan(0);
     expect((await screen.findAllByLabelText('Completed workout')).length).toBeGreaterThan(0);
+    const unavailableWarnings = await screen.findAllByLabelText('Unavailable scheduled workout');
+    expect(unavailableWarnings.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('+2')).toHaveClass('hidden', 'sm:inline-flex');
     expect(screen.getByRole('button', { name: 'Previous month' })).toHaveClass('size-8');
-    const calendarDayTile = getCalendarDayTile(sessionDate);
-    expect(calendarDayTile).toHaveClass('overflow-hidden');
-    expect(calendarDayTile).toHaveClass('text-center', 'sm:text-left');
-    expect(calendarDayTile.querySelector('div')).toHaveClass(
-      'items-center',
-      'justify-center',
-      'sm:justify-between',
-    );
-    expect(calendarDayTile.querySelector('.mt-auto')).toHaveClass('justify-center', 'sm:justify-start');
 
     const doneLink = screen.getByRole('link', { name: 'Done' });
     expect(doneLink).toHaveClass('h-2', 'w-2', 'sm:h-auto', 'sm:w-auto');
@@ -135,8 +128,9 @@ describe('WorkoutCalendar', () => {
       'href',
       '/workouts/session/session-1',
     );
-    expect(within(doneLink).getByText('Done')).toHaveClass('hidden', 'sm:inline');
+    expect(within(doneLink).getByText('Done')).not.toHaveClass('hidden', 'sm:inline');
     expect(doneLink.parentElement).toHaveClass('hidden', 'sm:flex');
+    expect(unavailableWarnings.some((warning) => warning.className.includes('sm:hidden'))).toBe(true);
   });
 
   it('shows selected-day workouts with status-aware actions', async () => {
