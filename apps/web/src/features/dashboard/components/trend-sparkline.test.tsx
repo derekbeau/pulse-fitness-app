@@ -145,7 +145,7 @@ describe('TrendSparklines', () => {
     expect(screen.getByText('Weight Trend')).toBeInTheDocument();
     expect(screen.getByText('Calorie Trend')).toBeInTheDocument();
     expect(screen.getByText('Protein Trend')).toBeInTheDocument();
-    expect(screen.getAllByText('2-day avg')).toHaveLength(3);
+    expect(screen.getAllByText('7d avg')).toHaveLength(3);
 
     // "View details" links navigate to correct routes
     const links = screen.getAllByRole('link', { name: /view .+ details/i });
@@ -164,6 +164,18 @@ describe('TrendSparklines', () => {
     expect(weightCard).toHaveClass('bg-[var(--color-accent-cream)]');
     expect(calorieCard).toHaveClass('bg-[var(--color-accent-pink)]');
     expect(proteinCard).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(within(weightCard as HTMLElement).getByRole('link')).toHaveAttribute(
+      'href',
+      '/weight/history',
+    );
+    expect(within(calorieCard as HTMLElement).getByRole('link')).toHaveAttribute(
+      'href',
+      '/nutrition?view=trends',
+    );
+    expect(within(proteinCard as HTMLElement).getByRole('link')).toHaveAttribute(
+      'href',
+      '/nutrition?view=trends',
+    );
 
     expect(weightCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();
     expect(calorieCard?.querySelector('[data-slot="trend-sparkline-change"]')).toBeInTheDocument();
@@ -292,7 +304,7 @@ describe('TrendSparklines', () => {
       .closest('[data-slot="trend-sparkline-card"]') as HTMLElement;
 
     expect(within(calorieCard).getByText('--')).toBeInTheDocument();
-    expect(within(calorieCard).getByText('0-day avg')).toBeInTheDocument();
+    expect(within(calorieCard).getByText('7d avg')).toBeInTheDocument();
     expect(within(calorieCard).getByText('No data')).toBeInTheDocument();
   });
 });
