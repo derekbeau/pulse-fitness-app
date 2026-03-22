@@ -11,3 +11,9 @@
 - **What was wrong**: The latest review round still needed explicit confirmation that the branch state matched every inline comment, especially the mobile workout-calendar warning behavior that looked questionable without checking the existing indicator system.
 - **How I fixed it**: Re-audited the relevant API and web files, confirmed the requested code changes were already present, documented why the mobile calendar warning stays hidden, and reran the required local gates before preparing the commit.
 - **Lessons learned**: A review follow-up can legitimately end in a documented no-op for product code when the current implementation is intentional, but that only holds if the branch is revalidated end to end.
+
+## [pr-1] — Fix Agent
+
+- **What was wrong**: This turn still needed a branch-local verification record that the checked-out files already satisfy the latest review comments, instead of relying on prior agent assumptions.
+- **How I fixed it**: Reinspected the sparkline, API shutdown, WAL checkpoint, and workout-calendar implementations in this worktree, confirmed they already match the requested outcomes, and reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully before closing the loop with this journal note.
+- **Lessons learned**: When review fixes are already present, the safest follow-up is to prove the live branch state with a full gate run and a minimal traceability update rather than touch stable product code again.
