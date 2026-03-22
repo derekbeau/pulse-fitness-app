@@ -17,3 +17,9 @@
 - **What was wrong**: This turn still needed a branch-local verification record that the checked-out files already satisfy the latest review comments, instead of relying on prior agent assumptions.
 - **How I fixed it**: Reinspected the sparkline, API shutdown, WAL checkpoint, and workout-calendar implementations in this worktree, confirmed they already match the requested outcomes, and reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully before closing the loop with this journal note.
 - **Lessons learned**: When review fixes are already present, the safest follow-up is to prove the live branch state with a full gate run and a minimal traceability update rather than touch stable product code again.
+
+## [pr-1] — Fix Agent
+
+- **What was wrong**: The final reviewer pass still depended on a fresh, branch-specific verification trail for the four inline comments. Without that, handoff would rely on older notes instead of the exact checked-out state.
+- **How I fixed it**: Checked the current implementations for the sparkline label constant, guarded shutdown path, WAL checkpoint logging, and mobile unavailable-workout warning behavior, then reran `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test` successfully before recording this closeout.
+- **Lessons learned**: Re-review rounds should start from the live files, not prior summaries. If the implementation is already correct, the right change is a precise audit record backed by current gate results.
