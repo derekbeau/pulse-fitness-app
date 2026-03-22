@@ -54,4 +54,17 @@ export const sqlite = new Database(databasePath);
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
 
+// Periodically checkpoint the WAL into the main DB to prevent unbounded WAL
+// growth and reduce corruption risk from unclean container shutdowns.
+if (!isInMemoryDatabase(databaseUrl)) {
+  const WAL_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  setInterval(() => {
+    try {
+      sqlite.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      // DB may be closed during shutdown — ignore
+    }
+  }, WAL_CHECKPOINT_INTERVAL_MS).unref();
+}
+
 export const db = drizzle(sqlite, { schema });
