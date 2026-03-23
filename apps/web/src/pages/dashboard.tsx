@@ -22,15 +22,15 @@ import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
+import { DashboardWidgetSidebar } from '@/features/dashboard/components/widget-sidebar';
 import {
-  DashboardWidgetSidebar,
   getHabitIdFromDailyWidgetId,
-  isHabitDailyWidgetId,
   isDashboardStaticWidgetId,
+  isHabitDailyWidgetId,
   toHabitDailyWidgetId,
   type DashboardStaticWidgetId,
   type HabitDailyWidgetId,
-} from '@/features/dashboard/components/widget-sidebar';
+} from '@/features/dashboard/lib/widget-utils';
 import { useHabits } from '@/features/habits/api/habits';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
 import { useLogWeight } from '@/features/weight/api/weight';

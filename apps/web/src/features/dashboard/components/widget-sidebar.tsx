@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import {
   DndContext,
   KeyboardSensor,
@@ -10,7 +9,6 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -30,12 +28,16 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
-
-const HABIT_DAILY_WIDGET_PREFIX = 'habit-daily:';
-
-type WidgetCategoryId = 'overview' | 'workouts' | 'habits' | 'nutrition';
-export type DashboardStaticWidgetId = keyof typeof DASHBOARD_WIDGET_IDS;
-export type HabitDailyWidgetId = `${typeof HABIT_DAILY_WIDGET_PREFIX}${string}`;
+import {
+  DASHBOARD_WIDGET_CATEGORY_ORDER,
+  DASHBOARD_WIDGET_CATEGORY_TITLES,
+  getStaticWidgetsByCategory,
+  getWidgetLabel,
+  isHabitDailyWidgetId,
+  reorderVisibleWidgets,
+  toHabitDailyWidgetId,
+  type DashboardStaticWidgetId,
+} from '@/features/dashboard/lib/widget-utils';
 
 type WidgetSidebarProps = {
   habitChainIds: string[];
@@ -52,53 +54,6 @@ type WidgetSidebarProps = {
   saveErrorMessage?: string;
   visibleWidgets: string[];
 };
-
-const categoryTitles: Record<WidgetCategoryId, string> = {
-  overview: 'Overview',
-  workouts: 'Workouts',
-  habits: 'Habits',
-  nutrition: 'Nutrition',
-};
-
-const staticWidgetCategoryMap: Record<DashboardStaticWidgetId, WidgetCategoryId> = {
-  'snapshot-cards': 'overview',
-  'trend-sparklines': 'overview',
-  'log-weight': 'overview',
-  'weight-trend': 'overview',
-  'recent-workouts': 'workouts',
-  'habit-chain': 'habits',
-  'macro-rings': 'nutrition',
-};
-
-const categoryOrder: WidgetCategoryId[] = ['overview', 'workouts', 'habits', 'nutrition'];
-
-function isDashboardStaticWidgetId(value: string): value is DashboardStaticWidgetId {
-  return value in DASHBOARD_WIDGET_IDS;
-}
-
-function isHabitDailyWidgetId(value: string): value is HabitDailyWidgetId {
-  return (
-    value.startsWith(HABIT_DAILY_WIDGET_PREFIX) && value.length > HABIT_DAILY_WIDGET_PREFIX.length
-  );
-}
-
-function toHabitDailyWidgetId(habitId: string): HabitDailyWidgetId {
-  return `${HABIT_DAILY_WIDGET_PREFIX}${habitId}`;
-}
-
-function getHabitIdFromDailyWidgetId(widgetId: HabitDailyWidgetId) {
-  return widgetId.slice(HABIT_DAILY_WIDGET_PREFIX.length);
-}
-
-export function reorderVisibleWidgets(widgetIds: string[], activeId: string, overId: string) {
-  const oldIndex = widgetIds.indexOf(activeId);
-  const newIndex = widgetIds.indexOf(overId);
-  if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) {
-    return widgetIds;
-  }
-
-  return arrayMove(widgetIds, oldIndex, newIndex);
-}
 
 function SortableActiveWidgetItem({
   widgetId,
@@ -213,20 +168,6 @@ function HabitWidgetSection({
   );
 }
 
-function getWidgetLabel(widgetId: string, habitsById: Map<string, Habit>) {
-  if (isDashboardStaticWidgetId(widgetId)) {
-    return DASHBOARD_WIDGET_IDS[widgetId];
-  }
-
-  if (isHabitDailyWidgetId(widgetId)) {
-    const habitId = getHabitIdFromDailyWidgetId(widgetId);
-    const habit = habitsById.get(habitId);
-    return habit ? `${habit.name} daily status` : 'Habit daily status';
-  }
-
-  return widgetId;
-}
-
 export function DashboardWidgetSidebar({
   habitChainIds,
   habits,
@@ -256,24 +197,7 @@ export function DashboardWidgetSidebar({
   const [habitChainExpanded, setHabitChainExpanded] = useState(true);
   const habitsById = useMemo(() => new Map(habits.map((habit) => [habit.id, habit])), [habits]);
   const hasAnyHabitDailyWidget = visibleWidgets.some(isHabitDailyWidgetId);
-  const staticWidgetByCategory = useMemo(() => {
-    const dashboardStaticWidgets = Object.keys(DASHBOARD_WIDGET_IDS) as DashboardStaticWidgetId[];
-
-    return categoryOrder.reduce<Record<WidgetCategoryId, DashboardStaticWidgetId[]>>(
-      (accumulator, categoryId) => {
-        accumulator[categoryId] = dashboardStaticWidgets.filter(
-          (widgetId) => staticWidgetCategoryMap[widgetId] === categoryId,
-        );
-        return accumulator;
-      },
-      {
-        overview: [],
-        workouts: [],
-        habits: [],
-        nutrition: [],
-      },
-    );
-  }, []);
+  const staticWidgetByCategory = useMemo(() => getStaticWidgetsByCategory(), []);
 
   const activeWidgetItems = visibleWidgets.map((widgetId) => ({
     widgetId,
@@ -329,10 +253,10 @@ export function DashboardWidgetSidebar({
             )}
           </section>
 
-          {categoryOrder.map((categoryId) => (
+          {DASHBOARD_WIDGET_CATEGORY_ORDER.map((categoryId) => (
             <section className="space-y-2" key={categoryId}>
               <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                {categoryTitles[categoryId]}
+                {DASHBOARD_WIDGET_CATEGORY_TITLES[categoryId]}
               </h2>
               {staticWidgetByCategory[categoryId].map((widgetId) => (
                 <WidgetToggleRow
@@ -407,11 +331,3 @@ export function DashboardWidgetSidebar({
     </Sheet>
   );
 }
-
-export {
-  getHabitIdFromDailyWidgetId,
-  HABIT_DAILY_WIDGET_PREFIX,
-  isDashboardStaticWidgetId,
-  isHabitDailyWidgetId,
-  toHabitDailyWidgetId,
-};
