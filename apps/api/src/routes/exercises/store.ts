@@ -54,6 +54,23 @@ export type ExerciseFilters = {
   equipment: string[];
 };
 
+export class ExerciseMergeSameIdError extends Error {
+  constructor() {
+    super('winnerId and loserId must be different');
+    this.name = 'ExerciseMergeSameIdError';
+  }
+}
+
+export class ExerciseMergeNotFoundError extends Error {
+  readonly role: 'winner' | 'loser';
+
+  constructor(role: 'winner' | 'loser') {
+    super(`${role} exercise not found`);
+    this.name = 'ExerciseMergeNotFoundError';
+    this.role = role;
+  }
+}
+
 const exerciseSelection = {
   id: exercises.id,
   userId: exercises.userId,
@@ -328,6 +345,179 @@ export const deleteOwnedExercise = async (id: string, userId: string): Promise<b
     .run();
 
   return result.changes === 1;
+};
+
+type MergeSessionRow = {
+  id: string;
+  sessionId: string;
+  section: string | null;
+  setNumber: number;
+};
+
+type WinnerSectionMax = {
+  sessionId: string;
+  section: string | null;
+  maxSetNumber: number;
+};
+
+const buildSessionSectionKey = (sessionId: string, section: string | null) =>
+  `${sessionId}::${section ?? '__null__'}`;
+
+export const mergeExercises = async (
+  userId: string,
+  winnerId: string,
+  loserId: string,
+): Promise<Exercise> => {
+  if (winnerId === loserId) {
+    throw new ExerciseMergeSameIdError();
+  }
+
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const winner = tx
+      .select(exerciseSelection)
+      .from(exercises)
+      .where(and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!winner) {
+      throw new ExerciseMergeNotFoundError('winner');
+    }
+
+    const loser = tx
+      .select(exerciseSelection)
+      .from(exercises)
+      .where(and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!loser) {
+      throw new ExerciseMergeNotFoundError('loser');
+    }
+
+    const winnerSectionMaxRows = tx
+      .select({
+        sessionId: sessionSets.sessionId,
+        section: sessionSets.section,
+        maxSetNumber: sql<number>`max(${sessionSets.setNumber})`,
+      })
+      .from(sessionSets)
+      .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+      .where(and(eq(workoutSessions.userId, userId), eq(sessionSets.exerciseId, winnerId)))
+      .groupBy(sessionSets.sessionId, sessionSets.section)
+      .all() as WinnerSectionMax[];
+
+    const winnerSectionMaxByKey = new Map(
+      winnerSectionMaxRows.map((row) => [
+        buildSessionSectionKey(row.sessionId, row.section),
+        row.maxSetNumber,
+      ]),
+    );
+
+    const loserSetRows = tx
+      .select({
+        id: sessionSets.id,
+        sessionId: sessionSets.sessionId,
+        section: sessionSets.section,
+        setNumber: sessionSets.setNumber,
+      })
+      .from(sessionSets)
+      .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+      .where(and(eq(workoutSessions.userId, userId), eq(sessionSets.exerciseId, loserId)))
+      .all() as MergeSessionRow[];
+
+    const loserRowsBySessionSection = new Map<string, MergeSessionRow[]>();
+    for (const row of loserSetRows) {
+      const key = buildSessionSectionKey(row.sessionId, row.section);
+      const rows = loserRowsBySessionSection.get(key) ?? [];
+      rows.push(row);
+      loserRowsBySessionSection.set(key, rows);
+    }
+
+    for (const [key, rows] of loserRowsBySessionSection.entries()) {
+      const offset = winnerSectionMaxByKey.get(key) ?? 0;
+      if (offset <= 0) {
+        continue;
+      }
+
+      for (const row of rows) {
+        tx.update(sessionSets)
+          .set({ setNumber: row.setNumber + offset })
+          .where(eq(sessionSets.id, row.id))
+          .run();
+      }
+    }
+
+    tx.update(sessionSets)
+      .set({ exerciseId: winnerId })
+      .where(
+        and(
+          eq(sessionSets.exerciseId, loserId),
+          sql`exists (
+            select 1
+            from ${workoutSessions}
+            where ${workoutSessions.id} = ${sessionSets.sessionId}
+              and ${workoutSessions.userId} = ${userId}
+          )`,
+        ),
+      )
+      .run();
+
+    tx.delete(templateExercises)
+      .where(
+        and(
+          eq(templateExercises.exerciseId, loserId),
+          sql`exists (
+            select 1
+            from ${workoutTemplates}
+            where ${workoutTemplates.id} = ${templateExercises.templateId}
+              and ${workoutTemplates.userId} = ${userId}
+          )`,
+          sql`exists (
+            select 1
+            from ${templateExercises} as winner_template_exercises
+            where winner_template_exercises.template_id = ${templateExercises.templateId}
+              and winner_template_exercises.exercise_id = ${winnerId}
+          )`,
+        ),
+      )
+      .run();
+
+    tx.update(templateExercises)
+      .set({ exerciseId: winnerId })
+      .where(
+        and(
+          eq(templateExercises.exerciseId, loserId),
+          sql`exists (
+            select 1
+            from ${workoutTemplates}
+            where ${workoutTemplates.id} = ${templateExercises.templateId}
+              and ${workoutTemplates.userId} = ${userId}
+          )`,
+        ),
+      )
+      .run();
+
+    tx.update(exercises)
+      .set({ deletedAt: new Date().toISOString(), updatedAt: Date.now() })
+      .where(and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .run();
+
+    const mergedWinner = tx
+      .select(exerciseSelection)
+      .from(exercises)
+      .where(and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!mergedWinner) {
+      throw new Error('Failed to load merged winner exercise');
+    }
+
+    return mergedWinner;
+  });
 };
 
 export const isExerciseInUse = async ({
@@ -871,6 +1061,10 @@ const findExercisesLastPerformanceById = async ({
   >();
 
   for (const row of latestSessionCandidates) {
+    if (row.exerciseId === null) {
+      continue;
+    }
+
     if (!latestSessionByExerciseId.has(row.exerciseId)) {
       latestSessionByExerciseId.set(row.exerciseId, {
         sessionId: row.sessionId,
@@ -918,6 +1112,10 @@ const findExercisesLastPerformanceById = async ({
   >();
 
   for (const set of latestSets) {
+    if (set.exerciseId === null) {
+      continue;
+    }
+
     const latestSession = latestSessionByExerciseId.get(set.exerciseId);
     if (!latestSession || latestSession.sessionId !== set.sessionId) {
       continue;

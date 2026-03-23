@@ -1092,6 +1092,7 @@ describe('sessionSets schema', () => {
     expect(columns.completed.default).toBe(false);
     expect(columns.skipped.default).toBe(false);
     expect(columns.orderIndex.default).toBe(0);
+    expect(columns.exerciseId.notNull).toBe(false);
     expect(columns.section.notNull).toBe(true);
     expect(columns.section.default).toBe('main');
     expect(columns.createdAt.default).toBeDefined();
@@ -1105,7 +1106,7 @@ describe('sessionSets schema', () => {
     expect(
       config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'exercises')
         ?.onDelete,
-    ).toBe('restrict');
+    ).toBe('set null');
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['session_sets_session_id_idx']);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(

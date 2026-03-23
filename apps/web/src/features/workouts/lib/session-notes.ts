@@ -20,8 +20,10 @@ type TemplateExerciseLookup = Map<
 export function extractExerciseNotes(sessionSets: SessionSet[]) {
   const exerciseNotes: Record<string, string> = {};
   const sortedSessionSets = [...sessionSets].sort((left, right) => {
-    if (left.exerciseId !== right.exerciseId) {
-      return left.exerciseId.localeCompare(right.exerciseId);
+    const leftExerciseId = left.exerciseId ?? '';
+    const rightExerciseId = right.exerciseId ?? '';
+    if (leftExerciseId !== rightExerciseId) {
+      return leftExerciseId.localeCompare(rightExerciseId);
     }
 
     if (left.setNumber !== right.setNumber) {
@@ -32,6 +34,10 @@ export function extractExerciseNotes(sessionSets: SessionSet[]) {
   });
 
   for (const set of sortedSessionSets) {
+    if (!set.exerciseId) {
+      continue;
+    }
+
     const normalizedNotes = normalizeExerciseNote(set.notes);
     if (!normalizedNotes || exerciseNotes[set.exerciseId]) {
       continue;

@@ -183,9 +183,14 @@ const toCreateWorkoutSessionInput = (
     throw new Error('Workout session must exist to build an update payload');
   }
 
-  const supersetGroupByExerciseId = new Map(
-    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.supersetGroup]),
-  );
+  const supersetGroupByExerciseId = new Map<string, string | null>();
+  for (const exercise of session.exercises ?? []) {
+    if (typeof exercise.exerciseId !== 'string') {
+      continue;
+    }
+
+    supersetGroupByExerciseId.set(exercise.exerciseId, exercise.supersetGroup);
+  }
 
   return {
     templateId: session.templateId,
@@ -198,18 +203,24 @@ const toCreateWorkoutSessionInput = (
     timeSegments: session.timeSegments,
     feedback: session.feedback,
     notes: session.notes,
-    sets: session.sets.map((set) => ({
-      exerciseId: set.exerciseId,
-      orderIndex: set.orderIndex ?? 0,
-      setNumber: set.setNumber,
-      weight: set.weight,
-      reps: set.reps,
-      completed: set.completed,
-      skipped: set.skipped,
-      supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
-      section: set.section,
-      notes: set.notes,
-    })),
+    sets: session.sets.flatMap((set) =>
+      typeof set.exerciseId !== 'string'
+        ? []
+        : [
+            {
+              exerciseId: set.exerciseId,
+              orderIndex: set.orderIndex ?? 0,
+              setNumber: set.setNumber,
+              weight: set.weight,
+              reps: set.reps,
+              completed: set.completed,
+              skipped: set.skipped,
+              supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
+              section: set.section,
+              notes: set.notes,
+            },
+          ],
+    ),
   };
 };
 
@@ -1320,9 +1331,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
                 return (left.orderIndex ?? 0) - (right.orderIndex ?? 0);
               }
 
-              return left.exerciseId.localeCompare(right.exerciseId);
+              return (left.exerciseId ?? '').localeCompare(right.exerciseId ?? '');
             })
-            .map((set) => set.exerciseId),
+            .map((set) => set.exerciseId)
+            .filter((exerciseId): exerciseId is string => typeof exerciseId === 'string'),
         ),
       );
       const requestedIds = request.body.exerciseIds;

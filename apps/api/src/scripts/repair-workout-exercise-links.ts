@@ -21,7 +21,7 @@ type OrphanLinkRow = {
   rowId: string;
   ownerId: string;
   ownerUserId: string;
-  exerciseId: string;
+  exerciseId: string | null;
   exerciseUserId: string | null;
   exerciseDeletedAt: string | null;
   exerciseName: string | null;
@@ -38,6 +38,8 @@ type RepairResultRow = {
   action: RepairAction;
   note: string;
 };
+
+const stringifyExerciseId = (exerciseId: string | null) => exerciseId ?? 'null';
 
 export type RepairWorkoutExerciseLinksOptions = {
   userId: string | null;
@@ -302,13 +304,26 @@ export const repairWorkoutExerciseLinks = async (
         (row.exerciseUserId === null || row.exerciseUserId === row.ownerUserId);
 
       if (canRestoreOriginal) {
+        if (row.exerciseId === null) {
+          results.push({
+            source: row.source,
+            rowId: row.rowId,
+            ownerUserId: row.ownerUserId,
+            previousExerciseId: stringifyExerciseId(row.exerciseId),
+            nextExerciseId: stringifyExerciseId(row.exerciseId),
+            action: 'manual-review',
+            note: 'Encountered null exercise_id with restore metadata; requires manual review.',
+          });
+          continue;
+        }
+
         restoreExercise(row.exerciseId);
         results.push({
           source: row.source,
           rowId: row.rowId,
           ownerUserId: row.ownerUserId,
-          previousExerciseId: row.exerciseId,
-          nextExerciseId: row.exerciseId,
+          previousExerciseId: stringifyExerciseId(row.exerciseId),
+          nextExerciseId: stringifyExerciseId(row.exerciseId),
           action: 'restored-soft-deleted',
           note: 'Restored soft-deleted exercise referenced by workout row.',
         });
@@ -318,7 +333,9 @@ export const repairWorkoutExerciseLinks = async (
       const nameHint =
         row.exerciseName && row.exerciseName.trim().length > 0
           ? row.exerciseName
-          : deriveExerciseNameFromId(row.exerciseId);
+          : row.exerciseId
+            ? deriveExerciseNameFromId(row.exerciseId)
+            : 'Recovered Exercise';
       const candidate = findCandidateByName({
         name: nameHint,
         ownerUserId: row.ownerUserId,
@@ -339,7 +356,7 @@ export const repairWorkoutExerciseLinks = async (
             source: row.source,
             rowId: row.rowId,
             ownerUserId: row.ownerUserId,
-            previousExerciseId: row.exerciseId,
+            previousExerciseId: stringifyExerciseId(row.exerciseId),
             nextExerciseId: candidate.id,
             action: 'relinked-by-name',
             note: crossUserReference
@@ -351,8 +368,8 @@ export const repairWorkoutExerciseLinks = async (
             source: row.source,
             rowId: row.rowId,
             ownerUserId: row.ownerUserId,
-            previousExerciseId: row.exerciseId,
-            nextExerciseId: row.exerciseId,
+            previousExerciseId: stringifyExerciseId(row.exerciseId),
+            nextExerciseId: stringifyExerciseId(row.exerciseId),
             action: 'manual-review',
             note: `Relink failed and requires manual review: ${String(error)}`,
           });
@@ -375,7 +392,7 @@ export const repairWorkoutExerciseLinks = async (
           source: row.source,
           rowId: row.rowId,
           ownerUserId: row.ownerUserId,
-          previousExerciseId: row.exerciseId,
+          previousExerciseId: stringifyExerciseId(row.exerciseId),
           nextExerciseId: placeholderId,
           action: 'created-placeholder',
           note: crossUserReference
@@ -397,8 +414,8 @@ export const repairWorkoutExerciseLinks = async (
           source: row.source,
           rowId: row.rowId,
           ownerUserId: row.ownerUserId,
-          previousExerciseId: row.exerciseId,
-          nextExerciseId: row.exerciseId,
+          previousExerciseId: stringifyExerciseId(row.exerciseId),
+          nextExerciseId: stringifyExerciseId(row.exerciseId),
           action: 'manual-review',
           note: `Placeholder relink failed and requires manual review: ${String(error)}`,
         });

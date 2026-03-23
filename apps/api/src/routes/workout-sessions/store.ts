@@ -56,7 +56,7 @@ type WorkoutSessionAccessRecord = {
 type SessionSetRecord = {
   id: string;
   sessionId: string;
-  exerciseId: string;
+  exerciseId: string | null;
   orderIndex: number;
   setNumber: number;
   weight: number | null;
@@ -155,8 +155,10 @@ const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
     return left.orderIndex - right.orderIndex;
   }
 
-  if (left.exerciseId !== right.exerciseId) {
-    return left.exerciseId.localeCompare(right.exerciseId);
+  const leftExerciseId = left.exerciseId ?? '';
+  const rightExerciseId = right.exerciseId ?? '';
+  if (leftExerciseId !== rightExerciseId) {
+    return leftExerciseId.localeCompare(rightExerciseId);
   }
 
   if (left.setNumber !== right.setNumber) {
@@ -189,7 +191,8 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
   const groups = new Map<string, SessionSet[]>();
 
   for (const set of sets.sort(sortSessionSets)) {
-    const existingGroup = groups.get(set.exerciseId);
+    const groupKey = set.exerciseId ?? 'deleted-exercise';
+    const existingGroup = groups.get(groupKey);
     const parsedSet = buildSessionSet(set);
 
     if (existingGroup) {
@@ -197,7 +200,7 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
       continue;
     }
 
-    groups.set(set.exerciseId, [parsedSet]);
+    groups.set(groupKey, [parsedSet]);
   }
 
   return Array.from(groups.entries()).map(([exerciseId, groupedSets]) => ({
@@ -213,6 +216,7 @@ const buildWorkoutSession = (
     string,
     {
       name: string;
+      deletedAt: string | null;
       trackingType: ExerciseTrackingType | null;
       formCues: string[];
       coachingNotes: string | null;
@@ -252,6 +256,7 @@ const buildWorkoutSessionExercises = (
     string,
     {
       name: string;
+      deletedAt: string | null;
       trackingType: ExerciseTrackingType | null;
       formCues: string[];
       coachingNotes: string | null;
@@ -262,8 +267,9 @@ const buildWorkoutSessionExercises = (
   const groupedByExercise = new Map<
     string,
     {
-      exerciseId: string;
+      exerciseId: string | null;
       exerciseName: string;
+      deletedAt: string | null;
       supersetGroup: string | null;
       trackingType: ExerciseTrackingType | null;
       orderIndex: number;
@@ -276,10 +282,11 @@ const buildWorkoutSessionExercises = (
   >();
 
   for (const set of sets.sort(sortSessionSets)) {
-    const existing = groupedByExercise.get(set.exerciseId);
+    const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
+    const existing = groupedByExercise.get(groupKey);
     const parsedSet = buildSessionSet(set);
-    const exerciseInfo = exerciseInfoById.get(set.exerciseId);
-    const exerciseName = exerciseInfo?.name ?? 'Unknown Exercise';
+    const exerciseInfo = typeof set.exerciseId === 'string' ? exerciseInfoById.get(set.exerciseId) : undefined;
+    const exerciseName = set.exerciseId === null ? 'Deleted exercise' : (exerciseInfo?.name ?? 'Unknown Exercise');
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
@@ -290,9 +297,10 @@ const buildWorkoutSessionExercises = (
       continue;
     }
 
-    groupedByExercise.set(set.exerciseId, {
+    groupedByExercise.set(groupKey, {
       exerciseId: set.exerciseId,
       exerciseName,
+      deletedAt: exerciseInfo?.deletedAt ?? null,
       supersetGroup: set.supersetGroup,
       trackingType: (exerciseInfo?.trackingType as ExerciseTrackingType) ?? null,
       orderIndex: set.orderIndex,
@@ -324,6 +332,7 @@ const buildWorkoutSessionExercises = (
     .map((exercise) => ({
       exerciseId: exercise.exerciseId,
       exerciseName: exercise.exerciseName,
+      deletedAt: exercise.deletedAt,
       supersetGroup: exercise.supersetGroup,
       trackingType: exercise.trackingType,
       exercise: {
@@ -772,11 +781,13 @@ export const batchUpsertSessionSets = async ({
       const currentNextOrderIndex = nextOrderIndexBySection.get(set.section) ?? 0;
       nextOrderIndexBySection.set(set.section, Math.max(currentNextOrderIndex, set.orderIndex + 1));
 
-      const existingSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId);
-      if (existingSupersetGroup === undefined) {
-        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
-      } else if (existingSupersetGroup === null && set.supersetGroup !== null) {
-        supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+      if (set.exerciseId !== null) {
+        const existingSupersetGroup = supersetGroupByExerciseId.get(set.exerciseId);
+        if (existingSupersetGroup === undefined) {
+          supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+        } else if (existingSupersetGroup === null && set.supersetGroup !== null) {
+          supersetGroupByExerciseId.set(set.exerciseId, set.supersetGroup);
+        }
       }
     }
 
@@ -981,26 +992,31 @@ export const findWorkoutSessionById = async (
     .all();
 
   const uniqueExerciseIds = [...new Set(sets.map((set) => set.exerciseId))];
+  const nonNullExerciseIds = uniqueExerciseIds.filter(
+    (exerciseId): exerciseId is string => typeof exerciseId === 'string',
+  );
   const exerciseNameRows =
-    uniqueExerciseIds.length === 0
+    nonNullExerciseIds.length === 0
       ? []
       : db
           .select({
             id: exercises.id,
             name: exercises.name,
+            deletedAt: exercises.deletedAt,
             trackingType: exercises.trackingType,
             formCues: exercises.formCues,
             coachingNotes: exercises.coachingNotes,
             instructions: exercises.instructions,
           })
           .from(exercises)
-          .where(and(inArray(exercises.id, uniqueExerciseIds), isNull(exercises.deletedAt)))
+          .where(inArray(exercises.id, nonNullExerciseIds))
           .all();
   const exerciseInfoById = new Map(
     exerciseNameRows.map((row) => [
       row.id,
       {
         name: row.name,
+        deletedAt: row.deletedAt,
         trackingType: row.trackingType,
         formCues: row.formCues ?? [],
         coachingNotes: row.coachingNotes,
@@ -1263,6 +1279,10 @@ export const saveCompletedSessionAsTemplate = async ({
   >();
 
   for (const set of session.sets) {
+    if (set.exerciseId === null) {
+      continue;
+    }
+
     const section = mapSessionSectionToTemplateSection(set.section);
     const groupKey = `${section}:${set.exerciseId}`;
     const existing = groupedExercises.get(groupKey);

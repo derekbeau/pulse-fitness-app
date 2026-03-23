@@ -328,7 +328,11 @@ export function ActiveWorkoutPage() {
       setExerciseOrderBySection(serverExerciseOrder);
       setExerciseNotes((current) => {
         const nextNotes: Record<string, string> = {};
-        const activeExerciseIds = new Set(activeSession.sets.map((set) => set.exerciseId));
+        const activeExerciseIds = new Set(
+          activeSession.sets
+            .map((set) => set.exerciseId)
+            .filter((exerciseId): exerciseId is string => typeof exerciseId === 'string'),
+        );
 
         for (const exerciseId of activeExerciseIds) {
           const currentNote = current[exerciseId];
@@ -1720,6 +1724,10 @@ function createSessionSetDrafts(
   const drafts = createInitialWorkoutSetDrafts(template, new Set<string>());
 
   for (const sessionSet of sessionSets) {
+    if (!sessionSet.exerciseId) {
+      continue;
+    }
+
     const trackingType =
       templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
     const isTimeBased = isTimeBasedTrackingType(trackingType);
@@ -1816,7 +1824,7 @@ function buildSessionStructureSignature(session: ApiWorkoutSession) {
     }
 
     if (left.exerciseId !== right.exerciseId) {
-      return left.exerciseId.localeCompare(right.exerciseId);
+      return (left.exerciseId ?? '').localeCompare(right.exerciseId ?? '');
     }
 
     return left.setNumber - right.setNumber;
@@ -1824,7 +1832,8 @@ function buildSessionStructureSignature(session: ApiWorkoutSession) {
 
   return sortedSets
     .map(
-      (set) => `${set.section ?? 'main'}:${set.exerciseId}:${set.orderIndex ?? 0}:${set.setNumber}`,
+      (set) =>
+        `${set.section ?? 'main'}:${set.exerciseId ?? 'deleted-exercise'}:${set.orderIndex ?? 0}:${set.setNumber}`,
     )
     .join('|');
 }
@@ -1868,13 +1877,17 @@ function buildExerciseOrderFromSessionSets(
     }
 
     if (left.exerciseId !== right.exerciseId) {
-      return left.exerciseId.localeCompare(right.exerciseId);
+      return (left.exerciseId ?? '').localeCompare(right.exerciseId ?? '');
     }
 
     return left.setNumber - right.setNumber;
   });
 
   for (const set of sortedSets) {
+    if (!set.exerciseId) {
+      continue;
+    }
+
     if (
       set.section !== 'warmup' &&
       set.section !== 'main' &&
@@ -2406,6 +2419,10 @@ function buildTemplateFromSession(
   >(sectionOrder.map((type) => [type, { type, title: sectionTitleByType[type], exercises: [] }]));
 
   for (const sessionExercise of sessionExercises) {
+    if (!sessionExercise.exerciseId) {
+      continue;
+    }
+
     const sectionType = sessionExercise.section ?? 'main';
     const targetSection = sectionsByType.get(sectionType);
     if (!targetSection) {
@@ -2465,10 +2482,9 @@ function buildTemplateFromSession(
 
 function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
   const namesById = new Map(
-    session.sets.map((set) => [
-      set.exerciseId,
-      startCase(set.exerciseId),
-    ]),
+    session.sets
+      .filter((set): set is SessionSet & { exerciseId: string } => typeof set.exerciseId === 'string')
+      .map((set) => [set.exerciseId, startCase(set.exerciseId)]),
   );
   const grouped = new Map<
     string,
@@ -2484,6 +2500,10 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
   >();
 
   for (const set of session.sets) {
+    if (!set.exerciseId) {
+      continue;
+    }
+
     const existing = grouped.get(set.exerciseId);
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex ?? 0);
