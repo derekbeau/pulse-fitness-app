@@ -1041,7 +1041,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    if (body.removeExercises) {
+    if (body.removeExercises && !body.force) {
       const removeExerciseIds = new Set(body.removeExercises);
       const hasLoggedSets = merged.sets.some(
         (set) => removeExerciseIds.has(set.exerciseId) && set.completed,
@@ -1055,6 +1055,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      merged = {
+        ...merged,
+        sets: merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId)),
+      };
+    }
+
+    if (body.removeExercises && body.force) {
+      const removeExerciseIds = new Set(body.removeExercises);
       merged = {
         ...merged,
         sets: merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId)),

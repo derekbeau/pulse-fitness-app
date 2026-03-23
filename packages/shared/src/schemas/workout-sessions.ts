@@ -446,6 +446,7 @@ export const updateWorkoutSessionInputSchema = z
     sets: z.array(sessionSetInputSchema).max(500).optional(),
     addExercises: z.array(workoutSessionExerciseMutationInputSchema).min(1).max(100).optional(),
     removeExercises: z.array(requiredStringSchema).min(1).max(100).optional(),
+    force: z.boolean().optional(),
     reorderExercises: z.array(requiredStringSchema).min(1).max(200).optional(),
     exercises: z.array(workoutSessionExerciseUpdateInputSchema).min(1).max(200).optional(),
   })

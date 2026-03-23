@@ -4053,6 +4053,111 @@ describe('workout session routes', () => {
     ).not.toContain('user-1-lat-pulldown');
   });
 
+  it('requires force to remove exercises that already have logged sets', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-remove-force-guard',
+      userId: 'user-1',
+      name: 'Force Guard Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-remove-force-guard-bench',
+      sessionId: 'session-remove-force-guard',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      completed: true,
+    });
+    seedSessionSet({
+      id: 'session-remove-force-guard-lat',
+      sessionId: 'session-remove-force-guard',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const guardedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-force-guard',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: ['global-bench-press'],
+      },
+    });
+
+    expect(guardedResponse.statusCode).toBe(409);
+    expect(guardedResponse.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS',
+        message: 'Cannot remove an exercise with logged sets',
+      },
+    });
+
+    const forcedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-force-guard',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        force: true,
+        removeExercises: ['global-bench-press'],
+      },
+    });
+
+    expect(forcedResponse.statusCode).toBe(200);
+    expect(
+      (forcedResponse.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('global-bench-press');
+  });
+
+  it('removes exercises without force when no sets are logged yet', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-remove-no-force-needed',
+      userId: 'user-1',
+      name: 'No Force Needed Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-remove-no-force-needed-lat',
+      sessionId: 'session-remove-no-force-needed',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+      completed: false,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-no-force-needed',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: ['user-1-lat-pulldown'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      (response.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('user-1-lat-pulldown');
+  });
+
   it('updates exercise superset groups and returns grouped exercise metadata', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },

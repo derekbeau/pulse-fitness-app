@@ -110,6 +110,7 @@ type SessionExerciseListProps = {
     exerciseIds: string[],
     supersetGroup: string | null,
   ) => void | Promise<void>;
+  onRemoveExercise?: (exerciseId: string) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   showDragHandles?: boolean;
@@ -159,6 +160,7 @@ export function SessionExerciseList({
   onExerciseNotesChange,
   onFocusSetHandled,
   onReorderExercises,
+  onRemoveExercise,
   onUpdateSupersetGroup,
   onRemoveSet,
   onSetUpdate,
@@ -399,6 +401,7 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            onRemoveExercise={onRemoveExercise}
                             onRemoveSet={onRemoveSet}
                             onSetUpdate={onSetUpdate}
                             repsInputRefs={repsInputRefs}
@@ -514,6 +517,7 @@ export function SessionExerciseList({
                                       exerciseName: exercise.name,
                                     })
                                   }
+                                  onRemoveExercise={onRemoveExercise}
                                   onRemoveSet={onRemoveSet}
                                   onSetUpdate={onSetUpdate}
                                   repsInputRefs={repsInputRefs}
@@ -649,6 +653,7 @@ type ExerciseCardItemProps = {
   onMoveDown: () => void;
   onMoveUp: () => void;
   onOpenHistory: () => void;
+  onRemoveExercise?: (exerciseId: string) => void | Promise<void>;
   onRenameExercise: () => void;
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
@@ -678,6 +683,7 @@ function ExerciseCardItem({
   onMoveDown,
   onMoveUp,
   onOpenHistory,
+  onRemoveExercise,
   onRenameExercise,
   onSwapExercise,
   onRemoveSet,
@@ -861,6 +867,19 @@ function ExerciseCardItem({
               onClick={handleMenuAction(() => onRemoveSet(exercise.id))}
             >
               Remove Last Set
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!onRemoveExercise}
+              onClick={handleMenuAction(() => {
+                if (!onRemoveExercise) {
+                  return;
+                }
+                void onRemoveExercise(exercise.id);
+              })}
+              variant="destructive"
+            >
+              <Link2Off aria-hidden="true" className="size-4" />
+              Remove exercise
             </DropdownMenuItem>
             {onConfigureSuperset ? (
               <>

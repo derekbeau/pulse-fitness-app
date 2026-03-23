@@ -406,6 +406,43 @@ describe('SessionExerciseList', () => {
     expect(onRemoveSet).not.toHaveBeenCalled();
   });
 
+  it('triggers remove exercise from the exercise actions menu', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onRemoveExercise = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveExercise={onRemoveExercise}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getAllByRole('button', { name: 'Remove exercise' })[0],
+    );
+
+    expect(onRemoveExercise).toHaveBeenCalledWith('row-erg');
+  });
+
   it('opens rename dialog from the exercise actions menu', async () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
