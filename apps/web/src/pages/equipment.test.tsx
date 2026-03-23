@@ -44,7 +44,7 @@ describe('EquipmentRoutePage', () => {
 
     expect(screen.getByRole('heading', { name: 'Equipment' })).toBeInTheDocument();
     expect(screen.getByText(PREVIEW_BANNER_DEFAULT_MESSAGE)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     expect(screen.getByText('2 locations, 32 total items')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add Location' })).toBeInTheDocument();
     expect(getLocationCard('Home Gym').toggle).toHaveAttribute('aria-expanded', 'false');

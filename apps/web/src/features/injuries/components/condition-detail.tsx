@@ -138,7 +138,6 @@ export function ConditionDetail({ condition }: ConditionDetailProps) {
           </Badge>
         }
         description={condition.description}
-        showBack
         title={condition.name}
       />
 

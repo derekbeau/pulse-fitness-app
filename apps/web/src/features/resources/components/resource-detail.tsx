@@ -32,7 +32,6 @@ export function ResourceDetail({ resource }: ResourceDetailProps) {
             ? `${resourceTypeLabels[resource.type]} by ${resource.author}`
             : 'The requested resource is not available in the current prototype library.'
         }
-        showBack
         title={resource ? resource.title : 'Resource not found'}
       />
 

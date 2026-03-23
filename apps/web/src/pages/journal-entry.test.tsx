@@ -22,7 +22,7 @@ describe('JournalEntryPage', () => {
     renderWithRoute('missing-entry');
 
     expect(screen.getByRole('heading', { name: 'Journal entry not found' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
   });
 
   it('renders full entry content and linked entities for a valid entry', () => {
@@ -41,7 +41,7 @@ describe('JournalEntryPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Wins' })).toBeInTheDocument();
     expect(screen.getByText(/Session focus:/)).toBeInTheDocument();
     expect(screen.getByText('Linked To')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upper Push' })).toHaveAttribute(
       'href',
       '/workouts/template/upper-push',

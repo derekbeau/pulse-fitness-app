@@ -24,7 +24,7 @@ export function JournalEntryDetail({ entry }: JournalEntryDetailProps) {
 
   return (
     <section className="space-y-6">
-      <PageHeader description={formatJournalEntryDate(entry.date)} showBack title="Journal entry" />
+      <PageHeader description={formatJournalEntryDate(entry.date)} title="Journal entry" />
 
       <Card className="gap-4 overflow-hidden border-transparent bg-card/80 py-0">
         <div className="space-y-4 bg-[var(--color-accent-cream)] px-6 py-6 text-on-cream dark:border-b dark:border-border dark:bg-card dark:text-foreground">

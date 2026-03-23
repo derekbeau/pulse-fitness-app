@@ -17,7 +17,7 @@ describe('ResourceDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'McGill Big 3' })).toBeInTheDocument();
     expect(screen.getByText('Program')).toBeInTheDocument();
     expect(screen.getByText('Dr. Stuart McGill')).toBeInTheDocument();
