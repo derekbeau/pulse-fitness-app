@@ -367,20 +367,22 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
         </div>
       )}
 
-      <PaginationBar
-        isLoading={exercisesQuery.isFetching}
-        onPageChange={(nextPage) =>
-          updateSearchParams(searchParams, setSearchParams, { page: String(nextPage) }, false)
-        }
-        onPerPageChange={(value) =>
-          updateSearchParams(searchParams, setSearchParams, { limit: String(value) })
-        }
-        page={page}
-        perPage={limit}
-        perPageAriaLabel="Exercises per page"
-        total={totalResults}
-        totalPages={totalPages}
-      />
+      {!exercisesQuery.isPending && totalResults > limit ? (
+        <PaginationBar
+          isLoading={exercisesQuery.isFetching}
+          onPageChange={(nextPage) =>
+            updateSearchParams(searchParams, setSearchParams, { page: String(nextPage) }, false)
+          }
+          onPerPageChange={(value) =>
+            updateSearchParams(searchParams, setSearchParams, { limit: String(value) })
+          }
+          page={page}
+          perPage={limit}
+          perPageAriaLabel="Exercises per page"
+          total={totalResults}
+          totalPages={totalPages}
+        />
+      ) : null}
 
       <RenameExerciseDialog
         key={renameTarget ? `${renameTarget.id}-open` : 'rename-library-closed'}

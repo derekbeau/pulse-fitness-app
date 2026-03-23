@@ -131,6 +131,7 @@ function formatLastUsedValue(lastUsedAt: number | null, now: Date) {
 
 type TableSortDirection = 'asc' | 'desc';
 type ClientFoodSortKey = 'calories' | 'protein';
+type FoodTableSortColumnKey = 'name' | 'usageCount' | ClientFoodSortKey;
 
 type ClientFoodSort = {
   key: ClientFoodSortKey;
@@ -334,7 +335,15 @@ export function FoodList({ now = new Date() }: FoodListProps) {
             );
           }
 
-          return <span className="font-medium text-foreground">{food.name}</span>;
+          return (
+            <button
+              className="cursor-pointer text-left font-medium text-foreground transition-colors hover:text-primary"
+              onClick={() => beginEditing(food)}
+              type="button"
+            >
+              {food.name}
+            </button>
+          );
         },
       },
       {
@@ -389,7 +398,6 @@ export function FoodList({ now = new Date() }: FoodListProps) {
       {
         key: 'lastUsed',
         header: 'Last Used',
-        sortable: true,
         accessor: (food) => formatLastUsedValue(food.lastUsedAt, now),
       },
       {
@@ -400,6 +408,7 @@ export function FoodList({ now = new Date() }: FoodListProps) {
       },
     ];
   }, [
+    beginEditing,
     cancelEditing,
     draftFoodName,
     editingFoodId,
@@ -506,6 +515,10 @@ export function FoodList({ now = new Date() }: FoodListProps) {
   }
 
   function handleFoodTableSort(columnKey: string) {
+    if (!isFoodTableSortColumnKey(columnKey)) {
+      return;
+    }
+
     if (columnKey === 'name') {
       setClientTableSort(null);
       updateUrlSort(sortBy === 'name-asc' ? 'name-desc' : 'name-asc');
@@ -518,15 +531,7 @@ export function FoodList({ now = new Date() }: FoodListProps) {
       return;
     }
 
-    if (columnKey === 'lastUsed') {
-      setClientTableSort(null);
-      updateUrlSort('recently-updated');
-      return;
-    }
-
-    if (columnKey === 'calories' || columnKey === 'protein') {
-      toggleClientSort(columnKey);
-    }
+    toggleClientSort(columnKey);
   }
 
   const handleVisibleTableColumnsChange = useCallback((nextColumns: string[]) => {
@@ -722,7 +727,6 @@ export function FoodList({ now = new Date() }: FoodListProps) {
             <DataTable
               columns={visibleFoodColumns}
               data={sortedFoods}
-              onRowClick={(food) => beginEditing(food)}
               onSort={handleFoodTableSort}
               tableAriaLabel="Foods table view"
             />
@@ -992,4 +996,13 @@ function parsePageSize(value: string | null) {
   return PER_PAGE_OPTIONS.includes(parsedValue as (typeof PER_PAGE_OPTIONS)[number])
     ? parsedValue
     : DEFAULT_PER_PAGE;
+}
+
+function isFoodTableSortColumnKey(columnKey: string): columnKey is FoodTableSortColumnKey {
+  return (
+    columnKey === 'name' ||
+    columnKey === 'usageCount' ||
+    columnKey === 'calories' ||
+    columnKey === 'protein'
+  );
 }
