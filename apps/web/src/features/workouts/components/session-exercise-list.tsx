@@ -61,6 +61,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { NotesIndicator } from '@/components/ui/notes-indicator';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { ApiError } from '@/lib/api-client';
@@ -939,9 +940,12 @@ function ExerciseCardItem({
                   return (
                     <div className="space-y-1">
                       {previewEntries.map((entry) => (
-                        <p className="text-sm text-foreground" key={entry.key}>
-                          {entry.text}
-                        </p>
+                        <div className="flex items-center gap-1.5" key={entry.key}>
+                          <p className="text-sm text-foreground">{entry.text}</p>
+                          {entry.notes?.trim() ? (
+                            <NotesIndicator className="h-6 w-6" notes={entry.notes} />
+                          ) : null}
+                        </div>
                       ))}
                     </div>
                   );
@@ -1289,6 +1293,7 @@ function formatHistoryPreviewEntries({
 
     return {
       key: history.sessionId,
+      notes: history.notes ?? null,
       text: `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`,
     };
   });

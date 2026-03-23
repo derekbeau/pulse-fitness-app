@@ -111,6 +111,7 @@ const workoutSessionListSelection = {
   startedAt: workoutSessions.startedAt,
   completedAt: workoutSessions.completedAt,
   duration: workoutSessions.duration,
+  notes: workoutSessions.notes,
   exerciseCount: sql<number>`coalesce((
     select count(distinct ${sessionSets.exerciseId})
     from ${sessionSets}

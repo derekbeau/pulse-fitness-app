@@ -1570,12 +1570,14 @@ describe('SessionExerciseList', () => {
           data: {
             history: {
               date: '2026-03-20',
+              notes: 'Strong top set.',
               sessionId: 'session-4',
               sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
             },
             historyEntries: [
               {
                 date: '2026-03-20',
+                notes: 'Strong top set.',
                 sessionId: 'session-4',
                 sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
               },
@@ -1635,6 +1637,7 @@ describe('SessionExerciseList', () => {
     expect(within(card as HTMLElement).getByText(/Mar 20 · 75x6/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 18 · 70x8/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 15 · 65x10/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByRole('button', { name: 'View notes' })).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText(/Mar 10 · 60x12/)).not.toBeInTheDocument();
 
     useLastPerformanceSpy.mockRestore();

@@ -107,7 +107,7 @@ describe('ExerciseDetailModal', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'History' }));
 
     expect(screen.getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
-    expect(screen.getByText('Notes: Felt strong.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View notes' })).toBeInTheDocument();
   });
 
   it('renders trends tab with trend chart', () => {
