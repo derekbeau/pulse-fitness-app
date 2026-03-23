@@ -5,7 +5,7 @@ import { computeEWMA, computeWeightInsights } from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
-import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
+import { weightQueryKeys } from '@/features/weight/api/weight';
 import {
   CartesianGrid,
   Line,
@@ -82,13 +82,11 @@ const resolveRange = (days: number | null): ResolvedRange => {
   return { from, to };
 };
 
-const getQueryKeyForRange = ({ from, to }: ResolvedRange) => {
-  if (from && to) {
-    return dashboardWeightTrendQueryKeys.range(from, to);
-  }
-
-  return [...dashboardWeightTrendQueryKeys.all, 'all'] as const;
-};
+const getQueryKeyForRange = ({ from, to }: ResolvedRange) =>
+  weightQueryKeys.trend({
+    from: from ?? undefined,
+    to: to ?? undefined,
+  });
 
 const fetchWeightEntries = async ({ from, to }: ResolvedRange) => {
   const params = new URLSearchParams();
