@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import type { ExerciseTrackingType } from '@pulse/shared';
+import { ExternalLink } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -243,9 +245,19 @@ export function ExerciseDetailModal({
                     className="rounded-lg border border-border bg-card px-3 py-2.5"
                     key={session.sessionId}
                   >
-                    <p className="text-sm font-semibold text-foreground">
-                      {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} · ${setSummary}`}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} · ${setSummary}`}
+                      </p>
+                      <Link
+                        aria-label="View full workout"
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-muted/50 hover:text-foreground"
+                        onClick={() => handleOpenChange(false)}
+                        to={`/workouts/sessions/${session.sessionId}`}
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </Link>
+                    </div>
                     {session.notes?.trim() ? (
                       <p className="mt-1 text-xs text-muted">{`Notes: ${session.notes.trim()}`}</p>
                     ) : null}
