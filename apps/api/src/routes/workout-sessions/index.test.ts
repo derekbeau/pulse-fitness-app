@@ -788,6 +788,68 @@ describe('workout session routes', () => {
     });
   });
 
+  it('keeps null exerciseId set groups distinct by section and order index', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-null-exercise-groups',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Null Group Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_010_000,
+    });
+
+    context.db
+      .insert(sessionSets)
+      .values([
+        {
+          id: 'set-null-group-main',
+          sessionId: 'session-null-exercise-groups',
+          exerciseId: null,
+          orderIndex: 0,
+          setNumber: 1,
+          reps: 12,
+          section: 'main',
+        },
+        {
+          id: 'set-null-group-cooldown',
+          sessionId: 'session-null-exercise-groups',
+          exerciseId: null,
+          orderIndex: 1,
+          setNumber: 1,
+          reps: 20,
+          section: 'cooldown',
+        },
+      ])
+      .run();
+
+    const groupedResponse = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-null-exercise-groups/sets',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(groupedResponse.statusCode).toBe(200);
+    expect(groupedResponse.json()).toEqual({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'deleted-main-0',
+          sets: [expect.objectContaining({ id: 'set-null-group-main' })],
+        }),
+        expect.objectContaining({
+          exerciseId: 'deleted-cooldown-1',
+          sets: [expect.objectContaining({ id: 'set-null-group-cooldown' })],
+        }),
+      ]),
+    });
+  });
+
   it('reorders active session exercises by updating set orderIndex while preserving set data', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },

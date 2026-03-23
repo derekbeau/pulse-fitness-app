@@ -2407,6 +2407,93 @@ describe('exercise routes', () => {
     expect(deletedLoser?.deletedAt).not.toBeNull();
   });
 
+  it('preserves template rows when winner and loser are in different sections', async () => {
+    seedExercise({
+      id: '11111111-1111-4111-8111-111111111111',
+      userId: 'user-1',
+      name: 'Bench Press',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+    seedExercise({
+      id: '22222222-2222-4222-8222-222222222222',
+      userId: 'user-1',
+      name: 'Barbell Bench',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+      category: 'compound',
+    });
+
+    context.db
+      .insert(workoutTemplates)
+      .values({
+        id: 'merge-template-sections',
+        userId: 'user-1',
+        name: 'Push Day Sections',
+        description: null,
+        tags: [],
+      })
+      .run();
+    context.db
+      .insert(templateExercises)
+      .values([
+        {
+          id: 'template-winner-warmup',
+          templateId: 'merge-template-sections',
+          exerciseId: '11111111-1111-4111-8111-111111111111',
+          orderIndex: 0,
+          section: 'warmup',
+        },
+        {
+          id: 'template-loser-main',
+          templateId: 'merge-template-sections',
+          exerciseId: '22222222-2222-4222-8222-222222222222',
+          orderIndex: 0,
+          section: 'main',
+        },
+      ])
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises/11111111-1111-4111-8111-111111111111/merge',
+      headers: createAuthorizationHeader(authToken),
+      payload: { loserId: '22222222-2222-4222-8222-222222222222' },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const mergedTemplateRows = context.db
+      .select({
+        id: templateExercises.id,
+        exerciseId: templateExercises.exerciseId,
+        section: templateExercises.section,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, 'merge-template-sections'))
+      .all()
+      .sort((left, right) => left.section.localeCompare(right.section));
+
+    expect(mergedTemplateRows).toEqual([
+      {
+        id: 'template-loser-main',
+        exerciseId: '11111111-1111-4111-8111-111111111111',
+        section: 'main',
+      },
+      {
+        id: 'template-winner-warmup',
+        exerciseId: '11111111-1111-4111-8111-111111111111',
+        section: 'warmup',
+      },
+    ]);
+  });
+
   it('rejects invalid exercise merge requests and AgentToken callers', async () => {
     seedExercise({
       id: '11111111-1111-4111-8111-111111111111',
@@ -2430,6 +2517,19 @@ describe('exercise routes', () => {
       { expiresIn: '7d' },
     );
     const agentToken = seedAgentToken('user-1', 'exercise-merge-agent-token');
+
+    const invalidLoserIdResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/exercises/11111111-1111-4111-8111-111111111111/merge',
+      headers: createAuthorizationHeader(authToken),
+      payload: { loserId: 'not-a-uuid' },
+    });
+    expect(invalidLoserIdResponse.statusCode).toBe(400);
+    expectValidationError(invalidLoserIdResponse.json(), {
+      method: 'POST',
+      url: '/api/v1/exercises/11111111-1111-4111-8111-111111111111/merge',
+      instancePath: '/loserId',
+    });
 
     const sameIdResponse = await context.app.inject({
       method: 'POST',

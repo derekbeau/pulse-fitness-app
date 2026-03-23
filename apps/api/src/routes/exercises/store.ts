@@ -438,7 +438,7 @@ export const mergeExercises = async (
 
     for (const [key, rows] of loserRowsBySessionSection.entries()) {
       const offset = winnerSectionMaxByKey.get(key) ?? 0;
-      if (offset <= 0) {
+      if (offset === 0) {
         continue;
       }
 
@@ -479,6 +479,7 @@ export const mergeExercises = async (
             select 1
             from ${templateExercises} as winner_template_exercises
             where winner_template_exercises.template_id = ${templateExercises.templateId}
+              and winner_template_exercises.section = ${templateExercises.section}
               and winner_template_exercises.exercise_id = ${winnerId}
           )`,
         ),

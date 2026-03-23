@@ -191,7 +191,7 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
   const groups = new Map<string, SessionSet[]>();
 
   for (const set of sets.sort(sortSessionSets)) {
-    const groupKey = set.exerciseId ?? 'deleted-exercise';
+    const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
     const existingGroup = groups.get(groupKey);
     const parsedSet = buildSessionSet(set);
 

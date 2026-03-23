@@ -204,6 +204,7 @@ const toCreateWorkoutSessionInput = (
     feedback: session.feedback,
     notes: session.notes,
     sets: session.sets.flatMap((set) =>
+      // Deleted exercises cannot be resolved back into actionable active-session inputs.
       typeof set.exerciseId !== 'string'
         ? []
         : [

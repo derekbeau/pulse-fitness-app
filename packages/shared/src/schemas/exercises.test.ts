@@ -268,20 +268,20 @@ describe('updateExerciseInputSchema', () => {
 });
 
 describe('mergeExerciseInputSchema', () => {
-  it('accepts non-empty loserId values', () => {
+  it('accepts UUID loserId values', () => {
     expect(
       mergeExerciseInputSchema.parse({
-        loserId: 'exercise-2',
+        loserId: '22222222-2222-4222-8222-222222222222',
       }),
     ).toEqual({
-      loserId: 'exercise-2',
+      loserId: '22222222-2222-4222-8222-222222222222',
     });
   });
 
-  it('rejects empty loserId values', () => {
+  it('rejects non-UUID loserId values', () => {
     expect(() =>
       mergeExerciseInputSchema.parse({
-        loserId: '',
+        loserId: 'exercise-2',
       }),
     ).toThrow();
   });

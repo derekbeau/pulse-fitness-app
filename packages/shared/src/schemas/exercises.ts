@@ -131,7 +131,7 @@ export const updateExerciseInputSchema = z
   });
 
 export const mergeExerciseInputSchema = z.object({
-  loserId: z.string().min(1),
+  loserId: z.string().uuid(),
 });
 
 export const exerciseQueryParamsSchema = z.object({
