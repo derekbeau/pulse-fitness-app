@@ -6,10 +6,10 @@ import { FoodCardSkeleton } from '@/components/skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
+import { PaginationBar } from '@/components/ui/pagination-bar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
-import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteFood, useFoods, useUpdateFood } from '@/features/foods/api/foods';
@@ -672,52 +672,29 @@ export function FoodList({ now = new Date() }: FoodListProps) {
           </div>
 
           {totalFoods !== undefined && totalPages !== undefined && totalFoods > pageSize ? (
-            <div className="flex items-center justify-between gap-3">
-              <PerPageSelector
-                ariaLabel="Foods per page"
-                onChange={(value) => {
-                  setSearchParams((current) => {
-                    const next = new URLSearchParams(current);
-                    next.set('limit', String(value));
-                    next.set('page', String(DEFAULT_PAGE));
-                    return next;
-                  });
-                }}
-                triggerClassName="border-border bg-background"
-                value={pageSize}
-              />
-              <Button
-                disabled={page === 1 || foodsQuery.isFetching}
-                onClick={() =>
-                  setSearchParams((current) => {
-                    const next = new URLSearchParams(current);
-                    next.set('page', String(Math.max(DEFAULT_PAGE, page - 1)));
-                    return next;
-                  })
-                }
-                type="button"
-                variant="outline"
-              >
-                Previous
-              </Button>
-              <p className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </p>
-              <Button
-                disabled={page >= totalPages || foodsQuery.isFetching}
-                onClick={() =>
-                  setSearchParams((current) => {
-                    const next = new URLSearchParams(current);
-                    next.set('page', String(Math.min(totalPages, page + 1)));
-                    return next;
-                  })
-                }
-                type="button"
-                variant="outline"
-              >
-                Next
-              </Button>
-            </div>
+            <PaginationBar
+              isLoading={foodsQuery.isFetching}
+              onPageChange={(nextPage) =>
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('page', String(nextPage));
+                  return next;
+                })
+              }
+              onPerPageChange={(value) =>
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set('limit', String(value));
+                  next.set('page', String(DEFAULT_PAGE));
+                  return next;
+                })
+              }
+              page={page}
+              perPage={pageSize}
+              perPageAriaLabel="Foods per page"
+              total={resolvedTotalFoods}
+              totalPages={totalPages}
+            />
           ) : null}
         </>
       )}
