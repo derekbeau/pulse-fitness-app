@@ -839,11 +839,11 @@ describe('workout session routes', () => {
     expect(groupedResponse.json()).toEqual({
       data: expect.arrayContaining([
         expect.objectContaining({
-          exerciseId: 'deleted-main-0',
+          exerciseId: null,
           sets: [expect.objectContaining({ id: 'set-null-group-main' })],
         }),
         expect.objectContaining({
-          exerciseId: 'deleted-cooldown-1',
+          exerciseId: null,
           sets: [expect.objectContaining({ id: 'set-null-group-cooldown' })],
         }),
       ]),

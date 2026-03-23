@@ -93,7 +93,7 @@ const sessionExerciseParamsSchema = idParamsSchema.extend({
 });
 
 const sessionSetGroupSchema = z.object({
-  exerciseId: z.string(),
+  exerciseId: z.string().nullable(),
   sets: z.array(sessionSetSchema),
 });
 

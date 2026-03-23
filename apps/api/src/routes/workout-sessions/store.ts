@@ -75,7 +75,7 @@ type SessionSetRecord = {
 };
 
 export type SessionSetGroup = {
-  exerciseId: string;
+  exerciseId: string | null;
   sets: SessionSet[];
 };
 
@@ -188,7 +188,7 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
 });
 
 const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
-  const groups = new Map<string, SessionSet[]>();
+  const groups = new Map<string, { exerciseId: string | null; sets: SessionSet[] }>();
 
   for (const set of sets.sort(sortSessionSets)) {
     const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
@@ -196,16 +196,19 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
     const parsedSet = buildSessionSet(set);
 
     if (existingGroup) {
-      existingGroup.push(parsedSet);
+      existingGroup.sets.push(parsedSet);
       continue;
     }
 
-    groups.set(groupKey, [parsedSet]);
+    groups.set(groupKey, {
+      exerciseId: set.exerciseId,
+      sets: [parsedSet],
+    });
   }
 
-  return Array.from(groups.entries()).map(([exerciseId, groupedSets]) => ({
-    exerciseId,
-    sets: groupedSets,
+  return Array.from(groups.values()).map((group) => ({
+    exerciseId: group.exerciseId,
+    sets: group.sets,
   }));
 };
 
@@ -1280,6 +1283,7 @@ export const saveCompletedSessionAsTemplate = async ({
 
   for (const set of session.sets) {
     if (set.exerciseId === null) {
+      // Deleted exercises cannot be part of new templates because template rows require a valid exercise id.
       continue;
     }
 
