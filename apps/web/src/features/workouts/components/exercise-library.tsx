@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { LayoutGrid, List, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import type { Exercise, ExerciseSort } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { ColumnPicker } from '@/components/ui/column-picker';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from '@/components/ui/per-page-constants';
-import { PerPageSelector } from '@/components/ui/per-page-selector';
+import { PaginationBar } from '@/components/ui/pagination-bar';
 import { SortSelector, type SortOption } from '@/components/ui/sort-selector';
+import { ViewToggle, type ViewToggleMode } from '@/components/ui/view-toggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,8 +56,16 @@ const exerciseSortOptions: SortOption[] = [
   { value: 'recently-updated', label: 'Recently Updated', direction: 'desc' },
 ];
 const EXERCISE_LIBRARY_VIEW_STORAGE_KEY = 'exercise-library-view';
+const EXERCISE_LIST_COLUMNS_STORAGE_KEY = 'exercise-list-columns';
 
-type ExerciseLibraryView = 'card' | 'table';
+const DEFAULT_VISIBLE_EXERCISE_COLUMNS = [
+  'name',
+  'category',
+  'equipment',
+  'muscleGroups',
+  'trackingType',
+  'custom',
+];
 
 type ExerciseLibraryProps = {
   className?: string;
@@ -65,8 +77,8 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<Exercise | null>(null);
-  const [view, setView] = useState<ExerciseLibraryView>(() => loadExerciseLibraryViewPreference());
-  const initialViewRef = useRef(view);
+  const [view, setView] = useState<ViewToggleMode>('card');
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_VISIBLE_EXERCISE_COLUMNS);
 
   const currentQuery = searchParams.get('q') ?? '';
   const muscleGroup = searchParams.get('muscleGroup') ?? 'all';
@@ -101,14 +113,6 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
     return () => window.clearTimeout(timeoutId);
   }, [currentQuery, searchTerm, setSearchParams]);
 
-  useEffect(() => {
-    if (view === initialViewRef.current) {
-      return;
-    }
-
-    window.localStorage.setItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY, view);
-  }, [view]);
-
   const exercisesQuery = useExercises({
     category: parseCategory(category),
     equipment: normalizeFilterParam(equipment),
@@ -133,6 +137,82 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
     () => exerciseFiltersQuery.data?.data.equipment ?? [],
     [exerciseFiltersQuery.data],
   );
+  const tableColumns = useMemo<Column<Exercise>[]>(() => {
+    return [
+      {
+        key: 'name',
+        header: 'Name',
+        sortable: true,
+        className: 'min-w-56 font-medium text-foreground',
+        accessor: (exercise) => exercise.name,
+      },
+      {
+        key: 'category',
+        header: 'Category',
+        accessor: (exercise) => formatLabel(exercise.category),
+      },
+      {
+        key: 'equipment',
+        header: 'Equipment',
+        accessor: (exercise) => formatLabel(exercise.equipment),
+      },
+      {
+        key: 'muscleGroups',
+        header: 'Muscle Groups',
+        className: 'min-w-56',
+        accessor: (exercise) => exercise.muscleGroups.map((group) => formatLabel(group)).join(', '),
+      },
+      {
+        key: 'trackingType',
+        header: 'Tracking Type',
+        accessor: (exercise) => formatLabel(exercise.trackingType),
+      },
+      {
+        key: 'custom',
+        header: 'Custom',
+        accessor: (exercise) =>
+          exercise.userId ? (
+            <Badge className="border-border bg-secondary/65" variant="outline">
+              Custom
+            </Badge>
+          ) : (
+            <Badge className="border-border bg-card" variant="outline">
+              System
+            </Badge>
+          ),
+      },
+    ];
+  }, []);
+  const visibleTableColumns = useMemo(
+    () => tableColumns.filter((column) => visibleColumns.includes(column.key)),
+    [tableColumns, visibleColumns],
+  );
+  const pickerColumns = useMemo(
+    () =>
+      tableColumns.map((column) => ({
+        key: column.key,
+        label: column.header,
+      })),
+    [tableColumns],
+  );
+
+  const handleVisibleColumnsChange = useCallback((nextColumns: string[]) => {
+    if (nextColumns.length === 0) {
+      return;
+    }
+
+    setVisibleColumns(nextColumns);
+  }, []);
+
+  function handleTableSort(columnKey: string) {
+    if (columnKey !== 'name') {
+      return;
+    }
+
+    updateSearchParams(searchParams, setSearchParams, {
+      sort: sort === 'name-asc' ? 'name-desc' : 'name-asc',
+    });
+  }
 
   return (
     <section className={cn('space-y-4', className)}>
@@ -144,8 +224,18 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
         </p>
       </div>
 
-      <Card className="gap-4 py-0">
-        <CardContent className="grid gap-4 py-5 md:grid-cols-2 xl:grid-cols-6">
+      <FilterBar
+        perPageControl={
+          view === 'table' ? (
+            <ColumnPicker
+              columns={pickerColumns}
+              onChange={handleVisibleColumnsChange}
+              storageKey={EXERCISE_LIST_COLUMNS_STORAGE_KEY}
+              visibleColumns={visibleColumns}
+            />
+          ) : null
+        }
+        searchControl={
           <FilterField label="Search by name">
             <Input
               aria-label="Search exercises"
@@ -154,67 +244,8 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
               value={searchTerm}
             />
           </FilterField>
-
-          <FilterField label="Muscle group">
-            <select
-              aria-label="Filter by muscle group"
-              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              onChange={(event) =>
-                updateSearchParams(searchParams, setSearchParams, {
-                  muscleGroup: event.target.value,
-                })
-              }
-              value={muscleGroup}
-            >
-              <option value="all">All muscle groups</option>
-              {muscleGroupOptions.map((option) => (
-                <option key={option} value={option}>
-                  {formatLabel(option)}
-                </option>
-              ))}
-            </select>
-          </FilterField>
-
-          <FilterField label="Equipment">
-            <select
-              aria-label="Filter by equipment"
-              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              onChange={(event) =>
-                updateSearchParams(searchParams, setSearchParams, {
-                  equipment: event.target.value,
-                })
-              }
-              value={equipment}
-            >
-              <option value="all">All equipment</option>
-              {equipmentOptions.map((option) => (
-                <option key={option} value={option}>
-                  {formatLabel(option)}
-                </option>
-              ))}
-            </select>
-          </FilterField>
-
-          <FilterField label="Category">
-            <select
-              aria-label="Filter by category"
-              className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              onChange={(event) =>
-                updateSearchParams(searchParams, setSearchParams, {
-                  category: event.target.value,
-                })
-              }
-              value={category}
-            >
-              <option value="all">All categories</option>
-              {categoryOptions.map((option) => (
-                <option key={option} value={option}>
-                  {formatLabel(option)}
-                </option>
-              ))}
-            </select>
-          </FilterField>
-
+        }
+        sortControl={
           <FilterField label="Sort">
             <SortSelector
               ariaLabel="Sort exercises"
@@ -231,79 +262,78 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
               value={sort}
             />
           </FilterField>
+        }
+        viewToggle={
+          <ViewToggle onChange={setView} storageKey={EXERCISE_LIBRARY_VIEW_STORAGE_KEY} view={view} />
+        }
+      >
+        <FilterField label="Muscle group">
+          <select
+            aria-label="Filter by muscle group"
+            className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            onChange={(event) =>
+              updateSearchParams(searchParams, setSearchParams, {
+                muscleGroup: event.target.value,
+              })
+            }
+            value={muscleGroup}
+          >
+            <option value="all">All muscle groups</option>
+            {muscleGroupOptions.map((option) => (
+              <option key={option} value={option}>
+                {formatLabel(option)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
 
-          <FilterField label="View">
-            <div
-              aria-label="Exercise library view"
-              className="inline-flex min-h-[44px] w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
-              role="group"
-            >
-              <Button
-                aria-label="Card view"
-                aria-pressed={view === 'card'}
-                className="h-8 w-8 rounded-full p-0"
-                onClick={() => setView('card')}
-                size="sm"
-                type="button"
-                variant={view === 'card' ? 'default' : 'ghost'}
-              >
-                <LayoutGrid aria-hidden="true" className="size-4" />
-              </Button>
-              <Button
-                aria-label="Table view"
-                aria-pressed={view === 'table'}
-                className="h-8 w-8 rounded-full p-0"
-                onClick={() => setView('table')}
-                size="sm"
-                type="button"
-                variant={view === 'table' ? 'default' : 'ghost'}
-              >
-                <List aria-hidden="true" className="size-4" />
-              </Button>
-            </div>
-          </FilterField>
-        </CardContent>
-      </Card>
+        <FilterField label="Equipment">
+          <select
+            aria-label="Filter by equipment"
+            className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            onChange={(event) =>
+              updateSearchParams(searchParams, setSearchParams, {
+                equipment: event.target.value,
+              })
+            }
+            value={equipment}
+          >
+            <option value="all">All equipment</option>
+            {equipmentOptions.map((option) => (
+              <option key={option} value={option}>
+                {formatLabel(option)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <FilterField label="Category">
+          <select
+            aria-label="Filter by category"
+            className="min-h-[44px] w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            onChange={(event) =>
+              updateSearchParams(searchParams, setSearchParams, {
+                category: event.target.value,
+              })
+            }
+            value={category}
+          >
+            <option value="all">All categories</option>
+            {categoryOptions.map((option) => (
+              <option key={option} value={option}>
+                {formatLabel(option)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+      </FilterBar>
+
+      <div className="flex flex-col gap-3">
         <p className="text-sm text-muted">
           {exercisesQuery.isFetching && !exercisesQuery.isPending
             ? 'Updating results...'
             : `${totalResults} exercise${totalResults === 1 ? '' : 's'} shown`}
         </p>
-
-        <div className="flex items-center gap-2">
-          <PerPageSelector
-            ariaLabel="Exercises per page"
-            onChange={(value) =>
-              updateSearchParams(searchParams, setSearchParams, { limit: String(value) })
-            }
-            value={limit}
-          />
-          <Button
-            disabled={page <= 1 || exercisesQuery.isFetching}
-            onClick={() =>
-              updateSearchParams(searchParams, setSearchParams, { page: String(page - 1) }, false)
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted">{`Page ${page} of ${totalPages}`}</span>
-          <Button
-            disabled={page >= totalPages || exercisesQuery.isFetching}
-            onClick={() =>
-              updateSearchParams(searchParams, setSearchParams, { page: String(page + 1) }, false)
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Next
-          </Button>
-        </div>
       </div>
 
       {exercisesQuery.isPending ? (
@@ -317,7 +347,13 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           </CardContent>
         </Card>
       ) : view === 'table' ? (
-        <ExerciseTable exercises={filteredExercises} onSelectTrend={setSelectedExerciseId} />
+        <DataTable
+          columns={visibleTableColumns}
+          data={filteredExercises}
+          onRowClick={(exercise) => setSelectedExerciseId(exercise.id)}
+          onSort={handleTableSort}
+          tableAriaLabel="Exercise library table view"
+        />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredExercises.map((exercise) => (
@@ -330,6 +366,21 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           ))}
         </div>
       )}
+
+      <PaginationBar
+        isLoading={exercisesQuery.isFetching}
+        onPageChange={(nextPage) =>
+          updateSearchParams(searchParams, setSearchParams, { page: String(nextPage) }, false)
+        }
+        onPerPageChange={(value) =>
+          updateSearchParams(searchParams, setSearchParams, { limit: String(value) })
+        }
+        page={page}
+        perPage={limit}
+        perPageAriaLabel="Exercises per page"
+        total={totalResults}
+        totalPages={totalPages}
+      />
 
       <RenameExerciseDialog
         key={renameTarget ? `${renameTarget.id}-open` : 'rename-library-closed'}
@@ -463,95 +514,24 @@ function ExerciseCard({
   );
 }
 
-function ExerciseTable({
-  exercises,
-  onSelectTrend,
-}: {
-  exercises: Exercise[];
-  onSelectTrend: (exerciseId: string) => void;
-}) {
-  return (
-    <Card className="gap-0 py-0">
-      <div className="overflow-x-auto">
-        <table aria-label="Exercise library table view" className="min-w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-border text-muted">
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Category</th>
-              <th className="px-4 py-3 font-medium">Muscle Group</th>
-              <th className="px-4 py-3 font-medium">Equipment</th>
-              <th className="px-4 py-3 font-medium">Tracking Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {exercises.map((exercise) => (
-              <tr
-                className="border-b border-border/70 transition-colors hover:bg-secondary/35 focus-within:bg-secondary/35"
-                key={exercise.id}
-              >
-                <td className="px-4 py-3 font-medium text-foreground">
-                  <button
-                    className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => onSelectTrend(exercise.id)}
-                    type="button"
-                  >
-                    {exercise.name}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-muted">{formatLabel(exercise.category)}</td>
-                <td className="px-4 py-3 text-muted">
-                  {exercise.muscleGroups.map((group) => formatLabel(group)).join(', ')}
-                </td>
-                <td className="px-4 py-3 text-muted">{formatLabel(exercise.equipment)}</td>
-                <td className="px-4 py-3 text-muted">{formatLabel(exercise.trackingType)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
-}
-
-function ExerciseLibrarySkeleton({ view }: { view: ExerciseLibraryView }) {
+function ExerciseLibrarySkeleton({ view }: { view: ViewToggleMode }) {
   if (view === 'table') {
     return (
-      <Card aria-label="Loading exercises table view" className="gap-0 py-0">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-muted">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Muscle Group</th>
-                <th className="px-4 py-3 font-medium">Equipment</th>
-                <th className="px-4 py-3 font-medium">Tracking Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 6 }).map((_, index) => (
-                <tr className="border-b border-border/70" key={index}>
-                  <td className="px-4 py-3">
-                    <div className="h-4 w-40 animate-pulse rounded-full bg-secondary" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded-full bg-secondary" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="h-4 w-24 animate-pulse rounded-full bg-secondary" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="h-4 w-28 animate-pulse rounded-full bg-secondary" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <div aria-label="Loading exercises table view">
+        <DataTable
+          columns={[
+            { key: 'name', header: 'Name', accessor: () => null },
+            { key: 'category', header: 'Category', accessor: () => null },
+            { key: 'equipment', header: 'Equipment', accessor: () => null },
+            { key: 'muscleGroups', header: 'Muscle Groups', accessor: () => null },
+            { key: 'trackingType', header: 'Tracking Type', accessor: () => null },
+            { key: 'custom', header: 'Custom', accessor: () => null },
+          ]}
+          data={[]}
+          isLoading
+          tableAriaLabel="Exercise library table view"
+        />
+      </div>
     );
   }
 
@@ -640,16 +620,6 @@ function isExerciseSort(value: string): value is ExerciseSort {
 
 function parseExerciseSort(value: string | null): ExerciseSort {
   return value !== null && isExerciseSort(value) ? value : 'name-asc';
-}
-
-function loadExerciseLibraryViewPreference(): ExerciseLibraryView {
-  const storedValue = window.localStorage.getItem(EXERCISE_LIBRARY_VIEW_STORAGE_KEY);
-
-  if (storedValue === 'table') {
-    return 'table';
-  }
-
-  return 'card';
 }
 
 function formatLabel(value: string) {

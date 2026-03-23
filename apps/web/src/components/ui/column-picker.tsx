@@ -37,8 +37,18 @@ export function ColumnPicker({
 }: ColumnPickerProps) {
   const fallbackId = useId();
   const hasHydrated = useRef(false);
+  const visibleColumnsRef = useRef(visibleColumns);
+  const onChangeRef = useRef(onChange);
   const normalizedStorageKey = useMemo(() => storageKey?.trim() ?? '', [storageKey]);
   const validKeys = useMemo(() => new Set(columns.map((column) => column.key)), [columns]);
+
+  useEffect(() => {
+    visibleColumnsRef.current = visibleColumns;
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     if (!normalizedStorageKey) {
@@ -61,17 +71,17 @@ export function ColumnPicker({
         .filter((key): key is string => typeof key === 'string' && validKeys.has(key))
         .filter((key, index, array) => array.indexOf(key) === index);
 
-      if (arraysEqual(nextVisibleColumns, visibleColumns)) {
+      if (arraysEqual(nextVisibleColumns, visibleColumnsRef.current)) {
         return;
       }
 
-      onChange(nextVisibleColumns);
+      onChangeRef.current(nextVisibleColumns);
     } catch {
       return;
     } finally {
       hasHydrated.current = true;
     }
-  }, [normalizedStorageKey, onChange, validKeys, visibleColumns]);
+  }, [normalizedStorageKey, validKeys]);
 
   useEffect(() => {
     if (!normalizedStorageKey || !hasHydrated.current) {

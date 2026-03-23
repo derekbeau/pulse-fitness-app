@@ -18,6 +18,7 @@ type DataTableProps<T> = {
   data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
+  tableAriaLabel?: string;
   onSort?: (columnKey: string) => void;
   onRowClick?: (row: T) => void;
 };
@@ -41,12 +42,13 @@ export function DataTable<T>({
   data,
   isLoading = false,
   emptyMessage = DEFAULT_EMPTY_MESSAGE,
+  tableAriaLabel,
   onSort,
   onRowClick,
 }: DataTableProps<T>) {
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-border/70">
-      <table className="min-w-full border-collapse text-sm">
+      <table aria-label={tableAriaLabel} className="min-w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border/70">
             {columns.map((column) => (

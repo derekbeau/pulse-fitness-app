@@ -406,19 +406,37 @@ describe('ExerciseLibrary', () => {
     expect(screen.getByRole('columnheader', { name: 'Tracking Type' })).toBeInTheDocument();
   });
 
-  it('opens the trend dialog from the exercise name button in table view', async () => {
+  it('opens the trend dialog from a table row in table view', async () => {
     mockExerciseRequests();
 
     renderExerciseLibrary();
 
     fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
     await screen.findByRole('table', { name: 'Exercise library table view' });
+    expect(await screen.findByText('Air Bike')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Air Bike' }));
+    fireEvent.click(screen.getByText('Air Bike'));
 
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Add to template' })).toBeInTheDocument();
+  });
+
+  it('toggles exercise table columns with the shared column picker', async () => {
+    mockExerciseRequests();
+
+    renderExerciseLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Exercise library table view' });
+    expect(screen.getByRole('columnheader', { name: 'Custom' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Columns' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Custom' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('columnheader', { name: 'Custom' })).not.toBeInTheDocument();
+    });
   });
 
   it('does not write the initial view preference to localStorage on mount', async () => {
