@@ -1092,6 +1092,8 @@ describe('sessionSets schema', () => {
     expect(columns.completed.default).toBe(false);
     expect(columns.skipped.default).toBe(false);
     expect(columns.orderIndex.default).toBe(0);
+    expect(columns.section.notNull).toBe(true);
+    expect(columns.section.default).toBe('main');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 

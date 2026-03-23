@@ -138,12 +138,13 @@ export const applyExerciseNotesToSets = ({
   sets: SessionSetInput[];
   exerciseNotes: Record<string, string | null>;
 }) => {
-  const firstSetIndexByExerciseId = new Map<string, number>();
+  const firstSetIndexByExerciseSectionKey = new Map<string, number>();
 
   sets.forEach((set, index) => {
-    const existingIndex = firstSetIndexByExerciseId.get(set.exerciseId);
+    const exerciseSectionKey = toExerciseSectionKey(set.exerciseId, set.section);
+    const existingIndex = firstSetIndexByExerciseSectionKey.get(exerciseSectionKey);
     if (existingIndex === undefined) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
+      firstSetIndexByExerciseSectionKey.set(exerciseSectionKey, index);
       return;
     }
 
@@ -153,15 +154,16 @@ export const applyExerciseNotesToSets = ({
     }
 
     if (set.setNumber < existingSet.setNumber) {
-      firstSetIndexByExerciseId.set(set.exerciseId, index);
+      firstSetIndexByExerciseSectionKey.set(exerciseSectionKey, index);
     }
   });
 
   return sets.map((set, index) => {
     const nextExerciseNote = exerciseNotes[set.exerciseId];
+    const exerciseSectionKey = toExerciseSectionKey(set.exerciseId, set.section);
 
     if (
-      firstSetIndexByExerciseId.get(set.exerciseId) !== index ||
+      firstSetIndexByExerciseSectionKey.get(exerciseSectionKey) !== index ||
       !Object.hasOwn(exerciseNotes, set.exerciseId) ||
       nextExerciseNote === null
     ) {

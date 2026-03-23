@@ -123,6 +123,8 @@ type RestTimerState = {
 };
 
 const ACTIVE_WORKOUT_POLL_INTERVAL_MS = 10_000;
+const toExerciseSectionKey = (exerciseId: string, section: WorkoutTemplateSectionType) =>
+  `${exerciseId}::${section}`;
 
 export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
@@ -1093,9 +1095,33 @@ export function ActiveWorkoutPage() {
   }
 
   function removeExerciseFromLocalState(exerciseId: string, section: WorkoutTemplateSectionType) {
-    const removedSetIds = new Set((setDrafts[exerciseId] ?? []).map((set) => set.id));
+    const remainingExerciseSectionKeys = new Set(
+      (Object.entries(exerciseOrderBySection) as Array<[WorkoutTemplateSectionType, string[]]>)
+        .flatMap(([sectionType, exerciseIds]) =>
+          exerciseIds.map((entryExerciseId) => toExerciseSectionKey(entryExerciseId, sectionType)),
+        )
+        .filter(
+          (exerciseSectionKey) =>
+            exerciseSectionKey !== toExerciseSectionKey(exerciseId, section),
+        ),
+    );
+    const hasExerciseInAnotherSection = (Object.keys(sectionTitleByType) as WorkoutTemplateSectionType[]).some(
+      (sectionType) =>
+        sectionType !== section &&
+        remainingExerciseSectionKeys.has(toExerciseSectionKey(exerciseId, sectionType)),
+    );
+    const removedSetIds = new Set(
+      (activeSession?.sets ?? [])
+        .filter((set) => set.exerciseId === exerciseId && set.section === section)
+        .map((set) => set.id),
+    );
+    const shouldRemoveExerciseScopedState = !hasExerciseInAnotherSection;
 
     setSetDrafts((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
       if (!(exerciseId in current)) {
         return current;
       }
@@ -1105,6 +1131,10 @@ export function ActiveWorkoutPage() {
       return next;
     });
     setExerciseNotes((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
       if (!(exerciseId in current)) {
         return current;
       }
@@ -1114,6 +1144,10 @@ export function ActiveWorkoutPage() {
       return next;
     });
     setSessionCuesByExercise((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
       if (!(exerciseId in current)) {
         return current;
       }
@@ -1123,6 +1157,10 @@ export function ActiveWorkoutPage() {
       return next;
     });
     setExerciseSupersetOverrides((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
       if (!(exerciseId in current)) {
         return current;
       }
@@ -1136,7 +1174,10 @@ export function ActiveWorkoutPage() {
       [section]: current[section].filter((id) => id !== exerciseId),
     }));
 
-    if (restTimer?.exerciseId === exerciseId || removedSetIds.has(restTimer?.setId ?? '')) {
+    if (
+      (shouldRemoveExerciseScopedState && restTimer?.exerciseId === exerciseId) ||
+      removedSetIds.has(restTimer?.setId ?? '')
+    ) {
       setRestTimer(null);
     }
 

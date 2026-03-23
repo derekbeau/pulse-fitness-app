@@ -958,7 +958,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             completed: true,
             skipped: false,
             supersetGroup: null,
-            section: null,
+            section: 'main',
             notes: null,
           });
         }

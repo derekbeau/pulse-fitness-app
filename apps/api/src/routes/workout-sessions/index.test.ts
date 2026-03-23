@@ -189,7 +189,7 @@ const seedSessionSet = (values: {
   completed?: boolean;
   skipped?: boolean;
   supersetGroup?: string | null;
-  section?: 'warmup' | 'main' | 'cooldown' | null;
+  section?: 'warmup' | 'main' | 'cooldown';
   notes?: string | null;
 }) =>
   context.db
@@ -210,7 +210,7 @@ const seedSessionSet = (values: {
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
       supersetGroup: values.supersetGroup ?? null,
-      section: values.section ?? null,
+      section: values.section ?? 'main',
       notes: values.notes ?? null,
     })
     .run();

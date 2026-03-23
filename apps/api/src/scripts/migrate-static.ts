@@ -1481,7 +1481,7 @@ const extractSessionSectionSources = (
   if (exercises.length > 0) {
     return [
       {
-        section: null,
+        section: 'main',
         exercises,
       },
     ];
@@ -2072,7 +2072,7 @@ export const migrateWorkoutTemplatesAndSessions = async ({
               reps: set.reps,
               completed: set.skipped ? false : set.completed,
               skipped: set.skipped,
-              section: set.section,
+              section: set.section ?? 'main',
               notes: set.notes,
             },
           ];
