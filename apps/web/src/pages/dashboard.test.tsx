@@ -53,20 +53,62 @@ vi.mock('recharts', async () => {
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({
     children,
+    onDragOver,
     onDragEnd,
+    onDragStart,
   }: {
     children: ReactNode;
+    onDragOver?: (event: {
+      active: { id: string };
+      over: { id: string } | null;
+    }) => void;
     onDragEnd?: (event: { active: { id: string }; over: { id: string } | null }) => void;
+    onDragStart?: (event: { active: { id: string } }) => void;
   }) => (
     <div data-testid="mock-dnd-context">
       <button
+        aria-label="Mock move widget to hidden"
+        onClick={() => {
+          onDragStart?.({ active: { id: 'recent-workouts' } });
+          onDragOver?.({
+            active: { id: 'recent-workouts' },
+            over: { id: 'hidden-widgets' },
+          });
+          onDragEnd?.({
+            active: { id: 'recent-workouts' },
+            over: { id: 'hidden-widgets' },
+          });
+        }}
+        type="button"
+      >
+        move to hidden
+      </button>
+      <button
+        aria-label="Mock show habit daily group"
+        onClick={() => {
+          onDragStart?.({ active: { id: 'habit-daily-group' } });
+          onDragOver?.({
+            active: { id: 'habit-daily-group' },
+            over: { id: 'active-widgets' },
+          });
+          onDragEnd?.({
+            active: { id: 'habit-daily-group' },
+            over: { id: 'active-widgets' },
+          });
+        }}
+        type="button"
+      >
+        show habit daily
+      </button>
+      <button
         aria-label="Mock reorder widgets"
-        onClick={() =>
+        onClick={() => {
+          onDragStart?.({ active: { id: 'recent-workouts' } });
           onDragEnd?.({
             active: { id: 'recent-workouts' },
             over: { id: 'snapshot-cards' },
-          })
-        }
+          });
+        }}
         type="button"
       >
         reorder
@@ -80,7 +122,9 @@ vi.mock('@dnd-kit/core', () => ({
   PointerSensor: function PointerSensor() {
     return undefined;
   },
+  DragOverlay: ({ children }: { children: ReactNode }) => <>{children}</>,
   closestCenter: () => null,
+  useDroppable: () => ({ isOver: false, setNodeRef: () => undefined }),
   useSensor: () => ({}),
   useSensors: (...sensors: unknown[]) => sensors,
 }));
@@ -935,7 +979,7 @@ describe('DashboardPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('opens the dashboard widget sidebar when edit is clicked', async () => {
+  it('enters inline dashboard edit mode when edit is clicked', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -949,11 +993,12 @@ describe('DashboardPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
 
-    expect(screen.getByTestId('dashboard-widget-sidebar')).toBeInTheDocument();
-    expect(screen.getByText('Dashboard widgets')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-edit-mode')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
-  it('toggles widget visibility from sidebar switches and saves via PUT', async () => {
+  it('moves widgets to hidden in edit mode and saves via PUT', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -966,12 +1011,10 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mock move widget to hidden' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
-
-    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -987,9 +1030,10 @@ describe('DashboardPage', () => {
     expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
       visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
     });
+    expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
   });
 
-  it('toggles habit daily sub-switches from the sidebar', async () => {
+  it('shows habit daily cards when the grouped widget is moved to active', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -1004,22 +1048,15 @@ describe('DashboardPage', () => {
     expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Meditate daily status widget' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mock show habit daily group' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
     expect(screen.getByTestId('habit-daily-status-card-habit-meditate')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Meditate daily status widget' }));
-
-    await vi.runAllTimersAsync();
-    await Promise.resolve();
-
-    expect(screen.queryByTestId('habit-daily-status-card-habit-meditate')).not.toBeInTheDocument();
   });
 
-  it('updates visibleWidgets order when drag reorder completes', async () => {
+  it('updates visibleWidgets order when drag reorder completes in edit mode', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -1050,7 +1087,7 @@ describe('DashboardPage', () => {
     expect(JSON.parse(String(saveRequest?.[1]?.body)).visibleWidgets[0]).toBe('recent-workouts');
   });
 
-  it('saves dashboard config when the sidebar closes', async () => {
+  it('cancels inline edit changes without saving', async () => {
     const { wrapper } = createQueryClientWrapper();
     render(
       <MemoryRouter>
@@ -1063,28 +1100,24 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
-
-    const sidebar = screen.getByTestId('dashboard-widget-sidebar');
-    fireEvent.click(within(sidebar).getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mock move widget to hidden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.queryByTestId('dashboard-widget-sidebar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-edit-mode')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
 
     const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
       const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
       return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
     });
 
-    expect(saveRequest).toBeDefined();
-    expect(JSON.parse(String(saveRequest?.[1]?.body))).toMatchObject({
-      visibleWidgets: expect.not.arrayContaining(['recent-workouts']),
-    });
+    expect(saveRequest).toBeUndefined();
   });
 
-  it('saves changes when the sidebar closes and keeps it open on save failure', async () => {
+  it('keeps inline edit mode open on save failure', async () => {
     shouldFailDashboardConfigSave = true;
     const { wrapper } = createQueryClientWrapper();
     render(
@@ -1098,15 +1131,13 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Toggle Recent Workouts widget' }));
-
-    const sidebar = screen.getByTestId('dashboard-widget-sidebar');
-    fireEvent.click(within(sidebar).getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mock move widget to hidden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
-    expect(screen.getByTestId('dashboard-widget-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-edit-mode')).toBeInTheDocument();
     expect(
       screen.getByText('Unable to save dashboard widgets. Please try again.'),
     ).toBeInTheDocument();
