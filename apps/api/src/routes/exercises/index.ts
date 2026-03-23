@@ -8,6 +8,7 @@ import {
   exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
   exerciseLastPerformancesSchema,
+  mergeExerciseInputSchema,
   exercisePerformanceHistoryQuerySchema,
   exercisePerformanceHistorySchema,
   exerciseQueryParamsSchema,
@@ -27,6 +28,7 @@ import {
   authSecurity,
   badRequestResponseSchema,
   idParamsSchema,
+  jwtSecurity,
   successFlagSchema,
 } from '../../openapi.js';
 
@@ -34,6 +36,8 @@ import {
   allRelatedExercisesOwned,
   createExercise,
   deleteOwnedExercise,
+  ExerciseMergeNotFoundError,
+  ExerciseMergeSameIdError,
   findExerciseDedupCandidates,
   findExerciseHistoryWithRelated,
   findExerciseLastPerformance,
@@ -44,6 +48,7 @@ import {
   isExerciseInUse,
   listExerciseFilters,
   listExercises,
+  mergeExercises,
   updateOwnedExercise,
 } from './store.js';
 
@@ -67,6 +72,20 @@ const EXERCISE_IN_USE_RESPONSE = {
   message:
     'This exercise is referenced by active workout templates or sessions and cannot be deleted.',
 } as const;
+
+const EXERCISE_MERGE_FORBIDDEN_RESPONSE = {
+  code: 'JWT_AUTH_REQUIRED',
+  message: 'This operation requires Bearer token authentication.',
+} as const;
+
+const INVALID_EXERCISE_MERGE_RESPONSE = {
+  code: 'INVALID_EXERCISE_MERGE',
+  message: 'winnerId and loserId must be different',
+} as const;
+
+const mergeExerciseParamsSchema = z.object({
+  winnerId: z.string().uuid(),
+});
 
 const isSqliteForeignKeyConstraintError = (error: unknown): error is { code: string } => {
   if (typeof error !== 'object' || error === null) {
@@ -547,6 +566,68 @@ export const exerciseRoutes: FastifyPluginAsync = async (app) => {
           success: true,
         },
       });
+    },
+  );
+
+  typedApp.post(
+    '/:winnerId/merge',
+    {
+      schema: {
+        params: mergeExerciseParamsSchema,
+        body: mergeExerciseInputSchema,
+        response: {
+          200: apiDataResponseSchema(exerciseSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['exercises'],
+        summary: 'Merge one exercise into another',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (isAgentRequest(request)) {
+        return sendError(
+          reply,
+          403,
+          EXERCISE_MERGE_FORBIDDEN_RESPONSE.code,
+          EXERCISE_MERGE_FORBIDDEN_RESPONSE.message,
+        );
+      }
+
+      try {
+        const mergedExercise = await mergeExercises(
+          request.userId,
+          request.params.winnerId,
+          request.body.loserId,
+        );
+
+        return reply.send({
+          data: mergedExercise,
+        });
+      } catch (error) {
+        if (error instanceof ExerciseMergeSameIdError) {
+          return sendError(
+            reply,
+            400,
+            INVALID_EXERCISE_MERGE_RESPONSE.code,
+            INVALID_EXERCISE_MERGE_RESPONSE.message,
+          );
+        }
+
+        if (error instanceof ExerciseMergeNotFoundError) {
+          return sendError(
+            reply,
+            404,
+            EXERCISE_NOT_FOUND_RESPONSE.code,
+            EXERCISE_NOT_FOUND_RESPONSE.message,
+          );
+        }
+
+        throw error;
+      }
     },
   );
 };

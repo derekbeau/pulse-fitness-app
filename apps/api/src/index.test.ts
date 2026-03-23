@@ -142,6 +142,12 @@ describe('OpenAPI docs', () => {
         tags: ['exercises'],
         security: [{ bearerAuth: [] }, { agentToken: [] }],
       });
+      expect(body.paths?.['/api/v1/exercises/{winnerId}/merge']?.post).toMatchObject({
+        summary: 'Merge one exercise into another',
+        tags: ['exercises'],
+        security: [{ bearerAuth: [] }],
+      });
+      expect(body.paths?.['/api/v1/exercises/{winnerId}/merge']?.post.requestBody).toBeTruthy();
       expect(body.paths?.['/api/v1/exercises/{id}/last-performance']?.get.parameters).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ name: 'id', in: 'path' }),

@@ -245,7 +245,6 @@ export function ConditionsList({ conditions = mockHealthConditions }: Conditions
           </Button>
         }
         description="Keep the current condition list visible, sort the recovery picture quickly, and capture new issues without leaving the prototype flow."
-        showBack
         title="Health Tracking"
       />
 

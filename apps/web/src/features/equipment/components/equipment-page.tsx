@@ -159,7 +159,6 @@ export function EquipmentPage() {
             </div>
           }
           description="Keep a clear view of what is available in each training space before planning sessions or swapping exercises."
-          showBack
           title="Equipment"
         />
 

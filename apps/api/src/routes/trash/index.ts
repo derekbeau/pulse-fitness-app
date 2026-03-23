@@ -42,6 +42,25 @@ const TRASH_ITEM_NOT_FOUND_RESPONSE = {
   message: 'Trash item not found',
 } as const;
 
+const EXERCISE_PURGE_REQUIRES_FORCE_RESPONSE = {
+  code: 'EXERCISE_PURGE_REQUIRES_FORCE',
+  message: 'Exercise has session history. Retry with force=true to purge.',
+} as const;
+
+const purgeTrashQuerySchema = z.object({
+  force: z.coerce.boolean().optional().default(false),
+});
+
+class ExercisePurgeRequiresForceError extends Error {
+  readonly historyCount: number;
+
+  constructor(historyCount: number) {
+    super(EXERCISE_PURGE_REQUIRES_FORCE_RESPONSE.message);
+    this.name = 'ExercisePurgeRequiresForceError';
+    this.historyCount = historyCount;
+  }
+}
+
 const requireDeletedAt = (value: string | null): string => {
   if (value === null) {
     throw new Error('deletedAt unexpectedly null in trash list');
@@ -219,10 +238,12 @@ const restoreTrashItem = async ({
 
 const purgeTrashItem = async ({
   id,
+  force,
   type,
   userId,
 }: {
   id: string;
+  force: boolean;
   type: TrashType;
   userId: string;
 }): Promise<boolean> => {
@@ -268,6 +289,29 @@ const purgeTrashItem = async ({
           return false;
         }
 
+        const historyCountResult = tx
+          .select({
+            total: sql<number>`count(*)`,
+          })
+          .from(sessionSets)
+          .where(
+            and(
+              eq(sessionSets.exerciseId, id),
+              sql`exists (
+                select 1
+                from ${workoutSessions}
+                where ${workoutSessions.id} = ${sessionSets.sessionId}
+                  and ${workoutSessions.userId} = ${userId}
+              )`,
+            ),
+          )
+          .get();
+        const historyCount = historyCountResult?.total ?? 0;
+
+        if (historyCount > 0 && !force) {
+          throw new ExercisePurgeRequiresForceError(historyCount);
+        }
+
         tx.delete(templateExercises)
           .where(
             and(
@@ -277,20 +321,6 @@ const purgeTrashItem = async ({
                 from ${workoutTemplates}
                 where ${workoutTemplates.id} = ${templateExercises.templateId}
                   and ${workoutTemplates.userId} = ${userId}
-              )`,
-            ),
-          )
-          .run();
-
-        tx.delete(sessionSets)
-          .where(
-            and(
-              eq(sessionSets.exerciseId, id),
-              sql`exists (
-                select 1
-                from ${workoutSessions}
-                where ${workoutSessions.id} = ${sessionSets.sessionId}
-                  and ${workoutSessions.userId} = ${userId}
               )`,
             ),
           )
@@ -403,10 +433,12 @@ export const trashRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         params: trashItemParamsSchema,
+        querystring: purgeTrashQuerySchema,
         response: {
           200: apiDataResponseSchema(successFlagSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
         },
         tags: ['trash'],
@@ -450,11 +482,27 @@ export const trashRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const purged = await purgeTrashItem({
-        id: request.params.id,
-        type: request.params.type,
-        userId: request.userId,
-      });
+      const query = request.query as z.infer<typeof purgeTrashQuerySchema>;
+      let purged: boolean;
+      try {
+        purged = await purgeTrashItem({
+          id: request.params.id,
+          force: query.force,
+          type: request.params.type,
+          userId: request.userId,
+        });
+      } catch (error) {
+        if (error instanceof ExercisePurgeRequiresForceError) {
+          return sendError(
+            reply,
+            409,
+            EXERCISE_PURGE_REQUIRES_FORCE_RESPONSE.code,
+            `${EXERCISE_PURGE_REQUIRES_FORCE_RESPONSE.message} Referenced sets: ${error.historyCount}.`,
+          );
+        }
+
+        throw error;
+      }
       if (!purged) {
         return sendError(
           reply,

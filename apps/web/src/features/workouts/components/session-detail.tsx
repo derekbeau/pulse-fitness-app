@@ -68,9 +68,11 @@ type SessionDetailProps = {
 type SessionDetailSectionType = WorkoutTemplateSectionType;
 
 type SessionDetailExercise = {
-  exerciseId: string;
+  exerciseId: string | null;
+  groupKey: string;
   name: string;
   notes: string | null;
+  archived: boolean;
   phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
   sets: SessionSet[];
   supersetGroup: string | null;
@@ -99,6 +101,7 @@ type SessionSetEditorField = {
 };
 
 type SessionMetricLabel = TrackingSummaryMetricLabel | 'mixed';
+type WorkoutSessionExerciseRecord = NonNullable<WorkoutSession['exercises']>[number];
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -206,7 +209,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const sections = buildSections(session, template);
   const selectedExercise = sections
     .flatMap((section) => section.exercises)
-    .find((exercise) => exercise.exerciseId === selectedExerciseId);
+    .find((exercise) => exercise.exerciseId === selectedExerciseId && exercise.exerciseId !== null);
 
   const startEditing = () => {
     setSetDrafts(buildSessionSetDrafts(session.sets));
@@ -471,21 +474,26 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                     isEditing &&
                       'border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)]',
                   )}
-                  key={`${section.type}-${exercise.exerciseId}`}
+                  key={`${section.type}-${exercise.groupKey}`}
                 >
                   <CardHeader className="gap-2.5 py-3">
                     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <CardTitle>
-                            <button
-                              className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              onClick={() => setSelectedExerciseId(exercise.exerciseId)}
-                              type="button"
-                            >
-                              {exercise.name}
-                            </button>
+                            {exercise.exerciseId ? (
+                              <button
+                                className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => setSelectedExerciseId(exercise.exerciseId)}
+                                type="button"
+                              >
+                                {exercise.name}
+                              </button>
+                            ) : (
+                              <span className="text-muted">{exercise.name}</span>
+                            )}
                           </CardTitle>
+                          {exercise.archived ? <Badge variant="outline">Archived</Badge> : null}
                           <Badge
                             className={cn(
                               'border-transparent',
@@ -509,6 +517,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                       <Button
                         aria-label={`Open ${exercise.name} history`}
                         className="h-9 self-start px-3 text-xs"
+                        disabled={!exercise.exerciseId}
                         onClick={() => setSelectedExerciseId(exercise.exerciseId)}
                         type="button"
                         variant="outline"
@@ -545,7 +554,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                       </div>
                     )}
 
-                    {showComparison ? (
+                    {showComparison && exercise.exerciseId ? (
                       <SessionExerciseComparison
                         currentSession={session}
                         exerciseId={exercise.exerciseId}
@@ -641,7 +650,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         </Button>
       ) : null}
 
-      {selectedExercise ? (
+      {selectedExercise && selectedExercise.exerciseId ? (
         <ExerciseDetailModal
           context="receipt"
           exerciseId={selectedExercise.exerciseId}
@@ -890,15 +899,38 @@ function buildSections(
   session: WorkoutSession,
   template?: WorkoutTemplate,
 ): SessionDetailSection[] {
+  const buildDeletedSetGroupKey = (set: SessionSet) =>
+    `deleted-${set.section ?? 'supplemental'}-${set.orderIndex ?? 0}`;
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
   const templateSupersetGroupByExerciseId = new Map<string, string | null>();
   const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
+  const sessionExerciseMetaById = new Map(
+    (session.exercises ?? [])
+      .filter((exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
+        typeof exercise.exerciseId === 'string',
+      )
+      .map((exercise) => [
+        exercise.exerciseId,
+        {
+          deletedAt: exercise.deletedAt ?? null,
+          exerciseName: exercise.exerciseName,
+          supersetGroup: exercise.supersetGroup ?? null,
+          trackingType: exercise.trackingType ?? null,
+        },
+      ]),
+  );
   const sessionTrackingTypeById = new Map(
-    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+    [...sessionExerciseMetaById.entries()].map(([exerciseId, meta]) => [
+      exerciseId,
+      meta.trackingType,
+    ]),
   );
   const sessionSupersetGroupByExerciseId = new Map(
-    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.supersetGroup]),
+    [...sessionExerciseMetaById.entries()].map(([exerciseId, meta]) => [
+      exerciseId,
+      meta.supersetGroup,
+    ]),
   );
 
   template?.sections.forEach((section) => {
@@ -912,7 +944,10 @@ function buildSections(
     });
   });
 
-  const sectionBuckets = new Map<SessionDetailSectionType, Map<string, SessionSet[]>>([
+  const sectionBuckets = new Map<
+    SessionDetailSectionType,
+    Map<string, { exerciseId: string | null; sets: SessionSet[] }>
+  >([
     ['warmup', new Map()],
     ['main', new Map()],
     ['cooldown', new Map()],
@@ -923,35 +958,62 @@ function buildSections(
   );
 
   for (const set of sortedSets) {
-    const derivedSection =
-      set.section ?? templateSectionByExerciseId.get(set.exerciseId) ?? 'supplemental';
-    const sectionMap = sectionBuckets.get(derivedSection) ?? new Map<string, SessionSet[]>();
-    const exerciseSets = sectionMap.get(set.exerciseId) ?? [];
+    const templateSection =
+      typeof set.exerciseId === 'string' ? templateSectionByExerciseId.get(set.exerciseId) : undefined;
+    const derivedSection = set.section ?? templateSection ?? 'supplemental';
+    const sectionMap =
+      sectionBuckets.get(derivedSection) ??
+      new Map<string, { exerciseId: string | null; sets: SessionSet[] }>();
+    const groupKey = set.exerciseId ?? buildDeletedSetGroupKey(set);
+    const grouped = sectionMap.get(groupKey) ?? {
+      exerciseId: set.exerciseId,
+      sets: [],
+    };
 
-    exerciseSets.push(set);
-    sectionMap.set(set.exerciseId, exerciseSets);
+    grouped.sets.push(set);
+    sectionMap.set(groupKey, grouped);
     sectionBuckets.set(derivedSection, sectionMap);
   }
 
   return (['warmup', 'main', 'cooldown', 'supplemental'] as const)
     .map((sectionType) => {
-      const groupedExercises = sectionBuckets.get(sectionType) ?? new Map<string, SessionSet[]>();
-      const exercises = [...groupedExercises.entries()].map(([exerciseId, sets]) => {
-        const name = templateExerciseNameById.get(exerciseId) ?? formatLabel(exerciseId);
+      const groupedExercises =
+        sectionBuckets.get(sectionType) ??
+        new Map<string, { exerciseId: string | null; sets: SessionSet[] }>();
+      const exercises = [...groupedExercises.entries()].map(([groupKey, grouped]) => {
+        const { exerciseId, sets } = grouped;
+        const sessionExerciseMeta =
+          typeof exerciseId === 'string' ? sessionExerciseMetaById.get(exerciseId) : undefined;
+        const name =
+          exerciseId === null
+            ? 'Deleted exercise'
+            : sessionExerciseMeta?.exerciseName ??
+              templateExerciseNameById.get(exerciseId) ??
+              formatLabel(exerciseId);
         return {
+          groupKey,
           exerciseId,
           name,
+          archived: Boolean(sessionExerciseMeta?.deletedAt),
           notes: sets.find((set) => set.notes)?.notes ?? null,
           phaseBadge: inferPhaseBadge(sectionType),
           sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
           supersetGroup:
-            sessionSupersetGroupByExerciseId.get(exerciseId) ??
-            templateSupersetGroupByExerciseId.get(exerciseId) ??
+            (typeof exerciseId === 'string'
+              ? sessionSupersetGroupByExerciseId.get(exerciseId)
+              : undefined) ??
+            (typeof exerciseId === 'string'
+              ? templateSupersetGroupByExerciseId.get(exerciseId)
+              : undefined) ??
             null,
           trackingType: resolveTrackingType({
             trackingType:
-              sessionTrackingTypeById.get(exerciseId) ??
-              templateTrackingTypeById.get(exerciseId) ??
+              (typeof exerciseId === 'string'
+                ? sessionTrackingTypeById.get(exerciseId)
+                : undefined) ??
+              (typeof exerciseId === 'string'
+                ? templateTrackingTypeById.get(exerciseId)
+                : undefined) ??
               undefined,
             exerciseId,
             exerciseName: name,
@@ -982,9 +1044,13 @@ function buildSectionSubtitle(sectionType: SessionDetailSectionType, count: numb
 }
 
 function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | null) {
-  const exerciseIds = new Set<string>();
+  const exerciseIds = new Set<string | null>();
   const sessionTrackingTypeById = new Map(
-    (session.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.trackingType]),
+    (session.exercises ?? [])
+      .filter((exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
+        typeof exercise.exerciseId === 'string',
+      )
+      .map((exercise) => [exercise.exerciseId, exercise.trackingType]),
   );
   const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
   template?.sections.forEach((section) => {
@@ -1003,8 +1069,12 @@ function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | 
       summary.totalExercises = exerciseIds.size;
       const trackingType = resolveTrackingType({
         trackingType:
-          sessionTrackingTypeById.get(set.exerciseId) ??
-          templateTrackingTypeById.get(set.exerciseId) ??
+          (typeof set.exerciseId === 'string'
+            ? sessionTrackingTypeById.get(set.exerciseId)
+            : undefined) ??
+          (typeof set.exerciseId === 'string'
+            ? templateTrackingTypeById.get(set.exerciseId)
+            : undefined) ??
           undefined,
         exerciseId: set.exerciseId,
       });

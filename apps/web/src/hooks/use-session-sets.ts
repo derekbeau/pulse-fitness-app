@@ -50,7 +50,7 @@ async function patchSessionSet(sessionId: string, setId: string, input: UpdateSe
 }
 
 const compareSessionSets = (left: SessionSet, right: SessionSet) =>
-  left.exerciseId.localeCompare(right.exerciseId) ||
+  (left.exerciseId ?? '').localeCompare(right.exerciseId ?? '') ||
   left.setNumber - right.setNumber ||
   left.createdAt - right.createdAt ||
   left.id.localeCompare(right.id);

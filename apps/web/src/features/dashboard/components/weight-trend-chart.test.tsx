@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { weightQueryKeys } from '@/features/weight/api/weight';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { createQueryClientWrapper } from '@/test/query-client';
 
@@ -187,7 +188,7 @@ describe('WeightTrendChart', () => {
 
     await act(async () => {
       await queryClient.invalidateQueries({
-        queryKey: dashboardWeightTrendQueryKeys.all,
+        queryKey: weightQueryKeys.all,
       });
     });
 
@@ -198,6 +199,30 @@ describe('WeightTrendChart', () => {
         ).length,
       ).toBeGreaterThanOrEqual(2);
     });
+  });
+
+  it('uses a dedicated weight-entry query key to avoid dashboard trend cache collisions', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setQueryData(dashboardWeightTrendQueryKeys.range('2026-02-07', '2026-03-08'), [
+      { date: '2026-03-08', value: 180.5 },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <WeightTrendChart />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/weight?from=2026-02-07&to=2026-03-08',
+        expect.any(Object),
+      );
+    });
+
+    expect(screen.getByRole('img', { name: 'Weight trend chart' })).toBeInTheDocument();
+    expect(screen.queryByText('Log your weight to see trends')).not.toBeInTheDocument();
   });
 
   it('allows toggling each legend series', async () => {

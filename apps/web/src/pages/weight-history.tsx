@@ -25,7 +25,6 @@ export function WeightHistoryPage() {
           </HelpIcon>
         }
         description="Review your full body weight log, inspect longer-term trends, add new entries, and clean up mistakes."
-        showBack
         title="Weight History"
       />
       <WeightHistory />

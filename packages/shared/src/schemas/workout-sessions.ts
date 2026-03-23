@@ -249,7 +249,7 @@ export const workoutSessionFeedbackSchema = z.object({
 export const sessionSetSchema = z
   .object({
     id: z.string(),
-    exerciseId: requiredStringSchema,
+    exerciseId: requiredStringSchema.nullable(),
     orderIndex: z.number().int().min(0).optional(),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable(),
@@ -275,8 +275,9 @@ export const sessionSetSchema = z
   });
 
 export const workoutSessionExerciseSchema = z.object({
-  exerciseId: requiredStringSchema,
+  exerciseId: requiredStringSchema.nullable(),
   exerciseName: requiredStringSchema,
+  deletedAt: z.string().nullable().optional(),
   supersetGroup: nullableShortStringSchema.default(null),
   trackingType: exerciseTrackingTypeSchema.nullable().optional(),
   exercise: z

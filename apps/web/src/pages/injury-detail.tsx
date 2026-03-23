@@ -13,7 +13,6 @@ export function InjuryDetailPage() {
       <section className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-10">
         <PageHeader
           description="The requested condition ID is not present in the mock injuries dataset."
-          showBack
           title="Condition not found"
         />
 

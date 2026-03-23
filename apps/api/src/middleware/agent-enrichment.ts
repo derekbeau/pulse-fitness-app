@@ -317,8 +317,16 @@ const buildWorkoutSessionEnrichment = (
   const totalSets = sortedSets.length;
   const completedSets = sortedSets.filter((set) => set.completed).length;
   const openSets = sortedSets.filter((set) => !set.completed && !set.skipped);
-  const exerciseIds = new Set(sortedSets.map((set) => set.exerciseId));
-  const remainingExerciseIds = new Set(openSets.map((set) => set.exerciseId));
+  const exerciseIds = new Set(
+    sortedSets
+      .map((set) => set.exerciseId)
+      .filter((exerciseId): exerciseId is string => typeof exerciseId === 'string'),
+  );
+  const remainingExerciseIds = new Set(
+    openSets
+      .map((set) => set.exerciseId)
+      .filter((exerciseId): exerciseId is string => typeof exerciseId === 'string'),
+  );
   const nextSet = openSets[0];
   const nextExercise = session.exercises?.find(
     (exercise) => exercise.exerciseId === nextSet?.exerciseId,
@@ -333,7 +341,7 @@ const buildWorkoutSessionEnrichment = (
     ]),
     suggestedActions: compactStrings([
       nextSet
-        ? `Log set ${nextSet.setNumber} for ${nextExercise?.exerciseName ?? nextSet.exerciseId}.`
+        ? `Log set ${nextSet.setNumber} for ${nextExercise?.exerciseName ?? nextSet.exerciseId ?? 'Deleted exercise'}.`
         : session.status === 'in-progress'
           ? 'Mark the session completed or add a finisher set if more work is needed.'
           : 'Review notes and confirm the session status is final.',

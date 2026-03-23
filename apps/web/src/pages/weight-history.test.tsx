@@ -128,7 +128,7 @@ describe('WeightHistoryPage', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Weight History' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight history trend chart' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '30D' })).toHaveAttribute('aria-pressed', 'true');
 

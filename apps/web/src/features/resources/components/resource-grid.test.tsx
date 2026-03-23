@@ -17,7 +17,7 @@ describe('ResourceGrid', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(mockResources.length);
 
     fireEvent.click(screen.getByRole('button', { name: 'Books' }));

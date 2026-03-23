@@ -130,6 +130,10 @@ export const updateExerciseInputSchema = z
     message: 'At least one exercise field must be provided',
   });
 
+export const mergeExerciseInputSchema = z.object({
+  loserId: z.string().uuid(),
+});
+
 export const exerciseQueryParamsSchema = z.object({
   q: optionalStringSchema,
   muscleGroup: optionalStringSchema,
@@ -192,6 +196,7 @@ export type ExerciseTrackingType = z.infer<typeof exerciseTrackingTypeSchema>;
 export type Exercise = z.infer<typeof exerciseSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseInputSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseInputSchema>;
+export type MergeExerciseInput = z.infer<typeof mergeExerciseInputSchema>;
 export type ExerciseQueryParams = z.infer<typeof exerciseQueryParamsSchema>;
 export type ExerciseLastPerformanceQuery = z.infer<typeof exerciseLastPerformanceQuerySchema>;
 export type ExercisePerformanceHistoryQuery = z.infer<typeof exercisePerformanceHistoryQuerySchema>;

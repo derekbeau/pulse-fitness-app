@@ -7,6 +7,40 @@ import { FoodList } from '@/features/foods/components/food-list';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { createAppQueryClient, resetAppQueryClient } from '@/lib/query-client';
 
+const FOOD_LIST_VIEW_STORAGE_KEY = 'food-list-view';
+
+vi.mock('@/components/ui/column-picker', () => ({
+  ColumnPicker: ({
+    columns,
+    onChange,
+    visibleColumns,
+  }: {
+    columns: { key: string; label: string }[];
+    onChange: (columns: string[]) => void;
+    visibleColumns: string[];
+    storageKey?: string;
+    className?: string;
+  }) => {
+    const removeProtein = columns
+      .map((column) => column.key)
+      .filter((key) => visibleColumns.includes(key) && key !== 'protein');
+    const withProtein = columns
+      .map((column) => column.key)
+      .filter((key) => key === 'protein' || visibleColumns.includes(key));
+
+    return (
+      <div>
+        <button onClick={() => onChange(removeProtein)} type="button">
+          Hide protein column
+        </button>
+        <button onClick={() => onChange(withProtein)} type="button">
+          Show protein column
+        </button>
+      </div>
+    );
+  },
+}));
+
 function createDeferredResponse() {
   let resolve: (value: Response) => void = () => {};
 
@@ -662,5 +696,114 @@ describe('FoodList', () => {
     await waitFor(() => {
       expect(screen.getByText('Showing 25 of 27 foods')).toBeInTheDocument();
     });
+  });
+
+  it('renders card and table views and persists the selected view', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    const firstRender = renderFoodList();
+
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Foods table view' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    expect(await screen.findByRole('table', { name: 'Foods table view' })).toBeInTheDocument();
+    expect(window.localStorage.getItem(FOOD_LIST_VIEW_STORAGE_KEY)).toBe('table');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Card view' }));
+    expect(await screen.findByRole('heading', { level: 3, name: 'Spinach' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    expect(await screen.findByRole('table', { name: 'Foods table view' })).toBeInTheDocument();
+
+    firstRender.unmount();
+    renderFoodList();
+
+    expect(await screen.findByRole('table', { name: 'Foods table view' })).toBeInTheDocument();
+  });
+
+  it('paginates in table mode', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    await screen.findByRole('heading', { level: 3, name: 'Spinach' });
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Foods table view' });
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => {
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('table', { name: 'Foods table view' })).toBeInTheDocument();
+  });
+
+  it('shows and hides table columns through the shared column picker integration', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    await screen.findByRole('heading', { level: 3, name: 'Spinach' });
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Foods table view' });
+    expect(screen.getByRole('columnheader', { name: 'Protein' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide protein column' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('columnheader', { name: 'Protein' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show protein column' }));
+    expect(screen.getByRole('columnheader', { name: 'Protein' })).toBeInTheDocument();
+  });
+
+  it('opens table inline editing only from the food name cell', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    await screen.findByRole('heading', { level: 3, name: 'Spinach' });
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    await screen.findByRole('table', { name: 'Foods table view' });
+
+    fireEvent.click(screen.getByRole('cell', { name: '13g' }));
+    expect(screen.queryByRole('textbox', { name: 'Edit 2% Milk name' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '2% Milk' }));
+    expect(await screen.findByRole('textbox', { name: 'Edit 2% Milk name' })).toBeInTheDocument();
+  });
+
+  it('preserves filter and sort state when switching between card and table views', async () => {
+    const api = createFoodsApiMock(paginatedFoods);
+    vi.stubGlobal('fetch', api.fetchMock);
+
+    renderFoodList();
+
+    await screen.findByRole('heading', { level: 3, name: 'Spinach' });
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search foods' }), {
+      target: { value: 'fair' },
+    });
+    selectSortOption('Name (A-Z)');
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('sort=name-asc');
+    });
+    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table view' }));
+    expect(await screen.findByRole('table', { name: 'Foods table view' })).toBeInTheDocument();
+    expect(screen.getByText('2% Milk')).toBeInTheDocument();
+    expect(window.location.search).toContain('sort=name-asc');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Card view' }));
+    expect(await screen.findByRole('heading', { level: 3, name: '2% Milk' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search foods' })).toHaveValue('fair');
+    expect(window.location.search).toContain('sort=name-asc');
   });
 });

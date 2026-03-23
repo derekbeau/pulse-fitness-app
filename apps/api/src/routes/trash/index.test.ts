@@ -358,4 +358,92 @@ describe('trash routes', () => {
         .get(),
     ).toBeUndefined();
   });
+
+  it('requires force when purging exercises with session history and sets session_set exercise_id to null', async () => {
+    context.db
+      .insert(exercises)
+      .values({
+        id: 'exercise-history',
+        userId: 'user-1',
+        name: 'Bench Press',
+        muscleGroups: ['chest'],
+        equipment: 'barbell',
+        category: 'compound',
+        tags: [],
+        formCues: [],
+        instructions: null,
+        deletedAt: '2026-03-10T00:00:00.000Z',
+      })
+      .run();
+
+    context.db
+      .insert(workoutSessions)
+      .values({
+        id: 'session-history',
+        userId: 'user-1',
+        templateId: null,
+        name: 'Push Day',
+        date: '2026-03-10',
+        startedAt: Date.now(),
+      })
+      .run();
+    context.db
+      .insert(sessionSets)
+      .values({
+        id: 'set-history',
+        sessionId: 'session-history',
+        exerciseId: 'exercise-history',
+        setNumber: 1,
+      })
+      .run();
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const warningResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/trash/exercises/exercise-history',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(warningResponse.statusCode).toBe(409);
+    expect(warningResponse.json()).toEqual({
+      error: {
+        code: 'EXERCISE_PURGE_REQUIRES_FORCE',
+        message:
+          'Exercise has session history. Retry with force=true to purge. Referenced sets: 1.',
+      },
+    });
+
+    const forcedResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/trash/exercises/exercise-history?force=true',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(forcedResponse.statusCode).toBe(200);
+    expect(forcedResponse.json()).toEqual({
+      data: { success: true },
+    });
+
+    expect(
+      context.db
+        .select({ id: exercises.id })
+        .from(exercises)
+        .where(eq(exercises.id, 'exercise-history'))
+        .get(),
+    ).toBeUndefined();
+
+    expect(
+      context.db
+        .select({ exerciseId: sessionSets.exerciseId })
+        .from(sessionSets)
+        .where(eq(sessionSets.id, 'set-history'))
+        .get(),
+    ).toEqual({
+      exerciseId: null,
+    });
+  });
 });

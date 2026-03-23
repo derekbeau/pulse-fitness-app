@@ -8,6 +8,7 @@ import {
   exerciseLastPerformanceSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
+  mergeExerciseInputSchema,
   type CreateExerciseInput,
   type Exercise,
   type ExerciseHistoryWithRelated,
@@ -263,6 +264,26 @@ describe('updateExerciseInputSchema', () => {
     };
 
     expect(payload.equipment).toBe('cable');
+  });
+});
+
+describe('mergeExerciseInputSchema', () => {
+  it('accepts UUID loserId values', () => {
+    expect(
+      mergeExerciseInputSchema.parse({
+        loserId: '22222222-2222-4222-8222-222222222222',
+      }),
+    ).toEqual({
+      loserId: '22222222-2222-4222-8222-222222222222',
+    });
+  });
+
+  it('rejects non-UUID loserId values', () => {
+    expect(() =>
+      mergeExerciseInputSchema.parse({
+        loserId: 'exercise-2',
+      }),
+    ).toThrow();
   });
 });
 

@@ -130,6 +130,114 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('renders deleted exercise placeholders for sets with null exerciseId', async () => {
+    const currentSession = createSession({
+      id: 'session-null-exercise',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-deleted-1',
+          exerciseId: null,
+          setNumber: 1,
+          reps: 12,
+          weight: 95,
+          section: 'main',
+        }),
+      ],
+      exercises: [
+        {
+          exerciseId: null,
+          exerciseName: 'Deleted exercise',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: null,
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            createSet({
+              id: 'set-deleted-1',
+              exerciseId: null,
+              setNumber: 1,
+              reps: 12,
+              weight: 95,
+              section: 'main',
+            }),
+          ],
+        },
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Deleted exercise')).toBeInTheDocument();
+    expect(screen.getByText(/Set 1: 95 lbs × 12 reps/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Deleted exercise history' })).toBeDisabled();
+  });
+
+  it('shows an Archived badge for soft-deleted exercises in historical session views', async () => {
+    const archivedSet = createSet({
+      id: 'set-archived-1',
+      exerciseId: 'incline-dumbbell-press',
+      setNumber: 1,
+      reps: 8,
+      weight: 60,
+      section: 'main',
+    });
+    const currentSession = createSession({
+      id: 'session-archived-exercise',
+      templateId: 'template-upper-push',
+      sets: [archivedSet],
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          deletedAt: '2026-03-10T00:00:00.000Z',
+          supersetGroup: null,
+          trackingType: 'weight_reps',
+          orderIndex: 0,
+          section: 'main',
+          sets: [archivedSet],
+          exercise: {
+            formCues: [],
+            coachingNotes: null,
+            instructions: null,
+          },
+        },
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByText('Archived')).toBeInTheDocument();
+  });
+
   it('formats receipt duration from seconds', async () => {
     const currentSession = createSession({
       id: 'session-duration-format',

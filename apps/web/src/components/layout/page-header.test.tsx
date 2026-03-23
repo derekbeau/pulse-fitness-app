@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BadgeCheck } from 'lucide-react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { PageHeader } from './page-header';
 
@@ -9,37 +9,6 @@ describe('PageHeader', () => {
     render(<PageHeader title="Dashboard" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
-  });
-
-  it('renders a back button when showBack is true', () => {
-    const historyBackSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {});
-    window.history.pushState({}, '', '/settings');
-
-    render(<PageHeader showBack title="Settings" />);
-
-    const backButton = screen.getByRole('button', { name: 'Back' });
-    expect(backButton).toBeInTheDocument();
-
-    fireEvent.click(backButton);
-    expect(historyBackSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('falls back to backFallbackHref when there is no previous history entry', () => {
-    const historyLengthSpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(1);
-    const locationAssignSpy = vi.fn();
-    vi.stubGlobal('location', {
-      ...window.location,
-      assign: locationAssignSpy,
-    });
-
-    render(<PageHeader backFallbackHref="/workouts" showBack title="Settings" />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-
-    expect(locationAssignSpy).toHaveBeenCalledWith('/workouts');
-
-    vi.unstubAllGlobals();
-    historyLengthSpy.mockRestore();
   });
 
   it('renders actions in the actions container', () => {

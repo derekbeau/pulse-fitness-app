@@ -189,6 +189,36 @@ describe('sessionSetInputSchema', () => {
 });
 
 describe('sessionSetSchema', () => {
+  it('accepts null exerciseId for historical sets from purged exercises', () => {
+    expect(
+      sessionSetSchema.parse({
+        id: 'set-null-exercise',
+        exerciseId: null,
+        orderIndex: 0,
+        setNumber: 1,
+        weight: 185,
+        reps: 8,
+        completed: false,
+        skipped: false,
+        section: 'main',
+        notes: null,
+        createdAt: 1_700_000_000_500,
+      }),
+    ).toEqual({
+      id: 'set-null-exercise',
+      exerciseId: null,
+      orderIndex: 0,
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      completed: false,
+      skipped: false,
+      section: 'main',
+      notes: null,
+      createdAt: 1_700_000_000_500,
+    });
+  });
+
   it('rejects persisted target weight ranges where min exceeds max', () => {
     expect(() =>
       sessionSetSchema.parse({
@@ -273,6 +303,43 @@ describe('sessionCorrectionRequestSchema', () => {
 });
 
 describe('workoutSessionSchema', () => {
+  it('preserves deleted exercise metadata in historical session responses', () => {
+    const session = workoutSessionSchema.parse({
+      id: 'session-deleted-metadata',
+      userId: 'user-1',
+      templateId: null,
+      name: 'Push Day',
+      date: '2026-03-01',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_030_000,
+      duration: 1800,
+      timeSegments: [{ start: '2026-03-01T10:00:00.000Z', end: '2026-03-01T10:30:00.000Z' }],
+      feedback: null,
+      notes: null,
+      exercises: [
+        {
+          exerciseId: 'exercise-archived',
+          exerciseName: 'Barbell Row',
+          deletedAt: '2026-03-02T00:00:00.000Z',
+          trackingType: 'weight_reps',
+          supersetGroup: null,
+          orderIndex: 0,
+          section: 'main',
+          sets: [],
+        },
+      ],
+      sets: [],
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_030_000,
+    });
+
+    expect(session.exercises?.[0]).toMatchObject({
+      exerciseId: 'exercise-archived',
+      deletedAt: '2026-03-02T00:00:00.000Z',
+    });
+  });
+
   it('parses a persisted workout session with nested sets', () => {
     const session: WorkoutSession = workoutSessionSchema.parse({
       id: 'session-1',

@@ -54,7 +54,6 @@ export function ResourceGrid({ resources }: ResourceGridProps) {
           </p>
         }
         description="Browse saved programs, books, and creators with quick tag search and type filters."
-        showBack
         title="Resources"
       />
 

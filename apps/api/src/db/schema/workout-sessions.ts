@@ -126,8 +126,7 @@ export const sessionSets = sqliteTable(
       .notNull()
       .references(() => workoutSessions.id, { onDelete: 'cascade' }),
     exerciseId: text('exercise_id')
-      .notNull()
-      .references(() => exercises.id, { onDelete: 'restrict' }),
+      .references(() => exercises.id, { onDelete: 'set null' }),
     orderIndex: integer('order_index').notNull().default(0),
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),

@@ -490,7 +490,6 @@ export function SettingsPage() {
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-8">
       <PageHeader
         description="Manage the profile and appearance details that shape the Pulse experience across devices."
-        showBack
         title="Settings"
       />
 
