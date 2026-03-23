@@ -1,44 +1,34 @@
 import { useMemo, useState } from 'react';
 import { type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { getDistanceUnit } from '../lib/tracking';
-import type { ActiveWorkoutExerciseHistoryPoint } from '../types';
+import type { ActiveWorkoutPerformanceHistorySession } from '../types';
+import {
+  computeEstimated1RM,
+  computeSessionVolume,
+  getMetricOptionsForTrackingType,
+  type TrendMetricKey,
+} from './exercise-trend-metrics';
 
 type ExerciseTrendChartProps = {
   className?: string;
   exerciseName: string;
-  history: ActiveWorkoutExerciseHistoryPoint[];
+  sessions: ActiveWorkoutPerformanceHistorySession[];
   trackingType?: ExerciseTrackingType;
   weightUnit?: WeightUnit;
 };
 
 type DateRange = '30d' | '90d' | 'all';
 
-type MetricKey = 'distance' | 'reps' | 'seconds' | 'weight';
-
-type MetricConfig = {
-  color: string;
-  key: MetricKey;
-  label: string;
-  unit: string;
-  yAxisId: 'primary' | 'secondary';
-};
-
-type ChartDatum = ActiveWorkoutExerciseHistoryPoint & {
+type ChartDatum = {
+  date: string;
   dateLabel: string;
+  value: number;
 };
 
 const dateRangeOptions: Array<{ label: string; value: DateRange }> = [
@@ -66,25 +56,44 @@ const numberFormatter = new Intl.NumberFormat('en-US', {
 export function ExerciseTrendChart({
   className,
   exerciseName,
-  history,
+  sessions,
   trackingType = 'weight_reps',
   weightUnit = 'lbs',
 }: ExerciseTrendChartProps) {
   const [selectedRange, setSelectedRange] = useState<DateRange>('90d');
-  const metricConfig = getMetricConfig(trackingType, weightUnit);
+  const metricOptions = useMemo(
+    () => getMetricOptionsForTrackingType(trackingType),
+    [trackingType],
+  );
+  const [selectedMetric, setSelectedMetric] = useState<TrendMetricKey>(metricOptions[0]?.key ?? 'max_reps');
+  const activeMetric = metricOptions.some((metric) => metric.key === selectedMetric)
+    ? selectedMetric
+    : (metricOptions[0]?.key ?? 'max_reps');
 
   const chartData = useMemo(() => {
-    const sortedHistory = [...history].sort((left, right) => left.date.localeCompare(right.date));
+    const sortedHistory = [...sessions].sort((left, right) => left.date.localeCompare(right.date));
 
-    return filterHistoryByRange(sortedHistory, selectedRange).map((point) => ({
-      ...point,
-      dateLabel: axisDateFormatter.format(new Date(`${point.date}T12:00:00`)),
-      distance: point.distance ?? 0,
-      reps: point.reps ?? 0,
-      seconds: point.seconds ?? point.reps ?? 0,
-      weight: point.weight ?? 0,
-    }));
-  }, [history, selectedRange]);
+    return filterHistoryByRange(sortedHistory, selectedRange)
+      .map((session) => {
+        const value = computeMetricValueFromSession(session, activeMetric, trackingType);
+
+        if (value == null) {
+          return null;
+        }
+
+        return {
+          date: session.date,
+          dateLabel: axisDateFormatter.format(new Date(`${session.date}T12:00:00`)),
+          value,
+        };
+      })
+      .filter((point): point is ChartDatum => point != null);
+  }, [activeMetric, selectedRange, sessions, trackingType]);
+
+  const selectedMetricLabel =
+    metricOptions.find((metric) => metric.key === activeMetric)?.label ?? 'Max Reps';
+  const metricUnit = getMetricUnit(activeMetric, trackingType, weightUnit);
+  const yAxisLabel = `${selectedMetricLabel} (${metricUnit})`;
 
   return (
     <Card className={cn('w-full border-border bg-card/95 py-0 shadow-sm', className)}>
@@ -115,6 +124,26 @@ export function ExerciseTrendChart({
             ))}
           </div>
         </div>
+
+        <div
+          aria-label="Trend metric selector"
+          className="inline-flex w-full flex-wrap items-center gap-2 rounded-full border border-border bg-secondary/35 p-1"
+          role="group"
+        >
+          {metricOptions.map((metric) => (
+            <Button
+              aria-pressed={activeMetric === metric.key}
+              className="rounded-full"
+              key={metric.key}
+              onClick={() => setSelectedMetric(metric.key)}
+              size="sm"
+              type="button"
+              variant={activeMetric === metric.key ? 'default' : 'ghost'}
+            >
+              {metric.label}
+            </Button>
+          ))}
+        </div>
       </CardHeader>
 
       <CardContent className="px-4 py-5 sm:px-6">
@@ -130,20 +159,11 @@ export function ExerciseTrendChart({
           </div>
         ) : (
           <div className="mx-auto w-full max-w-4xl space-y-4">
-            <div className={cn('grid gap-3', metricConfig.secondary ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
-              <MetricCard
-                accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
-                label={`Latest ${metricConfig.primary.label.toLowerCase()}`}
-                value={formatMetricValue(chartData.at(-1), metricConfig.primary)}
-              />
-              {metricConfig.secondary ? (
-                <MetricCard
-                  accentClassName="bg-[var(--color-accent-cream)] text-on-cream"
-                  label={`Latest ${metricConfig.secondary.label.toLowerCase()}`}
-                  value={formatMetricValue(chartData.at(-1), metricConfig.secondary)}
-                />
-              ) : null}
-            </div>
+            <MetricCard
+              accentClassName="bg-[var(--color-accent-mint)] text-on-mint"
+              label={`Latest ${selectedMetricLabel.toLowerCase()}`}
+              value={`${numberFormatter.format(chartData.at(-1)?.value ?? 0)} ${metricUnit}`.trim()}
+            />
 
             <div
               aria-label={`${exerciseName} trend chart`}
@@ -164,24 +184,10 @@ export function ExerciseTrendChart({
                     axisLine={false}
                     orientation="left"
                     tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                    tickFormatter={(value: number) => formatAxisTick(value, metricConfig.primary.unit)}
+                    tickFormatter={(value: number) => formatAxisTick(value, metricUnit)}
                     tickLine={false}
-                    yAxisId="primary"
-                    width={56}
+                    width={60}
                   />
-                  {metricConfig.secondary ? (
-                    <YAxis
-                      axisLine={false}
-                      orientation="right"
-                      tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                      tickFormatter={(value: number) =>
-                        formatAxisTick(value, metricConfig.secondary?.unit ?? '')
-                      }
-                      tickLine={false}
-                      yAxisId="secondary"
-                      width={56}
-                    />
-                  ) : null}
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--color-card)',
@@ -189,50 +195,28 @@ export function ExerciseTrendChart({
                       borderRadius: '16px',
                       color: 'var(--color-foreground)',
                     }}
-                    formatter={(value: number | undefined, name: string | undefined) => {
-                      let metric = metricConfig.primary;
-
-                      if (metricConfig.secondary && metricConfig.secondary.key === name) {
-                        metric = metricConfig.secondary;
-                      }
-
-                      return [`${numberFormatter.format(value ?? 0)} ${metric.unit}`.trim(), metric.label];
-                    }}
+                    formatter={(value: number | undefined) => [
+                      `${numberFormatter.format(value ?? 0)} ${metricUnit}`.trim(),
+                      selectedMetricLabel,
+                    ]}
                     labelFormatter={(_label, payload) => {
                       const point = payload?.[0]?.payload as ChartDatum | undefined;
 
-                      return point
-                        ? tooltipDateFormatter.format(new Date(`${point.date}T12:00:00`))
-                        : '';
+                      return point ? tooltipDateFormatter.format(new Date(`${point.date}T12:00:00`)) : '';
                     }}
                     separator=": "
                   />
                   <Line
-                    dataKey={metricConfig.primary.key}
-                    dot={{ fill: metricConfig.primary.color, r: 4, strokeWidth: 0 }}
+                    dataKey="value"
+                    dot={{ fill: 'var(--color-primary)', r: 4, strokeWidth: 0 }}
                     isAnimationActive={false}
-                    name={metricConfig.primary.key}
-                    stroke={metricConfig.primary.color}
+                    name={yAxisLabel}
+                    stroke="var(--color-primary)"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={3}
                     type="monotone"
-                    yAxisId={metricConfig.primary.yAxisId}
                   />
-                  {metricConfig.secondary ? (
-                    <Line
-                      dataKey={metricConfig.secondary.key}
-                      dot={{ fill: metricConfig.secondary.color, r: 4, strokeWidth: 0 }}
-                      isAnimationActive={false}
-                      name={metricConfig.secondary.key}
-                      stroke={metricConfig.secondary.color}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={3}
-                      type="monotone"
-                      yAxisId={metricConfig.secondary.yAxisId}
-                    />
-                  ) : null}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -260,78 +244,85 @@ function MetricCard({
   );
 }
 
-function getMetricConfig(trackingType: ExerciseTrackingType, weightUnit: WeightUnit) {
-  const distanceUnit = getDistanceUnit(weightUnit);
-
-  const weightMetric: MetricConfig = {
-    color: 'var(--color-primary)',
-    key: 'weight',
-    label: 'Weight',
-    unit: weightUnit,
-    yAxisId: 'primary',
-  };
-
-  const repsMetric: MetricConfig = {
-    color: 'var(--color-accent-cream)',
-    key: 'reps',
-    label: 'Reps',
-    unit: 'reps',
-    yAxisId: 'secondary',
-  };
-
-  const secondsMetric: MetricConfig = {
-    color: 'var(--color-accent-cream)',
-    key: 'seconds',
-    label: 'Duration',
-    unit: 'sec',
-    yAxisId: 'secondary',
-  };
-
-  const distanceMetric: MetricConfig = {
-    color: 'var(--color-primary)',
-    key: 'distance',
-    label: 'Distance',
-    unit: distanceUnit,
-    yAxisId: 'primary',
-  };
-
-  switch (trackingType) {
-    case 'weight_reps':
-      return { primary: weightMetric, secondary: repsMetric };
-    case 'weight_seconds':
-      return { primary: weightMetric, secondary: secondsMetric };
-    case 'bodyweight_reps':
-    case 'reps_only':
-      return { primary: { ...repsMetric, yAxisId: 'primary' as const }, secondary: null };
-    case 'reps_seconds':
-      return {
-        primary: { ...repsMetric, yAxisId: 'primary' as const },
-        secondary: secondsMetric,
-      };
-    case 'seconds_only':
-      return { primary: { ...secondsMetric, yAxisId: 'primary' as const }, secondary: null };
-    case 'distance':
-      return { primary: distanceMetric, secondary: null };
-    case 'cardio':
-      return {
-        primary: { ...secondsMetric, yAxisId: 'primary' as const },
-        secondary: { ...distanceMetric, yAxisId: 'secondary' as const },
-      };
-    default:
-      return { primary: weightMetric, secondary: repsMetric };
+function getMetricUnit(
+  metricKey: TrendMetricKey,
+  trackingType: ExerciseTrackingType,
+  weightUnit: WeightUnit,
+) {
+  if (metricKey === 'max_weight' || metricKey === 'est_1rm') {
+    return weightUnit;
   }
+
+  if (metricKey === 'max_reps') {
+    return trackingType === 'distance' ? getDistanceUnit(weightUnit) : 'reps';
+  }
+
+  if (metricKey === 'total_volume') {
+    return `${weightUnit}*reps`;
+  }
+
+  return 'sec';
 }
 
-function formatMetricValue(point: ChartDatum | undefined, metric: MetricConfig) {
-  const value = point ? Number(point[metric.key] ?? 0) : 0;
-  return `${numberFormatter.format(value)} ${metric.unit}`.trim();
+function computeMetricValueFromSession(
+  session: ActiveWorkoutPerformanceHistorySession,
+  metric: TrendMetricKey,
+  trackingType: ExerciseTrackingType,
+): number | null {
+  const setsWithReps = session.sets.filter(
+    (set): set is { reps: number; setNumber: number; weight: number | null } => set.reps != null,
+  );
+
+  if (setsWithReps.length === 0) {
+    return null;
+  }
+
+  if (metric === 'max_weight') {
+    const maxWeight = setsWithReps.reduce((best, set) => Math.max(best, set.weight ?? 0), 0);
+    return Number.isFinite(maxWeight) ? maxWeight : null;
+  }
+
+  if (metric === 'max_reps') {
+    return setsWithReps.reduce((best, set) => Math.max(best, set.reps), 0);
+  }
+
+  if (metric === 'max_time') {
+    return setsWithReps.reduce((best, set) => Math.max(best, set.reps), 0);
+  }
+
+  if (trackingType !== 'weight_reps') {
+    return null;
+  }
+
+  const weightedSets = setsWithReps.filter((set) => (set.weight ?? 0) > 0);
+  if (weightedSets.length === 0) {
+    return null;
+  }
+
+  if (metric === 'total_volume') {
+    return computeSessionVolume(
+      weightedSets.map((set) => ({
+        reps: set.reps,
+        weight: set.weight ?? 0,
+      })),
+    );
+  }
+
+  if (metric === 'est_1rm') {
+    return weightedSets.reduce((best, set) => {
+      const estimated = computeEstimated1RM(set.weight ?? 0, set.reps);
+      return estimated > best ? estimated : best;
+    }, 0);
+  }
+
+  return null;
 }
 
 function formatAxisTick(value: number, unit: string) {
   return `${numberFormatter.format(value)} ${unit}`.trim();
 }
 
-function filterHistoryByRange(history: ActiveWorkoutExerciseHistoryPoint[], range: DateRange) {
+function filterHistoryByRange(history: ActiveWorkoutPerformanceHistorySession[], range: DateRange) {
   if (range === 'all' || history.length === 0) {
     return history;
   }

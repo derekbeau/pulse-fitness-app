@@ -1,4 +1,6 @@
+import type { ComponentProps } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useExerciseHistory } from '@/hooks/use-exercise-history';
@@ -24,6 +26,15 @@ vi.mock('./exercise-trend-chart', () => ({
 
 const useExerciseMock = vi.mocked(useExercise);
 const useExerciseHistoryMock = vi.mocked(useExerciseHistory);
+type ExerciseDetailModalProps = ComponentProps<typeof ExerciseDetailModal>;
+
+function renderModal(props: ExerciseDetailModalProps) {
+  return render(
+    <MemoryRouter>
+      <ExerciseDetailModal {...props} />
+    </MemoryRouter>,
+  );
+}
 
 function setup() {
   useExerciseMock.mockReturnValue({
@@ -67,15 +78,13 @@ describe('ExerciseDetailModal', () => {
   });
 
   it('renders overview tab with exercise details', () => {
-    render(
-      <ExerciseDetailModal
-        context="template"
-        exerciseId="incline-dumbbell-press"
-        onOpenChange={vi.fn()}
-        open
-        templateExerciseId="template-exercise-1"
-      />,
-    );
+    renderModal({
+      context: 'template',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+      templateExerciseId: 'template-exercise-1',
+    });
 
     expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
     expect(screen.getByText('Category')).toBeInTheDocument();
@@ -87,33 +96,42 @@ describe('ExerciseDetailModal', () => {
   });
 
   it('renders history tab with session history and trend chart', () => {
-    render(
-      <ExerciseDetailModal
-        context="template"
-        exerciseId="incline-dumbbell-press"
-        onOpenChange={vi.fn()}
-        open
-        templateExerciseId="template-exercise-1"
-      />,
-    );
+    renderModal({
+      context: 'template',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+      templateExerciseId: 'template-exercise-1',
+    });
 
     fireEvent.click(screen.getByRole('tab', { name: 'History' }));
 
-    expect(screen.getByTestId('exercise-trend-chart')).toBeInTheDocument();
     expect(screen.getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
     expect(screen.getByText('Notes: Felt strong.')).toBeInTheDocument();
   });
 
+  it('renders trends tab with trend chart', () => {
+    renderModal({
+      context: 'template',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+      templateExerciseId: 'template-exercise-1',
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Trends' }));
+
+    expect(screen.getByTestId('exercise-trend-chart')).toBeInTheDocument();
+  });
+
   it('shows edit button in template context', () => {
-    render(
-      <ExerciseDetailModal
-        context="template"
-        exerciseId="incline-dumbbell-press"
-        onOpenChange={vi.fn()}
-        open
-        templateExerciseId="template-exercise-1"
-      />,
-    );
+    renderModal({
+      context: 'template',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+      templateExerciseId: 'template-exercise-1',
+    });
 
     expect(screen.getByRole('button', { name: 'Edit exercise' })).toBeInTheDocument();
   });
@@ -122,15 +140,13 @@ describe('ExerciseDetailModal', () => {
     const onOpenChange = vi.fn();
     const onSwapExercise = vi.fn();
 
-    render(
-      <ExerciseDetailModal
-        context="session"
-        exerciseId="incline-dumbbell-press"
-        onOpenChange={onOpenChange}
-        onSwapExercise={onSwapExercise}
-        open
-      />,
-    );
+    renderModal({
+      context: 'session',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange,
+      onSwapExercise,
+      open: true,
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap exercise' }));
 
@@ -142,15 +158,13 @@ describe('ExerciseDetailModal', () => {
     const onAddToTemplate = vi.fn();
     const onOpenChange = vi.fn();
 
-    render(
-      <ExerciseDetailModal
-        context="library"
-        exerciseId="incline-dumbbell-press"
-        onAddToTemplate={onAddToTemplate}
-        onOpenChange={onOpenChange}
-        open
-      />,
-    );
+    renderModal({
+      context: 'library',
+      exerciseId: 'incline-dumbbell-press',
+      onAddToTemplate,
+      onOpenChange,
+      open: true,
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Add to template' }));
 
@@ -159,17 +173,46 @@ describe('ExerciseDetailModal', () => {
   });
 
   it('shows no context action buttons in receipt context', () => {
-    render(
-      <ExerciseDetailModal
-        context="receipt"
-        exerciseId="incline-dumbbell-press"
-        onOpenChange={vi.fn()}
-        open
-      />,
-    );
+    renderModal({
+      context: 'receipt',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+    });
 
     expect(screen.queryByRole('button', { name: 'Edit exercise' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Swap exercise' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add to template' })).not.toBeInTheDocument();
+  });
+
+  it('defaults to history tab for session context', () => {
+    renderModal({
+      context: 'session',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange: vi.fn(),
+      open: true,
+    });
+
+    expect(screen.getByRole('tabpanel', { name: 'History' })).toBeInTheDocument();
+    expect(screen.getByText('Session history')).toBeInTheDocument();
+    expect(screen.queryByRole('tabpanel', { name: 'Overview' })).not.toBeInTheDocument();
+  });
+
+  it('renders a full workout receipt link for each history session and closes modal on click', () => {
+    const onOpenChange = vi.fn();
+
+    renderModal({
+      context: 'session',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange,
+      open: true,
+    });
+
+    const receiptLink = screen.getByRole('link', { name: 'View full workout' });
+    expect(receiptLink).toHaveAttribute('href', '/workouts/sessions/session-1');
+
+    fireEvent.click(receiptLink);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

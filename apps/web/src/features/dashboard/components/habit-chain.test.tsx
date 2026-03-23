@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUpdateHabitEntry } from '@/features/habits/api/habits';
+import { toDateKey } from '@/lib/date';
 
 import { HabitChain } from './habit-chain';
 
@@ -28,15 +29,13 @@ const DAYS = 30;
 const dayOffsets = Array.from({ length: DAYS }, (_, index) => DAYS - 1 - index);
 
 const today = new Date();
-today.setUTCHours(12, 0, 0, 0);
+today.setHours(12, 0, 0, 0);
 
 const addDays = (date: Date, days: number) => {
   const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
+  next.setDate(next.getDate() + days);
   return next;
 };
-
-const formatDateKey = (date: Date) => date.toISOString().slice(0, 10);
 
 const buildHabit = (id: string, name: string, missedOffsets: number[]): HabitMock => {
   const missedDays = new Set(missedOffsets);
@@ -45,7 +44,7 @@ const buildHabit = (id: string, name: string, missedOffsets: number[]): HabitMoc
     id,
     name,
     entries: dayOffsets.map((daysAgo) => ({
-      date: formatDateKey(addDays(today, -daysAgo)),
+      date: toDateKey(addDays(today, -daysAgo)),
       completed: !missedDays.has(daysAgo),
     })),
   };

@@ -72,8 +72,8 @@ describe('WorkoutCalendar', () => {
               {
                 id: 'schedule-2',
                 date: sessionDateKey,
-                templateId: 'template-2',
-                templateName: 'Accessory',
+                templateId: null,
+                templateName: null,
                 sessionId: null,
                 createdAt: 2,
               },

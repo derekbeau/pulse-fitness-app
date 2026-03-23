@@ -732,6 +732,17 @@ function ExerciseCardItem({
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
   const canRemoveSet = exercise.sets.length > 1;
+  const exercisePanelId = `exercise-panel-${exercise.id}`;
+  const toggleExpanded = () => {
+    setExpandedExercises((current) => ({
+      ...current,
+      [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? false),
+    }));
+  };
+  const handleMenuAction = (action: () => void) => (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    action();
+  };
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: exercise.id,
   });
@@ -751,11 +762,25 @@ function ExerciseCardItem({
         transition,
       }}
     >
-      <div className="flex items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-5 sm:py-5">
+      <div
+        aria-controls={exercisePanelId}
+        aria-expanded={isExpanded}
+        className="flex cursor-pointer items-center gap-1.5 px-3 py-3 transition-colors hover:bg-muted/50 sm:gap-2 sm:px-5 sm:py-5"
+        onClick={toggleExpanded}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleExpanded();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
         {showDragHandle ? (
           <Button
             aria-label={`Drag handle for ${exercise.name}`}
             className="size-7 touch-none shrink-0 sm:size-9"
+            onClick={(event) => event.stopPropagation()}
             size="icon"
             type="button"
             variant="ghost"
@@ -775,13 +800,9 @@ function ExerciseCardItem({
                   isExerciseComplete && 'text-muted line-through',
                 )}
               >
-                <button
-                  className="cursor-pointer truncate text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={onOpenHistory}
-                  type="button"
-                >
+                <span className="truncate">
                   {exercise.name}
-                </button>
+                </span>
               </h3>
               <p className="text-xs text-muted sm:text-sm">
                 {`${exercise.completedSets}/${exercise.targetSets} sets`}
@@ -790,24 +811,13 @@ function ExerciseCardItem({
             </div>
           </div>
 
-          <button
-            aria-controls={`exercise-panel-${exercise.id}`}
-            aria-expanded={isExpanded}
-            className="flex shrink-0 cursor-pointer items-center gap-2 sm:gap-3"
-            onClick={() =>
-              setExpandedExercises((current) => ({
-                ...current,
-                [resolvedCollapseKey]: !(current[resolvedCollapseKey] ?? false),
-              }))
-            }
-            type="button"
-          >
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="text-xs font-medium text-muted sm:text-sm">{`#${exerciseNumber}`}</span>
             <ChevronDown
               aria-hidden="true"
               className={cn('size-4 text-muted transition-transform', isExpanded && 'rotate-180')}
             />
-          </button>
+          </div>
         </div>
 
         <DropdownMenu>
@@ -815,6 +825,7 @@ function ExerciseCardItem({
             <Button
               aria-label={`Exercise actions for ${exercise.name}`}
               className="mt-0.5 size-8 shrink-0"
+              onClick={(event) => event.stopPropagation()}
               size="icon"
               type="button"
               variant="ghost"
@@ -822,25 +833,38 @@ function ExerciseCardItem({
               <MoreVertical aria-hidden="true" className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onSwapExercise}>Swap exercise</DropdownMenuItem>
-            <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
+          <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+            <DropdownMenuItem onClick={handleMenuAction(onSwapExercise)}>Swap exercise</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMenuAction(onOpenHistory)}>
+              Exercise Details
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isMoveUpDisabled} onClick={handleMenuAction(onMoveUp)}>
               <ArrowUp aria-hidden="true" className="size-4" />
               Move up
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
+            <DropdownMenuItem
+              disabled={isMoveDownDisabled}
+              onClick={handleMenuAction(onMoveDown)}
+            >
               <ArrowDown aria-hidden="true" className="size-4" />
               Move down
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRenameExercise}>Rename exercise</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAddSet(exercise.id)}>Add Set</DropdownMenuItem>
-            <DropdownMenuItem disabled={!canRemoveSet} onClick={() => onRemoveSet(exercise.id)}>
+            <DropdownMenuItem onClick={handleMenuAction(onRenameExercise)}>
+              Rename exercise
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMenuAction(() => onAddSet(exercise.id))}>
+              Add Set
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canRemoveSet}
+              onClick={handleMenuAction(() => onRemoveSet(exercise.id))}
+            >
               Remove Last Set
             </DropdownMenuItem>
             {onConfigureSuperset ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onConfigureSuperset}>
+                <DropdownMenuItem onClick={handleMenuAction(onConfigureSuperset)}>
                   <Braces aria-hidden="true" className="size-4" />
                   Configure superset
                 </DropdownMenuItem>
@@ -853,7 +877,7 @@ function ExerciseCardItem({
       <CardContent
         className="border-t border-border bg-secondary/25 px-4 py-4 sm:px-5"
         hidden={!isExpanded}
-        id={`exercise-panel-${exercise.id}`}
+        id={exercisePanelId}
       >
         <div className="space-y-4">
           <div className="space-y-3">
