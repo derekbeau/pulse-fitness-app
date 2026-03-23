@@ -7,6 +7,13 @@ import { HabitRowSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -20,6 +27,7 @@ import {
   trackingSurfaceClasses,
   weekdayLabels,
 } from '@/features/habits/lib/habit-constants';
+import { MarkdownNote } from '@/features/workouts/components/markdown-note';
 import type { HabitConfig } from '@/features/habits/types';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { getToday, isSameDay, normalizeDate, toDateKey } from '@/lib/date';
@@ -186,6 +194,12 @@ function parseInputValue(rawValue: string) {
   const numericValue = Number(rawValue);
 
   return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getHabitRationale(habit: Habit): string | null {
+  const rationale = (habit as Habit & { rationale?: unknown }).rationale;
+
+  return typeof rationale === 'string' ? rationale : null;
 }
 
 function getOperatorLabel(operator: string) {
@@ -360,6 +374,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const [descriptionModalHabitId, setDescriptionModalHabitId] = useState<string | null>(null);
 
   const habitsQuery = useHabits({
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
@@ -380,6 +395,12 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
     habitEntriesQuery.data ?? [],
     isSelectedDateToday,
   );
+  const selectedDescriptionHabit = descriptionModalHabitId
+    ? (dailyHabits.find((habit) => habit.id === descriptionModalHabitId) ?? null)
+    : null;
+  const selectedDescriptionHabitRationale = selectedDescriptionHabit
+    ? getHabitRationale(selectedDescriptionHabit.sourceHabit)
+    : null;
 
   const completedCount = dailyHabits.filter((habit) =>
     getHabitCompletion(habit, habit.todayValue),
@@ -589,9 +610,16 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                         ) : null}
                       </div>
                       {habit.sourceHabit.description ? (
-                        <p className="mt-0.5 truncate text-xs italic opacity-55 dark:text-muted-foreground">
-                          {habit.sourceHabit.description}
-                        </p>
+                        <button
+                          aria-label={`View full description for ${habit.name}`}
+                          className="mt-0.5 block min-h-[44px] w-full cursor-pointer text-left"
+                          onClick={() => setDescriptionModalHabitId(habit.sourceHabit.id)}
+                          type="button"
+                        >
+                          <p className="truncate text-xs italic opacity-55 dark:text-muted-foreground">
+                            {habit.sourceHabit.description}
+                          </p>
+                        </button>
                       ) : null}
                       {habit.autoText ? (
                         <p className="mt-0.5 truncate text-xs text-muted-foreground/85">
@@ -786,6 +814,38 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
         onOpenChange={handleFormDialogChange}
         open={isFormDialogOpen}
       />
+      <Dialog
+        open={selectedDescriptionHabit !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDescriptionModalHabitId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90dvh]">
+          <DialogHeader>
+            <DialogTitle>{selectedDescriptionHabit?.name ?? 'Habit details'}</DialogTitle>
+            <DialogDescription>Full habit details for today.</DialogDescription>
+          </DialogHeader>
+          {selectedDescriptionHabit?.sourceHabit.description ? (
+            <MarkdownNote
+              className="text-sm text-foreground [&_p]:leading-6"
+              content={selectedDescriptionHabit.sourceHabit.description}
+            />
+          ) : null}
+          {selectedDescriptionHabitRationale ? (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Rationale
+              </p>
+              <MarkdownNote
+                className="text-sm text-muted-foreground [&_p]:leading-6"
+                content={selectedDescriptionHabitRationale}
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
