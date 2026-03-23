@@ -1092,6 +1092,8 @@ describe('sessionSets schema', () => {
     expect(columns.completed.default).toBe(false);
     expect(columns.skipped.default).toBe(false);
     expect(columns.orderIndex.default).toBe(0);
+    expect(columns.section.notNull).toBe(true);
+    expect(columns.section.default).toBe('main');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
 
@@ -1107,11 +1109,12 @@ describe('sessionSets schema', () => {
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['session_sets_session_id_idx']);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
-      'session_sets_session_exercise_set_number_unique',
+      'session_sets_session_exercise_section_set_number_unique',
     );
     expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
       'session_id',
       'exercise_id',
+      'section',
       'set_number',
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([

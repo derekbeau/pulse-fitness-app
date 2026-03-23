@@ -1,5 +1,5 @@
 import type { Habit, HabitEntry } from '@pulse/shared';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -352,5 +352,42 @@ describe('DailyHabits', () => {
       id: 'entry-protein-link',
       isOverride: false,
     });
+  });
+
+  it('opens habit description dialog with markdown content and rationale', () => {
+    mockedUseHabits.mockReturnValue({
+      data: [
+        {
+          ...habits[0],
+          description: '**Hydrate** throughout the day',
+          rationale: 'Supports recovery and workout output.',
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabits>);
+    mockedUseHabitEntries.mockReturnValue({
+      data: [],
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useHabitEntries>);
+
+    render(<DailyHabits />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'View full description for Hydrate' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Hydrate' })).toBeInTheDocument();
+    expect(within(dialog).getByText(/throughout the day/)).toBeInTheDocument();
+    expect(within(dialog).getByText('Rationale')).toBeInTheDocument();
+    expect(within(dialog).getByText('Supports recovery and workout output.')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

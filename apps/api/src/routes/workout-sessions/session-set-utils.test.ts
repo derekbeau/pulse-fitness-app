@@ -78,7 +78,7 @@ describe('buildInitialSessionSets', () => {
 });
 
 describe('buildExerciseSectionOrder', () => {
-  it('tracks earliest order index per exercise', () => {
+  it('tracks earliest order index per exercise and section', () => {
     const order = buildExerciseSectionOrder([
       {
         exerciseId: 'ex-a',
@@ -105,6 +105,18 @@ describe('buildExerciseSectionOrder', () => {
         notes: null,
       },
       {
+        exerciseId: 'ex-a',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: null,
+        reps: null,
+        completed: false,
+        skipped: false,
+        supersetGroup: null,
+        section: 'cooldown',
+        notes: null,
+      },
+      {
         exerciseId: 'ex-b',
         orderIndex: 0,
         setNumber: 1,
@@ -118,8 +130,9 @@ describe('buildExerciseSectionOrder', () => {
       },
     ] satisfies CreateWorkoutSessionInput['sets']);
 
-    expect(order.get('ex-a')).toEqual({ section: 'main', orderIndex: 1 });
-    expect(order.get('ex-b')).toEqual({ section: 'warmup', orderIndex: 0 });
+    expect(order.get('ex-a::main')).toEqual({ section: 'main', orderIndex: 1 });
+    expect(order.get('ex-a::cooldown')).toEqual({ section: 'cooldown', orderIndex: 0 });
+    expect(order.get('ex-b::warmup')).toEqual({ section: 'warmup', orderIndex: 0 });
   });
 });
 
@@ -188,7 +201,7 @@ describe('reorderSessionSetsByExercise', () => {
 });
 
 describe('applyExerciseNotesToSets', () => {
-  it('applies notes only to each exercise first set when note is not null', () => {
+  it('applies notes only to each exercise first set per section when note is not null', () => {
     const sets = [
       {
         exerciseId: 'ex-a',
@@ -215,6 +228,18 @@ describe('applyExerciseNotesToSets', () => {
         notes: null,
       },
       {
+        exerciseId: 'ex-a',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: null,
+        reps: null,
+        completed: false,
+        skipped: false,
+        supersetGroup: null,
+        section: 'cooldown',
+        notes: null,
+      },
+      {
         exerciseId: 'ex-b',
         orderIndex: 1,
         setNumber: 1,
@@ -238,6 +263,7 @@ describe('applyExerciseNotesToSets', () => {
 
     expect(result[0]?.notes).toBeNull();
     expect(result[1]?.notes).toBe('Top set first');
-    expect(result[2]?.notes).toBeNull();
+    expect(result[2]?.notes).toBe('Top set first');
+    expect(result[3]?.notes).toBeNull();
   });
 });

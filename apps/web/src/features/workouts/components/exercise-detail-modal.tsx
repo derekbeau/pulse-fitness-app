@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { NotesIndicator } from '@/components/ui/notes-indicator';
 import { useExerciseHistory } from '@/hooks/use-exercise-history';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 
@@ -249,18 +250,20 @@ export function ExerciseDetailModal({
                       <p className="text-sm font-semibold text-foreground">
                         {`${historyDateFormatter.format(new Date(`${session.date}T12:00:00`))} · ${setSummary}`}
                       </p>
-                      <Link
-                        aria-label="View full workout"
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-muted/50 hover:text-foreground"
-                        onClick={() => handleOpenChange(false)}
-                        to={`/workouts/sessions/${session.sessionId}`}
-                      >
-                        <ExternalLink className="size-3.5" />
-                      </Link>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {session.notes?.trim() ? (
+                          <NotesIndicator className="h-7 w-7" notes={session.notes} />
+                        ) : null}
+                        <Link
+                          aria-label="View full workout"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-muted/50 hover:text-foreground"
+                          onClick={() => handleOpenChange(false)}
+                          to={`/workouts/sessions/${session.sessionId}`}
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Link>
+                      </div>
                     </div>
-                    {session.notes?.trim() ? (
-                      <p className="mt-1 text-xs text-muted">{`Notes: ${session.notes.trim()}`}</p>
-                    ) : null}
                   </div>
                 );
               })}

@@ -189,7 +189,7 @@ const seedSessionSet = (values: {
   completed?: boolean;
   skipped?: boolean;
   supersetGroup?: string | null;
-  section?: 'warmup' | 'main' | 'cooldown' | null;
+  section?: 'warmup' | 'main' | 'cooldown';
   notes?: string | null;
 }) =>
   context.db
@@ -210,7 +210,7 @@ const seedSessionSet = (values: {
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
       supersetGroup: values.supersetGroup ?? null,
-      section: values.section ?? null,
+      section: values.section ?? 'main',
       notes: values.notes ?? null,
     })
     .run();
@@ -2154,6 +2154,7 @@ describe('workout session routes', () => {
           startedAt: 1_700_000_100_000,
           completedAt: 1_700_000_103_000,
           duration: 50,
+          notes: 'Great pressing day',
           exerciseCount: 2,
           createdAt: createdPayload.data.createdAt,
         },
@@ -2167,6 +2168,7 @@ describe('workout session routes', () => {
           startedAt: 1_700_000_000_000,
           completedAt: 1_700_000_002_700,
           duration: 45,
+          notes: null,
           exerciseCount: 0,
           createdAt: expect.any(Number),
         },
@@ -3973,7 +3975,7 @@ describe('workout session routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         addExercises: [{ exerciseId: 'user-1-plank', sets: 1, section: 'main' }],
-        removeExercises: ['user-1-lat-pulldown'],
+        removeExercises: [{ exerciseId: 'user-1-lat-pulldown', section: 'main' }],
         reorderExercises: ['user-1-plank', 'global-bench-press'],
       },
     });
@@ -4023,7 +4025,7 @@ describe('workout session routes', () => {
       headers: createAgentTokenHeader(agentToken),
       payload: {
         addExercises: [{ name: 'RKC Plank', sets: 1, section: 'main' }],
-        removeExercises: ['user-1-lat-pulldown'],
+        removeExercises: [{ exerciseId: 'user-1-lat-pulldown', section: 'main' }],
         reorderExercises: ['user-1-plank', 'global-bench-press'],
       },
     });
@@ -4049,6 +4051,293 @@ describe('workout session routes', () => {
         (set) => set.exerciseId,
       ),
     ).not.toContain('user-1-lat-pulldown');
+  });
+
+  it('adds duplicate exercise ids in different sections and keeps section-local set numbering', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-sectioned-adds',
+      userId: 'user-1',
+      name: 'Sectioned Adds Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-sectioned-adds-main-1',
+      sessionId: 'session-sectioned-adds',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-sectioned-adds-main-2',
+      sessionId: 'session-sectioned-adds',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-sectioned-adds',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        addExercises: [
+          { exerciseId: 'global-bench-press', sets: 1, section: 'main' },
+          { exerciseId: 'global-bench-press', sets: 1, section: 'cooldown' },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      (response.json() as {
+        data: { sets: Array<{ exerciseId: string; section: string | null; setNumber: number }> };
+      }).data.sets.filter((set) => set.exerciseId === 'global-bench-press'),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ section: 'main', setNumber: 1 }),
+        expect.objectContaining({ section: 'main', setNumber: 2 }),
+        expect.objectContaining({ section: 'main', setNumber: 3 }),
+        expect.objectContaining({ section: 'cooldown', setNumber: 1 }),
+      ]),
+    );
+  });
+
+  it('removes exercises by exerciseId and section tuple', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-sectioned-removal',
+      userId: 'user-1',
+      name: 'Sectioned Removal Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-sectioned-removal-main',
+      sessionId: 'session-sectioned-removal',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+    seedSessionSet({
+      id: 'session-sectioned-removal-cooldown',
+      sessionId: 'session-sectioned-removal',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'cooldown',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-sectioned-removal',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: [{ exerciseId: 'global-bench-press', section: 'warmup' }],
+      },
+    });
+    expect(response.statusCode).toBe(200);
+
+    const sectionRemovalResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-sectioned-removal',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: [{ exerciseId: 'global-bench-press', section: 'main' }],
+      },
+    });
+
+    expect(sectionRemovalResponse.statusCode).toBe(200);
+    expect(
+      (sectionRemovalResponse.json() as {
+        data: { sets: Array<{ exerciseId: string; section: string | null }> };
+      }).data.sets,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ exerciseId: 'global-bench-press', section: 'cooldown' }),
+      ]),
+    );
+    expect(
+      (sectionRemovalResponse.json() as {
+        data: { sets: Array<{ exerciseId: string; section: string | null }> };
+      }).data.sets.some(
+        (set) => set.exerciseId === 'global-bench-press' && set.section === 'main',
+      ),
+    ).toBe(false);
+  });
+
+  it('requires force to remove exercises that already have logged sets', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-remove-force-guard',
+      userId: 'user-1',
+      name: 'Force Guard Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-remove-force-guard-bench',
+      sessionId: 'session-remove-force-guard',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      completed: true,
+    });
+    seedSessionSet({
+      id: 'session-remove-force-guard-lat',
+      sessionId: 'session-remove-force-guard',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const guardedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-force-guard',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: [{ exerciseId: 'global-bench-press', section: 'main' }],
+      },
+    });
+
+    expect(guardedResponse.statusCode).toBe(409);
+    expect(guardedResponse.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS',
+        message: 'Cannot remove an exercise with logged sets',
+      },
+    });
+
+    const forcedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-force-guard',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        force: true,
+        removeExercises: [{ exerciseId: 'global-bench-press', section: 'main' }],
+      },
+    });
+
+    expect(forcedResponse.statusCode).toBe(200);
+    expect(
+      (forcedResponse.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('global-bench-press');
+  });
+
+  it('removes exercises without force when no sets are logged yet', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-remove-no-force-needed',
+      userId: 'user-1',
+      name: 'No Force Needed Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-remove-no-force-needed-lat',
+      sessionId: 'session-remove-no-force-needed',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+      completed: false,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-no-force-needed',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: [{ exerciseId: 'user-1-lat-pulldown', section: 'main' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      (response.json() as { data: { sets: Array<{ exerciseId: string }> } }).data.sets.map(
+        (set) => set.exerciseId,
+      ),
+    ).not.toContain('user-1-lat-pulldown');
+  });
+
+  it('only checks logged sets within the removed section tuple', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-remove-section-force-scope',
+      userId: 'user-1',
+      name: 'Section Force Scope Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-remove-section-force-scope-main',
+      sessionId: 'session-remove-section-force-scope',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      completed: true,
+    });
+    seedSessionSet({
+      id: 'session-remove-section-force-scope-cooldown',
+      sessionId: 'session-remove-section-force-scope',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'cooldown',
+      completed: false,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-remove-section-force-scope',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        removeExercises: [{ exerciseId: 'global-bench-press', section: 'cooldown' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      (response.json() as {
+        data: { sets: Array<{ exerciseId: string; section: string | null }> };
+      }).data.sets,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ exerciseId: 'global-bench-press', section: 'main' }),
+      ]),
+    );
+    expect(
+      (response.json() as {
+        data: { sets: Array<{ exerciseId: string; section: string | null }> };
+      }).data.sets.some(
+        (set) => set.exerciseId === 'global-bench-press' && set.section === 'cooldown',
+      ),
+    ).toBe(false);
   });
 
   it('updates exercise superset groups and returns grouped exercise metadata', async () => {

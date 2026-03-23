@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  exercisePerformanceHistorySchema,
   exerciseHistoryWithRelatedSchema,
   exerciseLastPerformanceQuerySchema,
-  exerciseLastPerformancesSchema,
   type ExerciseLastPerformance,
 } from '@pulse/shared';
 
@@ -40,6 +40,7 @@ function mapLastPerformance(
 
   return {
     date: payload.date,
+    notes: null,
     sessionId: payload.sessionId,
     sets,
   };
@@ -59,7 +60,7 @@ async function getLastPerformance(
 
   try {
     const data = await apiRequest<unknown>(
-      `/api/v1/exercises/${exerciseId}/last-performance?${query}`,
+      `/api/v1/exercises/${exerciseId}/${includeRelated ? 'last-performance' : 'history'}?${query}`,
     );
 
     if (data == null) {
@@ -67,14 +68,25 @@ async function getLastPerformance(
     }
 
     if (!includeRelated) {
-      const payload = exerciseLastPerformancesSchema.parse(data);
+      const payload = exercisePerformanceHistorySchema.parse(data);
       const historyEntries = payload
-        .map((entry) => mapLastPerformance(entry))
+        .map((entry) =>
+          mapLastPerformance({
+            date: entry.date,
+            sessionId: entry.sessionId,
+            sets: entry.sets,
+          }),
+        )
         .filter((entry): entry is ActiveWorkoutLastPerformance => entry != null);
+      const notesBySessionId = new Map(payload.map((entry) => [entry.sessionId, entry.notes]));
+      const historyEntriesWithNotes = historyEntries.map((entry) => ({
+        ...entry,
+        notes: notesBySessionId.get(entry.sessionId) ?? null,
+      }));
 
       return {
-        history: historyEntries[0] ?? null,
-        historyEntries,
+        history: historyEntriesWithNotes[0] ?? null,
+        historyEntries: historyEntriesWithNotes,
         related: [],
       };
     }

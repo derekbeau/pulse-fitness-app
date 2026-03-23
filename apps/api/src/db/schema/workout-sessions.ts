@@ -140,7 +140,7 @@ export const sessionSets = sqliteTable(
     supersetGroup: text('superset_group'),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
-    section: text('section').$type<WorkoutTemplateSectionType>(),
+    section: text('section').$type<WorkoutTemplateSectionType>().notNull().default('main'),
     notes: text('notes'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
@@ -149,15 +149,16 @@ export const sessionSets = sqliteTable(
   },
   (table) => [
     index('session_sets_session_id_idx').on(table.sessionId),
-    unique('session_sets_session_exercise_set_number_unique').on(
+    unique('session_sets_session_exercise_section_set_number_unique').on(
       table.sessionId,
       table.exerciseId,
+      table.section,
       table.setNumber,
     ),
     check('session_sets_set_number_check', sql`${table.setNumber} > 0`),
     check(
       'session_sets_section_check',
-      sql`${table.section} is null or ${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,
+      sql`${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,
     ),
     check(
       'session_sets_completion_state_check',

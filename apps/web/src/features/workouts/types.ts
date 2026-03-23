@@ -103,6 +103,7 @@ export type ActiveWorkoutLastPerformanceSet = {
 
 export type ActiveWorkoutLastPerformance = {
   date: string;
+  notes?: string | null;
   sessionId: string;
   sets: ActiveWorkoutLastPerformanceSet[];
 };

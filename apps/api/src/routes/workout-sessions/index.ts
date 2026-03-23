@@ -53,6 +53,7 @@ import {
   buildExerciseSectionOrder,
   buildInitialSessionSets,
   reorderSessionSetsByExercise,
+  toExerciseSectionKey,
 } from './session-set-utils.js';
 
 import {
@@ -957,7 +958,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             completed: true,
             skipped: false,
             supersetGroup: null,
-            section: null,
+            section: 'main',
             notes: null,
           });
         }
@@ -1008,12 +1009,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       for (const exercise of body.addExercises) {
         const exerciseId = exercise.exerciseId;
-        const existingMetadata = exerciseSectionOrder.get(exerciseId);
-        const targetSection = existingMetadata?.section ?? exercise.section;
+        const targetSection = exercise.section;
+        const exerciseSectionKey = toExerciseSectionKey(exerciseId, targetSection);
+        const existingMetadata = exerciseSectionOrder.get(exerciseSectionKey);
         const orderIndex =
           existingMetadata?.orderIndex ?? nextOrderIndexBySection.get(targetSection) ?? 0;
         const maxSetNumber = merged.sets
-          .filter((set) => set.exerciseId === exerciseId)
+          .filter((set) => set.exerciseId === exerciseId && set.section === targetSection)
           .reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0);
 
         for (let setOffset = 1; setOffset <= exercise.sets; setOffset += 1) {
@@ -1032,7 +1034,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (!existingMetadata) {
-          exerciseSectionOrder.set(exerciseId, {
+          exerciseSectionOrder.set(exerciseSectionKey, {
             section: targetSection,
             orderIndex,
           });
@@ -1042,11 +1044,15 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (body.removeExercises) {
-      const removeExerciseIds = new Set(body.removeExercises);
-      const hasLoggedSets = merged.sets.some(
-        (set) => removeExerciseIds.has(set.exerciseId) && set.completed,
+      const removeExerciseSectionKeys = new Set(
+        body.removeExercises.map((exercise) =>
+          toExerciseSectionKey(exercise.exerciseId, exercise.section),
+        ),
       );
-      if (hasLoggedSets) {
+      const hasLoggedSets = merged.sets.some(
+        (set) => removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)) && set.completed,
+      );
+      if (hasLoggedSets && !body.force) {
         return sendError(
           reply,
           409,
@@ -1057,7 +1063,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       merged = {
         ...merged,
-        sets: merged.sets.filter((set) => !removeExerciseIds.has(set.exerciseId)),
+        sets: merged.sets.filter(
+          (set) =>
+            !removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)),
+        ),
       };
     }
 

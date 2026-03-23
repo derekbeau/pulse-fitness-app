@@ -406,6 +406,43 @@ describe('SessionExerciseList', () => {
     expect(onRemoveSet).not.toHaveBeenCalled();
   });
 
+  it('triggers remove exercise from the exercise actions menu', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const onRemoveExercise = vi.fn();
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveExercise={onRemoveExercise}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getAllByRole('button', { name: 'Remove exercise' })[0],
+    );
+
+    expect(onRemoveExercise).toHaveBeenCalledWith('row-erg', expect.any(String));
+  });
+
   it('opens rename dialog from the exercise actions menu', async () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -1570,12 +1607,14 @@ describe('SessionExerciseList', () => {
           data: {
             history: {
               date: '2026-03-20',
+              notes: 'Strong top set.',
               sessionId: 'session-4',
               sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
             },
             historyEntries: [
               {
                 date: '2026-03-20',
+                notes: 'Strong top set.',
                 sessionId: 'session-4',
                 sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
               },
@@ -1635,6 +1674,7 @@ describe('SessionExerciseList', () => {
     expect(within(card as HTMLElement).getByText(/Mar 20 · 75x6/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 18 · 70x8/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 15 · 65x10/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByRole('button', { name: 'View notes' })).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText(/Mar 10 · 60x12/)).not.toBeInTheDocument();
 
     useLastPerformanceSpy.mockRestore();

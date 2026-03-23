@@ -27,6 +27,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: 'Moved well.',
           sets: [
             {
               setNumber: 1,
@@ -54,6 +55,7 @@ describe('use-last-performance hook', () => {
       history: {
         sessionId: 'session-2',
         date: '2026-03-08',
+        notes: 'Moved well.',
         sets: [
           {
             completed: true,
@@ -73,6 +75,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: 'Moved well.',
           sets: [
             {
               completed: true,
@@ -92,7 +95,7 @@ describe('use-last-performance hook', () => {
       related: [],
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance?'),
+      expect.stringContaining('/api/v1/exercises/global-bench-press/history?'),
       expect.any(Object),
     );
     expect(mockFetch).not.toHaveBeenCalledWith(
@@ -151,6 +154,7 @@ describe('use-last-performance hook', () => {
           history: {
             sessionId: 'session-3',
             date: '2026-03-10',
+            notes: null,
             sets: [
               {
                 completed: true,
@@ -217,6 +221,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: null,
           sets: [
             {
               setNumber: 1,
@@ -228,6 +233,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-1',
           date: '2026-03-01',
+          notes: 'Smoother setup.',
           sets: [
             {
               setNumber: 1,
@@ -256,6 +262,7 @@ describe('use-last-performance hook', () => {
       history: {
         sessionId: 'session-2',
         date: '2026-03-08',
+        notes: null,
         sets: [
           {
             completed: true,
@@ -269,6 +276,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: null,
           sets: [
             {
               completed: true,
@@ -281,6 +289,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-1',
           date: '2026-03-01',
+          notes: 'Smoother setup.',
           sets: [
             {
               completed: true,
@@ -294,7 +303,7 @@ describe('use-last-performance hook', () => {
       related: [],
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance?limit=3'),
+      expect.stringContaining('/api/v1/exercises/global-bench-press/history?limit=3'),
       expect.any(Object),
     );
     expect(mockFetch).not.toHaveBeenCalledWith(
@@ -309,6 +318,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: null,
           sets: [
             {
               setNumber: 1,
@@ -338,6 +348,7 @@ describe('use-last-performance hook', () => {
       history: {
         sessionId: 'session-2',
         date: '2026-03-08',
+        notes: null,
         sets: [
           {
             completed: true,
@@ -351,6 +362,7 @@ describe('use-last-performance hook', () => {
         {
           sessionId: 'session-2',
           date: '2026-03-08',
+          notes: null,
           sets: [
             {
               completed: true,
@@ -364,7 +376,7 @@ describe('use-last-performance hook', () => {
       related: [],
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/exercises/global-bench-press/last-performance?limit=5'),
+      expect.stringContaining('/api/v1/exercises/global-bench-press/history?limit=5'),
       expect.any(Object),
     );
   });

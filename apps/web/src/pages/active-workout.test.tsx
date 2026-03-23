@@ -1127,7 +1127,7 @@ describe('ActiveWorkoutPage', () => {
       }
 
       if (
-        url.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+        url.includes('/api/v1/exercises/incline-dumbbell-press/history') &&
         !url.includes('includeRelated=true')
       ) {
         return Promise.resolve(
@@ -1136,6 +1136,7 @@ describe('ActiveWorkoutPage', () => {
               {
                 sessionId: 'session-1',
                 date: '2026-03-08',
+                notes: null,
                 sets: [{ setNumber: 1, weight: 70, reps: 10 }],
               },
             ],
@@ -1154,7 +1155,7 @@ describe('ActiveWorkoutPage', () => {
     await waitFor(() => {
       expect(
         mockFetch.mock.calls.some(([url]) =>
-          String(url).includes('/api/v1/exercises/incline-dumbbell-press/last-performance'),
+          String(url).includes('/api/v1/exercises/incline-dumbbell-press/history'),
         ),
       ).toBe(true);
     });
@@ -1171,7 +1172,7 @@ describe('ActiveWorkoutPage', () => {
       mockFetch.mock.calls.some(([url]) => {
         const urlText = String(url);
         return (
-          urlText.includes('/api/v1/exercises/incline-dumbbell-press/last-performance') &&
+          urlText.includes('/api/v1/exercises/incline-dumbbell-press/history') &&
           !urlText.includes('includeRelated=true') &&
           urlText.includes('limit=3')
         );

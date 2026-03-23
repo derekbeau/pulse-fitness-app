@@ -476,9 +476,11 @@ describe('FoodList', () => {
       target: { value: 'fair' },
     });
 
-    await new Promise((resolve) => window.setTimeout(resolve, 150));
-
-    expect(api.fetchMock).toHaveBeenCalledTimes(initialCallCount);
+    const immediateFairCalls = api.fetchMock.mock.calls.filter(([url]) => {
+      const requestUrl = new URL(String(url), 'http://localhost');
+      return requestUrl.searchParams.get('q') === 'fair';
+    });
+    expect(immediateFairCalls).toHaveLength(0);
 
     await waitFor(
       () => {

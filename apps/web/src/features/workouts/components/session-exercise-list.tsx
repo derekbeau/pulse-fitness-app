@@ -61,6 +61,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { NotesIndicator } from '@/components/ui/notes-indicator';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { ApiError } from '@/lib/api-client';
@@ -108,6 +109,10 @@ type SessionExerciseListProps = {
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental',
     exerciseIds: string[],
     supersetGroup: string | null,
+  ) => void | Promise<void>;
+  onRemoveExercise?: (
+    exerciseId: string,
+    section: ActiveWorkoutSessionData['sections'][number]['type'],
   ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
@@ -158,6 +163,7 @@ export function SessionExerciseList({
   onExerciseNotesChange,
   onFocusSetHandled,
   onReorderExercises,
+  onRemoveExercise,
   onUpdateSupersetGroup,
   onRemoveSet,
   onSetUpdate,
@@ -392,12 +398,14 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            sectionType={section.type}
                             onSwapExercise={() =>
                               setSwapTarget({
                                 exerciseId: item.exercise.id,
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            onRemoveExercise={onRemoveExercise}
                             onRemoveSet={onRemoveSet}
                             onSetUpdate={onSetUpdate}
                             repsInputRefs={repsInputRefs}
@@ -507,12 +515,14 @@ export function SessionExerciseList({
                                       exerciseName: exercise.name,
                                     })
                                   }
+                                  sectionType={section.type}
                                   onSwapExercise={() =>
                                     setSwapTarget({
                                       exerciseId: exercise.id,
                                       exerciseName: exercise.name,
                                     })
                                   }
+                                  onRemoveExercise={onRemoveExercise}
                                   onRemoveSet={onRemoveSet}
                                   onSetUpdate={onSetUpdate}
                                   repsInputRefs={repsInputRefs}
@@ -648,6 +658,10 @@ type ExerciseCardItemProps = {
   onMoveDown: () => void;
   onMoveUp: () => void;
   onOpenHistory: () => void;
+  onRemoveExercise?: (
+    exerciseId: string,
+    section: ActiveWorkoutSessionData['sections'][number]['type'],
+  ) => void | Promise<void>;
   onRenameExercise: () => void;
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
@@ -655,6 +669,7 @@ type ExerciseCardItemProps = {
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCues: string[];
   sessionCurrentExerciseId: string | null;
+  sectionType: ActiveWorkoutSessionData['sections'][number]['type'];
   setExpandedExercises: Dispatch<SetStateAction<Record<string, boolean>>>;
   showDragHandle?: boolean;
   weightUnit: WeightUnit;
@@ -677,11 +692,13 @@ function ExerciseCardItem({
   onMoveDown,
   onMoveUp,
   onOpenHistory,
+  onRemoveExercise,
   onRenameExercise,
   onSwapExercise,
   onRemoveSet,
   onSetUpdate,
   repsInputRefs,
+  sectionType,
   sessionCues,
   sessionCurrentExerciseId,
   setExpandedExercises,
@@ -861,6 +878,19 @@ function ExerciseCardItem({
             >
               Remove Last Set
             </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!onRemoveExercise}
+              onClick={handleMenuAction(() => {
+                if (!onRemoveExercise) {
+                  return;
+                }
+                void onRemoveExercise(exercise.id, sectionType);
+              })}
+              variant="destructive"
+            >
+              <Link2Off aria-hidden="true" className="size-4" />
+              Remove exercise
+            </DropdownMenuItem>
             {onConfigureSuperset ? (
               <>
                 <DropdownMenuSeparator />
@@ -939,9 +969,12 @@ function ExerciseCardItem({
                   return (
                     <div className="space-y-1">
                       {previewEntries.map((entry) => (
-                        <p className="text-sm text-foreground" key={entry.key}>
-                          {entry.text}
-                        </p>
+                        <div className="flex items-center gap-1.5" key={entry.key}>
+                          <p className="text-sm text-foreground">{entry.text}</p>
+                          {entry.notes?.trim() ? (
+                            <NotesIndicator className="h-6 w-6" notes={entry.notes} />
+                          ) : null}
+                        </div>
                       ))}
                     </div>
                   );
@@ -1289,6 +1322,7 @@ function formatHistoryPreviewEntries({
 
     return {
       key: history.sessionId,
+      notes: history.notes ?? null,
       text: `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`,
     };
   });

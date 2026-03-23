@@ -28,6 +28,7 @@ const recentWorkoutsFixture = [
     name: 'Upper Push A',
     date: '2026-03-05',
     duration: 3924,
+    notes: null,
     exerciseCount: 6,
   },
   {
@@ -35,6 +36,7 @@ const recentWorkoutsFixture = [
     name: 'Lower Strength',
     date: '2026-03-03',
     duration: 3600,
+    notes: null,
     exerciseCount: 5,
   },
   {
@@ -42,6 +44,7 @@ const recentWorkoutsFixture = [
     name: 'Upper Pull A',
     date: '2026-02-28',
     duration: 5400,
+    notes: null,
     exerciseCount: 7,
   },
   {
@@ -49,6 +52,7 @@ const recentWorkoutsFixture = [
     name: 'Conditioning Circuit',
     date: '2026-02-25',
     duration: 45,
+    notes: null,
     exerciseCount: 4,
   },
   {
@@ -56,6 +60,7 @@ const recentWorkoutsFixture = [
     name: 'Upper Push B',
     date: '2026-02-20',
     duration: null,
+    notes: null,
     exerciseCount: 6,
   },
 ];
@@ -188,6 +193,26 @@ describe('RecentWorkouts', () => {
     expect(relativeDateBadge).toHaveClass('text-emerald-700');
     expect(relativeDateBadge).toHaveClass('dark:bg-emerald-500/15');
     expect(relativeDateBadge).toHaveClass('dark:text-emerald-400');
+  });
+
+  it('renders a notes indicator for workouts that include notes', () => {
+    vi.mocked(useRecentWorkouts).mockReturnValue({
+      data: [
+        {
+          ...recentWorkoutsFixture[0],
+          notes: 'Felt sharp and consistent.',
+        },
+      ],
+      isLoading: false,
+    } as ReturnType<typeof useRecentWorkouts>);
+
+    render(
+      <MemoryRouter>
+        <RecentWorkouts />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('button', { name: 'View notes' })).toBeInTheDocument();
   });
 
   it('renders skeleton rows while loading', () => {

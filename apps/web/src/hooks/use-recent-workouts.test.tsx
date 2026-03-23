@@ -89,6 +89,7 @@ describe('useRecentWorkouts', () => {
         name: 'Upper Push A',
         date: '2026-03-08',
         duration: 61,
+        notes: null,
         exerciseCount: 2,
       },
       {
@@ -96,6 +97,7 @@ describe('useRecentWorkouts', () => {
         name: 'Lower Strength',
         date: '2026-03-05',
         duration: 70,
+        notes: null,
         exerciseCount: 1,
       },
     ]);

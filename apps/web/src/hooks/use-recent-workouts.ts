@@ -8,7 +8,10 @@ const DEFAULT_WORKOUT_LIMIT = 5;
 
 const workoutSessionListSchema = z.array(workoutSessionListItemSchema);
 
-export type RecentWorkout = Pick<WorkoutSessionListItem, 'id' | 'name' | 'date' | 'duration'> & {
+export type RecentWorkout = Pick<
+  WorkoutSessionListItem,
+  'id' | 'name' | 'date' | 'duration' | 'notes'
+> & {
   exerciseCount: number;
 };
 
@@ -34,6 +37,7 @@ const fetchRecentWorkouts = async (limit = DEFAULT_WORKOUT_LIMIT, signal?: Abort
     name: session.name,
     date: session.date,
     duration: session.duration,
+    notes: session.notes ?? null,
     exerciseCount: session.exerciseCount,
   }));
 };

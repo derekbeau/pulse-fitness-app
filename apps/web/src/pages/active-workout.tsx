@@ -123,6 +123,8 @@ type RestTimerState = {
 };
 
 const ACTIVE_WORKOUT_POLL_INTERVAL_MS = 10_000;
+const toExerciseSectionKey = (exerciseId: string, section: WorkoutTemplateSectionType) =>
+  `${exerciseId}::${section}`;
 
 export function ActiveWorkoutPage() {
   const queryClient = useQueryClient();
@@ -724,6 +726,7 @@ export function ActiveWorkoutPage() {
             }
             onFocusSetHandled={() => setFocusSetId(null)}
             onReorderExercises={handleReorderExercises}
+            onRemoveExercise={handleRemoveExercise}
             onRemoveSet={handleRemoveSet}
             onSetUpdate={handleSetUpdate}
             onUpdateSupersetGroup={handleUpdateSupersetGroup}
@@ -1088,6 +1091,174 @@ export function ActiveWorkoutPage() {
 
     if (focusSetId === removedSet.id) {
       setFocusSetId(null);
+    }
+  }
+
+  function removeExerciseFromLocalState(exerciseId: string, section: WorkoutTemplateSectionType) {
+    const remainingExerciseSectionKeys = new Set(
+      (Object.entries(exerciseOrderBySection) as Array<[WorkoutTemplateSectionType, string[]]>)
+        .flatMap(([sectionType, exerciseIds]) =>
+          exerciseIds.map((entryExerciseId) => toExerciseSectionKey(entryExerciseId, sectionType)),
+        )
+        .filter(
+          (exerciseSectionKey) =>
+            exerciseSectionKey !== toExerciseSectionKey(exerciseId, section),
+        ),
+    );
+    const hasExerciseInAnotherSection = (Object.keys(sectionTitleByType) as WorkoutTemplateSectionType[]).some(
+      (sectionType) =>
+        sectionType !== section &&
+        remainingExerciseSectionKeys.has(toExerciseSectionKey(exerciseId, sectionType)),
+    );
+    const removedSetIds = new Set(
+      (activeSession?.sets ?? [])
+        .filter((set) => set.exerciseId === exerciseId && set.section === section)
+        .map((set) => set.id),
+    );
+    const shouldRemoveExerciseScopedState = !hasExerciseInAnotherSection;
+
+    setSetDrafts((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
+      if (!(exerciseId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      Reflect.deleteProperty(next, exerciseId);
+      return next;
+    });
+    setExerciseNotes((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
+      if (!(exerciseId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      Reflect.deleteProperty(next, exerciseId);
+      return next;
+    });
+    setSessionCuesByExercise((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
+      if (!(exerciseId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      Reflect.deleteProperty(next, exerciseId);
+      return next;
+    });
+    setExerciseSupersetOverrides((current) => {
+      if (!shouldRemoveExerciseScopedState) {
+        return current;
+      }
+
+      if (!(exerciseId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      Reflect.deleteProperty(next, exerciseId);
+      return next;
+    });
+    setExerciseOrderBySection((current) => ({
+      ...current,
+      [section]: current[section].filter((id) => id !== exerciseId),
+    }));
+
+    if (
+      (shouldRemoveExerciseScopedState && restTimer?.exerciseId === exerciseId) ||
+      removedSetIds.has(restTimer?.setId ?? '')
+    ) {
+      setRestTimer(null);
+    }
+
+    if (removedSetIds.has(restTimerTargetSetId ?? '')) {
+      setRestTimerTargetSetId(null);
+    }
+
+    if (removedSetIds.has(focusSetId ?? '')) {
+      setFocusSetId(null);
+    }
+  }
+
+  async function commitExerciseRemoval(
+    exerciseId: string,
+    section: WorkoutTemplateSectionType,
+    options?: { force?: boolean },
+  ) {
+    if (!activeSessionId) {
+      removeExerciseFromLocalState(exerciseId, section);
+      return;
+    }
+
+    const updatedSession = await persistSessionExerciseRemoval({
+      exerciseId,
+      force: options?.force ?? false,
+      section,
+      sessionId: activeSessionId,
+    });
+
+    queryClient.setQueryData(workoutSessionQueryKeys.detail(activeSessionId), updatedSession);
+    queryClient.setQueryData(workoutQueryKeys.session(activeSessionId), updatedSession);
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: workoutSessionQueryKeys.detail(activeSessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: workoutQueryKeys.session(activeSessionId),
+      }),
+    ]);
+    removeExerciseFromLocalState(exerciseId, section);
+  }
+
+  async function handleRemoveExercise(exerciseId: string, section: WorkoutTemplateSectionType) {
+    setSessionError(null);
+
+    try {
+      await commitExerciseRemoval(exerciseId, section);
+    } catch (error) {
+      if (isSessionNotActiveError(error)) {
+        redirectToCompletedSessionNotice();
+        return;
+      }
+
+      if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS'
+      ) {
+        confirm({
+          title: 'Remove exercise?',
+          description: 'This exercise has logged sets. Remove it anyway?',
+          confirmLabel: 'Remove anyway',
+          cancelLabel: 'Keep exercise',
+          variant: 'destructive',
+          onConfirm: async () => {
+            try {
+              await commitExerciseRemoval(exerciseId, section, { force: true });
+            } catch (forceError) {
+              if (isSessionNotActiveError(forceError)) {
+                redirectToCompletedSessionNotice();
+                return;
+              }
+
+              setSessionError('Unable to remove exercise. Try again.');
+            }
+          },
+        });
+        return;
+      }
+
+      setSessionError('Unable to remove exercise. Try again.');
     }
   }
 
@@ -1975,6 +2146,29 @@ async function persistSessionSupersetGroups({
 }) {
   const payload = updateWorkoutSessionInputSchema.parse({
     exercises: exerciseUpdates,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(payload),
+    method: 'PATCH',
+  });
+
+  return workoutSessionSchema.parse(data);
+}
+
+async function persistSessionExerciseRemoval({
+  exerciseId,
+  force = false,
+  section,
+  sessionId,
+}: {
+  exerciseId: string;
+  force?: boolean;
+  section: WorkoutTemplateSectionType;
+  sessionId: string;
+}) {
+  const payload = updateWorkoutSessionInputSchema.parse({
+    force,
+    removeExercises: [{ exerciseId, section }],
   });
   const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
     body: JSON.stringify(payload),

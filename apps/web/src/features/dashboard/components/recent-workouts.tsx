@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { NotesIndicator } from '@/components/ui/notes-indicator';
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { formatRelativeWorkoutDate } from '@/features/dashboard/lib/recent-workouts';
 import { useRecentWorkouts } from '@/hooks/use-recent-workouts';
@@ -96,9 +97,17 @@ export function RecentWorkouts() {
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 space-y-1">
-                            <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">
-                              {workout.name}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-semibold leading-tight text-foreground sm:text-base">
+                                {workout.name}
+                              </p>
+                              {workout.notes?.trim() ? (
+                                <NotesIndicator
+                                  className="h-6 w-6 text-muted"
+                                  notes={workout.notes}
+                                />
+                              ) : null}
+                            </div>
                             <time className="text-sm text-muted" dateTime={workout.date}>
                               {formatWorkoutDate(workout.date)}
                             </time>

@@ -719,7 +719,7 @@ describe('updateWorkoutSessionInputSchema', () => {
         },
       ],
       addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10 }],
-      removeExercises: ['exercise-1'],
+      removeExercises: [{ exerciseId: 'exercise-1', section: 'main' }],
       reorderExercises: ['exercise-2', 'exercise-1'],
     });
 
@@ -746,7 +746,7 @@ describe('updateWorkoutSessionInputSchema', () => {
           section: 'main',
         },
       ],
-      removeExercises: ['exercise-1'],
+      removeExercises: [{ exerciseId: 'exercise-1', section: 'main' }],
       reorderExercises: ['exercise-2', 'exercise-1'],
     });
   });

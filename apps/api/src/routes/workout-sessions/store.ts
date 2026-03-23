@@ -111,6 +111,7 @@ const workoutSessionListSelection = {
   startedAt: workoutSessions.startedAt,
   completedAt: workoutSessions.completedAt,
   duration: workoutSessions.duration,
+  notes: workoutSessions.notes,
   exerciseCount: sql<number>`coalesce((
     select count(distinct ${sessionSets.exerciseId})
     from ${sessionSets}
@@ -353,7 +354,7 @@ const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput[
     supersetGroup: set.supersetGroup,
     completed: set.completed,
     skipped: set.skipped,
-    section: set.section,
+    section: set.section ?? 'main',
     notes: set.notes,
   }));
 
@@ -458,16 +459,17 @@ export const createSessionSet = async ({
   input: CreateSetInput;
 }): Promise<SessionSet> => {
   const { db } = await import('../../db/index.js');
+  const normalizedSection = input.section ?? 'main';
   const existingSets = db
     .select(sessionSetSelection)
     .from(sessionSets)
     .where(eq(sessionSets.sessionId, sessionId))
     .all();
   const sameExerciseOrderIndex = existingSets.find(
-    (set) => set.exerciseId === input.exerciseId && set.section === input.section,
+    (set) => set.exerciseId === input.exerciseId && set.section === normalizedSection,
   )?.orderIndex;
   const maxOrderIndexInSection = existingSets
-    .filter((set) => set.section === input.section)
+    .filter((set) => set.section === normalizedSection)
     .reduce((maxValue, set) => Math.max(maxValue, set.orderIndex), -1);
   const nextOrderIndex = sameExerciseOrderIndex ?? maxOrderIndexInSection + 1;
 
@@ -492,7 +494,7 @@ export const createSessionSet = async ({
       weight: input.weight,
       reps: input.reps,
       supersetGroup: sameExerciseSupersetGroup,
-      section: input.section,
+      section: normalizedSection,
     })
     .run();
 
@@ -758,11 +760,11 @@ export const batchUpsertSessionSets = async ({
       .where(eq(sessionSets.sessionId, sessionId))
       .all();
     const orderIndexByExerciseAndSection = new Map<string, number>();
-    const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType | null, number>();
+    const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType, number>();
     const supersetGroupByExerciseId = new Map<string, string | null>();
 
     for (const set of existingSets) {
-      const key = `${set.section ?? 'null'}:${set.exerciseId}`;
+      const key = `${set.section}:${set.exerciseId}`;
       if (!orderIndexByExerciseAndSection.has(key)) {
         orderIndexByExerciseAndSection.set(key, set.orderIndex);
       }
@@ -779,15 +781,16 @@ export const batchUpsertSessionSets = async ({
     }
 
     for (const set of input.sets) {
-      const orderIndexKey = `${set.section ?? 'null'}:${set.exerciseId}`;
+      const normalizedSection = set.section ?? 'main';
+      const orderIndexKey = `${normalizedSection}:${set.exerciseId}`;
       const hasExistingOrderIndex = orderIndexByExerciseAndSection.has(orderIndexKey);
       const nextOrderIndex =
         orderIndexByExerciseAndSection.get(orderIndexKey) ??
-        nextOrderIndexBySection.get(set.section) ??
+        nextOrderIndexBySection.get(normalizedSection) ??
         0;
       orderIndexByExerciseAndSection.set(orderIndexKey, nextOrderIndex);
-      if (!nextOrderIndexBySection.has(set.section) || !hasExistingOrderIndex) {
-        nextOrderIndexBySection.set(set.section, nextOrderIndex + 1);
+      if (!nextOrderIndexBySection.has(normalizedSection) || !hasExistingOrderIndex) {
+        nextOrderIndexBySection.set(normalizedSection, nextOrderIndex + 1);
       }
 
       if (set.id) {
@@ -801,7 +804,7 @@ export const batchUpsertSessionSets = async ({
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
-            section: set.section,
+            section: normalizedSection,
           })
           .where(and(eq(sessionSets.id, set.id), eq(sessionSets.sessionId, sessionId)))
           .run();
@@ -828,7 +831,7 @@ export const batchUpsertSessionSets = async ({
           weight: set.weight,
           reps: set.reps,
           supersetGroup: inheritedSupersetGroup,
-          section: set.section,
+          section: normalizedSection,
         })
         .run();
     }
