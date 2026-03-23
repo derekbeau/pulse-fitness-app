@@ -443,6 +443,35 @@ describe('SessionExerciseList', () => {
     expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeDisabled();
   });
 
+  it('toggles exercise expansion when clicking the exercise title text', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgToggle = getExercisePanelToggle('Row Erg', 'row-erg');
+    expect(rowErgToggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByText('Row Erg'));
+
+    expect(rowErgToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('opens swap dialog from the exercise actions menu and calls session swap endpoint', async () => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
@@ -611,6 +640,80 @@ describe('SessionExerciseList', () => {
       ).toBe(true);
     });
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  });
+
+  it('opens exercise details from the kebab menu without toggling the exercise card', async () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/row-erg') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'row-erg',
+              userId: 'user-1',
+              name: 'Row Erg',
+              muscleGroups: ['conditioning', 'upper back'],
+              equipment: 'rower',
+              category: 'cardio',
+              trackingType: 'cardio',
+              tags: [],
+              formCues: ['Stay tall'],
+              instructions: null,
+              coachingNotes: null,
+              relatedExerciseIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/row-erg/history') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+    if (!rowErgCard) throw new Error('Expected Row Erg card.');
+
+    const rowErgToggle = getExercisePanelToggle('Row Erg', 'row-erg');
+    expect(rowErgToggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Exercise actions for Row Erg' }),
+    );
+    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Exercise Details' }));
+
+    expect(rowErgToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('shows move up/down actions and calls onReorderExercises for active workout lists', () => {
