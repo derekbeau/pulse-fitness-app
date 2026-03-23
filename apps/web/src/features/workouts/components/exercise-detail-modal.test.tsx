@@ -99,9 +99,24 @@ describe('ExerciseDetailModal', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'History' }));
 
-    expect(screen.getByTestId('exercise-trend-chart')).toBeInTheDocument();
     expect(screen.getByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
     expect(screen.getByText('Notes: Felt strong.')).toBeInTheDocument();
+  });
+
+  it('renders trends tab with trend chart', () => {
+    render(
+      <ExerciseDetailModal
+        context="template"
+        exerciseId="incline-dumbbell-press"
+        onOpenChange={vi.fn()}
+        open
+        templateExerciseId="template-exercise-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Trends' }));
+
+    expect(screen.getByTestId('exercise-trend-chart')).toBeInTheDocument();
   });
 
   it('shows edit button in template context', () => {
@@ -171,5 +186,20 @@ describe('ExerciseDetailModal', () => {
     expect(screen.queryByRole('button', { name: 'Edit exercise' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Swap exercise' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add to template' })).not.toBeInTheDocument();
+  });
+
+  it('defaults to history tab for session context', () => {
+    render(
+      <ExerciseDetailModal
+        context="session"
+        exerciseId="incline-dumbbell-press"
+        onOpenChange={vi.fn()}
+        open
+      />,
+    );
+
+    expect(screen.getByRole('tabpanel', { name: 'History' })).toBeInTheDocument();
+    expect(screen.getByText('Session history')).toBeInTheDocument();
+    expect(screen.queryByRole('tabpanel', { name: 'Overview' })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import type { ExerciseTrackingType } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,6 @@ import { useExercise } from '../api/workouts';
 import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
 import { formatCompactSets } from '../lib/tracking';
 import type {
-  ActiveWorkoutExerciseHistoryPoint,
   ActiveWorkoutPerformanceHistorySession,
 } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
@@ -42,6 +41,10 @@ const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 const EMPTY_HISTORY: ActiveWorkoutPerformanceHistorySession[] = [];
 
+function getDefaultActiveTab(context: ExerciseDetailModalContext): 'overview' | 'history' | 'trends' {
+  return context === 'session' ? 'history' : 'overview';
+}
+
 export function ExerciseDetailModal({
   context,
   exerciseId,
@@ -53,11 +56,15 @@ export function ExerciseDetailModal({
 }: ExerciseDetailModalProps) {
   const tabId = useId();
   const { weightUnit } = useWeightUnit();
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'trends'>(
+    getDefaultActiveTab(context),
+  );
   const overviewTabId = `${tabId}-overview-tab`;
   const historyTabId = `${tabId}-history-tab`;
+  const trendsTabId = `${tabId}-trends-tab`;
   const overviewPanelId = `${tabId}-overview-panel`;
   const historyPanelId = `${tabId}-history-panel`;
+  const trendsPanelId = `${tabId}-trends-panel`;
   const exerciseQuery = useExercise(exerciseId, { enabled: open });
   const historyQuery = useExerciseHistory(exerciseId, {
     enabled: open,
@@ -66,10 +73,6 @@ export function ExerciseDetailModal({
   const exercise = exerciseQuery.data ?? null;
   const trackingType: ExerciseTrackingType = exercise?.trackingType ?? 'weight_reps';
   const historyList = historyQuery.data ?? EMPTY_HISTORY;
-  const trendHistory = useMemo(
-    () => toExerciseTrendHistory(historyQuery.data ?? EMPTY_HISTORY, trackingType),
-    [historyQuery.data, trackingType],
-  );
 
   const title = exercise?.name ?? 'Exercise details';
   const description = exercise
@@ -77,9 +80,7 @@ export function ExerciseDetailModal({
     : 'Exercise metadata unavailable';
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      setActiveTab('overview');
-    }
+    setActiveTab(getDefaultActiveTab(context));
     onOpenChange(nextOpen);
   };
 
@@ -123,6 +124,19 @@ export function ExerciseDetailModal({
             variant={activeTab === 'history' ? 'default' : 'outline'}
           >
             History
+          </Button>
+          <Button
+            aria-controls={trendsPanelId}
+            aria-selected={activeTab === 'trends'}
+            id={trendsTabId}
+            onClick={() => setActiveTab('trends')}
+            role="tab"
+            size="sm"
+            tabIndex={activeTab === 'trends' ? 0 : -1}
+            type="button"
+            variant={activeTab === 'trends' ? 'default' : 'outline'}
+          >
+            Trends
           </Button>
         </div>
 
@@ -203,18 +217,6 @@ export function ExerciseDetailModal({
             id={historyPanelId}
             role="tabpanel"
           >
-            {historyQuery.isPending ? (
-              <p className="text-sm text-muted">Loading exercise history...</p>
-            ) : (
-              <ExerciseTrendChart
-                className="border-border shadow-none"
-                exerciseName={exercise?.name ?? 'Exercise'}
-                history={trendHistory}
-                trackingType={trackingType}
-                weightUnit={weightUnit}
-              />
-            )}
-
             <div className="space-y-2">
               <p className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">
                 Session history
@@ -251,6 +253,27 @@ export function ExerciseDetailModal({
                 );
               })}
             </div>
+          </div>
+        ) : null}
+
+        {activeTab === 'trends' ? (
+          <div
+            aria-labelledby={trendsTabId}
+            className="space-y-4"
+            id={trendsPanelId}
+            role="tabpanel"
+          >
+            {historyQuery.isPending ? (
+              <p className="text-sm text-muted">Loading exercise history...</p>
+            ) : (
+              <ExerciseTrendChart
+                className="border-border shadow-none"
+                exerciseName={exercise?.name ?? 'Exercise'}
+                sessions={historyList}
+                trackingType={trackingType}
+                weightUnit={weightUnit}
+              />
+            )}
           </div>
         ) : null}
 
@@ -338,78 +361,4 @@ function formatLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function toExerciseTrendHistory(
-  sessions: ActiveWorkoutPerformanceHistorySession[],
-  trackingType: ExerciseTrackingType,
-): ActiveWorkoutExerciseHistoryPoint[] {
-  return sessions.flatMap((session) => {
-    const topSet = pickTopSessionSet(session.sets, trackingType);
-
-    if (!topSet || topSet.reps == null) {
-      return [];
-    }
-
-    return [
-      {
-        date: session.date,
-        distance: trackingType === 'distance' ? topSet.reps : null,
-        reps: topSet.reps,
-        seconds:
-          trackingType === 'seconds_only' ||
-          trackingType === 'cardio' ||
-          trackingType === 'weight_seconds' ||
-          trackingType === 'reps_seconds'
-            ? topSet.reps
-            : null,
-        trackingType,
-        weight: topSet.weight ?? 0,
-      },
-    ];
-  });
-}
-
-function pickTopSessionSet(
-  sets: ActiveWorkoutPerformanceHistorySession['sets'],
-  trackingType: ExerciseTrackingType,
-) {
-  const [firstSet, ...remainingSets] = sets;
-  if (!firstSet) {
-    return null;
-  }
-
-  return remainingSets.reduce((bestSet, currentSet) => {
-    if (currentSet.reps == null) {
-      return bestSet;
-    }
-
-    if (bestSet.reps == null) {
-      return currentSet;
-    }
-
-    if (
-      trackingType === 'seconds_only' ||
-      trackingType === 'cardio' ||
-      trackingType === 'weight_seconds' ||
-      trackingType === 'reps_seconds' ||
-      trackingType === 'distance' ||
-      trackingType === 'reps_only' ||
-      trackingType === 'bodyweight_reps'
-    ) {
-      return currentSet.reps > bestSet.reps ? currentSet : bestSet;
-    }
-
-    const currentWeight = currentSet.weight ?? 0;
-    const bestWeight = bestSet.weight ?? 0;
-    if (currentWeight > bestWeight) {
-      return currentSet;
-    }
-
-    if (currentWeight === bestWeight && currentSet.reps > bestSet.reps) {
-      return currentSet;
-    }
-
-    return bestSet;
-  }, firstSet);
 }
