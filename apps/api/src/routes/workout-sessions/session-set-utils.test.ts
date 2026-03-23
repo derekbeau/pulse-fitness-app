@@ -78,7 +78,7 @@ describe('buildInitialSessionSets', () => {
 });
 
 describe('buildExerciseSectionOrder', () => {
-  it('tracks earliest order index per exercise', () => {
+  it('tracks earliest order index per exercise and section', () => {
     const order = buildExerciseSectionOrder([
       {
         exerciseId: 'ex-a',
@@ -105,6 +105,18 @@ describe('buildExerciseSectionOrder', () => {
         notes: null,
       },
       {
+        exerciseId: 'ex-a',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: null,
+        reps: null,
+        completed: false,
+        skipped: false,
+        supersetGroup: null,
+        section: 'cooldown',
+        notes: null,
+      },
+      {
         exerciseId: 'ex-b',
         orderIndex: 0,
         setNumber: 1,
@@ -118,8 +130,9 @@ describe('buildExerciseSectionOrder', () => {
       },
     ] satisfies CreateWorkoutSessionInput['sets']);
 
-    expect(order.get('ex-a')).toEqual({ section: 'main', orderIndex: 1 });
-    expect(order.get('ex-b')).toEqual({ section: 'warmup', orderIndex: 0 });
+    expect(order.get('ex-a::main')).toEqual({ section: 'main', orderIndex: 1 });
+    expect(order.get('ex-a::cooldown')).toEqual({ section: 'cooldown', orderIndex: 0 });
+    expect(order.get('ex-b::warmup')).toEqual({ section: 'warmup', orderIndex: 0 });
   });
 });
 

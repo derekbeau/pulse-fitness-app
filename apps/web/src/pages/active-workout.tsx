@@ -1092,7 +1092,7 @@ export function ActiveWorkoutPage() {
     }
   }
 
-  function removeExerciseFromLocalState(exerciseId: string) {
+  function removeExerciseFromLocalState(exerciseId: string, section: WorkoutTemplateSectionType) {
     const removedSetIds = new Set((setDrafts[exerciseId] ?? []).map((set) => set.id));
 
     setSetDrafts((current) => {
@@ -1132,10 +1132,8 @@ export function ActiveWorkoutPage() {
       return next;
     });
     setExerciseOrderBySection((current) => ({
-      warmup: current.warmup.filter((id) => id !== exerciseId),
-      main: current.main.filter((id) => id !== exerciseId),
-      cooldown: current.cooldown.filter((id) => id !== exerciseId),
-      supplemental: current.supplemental.filter((id) => id !== exerciseId),
+      ...current,
+      [section]: current[section].filter((id) => id !== exerciseId),
     }));
 
     if (restTimer?.exerciseId === exerciseId || removedSetIds.has(restTimer?.setId ?? '')) {
@@ -1151,15 +1149,20 @@ export function ActiveWorkoutPage() {
     }
   }
 
-  async function commitExerciseRemoval(exerciseId: string, options?: { force?: boolean }) {
+  async function commitExerciseRemoval(
+    exerciseId: string,
+    section: WorkoutTemplateSectionType,
+    options?: { force?: boolean },
+  ) {
     if (!activeSessionId) {
-      removeExerciseFromLocalState(exerciseId);
+      removeExerciseFromLocalState(exerciseId, section);
       return;
     }
 
     const updatedSession = await persistSessionExerciseRemoval({
       exerciseId,
       force: options?.force ?? false,
+      section,
       sessionId: activeSessionId,
     });
 
@@ -1173,14 +1176,14 @@ export function ActiveWorkoutPage() {
         queryKey: workoutQueryKeys.session(activeSessionId),
       }),
     ]);
-    removeExerciseFromLocalState(exerciseId);
+    removeExerciseFromLocalState(exerciseId, section);
   }
 
-  async function handleRemoveExercise(exerciseId: string) {
+  async function handleRemoveExercise(exerciseId: string, section: WorkoutTemplateSectionType) {
     setSessionError(null);
 
     try {
-      await commitExerciseRemoval(exerciseId);
+      await commitExerciseRemoval(exerciseId, section);
     } catch (error) {
       if (isSessionNotActiveError(error)) {
         redirectToCompletedSessionNotice();
@@ -1200,7 +1203,7 @@ export function ActiveWorkoutPage() {
           variant: 'destructive',
           onConfirm: async () => {
             try {
-              await commitExerciseRemoval(exerciseId, { force: true });
+              await commitExerciseRemoval(exerciseId, section, { force: true });
             } catch (forceError) {
               if (isSessionNotActiveError(forceError)) {
                 redirectToCompletedSessionNotice();
@@ -2114,15 +2117,17 @@ async function persistSessionSupersetGroups({
 async function persistSessionExerciseRemoval({
   exerciseId,
   force = false,
+  section,
   sessionId,
 }: {
   exerciseId: string;
   force?: boolean;
+  section: WorkoutTemplateSectionType;
   sessionId: string;
 }) {
   const payload = updateWorkoutSessionInputSchema.parse({
     force,
-    removeExercises: [exerciseId],
+    removeExercises: [{ exerciseId, section }],
   });
   const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
     body: JSON.stringify(payload),

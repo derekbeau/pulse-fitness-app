@@ -1107,11 +1107,12 @@ describe('sessionSets schema', () => {
     expect(config.indexes.map((idx) => idx.config.name)).toEqual(['session_sets_session_id_idx']);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
-      'session_sets_session_exercise_set_number_unique',
+      'session_sets_session_exercise_section_set_number_unique',
     );
     expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
       'session_id',
       'exercise_id',
+      'section',
       'set_number',
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([

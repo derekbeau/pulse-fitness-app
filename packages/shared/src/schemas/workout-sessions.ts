@@ -413,6 +413,11 @@ const workoutSessionExerciseUpdateInputSchema = z.object({
   supersetGroup: nullableShortStringSchema.optional(),
 });
 
+const workoutSessionExerciseSectionInputSchema = z.object({
+  exerciseId: requiredStringSchema,
+  section: workoutTemplateSectionTypeSchema,
+});
+
 export const createWorkoutSessionInputSchema = z
   .object({
     templateId: nullableTemplateIdSchema.optional().default(null),
@@ -445,7 +450,7 @@ export const updateWorkoutSessionInputSchema = z
     exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),
     addExercises: z.array(workoutSessionExerciseMutationInputSchema).min(1).max(100).optional(),
-    removeExercises: z.array(requiredStringSchema).min(1).max(100).optional(),
+    removeExercises: z.array(workoutSessionExerciseSectionInputSchema).min(1).max(100).optional(),
     force: z.boolean().optional(),
     reorderExercises: z.array(requiredStringSchema).min(1).max(200).optional(),
     exercises: z.array(workoutSessionExerciseUpdateInputSchema).min(1).max(200).optional(),

@@ -440,7 +440,7 @@ describe('SessionExerciseList', () => {
       within(rowErgCard as HTMLElement).getAllByRole('button', { name: 'Remove exercise' })[0],
     );
 
-    expect(onRemoveExercise).toHaveBeenCalledWith('row-erg');
+    expect(onRemoveExercise).toHaveBeenCalledWith('row-erg', expect.any(String));
   });
 
   it('opens rename dialog from the exercise actions menu', async () => {

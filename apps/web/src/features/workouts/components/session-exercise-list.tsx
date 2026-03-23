@@ -110,7 +110,10 @@ type SessionExerciseListProps = {
     exerciseIds: string[],
     supersetGroup: string | null,
   ) => void | Promise<void>;
-  onRemoveExercise?: (exerciseId: string) => void | Promise<void>;
+  onRemoveExercise?: (
+    exerciseId: string,
+    section: ActiveWorkoutSessionData['sections'][number]['type'],
+  ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
   showDragHandles?: boolean;
@@ -395,6 +398,7 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            sectionType={section.type}
                             onSwapExercise={() =>
                               setSwapTarget({
                                 exerciseId: item.exercise.id,
@@ -511,6 +515,7 @@ export function SessionExerciseList({
                                       exerciseName: exercise.name,
                                     })
                                   }
+                                  sectionType={section.type}
                                   onSwapExercise={() =>
                                     setSwapTarget({
                                       exerciseId: exercise.id,
@@ -653,7 +658,10 @@ type ExerciseCardItemProps = {
   onMoveDown: () => void;
   onMoveUp: () => void;
   onOpenHistory: () => void;
-  onRemoveExercise?: (exerciseId: string) => void | Promise<void>;
+  onRemoveExercise?: (
+    exerciseId: string,
+    section: ActiveWorkoutSessionData['sections'][number]['type'],
+  ) => void | Promise<void>;
   onRenameExercise: () => void;
   onSwapExercise: () => void;
   onRemoveSet: (exerciseId: string) => void;
@@ -661,6 +669,7 @@ type ExerciseCardItemProps = {
   repsInputRefs: RefObject<Record<string, HTMLInputElement | null>>;
   sessionCues: string[];
   sessionCurrentExerciseId: string | null;
+  sectionType: ActiveWorkoutSessionData['sections'][number]['type'];
   setExpandedExercises: Dispatch<SetStateAction<Record<string, boolean>>>;
   showDragHandle?: boolean;
   weightUnit: WeightUnit;
@@ -689,6 +698,7 @@ function ExerciseCardItem({
   onRemoveSet,
   onSetUpdate,
   repsInputRefs,
+  sectionType,
   sessionCues,
   sessionCurrentExerciseId,
   setExpandedExercises,
@@ -874,7 +884,7 @@ function ExerciseCardItem({
                 if (!onRemoveExercise) {
                   return;
                 }
-                void onRemoveExercise(exercise.id);
+                void onRemoveExercise(exercise.id, sectionType);
               })}
               variant="destructive"
             >

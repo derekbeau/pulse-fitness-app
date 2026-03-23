@@ -149,9 +149,10 @@ export const sessionSets = sqliteTable(
   },
   (table) => [
     index('session_sets_session_id_idx').on(table.sessionId),
-    unique('session_sets_session_exercise_set_number_unique').on(
+    unique('session_sets_session_exercise_section_set_number_unique').on(
       table.sessionId,
       table.exerciseId,
+      table.section,
       table.setNumber,
     ),
     check('session_sets_set_number_check', sql`${table.setNumber} > 0`),

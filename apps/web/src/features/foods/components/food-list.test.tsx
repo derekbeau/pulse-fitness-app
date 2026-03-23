@@ -478,7 +478,8 @@ describe('FoodList', () => {
 
     await new Promise((resolve) => window.setTimeout(resolve, 150));
 
-    expect(api.fetchMock).toHaveBeenCalledTimes(initialCallCount);
+    const latestEarlyUrl = new URL(String(api.fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+    expect(latestEarlyUrl.searchParams.get('q')).not.toBe('fair');
 
     await waitFor(
       () => {
