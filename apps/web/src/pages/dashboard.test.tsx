@@ -101,6 +101,23 @@ vi.mock('@dnd-kit/core', () => ({
         show habit daily
       </button>
       <button
+        aria-label="Mock show habit daily group before snapshot"
+        onClick={() => {
+          onDragStart?.({ active: { id: 'habit-daily-group' } });
+          onDragOver?.({
+            active: { id: 'habit-daily-group' },
+            over: { id: 'snapshot-cards' },
+          });
+          onDragEnd?.({
+            active: { id: 'habit-daily-group' },
+            over: { id: 'snapshot-cards' },
+          });
+        }}
+        type="button"
+      >
+        show habit daily before snapshot
+      </button>
+      <button
         aria-label="Mock reorder widgets"
         onClick={() => {
           onDragStart?.({ active: { id: 'recent-workouts' } });
@@ -1085,6 +1102,37 @@ describe('DashboardPage', () => {
       visibleWidgets: expect.arrayContaining(DEFAULT_VISIBLE_WIDGETS),
     });
     expect(JSON.parse(String(saveRequest?.[1]?.body)).visibleWidgets[0]).toBe('recent-workouts');
+  });
+
+  it('keeps cross-container drop insertion position when dropping onto target widget', async () => {
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mock show habit daily group before snapshot' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    const saveRequest = mockFetch.mock.calls.find(([url, init]) => {
+      const raw = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+      return raw.includes('/api/v1/dashboard/config') && init?.method === 'PUT';
+    });
+
+    expect(saveRequest).toBeDefined();
+    expect(JSON.parse(String(saveRequest?.[1]?.body)).visibleWidgets.slice(0, 2)).toEqual([
+      'habit-daily:habit-meditate',
+      'snapshot-cards',
+    ]);
   });
 
   it('cancels inline edit changes without saving', async () => {

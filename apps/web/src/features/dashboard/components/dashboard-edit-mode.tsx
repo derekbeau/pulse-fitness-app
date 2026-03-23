@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { DASHBOARD_WIDGET_IDS, type Habit } from '@pulse/shared';
 import { ChevronDown, GripVertical, Settings2 } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import {
+  getHabitIdFromDailyWidgetId,
   isDashboardStaticWidgetId,
   isHabitDailyWidgetId,
   toHabitDailyWidgetId,
@@ -386,9 +387,10 @@ export function DashboardEditMode({
   const [visibleHabitDailyWidgetIds, setVisibleHabitDailyWidgetIds] = useState<HabitDailyWidgetId[]>(
     () => getInitialVisibleHabitDailyWidgetIds(visibleWidgets),
   );
+  const movedAcrossContainersRef = useRef(false);
 
   const visibleHabitIds = useMemo(
-    () => visibleHabitDailyWidgetIds.map((widgetId) => widgetId.slice('habit-daily:'.length)),
+    () => visibleHabitDailyWidgetIds.map(getHabitIdFromDailyWidgetId),
     [visibleHabitDailyWidgetIds],
   );
 
@@ -494,6 +496,7 @@ export function DashboardEditMode({
     if (!activeContainer || !overContainer || activeContainer === overContainer) {
       return;
     }
+    movedAcrossContainersRef.current = true;
 
     const sourceItems = activeContainer === ACTIVE_CONTAINER_ID ? activeWidgetIds : hiddenWidgetIds;
     const targetItems = overContainer === ACTIVE_CONTAINER_ID ? activeWidgetIds : hiddenWidgetIds;
@@ -539,6 +542,8 @@ export function DashboardEditMode({
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragId(null);
+    const movedAcrossContainers = movedAcrossContainersRef.current;
+    movedAcrossContainersRef.current = false;
 
     if (!event.over) {
       return;
@@ -550,6 +555,10 @@ export function DashboardEditMode({
     const overContainer = resolveContainer(event.over.id, activeWidgetIds, hiddenWidgetIds);
 
     if (!activeContainer || !overContainer) {
+      return;
+    }
+
+    if (movedAcrossContainers) {
       return;
     }
 
@@ -582,7 +591,10 @@ export function DashboardEditMode({
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
-        onDragStart={(event) => setActiveDragId(String(event.active.id) as EditableWidgetId)}
+        onDragStart={(event) => {
+          movedAcrossContainersRef.current = false;
+          setActiveDragId(String(event.active.id) as EditableWidgetId);
+        }}
         sensors={sensors}
       >
         <WidgetSection
@@ -619,13 +631,19 @@ export function DashboardEditMode({
           description="Drag hidden widgets back into active to show them."
           title="Hidden Widgets"
         >
-          <SortableContext items={hiddenWidgetIds} strategy={verticalListSortingStrategy}>
-            {hiddenWidgetIds.map((widgetId) => (
-              <SortableWidgetCard hidden id={widgetId} key={widgetId} label={getWidgetLabel(widgetId)}>
-                {renderWidgetContent(widgetId)}
-              </SortableWidgetCard>
-            ))}
-          </SortableContext>
+          {hiddenWidgetIds.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/70 bg-background/55 px-3 py-4 text-sm text-muted-foreground">
+              All widgets are active.
+            </p>
+          ) : (
+            <SortableContext items={hiddenWidgetIds} strategy={verticalListSortingStrategy}>
+              {hiddenWidgetIds.map((widgetId) => (
+                <SortableWidgetCard hidden id={widgetId} key={widgetId} label={getWidgetLabel(widgetId)}>
+                  {renderWidgetContent(widgetId)}
+                </SortableWidgetCard>
+              ))}
+            </SortableContext>
+          )}
         </WidgetSection>
 
         <DragOverlay>

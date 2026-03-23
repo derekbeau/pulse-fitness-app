@@ -459,11 +459,15 @@ export function DashboardPage() {
       );
     }
 
-    return (
-      <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['weight-trend']}>
-        <WeightTrendChart />
-      </DashboardWidgetFrame>
-    );
+    if (widgetId === 'weight-trend') {
+      return (
+        <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['weight-trend']}>
+          <WeightTrendChart />
+        </DashboardWidgetFrame>
+      );
+    }
+
+    return null;
   }
 
   function renderHabitDailyWidgetForEdit(habitId: string) {
