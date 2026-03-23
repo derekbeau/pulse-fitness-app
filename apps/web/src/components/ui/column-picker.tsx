@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { Columns3 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -36,11 +36,13 @@ export function ColumnPicker({
   className,
 }: ColumnPickerProps) {
   const fallbackId = useId();
+  const hasHydrated = useRef(false);
   const normalizedStorageKey = useMemo(() => storageKey?.trim() ?? '', [storageKey]);
   const validKeys = useMemo(() => new Set(columns.map((column) => column.key)), [columns]);
 
   useEffect(() => {
     if (!normalizedStorageKey) {
+      hasHydrated.current = true;
       return;
     }
 
@@ -66,11 +68,13 @@ export function ColumnPicker({
       onChange(nextVisibleColumns);
     } catch {
       return;
+    } finally {
+      hasHydrated.current = true;
     }
   }, [normalizedStorageKey, onChange, validKeys, visibleColumns]);
 
   useEffect(() => {
-    if (!normalizedStorageKey) {
+    if (!normalizedStorageKey || !hasHydrated.current) {
       return;
     }
 

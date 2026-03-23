@@ -21,6 +21,7 @@ function isViewMode(value: string | null): value is ViewToggleMode {
 export function ViewToggle({ view, onChange, storageKey, className }: ViewToggleProps) {
   const normalizedStorageKey = useMemo(() => storageKey?.trim() ?? '', [storageKey]);
 
+  // Keep onChange in deps for correctness; callers should pass a stable callback to avoid extra no-op hydration checks.
   useEffect(() => {
     if (!normalizedStorageKey) {
       return;

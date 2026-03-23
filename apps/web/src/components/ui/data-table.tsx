@@ -18,6 +18,7 @@ type DataTableProps<T> = {
   data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
+  onSort?: (columnKey: string) => void;
   onRowClick?: (row: T) => void;
 };
 
@@ -40,6 +41,7 @@ export function DataTable<T>({
   data,
   isLoading = false,
   emptyMessage = DEFAULT_EMPTY_MESSAGE,
+  onSort,
   onRowClick,
 }: DataTableProps<T>) {
   return (
@@ -56,10 +58,18 @@ export function DataTable<T>({
                 key={column.key}
                 scope="col"
               >
-                <span className="inline-flex items-center gap-1.5">
-                  {column.header}
-                  {column.sortable ? <ArrowUpDown aria-hidden="true" className="size-3.5" /> : null}
-                </span>
+                {column.sortable && onSort ? (
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onSort(column.key)}
+                    type="button"
+                  >
+                    {column.header}
+                    <ArrowUpDown aria-hidden="true" className="size-3.5" />
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">{column.header}</span>
+                )}
               </th>
             ))}
           </tr>
@@ -96,6 +106,17 @@ export function DataTable<T>({
                     )}
                     key={getRowKey(row, rowIndex)}
                     onClick={clickable ? () => onRowClick(row) : undefined}
+                    onKeyDown={
+                      clickable
+                        ? (event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={clickable ? 0 : undefined}
                   >
                     {columns.map((column) => (
                       <td className={cn('px-4 py-3 align-middle', column.className)} key={column.key}>
