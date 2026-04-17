@@ -28,6 +28,7 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
+import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
 
@@ -227,11 +228,14 @@ const buildWorkoutSession = (
     }
   >,
 ): WorkoutSession => {
-  const parsedTimeSegments = parseWorkoutSessionTimeSegments(session.timeSegments);
+  const parsedTimeSegments = backfillTimeSegmentSections(
+    parseWorkoutSessionTimeSegments(session.timeSegments),
+  );
   const timeSegments =
     parsedTimeSegments.length === 0 && session.status === 'in-progress'
-      ? [{ start: new Date(session.startedAt).toISOString(), end: null }]
+      ? [{ start: new Date(session.startedAt).toISOString(), end: null, section: 'main' as const }]
       : parsedTimeSegments;
+  const sectionDurations = calculateSectionDurations(timeSegments);
 
   return {
     id: session.id,
@@ -244,6 +248,7 @@ const buildWorkoutSession = (
     completedAt: session.completedAt,
     duration: session.duration,
     timeSegments,
+    sectionDurations,
     feedback: parseWorkoutSessionFeedback(session.feedback),
     notes: session.notes,
     exercises: buildWorkoutSessionExercises(sets, exerciseInfoById),
@@ -288,8 +293,10 @@ const buildWorkoutSessionExercises = (
     const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
     const existing = groupedByExercise.get(groupKey);
     const parsedSet = buildSessionSet(set);
-    const exerciseInfo = typeof set.exerciseId === 'string' ? exerciseInfoById.get(set.exerciseId) : undefined;
-    const exerciseName = set.exerciseId === null ? 'Deleted exercise' : (exerciseInfo?.name ?? 'Unknown Exercise');
+    const exerciseInfo =
+      typeof set.exerciseId === 'string' ? exerciseInfoById.get(set.exerciseId) : undefined;
+    const exerciseName =
+      set.exerciseId === null ? 'Deleted exercise' : (exerciseInfo?.name ?? 'Unknown Exercise');
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);

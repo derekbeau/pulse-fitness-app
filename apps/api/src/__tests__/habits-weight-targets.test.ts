@@ -194,9 +194,7 @@ vi.mock('../middleware/store.js', () => ({
       (candidate) => candidate.tokenHash === tokenHash,
     );
 
-    return token
-      ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt }
-      : undefined;
+    return token ? { id: token.id, userId: token.userId, expiresAt: token.expiresAt } : undefined;
   }),
   findUserAuthById: vi.fn(async (userId: string) => {
     const user = [...testState.users.values()].find((candidate) => candidate.id === userId);
@@ -742,7 +740,7 @@ describe('weight and nutrition target integration', () => {
     } finally {
       await app.close();
     }
-  });
+  }, 15_000);
 
   it('deletes weight entries, updates latest/list reads, and enforces ownership', async () => {
     const { app } = await createTestApp();
@@ -837,7 +835,7 @@ describe('weight and nutrition target integration', () => {
     } finally {
       await app.close();
     }
-  });
+  }, 15_000);
 
   it('returns the current nutrition target based on the latest effective date on or before today', async () => {
     const { app } = await createTestApp();

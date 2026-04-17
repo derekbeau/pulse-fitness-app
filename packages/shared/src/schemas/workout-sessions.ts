@@ -97,10 +97,24 @@ export const workoutSessionStatusSchema = z.enum([
   'cancelled',
   'completed',
 ]);
+export const workoutSectionSchema = workoutTemplateSectionTypeSchema;
+const defaultWorkoutSessionSectionDurations = {
+  warmup: 0,
+  main: 0,
+  cooldown: 0,
+  supplemental: 0,
+} as const;
+export const workoutSessionSectionDurationsSchema = z.object({
+  warmup: z.number().int().min(0),
+  main: z.number().int().min(0),
+  cooldown: z.number().int().min(0),
+  supplemental: z.number().int().min(0),
+});
 export const timeSegmentsSchema = z.array(
   z.object({
     start: z.string(),
     end: z.string().nullable(),
+    section: workoutSectionSchema,
   }),
 );
 
@@ -113,7 +127,10 @@ const validateTimeSegments = (
   timeSegments: z.infer<typeof timeSegmentsSchema>,
   context: z.RefinementCtx,
 ) => {
+  let previousStart: number | null = null;
   let previousEnd: number | null = null;
+  let openSegmentCount = 0;
+  let openSegmentIndex = -1;
 
   for (const [index, segment] of timeSegments.entries()) {
     const start = parseIsoTimestamp(segment.start);
@@ -122,6 +139,15 @@ const validateTimeSegments = (
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Segment start must be a valid ISO timestamp',
+        path: [index, 'start'],
+      });
+      return;
+    }
+
+    if (previousStart !== null && start < previousStart) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Time segments must be chronologically ordered and non-overlapping',
         path: [index, 'start'],
       });
       return;
@@ -157,17 +183,21 @@ const validateTimeSegments = (
       }
 
       previousEnd = end;
+      previousStart = start;
       continue;
     }
 
-    if (index !== timeSegments.length - 1) {
+    openSegmentCount += 1;
+    if (openSegmentCount > 1) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Only the final segment may be open',
+        message: 'Only one segment may be open at a time',
         path: [index, 'end'],
       });
       return;
     }
+
+    openSegmentIndex = index;
 
     if (previousEnd !== null && start < previousEnd) {
       context.addIssue({
@@ -177,6 +207,16 @@ const validateTimeSegments = (
       });
       return;
     }
+
+    previousStart = start;
+  }
+
+  if (openSegmentIndex !== -1 && openSegmentIndex !== timeSegments.length - 1) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only the final segment may be open',
+      path: [openSegmentIndex, 'end'],
+    });
   }
 };
 export const validatedTimeSegmentsSchema = timeSegmentsSchema.superRefine(validateTimeSegments);
@@ -304,6 +344,9 @@ export const workoutSessionSchema = z
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
     timeSegments: timeSegmentsSchema,
+    sectionDurations: workoutSessionSectionDurationsSchema.default(
+      defaultWorkoutSessionSectionDurations,
+    ),
     feedback: workoutSessionFeedbackSchema.nullable(),
     notes: nullableLongStringSchema,
     exercises: z.array(workoutSessionExerciseSchema).optional(),
@@ -442,6 +485,7 @@ export const updateWorkoutSessionInputSchema = z
     name: requiredStringSchema.optional(),
     date: dateSchema.optional(),
     status: workoutSessionStatusSchema.optional(),
+    activeSection: workoutSectionSchema.optional(),
     startedAt: z.number().int().optional(),
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
@@ -462,6 +506,13 @@ export const updateWorkoutSessionInputSchema = z
 
 export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
   timeSegments: validatedTimeSegmentsSchema,
+});
+
+export const workoutSessionSectionTimerActionSchema = z.enum(['start', 'pause']);
+
+export const updateWorkoutSessionSectionTimerInputSchema = z.object({
+  section: workoutSectionSchema,
+  action: workoutSessionSectionTimerActionSchema,
 });
 
 export const setCorrectionSchema = z
@@ -521,6 +572,8 @@ export const workoutSessionQueryParamsSchema = z
   });
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
+export type WorkoutSection = z.infer<typeof workoutSectionSchema>;
+export type WorkoutSessionSectionDurations = z.infer<typeof workoutSessionSectionDurationsSchema>;
 export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[number];
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
@@ -533,6 +586,9 @@ export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInput
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
   typeof updateWorkoutSessionTimeSegmentsInputSchema
+>;
+export type UpdateWorkoutSessionSectionTimerInput = z.infer<
+  typeof updateWorkoutSessionSectionTimerInputSchema
 >;
 export type SetCorrection = z.infer<typeof setCorrectionSchema>;
 export type SessionCorrectionRequest = z.infer<typeof sessionCorrectionRequestSchema>;

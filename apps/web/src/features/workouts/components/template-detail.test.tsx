@@ -112,6 +112,7 @@ const createdSessionPayload = {
       {
         start: '2026-03-07T00:00:00.000Z',
         end: null,
+        section: 'main',
       },
     ],
     feedback: null,
@@ -1368,7 +1369,9 @@ describe('WorkoutTemplateDetail', () => {
     ).toBeInTheDocument();
     expect(within(dialog).getByText('Form cues')).toBeInTheDocument();
     expect(within(dialog).getByText('Drive elbows 45°')).toBeInTheDocument();
-    expect(within(dialog).getByText('Keep your upper back pinned to the bench.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Keep your upper back pinned to the bench.'),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('tab', { name: 'History' }));
     expect(await within(dialog).findByText('Mar 6, 2026 · 70x10, 70x9')).toBeInTheDocument();
@@ -1441,7 +1444,9 @@ describe('WorkoutTemplateDetail', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Incline Dumbbell Press' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(await within(dialog).findByText('Keep your upper back pinned to the bench.')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('Keep your upper back pinned to the bench.'),
+    ).toBeInTheDocument();
   });
 
   it('shows history fallback without error toast when exercise detail queries return 404', async () => {

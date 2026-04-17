@@ -14,6 +14,7 @@ import {
   type SessionSetInput,
   updateSetSchema,
   updateWorkoutSessionInputSchema,
+  updateWorkoutSessionSectionTimerInputSchema,
   updateWorkoutSessionTimeSegmentsInputSchema,
   workoutSessionListItemSchema,
   workoutSessionQueryParamsSchema,
@@ -78,7 +79,12 @@ import {
   WorkoutSessionNotCompletedError,
   WorkoutSessionNotFoundError,
 } from './store.js';
-import { calculateActiveDuration, closeOpenTimeSegment, openTimeSegment } from './time-segments.js';
+import {
+  calculateActiveDuration,
+  closeOpenTimeSegment,
+  findOpenTimeSegment,
+  openTimeSegment,
+} from './time-segments.js';
 
 const sessionIdParamsSchema = z.object({
   sessionId: opaqueIdParamSchema,
@@ -138,6 +144,28 @@ const WORKOUT_SESSION_CORRECTION_NOT_COMPLETED_RESPONSE = {
 const WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE = {
   code: 'WORKOUT_SESSION_INVALID_TRANSITION',
   message: 'Invalid workout session status transition',
+} as const;
+
+const WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED_RESPONSE = {
+  code: 'WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED',
+  message: 'activeSection is required when transitioning a session to in-progress',
+} as const;
+
+const WORKOUT_SESSION_SECTION_SWITCH_REQUIRES_PAUSE_RESPONSE = {
+  code: 'WORKOUT_SESSION_SECTION_SWITCH_REQUIRES_PAUSE',
+  message:
+    'Cannot switch active workout sections while already in-progress. Pause first, then start the next section.',
+} as const;
+
+const WORKOUT_SESSION_SECTION_TIMER_REQUIRES_IN_PROGRESS_RESPONSE = {
+  code: 'WORKOUT_SESSION_SECTION_TIMER_REQUIRES_IN_PROGRESS',
+  message: 'Section timers can only be changed while the workout session is in-progress',
+} as const;
+
+const WORKOUT_SESSION_SECTION_TIMER_PAUSE_MISMATCH_RESPONSE = {
+  code: 'WORKOUT_SESSION_SECTION_TIMER_PAUSE_MISMATCH',
+  message:
+    'Cannot pause section timer because no matching section timer is currently running for this session',
 } as const;
 
 const WORKOUT_SESSION_NOT_SWAPPABLE_RESPONSE = {
@@ -374,7 +402,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         input.status === 'in-progress' && input.timeSegments.length === 0
           ? {
               ...input,
-              timeSegments: [{ start: toIsoString(input.startedAt), end: null }],
+              timeSegments: [
+                { start: toIsoString(input.startedAt), end: null, section: 'main' as const },
+              ],
             }
           : input;
 
@@ -795,12 +825,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     currentTimeSegments,
     requestedCompletedAt,
     requestedDuration,
+    requestedActiveSection,
   }: {
     existingStatus: CreateWorkoutSessionInput['status'];
     requestedStatus: CreateWorkoutSessionInput['status'];
     currentTimeSegments: CreateWorkoutSessionInput['timeSegments'];
     requestedCompletedAt: number | null;
     requestedDuration: number | null;
+    requestedActiveSection: z.infer<typeof updateWorkoutSessionInputSchema>['activeSection'];
   }) => {
     let nextTimeSegments = currentTimeSegments;
     let nextDuration = requestedDuration;
@@ -808,6 +840,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     if (requestedStatus === 'paused' && existingStatus !== 'in-progress') {
       return {
         ok: false as const,
+        code: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
+        message: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
+        statusCode: 409,
       };
     }
 
@@ -819,18 +854,27 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     ) {
       return {
         ok: false as const,
+        code: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
+        message: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
+        statusCode: 409,
       };
     }
 
     if (requestedStatus === 'completed' && existingStatus === 'cancelled') {
       return {
         ok: false as const,
+        code: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
+        message: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
+        statusCode: 409,
       };
     }
 
     if (requestedStatus === 'cancelled' && existingStatus === 'completed') {
       return {
         ok: false as const,
+        code: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
+        message: WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
+        statusCode: 409,
       };
     }
 
@@ -846,7 +890,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (requestedStatus === 'in-progress' && existingStatus === 'paused') {
-      nextTimeSegments = openTimeSegment(nextTimeSegments, nowIsoString());
+      if (!requestedActiveSection) {
+        return {
+          ok: false as const,
+          code: WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED_RESPONSE.code,
+          message: WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED_RESPONSE.message,
+          statusCode: 400,
+        };
+      }
+
+      nextTimeSegments = openTimeSegment(nextTimeSegments, nowIsoString(), requestedActiveSection);
       return {
         ok: true as const,
         completedAt: null,
@@ -856,8 +909,21 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (requestedStatus === 'in-progress' && existingStatus === 'scheduled') {
+      if (!requestedActiveSection) {
+        return {
+          ok: false as const,
+          code: WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED_RESPONSE.code,
+          message: WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED_RESPONSE.message,
+          statusCode: 400,
+        };
+      }
+
       if (!nextTimeSegments.some((segment) => segment.end === null)) {
-        nextTimeSegments = openTimeSegment(nextTimeSegments, nowIsoString());
+        nextTimeSegments = openTimeSegment(
+          nextTimeSegments,
+          nowIsoString(),
+          requestedActiveSection,
+        );
       }
 
       return {
@@ -886,6 +952,34 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return {
         ok: true as const,
         completedAt,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
+    }
+
+    if (requestedStatus === 'in-progress' && existingStatus === 'in-progress') {
+      if (!requestedActiveSection) {
+        return {
+          ok: true as const,
+          completedAt: requestedCompletedAt,
+          duration: nextDuration,
+          timeSegments: nextTimeSegments,
+        };
+      }
+
+      const openSegment = findOpenTimeSegment(nextTimeSegments);
+      if (openSegment && openSegment.segment.section !== requestedActiveSection) {
+        return {
+          ok: false as const,
+          code: WORKOUT_SESSION_SECTION_SWITCH_REQUIRES_PAUSE_RESPONSE.code,
+          message: WORKOUT_SESSION_SECTION_SWITCH_REQUIRES_PAUSE_RESPONSE.message,
+          statusCode: 409,
+        };
+      }
+
+      return {
+        ok: true as const,
+        completedAt: requestedCompletedAt,
         duration: nextDuration,
         timeSegments: nextTimeSegments,
       };
@@ -1062,7 +1156,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         ),
       );
       const hasLoggedSets = merged.sets.some(
-        (set) => removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)) && set.completed,
+        (set) =>
+          removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)) &&
+          set.completed,
       );
       if (hasLoggedSets && !body.force) {
         return sendError(
@@ -1155,13 +1251,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       currentTimeSegments: basePayload.timeSegments,
       requestedCompletedAt: basePayload.completedAt,
       requestedDuration: basePayload.duration,
+      requestedActiveSection: body.activeSection,
     });
     if (!transitionResult.ok) {
       return sendError(
         reply,
-        409,
-        WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.code,
-        WORKOUT_SESSION_INVALID_TRANSITION_RESPONSE.message,
+        transitionResult.statusCode,
+        transitionResult.code,
+        transitionResult.message,
       );
     }
 
@@ -1279,6 +1376,99 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         buildDataResponse(request, updated, {
           endpoint: 'workout-session.mutation',
           action: 'time-segments',
+          session: updated,
+        }),
+      );
+    },
+  );
+
+  typedApp.patch(
+    '/:id/section-timer',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: updateWorkoutSessionSectionTimerInputSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Start or pause a workout section timer',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (existingSession.status !== 'in-progress') {
+        return sendError(
+          reply,
+          409,
+          WORKOUT_SESSION_SECTION_TIMER_REQUIRES_IN_PROGRESS_RESPONSE.code,
+          WORKOUT_SESSION_SECTION_TIMER_REQUIRES_IN_PROGRESS_RESPONSE.message,
+        );
+      }
+
+      const basePayload = toCreateWorkoutSessionInput(existingSession);
+      const actionedAt = nowIsoString();
+      const openSegment = findOpenTimeSegment(basePayload.timeSegments);
+      let nextTimeSegments = basePayload.timeSegments;
+
+      if (request.body.action === 'start') {
+        nextTimeSegments = closeOpenTimeSegment(nextTimeSegments, actionedAt);
+        nextTimeSegments = openTimeSegment(nextTimeSegments, actionedAt, request.body.section);
+      } else {
+        if (!openSegment || openSegment.segment.section !== request.body.section) {
+          return sendError(
+            reply,
+            409,
+            WORKOUT_SESSION_SECTION_TIMER_PAUSE_MISMATCH_RESPONSE.code,
+            WORKOUT_SESSION_SECTION_TIMER_PAUSE_MISMATCH_RESPONSE.message,
+          );
+        }
+
+        nextTimeSegments = closeOpenTimeSegment(nextTimeSegments, actionedAt);
+      }
+
+      const payload = createWorkoutSessionInputSchema.safeParse({
+        ...basePayload,
+        status: 'in-progress',
+        timeSegments: nextTimeSegments,
+        duration: calculateActiveDuration(nextTimeSegments),
+      });
+      if (!payload.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const updated = await updateWorkoutSession({
+        id: request.params.id,
+        userId: request.userId,
+        input: payload.data,
+      });
+      if (!updated) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, updated, {
+          endpoint: 'workout-session.mutation',
+          action: 'section-timer',
           session: updated,
         }),
       );

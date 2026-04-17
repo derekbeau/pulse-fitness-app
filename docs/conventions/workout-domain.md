@@ -62,7 +62,24 @@ A workout session is the user-specific execution record of a template.
 - `startedAt`: ISO timestamp for session start
 - `completedAt`: ISO timestamp for session finish; optional until complete
 - `duration`: total elapsed minutes for the session
-- `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp and nullable `end`
+- `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp, nullable `end`, and a `section` (`warmup`, `main`, `cooldown`, or `supplemental`)
+- `sectionDurations`: derived server response field with per-section elapsed milliseconds:
+  `{ warmup, main, cooldown, supplemental }`
+
+Timer transition rules:
+
+- `PATCH /api/v1/workout-sessions/:id` transitions to `in-progress` from `scheduled` or `paused` must provide `activeSection` so the server can open a section-specific segment.
+- Status changes from `in-progress` to `paused` close the currently open segment.
+- Status changes to `completed` auto-close any open segment at the completion timestamp before computing duration.
+- Section switches while already `in-progress` are done via `PATCH /api/v1/workout-sessions/:id/section-timer` (`{ section, action: 'start' | 'pause' }`), not by re-sending `status: 'in-progress'` with a different section.
+- `sectionDurations` intentionally includes only closed segments; open segment live ticking is client-side from the active segment start time.
+
+Active workout timing UI:
+
+- The active-workout page renders one timer control per section header (`Start`, `Resume`, or `Pause`).
+- The currently open section segment is the single source of truth for "live" state; the client must not maintain a separate active-section store.
+- Section elapsed labels show `sectionDurations` plus a client-side 1s live tick only for the open section.
+- The top "Total time" stat is the sum of all section elapsed labels.
 
 Completed sessions should also store exercise-level set logs and post-workout feedback.
 

@@ -115,7 +115,22 @@ type SessionExerciseListProps = {
     section: ActiveWorkoutSessionData['sections'][number]['type'],
   ) => void | Promise<void>;
   onRemoveSet: (exerciseId: string) => void;
+  onSectionTimerToggle?: (
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental',
+    action: 'start' | 'pause',
+  ) => void;
   onSetUpdate: (exerciseId: string, setId: string, update: SetRowUpdate) => void;
+  sectionTimerByType?: Partial<
+    Record<
+      'warmup' | 'main' | 'cooldown' | 'supplemental',
+      {
+        actionLabel: 'Pause' | 'Resume' | 'Start';
+        elapsedLabel: string;
+        isActive: boolean;
+      }
+    >
+  >;
+  sectionTimerPending?: boolean;
   showDragHandles?: boolean;
   supersetUpdatePending?: boolean;
   session: ActiveWorkoutSessionData;
@@ -166,7 +181,10 @@ export function SessionExerciseList({
   onRemoveExercise,
   onUpdateSupersetGroup,
   onRemoveSet,
+  onSectionTimerToggle,
   onSetUpdate,
+  sectionTimerByType,
+  sectionTimerPending = false,
   showDragHandles = false,
   supersetUpdatePending = false,
   session,
@@ -267,6 +285,9 @@ export function SessionExerciseList({
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
         const isOpen = openSections[section.id] ?? true;
+        const sectionTimer = sectionTimerByType?.[section.type];
+        const sectionTimerActionLabel = sectionTimer?.actionLabel ?? 'Start';
+        const sectionTimerAction = sectionTimerActionLabel === 'Pause' ? 'pause' : 'start';
         const reorderSectionExercises = (currentIndex: number, nextIndex: number) => {
           if (!onReorderExercises) {
             return;
@@ -293,46 +314,70 @@ export function SessionExerciseList({
             className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
             key={section.id}
           >
-            <button
-              aria-controls={`section-panel-${section.id}`}
-              aria-expanded={isOpen}
-              className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
-              onClick={() =>
-                setOpenSections((current) => ({
-                  ...current,
-                  [section.id]: !(current[section.id] ?? true),
-                }))
-              }
-              type="button"
-            >
-              <div>
-                <h2 className="flex items-baseline gap-2 text-lg font-semibold text-foreground">
-                  {sectionLabel}
-                  <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
-                </h2>
-              </div>
+            <div className="flex items-center justify-between gap-4 px-5 py-5 sm:px-6">
+              <button
+                aria-controls={`section-panel-${section.id}`}
+                aria-expanded={isOpen}
+                className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-4 text-left"
+                onClick={() =>
+                  setOpenSections((current) => ({
+                    ...current,
+                    [section.id]: !(current[section.id] ?? true),
+                  }))
+                }
+                type="button"
+              >
+                <div>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                    {sectionLabel}
+                    {sectionTimer?.isActive ? (
+                      <span
+                        aria-label={`${sectionLabel} timer is live`}
+                        className="inline-flex size-2 rounded-full bg-rose-500 motion-safe:animate-pulse"
+                      />
+                    ) : null}
+                    <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
+                  </h2>
+                  <p className="text-xs font-semibold tabular-nums text-muted">
+                    {sectionTimer?.elapsedLabel ?? '00:00'}
+                  </p>
+                </div>
 
-              <div className="flex items-center gap-3">
-                <Badge
-                  className={cn(
-                    isSectionCompleted
-                      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
-                      : isSectionInProgress
-                        ? 'border-transparent bg-secondary text-secondary-foreground'
-                        : 'border-transparent bg-secondary text-secondary-foreground',
-                  )}
-                  variant="outline"
+                <div className="flex items-center gap-3">
+                  <Badge
+                    className={cn(
+                      isSectionCompleted
+                        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                        : isSectionInProgress
+                          ? 'border-transparent bg-secondary text-secondary-foreground'
+                          : 'border-transparent bg-secondary text-secondary-foreground',
+                    )}
+                    variant="outline"
+                  >
+                    {isSectionCompleted ? <Check aria-hidden="true" className="size-3.5" /> : null}
+                    {isSectionCompleted ? <span className="sr-only">Section complete</span> : null}
+                    {`${completedExercises}/${totalExercises}`}
+                  </Badge>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn('size-4 text-muted transition-transform', isOpen && 'rotate-180')}
+                  />
+                </div>
+              </button>
+
+              {onSectionTimerToggle ? (
+                <Button
+                  className="min-w-20"
+                  disabled={sectionTimerPending}
+                  onClick={() => onSectionTimerToggle(section.type, sectionTimerAction)}
+                  size="sm"
+                  type="button"
+                  variant={sectionTimerActionLabel === 'Pause' ? 'secondary' : 'default'}
                 >
-                  {isSectionCompleted ? <Check aria-hidden="true" className="size-3.5" /> : null}
-                  {isSectionCompleted ? <span className="sr-only">Section complete</span> : null}
-                  {`${completedExercises}/${totalExercises}`}
-                </Badge>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn('size-4 text-muted transition-transform', isOpen && 'rotate-180')}
-                />
-              </div>
-            </button>
+                  {sectionTimerActionLabel}
+                </Button>
+              ) : null}
+            </div>
 
             <div
               className="border-t border-border px-4 py-4 sm:px-6 sm:py-5"

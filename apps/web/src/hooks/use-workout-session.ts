@@ -3,6 +3,7 @@ import {
   createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
   type ReorderWorkoutSessionExercisesInput,
+  type WorkoutTemplateSectionType,
   type WorkoutSessionTimeSegment,
   type WorkoutSession,
   updateWorkoutSessionTimeSegmentsInputSchema,
@@ -13,7 +14,13 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
-import { workoutQueryKeys } from '@/features/workouts/api/workouts';
+import {
+  workoutQueryKeys,
+} from '@/features/workouts/api/workouts';
+import {
+  syncSessionMutationCache,
+  workoutSessionQueryKeys,
+} from '@/features/workouts/lib/session-query-cache';
 import { apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
@@ -21,12 +28,15 @@ const workoutSessionResponseSchema = z.object({
   data: workoutSessionSchema,
 }) as unknown as z.ZodType<{ data: WorkoutSession }>;
 
+export { workoutSessionQueryKeys };
+
 type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchema>;
 type UpdateSessionStartTimeRequest = {
   startedAt: number;
 };
 type UpdateSessionStatusRequest = {
   status: 'in-progress' | 'paused' | 'cancelled';
+  activeSection?: WorkoutTemplateSectionType;
 };
 type UpdateSessionTimeSegmentsRequest = {
   timeSegments: WorkoutSessionTimeSegment[];
@@ -34,11 +44,6 @@ type UpdateSessionTimeSegmentsRequest = {
 type ReorderSessionExercisesRequest = ReorderWorkoutSessionExercisesInput;
 type DeleteSessionResult = {
   success: boolean;
-};
-
-export const workoutSessionQueryKeys = {
-  all: ['workout-sessions'] as const,
-  detail: (sessionId: string) => ['workout-sessions', sessionId] as const,
 };
 
 async function getWorkoutSession(sessionId: string) {
@@ -74,6 +79,7 @@ async function updateSessionStartTime(sessionId: string, input: UpdateSessionSta
 
 async function updateSessionStatus(sessionId: string, input: UpdateSessionStatusRequest) {
   const parsedInput = updateWorkoutSessionInputSchema.parse({
+    activeSection: input.activeSection,
     status: input.status,
   });
   const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
@@ -126,37 +132,6 @@ async function deleteSession(sessionId: string) {
   return await apiRequest<DeleteSessionResult>(`/api/v1/workout-sessions/${sessionId}`, {
     method: 'DELETE',
   });
-}
-
-async function syncSessionMutationCache(
-  queryClient: ReturnType<typeof useQueryClient>,
-  session: WorkoutSession,
-  options?: { invalidateDashboard?: boolean },
-) {
-  queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
-  queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
-  const invalidations = [
-    queryClient.invalidateQueries({
-      queryKey: workoutSessionQueryKeys.all,
-    }),
-    queryClient.invalidateQueries({
-      queryKey: workoutSessionQueryKeys.detail(session.id),
-    }),
-    queryClient.invalidateQueries({
-      queryKey: workoutQueryKeys.sessions(),
-    }),
-    queryClient.invalidateQueries({
-      queryKey: workoutQueryKeys.session(session.id),
-    }),
-  ];
-
-  if (options?.invalidateDashboard) {
-    invalidations.push(
-      invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.activeWorkoutSessionMutation()),
-    );
-  }
-
-  await Promise.all(invalidations);
 }
 
 function getSessionStatusSuccessMessage(status: WorkoutSession['status']) {

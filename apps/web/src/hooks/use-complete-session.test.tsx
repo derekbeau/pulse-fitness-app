@@ -37,8 +37,15 @@ const completedSessionResponse = {
     {
       start: '2026-03-08T00:00:00.000Z',
       end: '2026-03-08T00:45:00.000Z',
+      section: 'main',
     },
   ],
+  sectionDurations: {
+    warmup: 0,
+    main: 0,
+    cooldown: 0,
+    supplemental: 0,
+  },
   feedback: {
     energy: 4,
     recovery: 3,

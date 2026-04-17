@@ -444,6 +444,7 @@ describe('ActiveWorkoutPage', () => {
                 {
                   start: '2026-03-06T12:00:00.000Z',
                   end: '2026-03-06T12:45:00.000Z',
+                  section: 'main',
                 },
               ],
             },
@@ -455,7 +456,7 @@ describe('ActiveWorkoutPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Workouts' })).toBeVisible();
     expect(window.localStorage.getItem(sectionStateKey)).toBeNull();
@@ -474,7 +475,7 @@ describe('ActiveWorkoutPage', () => {
   it('starts fallback elapsed time from now for unsaved sessions', () => {
     renderActiveWorkoutPage('/workouts/active?template=upper-push');
 
-    expect(screen.getByText('00:00')).toBeInTheDocument();
+    expect(screen.getAllByText('00:00').length).toBeGreaterThan(0);
   });
 
   it('polls for agent session updates and preserves in-progress inputs', async () => {
@@ -491,7 +492,7 @@ describe('ActiveWorkoutPage', () => {
       startedAt: baseStartedAt,
       completedAt: null,
       duration: null,
-      timeSegments: [{ start: '2026-03-06T12:00:00.000Z', end: null }],
+      timeSegments: [{ start: '2026-03-06T12:00:00.000Z', end: null, section: 'main' }],
       feedback: null,
       notes: null,
       sets: [
@@ -570,7 +571,7 @@ describe('ActiveWorkoutPage', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
@@ -644,12 +645,467 @@ describe('ActiveWorkoutPage', () => {
     expect(vi.mocked(toast)).toHaveBeenCalledWith('Workout updated by agent');
   });
 
-  it('pauses and resumes an active session timer using segmented duration', async () => {
-    vi.useRealTimers();
+  it('controls per-section timers and switches sections via section-timer endpoint', async () => {
     const sessionId = 'session-active-1';
-    let currentSession: MutableInProgressSessionResponse = buildInProgressSessionResponse(
-      sessionId,
-    ) as MutableInProgressSessionResponse;
+    let currentSession: MutableInProgressSessionResponse = {
+      ...buildInProgressSessionResponse(sessionId),
+      exercises: [
+        {
+          exerciseId: 'row-erg',
+          exerciseName: 'Row Erg',
+          orderIndex: 0,
+          section: 'warmup',
+          sets: [
+            {
+              id: 'set-warmup-1',
+              exerciseId: 'row-erg',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'warmup',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+            },
+          ],
+        },
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-main-1',
+              exerciseId: 'incline-dumbbell-press',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+            },
+          ],
+        },
+      ],
+      sets: [
+        {
+          id: 'set-warmup-1',
+          exerciseId: 'row-erg',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'warmup',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+        },
+        {
+          id: 'set-main-1',
+          exerciseId: 'incline-dumbbell-press',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'main',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+        },
+      ],
+    } as MutableInProgressSessionResponse;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: currentSession.status,
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+        init?.method === 'PATCH'
+      ) {
+        const payload = JSON.parse(String(init.body)) as {
+          action: 'start' | 'pause';
+          section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+        };
+        const nowIso = new Date(Date.now()).toISOString();
+        const nextTimeSegments = currentSession.timeSegments.map((segment) =>
+          segment.end === null ? { ...segment, end: nowIso } : segment,
+        );
+        const nextSectionDurations = { ...currentSession.sectionDurations };
+        const openSegment = currentSession.timeSegments.find((segment) => segment.end === null);
+
+        if (openSegment) {
+          const openStart = Date.parse(openSegment.start);
+          const openEnd = Date.parse(nowIso);
+          if (Number.isFinite(openStart) && Number.isFinite(openEnd) && openEnd >= openStart) {
+            nextSectionDurations[openSegment.section] += openEnd - openStart;
+          }
+        }
+
+        if (payload.action === 'start') {
+          currentSession = {
+            ...currentSession,
+            sectionDurations: nextSectionDurations,
+            timeSegments: [...nextTimeSegments, { start: nowIso, end: null, section: payload.section }],
+          };
+        } else {
+          currentSession = {
+            ...currentSession,
+            sectionDurations: nextSectionDurations,
+            timeSegments: nextTimeSegments,
+          };
+        }
+
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
+
+    const getSectionTimerButton = (sectionTitle: 'Warmup' | 'Main', buttonName: string) => {
+      const heading = screen.getByRole('heading', { level: 2, name: new RegExp(`^${sectionTitle}`) });
+      const sectionElement = heading.closest('section');
+
+      expect(sectionElement).not.toBeNull();
+
+      return within(sectionElement as HTMLElement).getByRole('button', { name: buttonName });
+    };
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+
+    fireEvent.click(getSectionTimerButton('Warmup', 'Start'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(getSectionTimerButton('Warmup', 'Pause')).toBeInTheDocument();
+    expect(getSectionTimerButton('Main', 'Resume')).toBeInTheDocument();
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).action === 'pause' &&
+          JSON.parse(String(init.body)).section === 'main',
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).action === 'start' &&
+          JSON.parse(String(init.body)).section === 'main',
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).action === 'start' &&
+          JSON.parse(String(init.body)).section === 'warmup',
+      ),
+    ).toBe(true);
+  });
+
+  it('ticks the active section timer live and sums per-section total time', async () => {
+    const sessionId = 'session-section-live';
+    const currentSession: MutableInProgressSessionResponse = {
+      ...buildInProgressSessionResponse(sessionId),
+      exercises: [
+        {
+          exerciseId: 'row-erg',
+          exerciseName: 'Row Erg',
+          orderIndex: 0,
+          section: 'warmup',
+          sets: [
+            {
+              id: 'set-warmup-1',
+              exerciseId: 'row-erg',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'warmup',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T11:59:50.000Z'),
+            },
+          ],
+        },
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-main-1',
+              exerciseId: 'incline-dumbbell-press',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T11:59:58.000Z'),
+            },
+          ],
+        },
+      ],
+      sets: [
+        {
+          id: 'set-warmup-1',
+          exerciseId: 'row-erg',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'warmup',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T11:59:50.000Z'),
+        },
+        {
+          id: 'set-main-1',
+          exerciseId: 'incline-dumbbell-press',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'main',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T11:59:58.000Z'),
+        },
+      ],
+      timeSegments: [
+        {
+          start: '2026-03-06T11:59:50.000Z',
+          end: null,
+          section: 'warmup',
+        },
+        {
+          start: '2026-03-06T11:59:58.000Z',
+          end: '2026-03-06T12:00:00.000Z',
+          section: 'main',
+        },
+      ],
+      sectionDurations: {
+        warmup: 0,
+        main: 2_000,
+        cooldown: 0,
+        supplemental: 0,
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: currentSession.status,
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    const warmupSection = screen.getByRole('button', { name: /^Warmup/i });
+    const mainSection = screen.getByRole('button', { name: /^Main/i });
+    expect(within(warmupSection).getByText('00:11')).toBeInTheDocument();
+    expect(within(mainSection).getByText('00:02')).toBeInTheDocument();
+    expect(screen.getByText('00:13')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+
+    expect(within(warmupSection).getByText('00:14')).toBeInTheDocument();
+    expect(screen.getByText('00:16')).toBeInTheDocument();
+  });
+
+  it('resumes a paused session in the section selected by the start button', async () => {
+    const sessionId = 'session-paused-section-start';
+    let currentSession: MutableInProgressSessionResponse = {
+      ...buildInProgressSessionResponse(sessionId),
+      status: 'paused',
+      exercises: [
+        {
+          exerciseId: 'row-erg',
+          exerciseName: 'Row Erg',
+          orderIndex: 0,
+          section: 'warmup',
+          sets: [
+            {
+              id: 'set-warmup-1',
+              exerciseId: 'row-erg',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'warmup',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T11:58:30.000Z'),
+            },
+          ],
+        },
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            {
+              id: 'set-main-1',
+              exerciseId: 'incline-dumbbell-press',
+              orderIndex: 0,
+              setNumber: 1,
+              weight: null,
+              reps: null,
+              completed: false,
+              skipped: false,
+              section: 'main',
+              notes: null,
+              createdAt: Date.parse('2026-03-06T11:58:30.000Z'),
+            },
+          ],
+        },
+      ],
+      sets: [
+        {
+          id: 'set-warmup-1',
+          exerciseId: 'row-erg',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'warmup',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T11:58:30.000Z'),
+        },
+        {
+          id: 'set-main-1',
+          exerciseId: 'incline-dumbbell-press',
+          orderIndex: 0,
+          setNumber: 1,
+          weight: null,
+          reps: null,
+          completed: false,
+          skipped: false,
+          section: 'main',
+          notes: null,
+          createdAt: Date.parse('2026-03-06T11:58:30.000Z'),
+        },
+      ],
+      timeSegments: [
+        {
+          start: '2026-03-06T11:58:30.000Z',
+          end: '2026-03-06T11:59:00.000Z',
+          section: 'warmup',
+        },
+      ],
+      sectionDurations: {
+        warmup: 30_000,
+        main: 0,
+        cooldown: 0,
+        supplemental: 0,
+      },
+    };
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -684,35 +1140,24 @@ describe('ActiveWorkoutPage', () => {
       }
 
       if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PATCH') {
-        const payload = JSON.parse(String(init.body)) as { status?: 'paused' | 'in-progress' };
+        const payload = JSON.parse(String(init.body)) as {
+          activeSection?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+          status?: 'paused' | 'in-progress';
+        };
+        const nowIso = new Date(Date.now()).toISOString();
 
-        if (payload.status === 'paused') {
-          currentSession = {
-            ...currentSession,
-            status: 'paused',
-            timeSegments: [
-              {
-                start: currentSession.timeSegments[0]?.start ?? '2026-03-06T12:00:00.000Z',
-                end: new Date(Date.now()).toISOString(),
-              },
-            ],
-            duration: 65,
-          };
-        }
-
-        if (payload.status === 'in-progress') {
-          currentSession = {
-            ...currentSession,
-            status: 'in-progress',
-            timeSegments: [
-              ...(currentSession.timeSegments ?? []),
-              {
-                start: new Date(Date.now()).toISOString(),
-                end: null,
-              },
-            ],
-          };
-        }
+        currentSession = {
+          ...currentSession,
+          status: 'in-progress',
+          timeSegments: [
+            ...(currentSession.timeSegments ?? []),
+            {
+              start: nowIso,
+              end: null,
+              section: payload.activeSection ?? 'main',
+            },
+          ],
+        };
 
         return Promise.resolve(jsonResponse({ data: currentSession }));
       }
@@ -722,29 +1167,150 @@ describe('ActiveWorkoutPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
 
-    await screen.findByRole('button', { name: 'Pause' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-    await screen.findByRole('button', { name: 'Resume' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
-    await screen.findByRole('button', { name: 'Pause' });
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
 
     expect(
       fetchMock.mock.calls.some(
         ([url, init]) =>
           String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
           init?.method === 'PATCH' &&
-          JSON.parse(String(init.body)).status === 'paused',
+          JSON.parse(String(init.body)).status === 'in-progress' &&
+          JSON.parse(String(init.body)).activeSection === 'main',
+      ),
+    ).toBe(true);
+  });
+
+  it('re-reads session data after completion and closes the final open segment', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-complete-refresh';
+    const startedAt = Date.parse('2026-03-06T12:00:00.000Z');
+    let completeRequestSeen = false;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: completeRequestSeen ? 'paused' : 'in-progress',
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...buildInProgressSessionResponse(sessionId),
+              startedAt,
+              updatedAt: startedAt,
+            },
+          }),
+        );
+      }
+
+      if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PUT') {
+        completeRequestSeen = true;
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...buildInProgressSessionResponse(sessionId),
+              status: 'completed',
+              completedAt: Date.parse('2026-03-06T12:10:00.000Z'),
+              duration: 10,
+              timeSegments: [
+                {
+                  start: '2026-03-06T12:00:00.000Z',
+                  end: '2026-03-06T12:10:00.000Z',
+                  section: 'main',
+                },
+              ],
+              sectionDurations: {
+                warmup: 0,
+                main: 600_000,
+                cooldown: 0,
+                supplemental: 0,
+              },
+              updatedAt: Date.parse('2026-03-06T12:10:00.000Z'),
+            },
+          }),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}`);
+    await screen.findByRole('heading', { level: 1, name: 'Upper Push' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+        name: '7',
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Energy post workout options' })).getByRole(
+        'button',
+        {
+          name: '🙂',
+        },
+      ),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        {
+          name: 'No',
+        },
+      ),
+    );
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Shoulder feel rating' })).getByRole('button', {
+        name: '3',
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
+    await screen.findByRole('heading', { level: 1, name: 'Workout summary' });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PUT',
       ),
     ).toBe(true);
     expect(
       fetchMock.mock.calls.some(
         ([url, init]) =>
           String(url).endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
-          init?.method === 'PATCH' &&
-          JSON.parse(String(init.body)).status === 'in-progress',
+          (!init?.method || init.method === 'GET'),
       ),
     ).toBe(true);
   });
@@ -1867,8 +2433,15 @@ function buildCompletedSessionResponse() {
       {
         start: '2026-03-06T12:00:00.000Z',
         end: '2026-03-06T12:16:00.000Z',
+        section: 'main',
       },
     ],
+    sectionDurations: {
+      warmup: 0,
+      main: 960_000,
+      cooldown: 0,
+      supplemental: 0,
+    },
     feedback: null,
     notes: null,
     sets: [],
@@ -1892,8 +2465,15 @@ function buildInProgressSessionResponse(sessionId: string) {
       {
         start: '2026-03-06T12:00:00.000Z',
         end: null,
+        section: 'main',
       },
     ],
+    sectionDurations: {
+      warmup: 0,
+      main: 0,
+      cooldown: 0,
+      supplemental: 0,
+    },
     feedback: null,
     notes: null,
     sets: [],
@@ -1929,11 +2509,63 @@ function buildWorkoutSessionListItem(
   };
 }
 
-type MutableInProgressSessionResponse = Omit<
-  ReturnType<typeof buildInProgressSessionResponse>,
-  'status' | 'duration' | 'timeSegments'
-> & {
+type MutableInProgressSessionResponse = {
+  id: string;
+  userId: string;
+  templateId: string;
+  name: string;
+  date: string;
   status: 'in-progress' | 'paused';
+  startedAt: number;
+  completedAt: number | null;
   duration: number | null;
-  timeSegments: Array<{ start: string; end: string | null }>;
+  sectionDurations: {
+    warmup: number;
+    main: number;
+    cooldown: number;
+    supplemental: number;
+  };
+  timeSegments: Array<{
+    start: string;
+    end: string | null;
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+  }>;
+  feedback: null;
+  notes: null;
+  sets: Array<{
+    id: string;
+    exerciseId: string | null;
+    orderIndex: number;
+    setNumber: number;
+    weight: number | null;
+    reps: number | null;
+    completed: boolean;
+    skipped: boolean;
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+    notes: string | null;
+    createdAt: number;
+  }>;
+  exercises: Array<{
+    exerciseId: string;
+    exerciseName: string | null;
+    orderIndex: number;
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental' | null;
+    sets: Array<{
+      id: string;
+      exerciseId: string | null;
+      orderIndex: number;
+      setNumber: number;
+      weight: number | null;
+      reps: number | null;
+      completed: boolean;
+      skipped: boolean;
+      section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+      notes: string | null;
+      createdAt: number;
+    }>;
+    trackingType?: string | null;
+    supersetGroup?: string | null;
+  }>;
+  createdAt: number;
+  updatedAt: number;
 };

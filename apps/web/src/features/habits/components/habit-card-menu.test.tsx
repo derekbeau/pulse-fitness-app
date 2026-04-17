@@ -320,15 +320,29 @@ describe('HabitCardMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
     expect(screen.getByRole('heading', { name: 'Pause scheduling' })).toBeInTheDocument();
 
-    const futurePauseDate = toDateKey(addDays(getToday(), 14));
-    fireEvent.change(screen.getByLabelText('Pause until'), { target: { value: futurePauseDate } });
+    const pauseInput = screen.getByLabelText('Pause until');
+    const min = pauseInput.getAttribute('min');
+    if (!min) {
+      throw new Error('Expected pause date input min attribute');
+    }
+
+    const [year, month, day] = min.split('-').map(Number);
+    if (year === undefined || month === undefined || day === undefined) {
+      throw new Error('Expected valid min date format');
+    }
+
+    const futureDate = new Date(year, month - 1, day);
+    futureDate.setDate(futureDate.getDate() + 1);
+    const pauseDate = toDateKey(futureDate);
+
+    fireEvent.change(pauseInput, { target: { value: pauseDate } });
     fireEvent.click(screen.getByRole('button', { name: 'Save pause' }));
 
     await waitFor(() =>
       expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
         id: 'sleep',
         values: {
-          pausedUntil: futurePauseDate,
+          pausedUntil: pauseDate,
         },
       }),
     );
@@ -354,7 +368,7 @@ describe('HabitCardMenu', () => {
     const minDate = new Date(year, month - 1, day);
     const pastDate = new Date(minDate);
     pastDate.setDate(pastDate.getDate() - 1);
-    const pastDateKey = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`;
+    const pastDateKey = toDateKey(pastDate);
 
     fireEvent.change(pauseInput, { target: { value: pastDateKey } });
 

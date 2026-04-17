@@ -185,7 +185,7 @@ Constraints:
 - `startedAt`: `integer` Unix ms, required
 - `completedAt`: nullable `integer` Unix ms
 - `duration`: nullable `integer` minutes
-- `timeSegments`: required JSON text array of `{ start: string, end: string | null }`, default `'[]'`
+- `timeSegments`: required JSON text array of `{ start: string, end: string | null, section: 'warmup' | 'main' | 'cooldown' | 'supplemental' }`, default `'[]'`
 - `feedback`: nullable JSON text object for post-session ratings and notes
 - `notes`: nullable `text`
 - `deletedAt`: nullable `text` ISO timestamp for soft delete
@@ -197,6 +197,10 @@ Constraints:
 - `workout_sessions_date_format_check`
 - `workout_sessions_status_check`
 - `workout_sessions_completed_at_check`
+
+Notes:
+
+- `timeSegments` is stored as JSON text, so schema evolution from legacy `{ start, end }` segments to section-tagged segments is handled in the store/parser layer with read-time backfill (`section: 'main'`) rather than a SQL migration.
 
 #### `session_sets`
 

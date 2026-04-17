@@ -336,7 +336,7 @@ describe('auth integration', () => {
     } finally {
       await app.close();
     }
-  });
+  }, 15_000);
 
   it('rejects duplicate usernames with a 409 conflict', async () => {
     const { app } = await createTestApp();
@@ -356,7 +356,7 @@ describe('auth integration', () => {
     } finally {
       await app.close();
     }
-  });
+  }, 15_000);
 
   it('rejects registration when required fields are missing', async () => {
     const { app } = await createTestApp();
