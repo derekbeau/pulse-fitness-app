@@ -96,7 +96,7 @@ describe('ActiveWorkoutPage', () => {
     }
   });
 
-  it('renders the active workout UI and does not auto-focus a different section after rest timer completion', () => {
+  it('renders the active workout UI and does not auto-focus any set after rest timer completion', () => {
     renderActiveWorkoutPage();
 
     const heading = screen.getByRole('heading', { level: 1, name: 'Upper Push' });
@@ -148,8 +148,109 @@ describe('ActiveWorkoutPage', () => {
     expect(within(nextExerciseCard).getByLabelText('Seconds for set 1')).not.toHaveFocus();
     expect(screen.queryByText('After Incline Dumbbell Press set 3')).not.toBeInTheDocument();
 
+    completeSet('Row Erg', 1);
+    completeSet('Banded Shoulder External Rotation', 1);
+    completeSet('Banded Shoulder External Rotation', 2);
+
+    fireEvent.change(within(inclineCard).getByLabelText('Weight for set 1'), {
+      target: { value: '50' },
+    });
+    fireEvent.change(within(inclineCard).getByLabelText('Reps for set 1'), {
+      target: { value: '8' },
+    });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+
+    const seatedPressCard = getExerciseCard('Seated Dumbbell Shoulder Press');
+    const seatedPressSetOneInput = within(seatedPressCard).getByLabelText(
+      'Reps for set 1',
+    ) as HTMLInputElement;
+    seatedPressSetOneInput.focus();
+    expect(seatedPressSetOneInput).toHaveFocus();
+
+    act(() => {
+      vi.advanceTimersByTime(90_100);
+    });
+
+    expect(seatedPressSetOneInput).toHaveFocus();
+    expect(within(inclineCard).getByLabelText('Reps for set 2')).not.toHaveFocus();
+    expect(screen.queryByText('After Incline Dumbbell Press set 1')).not.toBeInTheDocument();
+
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
+  });
+
+  it('keeps focus unchanged when a superset rest timer expires', () => {
+    const templateId = 'superset-focus-template';
+    const baseTemplate = buildWorkoutTemplateResponse('upper-push');
+    if (!baseTemplate) {
+      throw new Error('Expected upper-push fixture template to exist.');
+    }
+    const supersetTemplate = {
+      ...baseTemplate,
+      id: templateId,
+      name: 'Superset Focus QA',
+      sections: baseTemplate.sections.map((section) =>
+        section.type !== 'main'
+          ? section
+          : {
+              ...section,
+              exercises: section.exercises.map((exercise, index) =>
+                index < 2
+                  ? {
+                      ...exercise,
+                      restSeconds: 1,
+                      sets: 1,
+                      supersetGroup: 'A',
+                    }
+                  : exercise,
+              ),
+            },
+      ),
+    };
+    const queryClient = createAppQueryClient();
+    queryClient.clear();
+    queryClient.setQueryData(workoutQueryKeys.template(templateId), supersetTemplate);
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={[`/workouts/active?template=${templateId}`]}>
+        <Routes>
+          <Route element={<ActiveWorkoutPage />} path="/workouts/active" />
+          <Route element={<h1>Workouts</h1>} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+      { queryClient },
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Superset Focus QA' })).toBeVisible();
+
+    const a1Card = getExerciseCard('Incline Dumbbell Press');
+    fireEvent.change(within(a1Card).getByLabelText('Weight for set 1'), {
+      target: { value: '50' },
+    });
+    fireEvent.change(within(a1Card).getByLabelText('Reps for set 1'), {
+      target: { value: '10' },
+    });
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
+
+    const a2Card = getExerciseCard('Seated Dumbbell Shoulder Press');
+    const a2SetOneInput = within(a2Card).getByLabelText('Reps for set 1') as HTMLInputElement;
+    a2SetOneInput.focus();
+    expect(a2SetOneInput).toHaveFocus();
+
+    act(() => {
+      vi.advanceTimersByTime(1_100);
+    });
+
+    expect(a2SetOneInput).toHaveFocus();
+    expect(screen.queryByText('After Incline Dumbbell Press set 1')).not.toBeInTheDocument();
   });
 
   it('keeps the rest timer running when editing an incomplete set', () => {

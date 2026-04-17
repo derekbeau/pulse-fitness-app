@@ -207,7 +207,7 @@ describe('workout mutation hooks', () => {
     expect(toast.success).toHaveBeenCalledWith('Exercise swapped');
   });
 
-  it('invalidates session detail and list caches when swapping a session exercise', async () => {
+  it('writes through and invalidates active-session caches when swapping a session exercise', async () => {
     mockFetch.mockResolvedValueOnce(
       createJsonResponse({
         id: 'session-1',
@@ -222,7 +222,57 @@ describe('workout mutation hooks', () => {
         timeSegments: [],
         feedback: null,
         notes: null,
-        sets: [],
+        exercises: [
+          {
+            id: 'session-exercise-1',
+            exerciseId: 'exercise-2',
+            exerciseName: 'Single-Arm Cable Press',
+            orderIndex: 0,
+            section: 'main',
+            notes: null,
+            supersetGroup: null,
+            sets: [
+              {
+                id: 'set-1',
+                exerciseId: 'exercise-2',
+                setNumber: 1,
+                orderIndex: 0,
+                weight: null,
+                reps: null,
+                targetWeight: null,
+                targetWeightMin: null,
+                targetWeightMax: null,
+                targetSeconds: null,
+                targetDistance: null,
+                completed: false,
+                skipped: false,
+                section: 'main',
+                notes: null,
+                createdAt: 1,
+              },
+            ],
+          },
+        ],
+        sets: [
+          {
+            id: 'set-1',
+            exerciseId: 'exercise-2',
+            setNumber: 1,
+            orderIndex: 0,
+            weight: null,
+            reps: null,
+            targetWeight: null,
+            targetWeightMin: null,
+            targetWeightMax: null,
+            targetSeconds: null,
+            targetDistance: null,
+            completed: false,
+            skipped: false,
+            section: 'main',
+            notes: null,
+            createdAt: 1,
+          },
+        ],
         createdAt: 1,
         updatedAt: 2,
       }),
@@ -232,16 +282,21 @@ describe('workout mutation hooks', () => {
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => useSwapSessionExercise(), { wrapper });
 
-    await act(async () => {
-      await result.current.mutateAsync({
+    const response = await act(async () => {
+      return await result.current.mutateAsync({
         exerciseId: 'exercise-1',
         newExerciseId: 'exercise-2',
         sessionId: 'session-1',
       });
     });
 
+    expect(queryClient.getQueryData(['workout-sessions', 'session-1'])).toEqual(response.data);
+    expect(queryClient.getQueryData(workoutQueryKeys.session('session-1'))).toEqual(response.data);
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutQueryKeys.sessions(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['workout-sessions', 'session-1'],
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutQueryKeys.session('session-1'),
