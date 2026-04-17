@@ -98,6 +98,18 @@ export const workoutSessionStatusSchema = z.enum([
   'completed',
 ]);
 export const workoutSectionSchema = workoutTemplateSectionTypeSchema;
+const defaultWorkoutSessionSectionDurations = {
+  warmup: 0,
+  main: 0,
+  cooldown: 0,
+  supplemental: 0,
+} as const;
+export const workoutSessionSectionDurationsSchema = z.object({
+  warmup: z.number().int().min(0),
+  main: z.number().int().min(0),
+  cooldown: z.number().int().min(0),
+  supplemental: z.number().int().min(0),
+});
 export const timeSegmentsSchema = z.array(
   z.object({
     start: z.string(),
@@ -332,6 +344,9 @@ export const workoutSessionSchema = z
     completedAt: z.number().int().nullable(),
     duration: nullableIntegerSchema,
     timeSegments: timeSegmentsSchema,
+    sectionDurations: workoutSessionSectionDurationsSchema.default(
+      defaultWorkoutSessionSectionDurations,
+    ),
     feedback: workoutSessionFeedbackSchema.nullable(),
     notes: nullableLongStringSchema,
     exercises: z.array(workoutSessionExerciseSchema).optional(),
@@ -470,6 +485,7 @@ export const updateWorkoutSessionInputSchema = z
     name: requiredStringSchema.optional(),
     date: dateSchema.optional(),
     status: workoutSessionStatusSchema.optional(),
+    activeSection: workoutSectionSchema.optional(),
     startedAt: z.number().int().optional(),
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
@@ -490,6 +506,13 @@ export const updateWorkoutSessionInputSchema = z
 
 export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
   timeSegments: validatedTimeSegmentsSchema,
+});
+
+export const workoutSessionSectionTimerActionSchema = z.enum(['start', 'pause']);
+
+export const updateWorkoutSessionSectionTimerInputSchema = z.object({
+  section: workoutSectionSchema,
+  action: workoutSessionSectionTimerActionSchema,
 });
 
 export const setCorrectionSchema = z
@@ -550,6 +573,7 @@ export const workoutSessionQueryParamsSchema = z
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
 export type WorkoutSection = z.infer<typeof workoutSectionSchema>;
+export type WorkoutSessionSectionDurations = z.infer<typeof workoutSessionSectionDurationsSchema>;
 export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[number];
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;
@@ -562,6 +586,9 @@ export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInput
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
   typeof updateWorkoutSessionTimeSegmentsInputSchema
+>;
+export type UpdateWorkoutSessionSectionTimerInput = z.infer<
+  typeof updateWorkoutSessionSectionTimerInputSchema
 >;
 export type SetCorrection = z.infer<typeof setCorrectionSchema>;
 export type SessionCorrectionRequest = z.infer<typeof sessionCorrectionRequestSchema>;

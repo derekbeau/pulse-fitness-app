@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   backfillTimeSegmentSections,
   calculateActiveDuration,
+  calculateSectionDurations,
   closeOpenTimeSegment,
+  findOpenTimeSegment,
   openTimeSegment,
 } from './time-segments.js';
 
@@ -145,5 +147,68 @@ describe('workout session time segment helpers', () => {
 
   it('returns zero for empty segment arrays', () => {
     expect(calculateActiveDuration([])).toBe(0);
+  });
+
+  it('finds the current open segment', () => {
+    expect(
+      findOpenTimeSegment([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+          section: 'warmup',
+        },
+        {
+          start: '2026-03-12T10:15:00.000Z',
+          end: null,
+          section: 'main',
+        },
+      ]),
+    ).toEqual({
+      index: 1,
+      segment: {
+        start: '2026-03-12T10:15:00.000Z',
+        end: null,
+        section: 'main',
+      },
+    });
+  });
+
+  it('returns null when no segment is open', () => {
+    expect(
+      findOpenTimeSegment([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+          section: 'main',
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it('calculates per-section durations in milliseconds using only closed segments', () => {
+    expect(
+      calculateSectionDurations([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+          section: 'warmup',
+        },
+        {
+          start: '2026-03-12T10:20:00.000Z',
+          end: '2026-03-12T10:25:30.000Z',
+          section: 'main',
+        },
+        {
+          start: '2026-03-12T10:30:00.000Z',
+          end: null,
+          section: 'cooldown',
+        },
+      ]),
+    ).toEqual({
+      warmup: 600_000,
+      main: 330_000,
+      cooldown: 0,
+      supplemental: 0,
+    });
   });
 });

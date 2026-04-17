@@ -2659,7 +2659,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('pausing closes the current segment and resuming opens a new one', async () => {
+  it('pausing closes the current segment and resuming opens a new section segment', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -2706,6 +2706,7 @@ describe('workout session routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         status: 'in-progress',
+        activeSection: 'cooldown',
       },
     });
 
@@ -2722,10 +2723,94 @@ describe('workout session routes', () => {
           {
             start: expect.any(String),
             end: null,
-            section: 'main',
+            section: 'cooldown',
           },
         ],
       }),
+    });
+  });
+
+  it('requires activeSection when transitioning to in-progress from paused', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-resume-needs-section',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'paused',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+          section: 'main',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-resume-needs-section',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED',
+        message: 'activeSection is required when transitioning a session to in-progress',
+      },
+    });
+  });
+
+  it('rejects changing in-progress section via status patch without pausing first', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-resume-different-section',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+          section: 'warmup',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-resume-different-section',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+        activeSection: 'main',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_SECTION_SWITCH_REQUIRES_PAUSE',
+        message:
+          'Cannot switch active workout sections while already in-progress. Pause first, then start the next section.',
+      },
     });
   });
 
@@ -2831,6 +2916,295 @@ describe('workout session routes', () => {
             section: 'main',
           },
         ],
+      }),
+    });
+  });
+
+  it('starts and pauses section timers through the section-timer endpoint', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-section-timer',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+          section: 'warmup',
+        },
+      ],
+    });
+
+    const startResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-section-timer/section-timer',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        action: 'start',
+      },
+    });
+
+    expect(startResponse.statusCode).toBe(200);
+    expect(startResponse.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: expect.any(String),
+            section: 'warmup',
+          },
+          {
+            start: expect.any(String),
+            end: null,
+            section: 'main',
+          },
+        ],
+      }),
+    });
+
+    const pauseResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-section-timer/section-timer',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        action: 'pause',
+      },
+    });
+
+    expect(pauseResponse.statusCode).toBe(200);
+    expect(pauseResponse.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'in-progress',
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: expect.any(String),
+            section: 'warmup',
+          },
+          {
+            start: expect.any(String),
+            end: expect.any(String),
+            section: 'main',
+          },
+        ],
+      }),
+    });
+  });
+
+  it('rejects section-timer pause when section does not match the open segment', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-section-pause-mismatch',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+          section: 'warmup',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-section-pause-mismatch/section-timer',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        action: 'pause',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_SECTION_TIMER_PAUSE_MISMATCH',
+        message:
+          'Cannot pause section timer because no matching section timer is currently running for this session',
+      },
+    });
+  });
+
+  it('rejects section-timer updates when session is not in-progress', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-section-not-in-progress',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'paused',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:15:00.000Z',
+          section: 'main',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-section-not-in-progress/section-timer',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        section: 'main',
+        action: 'start',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_SECTION_TIMER_REQUIRES_IN_PROGRESS',
+        message: 'Section timers can only be changed while the workout session is in-progress',
+      },
+    });
+  });
+
+  it('supports section-timer updates with JWT and AgentToken auth', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'section-timer-agent-token');
+
+    seedWorkoutSession({
+      id: 'session-section-auth-jwt',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+          section: 'warmup',
+        },
+      ],
+    });
+    seedWorkoutSession({
+      id: 'session-section-auth-agent',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push 2',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:30:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:30:00.000Z',
+          end: null,
+          section: 'main',
+        },
+      ],
+    });
+
+    const [jwtResponse, agentResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-section-auth-jwt/section-timer',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          section: 'warmup',
+          action: 'pause',
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/workout-sessions/session-section-auth-agent/section-timer',
+        headers: createAgentTokenHeader(agentToken),
+        payload: {
+          section: 'main',
+          action: 'pause',
+        },
+      }),
+    ]);
+
+    expect(jwtResponse.statusCode).toBe(200);
+    expect(agentResponse.statusCode).toBe(200);
+  });
+
+  it('returns per-section derived durations for multi-section sessions', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-section-durations',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:05:00.000Z',
+          section: 'warmup',
+        },
+        {
+          start: '2026-03-12T10:10:00.000Z',
+          end: '2026-03-12T10:40:00.000Z',
+          section: 'main',
+        },
+        {
+          start: '2026-03-12T10:45:00.000Z',
+          end: '2026-03-12T10:50:00.000Z',
+          section: 'supplemental',
+        },
+        {
+          start: '2026-03-12T10:52:00.000Z',
+          end: null,
+          section: 'cooldown',
+        },
+      ],
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-section-durations',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        sectionDurations: {
+          warmup: 300_000,
+          main: 1_800_000,
+          cooldown: 0,
+          supplemental: 300_000,
+        },
       }),
     });
   });

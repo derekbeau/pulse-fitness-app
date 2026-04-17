@@ -28,7 +28,7 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
-import { backfillTimeSegmentSections } from './time-segments.js';
+import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
 
@@ -235,6 +235,7 @@ const buildWorkoutSession = (
     parsedTimeSegments.length === 0 && session.status === 'in-progress'
       ? [{ start: new Date(session.startedAt).toISOString(), end: null, section: 'main' as const }]
       : parsedTimeSegments;
+  const sectionDurations = calculateSectionDurations(timeSegments);
 
   return {
     id: session.id,
@@ -247,6 +248,7 @@ const buildWorkoutSession = (
     completedAt: session.completedAt,
     duration: session.duration,
     timeSegments,
+    sectionDurations,
     feedback: parseWorkoutSessionFeedback(session.feedback),
     notes: session.notes,
     exercises: buildWorkoutSessionExercises(sets, exerciseInfoById),

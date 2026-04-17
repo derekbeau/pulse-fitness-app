@@ -40,6 +40,12 @@ const completedSessionResponse = {
       section: 'main',
     },
   ],
+  sectionDurations: {
+    warmup: 0,
+    main: 0,
+    cooldown: 0,
+    supplemental: 0,
+  },
   feedback: {
     energy: 4,
     recovery: 3,

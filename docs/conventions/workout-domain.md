@@ -63,6 +63,16 @@ A workout session is the user-specific execution record of a template.
 - `completedAt`: ISO timestamp for session finish; optional until complete
 - `duration`: total elapsed minutes for the session
 - `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp, nullable `end`, and a `section` (`warmup`, `main`, `cooldown`, or `supplemental`)
+- `sectionDurations`: derived server response field with per-section elapsed milliseconds:
+  `{ warmup, main, cooldown, supplemental }`
+
+Timer transition rules:
+
+- `PATCH /api/v1/workout-sessions/:id` transitions to `in-progress` from `scheduled` or `paused` must provide `activeSection` so the server can open a section-specific segment.
+- Status changes from `in-progress` to `paused` close the currently open segment.
+- Status changes to `completed` auto-close any open segment at the completion timestamp before computing duration.
+- Section switches while already `in-progress` are done via `PATCH /api/v1/workout-sessions/:id/section-timer` (`{ section, action: 'start' | 'pause' }`), not by re-sending `status: 'in-progress'` with a different section.
+- `sectionDurations` intentionally includes only closed segments; open segment live ticking is client-side from the active segment start time.
 
 Completed sessions should also store exercise-level set logs and post-workout feedback.
 

@@ -234,6 +234,12 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
     completedAt: Date.parse('2026-03-02T19:00:00Z'),
     duration: 60,
     timeSegments: [],
+    sectionDurations: {
+      warmup: 0,
+      main: 0,
+      cooldown: 0,
+      supplemental: 0,
+    },
     feedback: {
       energy: 4,
       recovery: 4,

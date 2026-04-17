@@ -15,6 +15,7 @@ import {
   type SetCorrection,
   type SwapWorkoutSessionExerciseInput,
   type UpdateWorkoutSessionInput,
+  type UpdateWorkoutSessionSectionTimerInput,
   type UpdateWorkoutSessionTimeSegmentsInput,
   type WorkoutSession,
   timeSegmentsSchema,
@@ -27,6 +28,7 @@ import {
   workoutSessionQueryParamsSchema,
   workoutSessionSchema,
   updateWorkoutSessionInputSchema,
+  updateWorkoutSessionSectionTimerInputSchema,
 } from './workout-sessions';
 
 describe('workoutSessionFeedbackSchema', () => {
@@ -317,6 +319,12 @@ describe('workoutSessionSchema', () => {
       timeSegments: [
         { start: '2026-03-01T10:00:00.000Z', end: '2026-03-01T10:30:00.000Z', section: 'main' },
       ],
+      sectionDurations: {
+        warmup: 0,
+        main: 1_800_000,
+        cooldown: 0,
+        supplemental: 0,
+      },
       feedback: null,
       notes: null,
       exercises: [
@@ -360,6 +368,12 @@ describe('workoutSessionSchema', () => {
           section: 'main',
         },
       ],
+      sectionDurations: {
+        warmup: 0,
+        main: 3_600_000,
+        cooldown: 0,
+        supplemental: 0,
+      },
       feedback: {
         energy: 4,
         recovery: 3,
@@ -430,6 +444,12 @@ describe('workoutSessionSchema', () => {
           section: 'main',
         },
       ],
+      sectionDurations: {
+        warmup: 0,
+        main: 3_600_000,
+        cooldown: 0,
+        supplemental: 0,
+      },
       feedback: {
         energy: 4,
         recovery: 3,
@@ -498,6 +518,12 @@ describe('workoutSessionSchema', () => {
         completedAt: null,
         duration: null,
         timeSegments: [],
+        sectionDurations: {
+          warmup: 0,
+          main: 0,
+          cooldown: 0,
+          supplemental: 0,
+        },
         feedback: null,
         notes: null,
         sets: [],
@@ -866,6 +892,7 @@ describe('updateWorkoutSessionInputSchema', () => {
       addExercises: [{ name: 'Goblet Squat', sets: 2, reps: 10 }],
       removeExercises: [{ exerciseId: 'exercise-1', section: 'main' }],
       reorderExercises: ['exercise-2', 'exercise-1'],
+      activeSection: 'cooldown',
     });
 
     expect(payload).toEqual({
@@ -893,6 +920,7 @@ describe('updateWorkoutSessionInputSchema', () => {
       ],
       removeExercises: [{ exerciseId: 'exercise-1', section: 'main' }],
       reorderExercises: ['exercise-2', 'exercise-1'],
+      activeSection: 'cooldown',
     });
   });
 
@@ -922,6 +950,30 @@ describe('updateWorkoutSessionInputSchema', () => {
         },
       ],
     });
+  });
+});
+
+describe('updateWorkoutSessionSectionTimerInputSchema', () => {
+  it('accepts start/pause section timer actions', () => {
+    const payload: UpdateWorkoutSessionSectionTimerInput =
+      updateWorkoutSessionSectionTimerInputSchema.parse({
+        section: 'warmup',
+        action: 'start',
+      });
+
+    expect(payload).toEqual({
+      section: 'warmup',
+      action: 'start',
+    });
+  });
+
+  it('rejects unknown section timer actions', () => {
+    expect(() =>
+      updateWorkoutSessionSectionTimerInputSchema.parse({
+        section: 'main',
+        action: 'resume',
+      }),
+    ).toThrow();
   });
 });
 

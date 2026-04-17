@@ -50,7 +50,7 @@ export type AgentEnrichmentContext =
     }
   | {
       endpoint: 'workout-session.mutation';
-      action: 'create' | 'update' | 'reorder' | 'swap' | 'time-segments' | 'set';
+      action: 'create' | 'update' | 'reorder' | 'swap' | 'time-segments' | 'section-timer' | 'set';
       session?: WorkoutSession;
     }
   | {
