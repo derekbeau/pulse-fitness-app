@@ -47,6 +47,7 @@ import { z } from 'zod';
 
 import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { createOptimisticMutation } from '@/lib/optimistic';
+import { syncSessionMutationCache } from '@/features/workouts/lib/session-query-cache';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const paginationMetaSchema = z.object({
@@ -1310,25 +1311,7 @@ export function useUpdateSessionSectionTimer(sessionId: string | null | undefine
       });
     },
     onSuccess: async (session) => {
-      const legacySessionQueryKey = ['workout-sessions', session.id] as const;
-
-      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
-      queryClient.setQueryData(legacySessionQueryKey, session);
-
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessions(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.session(session.id),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: legacySessionQueryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['workout-sessions'],
-        }),
-      ]);
+      await syncSessionMutationCache(queryClient, session);
     },
   });
 }

@@ -806,6 +806,15 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
 
+    const getSectionTimerButton = (sectionTitle: 'Warmup' | 'Main', buttonName: string) => {
+      const heading = screen.getByRole('heading', { level: 2, name: new RegExp(`^${sectionTitle}`) });
+      const sectionElement = heading.closest('section');
+
+      expect(sectionElement).not.toBeNull();
+
+      return within(sectionElement as HTMLElement).getByRole('button', { name: buttonName });
+    };
+
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
@@ -817,6 +826,14 @@ describe('ActiveWorkoutPage', () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+
+    fireEvent.click(getSectionTimerButton('Warmup', 'Start'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(getSectionTimerButton('Warmup', 'Pause')).toBeInTheDocument();
+    expect(getSectionTimerButton('Main', 'Resume')).toBeInTheDocument();
 
     expect(
       fetchMock.mock.calls.some(
@@ -834,6 +851,15 @@ describe('ActiveWorkoutPage', () => {
           init?.method === 'PATCH' &&
           JSON.parse(String(init.body)).action === 'start' &&
           JSON.parse(String(init.body)).section === 'main',
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+          init?.method === 'PATCH' &&
+          JSON.parse(String(init.body)).action === 'start' &&
+          JSON.parse(String(init.body)).section === 'warmup',
       ),
     ).toBe(true);
   });
