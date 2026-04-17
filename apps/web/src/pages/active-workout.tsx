@@ -207,7 +207,6 @@ export function ActiveWorkoutPage() {
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [summarySaving, setSummarySaving] = useState(false);
   const [restTimer, setRestTimer] = useState<RestTimerState | null>(null);
-  const [restTimerTargetSetId, setRestTimerTargetSetId] = useState<string | null>(null);
   const [focusSetId, setFocusSetId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
   const [exerciseSupersetOverrides, setExerciseSupersetOverrides] = useState<
@@ -1039,7 +1038,6 @@ export function ActiveWorkoutPage() {
             });
 
             setRestTimer(null);
-            setRestTimerTargetSetId(null);
             setFocusSetId(createdSet.id);
           },
         },
@@ -1056,7 +1054,6 @@ export function ActiveWorkoutPage() {
     }));
 
     setRestTimer(null);
-    setRestTimerTargetSetId(null);
     setFocusSetId(nextSet.id);
   }
 
@@ -1087,10 +1084,6 @@ export function ActiveWorkoutPage() {
 
     if (restTimer?.setId === removedSet.id) {
       setRestTimer(null);
-    }
-
-    if (restTimerTargetSetId === removedSet.id) {
-      setRestTimerTargetSetId(null);
     }
 
     if (focusSetId === removedSet.id) {
@@ -1183,10 +1176,6 @@ export function ActiveWorkoutPage() {
       removedSetIds.has(restTimer?.setId ?? '')
     ) {
       setRestTimer(null);
-    }
-
-    if (removedSetIds.has(restTimerTargetSetId ?? '')) {
-      setRestTimerTargetSetId(null);
     }
 
     if (removedSetIds.has(focusSetId ?? '')) {
@@ -1348,21 +1337,15 @@ export function ActiveWorkoutPage() {
       sessionStartedAt: startTime,
     });
 
-    const nextTargetSetId = findNextPendingSetId(updatedSession);
+    const hasPendingSets = updatedSession.sections.some((section) =>
+      section.exercises.some((exercise) => exercise.sets.some((set) => !set.completed)),
+    );
 
-    if (!nextTargetSetId) {
+    if (!hasPendingSets) {
       setRestTimer(null);
-      setRestTimerTargetSetId(null);
       setFocusSetId(null);
       return;
     }
-
-    const completedSetSectionId = findSetSectionId(updatedSession, updatedSet.id);
-    const nextSetSectionId = findSetSectionId(updatedSession, nextTargetSetId);
-    const shouldFocusNextSet =
-      completedSetSectionId !== null &&
-      nextSetSectionId !== null &&
-      completedSetSectionId === nextSetSectionId;
 
     restTimerTokenRef.current += 1;
     setRestTimer({
@@ -1376,7 +1359,6 @@ export function ActiveWorkoutPage() {
       setNumber: updatedSet.number,
       token: restTimerTokenRef.current,
     });
-    setRestTimerTargetSetId(shouldFocusNextSet ? nextTargetSetId : null);
     setFocusSetId(null);
   }
 
@@ -1533,8 +1515,6 @@ export function ActiveWorkoutPage() {
 
   function handleRestTimerComplete() {
     setRestTimer(null);
-    setFocusSetId(restTimerTargetSetId);
-    setRestTimerTargetSetId(null);
   }
 
   function handleCompleteWorkout() {
@@ -1552,7 +1532,6 @@ export function ActiveWorkoutPage() {
 
   function transitionToFeedbackStage() {
     setRestTimer(null);
-    setRestTimerTargetSetId(null);
     setFocusSetId(null);
     setSessionCompletedAt((current) => current ?? new Date().toISOString());
     setStage('feedback');
@@ -2210,32 +2189,6 @@ function isSessionNotActiveError(error: unknown) {
   return (
     error instanceof ApiError && error.status === 409 && error.code === 'WORKOUT_SESSION_NOT_ACTIVE'
   );
-}
-
-function findNextPendingSetId(session: ReturnType<typeof buildActiveWorkoutSession>) {
-  for (const section of session.sections) {
-    for (const exercise of section.exercises) {
-      const nextSet = exercise.sets.find((set) => !set.completed);
-
-      if (nextSet) {
-        return nextSet.id;
-      }
-    }
-  }
-
-  return null;
-}
-
-function findSetSectionId(session: ReturnType<typeof buildActiveWorkoutSession>, setId: string) {
-  for (const section of session.sections) {
-    for (const exercise of section.exercises) {
-      if (exercise.sets.some((set) => set.id === setId)) {
-        return section.id;
-      }
-    }
-  }
-
-  return null;
 }
 
 function normalizeSetDraftForTrackingType<T extends { weight: number | null }>(
