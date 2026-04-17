@@ -184,7 +184,10 @@ export function ActiveWorkoutPage() {
     () => (templateQuery.data ? toActiveWorkoutTemplate(templateQuery.data) : null),
     [templateQuery.data],
   );
-  const fallbackTemplate = useMemo(() => createEmptyTemplate(resolvedTemplateId), [resolvedTemplateId]);
+  const fallbackTemplate = useMemo(
+    () => createEmptyTemplate(resolvedTemplateId),
+    [resolvedTemplateId],
+  );
   const activeSession = sessionQuery.data;
   const template = useMemo(
     () => buildTemplateFromSession(activeSession, apiTemplate ?? fallbackTemplate),
@@ -307,9 +310,12 @@ export function ActiveWorkoutPage() {
     if (isSessionSwitch) {
       const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
       const shouldUseAutosavedDraft =
-        autosavedDraft && (!hasDraftStructure(serverSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
+        autosavedDraft &&
+        (!hasDraftStructure(serverSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
       setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : serverSetDrafts);
-      setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : serverExerciseNotes);
+      setExerciseNotes(
+        shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : serverExerciseNotes,
+      );
       setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
@@ -376,7 +382,8 @@ export function ActiveWorkoutPage() {
     const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
     const shouldUseAutosavedDraft =
-      autosavedDraft && (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
+      autosavedDraft &&
+      (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
 
     setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
     setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : {});
@@ -1098,11 +1105,12 @@ export function ActiveWorkoutPage() {
           exerciseIds.map((entryExerciseId) => toExerciseSectionKey(entryExerciseId, sectionType)),
         )
         .filter(
-          (exerciseSectionKey) =>
-            exerciseSectionKey !== toExerciseSectionKey(exerciseId, section),
+          (exerciseSectionKey) => exerciseSectionKey !== toExerciseSectionKey(exerciseId, section),
         ),
     );
-    const hasExerciseInAnotherSection = (Object.keys(sectionTitleByType) as WorkoutTemplateSectionType[]).some(
+    const hasExerciseInAnotherSection = (
+      Object.keys(sectionTitleByType) as WorkoutTemplateSectionType[]
+    ).some(
       (sectionType) =>
         sectionType !== section &&
         remainingExerciseSectionKeys.has(toExerciseSectionKey(exerciseId, sectionType)),
@@ -1624,6 +1632,7 @@ export function ActiveWorkoutPage() {
       {
         start: new Date().toISOString(),
         end: null,
+        section: 'main',
       },
     ]);
   }
@@ -2436,7 +2445,9 @@ function buildTemplateFromSession(
 function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
   const namesById = new Map(
     session.sets
-      .filter((set): set is SessionSet & { exerciseId: string } => typeof set.exerciseId === 'string')
+      .filter(
+        (set): set is SessionSet & { exerciseId: string } => typeof set.exerciseId === 'string',
+      )
       .map((set) => [set.exerciseId, startCase(set.exerciseId)]),
   );
   const grouped = new Map<

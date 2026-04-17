@@ -53,6 +53,7 @@ const sessionResponse = {
     {
       start: '2026-03-08T00:00:00.000Z',
       end: null,
+      section: 'main',
     },
   ],
   feedback: null,
@@ -187,6 +188,7 @@ describe('use-workout-session hooks', () => {
           {
             start: '2026-03-08T00:00:00.000Z',
             end: '2026-03-08T00:05:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -229,6 +231,7 @@ describe('use-workout-session hooks', () => {
           {
             start: '2026-03-08T00:00:00.000Z',
             end: '2026-03-08T00:10:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -243,6 +246,7 @@ describe('use-workout-session hooks', () => {
           {
             start: '2026-03-08T00:00:00.000Z',
             end: '2026-03-08T00:10:00.000Z',
+            section: 'main',
           },
         ],
       });

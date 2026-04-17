@@ -65,6 +65,7 @@ describe('ActiveSessionResumeGate', () => {
             {
               start: '2026-03-09T00:00:00.000Z',
               end: null,
+              section: 'main',
             },
           ],
           feedback: null,
@@ -127,6 +128,7 @@ describe('ActiveSessionResumeGate', () => {
             {
               start: '2026-03-09T00:00:00.000Z',
               end: '2026-03-09T00:10:00.000Z',
+              section: 'main',
             },
           ],
           feedback: {

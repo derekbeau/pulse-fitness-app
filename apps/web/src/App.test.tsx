@@ -98,6 +98,7 @@ const workoutSessionPayload = {
       {
         start: '2026-03-02T18:00:00.000Z',
         end: '2026-03-02T19:00:00.000Z',
+        section: 'main',
       },
     ],
     feedback: {

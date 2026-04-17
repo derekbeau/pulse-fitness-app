@@ -374,7 +374,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         input.status === 'in-progress' && input.timeSegments.length === 0
           ? {
               ...input,
-              timeSegments: [{ start: toIsoString(input.startedAt), end: null }],
+              timeSegments: [
+                { start: toIsoString(input.startedAt), end: null, section: 'main' as const },
+              ],
             }
           : input;
 
@@ -1062,7 +1064,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         ),
       );
       const hasLoggedSets = merged.sets.some(
-        (set) => removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)) && set.completed,
+        (set) =>
+          removeExerciseSectionKeys.has(toExerciseSectionKey(set.exerciseId, set.section)) &&
+          set.completed,
       );
       if (hasLoggedSets && !body.force) {
         return sendError(

@@ -1,4 +1,16 @@
-import type { WorkoutSessionTimeSegment } from '@pulse/shared';
+import type { WorkoutSection, WorkoutSessionTimeSegment } from '@pulse/shared';
+
+type LegacyWorkoutSessionTimeSegment = Omit<WorkoutSessionTimeSegment, 'section'> &
+  Partial<Pick<WorkoutSessionTimeSegment, 'section'>>;
+
+export function backfillTimeSegmentSections(
+  timeSegments: LegacyWorkoutSessionTimeSegment[],
+): WorkoutSessionTimeSegment[] {
+  return timeSegments.map((segment) => ({
+    ...segment,
+    section: segment.section ?? 'main',
+  }));
+}
 
 export function closeOpenTimeSegment(
   timeSegments: WorkoutSessionTimeSegment[],
@@ -23,8 +35,9 @@ export function closeOpenTimeSegment(
 export function openTimeSegment(
   timeSegments: WorkoutSessionTimeSegment[],
   startIso: string,
+  section: WorkoutSection = 'main',
 ): WorkoutSessionTimeSegment[] {
-  return [...timeSegments, { start: startIso, end: null }];
+  return [...timeSegments, { start: startIso, end: null, section }];
 }
 
 export function calculateActiveDuration(timeSegments: WorkoutSessionTimeSegment[]): number {

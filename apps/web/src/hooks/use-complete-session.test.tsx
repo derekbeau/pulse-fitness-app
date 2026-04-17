@@ -37,6 +37,7 @@ const completedSessionResponse = {
     {
       start: '2026-03-08T00:00:00.000Z',
       end: '2026-03-08T00:45:00.000Z',
+      section: 'main',
     },
   ],
   feedback: {

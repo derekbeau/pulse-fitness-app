@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import {
   agentTokens,
   exercises,
+  parseWorkoutSessionTimeSegments,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
   serializeWorkoutSessionTimeSegments,
@@ -153,6 +154,7 @@ const seedWorkoutSession = (values: {
   timeSegments?: Array<{
     start: string;
     end: string | null;
+    section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   }>;
 }) =>
   context.db
@@ -167,7 +169,12 @@ const seedWorkoutSession = (values: {
       startedAt: values.startedAt,
       completedAt: values.completedAt ?? null,
       duration: values.duration ?? null,
-      timeSegments: serializeWorkoutSessionTimeSegments(values.timeSegments ?? []),
+      timeSegments: serializeWorkoutSessionTimeSegments(
+        (values.timeSegments ?? []).map((segment) => ({
+          ...segment,
+          section: segment.section ?? 'main',
+        })),
+      ),
       feedback: serializeWorkoutSessionFeedback(values.feedback ?? null),
       notes: values.notes ?? null,
     })
@@ -2559,6 +2566,58 @@ describe('workout session routes', () => {
           {
             start: new Date(startedAt).toISOString(),
             end: null,
+            section: 'main',
+          },
+        ],
+      }),
+    });
+  });
+
+  it('backfills legacy stored time segments to main section on read', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    context.db
+      .insert(workoutSessions)
+      .values({
+        id: 'session-legacy-segments',
+        userId: 'user-1',
+        templateId: 'template-1',
+        name: 'Legacy Segments Session',
+        date: '2026-03-12',
+        status: 'paused',
+        startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+        completedAt: null,
+        duration: null,
+        timeSegments:
+          '[{"start":"2026-03-12T10:00:00.000Z","end":"2026-03-12T10:10:00.000Z"},{"start":"2026-03-12T10:20:00.000Z","end":null}]',
+        feedback: serializeWorkoutSessionFeedback(null),
+        notes: null,
+      })
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-legacy-segments',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-legacy-segments',
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
+          },
+          {
+            start: '2026-03-12T10:20:00.000Z',
+            end: null,
+            section: 'main',
           },
         ],
       }),
@@ -2593,6 +2652,7 @@ describe('workout session routes', () => {
           {
             start: new Date(startedAt).toISOString(),
             end: null,
+            section: 'main',
           },
         ],
       }),
@@ -2634,6 +2694,7 @@ describe('workout session routes', () => {
           {
             start: startedAt,
             end: expect.any(String),
+            section: 'main',
           },
         ],
       }),
@@ -2656,10 +2717,12 @@ describe('workout session routes', () => {
           {
             start: startedAt,
             end: expect.any(String),
+            section: 'main',
           },
           {
             start: expect.any(String),
             end: null,
+            section: 'main',
           },
         ],
       }),
@@ -2706,6 +2769,7 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: expect.any(String),
+            section: 'main',
           },
         ],
       }),
@@ -2759,10 +2823,12 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:20:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -2800,10 +2866,12 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:05:00.000Z',
             end: '2026-03-12T10:20:00.000Z',
+            section: 'main',
           },
         ],
       },
@@ -2848,10 +2916,12 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:20:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
           },
         ],
       },
@@ -2898,6 +2968,7 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:15:00.000Z',
+            section: 'main',
           },
         ],
       },
@@ -2911,6 +2982,7 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:15:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -2954,6 +3026,7 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
         ],
       },
@@ -2967,6 +3040,7 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -2981,10 +3055,12 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:08:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:12:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
         ],
       },
@@ -2998,14 +3074,76 @@ describe('workout session routes', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:08:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:12:00.000Z',
             end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
           },
         ],
       }),
     });
+  });
+
+  it('round-trips section-tagged time segments through time-segments updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-time-roundtrip',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Roundtrip Session',
+      date: '2026-03-12',
+      status: 'paused',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [],
+    });
+
+    const payload = {
+      timeSegments: [
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: '2026-03-12T10:10:00.000Z',
+          section: 'warmup',
+        },
+        {
+          start: '2026-03-12T10:15:00.000Z',
+          end: null,
+          section: 'main',
+        },
+      ],
+    };
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-time-roundtrip/time-segments',
+      headers: createAuthorizationHeader(authToken),
+      payload,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-time-roundtrip',
+        timeSegments: payload.timeSegments,
+      }),
+    });
+
+    const persisted = context.db
+      .select({
+        timeSegments: workoutSessions.timeSegments,
+      })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, 'session-time-roundtrip'))
+      .get();
+
+    expect(parseWorkoutSessionTimeSegments(persisted?.timeSegments ?? null)).toEqual(
+      payload.timeSegments,
+    );
   });
 
   it('updates owned workout sessions by replacing nested set rows', async () => {
@@ -4215,9 +4353,11 @@ describe('workout session routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(
-      (response.json() as {
-        data: { sets: Array<{ exerciseId: string; section: string | null; setNumber: number }> };
-      }).data.sets.filter((set) => set.exerciseId === 'global-bench-press'),
+      (
+        response.json() as {
+          data: { sets: Array<{ exerciseId: string; section: string | null; setNumber: number }> };
+        }
+      ).data.sets.filter((set) => set.exerciseId === 'global-bench-press'),
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ section: 'main', setNumber: 1 }),
@@ -4278,20 +4418,22 @@ describe('workout session routes', () => {
 
     expect(sectionRemovalResponse.statusCode).toBe(200);
     expect(
-      (sectionRemovalResponse.json() as {
-        data: { sets: Array<{ exerciseId: string; section: string | null }> };
-      }).data.sets,
+      (
+        sectionRemovalResponse.json() as {
+          data: { sets: Array<{ exerciseId: string; section: string | null }> };
+        }
+      ).data.sets,
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ exerciseId: 'global-bench-press', section: 'cooldown' }),
       ]),
     );
     expect(
-      (sectionRemovalResponse.json() as {
-        data: { sets: Array<{ exerciseId: string; section: string | null }> };
-      }).data.sets.some(
-        (set) => set.exerciseId === 'global-bench-press' && set.section === 'main',
-      ),
+      (
+        sectionRemovalResponse.json() as {
+          data: { sets: Array<{ exerciseId: string; section: string | null }> };
+        }
+      ).data.sets.some((set) => set.exerciseId === 'global-bench-press' && set.section === 'main'),
     ).toBe(false);
   });
 
@@ -4442,18 +4584,22 @@ describe('workout session routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(
-      (response.json() as {
-        data: { sets: Array<{ exerciseId: string; section: string | null }> };
-      }).data.sets,
+      (
+        response.json() as {
+          data: { sets: Array<{ exerciseId: string; section: string | null }> };
+        }
+      ).data.sets,
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ exerciseId: 'global-bench-press', section: 'main' }),
       ]),
     );
     expect(
-      (response.json() as {
-        data: { sets: Array<{ exerciseId: string; section: string | null }> };
-      }).data.sets.some(
+      (
+        response.json() as {
+          data: { sets: Array<{ exerciseId: string; section: string | null }> };
+        }
+      ).data.sets.some(
         (set) => set.exerciseId === 'global-bench-press' && set.section === 'cooldown',
       ),
     ).toBe(false);

@@ -314,7 +314,9 @@ describe('workoutSessionSchema', () => {
       startedAt: 1_700_000_000_000,
       completedAt: 1_700_000_030_000,
       duration: 1800,
-      timeSegments: [{ start: '2026-03-01T10:00:00.000Z', end: '2026-03-01T10:30:00.000Z' }],
+      timeSegments: [
+        { start: '2026-03-01T10:00:00.000Z', end: '2026-03-01T10:30:00.000Z', section: 'main' },
+      ],
       feedback: null,
       notes: null,
       exercises: [
@@ -355,6 +357,7 @@ describe('workoutSessionSchema', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: '2026-03-12T11:00:00.000Z',
+          section: 'main',
         },
       ],
       feedback: {
@@ -424,6 +427,7 @@ describe('workoutSessionSchema', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: '2026-03-12T11:00:00.000Z',
+          section: 'main',
         },
       ],
       feedback: {
@@ -518,6 +522,7 @@ describe('createWorkoutSessionInputSchema', () => {
         {
           start: '2026-03-13T10:00:00.000Z',
           end: '2026-03-13T10:45:00.000Z',
+          section: 'main',
         },
       ],
       feedback: {
@@ -553,6 +558,7 @@ describe('createWorkoutSessionInputSchema', () => {
         {
           start: '2026-03-13T10:00:00.000Z',
           end: '2026-03-13T10:45:00.000Z',
+          section: 'main',
         },
       ],
       feedback: {
@@ -682,19 +688,23 @@ describe('timeSegmentsSchema', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: null,
+          section: 'main',
         },
       ]),
     ).toEqual([
       {
         start: '2026-03-12T10:00:00.000Z',
         end: null,
+        section: 'main',
       },
     ]);
   });
 
   it('rejects invalid segment entries', () => {
     expect(() => timeSegmentsSchema.parse([{ start: 123, end: null }])).toThrow();
-    expect(() => timeSegmentsSchema.parse([{ start: '2026-03-12T10:00:00.000Z' }])).toThrow();
+    expect(() =>
+      timeSegmentsSchema.parse([{ start: '2026-03-12T10:00:00.000Z', end: null }]),
+    ).toThrow();
   });
 });
 
@@ -706,10 +716,12 @@ describe('updateWorkoutSessionTimeSegmentsInputSchema', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:15:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:20:00.000Z',
             end: null,
+            section: 'cooldown',
           },
         ],
       });
@@ -724,10 +736,12 @@ describe('updateWorkoutSessionTimeSegmentsInputSchema', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:15:00.000Z',
+            section: 'warmup',
           },
           {
             start: '2026-03-12T10:10:00.000Z',
             end: '2026-03-12T10:20:00.000Z',
+            section: 'main',
           },
         ],
       }),
@@ -741,10 +755,74 @@ describe('updateWorkoutSessionTimeSegmentsInputSchema', () => {
           {
             start: '2026-03-12T10:15:00.000Z',
             end: '2026-03-12T10:00:00.000Z',
+            section: 'main',
           },
         ],
       }),
     ).toThrow();
+  });
+
+  it('rejects overlapping segments across different sections', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:20:00.000Z',
+            section: 'warmup',
+          },
+          {
+            start: '2026-03-12T10:15:00.000Z',
+            end: '2026-03-12T10:25:00.000Z',
+            section: 'main',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects multiple open segments across sections', () => {
+    expect(() =>
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: null,
+            section: 'warmup',
+          },
+          {
+            start: '2026-03-12T10:05:00.000Z',
+            end: null,
+            section: 'main',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('accepts multi-section segments when globally ordered with a single open segment', () => {
+    const payload: UpdateWorkoutSessionTimeSegmentsInput =
+      updateWorkoutSessionTimeSegmentsInputSchema.parse({
+        timeSegments: [
+          {
+            start: '2026-03-12T10:00:00.000Z',
+            end: '2026-03-12T10:10:00.000Z',
+            section: 'warmup',
+          },
+          {
+            start: '2026-03-12T10:12:00.000Z',
+            end: '2026-03-12T10:30:00.000Z',
+            section: 'main',
+          },
+          {
+            start: '2026-03-12T10:35:00.000Z',
+            end: null,
+            section: 'cooldown',
+          },
+        ],
+      });
+
+    expect(payload.timeSegments).toHaveLength(3);
   });
 });
 

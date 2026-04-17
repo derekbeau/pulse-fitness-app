@@ -111,7 +111,7 @@ const habits: Habit[] = [
     frequency: 'daily',
     frequencyTarget: null,
     scheduledDays: null,
-    pausedUntil: toDateKey(addDays(getToday(), 7)),
+    pausedUntil: toDateKey(addDays(getToday(), 14)),
     updatedAt: 3,
     userId: 'user-1',
   },

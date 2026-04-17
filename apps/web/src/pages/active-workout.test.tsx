@@ -444,6 +444,7 @@ describe('ActiveWorkoutPage', () => {
                 {
                   start: '2026-03-06T12:00:00.000Z',
                   end: '2026-03-06T12:45:00.000Z',
+                  section: 'main',
                 },
               ],
             },
@@ -491,7 +492,7 @@ describe('ActiveWorkoutPage', () => {
       startedAt: baseStartedAt,
       completedAt: null,
       duration: null,
-      timeSegments: [{ start: '2026-03-06T12:00:00.000Z', end: null }],
+      timeSegments: [{ start: '2026-03-06T12:00:00.000Z', end: null, section: 'main' }],
       feedback: null,
       notes: null,
       sets: [
@@ -694,6 +695,7 @@ describe('ActiveWorkoutPage', () => {
               {
                 start: currentSession.timeSegments[0]?.start ?? '2026-03-06T12:00:00.000Z',
                 end: new Date(Date.now()).toISOString(),
+                section: 'main',
               },
             ],
             duration: 65,
@@ -709,6 +711,7 @@ describe('ActiveWorkoutPage', () => {
               {
                 start: new Date(Date.now()).toISOString(),
                 end: null,
+                section: 'main',
               },
             ],
           };
@@ -1867,6 +1870,7 @@ function buildCompletedSessionResponse() {
       {
         start: '2026-03-06T12:00:00.000Z',
         end: '2026-03-06T12:16:00.000Z',
+        section: 'main',
       },
     ],
     feedback: null,
@@ -1892,6 +1896,7 @@ function buildInProgressSessionResponse(sessionId: string) {
       {
         start: '2026-03-06T12:00:00.000Z',
         end: null,
+        section: 'main',
       },
     ],
     feedback: null,
@@ -1935,5 +1940,5 @@ type MutableInProgressSessionResponse = Omit<
 > & {
   status: 'in-progress' | 'paused';
   duration: number | null;
-  timeSegments: Array<{ start: string; end: string | null }>;
+  timeSegments: Array<{ start: string; end: string | null; section: 'main' }>;
 };

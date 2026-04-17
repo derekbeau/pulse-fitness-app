@@ -211,6 +211,7 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
     timeSegments: [
       {
         end: '2026-03-12T11:00:00.000Z',
+        section: 'main',
         start: '2026-03-12T10:00:00.000Z',
       },
     ],

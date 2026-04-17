@@ -97,10 +97,12 @@ export const workoutSessionStatusSchema = z.enum([
   'cancelled',
   'completed',
 ]);
+export const workoutSectionSchema = workoutTemplateSectionTypeSchema;
 export const timeSegmentsSchema = z.array(
   z.object({
     start: z.string(),
     end: z.string().nullable(),
+    section: workoutSectionSchema,
   }),
 );
 
@@ -113,7 +115,10 @@ const validateTimeSegments = (
   timeSegments: z.infer<typeof timeSegmentsSchema>,
   context: z.RefinementCtx,
 ) => {
+  let previousStart: number | null = null;
   let previousEnd: number | null = null;
+  let openSegmentCount = 0;
+  let openSegmentIndex = -1;
 
   for (const [index, segment] of timeSegments.entries()) {
     const start = parseIsoTimestamp(segment.start);
@@ -122,6 +127,15 @@ const validateTimeSegments = (
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Segment start must be a valid ISO timestamp',
+        path: [index, 'start'],
+      });
+      return;
+    }
+
+    if (previousStart !== null && start < previousStart) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Time segments must be chronologically ordered and non-overlapping',
         path: [index, 'start'],
       });
       return;
@@ -157,17 +171,21 @@ const validateTimeSegments = (
       }
 
       previousEnd = end;
+      previousStart = start;
       continue;
     }
 
-    if (index !== timeSegments.length - 1) {
+    openSegmentCount += 1;
+    if (openSegmentCount > 1) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Only the final segment may be open',
+        message: 'Only one segment may be open at a time',
         path: [index, 'end'],
       });
       return;
     }
+
+    openSegmentIndex = index;
 
     if (previousEnd !== null && start < previousEnd) {
       context.addIssue({
@@ -177,6 +195,16 @@ const validateTimeSegments = (
       });
       return;
     }
+
+    previousStart = start;
+  }
+
+  if (openSegmentIndex !== -1 && openSegmentIndex !== timeSegments.length - 1) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only the final segment may be open',
+      path: [openSegmentIndex, 'end'],
+    });
   }
 };
 export const validatedTimeSegmentsSchema = timeSegmentsSchema.superRefine(validateTimeSegments);
@@ -521,6 +549,7 @@ export const workoutSessionQueryParamsSchema = z
   });
 
 export type WorkoutSessionStatus = z.infer<typeof workoutSessionStatusSchema>;
+export type WorkoutSection = z.infer<typeof workoutSectionSchema>;
 export type WorkoutSessionTimeSegment = z.infer<typeof timeSegmentsSchema>[number];
 export type WorkoutSessionFeedback = z.infer<typeof workoutSessionFeedbackSchema>;
 export type WorkoutSessionFeedbackResponse = z.infer<typeof workoutSessionFeedbackResponseSchema>;

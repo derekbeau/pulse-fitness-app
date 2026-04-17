@@ -1258,19 +1258,24 @@ describe('workout session time segment helpers', () => {
       {
         start: '2026-03-12T10:00:00.000Z',
         end: null,
+        section: 'main',
       },
       {
         start: '2026-03-12T10:15:00.000Z',
         end: '2026-03-12T10:45:00.000Z',
+        section: 'cooldown',
       },
     ];
 
     const serialized = serializeWorkoutSessionTimeSegments(timeSegments);
 
     expect(serialized).toBe(
-      '[{"start":"2026-03-12T10:00:00.000Z","end":null},{"start":"2026-03-12T10:15:00.000Z","end":"2026-03-12T10:45:00.000Z"}]',
+      '[{"start":"2026-03-12T10:00:00.000Z","end":null,"section":"main"},{"start":"2026-03-12T10:15:00.000Z","end":"2026-03-12T10:45:00.000Z","section":"cooldown"}]',
     );
     expect(parseWorkoutSessionTimeSegments(serialized)).toEqual(timeSegments);
+    expect(
+      parseWorkoutSessionTimeSegments('[{"start":"2026-03-12T10:00:00.000Z","end":null}]'),
+    ).toEqual([{ start: '2026-03-12T10:00:00.000Z', end: null }]);
     expect(parseWorkoutSessionTimeSegments(null)).toEqual([]);
     expect(serializeWorkoutSessionTimeSegments(null)).toBe('[]');
   });
@@ -1283,6 +1288,14 @@ describe('workout session time segment helpers', () => {
     expect(() => parseWorkoutSessionTimeSegments('[{"start":123,"end":null}]')).toThrow(TypeError);
     expect(() =>
       parseWorkoutSessionTimeSegments('[{"start":"2026-03-12T10:00:00.000Z","end":0}]'),
+    ).toThrow(TypeError);
+    expect(() =>
+      serializeWorkoutSessionTimeSegments([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+        } as WorkoutSessionTimeSegment,
+      ]),
     ).toThrow(TypeError);
   });
 });

@@ -62,7 +62,7 @@ A workout session is the user-specific execution record of a template.
 - `startedAt`: ISO timestamp for session start
 - `completedAt`: ISO timestamp for session finish; optional until complete
 - `duration`: total elapsed minutes for the session
-- `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp and nullable `end`
+- `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp, nullable `end`, and a `section` (`warmup`, `main`, `cooldown`, or `supplemental`)
 
 Completed sessions should also store exercise-level set logs and post-workout feedback.
 

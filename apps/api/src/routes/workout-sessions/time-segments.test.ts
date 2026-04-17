@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateActiveDuration, closeOpenTimeSegment, openTimeSegment } from './time-segments.js';
+import {
+  backfillTimeSegmentSections,
+  calculateActiveDuration,
+  closeOpenTimeSegment,
+  openTimeSegment,
+} from './time-segments.js';
 
 describe('workout session time segment helpers', () => {
   it('closes the latest open segment', () => {
@@ -10,10 +15,12 @@ describe('workout session time segment helpers', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
           },
           {
             start: '2026-03-12T10:15:00.000Z',
             end: null,
+            section: 'main',
           },
         ],
         '2026-03-12T10:20:00.000Z',
@@ -22,10 +29,12 @@ describe('workout session time segment helpers', () => {
       {
         start: '2026-03-12T10:00:00.000Z',
         end: '2026-03-12T10:10:00.000Z',
+        section: 'main',
       },
       {
         start: '2026-03-12T10:15:00.000Z',
         end: '2026-03-12T10:20:00.000Z',
+        section: 'main',
       },
     ]);
   });
@@ -37,6 +46,7 @@ describe('workout session time segment helpers', () => {
           {
             start: '2026-03-12T10:00:00.000Z',
             end: '2026-03-12T10:10:00.000Z',
+            section: 'main',
           },
         ],
         '2026-03-12T10:15:00.000Z',
@@ -45,10 +55,39 @@ describe('workout session time segment helpers', () => {
       {
         start: '2026-03-12T10:00:00.000Z',
         end: '2026-03-12T10:10:00.000Z',
+        section: 'main',
       },
       {
         start: '2026-03-12T10:15:00.000Z',
         end: null,
+        section: 'main',
+      },
+    ]);
+  });
+
+  it('backfills legacy segments without section to main', () => {
+    expect(
+      backfillTimeSegmentSections([
+        {
+          start: '2026-03-12T10:00:00.000Z',
+          end: null,
+        },
+        {
+          start: '2026-03-12T10:15:00.000Z',
+          end: '2026-03-12T10:30:00.000Z',
+          section: 'cooldown',
+        },
+      ]),
+    ).toEqual([
+      {
+        start: '2026-03-12T10:00:00.000Z',
+        end: null,
+        section: 'main',
+      },
+      {
+        start: '2026-03-12T10:15:00.000Z',
+        end: '2026-03-12T10:30:00.000Z',
+        section: 'cooldown',
       },
     ]);
   });
@@ -59,14 +98,17 @@ describe('workout session time segment helpers', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: '2026-03-12T10:10:00.000Z',
+          section: 'warmup',
         },
         {
           start: '2026-03-12T10:20:00.000Z',
           end: '2026-03-12T10:25:30.000Z',
+          section: 'main',
         },
         {
           start: '2026-03-12T10:30:00.000Z',
           end: null,
+          section: 'cooldown',
         },
       ]),
     ).toBe(930);
@@ -78,6 +120,7 @@ describe('workout session time segment helpers', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: '2026-03-12T10:45:00.000Z',
+          section: 'main',
         },
       ]),
     ).toBe(2700);
@@ -89,10 +132,12 @@ describe('workout session time segment helpers', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: '2026-03-12T10:20:00.000Z',
+          section: 'main',
         },
         {
           start: '2026-03-12T10:30:00.000Z',
           end: '2026-03-12T10:40:00.000Z',
+          section: 'supplemental',
         },
       ]),
     ).toBe(1800);
