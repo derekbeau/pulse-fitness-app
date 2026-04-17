@@ -3,6 +3,7 @@ import {
   createWorkoutSessionInputSchema,
   reorderWorkoutSessionExercisesInputSchema,
   type ReorderWorkoutSessionExercisesInput,
+  type WorkoutTemplateSectionType,
   type WorkoutSessionTimeSegment,
   type WorkoutSession,
   updateWorkoutSessionTimeSegmentsInputSchema,
@@ -27,6 +28,7 @@ type UpdateSessionStartTimeRequest = {
 };
 type UpdateSessionStatusRequest = {
   status: 'in-progress' | 'paused' | 'cancelled';
+  activeSection?: WorkoutTemplateSectionType;
 };
 type UpdateSessionTimeSegmentsRequest = {
   timeSegments: WorkoutSessionTimeSegment[];
@@ -74,6 +76,7 @@ async function updateSessionStartTime(sessionId: string, input: UpdateSessionSta
 
 async function updateSessionStatus(sessionId: string, input: UpdateSessionStatusRequest) {
   const parsedInput = updateWorkoutSessionInputSchema.parse({
+    activeSection: input.activeSection,
     status: input.status,
   });
   const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {

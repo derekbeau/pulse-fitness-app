@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { MoreVertical, Pause, Play } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -55,6 +55,7 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   workoutQueryKeys,
+  useUpdateSessionSectionTimer,
   useWorkoutSessions,
   useWorkoutTemplate,
 } from '@/features/workouts/api/workouts';
@@ -102,6 +103,12 @@ const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   cooldown: 'Cooldown',
   supplemental: 'Supplemental',
 };
+const workoutSectionOrder: WorkoutTemplateSectionType[] = [
+  'warmup',
+  'main',
+  'cooldown',
+  'supplemental',
+];
 
 const createEmptyTemplate = (templateId: string): ActiveWorkoutTemplate => ({
   description: '',
@@ -171,6 +178,7 @@ export function ActiveWorkoutPage() {
   const updateSetMutation = useUpdateSet(sessionId);
   const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
   const updateSessionStatusMutation = useUpdateSessionStatus(sessionId);
+  const updateSessionSectionTimerMutation = useUpdateSessionSectionTimer(sessionId);
   const cancelAndRevertSessionMutation = useCancelAndRevertSession(sessionId);
   const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
   const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
@@ -230,7 +238,10 @@ export function ActiveWorkoutPage() {
 
   const activeSessionId = activeSession?.id ?? null;
   const activeSessionStatus = activeSession?.status ?? null;
-  const isPaused = activeSessionStatus === 'paused';
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const openTimeSegment =
+    activeSession?.timeSegments.find((segment) => segment.end === null) ?? null;
+  const openTimeSegmentSection = openTimeSegment?.section ?? null;
   const enableApiLastPerformance = Boolean(activeSessionId) || Boolean(requestedTemplateId);
   const activeWorkoutDraftId = activeSessionId ?? sessionId ?? template.id;
   const startTime =
@@ -428,6 +439,23 @@ export function ActiveWorkoutPage() {
     });
   }, [activeWorkoutDraftId, exerciseNotes, sessionCuesByExercise, setDrafts, stage]);
 
+  useEffect(() => {
+    if (stage !== 'active') {
+      return;
+    }
+
+    if (!openTimeSegment) {
+      return;
+    }
+
+    setCurrentTimeMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setCurrentTimeMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [openTimeSegment, stage]);
+
   const session = useMemo(
     () =>
       buildActiveWorkoutSession(template, setDrafts, {
@@ -523,6 +551,50 @@ export function ActiveWorkoutPage() {
   const summaryDuration = sessionCompletedAt
     ? formatElapsedTime(getElapsedSeconds(startTime, new Date(sessionCompletedAt).getTime()))
     : formatElapsedTime(getElapsedSeconds(startTime, Date.now()));
+  const sectionElapsedSeconds = useMemo(
+    () => calculateSectionElapsedSeconds(activeSession, currentTimeMs),
+    [activeSession, currentTimeMs],
+  );
+  const totalElapsedSeconds = useMemo(
+    () => workoutSectionOrder.reduce((total, section) => total + sectionElapsedSeconds[section], 0),
+    [sectionElapsedSeconds],
+  );
+  const sectionTimerByType = useMemo(
+    () =>
+      Object.fromEntries(
+        workoutSectionOrder.map((section) => {
+          const elapsedSeconds = sectionElapsedSeconds[section];
+          const isActive = openTimeSegmentSection === section;
+          const actionLabel: 'Pause' | 'Resume' | 'Start' = isActive
+            ? 'Pause'
+            : elapsedSeconds > 0
+              ? 'Resume'
+              : 'Start';
+
+          return [
+            section,
+            {
+              actionLabel,
+              elapsedLabel: formatElapsedTime(elapsedSeconds),
+              isActive,
+            },
+          ];
+        }),
+      ) as Record<
+        WorkoutTemplateSectionType,
+        {
+          actionLabel: 'Pause' | 'Resume' | 'Start';
+          elapsedLabel: string;
+          isActive: boolean;
+        }
+      >,
+    [openTimeSegmentSection, sectionElapsedSeconds],
+  );
+  const showSectionTimerControls =
+    Boolean(activeSessionId) &&
+    (activeSessionStatus === 'in-progress' ||
+      activeSessionStatus === 'paused' ||
+      activeSessionStatus === 'scheduled');
 
   if (!requestedTemplateId && !requestedSessionId && activeSessionsQuery.isPending) {
     return (
@@ -654,6 +726,7 @@ export function ActiveWorkoutPage() {
           <SessionHeader
             completedSets={session.completedSets}
             currentExercise={session.currentExercise}
+            elapsedSeconds={activeSession ? totalElapsedSeconds : undefined}
             estimatedTotalSeconds={estimatedTotalSeconds}
             isUpdatingStartTime={updateSessionStartTimeMutation.isPending}
             onRestTimerComplete={handleRestTimerComplete}
@@ -661,7 +734,6 @@ export function ActiveWorkoutPage() {
             remainingSeconds={remainingEstimatedSeconds}
             restTimer={restTimer}
             startTime={startTime}
-            timeSegments={activeSession?.timeSegments}
             totalExercises={session.totalExercises}
             totalSets={session.totalSets}
             workoutName={session.workoutName}
@@ -669,22 +741,7 @@ export function ActiveWorkoutPage() {
 
           {activeSessionId &&
           (activeSessionStatus === 'paused' || activeSessionStatus === 'in-progress') ? (
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                className="min-w-32"
-                disabled={updateSessionStatusMutation.isPending}
-                onClick={handlePauseResumeToggle}
-                type="button"
-                variant={isPaused ? 'default' : 'secondary'}
-              >
-                {isPaused ? (
-                  <Play aria-hidden="true" className="size-4" />
-                ) : (
-                  <Pause aria-hidden="true" className="size-4" />
-                )}
-                {isPaused ? 'Resume' : 'Pause'}
-              </Button>
-
+            <div className="flex items-center justify-end gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -738,11 +795,16 @@ export function ActiveWorkoutPage() {
             onReorderExercises={handleReorderExercises}
             onRemoveExercise={handleRemoveExercise}
             onRemoveSet={handleRemoveSet}
+            onSectionTimerToggle={showSectionTimerControls ? handleSectionTimerToggle : undefined}
             onSetUpdate={handleSetUpdate}
             onUpdateSupersetGroup={handleUpdateSupersetGroup}
             session={session}
             sessionId={activeSessionId}
             sessionCuesByExercise={sessionCuesByExercise}
+            sectionTimerByType={activeSession ? sectionTimerByType : undefined}
+            sectionTimerPending={
+              updateSessionSectionTimerMutation.isPending || updateSessionStatusMutation.isPending
+            }
             showDragHandles={showDragHandles}
             supersetUpdatePending={supersetUpdatePending}
             weightUnit={weightUnit}
@@ -1577,21 +1639,42 @@ export function ActiveWorkoutPage() {
     );
   }
 
-  function handlePauseResumeToggle() {
+  function handleSectionTimerToggle(
+    section: WorkoutTemplateSectionType,
+    action: 'start' | 'pause',
+  ) {
     if (!activeSessionId || !activeSessionStatus) {
       return;
     }
 
-    const nextStatus = activeSessionStatus === 'paused' ? 'in-progress' : 'paused';
-
     setSessionError(null);
+    if (activeSessionStatus === 'in-progress') {
+      updateSessionSectionTimerMutation.mutate(
+        {
+          action,
+          section,
+        },
+        {
+          onError: () => {
+            setSessionError(`Unable to ${action === 'pause' ? 'pause' : 'start'} section timer.`);
+          },
+        },
+      );
+      return;
+    }
+
+    if (action === 'pause') {
+      return;
+    }
+
     updateSessionStatusMutation.mutate(
       {
-        status: nextStatus,
+        activeSection: section,
+        status: 'in-progress',
       },
       {
         onError: () => {
-          setSessionError(`Unable to ${nextStatus === 'paused' ? 'pause' : 'resume'} workout.`);
+          setSessionError('Unable to start section timer.');
         },
       },
     );
@@ -2298,6 +2381,36 @@ function getElapsedSeconds(startTime: Date | string, currentTime: number) {
   const elapsedMilliseconds = currentTime - startedAt;
 
   return Math.max(0, Math.floor(elapsedMilliseconds / 1000));
+}
+
+function calculateSectionElapsedSeconds(
+  session: ApiWorkoutSession | undefined,
+  currentTimeMs: number,
+): Record<WorkoutTemplateSectionType, number> {
+  const elapsedBySection: Record<WorkoutTemplateSectionType, number> = {
+    warmup: Math.floor((session?.sectionDurations?.warmup ?? 0) / 1000),
+    main: Math.floor((session?.sectionDurations?.main ?? 0) / 1000),
+    cooldown: Math.floor((session?.sectionDurations?.cooldown ?? 0) / 1000),
+    supplemental: Math.floor((session?.sectionDurations?.supplemental ?? 0) / 1000),
+  };
+
+  if (!session) {
+    return elapsedBySection;
+  }
+
+  const openSegment = session.timeSegments.find((segment) => segment.end === null);
+  if (!openSegment) {
+    return elapsedBySection;
+  }
+
+  const startedAt = Date.parse(openSegment.start);
+  if (!Number.isFinite(startedAt)) {
+    return elapsedBySection;
+  }
+
+  const liveElapsedSeconds = Math.max(0, Math.floor((currentTimeMs - startedAt) / 1000));
+  elapsedBySection[openSegment.section] += liveElapsedSeconds;
+  return elapsedBySection;
 }
 
 function formatElapsedTime(totalSeconds: number) {

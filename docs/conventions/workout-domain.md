@@ -74,6 +74,13 @@ Timer transition rules:
 - Section switches while already `in-progress` are done via `PATCH /api/v1/workout-sessions/:id/section-timer` (`{ section, action: 'start' | 'pause' }`), not by re-sending `status: 'in-progress'` with a different section.
 - `sectionDurations` intentionally includes only closed segments; open segment live ticking is client-side from the active segment start time.
 
+Active workout timing UI:
+
+- The active-workout page renders one timer control per section header (`Start`, `Resume`, or `Pause`).
+- The currently open section segment is the single source of truth for "live" state; the client must not maintain a separate active-section store.
+- Section elapsed labels show `sectionDurations` plus a client-side 1s live tick only for the open section.
+- The top "Total time" stat is the sum of all section elapsed labels.
+
 Completed sessions should also store exercise-level set logs and post-workout feedback.
 
 Session exercise metadata should preserve `supersetGroup` values so completed receipts and history can render grouped supersets consistently.

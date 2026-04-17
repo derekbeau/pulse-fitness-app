@@ -15,6 +15,7 @@ import {
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
   reorderWorkoutTemplateExercisesInputSchema,
+  updateWorkoutSessionSectionTimerInputSchema,
   swapWorkoutSessionExerciseInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
   updateScheduledWorkoutInputSchema,
@@ -34,6 +35,7 @@ import {
   type WorkoutTemplateListQueryParams,
   type WorkoutTemplate,
   type SetCorrection,
+  type WorkoutTemplateSectionType,
   workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
   workoutSessionSchema,
@@ -106,6 +108,11 @@ type SwapSessionExerciseRequest = {
 type CorrectSessionSetsRequest = {
   sessionId: string;
   corrections: SetCorrection[];
+};
+type UpdateSessionSectionTimerRequest = {
+  sessionId: string;
+  section: WorkoutTemplateSectionType;
+  action: 'start' | 'pause';
 };
 type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
@@ -833,6 +840,20 @@ async function correctSessionSets(input: CorrectSessionSetsRequest) {
   return payload.data;
 }
 
+async function updateSessionSectionTimer(input: UpdateSessionSectionTimerRequest) {
+  const parsedInput = updateWorkoutSessionSectionTimerInputSchema.parse({
+    action: input.action,
+    section: input.section,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${input.sessionId}/section-timer`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
 async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
   const parsedInput = createScheduledWorkoutInputSchema.parse(input);
   const data = await apiRequest<unknown>('/api/v1/scheduled-workouts', {
@@ -1264,6 +1285,50 @@ export function useSwapSessionExercise() {
         }),
       ]);
       toast.success('Exercise swapped');
+    },
+  });
+}
+
+export function useUpdateSessionSectionTimer(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<
+    WorkoutSession,
+    Error,
+    Omit<UpdateSessionSectionTimerRequest, 'sessionId'>
+  >({
+    mutationFn: async (input) => {
+      if (!normalizedSessionId) {
+        throw new Error('Session id is required to update section timer');
+      }
+
+      return updateSessionSectionTimer({
+        action: input.action,
+        section: input.section,
+        sessionId: normalizedSessionId,
+      });
+    },
+    onSuccess: async (session) => {
+      const legacySessionQueryKey = ['workout-sessions', session.id] as const;
+
+      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
+      queryClient.setQueryData(legacySessionQueryKey, session);
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(session.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: legacySessionQueryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['workout-sessions'],
+        }),
+      ]);
     },
   });
 }

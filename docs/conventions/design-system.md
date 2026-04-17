@@ -167,3 +167,17 @@ Guardrails:
 - Use one accent per card and keep dense data regions on `--color-card`.
 - Always use `--color-on-accent` (or a semantic alias that resolves to it) for text on accent-colored cards.
 - Always verify foreground contrast before shipping.
+
+## Workout Section Header Controls
+
+Active workout section headers use a dual-action layout:
+
+- Left side: collapse toggle with section name, estimate, and per-section elapsed `mm:ss`.
+- Right side: section-level timer button (`Start`, `Resume`, `Pause`).
+- Live state: show a subtle pulsing status dot beside the active section title.
+
+Guardrails:
+
+- Keep the live indicator subtle (small dot + pulse), not a dominant badge.
+- Preserve `cursor-pointer` on both collapse toggle and timer control.
+- Keep elapsed values tabular (`tabular-nums`) for stable visual alignment while ticking.

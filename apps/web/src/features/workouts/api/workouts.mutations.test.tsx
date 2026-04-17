@@ -10,6 +10,7 @@ import {
   useReorderTemplateExercises,
   useSwapSessionExercise,
   useSwapTemplateExercise,
+  useUpdateSessionSectionTimer,
   useUpdateExercise,
   useUpdateTemplate,
   workoutQueryKeys,
@@ -302,6 +303,79 @@ describe('workout mutation hooks', () => {
       queryKey: workoutQueryKeys.session('session-1'),
     });
     expect(toast.success).toHaveBeenCalledWith('Exercise swapped');
+  });
+
+  it('syncs both session-detail key families when updating a section timer', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'session-1',
+        userId: 'user-1',
+        templateId: 'template-1',
+        name: 'Upper Push Plus',
+        date: '2026-03-08',
+        status: 'in-progress',
+        startedAt: 1,
+        completedAt: null,
+        duration: null,
+        timeSegments: [
+          {
+            start: '2026-03-08T00:00:00.000Z',
+            end: null,
+            section: 'warmup',
+          },
+        ],
+        sectionDurations: {
+          warmup: 0,
+          main: 0,
+          cooldown: 0,
+          supplemental: 0,
+        },
+        feedback: null,
+        notes: null,
+        sets: [],
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const setQueryData = vi.spyOn(queryClient, 'setQueryData');
+    const { result } = renderHook(() => useUpdateSessionSectionTimer('session-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        action: 'start',
+        section: 'warmup',
+      });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/workout-sessions/session-1/section-timer',
+      expect.objectContaining({
+        method: 'PATCH',
+      }),
+    );
+    expect(setQueryData).toHaveBeenCalledWith(
+      workoutQueryKeys.session('session-1'),
+      expect.objectContaining({ id: 'session-1' }),
+    );
+    expect(setQueryData).toHaveBeenCalledWith(
+      ['workout-sessions', 'session-1'],
+      expect.objectContaining({ id: 'session-1' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.sessions(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.session('session-1'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['workout-sessions', 'session-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['workout-sessions'],
+    });
   });
 
   it('invalidates dashboard snapshot queries when reordering template exercises', async () => {
