@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDeleteHabit, useReorderHabits, useUpdateHabit } from '@/features/habits/api/habits';
 import { HabitCardMenu } from '@/features/habits/components/habit-card-menu';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -163,7 +164,9 @@ describe('HabitCardMenu', () => {
       isLoading: false,
     } as unknown as ReturnType<typeof useDashboardConfig>);
     mockedUseSaveDashboardConfig.mockReturnValue(
-      createSaveDashboardConfigMutationMock() as unknown as ReturnType<typeof useSaveDashboardConfig>,
+      createSaveDashboardConfigMutationMock() as unknown as ReturnType<
+        typeof useSaveDashboardConfig
+      >,
     );
     mockedUseDeleteHabit.mockReturnValue(
       createMutationMock() as unknown as ReturnType<typeof useDeleteHabit>,
@@ -317,14 +320,15 @@ describe('HabitCardMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
     expect(screen.getByRole('heading', { name: 'Pause scheduling' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Pause until'), { target: { value: '2026-03-25' } });
+    const futurePauseDate = toDateKey(addDays(getToday(), 14));
+    fireEvent.change(screen.getByLabelText('Pause until'), { target: { value: futurePauseDate } });
     fireEvent.click(screen.getByRole('button', { name: 'Save pause' }));
 
     await waitFor(() =>
       expect(updateMutation.mutateAsync).toHaveBeenCalledWith({
         id: 'sleep',
         values: {
-          pausedUntil: '2026-03-25',
+          pausedUntil: futurePauseDate,
         },
       }),
     );
@@ -377,7 +381,7 @@ describe('HabitCardMenu', () => {
   it('shows resume scheduling for paused habits and clears pausedUntil', async () => {
     const pausedHabit = {
       ...getHabitById('sleep'),
-      pausedUntil: '2026-03-25',
+      pausedUntil: toDateKey(addDays(getToday(), 14)),
     };
     const updateMutation = createMutationMock();
     mockedUseUpdateHabit.mockReturnValue(

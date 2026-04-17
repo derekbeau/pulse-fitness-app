@@ -217,6 +217,7 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
 
 const completedSessionsKey = () =>
   ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const;
+const workoutSessionDetailKey = (sessionId: string) => ['workout-sessions', sessionId] as const;
 const exercisesKey = (params?: ExerciseQueryParams) =>
   params
     ? (['workouts', 'exercises', normalizeExerciseParams(params)] as const)
@@ -357,7 +358,9 @@ const isTemplateListQueryKey = (queryKey: QueryKey | undefined) =>
 
 // Empty paginated arrays are shape-ambiguous (exercise list vs template list). This remains safe because
 // callers of template cache updaters are already scoped by template query keys upstream.
-const isWorkoutTemplatesResponse = (value: RenameTemplateCache | undefined): value is WorkoutTemplatesResponse =>
+const isWorkoutTemplatesResponse = (
+  value: RenameTemplateCache | undefined,
+): value is WorkoutTemplatesResponse =>
   isPaginatedResponse(value) && value.data.every((entry) => isWorkoutTemplateRecord(entry));
 
 const isExerciseRecord = (value: unknown): value is Exercise =>
@@ -1067,10 +1070,14 @@ export function useRenameExercise() {
       workoutQueryKeys.sessionDetailPrefix(),
     ],
     reconcile: (current, exercise, variables, context) =>
-      updateExerciseNameInCache(current, {
-        id: variables.id,
-        name: exercise.name,
-      }, context.queryKey),
+      updateExerciseNameInCache(
+        current,
+        {
+          id: variables.id,
+          name: exercise.name,
+        },
+        context.queryKey,
+      ),
     updater: (current, variables, context) =>
       updateExerciseNameInCache(current, variables, context.queryKey),
   });
@@ -1241,10 +1248,16 @@ export function useSwapSessionExercise() {
 
   return useMutation<SwapSessionExerciseResponse, Error, SwapSessionExerciseRequest>({
     mutationFn: swapSessionExercise,
-    onSuccess: async (_, variables) => {
+    onSuccess: async (payload, variables) => {
+      queryClient.setQueryData(workoutSessionDetailKey(variables.sessionId), payload.data);
+      queryClient.setQueryData(workoutQueryKeys.session(variables.sessionId), payload.data);
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.sessions(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionDetailKey(variables.sessionId),
         }),
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.session(variables.sessionId),

@@ -14,6 +14,7 @@ import {
   useUpdateHabitEntry,
 } from '@/features/habits/api/habits';
 import { DailyHabits } from '@/features/habits/components/daily-habits';
+import { addDays, getToday, toDateKey } from '@/lib/date';
 
 vi.mock('@/features/habits/api/habits', () => ({
   useCreateHabit: vi.fn(),
@@ -110,7 +111,7 @@ const habits: Habit[] = [
     frequency: 'daily',
     frequencyTarget: null,
     scheduledDays: null,
-    pausedUntil: '2026-04-01',
+    pausedUntil: toDateKey(addDays(getToday(), 7)),
     updatedAt: 3,
     userId: 'user-1',
   },
