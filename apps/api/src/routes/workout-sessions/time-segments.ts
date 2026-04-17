@@ -85,6 +85,7 @@ const createSectionDurationMap = () =>
 export function calculateSectionDurations(
   timeSegments: WorkoutSessionTimeSegment[],
 ): Record<WorkoutSection, number> {
+  // Returns milliseconds per section (calculateActiveDuration returns seconds).
   const totals = createSectionDurationMap();
 
   for (const segment of timeSegments) {

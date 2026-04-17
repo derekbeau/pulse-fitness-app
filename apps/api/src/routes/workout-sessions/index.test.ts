@@ -2771,6 +2771,66 @@ describe('workout session routes', () => {
     });
   });
 
+  it('starts scheduled sessions only when activeSection is provided', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-first-start-needs-section',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'scheduled',
+      startedAt: Date.parse('2026-03-12T09:55:00.000Z'),
+      timeSegments: [],
+    });
+
+    const missingSectionResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-first-start-needs-section',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+      },
+    });
+
+    expect(missingSectionResponse.statusCode).toBe(400);
+    expect(missingSectionResponse.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_ACTIVE_SECTION_REQUIRED',
+        message: 'activeSection is required when transitioning a session to in-progress',
+      },
+    });
+
+    const withSectionResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-first-start-needs-section',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'in-progress',
+        activeSection: 'warmup',
+      },
+    });
+
+    expect(withSectionResponse.statusCode).toBe(200);
+    expect(withSectionResponse.json()).toEqual({
+      data: expect.objectContaining({
+        status: 'in-progress',
+        startedAt: expect.any(Number),
+        timeSegments: [
+          {
+            start: expect.any(String),
+            end: null,
+            section: 'warmup',
+          },
+        ],
+      }),
+    });
+  });
+
   it('rejects changing in-progress section via status patch without pausing first', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -2832,6 +2892,7 @@ describe('workout session routes', () => {
         {
           start: '2026-03-12T10:00:00.000Z',
           end: null,
+          section: 'main',
         },
       ],
     });

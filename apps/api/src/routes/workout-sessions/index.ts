@@ -976,6 +976,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           statusCode: 409,
         };
       }
+
+      return {
+        ok: true as const,
+        completedAt: requestedCompletedAt,
+        duration: nextDuration,
+        timeSegments: nextTimeSegments,
+      };
     }
 
     return {
