@@ -1,3 +1,6 @@
 pnpm lint-staged
 pnpm turbo typecheck
-pnpm turbo test
+# Run package test tasks serially — vitest already parallelizes inside each
+# package. Running api + web test pools concurrently oversubscribes CPU and
+# makes testing-library waitFor/findBy calls flake at their 1s timeout.
+pnpm turbo test --concurrency=1
