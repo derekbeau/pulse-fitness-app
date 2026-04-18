@@ -228,13 +228,9 @@ const buildWorkoutSession = (
     }
   >,
 ): WorkoutSession => {
-  const parsedTimeSegments = backfillTimeSegmentSections(
+  const timeSegments = backfillTimeSegmentSections(
     parseWorkoutSessionTimeSegments(session.timeSegments),
   );
-  const timeSegments =
-    parsedTimeSegments.length === 0 && session.status === 'in-progress'
-      ? [{ start: new Date(session.startedAt).toISOString(), end: null, section: 'main' as const }]
-      : parsedTimeSegments;
   const sectionDurations = calculateSectionDurations(timeSegments);
 
   return {

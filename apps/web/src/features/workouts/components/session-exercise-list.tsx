@@ -338,9 +338,17 @@ export function SessionExerciseList({
                     ) : null}
                     <span className="text-xs font-medium text-muted">{sectionEstimate}</span>
                   </h2>
-                  <p className="text-xs font-semibold tabular-nums text-muted">
-                    {sectionTimer?.elapsedLabel ?? '00:00'}
-                  </p>
+                  {sectionTimer ? (
+                    <p
+                      aria-label={`${sectionLabel} elapsed time`}
+                      className={cn(
+                        'text-base font-semibold tabular-nums',
+                        sectionTimer.isActive ? 'text-foreground' : 'text-muted',
+                      )}
+                    >
+                      {sectionTimer.elapsedLabel}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -862,9 +870,7 @@ function ExerciseCardItem({
                   isExerciseComplete && 'text-muted line-through',
                 )}
               >
-                <span className="truncate">
-                  {exercise.name}
-                </span>
+                <span className="truncate">{exercise.name}</span>
               </h3>
               <p className="text-xs text-muted sm:text-sm">
                 {`${exercise.completedSets}/${exercise.targetSets} sets`}
@@ -896,7 +902,9 @@ function ExerciseCardItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-            <DropdownMenuItem onClick={handleMenuAction(onSwapExercise)}>Swap exercise</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMenuAction(onSwapExercise)}>
+              Swap exercise
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleMenuAction(onOpenHistory)}>
               Exercise Details
             </DropdownMenuItem>
@@ -904,10 +912,7 @@ function ExerciseCardItem({
               <ArrowUp aria-hidden="true" className="size-4" />
               Move up
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isMoveDownDisabled}
-              onClick={handleMenuAction(onMoveDown)}
-            >
+            <DropdownMenuItem disabled={isMoveDownDisabled} onClick={handleMenuAction(onMoveDown)}>
               <ArrowDown aria-hidden="true" className="size-4" />
               Move down
             </DropdownMenuItem>

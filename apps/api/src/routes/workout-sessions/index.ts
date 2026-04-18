@@ -398,27 +398,17 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const inputWithInitialSegment =
-        input.status === 'in-progress' && input.timeSegments.length === 0
-          ? {
-              ...input,
-              timeSegments: [
-                { start: toIsoString(input.startedAt), end: null, section: 'main' as const },
-              ],
-            }
-          : input;
-
       const session = await createWorkoutSession({
         id: randomUUID(),
         userId: request.userId,
-        input: inputWithInitialSegment,
+        input,
       });
 
-      if (inputWithInitialSegment.templateId !== null) {
+      if (input.templateId !== null) {
         await linkTodayScheduledWorkoutToSession({
           userId: request.userId,
-          templateId: inputWithInitialSegment.templateId,
-          date: inputWithInitialSegment.date,
+          templateId: input.templateId,
+          date: input.date,
           sessionId: session.id,
         });
       }

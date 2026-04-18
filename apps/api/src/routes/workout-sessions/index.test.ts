@@ -2534,7 +2534,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('backfills empty time segments for in-progress sessions at read time', async () => {
+  it('does not open any section segment for legacy in-progress sessions with no time segments', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -2562,13 +2562,13 @@ describe('workout session routes', () => {
       data: expect.objectContaining({
         id: 'session-legacy',
         status: 'in-progress',
-        timeSegments: [
-          {
-            start: new Date(startedAt).toISOString(),
-            end: null,
-            section: 'main',
-          },
-        ],
+        timeSegments: [],
+        sectionDurations: {
+          warmup: 0,
+          main: 0,
+          cooldown: 0,
+          supplemental: 0,
+        },
       }),
     });
   });
@@ -2624,7 +2624,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('creates an initial open time segment when starting a new in-progress session', async () => {
+  it('does not open any section segment when starting a new in-progress session', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -2648,13 +2648,13 @@ describe('workout session routes', () => {
     expect(response.json()).toEqual({
       data: expect.objectContaining({
         status: 'in-progress',
-        timeSegments: [
-          {
-            start: new Date(startedAt).toISOString(),
-            end: null,
-            section: 'main',
-          },
-        ],
+        timeSegments: [],
+        sectionDurations: {
+          warmup: 0,
+          main: 0,
+          cooldown: 0,
+          supplemental: 0,
+        },
       }),
     });
   });
@@ -3661,7 +3661,7 @@ describe('workout session routes', () => {
         status: 'completed',
         startedAt: 1000,
         completedAt: 4000,
-        duration: 3,
+        duration: 0,
         feedback: {
           energy: 5,
           recovery: 4,
