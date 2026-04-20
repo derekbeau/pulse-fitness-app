@@ -150,6 +150,7 @@ const SCHEDULED_WORKOUT_ALREADY_STARTED_RESPONSE = {
 const STALE_EXERCISES_SKIPPED_WARNING = {
   code: 'STALE_EXERCISES_SKIPPED',
 } as const;
+const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
 
 const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_ACTIVE',
@@ -389,7 +390,7 @@ const listStaleSnapshotExercises = async ({
     if (isMissing || isSoftDeleted || isOutsideUserScope) {
       staleExercisesById.set(snapshotExercise.exerciseId, {
         exerciseId: snapshotExercise.exerciseId,
-        snapshotName: resolvedExercise?.name ?? snapshotExercise.exerciseId,
+        snapshotName: resolvedExercise?.name ?? UNKNOWN_SNAPSHOT_EXERCISE_NAME,
       });
     }
   }
@@ -436,7 +437,7 @@ const buildScheduledSnapshotSessionSeed = ({
   > = {};
 
   for (const exercise of persistedExercises) {
-    const key = `${exercise.section}::${exercise.exerciseId}`;
+    const key = `${exercise.section ?? 'main'}::${exercise.exerciseId}`;
     programmingNotesByExerciseSection[key] = exercise.programmingNotes;
     agentNotesByExerciseSection[key] = exercise.agentNotes;
     agentNotesMetaByExerciseSection[key] = exercise.agentNotesMeta;
@@ -448,6 +449,43 @@ const buildScheduledSnapshotSessionSeed = ({
     agentNotesByExerciseSection,
     agentNotesMetaByExerciseSection,
   };
+};
+
+const clearSessionScheduleLink = async ({
+  sessionId,
+  userId,
+}: {
+  sessionId: string;
+  userId: string;
+}) => {
+  const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(sessionId, userId);
+  if (linkedScheduledWorkout) {
+    await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, userId);
+    return true;
+  }
+
+  const { db } = await import('../../db/index.js');
+  const sourceSession = db
+    .select({
+      scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+    })
+    .from(workoutSessions)
+    .where(
+      and(
+        eq(workoutSessions.id, sessionId),
+        eq(workoutSessions.userId, userId),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
+    .limit(1)
+    .get();
+
+  if (sourceSession?.scheduledWorkoutId) {
+    await unlinkScheduledWorkoutSession(sourceSession.scheduledWorkoutId, userId);
+    return true;
+  }
+
+  return false;
 };
 
 const ensureOwnedSession = async ({
@@ -1684,30 +1722,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (transitionStatus === 'cancelled' && existingSession.status !== 'cancelled') {
-      const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(params.id, request.userId);
-      if (linkedScheduledWorkout) {
-        await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, request.userId);
-      } else {
-        const { db } = await import('../../db/index.js');
-        const sourceSession = db
-          .select({
-            scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
-          })
-          .from(workoutSessions)
-          .where(
-            and(
-              eq(workoutSessions.id, params.id),
-              eq(workoutSessions.userId, request.userId),
-              isNull(workoutSessions.deletedAt),
-            ),
-          )
-          .limit(1)
-          .get();
-
-        if (sourceSession?.scheduledWorkoutId) {
-          await unlinkScheduledWorkoutSession(sourceSession.scheduledWorkoutId, request.userId);
-        }
-      }
+      await clearSessionScheduleLink({
+        sessionId: params.id,
+        userId: request.userId,
+      });
     }
 
     setAgentEnrichmentContext(request, {
@@ -2213,37 +2231,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      let revertedToSchedule = false;
-      const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(
-        request.params.id,
-        request.userId,
-      );
-
-      if (linkedScheduledWorkout) {
-        await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, request.userId);
-        revertedToSchedule = true;
-      } else {
-        const { db } = await import('../../db/index.js');
-        const sourceSession = db
-          .select({
-            scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
-          })
-          .from(workoutSessions)
-          .where(
-            and(
-              eq(workoutSessions.id, request.params.id),
-              eq(workoutSessions.userId, request.userId),
-              isNull(workoutSessions.deletedAt),
-            ),
-          )
-          .limit(1)
-          .get();
-
-        if (sourceSession?.scheduledWorkoutId) {
-          await unlinkScheduledWorkoutSession(sourceSession.scheduledWorkoutId, request.userId);
-          revertedToSchedule = true;
-        }
-      }
+      const revertedToSchedule = await clearSessionScheduleLink({
+        sessionId: request.params.id,
+        userId: request.userId,
+      });
 
       return reply.send({
         data: { revertedToSchedule },

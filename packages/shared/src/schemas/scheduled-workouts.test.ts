@@ -126,6 +126,7 @@ describe('scheduledWorkoutDetailSchema', () => {
             author: 'agent',
             generatedAt: '2026-03-12T10:00:00.000Z',
             scheduledDateAtGeneration: '2026-03-13',
+            stale: false,
           },
           templateCues: null,
           supersetGroup: null,

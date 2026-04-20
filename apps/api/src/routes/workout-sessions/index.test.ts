@@ -3651,6 +3651,52 @@ describe('workout session routes', () => {
     expect(snapshotRows).toHaveLength(1);
   });
 
+  it('cancel endpoint preserves non-scheduled sessions and marks them cancelled', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-cancel-endpoint-regular',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [{ start: '2026-03-12T10:00:00.000Z', end: null, section: 'main' }],
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-cancel-endpoint-regular/cancel',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        revertedToSchedule: false,
+      },
+    });
+
+    const cancelledSession = context.db
+      .select({
+        status: workoutSessions.status,
+        deletedAt: workoutSessions.deletedAt,
+      })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, 'session-cancel-endpoint-regular'))
+      .limit(1)
+      .get();
+
+    expect(cancelledSession).toEqual({
+      status: 'cancelled',
+      deletedAt: null,
+    });
+  });
+
   it('does not open any section segment for legacy in-progress sessions with no time segments', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },

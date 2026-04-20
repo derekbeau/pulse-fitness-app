@@ -83,6 +83,7 @@ const INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
 } as const;
 
 const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
+const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
 
 const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.extend({
   template: workoutTemplateSchema.nullable(),
@@ -96,7 +97,12 @@ const mapSnapshotExercise = (exercise: Awaited<ReturnType<typeof readSnapshot>>[
   orderIndex: exercise.orderIndex,
   programmingNotes: exercise.programmingNotes,
   agentNotes: exercise.agentNotes,
-  agentNotesMeta: exercise.agentNotesMeta,
+  agentNotesMeta: exercise.agentNotesMeta
+    ? {
+        ...exercise.agentNotesMeta,
+        stale: exercise.agentNotesMeta.stale ?? false,
+      }
+    : null,
   templateCues: exercise.templateCues,
   supersetGroup: exercise.supersetGroup,
   tempo: exercise.tempo,
@@ -227,9 +233,7 @@ const buildScheduledWorkoutDetail = async ({
     if (isMissing || isSoftDeleted || isOutsideUserScope) {
       staleByExerciseId.set(snapshotExercise.exerciseId, {
         exerciseId: snapshotExercise.exerciseId,
-        // Snapshot rows do not currently denormalize exercise names, so
-        // hard-deleted exercises fall back to the historical exercise id.
-        snapshotName: exercise?.name ?? snapshotExercise.exerciseId,
+        snapshotName: exercise?.name ?? UNKNOWN_SNAPSHOT_EXERCISE_NAME,
       });
     }
   }

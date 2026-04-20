@@ -81,7 +81,7 @@ export const scheduledWorkoutExerciseAgentNotesMetaSchema = z.object({
   author: requiredStringSchema,
   generatedAt: z.string().datetime({ offset: true }),
   scheduledDateAtGeneration: dateSchema,
-  stale: z.boolean().optional(),
+  stale: z.boolean(),
 });
 
 export const scheduledWorkoutExerciseSchema = z.object({
