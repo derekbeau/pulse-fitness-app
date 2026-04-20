@@ -231,6 +231,8 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
         orderIndex: 0,
         section: 'main',
         programmingNotes: null,
+        agentNotes: null,
+        agentNotesMeta: null,
         sets: [
           {
             id: 'set-1',

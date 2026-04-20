@@ -24,6 +24,11 @@ const scheduledWorkoutSelection = {
   updatedAt: scheduledWorkouts.updatedAt,
 };
 
+const scheduledWorkoutSelectionWithTemplateVersion = {
+  ...scheduledWorkoutSelection,
+  templateVersion: scheduledWorkouts.templateVersion,
+};
+
 const scheduledWorkoutListSelection = {
   id: scheduledWorkouts.id,
   date: scheduledWorkouts.date,
@@ -156,10 +161,30 @@ export const findScheduledWorkoutById = async (
   id: string,
   userId: string,
 ): Promise<ScheduledWorkout | undefined> => {
+  const scheduledWorkout = await findScheduledWorkoutByIdWithTemplateVersion(id, userId);
+  if (!scheduledWorkout) {
+    return undefined;
+  }
+
+  return {
+    id: scheduledWorkout.id,
+    userId: scheduledWorkout.userId,
+    templateId: scheduledWorkout.templateId,
+    date: scheduledWorkout.date,
+    sessionId: scheduledWorkout.sessionId,
+    createdAt: scheduledWorkout.createdAt,
+    updatedAt: scheduledWorkout.updatedAt,
+  };
+};
+
+export const findScheduledWorkoutByIdWithTemplateVersion = async (
+  id: string,
+  userId: string,
+): Promise<(ScheduledWorkout & { templateVersion: string | null }) | undefined> => {
   const { db } = await import('../../db/index.js');
 
   return db
-    .select(scheduledWorkoutSelection)
+    .select(scheduledWorkoutSelectionWithTemplateVersion)
     .from(scheduledWorkouts)
     .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
     .limit(1)

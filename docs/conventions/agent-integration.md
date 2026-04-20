@@ -8,6 +8,8 @@ This document defines how external AI agents should authenticate, call unified `
 - Agent-specific conveniences such as name resolution, auto-create behavior, and response hints activate automatically for `Authorization: AgentToken <token>` requests.
 - Convenience request fields (for example `foodName`, `exerciseName`, `templateName`, `reps`) are normalized by middleware; route handlers persist canonical fields.
 - Treat `GET /api/v1/context` as the first call in most agent sessions. It is on the unified route surface but remains AgentToken-only.
+- The second major agent-integrated workflow (after nutrition logging) is scheduled-workout
+  enrichment via per-exercise `agentNotes`.
 
 ## Authentication
 
@@ -361,6 +363,35 @@ Schedules a template for a specific date.
 
 Lists scheduled workouts in the requested date window.
 
+#### `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`
+
+Writes per-exercise scheduled-workout enrichment notes before session start.
+
+Auth note:
+
+- AgentToken-only route. JWT callers receive `403 FORBIDDEN` with
+  `Agent token authentication required`.
+
+Request:
+
+```json
+{
+  "notes": [
+    { "exerciseId": "exercise-1", "agentNotes": "Last session 3x15 @ 53 lb. Try 62 lb today." },
+    { "exerciseId": "exercise-2", "agentNotes": null }
+  ]
+}
+```
+
+Behavior notes:
+
+- Route accepts only exercise ids that exist in the scheduled snapshot.
+- `agentNotes: null` clears an existing note.
+- `agentNotesMeta` is server-authored and returned with this shape:
+  `{ author, generatedAt, scheduledDateAtGeneration, stale }`.
+- `stale` is `false` on fresh writes and may be flipped to `true` by later reschedules that move
+  the scheduled date more than 2 days.
+
 #### `POST /api/v1/workout-sessions`
 
 Starts an in-progress session. AgentToken responses may include `agent.hints`, `agent.suggestedActions`, and `agent.relatedState` describing the next set and remaining work.
@@ -419,8 +450,9 @@ Returns the shared nutrition-summary schema (`date`, `meals`, `actual`, `target`
 2. If `POST /api/v1/exercises` returns `created: false`, review `candidates` before retrying with `force: true`.
 3. Create or update templates with `POST` or `PUT /api/v1/workout-templates`.
 4. Schedule training using `POST /api/v1/scheduled-workouts`, then review the plan with `GET /api/v1/scheduled-workouts`.
-5. Start a session with `POST /api/v1/workout-sessions`.
-6. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
+5. Enrich the scheduled snapshot with `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`.
+6. Start a session with `POST /api/v1/workout-sessions`.
+7. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
 
 ## Operational Notes
 

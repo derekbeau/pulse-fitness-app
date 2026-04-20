@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import {
+  type AnySQLiteColumn,
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  unique,
+} from 'drizzle-orm/sqlite-core';
 
 import { exercises } from './exercises.js';
+import { scheduledWorkouts } from './scheduled-workouts.js';
 import type { WorkoutTemplateSectionType } from './workout-templates.js';
 import { workoutTemplates } from './workout-templates.js';
 import { users } from './users.js';
@@ -65,6 +75,13 @@ export type WorkoutSessionFeedback = {
   >;
 };
 
+export type WorkoutSessionExerciseAgentNotesMeta = {
+  author: string;
+  generatedAt: string;
+  scheduledDateAtGeneration: string;
+  stale?: boolean;
+};
+
 export const workoutSessions = sqliteTable(
   'workout_sessions',
   {
@@ -77,6 +94,12 @@ export const workoutSessions = sqliteTable(
     templateId: text('template_id').references(() => workoutTemplates.id, {
       onDelete: 'set null',
     }),
+    scheduledWorkoutId: text('scheduled_workout_id').references(
+      (): AnySQLiteColumn => scheduledWorkouts.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
     name: text('name').notNull(),
     date: text('date').notNull(),
     status: text('status').$type<WorkoutSessionStatus>().notNull().default('in-progress'),
@@ -89,6 +112,16 @@ export const workoutSessions = sqliteTable(
     feedback: text('feedback'),
     // JSON-encoded Record<`${section}::${exerciseId}`, string | null>; snapshots template notes at session start.
     exerciseProgrammingNotes: text('exercise_programming_notes'),
+    // JSON-encoded Record<`${section}::${exerciseId}`, string | null>; snapshots agent notes at session start.
+    exerciseAgentNotes: text('exercise_agent_notes', { mode: 'json' }).$type<Record<
+      string,
+      string | null
+    > | null>(),
+    // JSON-encoded Record<`${section}::${exerciseId}`, WorkoutSessionExerciseAgentNotesMeta | null>.
+    exerciseAgentNotesMeta: text('exercise_agent_notes_meta', { mode: 'json' }).$type<Record<
+      string,
+      WorkoutSessionExerciseAgentNotesMeta | null
+    > | null>(),
     notes: text('notes'),
     deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })
@@ -104,6 +137,7 @@ export const workoutSessions = sqliteTable(
   (table) => [
     index('workout_sessions_user_id_idx').on(table.userId),
     index('workout_sessions_date_idx').on(table.date),
+    index('workout_sessions_scheduled_workout_id_idx').on(table.scheduledWorkoutId),
     check(
       'workout_sessions_date_format_check',
       sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,

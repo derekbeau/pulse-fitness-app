@@ -138,6 +138,26 @@ describe('use-workout-session hooks', () => {
     expect(window.localStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY)).toBe('session-1');
   });
 
+  it('invalidates scheduled workout detail cache for scheduled starts', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse(sessionResponse, 201));
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useStartSession(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        date: '2026-03-08',
+        scheduledWorkoutId: 'scheduled-1',
+        startedAt: 100,
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workoutQueryKeys.scheduledWorkout('scheduled-1'),
+    });
+  });
+
   it('patches session start time and refreshes the session query', async () => {
     mockFetch.mockResolvedValueOnce(
       createJsonResponse({

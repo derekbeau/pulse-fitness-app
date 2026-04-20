@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -16,14 +17,16 @@ import { users } from './users.js';
 export const scheduledWorkouts = sqliteTable(
   'scheduled_workouts',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    templateId: text('template_id')
-      .references(() => workoutTemplates.id, { onDelete: 'set null' }),
+    templateId: text('template_id').references(() => workoutTemplates.id, { onDelete: 'set null' }),
+    templateVersion: text('template_version'),
     date: text('date').notNull(),
-    sessionId: text('session_id').references(() => workoutSessions.id, {
+    sessionId: text('session_id').references((): AnySQLiteColumn => workoutSessions.id, {
       onDelete: 'set null',
     }),
     createdAt: integer('created_at', { mode: 'number' })

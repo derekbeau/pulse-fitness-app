@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
   createScheduledWorkoutInputSchema,
   type CreateScheduledWorkoutInput,
+  scheduledWorkoutDetailSchema,
+  type ScheduledWorkoutDetail,
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
+  swapScheduledWorkoutExerciseInputSchema,
+  type SwapScheduledWorkoutExerciseInput,
   type ScheduledWorkout,
   type ScheduledWorkoutListItem,
   type ScheduledWorkoutQueryParams,
+  type UpdateScheduledWorkoutExerciseNotesInput,
+  updateScheduledWorkoutExerciseNotesInputSchema,
   type UpdateScheduledWorkoutInput,
   updateScheduledWorkoutInputSchema,
 } from './scheduled-workouts';
@@ -35,6 +41,108 @@ describe('scheduledWorkoutSchema', () => {
       sessionId: null,
       createdAt: 1,
       updatedAt: 2,
+    });
+  });
+});
+
+describe('scheduledWorkoutDetailSchema', () => {
+  it('parses snapshot exercises with marker fields', () => {
+    const payload = scheduledWorkoutDetailSchema.parse({
+      id: 'schedule-1',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+      sessionId: null,
+      createdAt: 1,
+      updatedAt: 2,
+      exercises: [
+        {
+          exerciseId: 'exercise-1',
+          section: 'main',
+          orderIndex: 0,
+          programmingNotes: 'Keep reps crisp',
+          agentNotes: null,
+          agentNotesMeta: null,
+          templateCues: ['Brace'],
+          supersetGroup: null,
+          tempo: '3010',
+          restSeconds: 90,
+          sets: [
+            {
+              setNumber: 1,
+              repsMin: 8,
+              repsMax: 10,
+              reps: null,
+              targetWeight: null,
+              targetWeightMin: null,
+              targetWeightMax: null,
+              targetSeconds: null,
+              targetDistance: null,
+            },
+          ],
+        },
+      ],
+      templateDrift: null,
+      staleExercises: [],
+      templateDeleted: false,
+    });
+
+    const scheduledWorkout: ScheduledWorkoutDetail = payload;
+
+    expect(scheduledWorkout).toMatchObject({
+      id: 'schedule-1',
+      exercises: [
+        {
+          exerciseId: 'exercise-1',
+          section: 'main',
+          orderIndex: 0,
+          programmingNotes: 'Keep reps crisp',
+          templateCues: ['Brace'],
+        },
+      ],
+      templateDrift: null,
+      staleExercises: [],
+      templateDeleted: false,
+    });
+  });
+
+  it('trims and nulls blank note strings', () => {
+    const payload = scheduledWorkoutDetailSchema.parse({
+      id: 'schedule-2',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-13',
+      sessionId: null,
+      createdAt: 1,
+      updatedAt: 2,
+      exercises: [
+        {
+          exerciseId: 'exercise-1',
+          section: 'main',
+          orderIndex: 0,
+          programmingNotes: '   ',
+          agentNotes: '  push harder  ',
+          agentNotesMeta: {
+            author: 'agent',
+            generatedAt: '2026-03-12T10:00:00.000Z',
+            scheduledDateAtGeneration: '2026-03-13',
+            stale: false,
+          },
+          templateCues: null,
+          supersetGroup: null,
+          tempo: null,
+          restSeconds: null,
+          sets: [],
+        },
+      ],
+      templateDrift: null,
+      staleExercises: [],
+      templateDeleted: false,
+    });
+
+    expect(payload.exercises[0]).toMatchObject({
+      programmingNotes: null,
+      agentNotes: 'push harder',
     });
   });
 });
@@ -141,5 +249,78 @@ describe('scheduledWorkoutQueryParamsSchema', () => {
         to: '2026-03-10',
       }),
     ).toThrow();
+  });
+});
+
+describe('updateScheduledWorkoutExerciseNotesInputSchema', () => {
+  it('accepts batched exercise note updates and normalizes note strings', () => {
+    const payload: UpdateScheduledWorkoutExerciseNotesInput =
+      updateScheduledWorkoutExerciseNotesInputSchema.parse({
+        notes: [
+          {
+            exerciseId: 'exercise-1',
+            agentNotes: '  Keep first set easy  ',
+          },
+          {
+            exerciseId: 'exercise-2',
+            agentNotes: null,
+          },
+        ],
+      });
+
+    expect(payload).toEqual({
+      notes: [
+        {
+          exerciseId: 'exercise-1',
+          agentNotes: 'Keep first set easy',
+        },
+        {
+          exerciseId: 'exercise-2',
+          agentNotes: null,
+        },
+      ],
+    });
+  });
+
+  it('rejects empty exercise note batches', () => {
+    expect(() =>
+      updateScheduledWorkoutExerciseNotesInputSchema.parse({
+        notes: [],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('swapScheduledWorkoutExerciseInputSchema', () => {
+  it('accepts swap payloads with optional carry-over flags', () => {
+    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
+      {
+        fromExerciseId: 'exercise-1',
+        toExerciseId: ' exercise-2 ',
+        carryOverProgrammingNotes: true,
+        preserveSets: false,
+      },
+    );
+
+    expect(payload).toEqual({
+      fromExerciseId: 'exercise-1',
+      toExerciseId: 'exercise-2',
+      carryOverProgrammingNotes: true,
+      preserveSets: false,
+    });
+  });
+
+  it('allows remove-style swaps with a null target exercise id', () => {
+    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
+      {
+        fromExerciseId: 'exercise-1',
+        toExerciseId: null,
+      },
+    );
+
+    expect(payload).toEqual({
+      fromExerciseId: 'exercise-1',
+      toExerciseId: null,
+    });
   });
 });

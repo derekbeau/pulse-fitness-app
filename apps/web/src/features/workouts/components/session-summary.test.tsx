@@ -33,6 +33,13 @@ describe('SessionSummary', () => {
             ],
             id: 'incline-press',
             name: 'Incline Dumbbell Press',
+            agentNotes: 'Last Saturday: 3x15 at 53 lb. Try 62 lb if warmups feel smooth.',
+            agentNotesMeta: {
+              author: 'Coach Pulse',
+              generatedAt: '2026-03-16T09:30:00.000Z',
+              scheduledDateAtGeneration: '2026-03-16',
+              stale: false,
+            },
             notes: 'Kept shoulder blades pinned and reduced ROM for shoulder comfort.',
             programmingNotes: 'Hardstyle, hips snap',
             reps: 32,
@@ -141,6 +148,9 @@ describe('SessionSummary', () => {
     expect(screen.getByTestId('exercise-programming-notes-incline-press')).toHaveTextContent(
       'Hardstyle, hips snap',
     );
+    expect(
+      screen.getByTestId('exercise-agent-notes-incline-press-summary-footer'),
+    ).toHaveTextContent('Last Saturday: 3x15 at 53 lb. Try 62 lb if warmups feel smooth.');
     expect(
       screen.getByText('Kept shoulder blades pinned and reduced ROM for shoulder comfort.'),
     ).toBeInTheDocument();

@@ -42,6 +42,8 @@ Direct `userId` ownership lives on these root tables:
 Inherited ownership comes from foreign-key chains:
 
 - `template_exercises` through `workout_templates`
+- `scheduled_workout_exercises` through `scheduled_workouts`
+- `scheduled_workout_exercise_sets` through `scheduled_workout_exercises`
 - `session_sets` through `workout_sessions`
 - `meals` through `nutrition_logs`
 - `meal_items` through `meals`
@@ -179,6 +181,7 @@ Constraints:
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`, indexed
 - `templateId`: nullable `text`, FK -> `workout_templates.id`, `ON DELETE SET NULL`
+- `scheduledWorkoutId`: nullable `text`, FK -> `scheduled_workouts.id`, `ON DELETE SET NULL`, indexed
 - `name`: `text`, required
 - `date`: `text`, required, `YYYY-MM-DD`, indexed
 - `status`: `text`, required, default `in-progress`, one of `scheduled | in-progress | paused | cancelled | completed`
@@ -188,6 +191,11 @@ Constraints:
 - `timeSegments`: required JSON text array of `{ start: string, end: string | null, section: 'warmup' | 'main' | 'cooldown' | 'supplemental' }`, default `'[]'`
 - `feedback`: nullable JSON text object for post-session ratings and notes
 - `exerciseProgrammingNotes`: nullable JSON text record keyed by `${section}::${exerciseId}` with `string | null` values; snapshots `template_exercises.notes` at session start
+- `exerciseAgentNotes`: nullable JSON text record keyed by `${section}::${exerciseId}` with `string | null` values; snapshots scheduled-workout agent notes at session start
+- `exerciseAgentNotesMeta`: nullable JSON text record keyed by `${section}::${exerciseId}` with metadata values `{ author, generatedAt, scheduledDateAtGeneration, stale }` (read-time compatibility defaults missing `stale` to `false`)
+- Session exercise payload field `agentNotes`: projected from `exerciseAgentNotes[${section}::${exerciseId}]`
+- Session exercise payload field `agentNotesMeta`: projected from `exerciseAgentNotesMeta[${section}::${exerciseId}]`
+- There are no physical `workout_sessions.agentNotes` / `workout_sessions.agentNotesMeta` scalar columns; those session exercise fields are projections from the keyed JSON snapshot maps above.
 - `notes`: nullable `text`
 - `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
@@ -230,6 +238,7 @@ Constraints:
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `templateId`: nullable `text`, FK -> `workout_templates.id`, `ON DELETE SET NULL`, indexed
+- `templateVersion`: nullable `text` SHA-256 hex hash of a canonical JSON snapshot of template exercises + set prescriptions + notes at schedule time; used for template drift detection
 - `date`: `text`, required, `YYYY-MM-DD`
 - `sessionId`: nullable `text`, FK -> `workout_sessions.id`, `ON DELETE SET NULL`, indexed
 - `createdAt`: `integer` Unix ms, required, default now
@@ -238,6 +247,7 @@ Constraints:
 Behavior:
 
 - When a workout session is started from a template on the current date, the first matching `scheduled_workouts` row with `sessionId = null` is linked by setting `sessionId` to the created session id.
+- Scheduled workouts can carry a relational exercise snapshot. Backfill is run immediately after schema migration so reads do not need a lazy dual-path fallback.
 
 Indexes and constraints:
 
@@ -245,6 +255,50 @@ Indexes and constraints:
 - `scheduled_workouts_template_id_idx`
 - `scheduled_workouts_session_id_idx`
 - `scheduled_workouts_date_format_check`
+
+#### `scheduled_workout_exercises`
+
+- `id`: `text` primary key UUID
+- `scheduledWorkoutId`: `text`, required, FK -> `scheduled_workouts.id`, `ON DELETE CASCADE`, indexed
+- `exerciseId`: `text`, required, FK -> `exercises.id`, `ON DELETE RESTRICT`, indexed
+- `section`: `text`, required, one of `warmup | main | cooldown | supplemental`
+- `orderIndex`: `integer`, required
+- `programmingNotes`: nullable `text` copied from template exercise programming notes at snapshot time
+- `agentNotes`: nullable `text` used for per-instance agent enrichment
+- `agentNotesMeta`: nullable JSON text object `{ author, generatedAt, scheduledDateAtGeneration, stale }` (`stale` defaults to `false` on server writes)
+- `templateCues`: nullable JSON text array copied from template cues
+- `supersetGroup`: nullable `text`
+- `tempo`: nullable `text`
+- `restSeconds`: nullable `integer`
+- `createdAt`: `integer` Unix ms, required, default now
+- `updatedAt`: `integer` Unix ms, required, default now, auto-updates
+
+Constraints and indexes:
+
+- `scheduled_workout_exercises_scheduled_workout_id_idx`
+- `scheduled_workout_exercises_exercise_id_idx`
+- `scheduled_workout_exercises_section_check`
+
+#### `scheduled_workout_exercise_sets`
+
+- `id`: `text` primary key UUID
+- `scheduledWorkoutExerciseId`: `text`, required, FK -> `scheduled_workout_exercises.id`, `ON DELETE CASCADE`, indexed
+- `setNumber`: `integer`, required
+- `repsMin`: nullable `integer`
+- `repsMax`: nullable `integer`
+- `reps`: nullable `integer` for exact-rep prescriptions
+- `targetWeight`: nullable `real`
+- `targetWeightMin`: nullable `real`
+- `targetWeightMax`: nullable `real`
+- `targetSeconds`: nullable `integer`
+- `targetDistance`: nullable `real`
+- `createdAt`: `integer` Unix ms, required, default now
+
+Constraints:
+
+- `scheduled_workout_exercise_sets_set_number_check`
+- `scheduled_workout_exercise_sets_reps_range_check`
+- `scheduled_workout_exercise_sets_target_weight_range_check`
 
 ### Nutrition And Body Metrics
 

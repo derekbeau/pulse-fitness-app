@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+import { AgentNotesBlock } from './agent-notes-block';
 import { ExerciseHeader } from './exercise-header';
 import { buildTemplateSetListItems, formatCompactSetSummary } from './formatters';
 import { FormCuesBlock } from './form-cues-block';
@@ -75,6 +76,12 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
       : (exercise as WorkoutExerciseCardTemplateExercise | WorkoutExerciseCardScheduledExercise);
   const hasProgrammingNotes =
     typeof exercise.programmingNotes === 'string' && exercise.programmingNotes.trim().length > 0;
+  const hasAgentNotes =
+    'agentNotes' in exercise &&
+    typeof exercise.agentNotes === 'string' &&
+    exercise.agentNotes.trim().length > 0;
+  const shouldRenderInlineAgentNotes =
+    hasAgentNotes && !(mode === 'readonly-completed' && isCondensed);
   const shouldShowFormCues =
     !isCondensed &&
     cuesExercise !== null &&
@@ -133,6 +140,14 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
           />
         ) : null}
 
+        {shouldRenderInlineAgentNotes ? (
+          <AgentNotesBlock
+            notes={exercise.agentNotes}
+            notesMeta={exercise.agentNotesMeta}
+            testId={`exercise-agent-notes-${exercise.id}`}
+          />
+        ) : null}
+
         {shouldShowFormCues ? (
           <FormCuesBlock
             coachingNotes={cuesExercise?.coachingNotes}
@@ -167,6 +182,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
 
 export type { WorkoutExerciseCardMode };
 export type {
+  WorkoutExerciseCardAgentNotesMeta,
   WorkoutExerciseCardCompletedExercise,
   WorkoutExerciseCardDensity,
   WorkoutExerciseCardScheduledExercise,

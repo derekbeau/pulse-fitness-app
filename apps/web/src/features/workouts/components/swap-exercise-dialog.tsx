@@ -13,12 +13,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 
-import { useExercises, useSwapSessionExercise, useSwapTemplateExercise } from '../api/workouts';
+import {
+  useExercises,
+  useSwapScheduledWorkoutExercise,
+  useSwapSessionExercise,
+  useSwapTemplateExercise,
+} from '../api/workouts';
 import { getTrackingTypeLabel } from '../lib/tracking';
 
 type SwapExerciseDialogProps = {
   contextId: string;
-  mode: 'session' | 'template';
+  mode: 'session' | 'scheduled' | 'template';
   onOpenChange: (open: boolean) => void;
   open: boolean;
   sourceExerciseId: string;
@@ -50,8 +55,11 @@ export function SwapExerciseDialog({
   );
   const swapTemplateExerciseMutation = useSwapTemplateExercise();
   const swapSessionExerciseMutation = useSwapSessionExercise();
+  const swapScheduledExerciseMutation = useSwapScheduledWorkoutExercise();
   const isPending =
-    swapTemplateExerciseMutation.isPending || swapSessionExerciseMutation.isPending;
+    swapTemplateExerciseMutation.isPending ||
+    swapSessionExerciseMutation.isPending ||
+    swapScheduledExerciseMutation.isPending;
   const selectedExerciseId = useMemo(() => {
     if (swapTemplateExerciseMutation.isPending) {
       return swapTemplateExerciseMutation.variables?.newExerciseId ?? null;
@@ -61,8 +69,14 @@ export function SwapExerciseDialog({
       return swapSessionExerciseMutation.variables?.newExerciseId ?? null;
     }
 
+    if (swapScheduledExerciseMutation.isPending) {
+      return swapScheduledExerciseMutation.variables?.input.toExerciseId ?? null;
+    }
+
     return null;
   }, [
+    swapScheduledExerciseMutation.isPending,
+    swapScheduledExerciseMutation.variables?.input.toExerciseId,
     swapSessionExerciseMutation.isPending,
     swapSessionExerciseMutation.variables?.newExerciseId,
     swapTemplateExerciseMutation.isPending,
@@ -121,14 +135,22 @@ export function SwapExerciseDialog({
               exerciseId: sourceExerciseId,
               newExerciseId: targetExercise.id,
             })
-          : await swapSessionExerciseMutation.mutateAsync({
-              sessionId: contextId,
-              exerciseId: sourceExerciseId,
-              newExerciseId: targetExercise.id,
-            });
+          : mode === 'session'
+            ? await swapSessionExerciseMutation.mutateAsync({
+                sessionId: contextId,
+                exerciseId: sourceExerciseId,
+                newExerciseId: targetExercise.id,
+              })
+            : await swapScheduledExerciseMutation.mutateAsync({
+                id: contextId,
+                input: {
+                  fromExerciseId: sourceExerciseId,
+                  toExerciseId: targetExercise.id,
+                },
+              });
 
       toast.success(`Swapped ${sourceExerciseName} → ${targetExercise.name}`);
-      if (payload.meta?.warning) {
+      if ('meta' in payload && payload.meta?.warning) {
         toast.warning(payload.meta.warning);
       }
       onOpenChange(false);

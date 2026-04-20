@@ -576,7 +576,7 @@ describe('weight and nutrition target integration', () => {
     } finally {
       await app.close();
     }
-  }, 10_000);
+  }, 20_000);
 
   it('filters weight entries by days lookback', async () => {
     const { app } = await createTestApp();

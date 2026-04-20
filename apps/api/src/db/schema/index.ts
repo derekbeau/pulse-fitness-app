@@ -18,5 +18,7 @@ export * from './workout-session-time-segments.js';
 export * from './workout-templates.js';
 export * from './workout-sessions.js';
 export * from './scheduled-workouts.js';
+export * from './scheduled-workout-exercises.js';
+export * from './scheduled-workout-exercise-sets.js';
 export * from './habits.js';
 export * from './agent-tokens.js';

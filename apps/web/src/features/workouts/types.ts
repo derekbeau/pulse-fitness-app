@@ -14,7 +14,16 @@ export type WorkoutBadgeType =
   | 'cardio'
   | 'mobility';
 
+export type ActiveWorkoutAgentNotesMeta = {
+  author: string;
+  generatedAt: string;
+  scheduledDateAtGeneration: string;
+  stale?: boolean;
+} | null;
+
 export type ActiveWorkoutTemplateExercise = {
+  agentNotes?: string | null;
+  agentNotesMeta?: ActiveWorkoutAgentNotesMeta;
   badges: WorkoutBadgeType[];
   exercise?: {
     coachingNotes?: string | null;
@@ -135,6 +144,8 @@ export type ActiveWorkoutExerciseHistorySummary = {
 };
 
 export type ActiveWorkoutExerciseMetadata = {
+  agentNotes?: string | null;
+  agentNotesMeta?: ActiveWorkoutAgentNotesMeta;
   badges: WorkoutBadgeType[];
   category: ExerciseCategory;
   coachingNotes?: string | null;

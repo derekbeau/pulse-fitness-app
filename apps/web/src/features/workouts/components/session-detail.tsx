@@ -703,6 +703,8 @@ function buildSections(
       .map((exercise) => [
         exercise.exerciseId,
         {
+          agentNotes: exercise.agentNotes?.trim() ?? null,
+          agentNotesMeta: exercise.agentNotesMeta ?? null,
           deletedAt: exercise.deletedAt ?? null,
           exerciseName: exercise.exerciseName,
           programmingNotes: exercise.programmingNotes?.trim() ?? null,
@@ -809,6 +811,8 @@ function buildSections(
             muscleGroups: [],
             name,
             notes: null,
+            agentNotes: sessionExerciseMeta?.agentNotes ?? null,
+            agentNotesMeta: sessionExerciseMeta?.agentNotesMeta ?? null,
             phaseBadge: formatLabel(phaseBadge),
             programmingNotes: sessionExerciseMeta?.programmingNotes ?? null,
             repsMax:

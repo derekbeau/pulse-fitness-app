@@ -3,8 +3,10 @@ import { cn } from '@/lib/utils';
 
 import { formatSummaryMetricValue, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import { MarkdownNote } from './markdown-note';
+import { AgentNotesBlock } from './workout-exercise-card/agent-notes-block';
 import {
   WorkoutExerciseCard,
+  type WorkoutExerciseCardAgentNotesMeta,
   type WorkoutExerciseCardCompletedExercise,
   type WorkoutExerciseSetListItem,
 } from './workout-exercise-card';
@@ -25,6 +27,8 @@ export type SessionSummaryExerciseResult = {
   metricValue?: number;
   name: string;
   notes?: string | null;
+  agentNotes?: string | null;
+  agentNotesMeta?: WorkoutExerciseCardAgentNotesMeta | null;
   programmingNotes?: string | null;
   reps: number;
   setsCompleted: number;
@@ -50,6 +54,8 @@ export function SessionSummaryExerciseCard({
     name: exercise.name,
     // Notes are intentionally rendered in footerSlot to keep the condensed header clean.
     notes: null,
+    agentNotes: exercise.agentNotes ?? null,
+    agentNotesMeta: exercise.agentNotesMeta ?? null,
     programmingNotes: exercise.programmingNotes ?? null,
     repsMax: null,
     repsMin: null,
@@ -78,6 +84,15 @@ export function SessionSummaryExerciseCard({
               <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
             ) : null}
           </div>
+
+          {exercise.agentNotes?.trim() ? (
+            <AgentNotesBlock
+              compact
+              notes={exercise.agentNotes}
+              notesMeta={exercise.agentNotesMeta ?? null}
+              testId={`exercise-agent-notes-${exercise.id}-summary-footer`}
+            />
+          ) : null}
 
           {exercise.notes?.trim() ? (
             <MarkdownNote className="text-xs text-muted" content={exercise.notes.trim()} />

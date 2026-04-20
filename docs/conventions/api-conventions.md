@@ -51,6 +51,26 @@ Unified routes with agent conveniences should use middleware hooks instead of ro
 - `onSend: agentEnrichmentOnSend` appends optional `agent` guidance from request context when available.
 - Handlers should implement one canonical write/read path and avoid `isAgentRequest()` schema branching.
 
+## Unified vs AgentToken-only route pattern
+
+Use one decision rule:
+
+- If the route is user-facing (UI callers and agents both use it), keep it on the unified pattern:
+  `requireAuth`, shared schemas, optional agent middleware (`agentRequestTransform`,
+  `agentEnrichmentOnSend`) where convenience features are needed.
+- If the route is intentionally agent-only (enrichment/ingestion workflow), keep it on `/api/v1/*`
+  but enforce `requireAuth` + `requireAgentOnly`.
+
+Canonical agent-only example:
+
+- `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`
+
+Agent-only invariants:
+
+- JWT callers must receive `403 FORBIDDEN` with `Agent token authentication required`.
+- OpenAPI security should declare only `agentToken`.
+- Do not branch request/response schemas by auth mode for either unified or agent-only routes.
+
 ## Authentication
 
 Three auth hooks are available:
@@ -65,11 +85,21 @@ Rules:
 - User-account and credential-management routes should use `requireUserAuth`.
 - Agent token CRUD is JWT-only, so `/api/v1/agent-tokens` uses `requireUserAuth`.
 - Agent-only planning routes such as `/api/v1/context` should use `requireAuth` plus `requireAgentOnly`.
+- AgentToken-only mutations on unified resources (for example `/api/v1/scheduled-workouts/:id/exercise-notes`) should still stay on `/api/v1/*` and enforce agent-only access with `preHandler: requireAgentOnly` after the plugin-level `requireAuth`.
 - JWTs issued by Pulse must include `type: "session"` and `iss: "pulse-api"` claims; hand-crafted JWTs without those claims are rejected.
 - Agent tokens are bearer secrets stored only as hashes and validated on every request.
 - After a successful auth hook, handlers may rely on `request.userId`.
 - Agent-token requests may also rely on `request.agentTokenId`.
 - Agent-token `lastUsedAt` updates are best-effort and must not fail an otherwise valid request.
+
+### AgentToken-Only Operations
+
+When a route is intentionally agent-only:
+
+- Keep request/response schemas unified with the rest of the API surface.
+- Enforce auth with `requireAuth` + `requireAgentOnly` (hook or route-level preHandler).
+- Document OpenAPI security as `[{ agentToken: [] }]` instead of the dual auth array.
+- Return `403 FORBIDDEN` for JWT callers with the standard envelope (`Agent token authentication required`).
 
 ## Response Envelope
 
@@ -128,6 +158,23 @@ Error responses return `{ error: { code, message } }`.
 ```
 
 Use `apps/api/src/lib/reply.ts` helpers for shared error formatting instead of ad hoc reply bodies.
+
+## Derived Read Markers
+
+When a detail endpoint needs caller-facing lifecycle flags (for example scheduled-workout drift or stale references), compute them server-side on `GET` and return them as read-only marker fields in the response payload.
+
+Guidelines:
+
+- Keep mutation endpoints focused on persisted source-of-truth fields.
+- Compute derived markers at read time from current state plus persisted snapshot/version fields.
+- Prefer nullable object markers for single-state details and empty arrays for zero-or-more marker lists.
+- Keep list endpoints lightweight by default; add only compact summary booleans there when a concrete UI need exists.
+
+Example marker pattern for scheduled workouts:
+
+- `templateDrift: { changedAt, summary } | null`
+- `staleExercises: Array<{ exerciseId, snapshotName }>`
+- `templateDeleted: boolean`
 
 ## Standard Error Codes
 
