@@ -18,8 +18,6 @@ import {
   swapScheduledWorkoutExerciseInputSchema,
   swapScheduledWorkoutExerciseResponseSchema,
   reorderWorkoutTemplateExercisesInputSchema,
-  updateScheduledWorkoutExerciseNotesInputSchema,
-  updateScheduledWorkoutExerciseNotesResponseSchema,
   updateWorkoutSessionSectionTimerInputSchema,
   swapWorkoutSessionExerciseInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
@@ -41,7 +39,6 @@ import {
   type WorkoutTemplateListQueryParams,
   type WorkoutTemplate,
   type SwapScheduledWorkoutExerciseInput,
-  type UpdateScheduledWorkoutExerciseNotesInput,
   type SetCorrection,
   type WorkoutTemplateSectionType,
   workoutSessionQueryParamsSchema,
@@ -130,10 +127,6 @@ type UpdateScheduledWorkoutRequest = {
 };
 type DeleteScheduledWorkoutRequest = {
   id: string;
-};
-type UpdateScheduledWorkoutExerciseNotesRequest = {
-  id: string;
-  input: UpdateScheduledWorkoutExerciseNotesInput;
 };
 type SwapScheduledWorkoutExerciseRequest = {
   id: string;
@@ -895,19 +888,6 @@ async function updateScheduledWorkout(input: UpdateScheduledWorkoutRequest) {
   return payload.data;
 }
 
-async function updateScheduledWorkoutExerciseNotes(
-  input: UpdateScheduledWorkoutExerciseNotesRequest,
-) {
-  const parsedInput = updateScheduledWorkoutExerciseNotesInputSchema.parse(input.input);
-  const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercise-notes`, {
-    body: JSON.stringify(parsedInput),
-    method: 'PATCH',
-  });
-  const payload = z.object({ data: updateScheduledWorkoutExerciseNotesResponseSchema }).parse({ data });
-
-  return payload.data;
-}
-
 async function swapScheduledWorkoutExercise(input: SwapScheduledWorkoutExerciseRequest) {
   const parsedInput = swapScheduledWorkoutExerciseInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercise-swap`, {
@@ -1114,30 +1094,6 @@ export function useUnscheduleWorkout() {
     },
     queryKey: () => workoutQueryKeys.scheduledWorkoutListRoot(),
     updater: (current, variables) => removeScheduledWorkoutFromList(current, variables),
-  });
-}
-
-export function useUpdateScheduledWorkoutExerciseNotes() {
-  const queryClient = useQueryClient();
-
-  return useMutation<
-    SharedScheduledWorkoutDetail,
-    Error,
-    UpdateScheduledWorkoutExerciseNotesRequest
-  >({
-    mutationFn: updateScheduledWorkoutExerciseNotes,
-    onSuccess: async (_, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkout(variables.id),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
-        }),
-        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
-      ]);
-      toast.success('Agent notes updated');
-    },
   });
 }
 

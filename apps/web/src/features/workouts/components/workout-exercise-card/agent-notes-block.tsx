@@ -30,7 +30,7 @@ export function AgentNotesBlock({ compact = false, notes, notesMeta, testId }: A
     <div
       className={cn(
         compact
-          ? 'space-y-1 rounded-lg border border-sky-500/20 bg-sky-500/8 px-2.5 py-2'
+          ? 'flex items-start gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/8 px-2.5 py-2'
           : 'flex items-start gap-2 rounded-xl border-l-2 border-sky-500/35 bg-sky-500/10 px-3 py-2',
       )}
       data-testid={testId}

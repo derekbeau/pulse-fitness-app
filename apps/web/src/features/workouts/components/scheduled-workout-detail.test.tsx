@@ -42,6 +42,29 @@ vi.mock('./schedule-workout-dialog', () => ({
   },
 }));
 
+vi.mock('./swap-exercise-dialog', () => ({
+  SwapExerciseDialog: ({
+    open,
+    sourceExerciseId,
+    sourceExerciseName,
+  }: {
+    open: boolean;
+    sourceExerciseId: string;
+    sourceExerciseName: string;
+  }) => {
+    if (!open) {
+      return null;
+    }
+
+    return (
+      <div data-testid="swap-exercise-dialog">
+        <p>{sourceExerciseName}</p>
+        <p>{sourceExerciseId}</p>
+      </div>
+    );
+  },
+}));
+
 import { ScheduledWorkoutDetail } from './scheduled-workout-detail';
 
 beforeEach(() => {
@@ -232,6 +255,48 @@ describe('ScheduledWorkoutDetail', () => {
         ),
       ).toBe(true);
     });
+  });
+
+  it('opens swap flow from stale recovery modal with the correct stale exercise context', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: createScheduledWorkoutDetailPayload({
+              date: toDateKey(new Date()),
+              staleExercises: [
+                {
+                  exerciseId: 'deleted-exercise',
+                  snapshotName: 'Dips',
+                },
+              ],
+            }),
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+
+    const swapDialog = await screen.findByTestId('swap-exercise-dialog');
+    expect(swapDialog).toHaveTextContent('Dips');
+    expect(swapDialog).toHaveTextContent('deleted-exercise');
   });
 
   it('opens stale recovery modal when start-session returns STALE_SNAPSHOT_EXERCISES', async () => {

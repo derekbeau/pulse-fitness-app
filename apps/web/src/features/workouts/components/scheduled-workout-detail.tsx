@@ -336,7 +336,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
               setSwapTarget(null);
             }
           }}
-          open={swapTarget != null}
+          open
           sourceExerciseId={swapTarget.exerciseId}
           sourceExerciseName={swapTarget.snapshotName}
           sourceLabel="this scheduled workout"
@@ -617,7 +617,6 @@ function StaleExerciseRecoveryDialog({
               >
                 <div>
                   <p className="text-sm font-medium text-foreground">{staleExercise.snapshotName}</p>
-                  <p className="text-xs text-muted">{staleExercise.exerciseId}</p>
                 </div>
 
                 <div className="flex gap-2">
@@ -671,7 +670,7 @@ function toWorkoutExerciseCardScheduledExercise(
   exerciseName: string,
   templateExercise: WorkoutTemplateExercise | undefined,
 ): WorkoutExerciseCardScheduledExercise {
-  const repsMin = maxOrNull(exercise.sets.map((set) => set.repsMin));
+  const repsMin = minOrNull(exercise.sets.map((set) => set.repsMin));
   const repsMax = maxOrNull(exercise.sets.map((set) => set.repsMax));
 
   return {
@@ -778,6 +777,15 @@ function maxOrNull(values: Array<number | null>) {
   }
 
   return Math.max(...numbers);
+}
+
+function minOrNull(values: Array<number | null>) {
+  const numbers = values.filter((value): value is number => value !== null);
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  return Math.min(...numbers);
 }
 
 function inferTrackingType(snapshotSets: SnapshotExercise['sets']): ExerciseTrackingType {
