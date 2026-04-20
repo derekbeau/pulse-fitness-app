@@ -490,6 +490,14 @@ export function ActiveWorkoutPage() {
             const completedSets = exercise.sets.filter((set) => set.completed);
             const metricLabel = getTrackingSummaryMetricLabel(exercise.trackingType);
             return {
+              completedSetValues: completedSets.map((set) => ({
+                completed: set.completed,
+                distance: set.distance,
+                reps: set.reps,
+                seconds: set.seconds,
+                setNumber: set.number,
+                weight: set.weight,
+              })),
               id: exercise.id,
               metricLabel,
               metricValue: completedSets.reduce(
@@ -504,6 +512,7 @@ export function ActiveWorkoutPage() {
                 : 0,
               setsCompleted: exercise.completedSets,
               totalSets: exercise.targetSets,
+              trackingType: exercise.trackingType,
             };
           }),
       ),

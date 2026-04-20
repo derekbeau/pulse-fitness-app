@@ -18,7 +18,7 @@ import { useExerciseHistory } from '@/hooks/use-exercise-history';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 
 import { useExercise } from '../api/workouts';
-import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
+import { getWorkoutExerciseCardElementId } from './workout-exercise-card';
 import { formatCompactSets } from '../lib/tracking';
 import type {
   ActiveWorkoutPerformanceHistorySession,
@@ -301,7 +301,7 @@ export function ExerciseDetailModal({
               onClick={() => {
                 if (templateExerciseId) {
                   const target = document.getElementById(
-                    getTemplateExerciseElementId(templateExerciseId),
+                    getWorkoutExerciseCardElementId(templateExerciseId),
                   );
                   target?.scrollIntoView?.({
                     behavior: 'smooth',

@@ -1,4 +1,6 @@
-import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
+import { formatWeight, type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
+
+import { formatServing } from '@/lib/format-utils';
 
 type SetMetrics = {
   distance?: number | null;
@@ -83,6 +85,26 @@ export function resolveTrackingType({
 
 export function getDistanceUnit(weightUnit: WeightUnit) {
   return weightUnit === 'kg' ? 'km' : 'mi';
+}
+
+export function formatSummaryMetricValue(
+  value: number,
+  label: TrackingSummaryMetricLabel,
+  weightUnit: WeightUnit,
+) {
+  if (label === 'volume') {
+    return formatWeight(value, weightUnit);
+  }
+
+  if (label === 'reps') {
+    return `${Math.round(value)}`;
+  }
+
+  if (label === 'seconds') {
+    return `${formatServing(value)} sec`;
+  }
+
+  return `${formatServing(value)} ${getDistanceUnit(weightUnit)}`;
 }
 
 export function isWeightedTrackingType(trackingType: ExerciseTrackingType) {

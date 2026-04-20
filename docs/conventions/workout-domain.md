@@ -20,6 +20,24 @@ Template sections use this fixed sequence:
 
 Each section contains an ordered `exercises` array. Preserve order exactly as authored; the UI should not reorder template exercises automatically.
 
+## Scheduled Workout Detail Surface
+
+The scheduled-workout detail page should mirror template-detail exercise rendering and only add scheduling controls.
+
+- Exercise rows render through shared `WorkoutExerciseCard` in `readonly-scheduled` mode.
+- Header controls are schedule-specific: scheduled date, source template link, `Start workout`, `Reschedule`, and `Cancel`.
+- `programmingNotes` shown on scheduled cards comes from the resolved template exercise data.
+- Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
+
+## Completed Session Detail Surface
+
+The completed-session detail page should render each exercise through shared `WorkoutExerciseCard` primitives in `readonly-completed` mode.
+
+- Exercise rows render through shared `WorkoutExerciseCard` in `readonly-completed` mode.
+- Completed-mode set rows must show logged values (weight/reps/seconds/distance) and must not fall back to template target values.
+- Session-level composition (history button, comparison blocks, correction editors, and exercise-note markdown) should be injected via card slots from `session-detail.tsx`, not reimplemented as a separate card layout.
+- `programmingNotes` on completed cards comes from the session-exercise snapshot (`session_exercises.programmingNotes`) and is rendered by the primitive `ProgrammingNotesBlock`.
+
 ## Exercise In Template
 
 Each template exercise stores prescription data, not completed performance.

@@ -29,7 +29,6 @@ import {
 
 import type {
   Exercise,
-  ExerciseTrackingType,
   UpdateWorkoutTemplateInput,
   WorkoutTemplate,
   WorkoutTemplateExercise,
@@ -40,13 +39,14 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -62,7 +62,6 @@ import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
-import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import {
@@ -78,14 +77,15 @@ import {
   getDayWorkoutConflicts,
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
-import { getTemplateExerciseElementId } from '../lib/template-exercise-id';
-import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { ExerciseDetailModal } from './exercise-detail-modal';
-import { FormCueChips } from './form-cue-chips';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
+import {
+  WorkoutExerciseCard,
+  type WorkoutExerciseCardTemplateExercise,
+} from './workout-exercise-card';
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
@@ -146,6 +146,12 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
     exerciseId: string;
     templateExerciseId: string;
+  } | null>(null);
+  const [prescriptionEditTarget, setPrescriptionEditTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    initialFields: EditableExerciseFields;
+    sectionType: WorkoutTemplateSectionType;
   } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
@@ -274,14 +280,14 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
     const parsedReps = parseRepsInput(fields.reps);
     if (!parsedReps.valid) {
       toast.error('Reps must be like 8, 8-10, or 8+');
-      return;
+      return false;
     }
 
     const sets = parseNullablePositiveInt(fields.sets);
     const restSeconds = parseNullableNonNegativeInt(fields.restSeconds);
     if (sets === undefined || restSeconds === undefined) {
       toast.error('Sets and rest must be numbers');
-      return;
+      return false;
     }
 
     const targetIndex = template.sections
@@ -289,32 +295,40 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       ?.exercises.findIndex((exercise) => exercise.id === exerciseId);
 
     if (targetIndex == null || targetIndex < 0) {
-      return;
+      return false;
     }
 
-    queueTemplateSectionsUpdate((currentSections) =>
-      currentSections.map((section) => {
-        if (section.type !== sectionType) {
-          return section;
-        }
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => {
+          if (section.type !== sectionType) {
+            return section;
+          }
 
-        return {
-          ...section,
-          exercises: section.exercises.map((exercise, index) =>
-            index === targetIndex
-              ? {
-                  ...exercise,
-                  notes: toNullableString(fields.notes),
-                  repsMax: parsedReps.repsMax,
-                  repsMin: parsedReps.repsMin,
-                  restSeconds,
-                  sets,
-                }
-              : exercise,
-          ),
-        };
-      }),
+          return {
+            ...section,
+            exercises: section.exercises.map((exercise, index) =>
+              index === targetIndex
+                ? {
+                    ...exercise,
+                    notes: toNullableString(fields.notes),
+                    repsMax: parsedReps.repsMax,
+                    repsMin: parsedReps.repsMin,
+                    restSeconds,
+                    sets,
+                  }
+                : exercise,
+            ),
+          };
+        }),
+      {
+        onError: () => {
+          toast.error('Unable to save prescription edits. Try again.');
+        },
+      },
     );
+
+    return true;
   };
 
   const addExerciseToSection = (sectionType: WorkoutTemplateSectionType, exerciseId: string) => {
@@ -566,8 +580,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                 exerciseName: exercise.exerciseName,
                               })
                             }
-                            onSaveInline={(fields) =>
-                              saveExerciseEdits(section.type, exercise.id, fields)
+                            onEditPrescription={() =>
+                              setPrescriptionEditTarget({
+                                exerciseId: exercise.id,
+                                exerciseName: exercise.exerciseName,
+                                initialFields: toEditableFields(exercise),
+                                sectionType: section.type,
+                              })
                             }
                             onSwap={() =>
                               setSwapTarget({
@@ -660,8 +679,13 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                       exerciseName: exercise.exerciseName,
                                     })
                                   }
-                                  onSaveInline={(fields) =>
-                                    saveExerciseEdits(section.type, exercise.id, fields)
+                                  onEditPrescription={() =>
+                                    setPrescriptionEditTarget({
+                                      exerciseId: exercise.id,
+                                      exerciseName: exercise.exerciseName,
+                                      initialFields: toEditableFields(exercise),
+                                      sectionType: section.type,
+                                    })
                                   }
                                   onSwap={() =>
                                     setSwapTarget({
@@ -777,6 +801,24 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         sourceExerciseName={swapTarget?.exerciseName ?? ''}
         sourceLabel="this template"
       />
+      {prescriptionEditTarget ? (
+        <EditTemplateExercisePrescriptionDialog
+          exerciseName={prescriptionEditTarget.exerciseName}
+          fields={prescriptionEditTarget.initialFields}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPrescriptionEditTarget(null);
+            }
+          }}
+          onSave={(fields) =>
+            saveExerciseEdits(
+              prescriptionEditTarget.sectionType,
+              prescriptionEditTarget.exerciseId,
+              fields,
+            )
+          }
+        />
+      ) : null}
       {supersetSectionTarget ? (
         <SupersetManagerDialog
           onApply={(exerciseIds, supersetGroup) => {
@@ -892,7 +934,7 @@ function TemplateExerciseCard({
   onMoveUp,
   onOpenDetails,
   onRename,
-  onSaveInline,
+  onEditPrescription,
   onSwap,
   weightUnit,
 }: {
@@ -905,231 +947,110 @@ function TemplateExerciseCard({
   onMoveUp: () => void;
   onOpenDetails: () => void;
   onRename: () => void;
-  onSaveInline: (fields: EditableExerciseFields) => void;
+  onEditPrescription: () => void;
   onSwap: () => void;
   weightUnit: WeightUnit;
 }) {
-  const compactSummary = formatCompactSetSummary(exercise, weightUnit);
-  const targetBreakdown = formatSetTargetBreakdown(exercise, weightUnit);
-  const [fields, setFields] = useState<EditableExerciseFields>(() => toEditableFields(exercise));
-  const focusedFieldCountRef = useRef(0);
-
-  useEffect(() => {
-    if (focusedFieldCountRef.current > 0) {
-      return;
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- local editable state must resync to server snapshot when not actively editing
-    setFields(toEditableFields(exercise));
-  }, [exercise]);
-
-  const debouncedInlineSave = useDebouncedCallback((nextFields: EditableExerciseFields) => {
-    onSaveInline(nextFields);
-  });
-
-  useEffect(
-    () => () => {
-      debouncedInlineSave.flush();
-    },
-    [debouncedInlineSave],
-  );
-
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: exercise.id,
   });
 
   return (
-    <Card
-      className="gap-1.5 py-0"
-      id={getTemplateExerciseElementId(exercise.id)}
-      ref={setNodeRef}
+    <WorkoutExerciseCard
+      cardRef={setNodeRef}
+      exercise={toWorkoutExerciseCardTemplateExercise(exercise)}
+      footerSlot={
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
+      }
+      headerSlot={
+        <>
+          <Button
+            aria-label={`Open ${exercise.exerciseName} history`}
+            className="size-11 min-h-11 min-w-11"
+            onClick={onOpenHistory}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <History aria-hidden="true" className="size-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={`Exercise actions for ${exercise.exerciseName}`}
+                className="-mr-1 size-11 min-h-11 min-w-11"
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <MoreVertical aria-hidden="true" className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
+              <DropdownMenuItem onClick={onEditPrescription}>Edit prescription</DropdownMenuItem>
+              <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
+                <ArrowUp aria-hidden="true" className="size-4" />
+                Move up
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
+                <ArrowDown aria-hidden="true" className="size-4" />
+                Move down
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onRename}>Rename exercise</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      }
+      leadingSlot={
+        <Button
+          aria-label={`Drag handle for ${exercise.exerciseName}`}
+          className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
+          size="icon"
+          type="button"
+          variant="ghost"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical aria-hidden="true" className="size-4" />
+        </Button>
+      }
+      mode="readonly-template"
+      onOpenDetails={onOpenDetails}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-    >
-      <CardHeader className="gap-1.5 py-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-1.5">
-            <Button
-              aria-label={`Drag handle for ${exercise.exerciseName}`}
-              className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
-              size="icon"
-              type="button"
-              variant="ghost"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical aria-hidden="true" className="size-4" />
-            </Button>
-            <div className="min-w-0 space-y-0.5">
-              <CardTitle className="truncate text-base font-semibold sm:text-lg">
-                <button
-                  className="cursor-pointer truncate text-left hover:text-primary hover:underline"
-                  onClick={onOpenDetails}
-                  type="button"
-                >
-                  {exercise.exerciseName}
-                </button>
-              </CardTitle>
-              <p className="text-xs font-medium text-muted sm:text-sm">{compactSummary}</p>
-              {exercise.notes ? (
-                <p className="line-clamp-2 text-[11px] italic text-muted/85">{exercise.notes}</p>
-              ) : null}
-              {exercise.tempo || exercise.restSeconds !== null ? (
-                <p className="text-[11px] text-muted">
-                  {exercise.tempo ? `Tempo: ${formatTempo(exercise.tempo)}` : null}
-                  {exercise.tempo && exercise.restSeconds !== null ? ' • ' : null}
-                  {exercise.restSeconds !== null ? `Rest: ${exercise.restSeconds}s` : null}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              aria-label={`Open ${exercise.exerciseName} history`}
-              className="size-11 min-h-11 min-w-11"
-              onClick={onOpenHistory}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <History aria-hidden="true" className="size-4" />
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={`Exercise actions for ${exercise.exerciseName}`}
-                  className="-mr-1 size-11 min-h-11 min-w-11"
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <MoreVertical aria-hidden="true" className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
-                <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
-                  <ArrowUp aria-hidden="true" className="size-4" />
-                  Move up
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={isMoveDownDisabled} onClick={onMoveDown}>
-                  <ArrowDown aria-hidden="true" className="size-4" />
-                  Move down
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onRename}>Rename exercise</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-1.5 pb-2.5">
-        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
-
-        <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
-          <InlineEditField
-            ariaLabel={`Sets for ${exercise.exerciseName}`}
-            label="Sets"
-            onBlur={() => {
-              debouncedInlineSave.run(fields);
-              setTimeout(() => {
-                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
-              }, 0);
-            }}
-            onFocus={() => {
-              focusedFieldCountRef.current += 1;
-            }}
-            onChange={(nextValue) => setFields((current) => ({ ...current, sets: nextValue }))}
-            placeholder="3"
-            value={fields.sets}
-          />
-          <InlineEditField
-            ariaLabel={`Reps for ${exercise.exerciseName}`}
-            label="Reps"
-            onBlur={() => {
-              debouncedInlineSave.run(fields);
-              setTimeout(() => {
-                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
-              }, 0);
-            }}
-            onFocus={() => {
-              focusedFieldCountRef.current += 1;
-            }}
-            onChange={(nextValue) => setFields((current) => ({ ...current, reps: nextValue }))}
-            placeholder="8-10"
-            value={fields.reps}
-          />
-          <InlineEditField
-            ariaLabel={`Rest for ${exercise.exerciseName}`}
-            label="Rest (s)"
-            onBlur={() => {
-              debouncedInlineSave.run(fields);
-              setTimeout(() => {
-                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
-              }, 0);
-            }}
-            onFocus={() => {
-              focusedFieldCountRef.current += 1;
-            }}
-            onChange={(nextValue) =>
-              setFields((current) => ({ ...current, restSeconds: nextValue }))
-            }
-            placeholder="90"
-            value={fields.restSeconds}
-          />
-          <InlineEditField
-            ariaLabel={`Notes for ${exercise.exerciseName}`}
-            className="sm:col-span-3 lg:col-span-1"
-            label="Notes"
-            multiline
-            onBlur={() => {
-              debouncedInlineSave.run(fields);
-              setTimeout(() => {
-                focusedFieldCountRef.current = Math.max(0, focusedFieldCountRef.current - 1);
-              }, 0);
-            }}
-            onFocus={() => {
-              focusedFieldCountRef.current += 1;
-            }}
-            onChange={(nextValue) => setFields((current) => ({ ...current, notes: nextValue }))}
-            placeholder="Optional note"
-            value={fields.notes}
-          />
-        </div>
-
-        <details className="rounded-xl border border-border/80 bg-secondary/20 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-semibold text-muted">
-            Show full set detail
-          </summary>
-          <div className="mt-2 space-y-2">
-            <p className="text-xs font-medium text-foreground">
-              {formatPrescription(exercise, weightUnit)}
-            </p>
-            {targetBreakdown ? <p className="text-xs text-muted">{targetBreakdown}</p> : null}
-            {exercise.tempo ? (
-              <p className="text-xs text-muted">Tempo: {formatTempo(exercise.tempo)}</p>
-            ) : null}
-
-            {(exercise.exercise?.formCues?.length ?? exercise.formCues?.length ?? 0) > 0 ||
-            exercise.cues.length > 0 ||
-            Boolean(exercise.exercise?.coachingNotes) ||
-            Boolean(exercise.programmingNotes) ? (
-              <div className="rounded-lg border border-border bg-card px-3 py-2">
-                <FormCueChips
-                  exerciseCoachingNotes={exercise.exercise?.coachingNotes ?? null}
-                  exerciseCues={exercise.exercise?.formCues ?? exercise.formCues ?? []}
-                  templateCues={exercise.cues}
-                  templateProgrammingNotes={exercise.programmingNotes ?? null}
-                />
-              </div>
-            ) : null}
-          </div>
-        </details>
-      </CardContent>
-    </Card>
+      weightUnit={weightUnit}
+    />
   );
+}
+
+function toWorkoutExerciseCardTemplateExercise(
+  exercise: WorkoutTemplateExercise,
+): WorkoutExerciseCardTemplateExercise {
+  return {
+    coachingNotes: exercise.exercise?.coachingNotes ?? null,
+    // TODO(pulse-issues-11): populate from template exercise API once nested `exercise` includes equipment.
+    equipment: null,
+    exerciseId: exercise.exerciseId,
+    formCues: exercise.exercise?.formCues ?? exercise.formCues ?? [],
+    id: exercise.id,
+    instructions: exercise.exercise?.instructions ?? null,
+    // TODO(pulse-issues-11): populate from template exercise API once nested `exercise` includes muscleGroups.
+    muscleGroups: [],
+    name: exercise.exerciseName,
+    notes: exercise.notes,
+    programmingNotes: exercise.programmingNotes ?? null,
+    repsMax: exercise.repsMax,
+    repsMin: exercise.repsMin,
+    restSeconds: exercise.restSeconds,
+    setTargets: exercise.setTargets ?? [],
+    sets: exercise.sets,
+    tempo: exercise.tempo,
+    templateCues: exercise.cues,
+    trackingType: exercise.trackingType,
+  };
 }
 
 function SupersetManagerDialog({
@@ -1395,55 +1316,100 @@ function AddExerciseOption({
   );
 }
 
-function InlineEditField({
-  ariaLabel,
-  className,
-  label,
-  multiline = false,
-  onBlur,
-  onFocus,
-  onChange,
-  placeholder,
-  value,
+function EditTemplateExercisePrescriptionDialog({
+  exerciseName,
+  fields: initialFields,
+  onOpenChange,
+  onSave,
 }: {
-  ariaLabel: string;
-  className?: string;
-  label: string;
-  multiline?: boolean;
-  onBlur: () => void;
-  onFocus: () => void;
-  onChange: (value: string) => void;
-  placeholder: string;
-  value: string;
+  exerciseName: string;
+  fields: EditableExerciseFields;
+  onOpenChange: (open: boolean) => void;
+  onSave: (fields: EditableExerciseFields) => boolean;
 }) {
+  const [fields, setFields] = useState<EditableExerciseFields>(initialFields);
+
+  useEffect(() => {
+    setFields(initialFields);
+  }, [initialFields]);
+
   return (
-    <label className={cn('space-y-1', className)}>
-      <span className="text-[10px] font-semibold tracking-[0.08em] text-muted uppercase">
-        {label}
-      </span>
-      {multiline ? (
-        <Textarea
-          aria-label={ariaLabel}
-          className="min-h-9 px-2 py-1 text-xs focus-visible:border-primary focus-visible:bg-card"
-          onBlur={onBlur}
-          onFocus={onFocus}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          placeholder={placeholder}
-          rows={2}
-          value={value}
-        />
-      ) : (
-        <Input
-          aria-label={ariaLabel}
-          className="h-8 text-xs focus-visible:border-primary focus-visible:bg-card"
-          onBlur={onBlur}
-          onFocus={onFocus}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          placeholder={placeholder}
-          value={value}
-        />
-      )}
-    </label>
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit prescription</DialogTitle>
+          <DialogDescription>{`Update sets, reps, rest, and notes for ${exerciseName}.`}</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Sets</span>
+            <Input
+              aria-label={`Sets for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, sets: event.currentTarget.value }))
+              }
+              placeholder="3"
+              value={fields.sets}
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Reps</span>
+            <Input
+              aria-label={`Reps for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, reps: event.currentTarget.value }))
+              }
+              placeholder="8-10"
+              value={fields.reps}
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Rest (seconds)</span>
+            <Input
+              aria-label={`Rest for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, restSeconds: event.currentTarget.value }))
+              }
+              placeholder="90"
+              value={fields.restSeconds}
+            />
+          </label>
+
+          <label className="space-y-1 sm:col-span-2">
+            <span className="text-xs font-medium text-muted">Notes</span>
+            <Textarea
+              aria-label={`Notes for ${exerciseName}`}
+              className="min-h-20"
+              onChange={(event) =>
+                setFields((current) => ({ ...current, notes: event.currentTarget.value }))
+              }
+              placeholder="Optional note"
+              value={fields.notes}
+            />
+          </label>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              const saved = onSave(fields);
+              if (saved) {
+                onOpenChange(false);
+              }
+            }}
+            type="button"
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1588,235 +1554,6 @@ function formatLabel(value: string) {
     .join(' ');
 }
 
-function formatPrescription(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
-  const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
-  const trackingTypeLabel = exercise.trackingType === 'bodyweight_reps' ? ' (bodyweight)' : '';
-
-  if (setTargetSummary) {
-    if (exercise.sets !== null) {
-      return `${exercise.sets} x ${setTargetSummary}${trackingTypeLabel}`;
-    }
-
-    return `${setTargetSummary}${trackingTypeLabel}`;
-  }
-
-  if (exercise.trackingType === 'seconds_only') {
-    if (repsTarget) {
-      if (exercise.sets !== null) {
-        return `${exercise.sets} x ${repsTarget} sec`;
-      }
-
-      return `${repsTarget} sec`;
-    }
-
-    if (exercise.sets !== null) {
-      return `${exercise.sets} timed set${exercise.sets === 1 ? '' : 's'}`;
-    }
-  }
-
-  if (exercise.trackingType === 'distance') {
-    if (repsTarget) {
-      if (exercise.sets !== null) {
-        return `${exercise.sets} x ${repsTarget} ${getDistanceUnit(weightUnit)}`;
-      }
-
-      return `${repsTarget} ${getDistanceUnit(weightUnit)}`;
-    }
-
-    if (exercise.sets !== null) {
-      return `${exercise.sets} distance set${exercise.sets === 1 ? '' : 's'}`;
-    }
-  }
-
-  if (exercise.sets !== null && repsTarget) {
-    return `${exercise.sets} x ${repsTarget}${trackingTypeLabel}`;
-  }
-
-  if (exercise.sets !== null) {
-    return `${exercise.sets} set${exercise.sets === 1 ? '' : 's'}`;
-  }
-
-  if (repsTarget) {
-    return `${repsTarget}${trackingTypeLabel}`;
-  }
-
-  return 'Prescription not set';
-}
-
-function formatCompactSetSummary(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
-  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
-
-  if (exercise.sets !== null && setTargetSummary) {
-    return `${exercise.sets}×${setTargetSummary}`;
-  }
-
-  if (exercise.sets !== null && repsTarget) {
-    return `${exercise.sets}×${repsTarget}`;
-  }
-
-  if (exercise.sets !== null) {
-    return `${exercise.sets} set${exercise.sets === 1 ? '' : 's'}`;
-  }
-
-  return formatPrescription(exercise, weightUnit);
-}
-
-function formatSetTargetBreakdown(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
-  const targets = (exercise.setTargets ?? [])
-    .map((setTarget) => {
-      const label = formatTargetByTrackingType(
-        exercise.trackingType,
-        setTarget,
-        weightUnit,
-        repsTarget,
-      );
-
-      if (!label) {
-        return null;
-      }
-
-      return `Set ${setTarget.setNumber}: ${label}`;
-    })
-    .filter((value): value is string => value !== null);
-
-  if (targets.length <= 1) {
-    return null;
-  }
-
-  return targets.join(' • ');
-}
-
-function summarizeSetTargets(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  if (!exercise.setTargets || exercise.setTargets.length === 0) {
-    return null;
-  }
-
-  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
-  const labels = exercise.setTargets
-    .map((setTarget) =>
-      formatTargetByTrackingType(exercise.trackingType, setTarget, weightUnit, repsTarget),
-    )
-    .filter((value): value is string => value !== null);
-  if (labels.length === 0) {
-    return null;
-  }
-
-  const uniqueLabels = [...new Set(labels)];
-  if (uniqueLabels.length === 1) {
-    return uniqueLabels[0] ?? null;
-  }
-
-  return labels[0] ?? null;
-}
-
-function formatTargetByTrackingType(
-  trackingType: ExerciseTrackingType,
-  target: NonNullable<WorkoutTemplateExercise['setTargets']>[number],
-  weightUnit: WeightUnit,
-  repsTarget: string | null,
-) {
-  const weightLabel = formatTargetWeight(target, weightUnit);
-  const secondsLabel = target?.targetSeconds != null ? `${target.targetSeconds} sec` : null;
-  const distanceLabel =
-    target?.targetDistance != null
-      ? `${target.targetDistance} ${getDistanceUnit(weightUnit)}`
-      : null;
-
-  switch (trackingType) {
-    case 'seconds_only':
-      return secondsLabel;
-    case 'weight_seconds':
-      if (weightLabel && secondsLabel) {
-        return `${weightLabel} x ${secondsLabel}`;
-      }
-
-      return weightLabel ?? secondsLabel;
-    case 'reps_seconds':
-      if (repsTarget && secondsLabel) {
-        return `${repsTarget} x ${secondsLabel}`;
-      }
-
-      return secondsLabel;
-    case 'distance':
-      return distanceLabel;
-    case 'cardio':
-      if (secondsLabel && distanceLabel) {
-        return `${secondsLabel} + ${distanceLabel}`;
-      }
-
-      return secondsLabel ?? distanceLabel;
-    case 'weight_reps':
-      return weightLabel;
-    default:
-      return null;
-  }
-}
-
-function formatTargetWeight(
-  target: NonNullable<WorkoutTemplateExercise['setTargets']>[number],
-  weightUnit: WeightUnit,
-) {
-  if (target?.targetWeight != null) {
-    return `${target.targetWeight} ${weightUnit}`;
-  }
-
-  if (target?.targetWeightMin != null && target?.targetWeightMax != null) {
-    return `${target.targetWeightMin}-${target.targetWeightMax} ${weightUnit}`;
-  }
-
-  return null;
-}
-
-function formatRepTarget(repsMin: number | null, repsMax: number | null) {
-  if (repsMin !== null && repsMax !== null) {
-    return repsMin === repsMax ? `${repsMin}` : `${repsMin}-${repsMax}`;
-  }
-
-  if (repsMin !== null) {
-    return `${repsMin}+`;
-  }
-
-  if (repsMax !== null) {
-    return `Up to ${repsMax}`;
-  }
-
-  return null;
-}
-
-function formatTempo(tempo: string) {
-  return tempo.split('').join('-');
-}
-
-function toUpdateSection(
-  section: WorkoutTemplate['sections'][number],
-): NonNullable<UpdateWorkoutTemplateInput['sections']>[number] {
-  return {
-    type: section.type,
-    exercises: section.exercises.map(toUpdateExercise),
-  };
-}
-
-function toUpdateExercise(
-  exercise: WorkoutTemplate['sections'][number]['exercises'][number],
-): NonNullable<NonNullable<UpdateWorkoutTemplateInput['sections']>[number]['exercises']>[number] {
-  return {
-    exerciseId: exercise.exerciseId,
-    cues: exercise.cues,
-    notes: exercise.notes,
-    programmingNotes: exercise.programmingNotes ?? null,
-    repsMax: exercise.repsMax,
-    repsMin: exercise.repsMin,
-    restSeconds: exercise.restSeconds,
-    setTargets: exercise.setTargets,
-    sets: exercise.sets,
-    supersetGroup: exercise.supersetGroup,
-    tempo: exercise.tempo,
-  };
-}
-
 function toNullableString(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -1923,4 +1660,31 @@ function formatEditableReps(repsMin: number | null, repsMax: number | null) {
   }
 
   return '';
+}
+
+function toUpdateSection(
+  section: WorkoutTemplate['sections'][number],
+): NonNullable<UpdateWorkoutTemplateInput['sections']>[number] {
+  return {
+    type: section.type,
+    exercises: section.exercises.map(toUpdateExercise),
+  };
+}
+
+function toUpdateExercise(
+  exercise: WorkoutTemplate['sections'][number]['exercises'][number],
+): NonNullable<NonNullable<UpdateWorkoutTemplateInput['sections']>[number]['exercises']>[number] {
+  return {
+    exerciseId: exercise.exerciseId,
+    cues: exercise.cues,
+    notes: exercise.notes,
+    programmingNotes: exercise.programmingNotes ?? null,
+    repsMax: exercise.repsMax,
+    repsMin: exercise.repsMin,
+    restSeconds: exercise.restSeconds,
+    setTargets: exercise.setTargets,
+    sets: exercise.sets,
+    supersetGroup: exercise.supersetGroup,
+    tempo: exercise.tempo,
+  };
 }

@@ -1,15 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import {
-  ArrowLeft,
-  ChevronDown,
-  ClipboardList,
-  Dumbbell,
-  ListChecks,
-  NotebookPen,
-  Repeat2,
-  Scale,
-} from 'lucide-react';
+import { ArrowLeft, ChevronDown, Dumbbell, ListChecks, NotebookPen, Repeat2, Scale } from 'lucide-react';
 import {
   type ExerciseTrackingType,
   type SessionSet,
@@ -25,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { useStartSession } from '@/hooks/use-workout-session';
@@ -48,7 +38,6 @@ import {
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import {
   formatTrackingMetricBreakdown,
-  formatSetSummary,
   getDistanceUnit,
   getSetDistance,
   getSetSummaryMetricValue,
@@ -60,22 +49,31 @@ import {
 import { findPreviousTemplateSession } from '../lib/session-comparison';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 import { MarkdownNote } from './markdown-note';
-import { SessionComparison, SessionExerciseComparison } from './session-comparison';
+import { SessionComparison } from './session-comparison';
+import {
+  createSessionSetDraft,
+  SessionDetailExerciseCard,
+  type SessionSetDraft,
+  type SessionSetDraftKey,
+} from './session-detail-exercise-card';
+import {
+  type WorkoutExerciseCardCompletedExercise,
+  type WorkoutExerciseSetListItem,
+} from './workout-exercise-card';
 
 type SessionDetailProps = {
   sessionId: string;
 };
 
 type SessionDetailSectionType = WorkoutTemplateSectionType;
+type SessionPhaseBadge = 'moderate' | 'rebuild' | 'recovery' | 'test';
 
 type SessionDetailExercise = {
+  cardExercise: WorkoutExerciseCardCompletedExercise;
   exerciseId: string | null;
   groupKey: string;
-  name: string;
   notes: string | null;
-  programmingNotes: string | null;
   archived: boolean;
-  phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
   sets: SessionSet[];
   supersetGroup: string | null;
   trackingType: ExerciseTrackingType;
@@ -85,21 +83,6 @@ type SessionDetailSection = {
   exercises: SessionDetailExercise[];
   subtitle: string;
   type: SessionDetailSectionType;
-};
-
-type SessionSetDraft = {
-  reps: string;
-  weight: string;
-};
-
-type SessionSetDraftKey = keyof SessionSetDraft;
-
-type SessionSetEditorField = {
-  inputMode: 'decimal' | 'numeric';
-  key: SessionSetDraftKey;
-  label: string;
-  step: string;
-  suffix?: string;
 };
 
 type SessionMetricLabel = TrackingSummaryMetricLabel | 'mixed';
@@ -129,16 +112,6 @@ const sectionLabels: Record<SessionDetailSectionType, string> = {
   cooldown: 'Cooldown',
   supplemental: 'Supplemental',
 };
-
-const phaseBadgeStyles = {
-  rebuild:
-    'border-transparent bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
-  recovery:
-    'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
-  moderate:
-    'border-transparent bg-secondary text-secondary-foreground dark:bg-secondary/80 dark:text-foreground',
-  test: 'border-transparent bg-[var(--color-accent-pink)] text-on-pink dark:bg-pink-500/20 dark:text-pink-400',
-} as const;
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
   const { weightUnit } = useWeightUnit();
@@ -470,135 +443,18 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
             <div className="space-y-2.5 border-t border-border px-3 py-3 sm:px-5 sm:py-4">
               {section.exercises.map((exercise) => (
-                <Card
-                  className={cn(
-                    'gap-3 py-0',
-                    isEditing &&
-                      'border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)]',
-                  )}
+                <SessionDetailExerciseCard
+                  currentSession={session}
+                  exercise={exercise}
+                  isEditing={isEditing}
                   key={`${section.type}-${exercise.groupKey}`}
-                >
-                  <CardHeader className="gap-2.5 py-3">
-                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CardTitle>
-                            {exercise.exerciseId ? (
-                              <button
-                                className="cursor-pointer text-left underline-offset-4 transition hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() => setSelectedExerciseId(exercise.exerciseId)}
-                                type="button"
-                              >
-                                {exercise.name}
-                              </button>
-                            ) : (
-                              <span className="text-muted">{exercise.name}</span>
-                            )}
-                          </CardTitle>
-                          {exercise.archived ? <Badge variant="outline">Archived</Badge> : null}
-                          <Badge
-                            className={cn(
-                              'border-transparent',
-                              phaseBadgeStyles[exercise.phaseBadge],
-                            )}
-                            variant="outline"
-                          >
-                            {formatLabel(exercise.phaseBadge)}
-                          </Badge>
-                          {exercise.supersetGroup ? (
-                            <Badge variant="secondary">
-                              {`Superset ${formatLabel(exercise.supersetGroup.replace(/^superset-?/i, ''))}`}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="text-sm text-muted">
-                          {`${exercise.sets.length} logged set${exercise.sets.length === 1 ? '' : 's'}`}
-                        </p>
-                      </div>
-
-                      <Button
-                        aria-label={`Open ${exercise.name} history`}
-                        className="h-9 self-start px-3 text-xs"
-                        disabled={!exercise.exerciseId}
-                        onClick={() => setSelectedExerciseId(exercise.exerciseId)}
-                        type="button"
-                        variant="outline"
-                      >
-                        History
-                      </Button>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3 pb-3">
-                    {exercise.programmingNotes ? (
-                      <div
-                        className="flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
-                        data-testid={`exercise-programming-notes-${exercise.groupKey}`}
-                      >
-                        <ClipboardList
-                          aria-hidden="true"
-                          className="mt-0.5 size-3.5 shrink-0 text-muted"
-                        />
-                        <div className="space-y-0.5">
-                          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
-                            Programming notes
-                          </p>
-                          <p className="whitespace-pre-wrap text-[13px] italic text-muted">
-                            {exercise.programmingNotes}
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {isEditing ? (
-                      <div className="space-y-2.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)] p-2.5">
-                        {exercise.sets.map((set) => (
-                          <SessionSetEditor
-                            draft={setDrafts[set.id] ?? createSessionSetDraft(set)}
-                            key={set.id}
-                            onChange={(key, value) => updateSetDraft(set, key, value)}
-                            set={set}
-                            trackingType={exercise.trackingType}
-                            weightUnit={weightUnit}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {exercise.sets.map((set) => (
-                          <span
-                            className="inline-flex rounded-full border border-border bg-secondary/55 px-2.5 py-1 text-[13px] text-foreground"
-                            key={set.id}
-                          >
-                            {formatSetLabel(set, exercise.trackingType, weightUnit)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {showComparison && exercise.exerciseId ? (
-                      <SessionExerciseComparison
-                        currentSession={session}
-                        exerciseId={exercise.exerciseId}
-                        previousSession={previousSession}
-                        trackingType={exercise.trackingType}
-                        weightUnit={weightUnit}
-                      />
-                    ) : null}
-
-                    {exercise.notes ? (
-                      <div className="rounded-2xl border border-border bg-secondary/35 px-3 py-2.5 text-sm text-foreground">
-                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-                          Exercise notes
-                        </p>
-                        <MarkdownNote
-                          className="text-sm text-foreground"
-                          content={exercise.notes}
-                        />
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                  onOpenDetails={(exerciseId) => setSelectedExerciseId(exerciseId)}
+                  onUpdateSetDraft={updateSetDraft}
+                  previousSession={previousSession}
+                  setDrafts={setDrafts}
+                  showComparison={showComparison}
+                  weightUnit={weightUnit}
+                />
               ))}
             </div>
           </details>
@@ -728,96 +584,8 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 }
 
-function SessionSetEditor({
-  draft,
-  onChange,
-  set,
-  trackingType,
-  weightUnit,
-}: {
-  draft: SessionSetDraft;
-  onChange: (key: SessionSetDraftKey, value: string) => void;
-  set: SessionSet;
-  trackingType: ExerciseTrackingType;
-  weightUnit: WeightUnit;
-}) {
-  const fields = getSessionSetEditorFields(trackingType, weightUnit);
-  const readOnlySummary = getReadOnlyCorrectionSummary(set, trackingType, weightUnit);
-
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background/70 p-2.5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">{`Set ${set.setNumber}`}</p>
-          <p className="text-xs text-muted">{formatSetLabel(set, trackingType, weightUnit)}</p>
-        </div>
-        {set.skipped ? (
-          <Badge className="border-border bg-secondary/70" variant="outline">
-            Skipped
-          </Badge>
-        ) : null}
-      </div>
-
-      {fields.length > 0 ? (
-        <div
-          className={cn(
-            'mt-2.5 grid gap-2',
-            fields.length === 1 ? 'sm:grid-cols-[minmax(0,11rem)]' : 'sm:grid-cols-2',
-          )}
-        >
-          {fields.map((field) => {
-            const inputId = `${set.id}-${field.key}`;
-
-            return (
-              <div className="space-y-2" key={field.key}>
-                <Label
-                  className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
-                  htmlFor={inputId}
-                >
-                  {field.label}
-                </Label>
-                <div className="relative">
-                  <Input
-                    aria-label={`${field.label} for set ${set.setNumber}`}
-                    className={cn('h-10 pr-10', field.suffix ? 'pr-12' : '')}
-                    id={inputId}
-                    inputMode={field.inputMode}
-                    min={0}
-                    onChange={(event) => onChange(field.key, event.currentTarget.value)}
-                    step={field.step}
-                    type="number"
-                    value={draft[field.key]}
-                  />
-                  {field.suffix ? (
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] font-semibold uppercase text-muted">
-                      {field.suffix}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="mt-2.5 text-sm text-muted">
-          No editable set values are available for this entry.
-        </p>
-      )}
-
-      {readOnlySummary ? <p className="mt-2.5 text-xs text-muted">{readOnlySummary}</p> : null}
-    </div>
-  );
-}
-
 function buildSessionSetDrafts(sets: SessionSet[]) {
   return Object.fromEntries(sets.map((set) => [set.id, createSessionSetDraft(set)]));
-}
-
-function createSessionSetDraft(set: SessionSet): SessionSetDraft {
-  return {
-    reps: set.reps != null ? `${set.reps}` : '',
-    weight: set.weight != null ? `${set.weight}` : '',
-  };
 }
 
 function buildChangedSetCorrections(
@@ -854,67 +622,63 @@ function resolveCorrectionMetric(value: string, fallback: number | null) {
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
-function getSessionSetEditorFields(
-  trackingType: ExerciseTrackingType,
-  weightUnit: WeightUnit,
-): SessionSetEditorField[] {
-  const weightField: SessionSetEditorField = {
-    inputMode: 'decimal',
-    key: 'weight',
-    label: 'Weight',
-    step: '0.5',
-    suffix: weightUnit,
-  };
 
-  const repsField: SessionSetEditorField = {
-    inputMode: 'numeric',
-    key: 'reps',
-    label: 'Reps',
-    step: '1',
-  };
-
-  const secondsField: SessionSetEditorField = {
-    inputMode: 'numeric',
-    key: 'reps', // seconds are stored in the reps column for time-based tracking types
-    label: 'Seconds',
-    step: '1',
-    suffix: 'sec',
-  };
-
-  switch (trackingType) {
-    case 'weight_reps':
-      return [weightField, repsField];
-    case 'weight_seconds':
-      return [weightField, secondsField];
-    case 'bodyweight_reps':
-    case 'reps_only':
-    case 'reps_seconds':
-      return [repsField];
-    case 'seconds_only':
-    case 'cardio':
-      return [secondsField];
-    case 'distance':
-    default:
-      return [];
-  }
-}
-
-function getReadOnlyCorrectionSummary(
+function toCompletedSetListItem(
   set: SessionSet,
   trackingType: ExerciseTrackingType,
-  weightUnit: WeightUnit,
-) {
-  const distance = getSetDistance(set);
-
-  if ((trackingType === 'cardio' || trackingType === 'distance') && distance != null) {
-    return `Logged distance remains ${formatNumber(distance)} ${getDistanceUnit(weightUnit)}.`;
+): WorkoutExerciseSetListItem {
+  switch (trackingType) {
+    case 'weight_seconds':
+      return {
+        completed: set.completed,
+        reps: null,
+        seconds: set.reps,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
+    case 'seconds_only':
+      return {
+        completed: set.completed,
+        reps: null,
+        seconds: set.reps,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
+    case 'distance':
+      return {
+        completed: set.completed,
+        distance: getSetDistance(set) ?? set.reps ?? null,
+        reps: null,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
+    case 'cardio':
+      return {
+        completed: set.completed,
+        distance: getSetDistance(set),
+        reps: null,
+        seconds: set.reps,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
+    case 'reps_seconds':
+      return {
+        completed: set.completed,
+        reps: set.reps,
+        // Temporary bridge until reps_seconds has a dedicated persisted seconds field.
+        seconds: set.reps,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
+    default:
+      return {
+        completed: set.completed,
+        distance: getSetDistance(set),
+        reps: set.reps,
+        setNumber: set.setNumber,
+        weight: set.weight,
+      };
   }
-
-  if (trackingType === 'reps_seconds') {
-    return 'Time corrections are not persisted separately yet, so only reps can be adjusted here.';
-  }
-
-  return null;
 }
 
 function buildSections(
@@ -925,7 +689,11 @@ function buildSections(
     `deleted-${set.section ?? 'supplemental'}-${set.orderIndex ?? 0}`;
   const templateSectionByExerciseId = new Map<string, WorkoutTemplateSectionType>();
   const templateExerciseNameById = new Map<string, string>();
+  const templateRepsMaxByExerciseId = new Map<string, number | null>();
+  const templateRepsMinByExerciseId = new Map<string, number | null>();
+  const templateRestSecondsByExerciseId = new Map<string, number | null>();
   const templateSupersetGroupByExerciseId = new Map<string, string | null>();
+  const templateTempoByExerciseId = new Map<string, string | null>();
   const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
   const sessionExerciseMetaById = new Map(
     (session.exercises ?? [])
@@ -960,7 +728,11 @@ function buildSections(
     section.exercises.forEach((exercise) => {
       templateSectionByExerciseId.set(exercise.exerciseId, section.type);
       templateExerciseNameById.set(exercise.exerciseId, exercise.exerciseName);
+      templateRepsMaxByExerciseId.set(exercise.exerciseId, exercise.repsMax);
+      templateRepsMinByExerciseId.set(exercise.exerciseId, exercise.repsMin);
+      templateRestSecondsByExerciseId.set(exercise.exerciseId, exercise.restSeconds);
       templateSupersetGroupByExerciseId.set(exercise.exerciseId, exercise.supersetGroup);
+      templateTempoByExerciseId.set(exercise.exerciseId, exercise.tempo);
       if (exercise.trackingType) {
         templateTrackingTypeById.set(exercise.exerciseId, exercise.trackingType);
       }
@@ -1005,6 +777,7 @@ function buildSections(
         new Map<string, { exerciseId: string | null; sets: SessionSet[] }>();
       const exercises = [...groupedExercises.entries()].map(([groupKey, grouped]) => {
         const { exerciseId, sets } = grouped;
+        const sortedSets = [...sets].sort((left, right) => left.setNumber - right.setNumber);
         const sessionExerciseMeta =
           typeof exerciseId === 'string' ? sessionExerciseMetaById.get(exerciseId) : undefined;
         const name =
@@ -1013,15 +786,54 @@ function buildSections(
             : sessionExerciseMeta?.exerciseName ??
               templateExerciseNameById.get(exerciseId) ??
               formatLabel(exerciseId);
+        const trackingType = resolveTrackingType({
+          trackingType:
+            (typeof exerciseId === 'string'
+              ? sessionTrackingTypeById.get(exerciseId)
+              : undefined) ??
+            (typeof exerciseId === 'string'
+              ? templateTrackingTypeById.get(exerciseId)
+              : undefined) ??
+            undefined,
+          exerciseId,
+          exerciseName: name,
+        });
+        const phaseBadge = inferPhaseBadge(sectionType);
+
         return {
+          cardExercise: {
+            completedSets: sortedSets.map((set) => toCompletedSetListItem(set, trackingType)),
+            equipment: null,
+            exerciseId: exerciseId ?? groupKey,
+            id: exerciseId ?? groupKey,
+            muscleGroups: [],
+            name,
+            notes: null,
+            phaseBadge: formatLabel(phaseBadge),
+            programmingNotes: sessionExerciseMeta?.programmingNotes ?? null,
+            repsMax:
+              (typeof exerciseId === 'string'
+                ? templateRepsMaxByExerciseId.get(exerciseId)
+                : undefined) ?? null,
+            repsMin:
+              (typeof exerciseId === 'string'
+                ? templateRepsMinByExerciseId.get(exerciseId)
+                : undefined) ?? null,
+            restSeconds:
+              (typeof exerciseId === 'string'
+                ? templateRestSecondsByExerciseId.get(exerciseId)
+                : undefined) ?? null,
+            tempo:
+              (typeof exerciseId === 'string'
+                ? templateTempoByExerciseId.get(exerciseId)
+                : undefined) ?? null,
+            trackingType,
+          },
           groupKey,
           exerciseId,
-          name,
           archived: Boolean(sessionExerciseMeta?.deletedAt),
-          notes: sets.find((set) => set.notes)?.notes ?? null,
-          programmingNotes: sessionExerciseMeta?.programmingNotes ?? null,
-          phaseBadge: inferPhaseBadge(sectionType),
-          sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
+          notes: sortedSets.find((set) => set.notes)?.notes ?? null,
+          sets: sortedSets,
           supersetGroup:
             (typeof exerciseId === 'string'
               ? sessionSupersetGroupByExerciseId.get(exerciseId)
@@ -1030,18 +842,7 @@ function buildSections(
               ? templateSupersetGroupByExerciseId.get(exerciseId)
               : undefined) ??
             null,
-          trackingType: resolveTrackingType({
-            trackingType:
-              (typeof exerciseId === 'string'
-                ? sessionTrackingTypeById.get(exerciseId)
-                : undefined) ??
-              (typeof exerciseId === 'string'
-                ? templateTrackingTypeById.get(exerciseId)
-                : undefined) ??
-              undefined,
-            exerciseId,
-            exerciseName: name,
-          }),
+          trackingType,
         };
       });
 
@@ -1166,9 +967,7 @@ function formatFeedbackResponseValue(response: WorkoutSessionFeedbackResponse) {
   return '-';
 }
 
-function inferPhaseBadge(
-  sectionType: SessionDetailSectionType,
-): SessionDetailExercise['phaseBadge'] {
+function inferPhaseBadge(sectionType: SessionDetailSectionType): SessionPhaseBadge {
   switch (sectionType) {
     case 'warmup':
     case 'cooldown':
@@ -1178,17 +977,6 @@ function inferPhaseBadge(
     default:
       return 'moderate';
   }
-}
-
-function formatSetLabel(
-  set: SessionSet,
-  trackingType: ExerciseTrackingType,
-  weightUnit: WeightUnit,
-) {
-  return formatSetSummary(set, trackingType, {
-    includeSetNumber: true,
-    weightUnit,
-  });
 }
 
 function formatSummaryMetric(
@@ -1238,12 +1026,4 @@ function formatLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function formatNumber(value: number) {
-  if (Number.isInteger(value)) {
-    return integerFormatter.format(value);
-  }
-
-  return formatServing(value);
 }

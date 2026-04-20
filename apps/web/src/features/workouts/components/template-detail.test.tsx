@@ -196,18 +196,28 @@ describe('WorkoutTemplateDetail', () => {
         name: 'Exercise actions for Incline Dumbbell Press',
       }),
     ).toHaveClass('size-11', 'min-h-11', 'min-w-11');
+    expect(inclinePressCard).toHaveAttribute(
+      'data-testid',
+      'workout-exercise-card-template-exercise-incline',
+    );
     expect(within(inclinePressCard as HTMLElement).getByText('3×8-10')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText('Tempo: 3-1-1-0')).toBeInTheDocument();
-    expect(within(inclinePressCard as HTMLElement).getByText(/Rest: 90s/)).toBeInTheDocument();
+    expect(within(inclinePressCard as HTMLElement).getByText('Prescription')).toBeInTheDocument();
+    expect(
+      within(inclinePressCard as HTMLElement).getByTestId(
+        'exercise-programming-notes-template-exercise-incline',
+      ),
+    ).toBeInTheDocument();
     expect(
       within(inclinePressCard as HTMLElement).getAllByText('Drive feet into the floor.').length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(within(inclinePressCard as HTMLElement).getByText('Show full set detail'));
+    fireEvent.click(
+      within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show form cues' }),
+    );
+    expect(within(inclinePressCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     fireEvent.click(
       within(inclinePressCard as HTMLElement).getByRole('button', { name: 'Show notes' }),
     );
-    expect(within(inclinePressCard as HTMLElement).getByText('Form cues')).toBeInTheDocument();
     expect(
       within(inclinePressCard as HTMLElement).getByText('Tuck shoulder blades'),
     ).toBeInTheDocument();
@@ -222,9 +232,6 @@ describe('WorkoutTemplateDetail', () => {
       within(inclinePressCard as HTMLElement).getByText(
         'Keep your upper back pinned to the bench.',
       ),
-    ).toBeInTheDocument();
-    expect(
-      within(inclinePressCard as HTMLElement).getByText('Template programming notes'),
     ).toBeInTheDocument();
     expect(
       within(inclinePressCard as HTMLElement).getByText(
@@ -273,7 +280,7 @@ describe('WorkoutTemplateDetail', () => {
     expect(supplementalSection).toHaveClass('border-l-[var(--color-accent-cream)]');
   });
 
-  it('saves inline sets, reps, rest, and notes on blur with debounce', async () => {
+  it('edits template exercise prescription fields from the exercise menu', async () => {
     const mutableTemplate = structuredClone(templatePayload);
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const requestUrl = input instanceof Request ? input.url : String(input);
@@ -298,19 +305,34 @@ describe('WorkoutTemplateDetail', () => {
       </MemoryRouter>,
     );
 
-    const setsInput = await screen.findByLabelText('Sets for Incline Dumbbell Press');
-    const repsInput = screen.getByLabelText('Reps for Incline Dumbbell Press');
-    const restInput = screen.getByLabelText('Rest for Incline Dumbbell Press');
-    const notesInput = screen.getByLabelText('Notes for Incline Dumbbell Press');
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
+    expect(exerciseCard).not.toBeNull();
 
-    fireEvent.change(setsInput, { target: { value: '4' } });
-    fireEvent.blur(setsInput);
-    fireEvent.change(repsInput, { target: { value: '6-8' } });
-    fireEvent.blur(repsInput);
-    fireEvent.change(restInput, { target: { value: '75' } });
-    fireEvent.blur(restInput);
-    fireEvent.change(notesInput, { target: { value: 'Pause one second at bottom.' } });
-    fireEvent.blur(notesInput);
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    );
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', { name: 'Edit prescription' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Sets for Incline Dumbbell Press'), {
+      target: { value: '4' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Reps for Incline Dumbbell Press'), {
+      target: { value: '6-8' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Rest for Incline Dumbbell Press'), {
+      target: { value: '75' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Notes for Incline Dumbbell Press'), {
+      target: { value: 'Pause one second at bottom.' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(
       () => {
