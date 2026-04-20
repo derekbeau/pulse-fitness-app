@@ -1281,6 +1281,21 @@ const mapSessionSectionToTemplateSection = (
   section: WorkoutTemplateSectionType | null,
 ): WorkoutTemplateSectionType => section ?? 'main';
 
+type SessionExerciseTemplateRoundTripSource = WorkoutSessionExercise & {
+  notes?: string | null;
+  agentNotes?: string | null;
+};
+
+const getTemplateNotesFromSessionExercise = (
+  exercise: SessionExerciseTemplateRoundTripSource,
+): string | null => {
+  // Agent notes and user notes do not round-trip — they are session-specific.
+  const { programmingNotes, notes, agentNotes } = exercise;
+  void notes;
+  void agentNotes;
+  return programmingNotes ?? null;
+};
+
 export const saveCompletedSessionAsTemplate = async ({
   input,
   userId,
@@ -1306,6 +1321,17 @@ export const saveCompletedSessionAsTemplate = async ({
       setCount: number;
     }
   >();
+  const programmingNotesByExercise = new Map<string, string | null>();
+
+  for (const exercise of session.exercises ?? []) {
+    if (exercise.exerciseId === null) {
+      continue;
+    }
+
+    const section = mapSessionSectionToTemplateSection(exercise.section);
+    const groupKey = `${section}:${exercise.exerciseId}`;
+    programmingNotesByExercise.set(groupKey, getTemplateNotesFromSessionExercise(exercise));
+  }
 
   for (const set of session.sets) {
     if (set.exerciseId === null) {
@@ -1341,7 +1367,7 @@ export const saveCompletedSessionAsTemplate = async ({
     restSeconds: null,
     supersetGroup: null,
     section: exercise.section,
-    notes: null,
+    notes: programmingNotesByExercise.get(`${exercise.section}:${exercise.exerciseId}`) ?? null,
     cues: [],
   }));
 

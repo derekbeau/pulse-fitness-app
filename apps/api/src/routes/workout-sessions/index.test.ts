@@ -15,6 +15,7 @@ import {
   parseWorkoutSessionTimeSegments,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
+  serializeWorkoutSessionExerciseProgrammingNotes,
   serializeWorkoutSessionTimeSegments,
   sessionSets,
   templateExercises,
@@ -186,6 +187,7 @@ const seedWorkoutSession = (values: {
     end: string | null;
     section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   }>;
+  exerciseProgrammingNotes?: Record<string, string | null>;
 }) =>
   context.db
     .insert(workoutSessions)
@@ -206,6 +208,9 @@ const seedWorkoutSession = (values: {
         })),
       ),
       feedback: serializeWorkoutSessionFeedback(values.feedback ?? null),
+      exerciseProgrammingNotes: serializeWorkoutSessionExerciseProgrammingNotes(
+        values.exerciseProgrammingNotes,
+      ),
       notes: values.notes ?? null,
     })
     .run();
@@ -642,6 +647,185 @@ describe('workout session routes', () => {
         code: 'WORKOUT_SESSION_NOT_FOUND',
         message: 'Workout session not found',
       },
+    });
+  });
+
+  it('round-trips programming notes in save-as-template and drops session-specific exercise notes', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-roundtrip-programming-notes',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+      duration: 50,
+      exerciseProgrammingNotes: {
+        'warmup::global-bench-press': null,
+        'main::user-1-lat-pulldown': 'Stay stacked and drive elbows down.',
+      },
+    });
+
+    seedSessionSet({
+      id: 'roundtrip-note-set-warmup-1',
+      sessionId: 'session-roundtrip-programming-notes',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'warmup',
+      reps: 10,
+      notes: 'User warmup note that should not round-trip',
+    });
+    seedSessionSet({
+      id: 'roundtrip-note-set-main-1',
+      sessionId: 'session-roundtrip-programming-notes',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 1,
+      section: 'main',
+      reps: 10,
+      weight: 140,
+      notes: 'User main note that should not round-trip',
+    });
+    seedSessionSet({
+      id: 'roundtrip-note-set-main-2',
+      sessionId: 'session-roundtrip-programming-notes',
+      exerciseId: 'user-1-lat-pulldown',
+      setNumber: 2,
+      section: 'main',
+      reps: 9,
+      weight: 145,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-roundtrip-programming-notes/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(201);
+    const payload = response.json() as { data: { id: string } };
+
+    const persistedTemplateExercises = context.db
+      .select({
+        exerciseId: templateExercises.exerciseId,
+        section: templateExercises.section,
+        notes: templateExercises.notes,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, payload.data.id))
+      .all()
+      .sort((left, right) => {
+        const sectionOrder: Record<string, number> = {
+          warmup: 0,
+          main: 1,
+          cooldown: 2,
+          supplemental: 3,
+        };
+        if (left.section !== right.section) {
+          return sectionOrder[left.section] - sectionOrder[right.section];
+        }
+
+        return left.exerciseId.localeCompare(right.exerciseId);
+      });
+
+    expect(persistedTemplateExercises).toEqual([
+      {
+        exerciseId: 'global-bench-press',
+        section: 'warmup',
+        notes: null,
+      },
+      {
+        exerciseId: 'user-1-lat-pulldown',
+        section: 'main',
+        notes: 'Stay stacked and drive elbows down.',
+      },
+    ]);
+    expect(
+      persistedTemplateExercises.some(
+        (exercise) => exercise.notes === 'User warmup note that should not round-trip',
+      ),
+    ).toBe(false);
+    expect(
+      persistedTemplateExercises.some(
+        (exercise) => exercise.notes === 'User main note that should not round-trip',
+      ),
+    ).toBe(false);
+  });
+
+  it('uses session programming-note snapshots when save-as-template runs after template edits or deletion', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedTemplateExercise({
+      id: 'template-roundtrip-source-note',
+      templateId: 'template-1',
+      exerciseId: 'global-bench-press',
+      orderIndex: 0,
+      section: 'main',
+      sets: 1,
+      notes: 'Template note before session started',
+    });
+    seedWorkoutSession({
+      id: 'session-roundtrip-from-snapshot',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_003_000,
+      duration: 50,
+      exerciseProgrammingNotes: {
+        'main::global-bench-press': 'Session snapshot programming note',
+      },
+    });
+    seedSessionSet({
+      id: 'roundtrip-snapshot-set-main-1',
+      sessionId: 'session-roundtrip-from-snapshot',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    context.db
+      .update(templateExercises)
+      .set({ notes: 'Template note edited after session started' })
+      .where(eq(templateExercises.id, 'template-roundtrip-source-note'))
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({ deletedAt: '2026-03-20T12:00:00.000Z' })
+      .where(eq(workoutTemplates.id, 'template-1'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions/session-roundtrip-from-snapshot/save-as-template',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(201);
+    const payload = response.json() as { data: { id: string } };
+
+    const persistedExercise = context.db
+      .select({
+        notes: templateExercises.notes,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, payload.data.id))
+      .limit(1)
+      .get();
+
+    expect(persistedExercise).toEqual({
+      notes: 'Session snapshot programming note',
     });
   });
 
