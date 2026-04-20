@@ -19,9 +19,11 @@ import type {
 import {
   exercises,
   parseWorkoutSessionFeedback,
+  parseWorkoutSessionExerciseProgrammingNotes,
   parseWorkoutSessionTimeSegments,
   sessionSets,
   serializeWorkoutSessionFeedback,
+  serializeWorkoutSessionExerciseProgrammingNotes,
   serializeWorkoutSessionTimeSegments,
   templateExercises,
   workoutSessions,
@@ -44,6 +46,7 @@ type WorkoutSessionRecord = {
   duration: number | null;
   timeSegments: string;
   feedback: string | null;
+  exerciseProgrammingNotes: string | null;
   notes: string | null;
   createdAt: number;
   updatedAt: number;
@@ -92,6 +95,7 @@ const workoutSessionSelection = {
   duration: workoutSessions.duration,
   timeSegments: workoutSessions.timeSegments,
   feedback: workoutSessions.feedback,
+  exerciseProgrammingNotes: workoutSessions.exerciseProgrammingNotes,
   notes: workoutSessions.notes,
   createdAt: workoutSessions.createdAt,
   updatedAt: workoutSessions.updatedAt,
@@ -231,6 +235,9 @@ const buildWorkoutSession = (
   const timeSegments = backfillTimeSegmentSections(
     parseWorkoutSessionTimeSegments(session.timeSegments),
   );
+  const programmingNotesByExerciseSection = parseWorkoutSessionExerciseProgrammingNotes(
+    session.exerciseProgrammingNotes,
+  );
   const sectionDurations = calculateSectionDurations(timeSegments);
 
   return {
@@ -247,7 +254,11 @@ const buildWorkoutSession = (
     sectionDurations,
     feedback: parseWorkoutSessionFeedback(session.feedback),
     notes: session.notes,
-    exercises: buildWorkoutSessionExercises(sets, exerciseInfoById),
+    exercises: buildWorkoutSessionExercises(
+      sets,
+      exerciseInfoById,
+      programmingNotesByExerciseSection,
+    ),
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
@@ -267,6 +278,7 @@ const buildWorkoutSessionExercises = (
       instructions: string | null;
     }
   >,
+  programmingNotesByExerciseSection: Record<string, string | null>,
 ): WorkoutSessionExercise[] => {
   const groupedByExercise = new Map<
     string,
@@ -348,6 +360,12 @@ const buildWorkoutSessionExercises = (
       },
       orderIndex: exercise.orderIndex,
       section: exercise.section,
+      programmingNotes:
+        exercise.exerciseId === null
+          ? null
+          : (programmingNotesByExerciseSection[
+              `${exercise.section ?? 'main'}::${exercise.exerciseId}`
+            ] ?? null),
       sets: exercise.sets,
     }));
 };
@@ -869,10 +887,12 @@ export const createWorkoutSession = async ({
   id,
   userId,
   input,
+  programmingNotesByExerciseSection,
 }: {
   id: string;
   userId: string;
   input: CreateWorkoutSessionInput;
+  programmingNotesByExerciseSection?: Record<string, string | null>;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
   const setRows = buildSessionSetRows(id, input.sets);
@@ -892,6 +912,9 @@ export const createWorkoutSession = async ({
         duration: input.duration,
         timeSegments: serializeWorkoutSessionTimeSegments(input.timeSegments),
         feedback: serializeWorkoutSessionFeedback(input.feedback),
+        exerciseProgrammingNotes: serializeWorkoutSessionExerciseProgrammingNotes(
+          programmingNotesByExerciseSection,
+        ),
         notes: input.notes,
       })
       .run();

@@ -253,6 +253,13 @@
       "when": 1774237014277,
       "tag": "0035_groovy_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1776708492985,
+      "tag": "0036_bitter_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

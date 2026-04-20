@@ -1,0 +1,1 @@
+ALTER TABLE `workout_sessions` ADD `exercise_programming_notes` text;

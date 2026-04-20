@@ -230,6 +230,7 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
         supersetGroup: null,
         orderIndex: 0,
         section: 'main',
+        programmingNotes: null,
         sets: [
           {
             id: 'set-1',

@@ -13,6 +13,7 @@ export * from './resources.js';
 export * from './exercises.js';
 export * from './json-arrays.js';
 export * from './workout-session-feedback.js';
+export * from './workout-session-programming-notes.js';
 export * from './workout-session-time-segments.js';
 export * from './workout-templates.js';
 export * from './workout-sessions.js';

@@ -974,6 +974,7 @@ describe('workoutSessions schema', () => {
       'duration',
       'timeSegments',
       'feedback',
+      'exerciseProgrammingNotes',
       'notes',
       'deletedAt',
       'createdAt',

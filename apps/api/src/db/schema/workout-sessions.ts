@@ -87,6 +87,8 @@ export const workoutSessions = sqliteTable(
     timeSegments: text('time_segments').notNull().default('[]').$type<string>(),
     // JSON-encoded WorkoutSessionFeedback; use the serializer helpers when reading or writing.
     feedback: text('feedback'),
+    // JSON-encoded Record<`${section}::${exerciseId}`, string | null>; snapshots template notes at session start.
+    exerciseProgrammingNotes: text('exercise_programming_notes'),
     notes: text('notes'),
     deletedAt: text('deleted_at'),
     createdAt: integer('created_at', { mode: 'number' })

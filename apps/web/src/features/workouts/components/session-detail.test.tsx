@@ -153,6 +153,7 @@ describe('SessionDetail', () => {
           trackingType: null,
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [
             createSet({
               id: 'set-deleted-1',
@@ -209,6 +210,7 @@ describe('SessionDetail', () => {
           trackingType: 'weight_reps',
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [archivedSet],
           exercise: {
             formCues: [],

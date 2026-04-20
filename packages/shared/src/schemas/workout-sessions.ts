@@ -329,6 +329,7 @@ export const workoutSessionExerciseSchema = z.object({
     .optional(),
   orderIndex: z.number().int().min(0),
   section: workoutTemplateSectionTypeSchema.nullable(),
+  programmingNotes: nullableLongStringSchema.default(null),
   sets: z.array(sessionSetSchema).max(500),
 });
 
