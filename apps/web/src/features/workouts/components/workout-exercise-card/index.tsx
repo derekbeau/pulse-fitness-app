@@ -9,7 +9,12 @@ import { PrescriptionBlock } from './prescription-block';
 import { ProgrammingNotesBlock } from './programming-notes-block';
 import { WorkoutExerciseSetList } from './workout-exercise-set-list';
 
-import type { WorkoutExerciseCardMode, WorkoutExerciseCardProps } from './types';
+import type {
+  WorkoutExerciseCardMode,
+  WorkoutExerciseCardProps,
+  WorkoutExerciseCardScheduledExercise,
+  WorkoutExerciseCardTemplateExercise,
+} from './types';
 
 const WORKOUT_EXERCISE_CARD_TEST_ID_PREFIX = 'workout-exercise-card-';
 const WORKOUT_EXERCISE_ELEMENT_ID_PREFIX = 'workout-exercise-';
@@ -62,6 +67,20 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
         );
   const prescriptionSetTargets = 'setTargets' in exercise ? exercise.setTargets : null;
   const prescriptionSets = 'sets' in exercise ? exercise.sets : setItems.length;
+  const cuesExercise =
+    mode === 'readonly-completed'
+      ? null
+      : (exercise as WorkoutExerciseCardTemplateExercise | WorkoutExerciseCardScheduledExercise);
+  const hasProgrammingNotes =
+    typeof exercise.programmingNotes === 'string' && exercise.programmingNotes.trim().length > 0;
+  const shouldShowFormCues =
+    cuesExercise !== null &&
+    ((cuesExercise.formCues?.length ?? 0) > 0 ||
+      (cuesExercise.templateCues?.length ?? 0) > 0 ||
+      (cuesExercise.sessionCues?.length ?? 0) > 0 ||
+      (typeof cuesExercise.instructions === 'string' && cuesExercise.instructions.trim().length > 0) ||
+      (typeof cuesExercise.coachingNotes === 'string' &&
+        cuesExercise.coachingNotes.trim().length > 0));
 
   return (
     <Card
@@ -101,20 +120,20 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
           weightUnit={weightUnit}
         />
 
-        {'programmingNotes' in exercise ? (
+        {hasProgrammingNotes ? (
           <ProgrammingNotesBlock
             notes={exercise.programmingNotes}
             testId={`exercise-programming-notes-${exercise.id}`}
           />
         ) : null}
 
-        {'formCues' in exercise || 'templateCues' in exercise || 'sessionCues' in exercise ? (
+        {shouldShowFormCues ? (
           <FormCuesBlock
-            coachingNotes={'coachingNotes' in exercise ? exercise.coachingNotes : null}
-            exerciseCues={'formCues' in exercise ? (exercise.formCues ?? []) : []}
-            instructions={'instructions' in exercise ? exercise.instructions : null}
-            sessionCues={'sessionCues' in exercise ? (exercise.sessionCues ?? []) : []}
-            templateCues={'templateCues' in exercise ? (exercise.templateCues ?? []) : []}
+            coachingNotes={cuesExercise?.coachingNotes}
+            exerciseCues={cuesExercise?.formCues ?? []}
+            instructions={cuesExercise?.instructions}
+            sessionCues={cuesExercise?.sessionCues ?? []}
+            templateCues={cuesExercise?.templateCues ?? []}
           />
         ) : null}
 

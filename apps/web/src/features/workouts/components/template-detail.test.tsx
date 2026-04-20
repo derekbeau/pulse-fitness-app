@@ -280,6 +280,87 @@ describe('WorkoutTemplateDetail', () => {
     expect(supplementalSection).toHaveClass('border-l-[var(--color-accent-cream)]');
   });
 
+  it('edits template exercise prescription fields from the exercise menu', async () => {
+    const mutableTemplate = structuredClone(templatePayload);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      const url = new URL(requestUrl, 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}'));
+        mutableTemplate.data.sections = body.sections;
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      if (url.pathname === '/api/v1/workout-templates/upper-push') {
+        return Promise.resolve(jsonResponse(mutableTemplate));
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const exerciseCard = (await screen.findByText('Incline Dumbbell Press')).closest(
+      '[data-slot="card"]',
+    );
+    expect(exerciseCard).not.toBeNull();
+
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Incline Dumbbell Press',
+      }),
+    );
+    fireEvent.click(
+      within(exerciseCard as HTMLElement).getByRole('button', { name: 'Edit prescription' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Sets for Incline Dumbbell Press'), {
+      target: { value: '4' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Reps for Incline Dumbbell Press'), {
+      target: { value: '6-8' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Rest for Incline Dumbbell Press'), {
+      target: { value: '75' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Notes for Incline Dumbbell Press'), {
+      target: { value: 'Pause one second at bottom.' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(
+      () => {
+        expect(
+          fetchSpy.mock.calls.some(
+            ([input, init]) =>
+              String(input).includes('/api/v1/workout-templates/upper-push') &&
+              init?.method === 'PATCH',
+          ),
+        ).toBe(true);
+      },
+      { timeout: 2_000 },
+    );
+
+    const updateCall = fetchSpy.mock.calls.find(
+      ([input, init]) =>
+        String(input).includes('/api/v1/workout-templates/upper-push') && init?.method === 'PATCH',
+    );
+    const body = JSON.parse(String(updateCall?.[1]?.body));
+    const updatedExercise = body.sections[1].exercises[0];
+
+    expect(updatedExercise.sets).toBe(4);
+    expect(updatedExercise.repsMin).toBe(6);
+    expect(updatedExercise.repsMax).toBe(8);
+    expect(updatedExercise.restSeconds).toBe(75);
+    expect(updatedExercise.notes).toBe('Pause one second at bottom.');
+  });
+
   it('renders add exercise button for each section and adds to selected section', async () => {
     const mutableTemplate = structuredClone(templatePayload);
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {

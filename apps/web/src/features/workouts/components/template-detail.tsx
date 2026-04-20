@@ -46,6 +46,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -56,6 +57,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
@@ -87,6 +89,13 @@ import {
 
 type WorkoutTemplateDetailProps = {
   templateId: string;
+};
+
+type EditableExerciseFields = {
+  notes: string;
+  reps: string;
+  restSeconds: string;
+  sets: string;
 };
 
 const sectionLabels = {
@@ -137,6 +146,12 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
   const [exerciseDetailTarget, setExerciseDetailTarget] = useState<{
     exerciseId: string;
     templateExerciseId: string;
+  } | null>(null);
+  const [prescriptionEditTarget, setPrescriptionEditTarget] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    initialFields: EditableExerciseFields;
+    sectionType: WorkoutTemplateSectionType;
   } | null>(null);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
@@ -256,6 +271,65 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
       </Card>
     );
   }
+
+  const saveExerciseEdits = (
+    sectionType: WorkoutTemplateSectionType,
+    exerciseId: string,
+    fields: EditableExerciseFields,
+  ) => {
+    const parsedReps = parseRepsInput(fields.reps);
+    if (!parsedReps.valid) {
+      toast.error('Reps must be like 8, 8-10, or 8+');
+      return false;
+    }
+
+    const sets = parseNullablePositiveInt(fields.sets);
+    const restSeconds = parseNullableNonNegativeInt(fields.restSeconds);
+    if (sets === undefined || restSeconds === undefined) {
+      toast.error('Sets and rest must be numbers');
+      return false;
+    }
+
+    const targetIndex = template.sections
+      .find((section) => section.type === sectionType)
+      ?.exercises.findIndex((exercise) => exercise.id === exerciseId);
+
+    if (targetIndex == null || targetIndex < 0) {
+      return false;
+    }
+
+    queueTemplateSectionsUpdate(
+      (currentSections) =>
+        currentSections.map((section) => {
+          if (section.type !== sectionType) {
+            return section;
+          }
+
+          return {
+            ...section,
+            exercises: section.exercises.map((exercise, index) =>
+              index === targetIndex
+                ? {
+                    ...exercise,
+                    notes: toNullableString(fields.notes),
+                    repsMax: parsedReps.repsMax,
+                    repsMin: parsedReps.repsMin,
+                    restSeconds,
+                    sets,
+                  }
+                : exercise,
+            ),
+          };
+        }),
+      {
+        onError: () => {
+          toast.error('Unable to save prescription edits. Try again.');
+        },
+      },
+    );
+
+    return true;
+  };
 
   const addExerciseToSection = (sectionType: WorkoutTemplateSectionType, exerciseId: string) => {
     queueTemplateSectionsUpdate(
@@ -506,6 +580,14 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                 exerciseName: exercise.exerciseName,
                               })
                             }
+                            onEditPrescription={() =>
+                              setPrescriptionEditTarget({
+                                exerciseId: exercise.id,
+                                exerciseName: exercise.exerciseName,
+                                initialFields: toEditableFields(exercise),
+                                sectionType: section.type,
+                              })
+                            }
                             onSwap={() =>
                               setSwapTarget({
                                 exerciseId: exercise.exerciseId,
@@ -595,6 +677,14 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
                                     setRenameTarget({
                                       exerciseId: exercise.exerciseId,
                                       exerciseName: exercise.exerciseName,
+                                    })
+                                  }
+                                  onEditPrescription={() =>
+                                    setPrescriptionEditTarget({
+                                      exerciseId: exercise.id,
+                                      exerciseName: exercise.exerciseName,
+                                      initialFields: toEditableFields(exercise),
+                                      sectionType: section.type,
                                     })
                                   }
                                   onSwap={() =>
@@ -711,6 +801,24 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         sourceExerciseName={swapTarget?.exerciseName ?? ''}
         sourceLabel="this template"
       />
+      {prescriptionEditTarget ? (
+        <EditTemplateExercisePrescriptionDialog
+          exerciseName={prescriptionEditTarget.exerciseName}
+          fields={prescriptionEditTarget.initialFields}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPrescriptionEditTarget(null);
+            }
+          }}
+          onSave={(fields) =>
+            saveExerciseEdits(
+              prescriptionEditTarget.sectionType,
+              prescriptionEditTarget.exerciseId,
+              fields,
+            )
+          }
+        />
+      ) : null}
       {supersetSectionTarget ? (
         <SupersetManagerDialog
           onApply={(exerciseIds, supersetGroup) => {
@@ -826,6 +934,7 @@ function TemplateExerciseCard({
   onMoveUp,
   onOpenDetails,
   onRename,
+  onEditPrescription,
   onSwap,
   weightUnit,
 }: {
@@ -838,6 +947,7 @@ function TemplateExerciseCard({
   onMoveUp: () => void;
   onOpenDetails: () => void;
   onRename: () => void;
+  onEditPrescription: () => void;
   onSwap: () => void;
   weightUnit: WeightUnit;
 }) {
@@ -878,6 +988,7 @@ function TemplateExerciseCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onSwap}>Swap exercise</DropdownMenuItem>
+              <DropdownMenuItem onClick={onEditPrescription}>Edit prescription</DropdownMenuItem>
               <DropdownMenuItem disabled={isMoveUpDisabled} onClick={onMoveUp}>
                 <ArrowUp aria-hidden="true" className="size-4" />
                 Move up
@@ -920,11 +1031,13 @@ function toWorkoutExerciseCardTemplateExercise(
 ): WorkoutExerciseCardTemplateExercise {
   return {
     coachingNotes: exercise.exercise?.coachingNotes ?? null,
+    // TODO(pulse-issues-11): populate from template exercise API once nested `exercise` includes equipment.
     equipment: null,
     exerciseId: exercise.exerciseId,
     formCues: exercise.exercise?.formCues ?? exercise.formCues ?? [],
     id: exercise.id,
     instructions: exercise.exercise?.instructions ?? null,
+    // TODO(pulse-issues-11): populate from template exercise API once nested `exercise` includes muscleGroups.
     muscleGroups: [],
     name: exercise.exerciseName,
     notes: exercise.notes,
@@ -1203,6 +1316,103 @@ function AddExerciseOption({
   );
 }
 
+function EditTemplateExercisePrescriptionDialog({
+  exerciseName,
+  fields: initialFields,
+  onOpenChange,
+  onSave,
+}: {
+  exerciseName: string;
+  fields: EditableExerciseFields;
+  onOpenChange: (open: boolean) => void;
+  onSave: (fields: EditableExerciseFields) => boolean;
+}) {
+  const [fields, setFields] = useState<EditableExerciseFields>(initialFields);
+
+  useEffect(() => {
+    setFields(initialFields);
+  }, [initialFields]);
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit prescription</DialogTitle>
+          <DialogDescription>{`Update sets, reps, rest, and notes for ${exerciseName}.`}</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Sets</span>
+            <Input
+              aria-label={`Sets for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, sets: event.currentTarget.value }))
+              }
+              placeholder="3"
+              value={fields.sets}
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Reps</span>
+            <Input
+              aria-label={`Reps for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, reps: event.currentTarget.value }))
+              }
+              placeholder="8-10"
+              value={fields.reps}
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted">Rest (seconds)</span>
+            <Input
+              aria-label={`Rest for ${exerciseName}`}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, restSeconds: event.currentTarget.value }))
+              }
+              placeholder="90"
+              value={fields.restSeconds}
+            />
+          </label>
+
+          <label className="space-y-1 sm:col-span-2">
+            <span className="text-xs font-medium text-muted">Notes</span>
+            <Textarea
+              aria-label={`Notes for ${exerciseName}`}
+              className="min-h-20"
+              onChange={(event) =>
+                setFields((current) => ({ ...current, notes: event.currentTarget.value }))
+              }
+              placeholder="Optional note"
+              value={fields.notes}
+            />
+          </label>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              const saved = onSave(fields);
+              if (saved) {
+                onOpenChange(false);
+              }
+            }}
+            type="button"
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TemplateDetailSkeleton() {
   return (
     <section aria-label="Loading workout template" className="space-y-6">
@@ -1342,6 +1552,114 @@ function formatLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function toNullableString(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseNullablePositiveInt(value: string) {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function parseNullableNonNegativeInt(value: string) {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function parseRepsInput(
+  value: string,
+): { valid: true; repsMax: number | null; repsMin: number | null } | { valid: false } {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return {
+      valid: true,
+      repsMax: null,
+      repsMin: null,
+    };
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    const parsed = Number.parseInt(normalized, 10);
+    return {
+      valid: true,
+      repsMax: parsed,
+      repsMin: parsed,
+    };
+  }
+
+  const rangeMatch = normalized.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (rangeMatch) {
+    const min = Number.parseInt(rangeMatch[1] ?? '', 10);
+    const max = Number.parseInt(rangeMatch[2] ?? '', 10);
+
+    if (min <= max) {
+      return {
+        valid: true,
+        repsMax: max,
+        repsMin: min,
+      };
+    }
+
+    return { valid: false };
+  }
+
+  const plusMatch = normalized.match(/^(\d+)\+$/);
+  if (plusMatch) {
+    const min = Number.parseInt(plusMatch[1] ?? '', 10);
+    return {
+      valid: true,
+      repsMax: null,
+      repsMin: min,
+    };
+  }
+
+  return { valid: false };
+}
+
+function toEditableFields(exercise: WorkoutTemplateExercise): EditableExerciseFields {
+  return {
+    notes: exercise.notes ?? '',
+    reps: formatEditableReps(exercise.repsMin, exercise.repsMax),
+    restSeconds: exercise.restSeconds?.toString() ?? '',
+    sets: exercise.sets?.toString() ?? '',
+  };
+}
+
+function formatEditableReps(repsMin: number | null, repsMax: number | null) {
+  if (repsMin !== null && repsMax !== null) {
+    return repsMin === repsMax ? `${repsMin}` : `${repsMin}-${repsMax}`;
+  }
+
+  if (repsMin !== null) {
+    return `${repsMin}+`;
+  }
+
+  if (repsMax !== null) {
+    return `${repsMax}`;
+  }
+
+  return '';
 }
 
 function toUpdateSection(

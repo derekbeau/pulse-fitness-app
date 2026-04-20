@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useExerciseHistory } from '@/hooks/use-exercise-history';
 
 import { useExercise } from '../api/workouts';
+import { getWorkoutExerciseCardElementId } from './workout-exercise-card';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 
 vi.mock('../api/workouts', () => ({
@@ -134,6 +135,33 @@ describe('ExerciseDetailModal', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Edit exercise' })).toBeInTheDocument();
+  });
+
+  it('scrolls to the shared exercise card when editing from template context', () => {
+    const onOpenChange = vi.fn();
+    const scrollIntoView = vi.fn();
+    const target = document.createElement('div');
+    target.id = getWorkoutExerciseCardElementId('template-exercise-1');
+    target.scrollIntoView = scrollIntoView;
+    document.body.appendChild(target);
+
+    renderModal({
+      context: 'template',
+      exerciseId: 'incline-dumbbell-press',
+      onOpenChange,
+      open: true,
+      templateExerciseId: 'template-exercise-1',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit exercise' }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    target.remove();
   });
 
   it('shows swap button in session context and invokes swap callback', () => {

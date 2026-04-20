@@ -38,6 +38,7 @@ export function LastPerformanceChip({
     return <Badge variant="outline">Last performance: loading…</Badge>;
   }
 
+  // `useLastPerformance` returns `historyEntries` in current API responses and `history` in legacy responses.
   const lastEntry = historyQuery.data?.historyEntries[0] ?? historyQuery.data?.history ?? null;
   if (!lastEntry) {
     return <Badge variant="outline">Last performance: no history</Badge>;
