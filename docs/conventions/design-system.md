@@ -113,6 +113,24 @@ export function Card({ className, ...props }: Props) {
 }
 ```
 
+## Workout Exercise Card Primitive
+
+Use `WorkoutExerciseCard` from
+`apps/web/src/features/workouts/components/workout-exercise-card/` as the canonical renderer for
+read-only workout exercises.
+
+- Modes: `readonly-template`, `readonly-scheduled`, `readonly-completed` (`in-progress` remains
+  reserved for the later active-workout migration).
+- Composition: this primitive orchestrates `ExerciseHeader`, `PrescriptionBlock`,
+  `ProgrammingNotesBlock`, `FormCuesBlock`, `LastPerformanceChip`, and
+  `WorkoutExerciseSetList`.
+- Identity contract: every caller must provide a canonical `exercise.id` string. The primitive
+  derives both DOM id and test id from this value (`workout-exercise-{id}` and
+  `workout-exercise-card-{id}`), so downstream views and tests stay consistent across template,
+  scheduled, and completed pages.
+- Slot contract: use `leadingSlot`, `headerSlot`, and `footerSlot` for view-specific affordances
+  (for example drag handles, date chips, or correction actions) without forking the core card UI.
+
 ## Page Header Pattern
 
 Use `PageHeader` (`apps/web/src/components/layout/page-header.tsx`) as the default heading primitive for app routes.
