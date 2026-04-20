@@ -564,16 +564,31 @@ describe('migration 0025_meal_summary', () => {
         `,
       );
 
-      insertMealItem.run('item-1', 'meal-1', null, 'Orgain shake', 1, 'serving', 150, 30, 7, 4, now);
+      insertMealItem.run(
+        'item-1',
+        'meal-1',
+        null,
+        'Orgain shake',
+        1,
+        'serving',
+        150,
+        30,
+        7,
+        4,
+        now,
+      );
       insertMealItem.run('item-2', 'meal-1', null, 'milk', 1, 'cup', 120, 8, 12, 5, now + 1);
       insertMealItem.run('item-3', 'meal-1', null, 'creamer', 1, 'tbsp', 35, 0, 5, 1.5, now + 2);
 
-      const migrationSql = readFileSync(join(process.cwd(), 'drizzle/0025_meal_summary.sql'), 'utf8');
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0025_meal_summary.sql'),
+        'utf8',
+      );
       runSqlStatements(db, migrationSql);
 
-      const migrated = db
-        .prepare(`SELECT summary FROM meals WHERE id = ?`)
-        .get('meal-1') as { summary: string | null };
+      const migrated = db.prepare(`SELECT summary FROM meals WHERE id = ?`).get('meal-1') as {
+        summary: string | null;
+      };
 
       expect(migrated.summary).toBe('Orgain shake, milk, creamer');
     } finally {
@@ -653,14 +668,29 @@ describe('migration 0025_meal_summary', () => {
       );
 
       insertMealItem.run('item-1', 'meal-1', null, longFoodName, 1, 'serving', 150, 30, 7, 4, now);
-      insertMealItem.run('item-2', 'meal-1', null, longFoodName, 1, 'serving', 150, 30, 7, 4, now + 1);
+      insertMealItem.run(
+        'item-2',
+        'meal-1',
+        null,
+        longFoodName,
+        1,
+        'serving',
+        150,
+        30,
+        7,
+        4,
+        now + 1,
+      );
 
-      const migrationSql = readFileSync(join(process.cwd(), 'drizzle/0025_meal_summary.sql'), 'utf8');
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0025_meal_summary.sql'),
+        'utf8',
+      );
       runSqlStatements(db, migrationSql);
 
-      const migrated = db
-        .prepare(`SELECT summary FROM meals WHERE id = ?`)
-        .get('meal-1') as { summary: string | null };
+      const migrated = db.prepare(`SELECT summary FROM meals WHERE id = ?`).get('meal-1') as {
+        summary: string | null;
+      };
 
       expect(migrated.summary).toHaveLength(500);
       expect(migrated.summary).toBe(`${longFoodName}, ${longFoodName.slice(0, 247)}`);
@@ -1017,9 +1047,7 @@ describe('migration 0028_food_usage_and_tags', () => {
       expect(migratedRow.usageCount).toBe(0);
       expect(JSON.parse(migratedRow.tags)).toEqual([]);
 
-      const indexRows = db
-        .prepare(`PRAGMA index_list('foods')`)
-        .all() as Array<{ name: string }>;
+      const indexRows = db.prepare(`PRAGMA index_list('foods')`).all() as Array<{ name: string }>;
       expect(indexRows.some((indexRow) => indexRow.name === 'foods_user_usage_count_idx')).toBe(
         true,
       );
@@ -1090,5 +1118,24 @@ describe('migration 0029_agent_token_expiry', () => {
     } finally {
       db.close();
     }
+  });
+});
+
+describe('migration 0037 scheduled workout snapshot schema', () => {
+  it('creates snapshot tables and adds scheduled workout linkage columns', () => {
+    const migrationSql = readFileSync(
+      join(process.cwd(), 'drizzle/0037_vengeful_tigra.sql'),
+      'utf8',
+    );
+
+    expect(migrationSql).toContain('CREATE TABLE `scheduled_workout_exercises`');
+    expect(migrationSql).toContain('CREATE TABLE `scheduled_workout_exercise_sets`');
+    expect(migrationSql).toContain('ALTER TABLE `scheduled_workouts` ADD `template_version` text');
+    expect(migrationSql).toContain('`scheduled_workout_id` text');
+    expect(migrationSql).toContain('`exercise_agent_notes` text');
+    expect(migrationSql).toContain('`exercise_agent_notes_meta` text');
+    expect(migrationSql).toContain(
+      'FOREIGN KEY (`scheduled_workout_id`) REFERENCES `scheduled_workouts`(`id`) ON UPDATE no action ON DELETE set null',
+    );
   });
 });

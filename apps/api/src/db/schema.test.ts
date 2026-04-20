@@ -45,6 +45,8 @@ import {
   parseWorkoutSessionFeedback,
   parseWorkoutSessionTimeSegments,
   resources,
+  scheduledWorkoutExercises,
+  scheduledWorkoutExerciseSets,
   scheduledWorkouts,
   sessionSets,
   serializeJsonStringArray,
@@ -966,6 +968,7 @@ describe('workoutSessions schema', () => {
       'id',
       'userId',
       'templateId',
+      'scheduledWorkoutId',
       'name',
       'date',
       'status',
@@ -975,6 +978,8 @@ describe('workoutSessions schema', () => {
       'timeSegments',
       'feedback',
       'exerciseProgrammingNotes',
+      'exerciseAgentNotes',
+      'exerciseAgentNotesMeta',
       'notes',
       'deletedAt',
       'createdAt',
@@ -993,10 +998,10 @@ describe('workoutSessions schema', () => {
     expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(workoutSessions);
-    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys).toHaveLength(3);
     expect(
       config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
-    ).toEqual(['users', 'workout_templates']);
+    ).toEqual(['scheduled_workouts', 'users', 'workout_templates']);
     expect(
       config.foreignKeys.find(
         (fk) => getTableName(fk.reference().foreignTable) === 'workout_templates',
@@ -1006,8 +1011,14 @@ describe('workoutSessions schema', () => {
       config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'users')
         ?.onDelete,
     ).toBe('cascade');
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'scheduled_workouts',
+      )?.onDelete,
+    ).toBe('set null');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'workout_sessions_date_idx',
+      'workout_sessions_scheduled_workout_id_idx',
       'workout_sessions_user_id_idx',
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
@@ -1136,6 +1147,7 @@ describe('scheduledWorkouts schema', () => {
       'id',
       'userId',
       'templateId',
+      'templateVersion',
       'date',
       'sessionId',
       'createdAt',
@@ -1173,6 +1185,89 @@ describe('scheduledWorkouts schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name)).toEqual([
       'scheduled_workouts_date_format_check',
+    ]);
+  });
+});
+
+describe('scheduledWorkoutExercises schema', () => {
+  it('defines snapshot exercise columns, constraints, and foreign keys', () => {
+    expect(getTableName(scheduledWorkoutExercises)).toBe('scheduled_workout_exercises');
+
+    const columns = getTableColumns(scheduledWorkoutExercises);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'scheduledWorkoutId',
+      'exerciseId',
+      'section',
+      'orderIndex',
+      'programmingNotes',
+      'agentNotes',
+      'agentNotesMeta',
+      'templateCues',
+      'supersetGroup',
+      'tempo',
+      'restSeconds',
+      'createdAt',
+      'updatedAt',
+    ]);
+
+    const config = getTableConfig(scheduledWorkoutExercises);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(
+      config.foreignKeys.map((fk) => getTableName(fk.reference().foreignTable)).sort(),
+    ).toEqual(['exercises', 'scheduled_workouts']);
+    expect(
+      config.foreignKeys.find(
+        (fk) => getTableName(fk.reference().foreignTable) === 'scheduled_workouts',
+      )?.onDelete,
+    ).toBe('cascade');
+    expect(
+      config.foreignKeys.find((fk) => getTableName(fk.reference().foreignTable) === 'exercises')
+        ?.onDelete,
+    ).toBe('restrict');
+    expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
+      'scheduled_workout_exercises_exercise_id_idx',
+      'scheduled_workout_exercises_scheduled_workout_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+      'scheduled_workout_exercises_section_check',
+    ]);
+  });
+});
+
+describe('scheduledWorkoutExerciseSets schema', () => {
+  it('defines snapshot set columns, guardrails, and exercise foreign key', () => {
+    expect(getTableName(scheduledWorkoutExerciseSets)).toBe('scheduled_workout_exercise_sets');
+
+    const columns = getTableColumns(scheduledWorkoutExerciseSets);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'scheduledWorkoutExerciseId',
+      'setNumber',
+      'repsMin',
+      'repsMax',
+      'reps',
+      'targetWeight',
+      'targetWeightMin',
+      'targetWeightMax',
+      'targetSeconds',
+      'targetDistance',
+      'createdAt',
+    ]);
+
+    const config = getTableConfig(scheduledWorkoutExerciseSets);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe(
+      'scheduled_workout_exercises',
+    );
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((idx) => idx.config.name)).toEqual([
+      'scheduled_workout_exercise_sets_exercise_id_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'scheduled_workout_exercise_sets_reps_range_check',
+      'scheduled_workout_exercise_sets_set_number_check',
+      'scheduled_workout_exercise_sets_target_weight_range_check',
     ]);
   });
 });
