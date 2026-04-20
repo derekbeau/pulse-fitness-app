@@ -65,11 +65,21 @@ Rules:
 - User-account and credential-management routes should use `requireUserAuth`.
 - Agent token CRUD is JWT-only, so `/api/v1/agent-tokens` uses `requireUserAuth`.
 - Agent-only planning routes such as `/api/v1/context` should use `requireAuth` plus `requireAgentOnly`.
+- AgentToken-only mutations on unified resources (for example `/api/v1/scheduled-workouts/:id/exercise-notes`) should still stay on `/api/v1/*` and enforce agent-only access with `preHandler: requireAgentOnly` after the plugin-level `requireAuth`.
 - JWTs issued by Pulse must include `type: "session"` and `iss: "pulse-api"` claims; hand-crafted JWTs without those claims are rejected.
 - Agent tokens are bearer secrets stored only as hashes and validated on every request.
 - After a successful auth hook, handlers may rely on `request.userId`.
 - Agent-token requests may also rely on `request.agentTokenId`.
 - Agent-token `lastUsedAt` updates are best-effort and must not fail an otherwise valid request.
+
+### AgentToken-Only Operations
+
+When a route is intentionally agent-only:
+
+- Keep request/response schemas unified with the rest of the API surface.
+- Enforce auth with `requireAuth` + `requireAgentOnly` (hook or route-level preHandler).
+- Document OpenAPI security as `[{ agentToken: [] }]` instead of the dual auth array.
+- Return `403 FORBIDDEN` for JWT callers with the standard envelope (`Agent token authentication required`).
 
 ## Response Envelope
 

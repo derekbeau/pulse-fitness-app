@@ -8,9 +8,13 @@ import {
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
+  swapScheduledWorkoutExerciseInputSchema,
+  type SwapScheduledWorkoutExerciseInput,
   type ScheduledWorkout,
   type ScheduledWorkoutListItem,
   type ScheduledWorkoutQueryParams,
+  type UpdateScheduledWorkoutExerciseNotesInput,
+  updateScheduledWorkoutExerciseNotesInputSchema,
   type UpdateScheduledWorkoutInput,
   updateScheduledWorkoutInputSchema,
 } from './scheduled-workouts';
@@ -244,5 +248,78 @@ describe('scheduledWorkoutQueryParamsSchema', () => {
         to: '2026-03-10',
       }),
     ).toThrow();
+  });
+});
+
+describe('updateScheduledWorkoutExerciseNotesInputSchema', () => {
+  it('accepts batched exercise note updates and normalizes note strings', () => {
+    const payload: UpdateScheduledWorkoutExerciseNotesInput =
+      updateScheduledWorkoutExerciseNotesInputSchema.parse({
+        notes: [
+          {
+            exerciseId: 'exercise-1',
+            agentNotes: '  Keep first set easy  ',
+          },
+          {
+            exerciseId: 'exercise-2',
+            agentNotes: null,
+          },
+        ],
+      });
+
+    expect(payload).toEqual({
+      notes: [
+        {
+          exerciseId: 'exercise-1',
+          agentNotes: 'Keep first set easy',
+        },
+        {
+          exerciseId: 'exercise-2',
+          agentNotes: null,
+        },
+      ],
+    });
+  });
+
+  it('rejects empty exercise note batches', () => {
+    expect(() =>
+      updateScheduledWorkoutExerciseNotesInputSchema.parse({
+        notes: [],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('swapScheduledWorkoutExerciseInputSchema', () => {
+  it('accepts swap payloads with optional carry-over flags', () => {
+    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
+      {
+        fromExerciseId: 'exercise-1',
+        toExerciseId: ' exercise-2 ',
+        carryOverProgrammingNotes: true,
+        preserveSets: false,
+      },
+    );
+
+    expect(payload).toEqual({
+      fromExerciseId: 'exercise-1',
+      toExerciseId: 'exercise-2',
+      carryOverProgrammingNotes: true,
+      preserveSets: false,
+    });
+  });
+
+  it('allows remove-style swaps with a null target exercise id', () => {
+    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
+      {
+        fromExerciseId: 'exercise-1',
+        toExerciseId: null,
+      },
+    );
+
+    expect(payload).toEqual({
+      fromExerciseId: 'exercise-1',
+      toExerciseId: null,
+    });
   });
 });

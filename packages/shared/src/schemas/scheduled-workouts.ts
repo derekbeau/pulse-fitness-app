@@ -115,6 +115,43 @@ export const scheduledWorkoutDetailSchema = scheduledWorkoutSchema.extend({
   templateDeleted: z.boolean(),
 });
 
+export const updateScheduledWorkoutExerciseNotesInputSchema = z.object({
+  notes: z
+    .array(
+      z.object({
+        exerciseId: requiredStringSchema,
+        agentNotes: nullableLongStringSchema,
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+
+export const updateScheduledWorkoutExerciseNotesResponseSchema = scheduledWorkoutDetailSchema;
+
+export const swapScheduledWorkoutExerciseInputSchema = z.object({
+  fromExerciseId: requiredStringSchema,
+  toExerciseId: z.preprocess(
+    (value) => {
+      if (value === null || value === undefined) {
+        return null;
+      }
+
+      if (typeof value !== 'string') {
+        return value;
+      }
+
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    },
+    requiredStringSchema.nullable(),
+  ),
+  carryOverProgrammingNotes: z.boolean().optional(),
+  preserveSets: z.boolean().optional(),
+});
+
+export const swapScheduledWorkoutExerciseResponseSchema = scheduledWorkoutDetailSchema;
+
 export type ScheduledWorkout = z.infer<typeof scheduledWorkoutSchema>;
 export type ScheduledWorkoutListItem = z.infer<typeof scheduledWorkoutListItemSchema>;
 export type CreateScheduledWorkoutInput = z.infer<typeof createScheduledWorkoutInputSchema>;
@@ -128,3 +165,9 @@ export type ScheduledWorkoutExercise = z.infer<typeof scheduledWorkoutExerciseSc
 export type ScheduledWorkoutTemplateDrift = z.infer<typeof scheduledWorkoutTemplateDriftSchema>;
 export type ScheduledWorkoutStaleExercise = z.infer<typeof scheduledWorkoutStaleExerciseSchema>;
 export type ScheduledWorkoutDetail = z.infer<typeof scheduledWorkoutDetailSchema>;
+export type UpdateScheduledWorkoutExerciseNotesInput = z.infer<
+  typeof updateScheduledWorkoutExerciseNotesInputSchema
+>;
+export type SwapScheduledWorkoutExerciseInput = z.infer<
+  typeof swapScheduledWorkoutExerciseInputSchema
+>;

@@ -7,24 +7,39 @@ import {
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
+  swapScheduledWorkoutExerciseInputSchema,
+  swapScheduledWorkoutExerciseResponseSchema,
+  updateScheduledWorkoutExerciseNotesInputSchema,
+  updateScheduledWorkoutExerciseNotesResponseSchema,
   updateScheduledWorkoutInputSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { exercises, workoutTemplates } from '../../db/schema/index.js';
+import type { TemplateExerciseSetTarget } from '../../db/schema/index.js';
+import {
+  agentTokens,
+  exercises,
+  scheduledWorkoutExerciseSets,
+  scheduledWorkoutExercises,
+  scheduledWorkouts,
+  templateExercises,
+  workoutTemplates,
+} from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
 import {
   apiErrorResponseSchema,
+  agentTokenSecurity,
   authSecurity,
   badRequestResponseSchema,
   idParamsSchema,
   successFlagSchema,
 } from '../../openapi.js';
+import { allRelatedExercisesOwned } from '../exercises/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 
@@ -52,11 +67,28 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
   message: 'Workout template not found',
 } as const;
 
+const SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND_RESPONSE = {
+  code: 'SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND',
+  message: 'Scheduled workout exercise not found',
+} as const;
+
+const SCHEDULED_WORKOUT_DUPLICATE_EXERCISE_RESPONSE = {
+  code: 'SCHEDULED_WORKOUT_DUPLICATE_EXERCISE',
+  message: 'Target exercise already exists in this scheduled workout',
+} as const;
+
+const INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
+  code: 'INVALID_SCHEDULED_WORKOUT_EXERCISE',
+  message: 'Exercise is not available for this user',
+} as const;
+
 const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
 
 const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.extend({
   template: workoutTemplateSchema.nullable(),
 });
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const mapSnapshotExercise = (exercise: Awaited<ReturnType<typeof readSnapshot>>['exercises'][number]) => ({
   exerciseId: exercise.exerciseId,
@@ -81,6 +113,72 @@ const mapSnapshotExercise = (exercise: Awaited<ReturnType<typeof readSnapshot>>[
     targetDistance: set.targetDistance,
   })),
 });
+
+const toUtcDay = (date: string): number => {
+  const [yearText, monthText, dayText] = date.split('-');
+  const year = Number.parseInt(yearText ?? '', 10);
+  const month = Number.parseInt(monthText ?? '', 10);
+  const day = Number.parseInt(dayText ?? '', 10);
+  return Math.trunc(Date.UTC(year, month - 1, day) / DAY_MS);
+};
+
+const shouldMarkAgentNoteStale = ({
+  scheduledDateAtGeneration,
+  newDate,
+}: {
+  scheduledDateAtGeneration: string;
+  newDate: string;
+}) => Math.abs(toUtcDay(newDate) - toUtcDay(scheduledDateAtGeneration)) > 2;
+
+const toExactReps = (repsMin: number | null, repsMax: number | null): number | null => {
+  if (repsMin === null || repsMax === null) {
+    return null;
+  }
+
+  return repsMin === repsMax ? repsMin : null;
+};
+
+const toSnapshotSetDrafts = ({
+  sets,
+  repsMin,
+  repsMax,
+  setTargets,
+}: {
+  sets: number | null;
+  repsMin: number | null;
+  repsMax: number | null;
+  setTargets: TemplateExerciseSetTarget[] | null;
+}) => {
+  const sortedTargets = [...(setTargets ?? [])].sort((left, right) => left.setNumber - right.setNumber);
+  const reps = toExactReps(repsMin, repsMax);
+
+  if (sortedTargets.length > 0) {
+    return sortedTargets.map((target) => ({
+      setNumber: target.setNumber,
+      repsMin,
+      repsMax,
+      reps,
+      targetWeight: target.targetWeight ?? null,
+      targetWeightMin: target.targetWeightMin ?? null,
+      targetWeightMax: target.targetWeightMax ?? null,
+      targetSeconds: target.targetSeconds ?? null,
+      targetDistance: target.targetDistance ?? null,
+    }));
+  }
+
+  const setCount = Math.max(1, sets ?? 1);
+  return Array.from({ length: setCount }, (_, index) => ({
+    setNumber: index + 1,
+    repsMin,
+    repsMax,
+    reps,
+    targetWeight: null,
+    targetWeightMin: null,
+    targetWeightMax: null,
+    targetSeconds: null,
+    targetDistance: null,
+  }));
+};
 
 const buildScheduledWorkoutDetail = async ({
   scheduledWorkoutId,
@@ -208,6 +306,55 @@ const buildScheduledWorkoutDetailWithTemplate = async ({
   };
 };
 
+const markRescheduledAgentNotesAsStale = async ({
+  scheduledWorkoutId,
+  newDate,
+}: {
+  scheduledWorkoutId: string;
+  newDate: string;
+}) => {
+  const { db } = await import('../../db/index.js');
+  const exercisesWithAgentNotes = db
+    .select({
+      id: scheduledWorkoutExercises.id,
+      agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta,
+    })
+    .from(scheduledWorkoutExercises)
+    .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
+    .all();
+
+  if (exercisesWithAgentNotes.length === 0) {
+    return;
+  }
+
+  db.transaction((tx) => {
+    for (const row of exercisesWithAgentNotes) {
+      if (!row.agentNotesMeta) {
+        continue;
+      }
+
+      if (
+        !shouldMarkAgentNoteStale({
+          scheduledDateAtGeneration: row.agentNotesMeta.scheduledDateAtGeneration,
+          newDate,
+        })
+      ) {
+        continue;
+      }
+
+      tx.update(scheduledWorkoutExercises)
+        .set({
+          agentNotesMeta: {
+            ...row.agentNotesMeta,
+            stale: true,
+          },
+        })
+        .where(eq(scheduledWorkoutExercises.id, row.id))
+        .run();
+    }
+  });
+};
+
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
@@ -331,6 +478,317 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
   );
 
   typedApp.patch(
+    '/:id/exercise-notes',
+    {
+      preHandler: requireAgentOnly,
+      schema: {
+        params: idParamsSchema,
+        body: updateScheduledWorkoutExerciseNotesInputSchema,
+        response: {
+          200: apiDataResponseSchema(updateScheduledWorkoutExerciseNotesResponseSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Update per-exercise agent notes on a scheduled workout',
+        security: agentTokenSecurity,
+      },
+    },
+    async (request, reply) => {
+      const scheduledWorkout = await findScheduledWorkoutById(request.params.id, request.userId);
+      if (!scheduledWorkout) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const snapshot = await readSnapshot(scheduledWorkout.id);
+      const snapshotExerciseIds = new Set(snapshot.exercises.map((exercise) => exercise.exerciseId));
+      const noteUpdates = new Map<string, string | null>();
+      for (const note of request.body.notes) {
+        noteUpdates.set(note.exerciseId, note.agentNotes);
+      }
+
+      const unknownExerciseIds = [...noteUpdates.keys()].filter(
+        (exerciseId) => !snapshotExerciseIds.has(exerciseId),
+      );
+      if (unknownExerciseIds.length > 0) {
+        return sendError(
+          reply,
+          400,
+          'VALIDATION_ERROR',
+          `Unknown exerciseId values for this scheduled workout: ${unknownExerciseIds.join(', ')}`,
+        );
+      }
+
+      const { db } = await import('../../db/index.js');
+      const tokenIdentity =
+        request.agentTokenId === undefined
+          ? undefined
+          : db
+              .select({ name: agentTokens.name })
+              .from(agentTokens)
+              .where(
+                and(
+                  eq(agentTokens.id, request.agentTokenId),
+                  eq(agentTokens.userId, request.userId),
+                ),
+              )
+              .limit(1)
+              .get();
+      const author = tokenIdentity?.name ?? request.agentTokenId ?? 'agent-token';
+      const generatedAt = new Date().toISOString();
+
+      db.transaction((tx) => {
+        for (const [exerciseId, agentNotes] of noteUpdates.entries()) {
+          tx.update(scheduledWorkoutExercises)
+            .set({
+              agentNotes,
+              agentNotesMeta:
+                agentNotes === null
+                  ? null
+                  : {
+                      author,
+                      generatedAt,
+                      scheduledDateAtGeneration: scheduledWorkout.date,
+                      stale: false,
+                    },
+            })
+            .where(
+              and(
+                eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkout.id),
+                eq(scheduledWorkoutExercises.exerciseId, exerciseId),
+              ),
+            )
+            .run();
+        }
+      });
+
+      const updatedDetail = await buildScheduledWorkoutDetail({
+        scheduledWorkoutId: scheduledWorkout.id,
+        userId: request.userId,
+      });
+      if (!updatedDetail) {
+        throw new Error('Updated scheduled workout could not be loaded');
+      }
+
+      return reply.send({
+        data: updatedDetail,
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/:id/exercise-swap',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: swapScheduledWorkoutExerciseInputSchema,
+        response: {
+          200: apiDataResponseSchema(swapScheduledWorkoutExerciseResponseSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Swap or remove an exercise in a scheduled workout snapshot',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const scheduledWorkout = await findScheduledWorkoutById(request.params.id, request.userId);
+      if (!scheduledWorkout) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const snapshot = await readSnapshot(scheduledWorkout.id);
+      const sourceSnapshotExercise = snapshot.exercises.find(
+        (exercise) => exercise.exerciseId === request.body.fromExerciseId,
+      );
+      if (!sourceSnapshotExercise) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if (
+        request.body.toExerciseId !== null &&
+        request.body.toExerciseId !== request.body.fromExerciseId &&
+        snapshot.exercises.some((exercise) => exercise.exerciseId === request.body.toExerciseId)
+      ) {
+        return sendError(
+          reply,
+          409,
+          SCHEDULED_WORKOUT_DUPLICATE_EXERCISE_RESPONSE.code,
+          SCHEDULED_WORKOUT_DUPLICATE_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      if (request.body.toExerciseId !== null) {
+        const hasValidSwapTarget = await allRelatedExercisesOwned({
+          userId: request.userId,
+          exerciseIds: [request.body.toExerciseId],
+        });
+        if (!hasValidSwapTarget) {
+          return sendError(
+            reply,
+            400,
+            INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.code,
+            INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.message,
+          );
+        }
+      }
+
+      const { db } = await import('../../db/index.js');
+      const swapSucceeded = db.transaction((tx) => {
+        const sourceRows = tx
+          .select({
+            id: scheduledWorkoutExercises.id,
+            programmingNotes: scheduledWorkoutExercises.programmingNotes,
+          })
+          .from(scheduledWorkoutExercises)
+          .where(
+            and(
+              eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkout.id),
+              eq(scheduledWorkoutExercises.exerciseId, request.body.fromExerciseId),
+            ),
+          )
+          .all();
+
+        if (sourceRows.length === 0) {
+          return false;
+        }
+
+        if (request.body.toExerciseId === null) {
+          tx.delete(scheduledWorkoutExercises)
+            .where(
+              and(
+                eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkout.id),
+                eq(scheduledWorkoutExercises.exerciseId, request.body.fromExerciseId),
+              ),
+            )
+            .run();
+
+          tx.update(scheduledWorkouts)
+            .set({ updatedAt: Date.now() })
+            .where(eq(scheduledWorkouts.id, scheduledWorkout.id))
+            .run();
+
+          return true;
+        }
+
+        const carryOverProgrammingNotes = request.body.carryOverProgrammingNotes === true;
+        for (const sourceRow of sourceRows) {
+          tx.update(scheduledWorkoutExercises)
+            .set({
+              exerciseId: request.body.toExerciseId,
+              programmingNotes: carryOverProgrammingNotes ? sourceRow.programmingNotes : null,
+              templateCues: null,
+            })
+            .where(eq(scheduledWorkoutExercises.id, sourceRow.id))
+            .run();
+        }
+
+        const templateIdForDefaults = scheduledWorkout.templateId;
+        const shouldResetSets =
+          request.body.preserveSets !== true && templateIdForDefaults !== null;
+        if (shouldResetSets) {
+          const targetTemplateExercise = tx
+            .select({
+              id: templateExercises.id,
+              sets: templateExercises.sets,
+              repsMin: templateExercises.repsMin,
+              repsMax: templateExercises.repsMax,
+              setTargets: templateExercises.setTargets,
+            })
+            .from(templateExercises)
+            .where(
+              and(
+                eq(templateExercises.templateId, templateIdForDefaults),
+                eq(templateExercises.exerciseId, request.body.toExerciseId),
+              ),
+            )
+            .orderBy(asc(templateExercises.orderIndex), asc(templateExercises.id))
+            .limit(1)
+            .get();
+
+          if (targetTemplateExercise) {
+            const setDrafts = toSnapshotSetDrafts(targetTemplateExercise);
+
+            for (const sourceRow of sourceRows) {
+              tx.delete(scheduledWorkoutExerciseSets)
+                .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, sourceRow.id))
+                .run();
+
+              if (setDrafts.length > 0) {
+                tx.insert(scheduledWorkoutExerciseSets)
+                  .values(
+                    setDrafts.map((setDraft) => ({
+                      id: randomUUID(),
+                      scheduledWorkoutExerciseId: sourceRow.id,
+                      setNumber: setDraft.setNumber,
+                      repsMin: setDraft.repsMin,
+                      repsMax: setDraft.repsMax,
+                      reps: setDraft.reps,
+                      targetWeight: setDraft.targetWeight,
+                      targetWeightMin: setDraft.targetWeightMin,
+                      targetWeightMax: setDraft.targetWeightMax,
+                      targetSeconds: setDraft.targetSeconds,
+                      targetDistance: setDraft.targetDistance,
+                    })),
+                  )
+                  .run();
+              }
+            }
+          }
+        }
+
+        tx.update(scheduledWorkouts)
+          .set({ updatedAt: Date.now() })
+          .where(eq(scheduledWorkouts.id, scheduledWorkout.id))
+          .run();
+
+        return true;
+      });
+
+      if (!swapSucceeded) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      const updatedDetail = await buildScheduledWorkoutDetail({
+        scheduledWorkoutId: scheduledWorkout.id,
+        userId: request.userId,
+      });
+      if (!updatedDetail) {
+        throw new Error('Swapped scheduled workout could not be loaded');
+      }
+
+      return reply.send({
+        data: updatedDetail,
+      });
+    },
+  );
+
+  typedApp.patch(
     '/:id',
     {
       schema: {
@@ -373,6 +831,16 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
           SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
         );
+      }
+
+      if (
+        request.body.date !== undefined &&
+        request.body.date !== existingScheduledWorkout.date
+      ) {
+        await markRescheduledAgentNotesAsStale({
+          scheduledWorkoutId: scheduledWorkout.id,
+          newDate: scheduledWorkout.date,
+        });
       }
 
       return reply.send({
