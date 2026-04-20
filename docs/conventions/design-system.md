@@ -138,6 +138,11 @@ read-only workout exercises.
   in-card `AgentNotesBlock`; pass compact free-form notes through `footerSlot` (for example summary
   metric chips + compact agent notes + user notes).
 
+Cross-references:
+
+- Primitive file/layout conventions: [feature-structure](./feature-structure.md#shared-primitive-subdirectory-pattern)
+- Workout note lifecycle and ownership: [workout-domain](./workout-domain.md#three-layer-notes-model)
+
 ## Page Header Pattern
 
 Use `PageHeader` (`apps/web/src/components/layout/page-header.tsx`) as the default heading primitive for app routes.
@@ -202,6 +207,7 @@ Use this treatment for read-only exercise programming notes sourced from templat
 - Visibility: render only when `programmingNotes` is a non-empty string after trim.
 - Visual pattern: `flex items-start gap-2` container with a subtle left accent (`border-l-2 border-primary/35`) and muted surface (`bg-secondary/35`), plus a small `ClipboardList` icon.
 - Typography: compact uppercase label (`text-[10px] font-semibold tracking-[0.16em] text-muted`) and italic body copy (`text-[13px] italic text-muted`) with `whitespace-pre-wrap`.
+- Component location: `workout-exercise-card/programming-notes-block.tsx`.
 
 ## Agent Notes Block
 
@@ -216,6 +222,7 @@ active, and completed-session read views.
   `possibly stale — rescheduled` when `agentNotesMeta.stale === true`.
 - Condensed summary rule: in `WorkoutExerciseCard` condensed completed mode, suppress inline
   rendering and pass a compact `AgentNotesBlock` through `footerSlot`.
+- Component location: `workout-exercise-card/agent-notes-block.tsx`.
 
 ## Scheduled Workout Banners
 
@@ -228,6 +235,9 @@ state. Prefer `Alert` semantics or equivalent bordered status surfaces with icon
 - Template deleted (informational muted): "Source template was deleted. This snapshot is preserved."
 - Drift banner in this phase is informational-only; do not attach refresh actions until refresh-from-template
   is implemented server-side.
+
+Cross-reference: lifecycle semantics for these three states are defined in
+[workout-domain](./workout-domain.md#three-layer-notes-model).
 
 ## Workout Section Header Controls
 

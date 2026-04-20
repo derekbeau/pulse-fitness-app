@@ -26,8 +26,29 @@ The scheduled-workout detail page should mirror template-detail exercise renderi
 
 - Exercise rows render through shared `WorkoutExerciseCard` in `readonly-scheduled` mode.
 - Header controls are schedule-specific: scheduled date, source template link, `Start workout`, `Reschedule`, and `Cancel`.
-- `programmingNotes` shown on scheduled cards comes from the resolved template exercise data.
+- `programmingNotes` shown on scheduled cards comes from the scheduled snapshot exercise row.
 - Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
+
+## Three-layer notes model
+
+Workout exercise note content is split into three channels and should stay separate in API,
+storage, and UI rendering.
+
+| Field | Source | Mutable after session-start? | Rendered as |
+| --- | --- | --- | --- |
+| `programmingNotes` | Template, snapshotted on schedule or session-create | No | Read-only "programming" block |
+| `agentNotes` | Agent PATCH between schedule and session-start | No (client) | Read-only "✨ For today" block |
+| `notes` (user) | User textarea on session | Yes | User textarea |
+
+Lifecycle rules:
+
+- Template edit before scheduling applies to future snapshots automatically.
+- Template edit after scheduling does not mutate existing snapshots; scheduled detail computes
+  `templateDrift` and shows the drift banner.
+- Cancelled linked sessions clear `scheduled_workouts.sessionId` so the schedule is startable again
+  from the same snapshot.
+- Reschedule marks existing `agentNotesMeta.stale = true` when the date shift diverges by more than
+  2 days from `scheduledDateAtGeneration`.
 
 ### Scheduled Start Lifecycle
 
@@ -131,7 +152,7 @@ Session exercise metadata should preserve `supersetGroup` values so completed re
 Session exercises intentionally keep three separate note channels:
 
 - `programmingNotes` (read-only): a snapshot of `template_exercises.notes` taken when the session starts from a template. This does not change if the template is edited later.
-- `agentNotes` + `agentNotesMeta` (read-only): snapshot-time session-specific guidance authored through scheduled-workout enrichment (`author`, `generatedAt`, `scheduledDateAtGeneration`, optional `stale`).
+- `agentNotes` + `agentNotesMeta` (read-only): snapshot-time session-specific guidance authored through scheduled-workout enrichment (`author`, `generatedAt`, `scheduledDateAtGeneration`, `stale`).
 - user exercise notes (editable): the workout-time notes entered during the session via the existing exercise-notes flow.
 
 Do not merge these layers into one textarea; template prescription context, agent context, and user observations must remain distinct.

@@ -51,6 +51,26 @@ Unified routes with agent conveniences should use middleware hooks instead of ro
 - `onSend: agentEnrichmentOnSend` appends optional `agent` guidance from request context when available.
 - Handlers should implement one canonical write/read path and avoid `isAgentRequest()` schema branching.
 
+## Unified vs AgentToken-only route pattern
+
+Use one decision rule:
+
+- If the route is user-facing (UI callers and agents both use it), keep it on the unified pattern:
+  `requireAuth`, shared schemas, optional agent middleware (`agentRequestTransform`,
+  `agentEnrichmentOnSend`) where convenience features are needed.
+- If the route is intentionally agent-only (enrichment/ingestion workflow), keep it on `/api/v1/*`
+  but enforce `requireAuth` + `requireAgentOnly`.
+
+Canonical agent-only example:
+
+- `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`
+
+Agent-only invariants:
+
+- JWT callers must receive `403 FORBIDDEN` with `Agent token authentication required`.
+- OpenAPI security should declare only `agentToken`.
+- Do not branch request/response schemas by auth mode for either unified or agent-only routes.
+
 ## Authentication
 
 Three auth hooks are available:

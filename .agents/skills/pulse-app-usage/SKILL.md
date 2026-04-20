@@ -243,6 +243,45 @@ If no new foods were created, explicitly say that existing food entries were reu
 - **Create**: `POST /api/v1/scheduled-workouts/` — schedule a template on calendar date(s).
 - **Review**: `GET /api/v1/scheduled-workouts/?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`
 
+### Scheduled-workout enrichment
+
+This step fits between **Scheduling** (`POST /api/v1/scheduled-workouts/`) and **Sessions → Start**
+(`POST /api/v1/workout-sessions/` with `scheduledWorkoutId`).
+
+1. Schedule first: `POST /api/v1/scheduled-workouts/` returns a scheduled workout snapshot with
+   exercise ids and default prescriptions copied from the template.
+2. Pull context before writing notes: check recent sessions for the same template, last
+   performance for each exercise, weight trend, habit state, and journal/injury flags when
+   available.
+3. Decide note-by-note whether enrichment adds value. Many exercises should have no note.
+   High-signal examples:
+   - progression cues from last session
+   - injury accommodations
+   - rest-period adjustments based on recent volume/fatigue
+4. Write session-specific notes with AgentToken auth:
+
+```json
+PATCH /api/v1/scheduled-workouts/:id/exercise-notes
+{
+  "notes": [
+    { "exerciseId": "exercise-uuid", "agentNotes": "Last session: 3x15 at 53 lb. Try 62 lb today." }
+  ]
+}
+```
+
+- Send `agentNotes: null` to clear a previously written note.
+
+5. In the user-facing confirmation message, summarize what changed, for example:
+   "I scheduled your workout for Tuesday and added 3 notes: bench progression, shoulder-friendly
+   incline option, and longer deadlift rest."
+
+What not to do:
+
+- Do not overwrite programming notes (`programmingNotes` is template-level and read-only from the
+  scheduled-workout enrichment surface).
+- Do not write notes for completeness; only write notes where context-specific guidance helps.
+- Do not include dates inside note text; generation/schedule timestamps live in metadata.
+
 ### Planning a Workout
 
 1. Load planning context from `~/Obsidian/Master/2-Areas/Health & Fitness/Workouts` (status, injury notes, equipment, and recent session notes).

@@ -65,6 +65,7 @@ src/features/workouts/components/workout-exercise-card/
   exercise-header.tsx
   prescription-block.tsx
   programming-notes-block.tsx
+  agent-notes-block.tsx
   form-cues-block.tsx
   last-performance-chip.tsx
   workout-exercise-set-list.tsx
@@ -76,6 +77,16 @@ Rules:
 - Keep the orchestrator in `index.tsx`; colocate sub-primitives and their focused tests.
 - Export only the primitive's public surface from `index.tsx`.
 - Reuse this shape for future shared feature primitives instead of introducing one-off flat files.
+
+Final primitive set for `workout-exercise-card/`:
+
+- `exercise-header.tsx`
+- `prescription-block.tsx`
+- `programming-notes-block.tsx`
+- `agent-notes-block.tsx`
+- `form-cues-block.tsx`
+- `last-performance-chip.tsx`
+- `workout-exercise-set-list.tsx`
 
 ## Barrel Export Pattern
 

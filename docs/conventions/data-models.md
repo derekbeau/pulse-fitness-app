@@ -192,7 +192,10 @@ Constraints:
 - `feedback`: nullable JSON text object for post-session ratings and notes
 - `exerciseProgrammingNotes`: nullable JSON text record keyed by `${section}::${exerciseId}` with `string | null` values; snapshots `template_exercises.notes` at session start
 - `exerciseAgentNotes`: nullable JSON text record keyed by `${section}::${exerciseId}` with `string | null` values; snapshots scheduled-workout agent notes at session start
-- `exerciseAgentNotesMeta`: nullable JSON text record keyed by `${section}::${exerciseId}` with metadata values `{ author, generatedAt, scheduledDateAtGeneration, stale? }`
+- `exerciseAgentNotesMeta`: nullable JSON text record keyed by `${section}::${exerciseId}` with metadata values `{ author, generatedAt, scheduledDateAtGeneration, stale }` (read-time compatibility defaults missing `stale` to `false`)
+- Session exercise payload field `agentNotes`: projected from `exerciseAgentNotes[${section}::${exerciseId}]`
+- Session exercise payload field `agentNotesMeta`: projected from `exerciseAgentNotesMeta[${section}::${exerciseId}]`
+- There are no physical `workout_sessions.agentNotes` / `workout_sessions.agentNotesMeta` scalar columns; those session exercise fields are projections from the keyed JSON snapshot maps above.
 - `notes`: nullable `text`
 - `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
@@ -262,7 +265,7 @@ Indexes and constraints:
 - `orderIndex`: `integer`, required
 - `programmingNotes`: nullable `text` copied from template exercise programming notes at snapshot time
 - `agentNotes`: nullable `text` used for per-instance agent enrichment
-- `agentNotesMeta`: nullable JSON text object `{ author, generatedAt, scheduledDateAtGeneration, stale? }`
+- `agentNotesMeta`: nullable JSON text object `{ author, generatedAt, scheduledDateAtGeneration, stale }` (`stale` defaults to `false` on server writes)
 - `templateCues`: nullable JSON text array copied from template cues
 - `supersetGroup`: nullable `text`
 - `tempo`: nullable `text`
