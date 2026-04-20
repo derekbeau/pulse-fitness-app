@@ -130,6 +130,9 @@ describe('scheduledWorkoutDetailSchema', () => {
           sets: [],
         },
       ],
+      templateDrift: null,
+      staleExercises: [],
+      templateDeleted: false,
     });
 
     expect(payload.exercises[0]).toMatchObject({

@@ -15,7 +15,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { exercises, scheduledWorkouts, workoutTemplates } from '../../db/schema/index.js';
+import { exercises, workoutTemplates } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import {
@@ -37,6 +37,7 @@ import {
   createScheduledWorkout,
   deleteScheduledWorkout,
   findScheduledWorkoutById,
+  findScheduledWorkoutByIdWithTemplateVersion,
   listScheduledWorkouts,
   updateScheduledWorkout,
 } from './store.js';
@@ -88,7 +89,10 @@ const buildScheduledWorkoutDetail = async ({
   scheduledWorkoutId: string;
   userId: string;
 }) => {
-  const scheduledWorkout = await findScheduledWorkoutById(scheduledWorkoutId, userId);
+  const scheduledWorkout = await findScheduledWorkoutByIdWithTemplateVersion(
+    scheduledWorkoutId,
+    userId,
+  );
   if (!scheduledWorkout) {
     return null;
   }
@@ -118,26 +122,19 @@ const buildScheduledWorkoutDetail = async ({
   for (const snapshotExercise of snapshotExercises) {
     const exercise = exercisesById.get(snapshotExercise.exerciseId);
     const isMissing = !exercise;
-    const isSoftDeleted = exercise?.deletedAt !== null;
+    const isSoftDeleted = exercise?.deletedAt != null;
     const isOutsideUserScope =
       exercise !== undefined && exercise.userId !== null && exercise.userId !== userId;
 
     if (isMissing || isSoftDeleted || isOutsideUserScope) {
       staleByExerciseId.set(snapshotExercise.exerciseId, {
         exerciseId: snapshotExercise.exerciseId,
+        // Snapshot rows do not currently denormalize exercise names, so
+        // hard-deleted exercises fall back to the historical exercise id.
         snapshotName: exercise?.name ?? snapshotExercise.exerciseId,
       });
     }
   }
-
-  const scheduledWorkoutRecord = db
-    .select({
-      templateVersion: scheduledWorkouts.templateVersion,
-    })
-    .from(scheduledWorkouts)
-    .where(and(eq(scheduledWorkouts.id, scheduledWorkout.id), eq(scheduledWorkouts.userId, userId)))
-    .limit(1)
-    .get();
 
   let templateDeleted = false;
   let templateDrift: { changedAt: number; summary: string } | null = null;
@@ -161,13 +158,13 @@ const buildScheduledWorkoutDetail = async ({
 
     templateDeleted = !sourceTemplate || sourceTemplate.deletedAt !== null;
 
-    if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkoutRecord?.templateVersion) {
+    if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkout.templateVersion) {
       const currentTemplateVersion = await computeTemplateVersionForTemplateId(
         scheduledWorkout.templateId,
         db,
       );
 
-      if (currentTemplateVersion !== scheduledWorkoutRecord.templateVersion) {
+      if (currentTemplateVersion !== scheduledWorkout.templateVersion) {
         templateDrift = {
           changedAt: sourceTemplate.updatedAt,
           summary: TEMPLATE_DRIFT_SUMMARY,
@@ -314,18 +311,8 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const scheduledWorkout = await findScheduledWorkoutById(request.params.id, request.userId);
-      if (!scheduledWorkout) {
-        return sendError(
-          reply,
-          404,
-          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
-          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
-        );
-      }
-
       const scheduledWorkoutDetail = await buildScheduledWorkoutDetailWithTemplate({
-        scheduledWorkoutId: scheduledWorkout.id,
+        scheduledWorkoutId: request.params.id,
         userId: request.userId,
       });
       if (!scheduledWorkoutDetail) {

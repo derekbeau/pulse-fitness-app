@@ -110,9 +110,9 @@ export const scheduledWorkoutStaleExerciseSchema = z.object({
 
 export const scheduledWorkoutDetailSchema = scheduledWorkoutSchema.extend({
   exercises: z.array(scheduledWorkoutExerciseSchema),
-  templateDrift: scheduledWorkoutTemplateDriftSchema.nullable().optional(),
-  staleExercises: z.array(scheduledWorkoutStaleExerciseSchema).optional(),
-  templateDeleted: z.boolean().optional(),
+  templateDrift: scheduledWorkoutTemplateDriftSchema.nullable(),
+  staleExercises: z.array(scheduledWorkoutStaleExerciseSchema),
+  templateDeleted: z.boolean(),
 });
 
 export type ScheduledWorkout = z.infer<typeof scheduledWorkoutSchema>;
