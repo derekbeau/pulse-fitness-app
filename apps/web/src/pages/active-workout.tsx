@@ -498,6 +498,7 @@ export function ActiveWorkoutPage() {
               ),
               name: exercise.name,
               notes: exercise.notes,
+              programmingNotes: exercise.programmingNotes,
               reps: isRepTrackingType(exercise.trackingType)
                 ? completedSets.reduce((total, set) => total + (set.reps ?? 0), 0)
                 : 0,

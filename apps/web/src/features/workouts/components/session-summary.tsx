@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
 import { formatWeight, type WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +61,7 @@ export type SessionSummaryExerciseResult = {
   metricValue?: number;
   name: string;
   notes?: string | null;
+  programmingNotes?: string | null;
   reps: number;
   setsCompleted: number;
   totalSets: number;
@@ -216,6 +217,25 @@ export function SessionSummary({
                         <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
                       ) : null}
                     </div>
+                    {exercise.programmingNotes?.trim() ? (
+                      <div
+                        className="mt-2 flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
+                        data-testid={`exercise-programming-notes-${exercise.id}`}
+                      >
+                        <ClipboardList
+                          aria-hidden="true"
+                          className="mt-0.5 size-3.5 shrink-0 text-muted"
+                        />
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
+                            Programming notes
+                          </p>
+                          <p className="whitespace-pre-wrap text-[13px] italic text-muted">
+                            {exercise.programmingNotes.trim()}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
                     {exercise.notes?.trim() ? (
                       <MarkdownNote
                         className="mt-2 text-xs text-muted"
