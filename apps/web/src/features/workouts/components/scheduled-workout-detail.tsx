@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { CalendarClock, Dumbbell, History, TriangleAlert } from 'lucide-react';
-import type { WorkoutTemplate, WorkoutTemplateExercise, WeightUnit } from '@pulse/shared';
+import { History } from 'lucide-react';
+import type {
+  WorkoutTemplate,
+  WorkoutTemplateExercise,
+  WorkoutTemplateSectionType,
+  WeightUnit,
+} from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
@@ -18,10 +23,14 @@ import {
   useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
-import { getDistanceUnit } from '../lib/tracking';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
+import { ScheduledWorkoutHeader } from './scheduled-workout-header';
+import {
+  WorkoutExerciseCard,
+  type WorkoutExerciseCardScheduledExercise,
+} from './workout-exercise-card';
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -30,23 +39,26 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-const sectionLabels: Record<string, string> = {
+const sectionLabels: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
   main: 'Main',
   cooldown: 'Cooldown',
+  supplemental: 'Supplemental',
 };
 
-const sectionAccentStyles: Record<string, string> = {
-  warmup: 'border-amber-500/30',
-  main: 'border-primary/30',
-  cooldown: 'border-sky-500/30',
+const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
+  warmup: 'border-l-[var(--color-accent-mint)]',
+  main: 'border-l-[var(--color-accent-pink)]',
+  cooldown: 'border-l-[var(--color-accent-cream)]',
+  supplemental: 'border-l-[var(--color-accent-cream)]',
 };
 
 type ScheduledWorkoutDetailProps = {
+  bannerSlot?: ReactNode;
   id: string;
 };
 
-export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
+export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetailProps) {
   const navigate = useNavigate();
   const { weightUnit } = useWeightUnit();
   const { data: scheduledWorkout, isLoading, isError } = useScheduledWorkoutDetail(id);
@@ -124,18 +136,33 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
     if (!scheduledWorkout) {
       return;
     }
+
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
   }
 
-  async function handleRemoveFromSchedule() {
+  async function handleCancel() {
     if (!scheduledWorkout) {
       return;
     }
+
     await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
     navigate('/workouts');
+  }
+
+  function confirmCancel() {
+    confirm({
+      title: 'Cancel this scheduled workout?',
+      description:
+        'This scheduled workout will be removed. Your template and exercise library are not affected.',
+      confirmLabel: 'Cancel workout',
+      variant: 'destructive',
+      onConfirm: async () => {
+        await handleCancel();
+      },
+    });
   }
 
   if (isLoading) {
@@ -158,69 +185,22 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
     );
   }
 
-  const scheduledDate = new Date(`${scheduledWorkout.date}T12:00:00`);
-
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-xl">{template?.name ?? 'Workout unavailable'}</CardTitle>
-              <p className="flex items-center gap-1.5 text-sm text-muted">
-                <CalendarClock aria-hidden="true" className="size-4" />
-                {dateFormatter.format(scheduledDate)}
-              </p>
-            </div>
-            <Badge
-              className={cn(
-                'w-fit',
-                isTemplateAvailable
-                  ? 'bg-secondary text-muted-foreground'
-                  : 'bg-destructive/10 text-destructive',
-              )}
-              variant="secondary"
-            >
-              {isTemplateAvailable ? 'Scheduled' : 'Unavailable'}
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {!isTemplateAvailable ? (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-              The template for this workout has been deleted. You can remove this from your
-              schedule.
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={isMutating || !isTemplateAvailable}
-              onClick={() => {
-                void handleStart();
-              }}
-              size="sm"
-              type="button"
-            >
-              Start
-            </Button>
-            <Button
-              disabled={isMutating || !isTemplateAvailable}
-              onClick={() => setIsRescheduleDialogOpen(true)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Reschedule
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {bannerSlot}
+      <ScheduledWorkoutHeader
+        isMutating={isMutating}
+        isTemplateAvailable={isTemplateAvailable}
+        onCancel={confirmCancel}
+        onReschedule={() => setIsRescheduleDialogOpen(true)}
+        onStart={handleStart}
+        scheduledDateLabel={dateFormatter.format(new Date(`${scheduledWorkout.date}T12:00:00`))}
+        templateId={scheduledWorkout.templateId}
+        templateName={template?.name ?? null}
+      />
 
       {template ? (
-        <TemplateSections
+        <ScheduledWorkoutSections
           onOpenHistory={(exercise) =>
             setHistoryTarget({
               exerciseId: exercise.exerciseId,
@@ -232,21 +212,19 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
         />
       ) : null}
 
-      {scheduledWorkout ? (
-        <ScheduleWorkoutDialog
-          description={`Move ${template?.name ?? 'this workout'} to a new date.`}
-          initialDate={scheduledWorkout.date}
-          isPending={rescheduleWorkoutMutation.isPending}
-          onOpenChange={setIsRescheduleDialogOpen}
-          onRemove={handleRemoveFromSchedule}
-          onSubmitDate={handleReschedule}
-          open={isRescheduleDialogOpen}
-          disallowDateKey={scheduledWorkout.date}
-          disallowDateMessage="Pick a different date to reschedule."
-          submitLabel="Save"
-          title="Reschedule workout"
-        />
-      ) : null}
+      <ScheduleWorkoutDialog
+        description={`Move ${template?.name ?? 'this workout'} to a new date.`}
+        disallowDateKey={scheduledWorkout.date}
+        disallowDateMessage="Pick a different date to reschedule."
+        initialDate={scheduledWorkout.date}
+        isPending={rescheduleWorkoutMutation.isPending}
+        onOpenChange={setIsRescheduleDialogOpen}
+        onSubmitDate={handleReschedule}
+        open={isRescheduleDialogOpen}
+        submitLabel="Save"
+        title="Reschedule workout"
+      />
+
       {historyTarget ? (
         <ExerciseDetailModal
           context="receipt"
@@ -264,7 +242,7 @@ export function ScheduledWorkoutDetail({ id }: ScheduledWorkoutDetailProps) {
   );
 }
 
-function TemplateSections({
+function ScheduledWorkoutSections({
   onOpenHistory,
   template,
   weightUnit,
@@ -288,157 +266,99 @@ function TemplateSections({
   return (
     <div className="space-y-3">
       {nonEmptySections.map((section) => (
-        <Card className={cn('border-l-4', sectionAccentStyles[section.type])} key={section.type}>
-          <CardHeader className="gap-1 py-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted">
-                {sectionLabels[section.type] ?? section.type}
-              </h3>
-              <span className="text-xs text-muted">
-                {section.exercises.length} exercise{section.exercises.length === 1 ? '' : 's'}
-              </span>
+        <details
+          className={cn(
+            'overflow-hidden rounded-3xl border border-border border-l-4 bg-card shadow-sm',
+            sectionAccentStyles[section.type],
+          )}
+          key={section.type}
+          open={section.type === 'main'}
+        >
+          <summary className="cursor-pointer list-outside px-4 py-3">
+            <div className="flex flex-col gap-1.5 pr-6 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-bold tracking-wide text-foreground">
+                {sectionLabels[section.type]}
+              </h2>
+              <Badge className="border-transparent bg-secondary text-secondary-foreground" variant="outline">
+                {`${section.exercises.length} exercise${section.exercises.length === 1 ? '' : 's'}`}
+              </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2 pb-3">
+          </summary>
+
+          <div className="space-y-1.5 border-t border-border/80 px-3 py-3 sm:px-4 sm:py-3">
             {section.exercises.map((exercise, index) => (
-              <div
-                className="flex items-center gap-3 rounded-lg border border-border bg-secondary/20 px-3 py-2"
+              <ScheduledExerciseCard
+                exercise={exercise}
+                index={index}
                 key={exercise.id}
-              >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-muted">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {exercise.exerciseName}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {formatExerciseSummary(exercise, weightUnit)}
-                  </p>
-                </div>
-                {exercise.supersetGroup ? (
-                  <Badge className="shrink-0" variant="secondary">
-                    {exercise.supersetGroup}
-                  </Badge>
-                ) : null}
-                <Button
-                  aria-label={`Open ${exercise.exerciseName} history`}
-                  className="size-8 min-h-8 min-w-8"
-                  onClick={() => onOpenHistory(exercise)}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <History aria-hidden="true" className="size-4 shrink-0 text-muted" />
-                </Button>
-                <Dumbbell aria-hidden="true" className="size-4 shrink-0 text-muted" />
-              </div>
+                onOpenHistory={() => onOpenHistory(exercise)}
+                weightUnit={weightUnit}
+              />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       ))}
     </div>
   );
 }
 
-function formatExerciseSummary(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  const segments = [
-    `${exercise.sets} set${exercise.sets === 1 ? '' : 's'}`,
-    formatExerciseTarget(exercise, weightUnit),
-    exercise.restSeconds != null ? `${exercise.restSeconds} sec rest` : null,
-  ].filter((segment): segment is string => segment != null && segment.length > 0);
-
-  return segments.join(' · ');
-}
-
-function formatExerciseTarget(exercise: WorkoutTemplateExercise, weightUnit: WeightUnit) {
-  const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
-  const firstTarget = (exercise.setTargets ?? [])[0] ?? null;
-  const targetWeight =
-    firstTarget?.targetWeight != null
-      ? `${firstTarget.targetWeight} ${weightUnit}`
-      : firstTarget?.targetWeightMin != null && firstTarget?.targetWeightMax != null
-        ? `${firstTarget.targetWeightMin}-${firstTarget.targetWeightMax} ${weightUnit}`
-        : null;
-  const targetSeconds =
-    firstTarget?.targetSeconds != null ? `${firstTarget.targetSeconds} sec` : null;
-  const targetDistance =
-    firstTarget?.targetDistance != null
-      ? `${firstTarget.targetDistance} ${getDistanceUnit(weightUnit)}`
-      : null;
-
-  switch (exercise.trackingType) {
-    case 'weight_reps':
-      return targetWeight ?? withRepUnit(repsTarget);
-    case 'weight_seconds':
-      if (targetWeight && targetSeconds) {
-        return `${targetWeight} × ${targetSeconds}`;
+function ScheduledExerciseCard({
+  exercise,
+  index,
+  onOpenHistory,
+  weightUnit,
+}: {
+  exercise: WorkoutTemplateExercise;
+  index: number;
+  onOpenHistory: () => void;
+  weightUnit: WeightUnit;
+}) {
+  return (
+    <WorkoutExerciseCard
+      exercise={toWorkoutExerciseCardScheduledExercise(exercise)}
+      footerSlot={
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
       }
-      return targetWeight ?? targetSeconds ?? withSecUnit(repsTarget);
-    case 'bodyweight_reps':
-    case 'reps_only':
-      return withRepUnit(repsTarget);
-    case 'reps_seconds':
-      if (repsTarget && targetSeconds) {
-        return `${withRepUnit(repsTarget)} × ${targetSeconds}`;
+      headerSlot={
+        <Button
+          aria-label={`Open ${exercise.exerciseName} history`}
+          className="size-11 min-h-11 min-w-11"
+          onClick={onOpenHistory}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <History aria-hidden="true" className="size-4" />
+        </Button>
       }
-      return targetSeconds ?? withSecUnit(repsTarget);
-    case 'seconds_only':
-      return targetSeconds ?? withSecUnit(repsTarget);
-    case 'distance':
-      return targetDistance ?? withDistanceUnit(repsTarget, weightUnit);
-    case 'cardio':
-      if (targetSeconds && targetDistance) {
-        return `${targetSeconds} + ${targetDistance}`;
-      }
-      return targetSeconds ?? targetDistance ?? withSecUnit(repsTarget);
-    default:
-      return withRepUnit(repsTarget);
-  }
+      mode="readonly-scheduled"
+      onOpenDetails={onOpenHistory}
+      weightUnit={weightUnit}
+    />
+  );
 }
 
-function formatRepTarget(repsMin: number | null, repsMax: number | null) {
-  if (repsMin != null && repsMax != null) {
-    return repsMin === repsMax ? `${repsMin}` : `${repsMin}-${repsMax}`;
-  }
-
-  if (repsMin != null) {
-    return `${repsMin}+`;
-  }
-
-  if (repsMax != null) {
-    return `Up to ${repsMax}`;
-  }
-
-  return null;
-}
-
-function withRepUnit(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const lower = value.toLowerCase();
-  return lower.includes('rep') || lower.includes('sec') || lower.includes('min')
-    ? value
-    : `${value} reps`;
-}
-
-function withSecUnit(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const lower = value.toLowerCase();
-  return lower.includes('sec') || lower.includes('min') ? value : `${value} sec`;
-}
-
-function withDistanceUnit(value: string | null, weightUnit: WeightUnit) {
-  if (!value) {
-    return null;
-  }
-
-  const lower = value.toLowerCase();
-  const distanceUnit = getDistanceUnit(weightUnit);
-  return lower.includes('mi') || lower.includes('km') ? value : `${value} ${distanceUnit}`;
+function toWorkoutExerciseCardScheduledExercise(
+  exercise: WorkoutTemplateExercise,
+): WorkoutExerciseCardScheduledExercise {
+  return {
+    coachingNotes: exercise.exercise?.coachingNotes ?? null,
+    equipment: null,
+    exerciseId: exercise.exerciseId,
+    formCues: exercise.exercise?.formCues ?? exercise.formCues ?? [],
+    id: exercise.id,
+    instructions: exercise.exercise?.instructions ?? null,
+    muscleGroups: [],
+    name: exercise.exerciseName,
+    notes: exercise.notes,
+    programmingNotes: exercise.programmingNotes ?? null,
+    repsMax: exercise.repsMax,
+    repsMin: exercise.repsMin,
+    restSeconds: exercise.restSeconds,
+    setTargets: exercise.setTargets ?? [],
+    sets: exercise.sets,
+    tempo: exercise.tempo,
+    templateCues: exercise.cues,
+    trackingType: exercise.trackingType,
+  };
 }

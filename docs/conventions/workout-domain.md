@@ -20,6 +20,15 @@ Template sections use this fixed sequence:
 
 Each section contains an ordered `exercises` array. Preserve order exactly as authored; the UI should not reorder template exercises automatically.
 
+## Scheduled Workout Detail Surface
+
+The scheduled-workout detail page should mirror template-detail exercise rendering and only add scheduling controls.
+
+- Exercise rows render through shared `WorkoutExerciseCard` in `readonly-scheduled` mode.
+- Header controls are schedule-specific: scheduled date, source template link, `Start workout`, `Reschedule`, and `Cancel`.
+- `programmingNotes` shown on scheduled cards comes from the resolved template exercise data.
+- Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
+
 ## Exercise In Template
 
 Each template exercise stores prescription data, not completed performance.
