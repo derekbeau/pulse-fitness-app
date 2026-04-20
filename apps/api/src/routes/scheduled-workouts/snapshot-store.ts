@@ -252,6 +252,21 @@ export const computeScheduledWorkoutTemplateVersion = (
     .update(JSON.stringify(toTemplateVersionPayload(rows)))
     .digest('hex');
 
+export const computeTemplateVersionForTemplateId = async (
+  templateId: string,
+  database?: PulseDb,
+): Promise<string> => {
+  const db = await resolveDb(database);
+  const templateRows = db
+    .select(templateExerciseSnapshotSelection)
+    .from(templateExercises)
+    .where(eq(templateExercises.templateId, templateId))
+    .all()
+    .sort(compareTemplateExercises);
+
+  return computeScheduledWorkoutTemplateVersion(templateRows);
+};
+
 export const readSnapshot = async (
   scheduledWorkoutId: string,
   database?: PulseDb,

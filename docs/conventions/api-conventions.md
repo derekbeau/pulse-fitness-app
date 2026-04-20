@@ -129,6 +129,23 @@ Error responses return `{ error: { code, message } }`.
 
 Use `apps/api/src/lib/reply.ts` helpers for shared error formatting instead of ad hoc reply bodies.
 
+## Derived Read Markers
+
+When a detail endpoint needs caller-facing lifecycle flags (for example scheduled-workout drift or stale references), compute them server-side on `GET` and return them as read-only marker fields in the response payload.
+
+Guidelines:
+
+- Keep mutation endpoints focused on persisted source-of-truth fields.
+- Compute derived markers at read time from current state plus persisted snapshot/version fields.
+- Prefer nullable object markers for single-state details and empty arrays for zero-or-more marker lists.
+- Keep list endpoints lightweight by default; add only compact summary booleans there when a concrete UI need exists.
+
+Example marker pattern for scheduled workouts:
+
+- `templateDrift: { changedAt, summary } | null`
+- `staleExercises: Array<{ exerciseId, snapshotName }>`
+- `templateDeleted: boolean`
+
 ## Standard Error Codes
 
 These error codes are the base vocabulary across routes:

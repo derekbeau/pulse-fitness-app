@@ -11,6 +11,7 @@ import {
   exerciseQueryParamsSchema,
   exerciseSchema,
   sessionCorrectionRequestSchema,
+  scheduledWorkoutDetailSchema,
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
@@ -26,6 +27,7 @@ import {
   type Exercise,
   type ExerciseQueryParams,
   type CreateScheduledWorkoutInput,
+  type ScheduledWorkoutDetail as SharedScheduledWorkoutDetail,
   type ScheduledWorkout,
   type ScheduledWorkoutListItem,
   type ScheduledWorkoutQueryParams,
@@ -561,11 +563,11 @@ async function getCompletedSessions(signal?: AbortSignal) {
 }
 
 const scheduledWorkoutDetailResponseSchema = z.object({
-  data: scheduledWorkoutSchema.extend({
+  data: scheduledWorkoutDetailSchema.extend({
     template: workoutTemplateSchema.nullable(),
   }),
 }) as unknown as z.ZodType<{
-  data: ScheduledWorkout & { template: WorkoutTemplate | null };
+  data: SharedScheduledWorkoutDetail & { template: WorkoutTemplate | null };
 }>;
 
 async function getScheduledWorkoutDetail(id: string, signal?: AbortSignal) {
@@ -917,7 +919,7 @@ export function useScheduledWorkouts(
   });
 }
 
-export type ScheduledWorkoutDetail = ScheduledWorkout & { template: WorkoutTemplate | null };
+export type ScheduledWorkoutDetail = SharedScheduledWorkoutDetail & { template: WorkoutTemplate | null };
 
 export function useScheduledWorkoutDetail(id: string, options?: { enabled?: boolean }) {
   return useQuery<ScheduledWorkoutDetail>({

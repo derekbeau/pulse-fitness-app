@@ -286,6 +286,35 @@ function createScheduledWorkoutDetailPayload({
   sessionId: null;
   createdAt: number;
   updatedAt: number;
+  exercises: Array<{
+    exerciseId: string;
+    section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+    orderIndex: number;
+    programmingNotes: string | null;
+    agentNotes: string | null;
+    agentNotesMeta: null;
+    templateCues: string[] | null;
+    supersetGroup: string | null;
+    tempo: string | null;
+    restSeconds: number | null;
+    sets: Array<{
+      setNumber: number;
+      repsMin: number | null;
+      repsMax: number | null;
+      reps: number | null;
+      targetWeight: number | null;
+      targetWeightMin: number | null;
+      targetWeightMax: number | null;
+      targetSeconds: number | null;
+      targetDistance: number | null;
+    }>;
+  }>;
+  templateDrift: null;
+  staleExercises: Array<{
+    exerciseId: string;
+    snapshotName: string;
+  }>;
+  templateDeleted: boolean;
   template: {
     id: string;
     userId: string;
@@ -331,6 +360,36 @@ function createScheduledWorkoutDetailPayload({
     sessionId: null,
     createdAt: 1,
     updatedAt: 1,
+    exercises: [
+      {
+        exerciseId: 'incline-dumbbell-press',
+        section: 'main',
+        orderIndex: 0,
+        programmingNotes: 'Top set first, then reduce load for back-off sets.',
+        agentNotes: null,
+        agentNotesMeta: null,
+        templateCues: ['Drive feet into the floor', 'Keep wrists stacked'],
+        supersetGroup: null,
+        tempo: '3110',
+        restSeconds: 90,
+        sets: [
+          {
+            setNumber: 1,
+            repsMin: 8,
+            repsMax: 10,
+            reps: null,
+            targetWeight: 70,
+            targetWeightMin: null,
+            targetWeightMax: null,
+            targetSeconds: null,
+            targetDistance: null,
+          },
+        ],
+      },
+    ],
+    templateDrift: null,
+    staleExercises: [],
+    templateDeleted: false,
     template: {
       id: 'template-1',
       userId: 'user-1',

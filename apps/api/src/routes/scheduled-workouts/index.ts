@@ -3,16 +3,19 @@ import { randomUUID } from 'node:crypto';
 import {
   apiDataResponseSchema,
   createScheduledWorkoutInputSchema,
+  scheduledWorkoutDetailSchema,
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
   updateScheduledWorkoutInputSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { exercises, scheduledWorkouts, workoutTemplates } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import {
@@ -23,9 +26,13 @@ import {
   successFlagSchema,
 } from '../../openapi.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
-
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 
+import {
+  computeTemplateVersionForTemplateId,
+  readSnapshot,
+  writeSnapshot,
+} from './snapshot-store.js';
 import {
   createScheduledWorkout,
   deleteScheduledWorkout,
@@ -44,6 +51,166 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
   message: 'Workout template not found',
 } as const;
 
+const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
+
+const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.extend({
+  template: workoutTemplateSchema.nullable(),
+});
+
+const mapSnapshotExercise = (exercise: Awaited<ReturnType<typeof readSnapshot>>['exercises'][number]) => ({
+  exerciseId: exercise.exerciseId,
+  section: exercise.section,
+  orderIndex: exercise.orderIndex,
+  programmingNotes: exercise.programmingNotes,
+  agentNotes: exercise.agentNotes,
+  agentNotesMeta: exercise.agentNotesMeta,
+  templateCues: exercise.templateCues,
+  supersetGroup: exercise.supersetGroup,
+  tempo: exercise.tempo,
+  restSeconds: exercise.restSeconds,
+  sets: exercise.sets.map((set) => ({
+    setNumber: set.setNumber,
+    repsMin: set.repsMin,
+    repsMax: set.repsMax,
+    reps: set.reps,
+    targetWeight: set.targetWeight,
+    targetWeightMin: set.targetWeightMin,
+    targetWeightMax: set.targetWeightMax,
+    targetSeconds: set.targetSeconds,
+    targetDistance: set.targetDistance,
+  })),
+});
+
+const buildScheduledWorkoutDetail = async ({
+  scheduledWorkoutId,
+  userId,
+}: {
+  scheduledWorkoutId: string;
+  userId: string;
+}) => {
+  const scheduledWorkout = await findScheduledWorkoutById(scheduledWorkoutId, userId);
+  if (!scheduledWorkout) {
+    return null;
+  }
+
+  const { db } = await import('../../db/index.js');
+  const snapshot = await readSnapshot(scheduledWorkout.id, db);
+  const snapshotExercises = snapshot.exercises.map(mapSnapshotExercise);
+  const uniqueSnapshotExerciseIds = [...new Set(snapshotExercises.map((exercise) => exercise.exerciseId))];
+
+  const exerciseRows =
+    uniqueSnapshotExerciseIds.length === 0
+      ? []
+      : db
+          .select({
+            id: exercises.id,
+            userId: exercises.userId,
+            name: exercises.name,
+            deletedAt: exercises.deletedAt,
+          })
+          .from(exercises)
+          .where(inArray(exercises.id, uniqueSnapshotExerciseIds))
+          .all();
+
+  const exercisesById = new Map(exerciseRows.map((row) => [row.id, row]));
+  const staleByExerciseId = new Map<string, { exerciseId: string; snapshotName: string }>();
+
+  for (const snapshotExercise of snapshotExercises) {
+    const exercise = exercisesById.get(snapshotExercise.exerciseId);
+    const isMissing = !exercise;
+    const isSoftDeleted = exercise?.deletedAt !== null;
+    const isOutsideUserScope =
+      exercise !== undefined && exercise.userId !== null && exercise.userId !== userId;
+
+    if (isMissing || isSoftDeleted || isOutsideUserScope) {
+      staleByExerciseId.set(snapshotExercise.exerciseId, {
+        exerciseId: snapshotExercise.exerciseId,
+        snapshotName: exercise?.name ?? snapshotExercise.exerciseId,
+      });
+    }
+  }
+
+  const scheduledWorkoutRecord = db
+    .select({
+      templateVersion: scheduledWorkouts.templateVersion,
+    })
+    .from(scheduledWorkouts)
+    .where(and(eq(scheduledWorkouts.id, scheduledWorkout.id), eq(scheduledWorkouts.userId, userId)))
+    .limit(1)
+    .get();
+
+  let templateDeleted = false;
+  let templateDrift: { changedAt: number; summary: string } | null = null;
+
+  if (scheduledWorkout.templateId) {
+    const sourceTemplate = db
+      .select({
+        id: workoutTemplates.id,
+        deletedAt: workoutTemplates.deletedAt,
+        updatedAt: workoutTemplates.updatedAt,
+      })
+      .from(workoutTemplates)
+      .where(
+        and(
+          eq(workoutTemplates.id, scheduledWorkout.templateId),
+          eq(workoutTemplates.userId, userId),
+        ),
+      )
+      .limit(1)
+      .get();
+
+    templateDeleted = !sourceTemplate || sourceTemplate.deletedAt !== null;
+
+    if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkoutRecord?.templateVersion) {
+      const currentTemplateVersion = await computeTemplateVersionForTemplateId(
+        scheduledWorkout.templateId,
+        db,
+      );
+
+      if (currentTemplateVersion !== scheduledWorkoutRecord.templateVersion) {
+        templateDrift = {
+          changedAt: sourceTemplate.updatedAt,
+          summary: TEMPLATE_DRIFT_SUMMARY,
+        };
+      }
+    }
+  }
+
+  return {
+    ...scheduledWorkout,
+    exercises: snapshotExercises,
+    templateDrift,
+    staleExercises: [...staleByExerciseId.values()],
+    templateDeleted,
+  };
+};
+
+const buildScheduledWorkoutDetailWithTemplate = async ({
+  scheduledWorkoutId,
+  userId,
+}: {
+  scheduledWorkoutId: string;
+  userId: string;
+}) => {
+  const payload = await buildScheduledWorkoutDetail({
+    scheduledWorkoutId,
+    userId,
+  });
+  if (!payload) {
+    return null;
+  }
+
+  const template =
+    payload.templateId && !payload.templateDeleted
+      ? ((await findWorkoutTemplateById(payload.templateId, userId)) ?? null)
+      : null;
+
+  return {
+    ...payload,
+    template,
+  };
+};
+
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
@@ -55,7 +222,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         body: createScheduledWorkoutInputSchema,
         response: {
-          201: apiDataResponseSchema(scheduledWorkoutSchema),
+          201: apiDataResponseSchema(scheduledWorkoutDetailSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
@@ -85,8 +252,21 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         input: request.body,
       });
 
+      await writeSnapshot({
+        scheduledWorkoutId: scheduledWorkout.id,
+        templateId: request.body.templateId,
+      });
+
+      const scheduledWorkoutDetail = await buildScheduledWorkoutDetail({
+        scheduledWorkoutId: scheduledWorkout.id,
+        userId: request.userId,
+      });
+      if (!scheduledWorkoutDetail) {
+        throw new Error('Created scheduled workout could not be loaded');
+      }
+
       return reply.code(201).send({
-        data: scheduledWorkout,
+        data: scheduledWorkoutDetail,
       });
     },
   );
@@ -118,17 +298,13 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  const scheduledWorkoutDetailSchema = scheduledWorkoutSchema.extend({
-    template: workoutTemplateSchema.nullable(),
-  });
-
   typedApp.get(
     '/:id',
     {
       schema: {
         params: idParamsSchema,
         response: {
-          200: apiDataResponseSchema(scheduledWorkoutDetailSchema),
+          200: apiDataResponseSchema(scheduledWorkoutDetailWithTemplateSchema),
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
         },
@@ -148,15 +324,21 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const template = scheduledWorkout.templateId
-        ? ((await findWorkoutTemplateById(scheduledWorkout.templateId, request.userId)) ?? null)
-        : null;
+      const scheduledWorkoutDetail = await buildScheduledWorkoutDetailWithTemplate({
+        scheduledWorkoutId: scheduledWorkout.id,
+        userId: request.userId,
+      });
+      if (!scheduledWorkoutDetail) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
 
       return reply.send({
-        data: {
-          ...scheduledWorkout,
-          template,
-        },
+        data: scheduledWorkoutDetail,
       });
     },
   );

@@ -10,6 +10,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 import {
   exercises,
+  scheduledWorkoutExerciseSets,
+  scheduledWorkoutExercises,
   scheduledWorkouts,
   templateExercises,
   users,
@@ -156,8 +158,25 @@ const seedTemplateExercise = (values: {
   id: string;
   templateId: string;
   exerciseId: string;
-  section: 'warmup' | 'main' | 'cooldown';
+  section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   orderIndex: number;
+  sets?: number | null;
+  repsMin?: number | null;
+  repsMax?: number | null;
+  tempo?: string | null;
+  restSeconds?: number | null;
+  supersetGroup?: string | null;
+  notes?: string | null;
+  programmingNotes?: string | null;
+  cues?: string[] | null;
+  setTargets?: Array<{
+    setNumber: number;
+    targetWeight?: number | null;
+    targetWeightMin?: number | null;
+    targetWeightMax?: number | null;
+    targetSeconds?: number | null;
+    targetDistance?: number | null;
+  }> | null;
 }) =>
   context.db
     .insert(templateExercises)
@@ -167,6 +186,16 @@ const seedTemplateExercise = (values: {
       exerciseId: values.exerciseId,
       section: values.section,
       orderIndex: values.orderIndex,
+      sets: values.sets ?? null,
+      repsMin: values.repsMin ?? null,
+      repsMax: values.repsMax ?? null,
+      tempo: values.tempo ?? null,
+      restSeconds: values.restSeconds ?? null,
+      supersetGroup: values.supersetGroup ?? null,
+      notes: values.notes ?? null,
+      programmingNotes: values.programmingNotes ?? null,
+      cues: values.cues ?? null,
+      setTargets: values.setTargets ?? null,
     })
     .run();
 
@@ -315,6 +344,10 @@ describe('scheduled workout routes', () => {
         templateId: string;
         date: string;
         sessionId: string | null;
+        exercises: unknown[];
+        templateDrift: unknown;
+        staleExercises: unknown[];
+        templateDeleted: boolean;
         createdAt: number;
         updatedAt: number;
       };
@@ -329,6 +362,10 @@ describe('scheduled workout routes', () => {
     expect(createdPayload.data.id).toBeTruthy();
     expect(createdPayload.data.createdAt).toBeTypeOf('number');
     expect(createdPayload.data.updatedAt).toBeTypeOf('number');
+    expect(createdPayload.data.exercises).toEqual([]);
+    expect(createdPayload.data.templateDrift).toBeNull();
+    expect(createdPayload.data.staleExercises).toEqual([]);
+    expect(createdPayload.data.templateDeleted).toBe(false);
 
     const listResponse = await context.app.inject({
       method: 'GET',
@@ -356,6 +393,374 @@ describe('scheduled workout routes', () => {
           createdAt: expect.any(Number),
         },
       ],
+    });
+  });
+
+  it('creates snapshot rows on POST and stores templateVersion', async () => {
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+
+    seedExercise({
+      id: 'exercise-swing',
+      userId: 'user-1',
+      name: 'Kettlebell Swing',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-swing',
+      templateId: 'template-1',
+      exerciseId: 'exercise-swing',
+      section: 'main',
+      orderIndex: 0,
+      sets: 2,
+      repsMin: 8,
+      repsMax: 8,
+      notes: 'Fallback note',
+      programmingNotes: null,
+      restSeconds: 90,
+      cues: ['Brace', 'Hinge'],
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const payload = response.json() as {
+      data: {
+        id: string;
+        exercises: Array<{
+          exerciseId: string;
+          programmingNotes: string | null;
+          sets: Array<{ setNumber: number; reps: number | null }>;
+        }>;
+      };
+    };
+
+    expect(payload.data.exercises).toEqual([
+      expect.objectContaining({
+        exerciseId: 'exercise-swing',
+        programmingNotes: 'Fallback note',
+        sets: [
+          expect.objectContaining({ setNumber: 1, reps: 8 }),
+          expect.objectContaining({ setNumber: 2, reps: 8 }),
+        ],
+      }),
+    ]);
+
+    const templateVersion = context.db
+      .select({
+        templateVersion: scheduledWorkouts.templateVersion,
+      })
+      .from(scheduledWorkouts)
+      .where(eq(scheduledWorkouts.id, payload.data.id))
+      .limit(1)
+      .get();
+    expect(templateVersion?.templateVersion).toMatch(/^[0-9a-f]{64}$/);
+
+    const exerciseRows = context.db
+      .select({ id: scheduledWorkoutExercises.id })
+      .from(scheduledWorkoutExercises)
+      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, payload.data.id))
+      .all();
+    expect(exerciseRows).toHaveLength(1);
+
+    const setRows = context.db
+      .select({ id: scheduledWorkoutExerciseSets.id })
+      .from(scheduledWorkoutExerciseSets)
+      .all();
+    expect(setRows).toHaveLength(2);
+  });
+
+  it('returns snapshot detail with programming notes and all-clear markers on GET by id', async () => {
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+
+    seedExercise({
+      id: 'exercise-press',
+      userId: 'user-1',
+      name: 'Overhead Press',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-press',
+      templateId: 'template-1',
+      exerciseId: 'exercise-press',
+      section: 'main',
+      orderIndex: 0,
+      repsMin: 5,
+      repsMax: 5,
+      programmingNotes: 'Keep glutes tight and bar path straight.',
+      restSeconds: 120,
+      tempo: '3010',
+      setTargets: [
+        { setNumber: 1, targetWeight: 95 },
+        { setNumber: 2, targetWeight: 105 },
+      ],
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-13',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const createdId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${createdId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: {
+        id: createdId,
+        userId: 'user-1',
+        templateId: 'template-1',
+        date: '2026-03-13',
+        sessionId: null,
+        createdAt: expect.any(Number),
+        updatedAt: expect.any(Number),
+        exercises: [
+          {
+            exerciseId: 'exercise-press',
+            section: 'main',
+            orderIndex: 0,
+            programmingNotes: 'Keep glutes tight and bar path straight.',
+            agentNotes: null,
+            agentNotesMeta: null,
+            templateCues: null,
+            supersetGroup: null,
+            tempo: '3010',
+            restSeconds: 120,
+            sets: [
+              {
+                setNumber: 1,
+                repsMin: 5,
+                repsMax: 5,
+                reps: 5,
+                targetWeight: 95,
+                targetWeightMin: null,
+                targetWeightMax: null,
+                targetSeconds: null,
+                targetDistance: null,
+              },
+              {
+                setNumber: 2,
+                repsMin: 5,
+                repsMax: 5,
+                reps: 5,
+                targetWeight: 105,
+                targetWeightMin: null,
+                targetWeightMax: null,
+                targetSeconds: null,
+                targetDistance: null,
+              },
+            ],
+          },
+        ],
+        templateDrift: null,
+        staleExercises: [],
+        templateDeleted: false,
+        template: expect.objectContaining({
+          id: 'template-1',
+          name: 'Upper Push',
+        }),
+      },
+    });
+  });
+
+  it('returns templateDrift marker when template changes after scheduling', async () => {
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+
+    seedExercise({
+      id: 'exercise-squat',
+      userId: 'user-1',
+      name: 'Back Squat',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-squat',
+      templateId: 'template-1',
+      exerciseId: 'exercise-squat',
+      section: 'main',
+      orderIndex: 0,
+      repsMin: 5,
+      repsMax: 5,
+      programmingNotes: 'Drive out of the hole.',
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-14',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    const changedAt = Date.UTC(2026, 2, 14, 14, 30, 0);
+    context.db
+      .update(templateExercises)
+      .set({
+        programmingNotes: 'Work up to a strong top set, then backoff.',
+      })
+      .where(eq(templateExercises.id, 'template-exercise-squat'))
+      .run();
+    context.db
+      .update(workoutTemplates)
+      .set({
+        updatedAt: changedAt,
+      })
+      .where(eq(workoutTemplates.id, 'template-1'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: scheduledWorkoutId,
+        templateDrift: {
+          changedAt,
+          summary: 'Template has been updated since scheduling.',
+        },
+        staleExercises: [],
+        templateDeleted: false,
+      }),
+    });
+  });
+
+  it('returns staleExercises marker when snapshot exercises are soft-deleted', async () => {
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+
+    seedExercise({
+      id: 'exercise-stale',
+      userId: 'user-1',
+      name: 'Dips',
+      trackingType: 'bodyweight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-stale',
+      templateId: 'template-1',
+      exerciseId: 'exercise-stale',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Controlled depth.',
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-15',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    context.db
+      .update(exercises)
+      .set({
+        deletedAt: '2026-03-15T12:00:00.000Z',
+      })
+      .where(eq(exercises.id, 'exercise-stale'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: scheduledWorkoutId,
+        templateDrift: null,
+        staleExercises: [
+          {
+            exerciseId: 'exercise-stale',
+            snapshotName: 'Dips',
+          },
+        ],
+        templateDeleted: false,
+      }),
+    });
+  });
+
+  it('returns templateDeleted marker when the source template is soft-deleted', async () => {
+    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+
+    seedExercise({
+      id: 'exercise-row',
+      userId: 'user-1',
+      name: 'Barbell Row',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-row',
+      templateId: 'template-1',
+      exerciseId: 'exercise-row',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Pull to lower ribs.',
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-16',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    context.db
+      .update(workoutTemplates)
+      .set({
+        deletedAt: '2026-03-16T08:00:00.000Z',
+      })
+      .where(eq(workoutTemplates.id, 'template-1'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: scheduledWorkoutId,
+        templateDrift: null,
+        staleExercises: [],
+        templateDeleted: true,
+        template: null,
+      }),
     });
   });
 
