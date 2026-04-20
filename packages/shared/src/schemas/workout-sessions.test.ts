@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createWorkoutSessionInputSchema,
+  createWorkoutSessionRequestSchema,
   reorderWorkoutSessionExercisesInputSchema,
   sessionCorrectionRequestSchema,
   setCorrectionSchema,
@@ -10,6 +11,7 @@ import {
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetInputSchema,
   type CreateWorkoutSessionInput,
+  type CreateWorkoutSessionRequestInput,
   type SessionCorrectionRequest,
   type SaveWorkoutSessionAsTemplateInput,
   type SetCorrection,
@@ -336,6 +338,13 @@ describe('workoutSessionSchema', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: ' Keep lats tight ',
+          agentNotes: ' Last session was smooth. Add 5 lb if warmups feel sharp. ',
+          agentNotesMeta: {
+            author: 'Coach Pulse',
+            generatedAt: '2026-03-01T09:00:00.000Z',
+            scheduledDateAtGeneration: '2026-03-01',
+            stale: true,
+          },
           sets: [],
         },
         {
@@ -346,6 +355,8 @@ describe('workoutSessionSchema', () => {
           orderIndex: 1,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [],
         },
       ],
@@ -355,7 +366,18 @@ describe('workoutSessionSchema', () => {
     });
 
     expect(session.exercises?.[0]?.programmingNotes).toBe('Keep lats tight');
+    expect(session.exercises?.[0]?.agentNotes).toBe(
+      'Last session was smooth. Add 5 lb if warmups feel sharp.',
+    );
+    expect(session.exercises?.[0]?.agentNotesMeta).toEqual({
+      author: 'Coach Pulse',
+      generatedAt: '2026-03-01T09:00:00.000Z',
+      scheduledDateAtGeneration: '2026-03-01',
+      stale: true,
+    });
     expect(session.exercises?.[1]?.programmingNotes).toBeNull();
+    expect(session.exercises?.[1]?.agentNotes).toBeNull();
+    expect(session.exercises?.[1]?.agentNotesMeta).toBeNull();
   });
 
   it('preserves deleted exercise metadata in historical session responses', () => {
@@ -525,6 +547,8 @@ describe('workoutSessionSchema', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [
             {
               id: 'set-1',
@@ -709,6 +733,45 @@ describe('createWorkoutSessionInputSchema', () => {
       notes: null,
       sets: [],
     });
+  });
+});
+
+describe('createWorkoutSessionRequestSchema', () => {
+  it('accepts scheduled-workout starts without templateId or name', () => {
+    const payload: CreateWorkoutSessionRequestInput = createWorkoutSessionRequestSchema.parse({
+      scheduledWorkoutId: ' schedule-1 ',
+      date: '2026-03-12',
+      startedAt: 10,
+      force: true,
+    });
+
+    expect(payload).toEqual({
+      scheduledWorkoutId: 'schedule-1',
+      templateId: null,
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 10,
+      completedAt: null,
+      duration: null,
+      timeSegments: [],
+      feedback: null,
+      notes: null,
+      sets: [],
+      force: true,
+    });
+  });
+
+  it('rejects payloads that combine multiple start modes', () => {
+    expect(() =>
+      createWorkoutSessionRequestSchema.parse({
+        scheduledWorkoutId: 'schedule-1',
+        templateId: 'template-1',
+        date: '2026-03-12',
+        startedAt: 10,
+      }),
+    ).toThrow(
+      'Provide exactly one session start mode: scheduledWorkoutId, templateId/templateName, or name',
+    );
   });
 });
 

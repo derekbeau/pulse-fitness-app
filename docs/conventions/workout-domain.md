@@ -29,6 +29,29 @@ The scheduled-workout detail page should mirror template-detail exercise renderi
 - `programmingNotes` shown on scheduled cards comes from the resolved template exercise data.
 - Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
 
+### Scheduled Start Lifecycle
+
+`POST /api/v1/workout-sessions` supports three start selectors:
+
+1. `scheduledWorkoutId` (scheduled snapshot start)
+2. `templateId` or `templateName` (template start)
+3. `name` (ad-hoc start)
+
+Scheduled starts seed from `scheduled_workout_exercises` + `scheduled_workout_exercise_sets`, not from live template rows.
+
+- Session set prescriptions copy snapshot targets (`targetWeight*`, `targetSeconds`, `targetDistance`, and exact `reps` when present).
+- Session exercise note snapshots copy `programmingNotes`, `agentNotes`, and `agentNotesMeta` from the scheduled snapshot.
+
+Scheduled-start idempotency:
+
+- If `scheduled_workouts.sessionId` points to a live session (not cancelled and not soft-deleted), start returns `409 SCHEDULED_WORKOUT_ALREADY_STARTED`.
+- If the linked session is cancelled or deleted, the server clears `scheduled_workouts.sessionId` and allows a fresh start from the same snapshot.
+
+Stale snapshot exercises:
+
+- If snapshot exercises reference deleted/unavailable exercises, start returns `409 STALE_SNAPSHOT_EXERCISES` with `staleExercises`.
+- `force: true` allows start to continue by skipping stale snapshot exercises and returns `warnings: [{ code: 'STALE_EXERCISES_SKIPPED', exercises: [...] }]`.
+
 ## Completed Session Detail Surface
 
 The completed-session detail page should render each exercise through shared `WorkoutExerciseCard` primitives in `readonly-completed` mode.
@@ -36,7 +59,7 @@ The completed-session detail page should render each exercise through shared `Wo
 - Exercise rows render through shared `WorkoutExerciseCard` in `readonly-completed` mode.
 - Completed-mode set rows must show logged values (weight/reps/seconds/distance) and must not fall back to template target values.
 - Session-level composition (history button, comparison blocks, correction editors, and exercise-note markdown) should be injected via card slots from `session-detail.tsx`, not reimplemented as a separate card layout.
-- `programmingNotes` on completed cards comes from the session-exercise snapshot (`session_exercises.programmingNotes`) and is rendered by the primitive `ProgrammingNotesBlock`.
+- `programmingNotes` on completed cards comes from the session snapshot map (`workout_sessions.exerciseProgrammingNotes`) and is rendered by the primitive `ProgrammingNotesBlock`.
 
 ## Exercise In Template
 
@@ -105,14 +128,23 @@ Session exercise metadata should preserve `supersetGroup` values so completed re
 
 ### Session Exercise Notes Layers
 
-Session exercises intentionally keep two separate note channels:
+Session exercises intentionally keep three separate note channels:
 
 - `programmingNotes` (read-only): a snapshot of `template_exercises.notes` taken when the session starts from a template. This does not change if the template is edited later.
+- `agentNotes` + `agentNotesMeta` (read-only): snapshot-time session-specific guidance authored through scheduled-workout enrichment (`author`, `generatedAt`, `scheduledDateAtGeneration`, optional `stale`).
 - user exercise notes (editable): the workout-time notes entered during the session via the existing exercise-notes flow.
 
-Do not merge these two layers into one textarea; template prescription context and user observations must remain distinct.
+Do not merge these layers into one textarea; template prescription context, agent context, and user observations must remain distinct.
 
 When a completed session is saved as a new template (`POST /api/v1/workout-sessions/:id/save-as-template`), only `programmingNotes` round-trips onto `template_exercises.notes`. Session-specific note channels (user exercise notes, and agent notes when present) must be dropped so transient workout context is not promoted into reusable programming.
+
+### Cancel Behavior For Scheduled Starts
+
+When a session transitions to `cancelled`, linked schedules are unclaimed but preserved:
+
+- Clear `scheduled_workouts.sessionId` for the linked scheduled workout.
+- Preserve the cancelled session row for history.
+- Preserve scheduled snapshot rows (`scheduled_workout_exercises`, `scheduled_workout_exercise_sets`) so the workout can be started again later.
 
 ## Superset Grouping
 

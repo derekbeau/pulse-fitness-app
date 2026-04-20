@@ -13,6 +13,8 @@ import {
   agentTokens,
   exercises,
   parseWorkoutSessionTimeSegments,
+  scheduledWorkoutExerciseSets,
+  scheduledWorkoutExercises,
   scheduledWorkouts,
   serializeWorkoutSessionFeedback,
   serializeWorkoutSessionExerciseProgrammingNotes,
@@ -169,6 +171,7 @@ const seedWorkoutSession = (values: {
   id: string;
   userId: string;
   templateId?: string | null;
+  scheduledWorkoutId?: string | null;
   name: string;
   date: string;
   status?: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
@@ -188,6 +191,16 @@ const seedWorkoutSession = (values: {
     section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   }>;
   exerciseProgrammingNotes?: Record<string, string | null>;
+  exerciseAgentNotes?: Record<string, string | null>;
+  exerciseAgentNotesMeta?: Record<
+    string,
+    {
+      author: string;
+      generatedAt: string;
+      scheduledDateAtGeneration: string;
+      stale?: boolean;
+    } | null
+  >;
 }) =>
   context.db
     .insert(workoutSessions)
@@ -195,6 +208,7 @@ const seedWorkoutSession = (values: {
       id: values.id,
       userId: values.userId,
       templateId: values.templateId ?? null,
+      scheduledWorkoutId: values.scheduledWorkoutId ?? null,
       name: values.name,
       date: values.date,
       status: values.status ?? 'in-progress',
@@ -211,6 +225,8 @@ const seedWorkoutSession = (values: {
       exerciseProgrammingNotes: serializeWorkoutSessionExerciseProgrammingNotes(
         values.exerciseProgrammingNotes,
       ),
+      exerciseAgentNotes: values.exerciseAgentNotes ?? null,
+      exerciseAgentNotesMeta: values.exerciseAgentNotesMeta ?? null,
       notes: values.notes ?? null,
     })
     .run();
@@ -272,6 +288,70 @@ const seedScheduledWorkout = (values: {
       templateId: values.templateId ?? null,
       date: values.date,
       sessionId: values.sessionId ?? null,
+    })
+    .run();
+
+const seedScheduledWorkoutExercise = (values: {
+  id: string;
+  scheduledWorkoutId: string;
+  exerciseId: string;
+  section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+  orderIndex?: number;
+  programmingNotes?: string | null;
+  agentNotes?: string | null;
+  agentNotesMeta?: {
+    author: string;
+    generatedAt: string;
+    scheduledDateAtGeneration: string;
+    stale?: boolean;
+  } | null;
+  supersetGroup?: string | null;
+}) =>
+  context.db
+    .insert(scheduledWorkoutExercises)
+    .values({
+      id: values.id,
+      scheduledWorkoutId: values.scheduledWorkoutId,
+      exerciseId: values.exerciseId,
+      section: values.section ?? 'main',
+      orderIndex: values.orderIndex ?? 0,
+      programmingNotes: values.programmingNotes ?? null,
+      agentNotes: values.agentNotes ?? null,
+      agentNotesMeta: values.agentNotesMeta ?? null,
+      templateCues: null,
+      supersetGroup: values.supersetGroup ?? null,
+      tempo: null,
+      restSeconds: null,
+    })
+    .run();
+
+const seedScheduledWorkoutExerciseSet = (values: {
+  id: string;
+  scheduledWorkoutExerciseId: string;
+  setNumber: number;
+  reps?: number | null;
+  repsMin?: number | null;
+  repsMax?: number | null;
+  targetWeight?: number | null;
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+  targetSeconds?: number | null;
+  targetDistance?: number | null;
+}) =>
+  context.db
+    .insert(scheduledWorkoutExerciseSets)
+    .values({
+      id: values.id,
+      scheduledWorkoutExerciseId: values.scheduledWorkoutExerciseId,
+      setNumber: values.setNumber,
+      reps: values.reps ?? null,
+      repsMin: values.repsMin ?? null,
+      repsMax: values.repsMax ?? null,
+      targetWeight: values.targetWeight ?? null,
+      targetWeightMin: values.targetWeightMin ?? null,
+      targetWeightMax: values.targetWeightMax ?? null,
+      targetSeconds: values.targetSeconds ?? null,
+      targetDistance: values.targetDistance ?? null,
     })
     .run();
 
@@ -670,6 +750,16 @@ describe('workout session routes', () => {
         'warmup::global-bench-press': null,
         'main::user-1-lat-pulldown': 'Stay stacked and drive elbows down.',
       },
+      exerciseAgentNotes: {
+        'main::user-1-lat-pulldown': 'This should not round-trip',
+      },
+      exerciseAgentNotesMeta: {
+        'main::user-1-lat-pulldown': {
+          author: 'Coach Agent',
+          generatedAt: '2026-03-11T19:45:00.000Z',
+          scheduledDateAtGeneration: '2026-03-12',
+        },
+      },
     });
 
     seedSessionSet({
@@ -754,6 +844,9 @@ describe('workout session routes', () => {
       persistedTemplateExercises.some(
         (exercise) => exercise.notes === 'User main note that should not round-trip',
       ),
+    ).toBe(false);
+    expect(
+      persistedTemplateExercises.some((exercise) => exercise.notes === 'This should not round-trip'),
     ).toBe(false);
   });
 
@@ -2447,11 +2540,93 @@ describe('workout session routes', () => {
 
     expect(response.statusCode).toBe(201);
     const payload = response.json() as {
-      data: { exercises?: Array<{ exerciseId: string | null; programmingNotes: string | null }> };
+      data: {
+        exercises?: Array<{
+          exerciseId: string | null;
+          programmingNotes: string | null;
+          agentNotes: string | null;
+          agentNotesMeta: unknown;
+        }>;
+      };
     };
 
     expect(payload.data.exercises).toBeDefined();
     expect(payload.data.exercises?.every((exercise) => exercise.programmingNotes === null)).toBe(
+      true,
+    );
+    expect(payload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(true);
+    expect(payload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
+      true,
+    );
+  });
+
+  it('supports templateId-only and name-only start modes with null session agent notes', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedTemplateExercise({
+      id: 'template-mode-note',
+      templateId: 'template-1',
+      exerciseId: 'global-bench-press',
+      orderIndex: 0,
+      section: 'main',
+      sets: 1,
+      notes: 'Template note for start-mode test',
+    });
+
+    const [templateResponse, adHocResponse] = await Promise.all([
+      context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          templateId: 'template-1',
+          date: '2026-03-12',
+          status: 'in-progress',
+          startedAt: 1_700_000_250_000,
+          sets: [],
+        },
+      }),
+      context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: 'Ad-hoc Start Mode',
+          date: '2026-03-12',
+          status: 'in-progress',
+          startedAt: 1_700_000_260_000,
+          sets: [
+            {
+              exerciseId: 'user-1-lat-pulldown',
+              setNumber: 1,
+              section: 'main',
+            },
+          ],
+        },
+      }),
+    ]);
+
+    expect(templateResponse.statusCode).toBe(201);
+    expect(adHocResponse.statusCode).toBe(201);
+
+    const templatePayload = templateResponse.json() as {
+      data: { exercises?: Array<{ agentNotes: string | null; agentNotesMeta: unknown }> };
+    };
+    const adHocPayload = adHocResponse.json() as {
+      data: { exercises?: Array<{ agentNotes: string | null; agentNotesMeta: unknown }> };
+    };
+
+    expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(
+      true,
+    );
+    expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
+      true,
+    );
+    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(true);
+    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
       true,
     );
   });
@@ -2949,6 +3124,531 @@ describe('workout session routes', () => {
     expect(linkedSchedule).toEqual({
       sessionId,
     });
+  });
+
+  it('starts a session from scheduled-workout snapshot and propagates programming and agent notes', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedScheduledWorkout({
+      id: 'schedule-snapshot-seed',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    seedScheduledWorkoutExercise({
+      id: 'schedule-snapshot-bench',
+      scheduledWorkoutId: 'schedule-snapshot-seed',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Explode through the concentric.',
+      agentNotes: 'Last week moved fast at 185. Start at 190.',
+      agentNotesMeta: {
+        author: 'Coach Agent',
+        generatedAt: '2026-03-11T19:45:00.000Z',
+        scheduledDateAtGeneration: '2026-03-12',
+      },
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-snapshot-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-snapshot-bench',
+      setNumber: 1,
+      reps: 6,
+      targetWeight: 190,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-snapshot-bench-set-2',
+      scheduledWorkoutExerciseId: 'schedule-snapshot-bench',
+      setNumber: 2,
+      reps: 6,
+      targetWeightMin: 190,
+      targetWeightMax: 195,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'schedule-snapshot-seed',
+        date: '2026-03-01',
+        status: 'in-progress',
+        startedAt: 1_700_000_400_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const payload = response.json() as {
+      data: {
+        id: string;
+        templateId: string | null;
+        date: string;
+        exercises?: Array<{
+          exerciseId: string | null;
+          programmingNotes: string | null;
+          agentNotes: string | null;
+          agentNotesMeta: {
+            author: string;
+            generatedAt: string;
+            scheduledDateAtGeneration: string;
+          } | null;
+        }>;
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          reps: number | null;
+          targetWeight: number | null;
+          targetWeightMin: number | null;
+          targetWeightMax: number | null;
+        }>;
+      };
+    };
+
+    expect(payload.data.templateId).toBe('template-1');
+    expect(payload.data.date).toBe('2026-03-12');
+    expect(payload.data.exercises).toEqual([
+      expect.objectContaining({
+        exerciseId: 'global-bench-press',
+        programmingNotes: 'Explode through the concentric.',
+        agentNotes: 'Last week moved fast at 185. Start at 190.',
+        agentNotesMeta: {
+          author: 'Coach Agent',
+          generatedAt: '2026-03-11T19:45:00.000Z',
+          scheduledDateAtGeneration: '2026-03-12',
+        },
+      }),
+    ]);
+    expect(payload.data.sets).toEqual([
+      expect.objectContaining({
+        exerciseId: 'global-bench-press',
+        setNumber: 1,
+        reps: 6,
+        targetWeight: 190,
+      }),
+      expect.objectContaining({
+        exerciseId: 'global-bench-press',
+        setNumber: 2,
+        reps: 6,
+        targetWeightMin: 190,
+        targetWeightMax: 195,
+      }),
+    ]);
+
+    const linkedSchedule = context.db
+      .select({
+        sessionId: scheduledWorkouts.sessionId,
+      })
+      .from(scheduledWorkouts)
+      .where(eq(scheduledWorkouts.id, 'schedule-snapshot-seed'))
+      .limit(1)
+      .get();
+    expect(linkedSchedule?.sessionId).toBe(payload.data.id);
+
+    const persistedSession = context.db
+      .select({
+        scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+      })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, payload.data.id))
+      .limit(1)
+      .get();
+    expect(persistedSession).toEqual({
+      scheduledWorkoutId: 'schedule-snapshot-seed',
+    });
+  });
+
+  it('returns 409 when scheduled workout is already linked to a live session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'schedule-live-session',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1_700_000_400_000,
+    });
+    seedScheduledWorkout({
+      id: 'schedule-consumed',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+      sessionId: 'schedule-live-session',
+    });
+    seedScheduledWorkoutExercise({
+      id: 'schedule-consumed-bench',
+      scheduledWorkoutId: 'schedule-consumed',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-consumed-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-consumed-bench',
+      setNumber: 1,
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'schedule-consumed',
+        date: '2026-03-12',
+        startedAt: 1_700_000_500_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'SCHEDULED_WORKOUT_ALREADY_STARTED',
+        message: 'Scheduled workout is already linked to an active session',
+        existingSessionId: 'schedule-live-session',
+      },
+    });
+  });
+
+  it('restarts cancelled scheduled sessions by clearing stale links and creating a fresh session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedScheduledWorkout({
+      id: 'schedule-restart',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    seedWorkoutSession({
+      id: 'cancelled-linked-session',
+      userId: 'user-1',
+      templateId: 'template-1',
+      scheduledWorkoutId: 'schedule-restart',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'cancelled',
+      startedAt: 1_700_000_400_000,
+    });
+    context.db
+      .update(scheduledWorkouts)
+      .set({ sessionId: 'cancelled-linked-session' })
+      .where(eq(scheduledWorkouts.id, 'schedule-restart'))
+      .run();
+    seedScheduledWorkoutExercise({
+      id: 'schedule-restart-bench',
+      scheduledWorkoutId: 'schedule-restart',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Drive feet into the floor.',
+      agentNotes: 'Add 5 lb if reps stay clean.',
+      agentNotesMeta: {
+        author: 'Coach Agent',
+        generatedAt: '2026-03-11T19:45:00.000Z',
+        scheduledDateAtGeneration: '2026-03-12',
+      },
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-restart-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-restart-bench',
+      setNumber: 1,
+      reps: 8,
+      targetWeight: 185,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'schedule-restart',
+        date: '2026-03-12',
+        startedAt: 1_700_000_600_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const payload = response.json() as { data: { id: string; exercises?: Array<{ agentNotes: string | null }> } };
+    expect(payload.data.id).not.toBe('cancelled-linked-session');
+    expect(payload.data.exercises).toEqual([
+      expect.objectContaining({
+        agentNotes: 'Add 5 lb if reps stay clean.',
+      }),
+    ]);
+
+    const scheduledWorkoutRow = context.db
+      .select({
+        sessionId: scheduledWorkouts.sessionId,
+      })
+      .from(scheduledWorkouts)
+      .where(eq(scheduledWorkouts.id, 'schedule-restart'))
+      .limit(1)
+      .get();
+    expect(scheduledWorkoutRow).toEqual({
+      sessionId: payload.data.id,
+    });
+
+    const cancelledSession = context.db
+      .select({
+        id: workoutSessions.id,
+        status: workoutSessions.status,
+        deletedAt: workoutSessions.deletedAt,
+      })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, 'cancelled-linked-session'))
+      .limit(1)
+      .get();
+    expect(cancelledSession).toEqual({
+      id: 'cancelled-linked-session',
+      status: 'cancelled',
+      deletedAt: null,
+    });
+  });
+
+  it('returns stale-exercise 409 when snapshot exercises are deleted', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedScheduledWorkout({
+      id: 'schedule-stale',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    seedScheduledWorkoutExercise({
+      id: 'schedule-stale-bench',
+      scheduledWorkoutId: 'schedule-stale',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-stale-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-stale-bench',
+      setNumber: 1,
+      reps: 8,
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-11T00:00:00.000Z' })
+      .where(eq(exercises.id, 'global-bench-press'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'schedule-stale',
+        date: '2026-03-12',
+        startedAt: 1_700_000_500_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'STALE_SNAPSHOT_EXERCISES',
+        message: 'Scheduled workout snapshot references deleted or unavailable exercises',
+        staleExercises: [
+          {
+            exerciseId: 'global-bench-press',
+            snapshotName: 'Bench Press',
+          },
+        ],
+      },
+    });
+
+    const createdSessions = context.db
+      .select({ id: workoutSessions.id })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.scheduledWorkoutId, 'schedule-stale'))
+      .all();
+    expect(createdSessions).toHaveLength(0);
+  });
+
+  it('skips stale exercises with force=true and includes warnings in the create response', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedScheduledWorkout({
+      id: 'schedule-force-stale',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    seedScheduledWorkoutExercise({
+      id: 'schedule-force-stale-bench',
+      scheduledWorkoutId: 'schedule-force-stale',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-force-stale-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-force-stale-bench',
+      setNumber: 1,
+      reps: 8,
+    });
+    seedScheduledWorkoutExercise({
+      id: 'schedule-force-stale-lat',
+      scheduledWorkoutId: 'schedule-force-stale',
+      exerciseId: 'user-1-lat-pulldown',
+      section: 'main',
+      orderIndex: 1,
+      programmingNotes: 'Keep torso still.',
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-force-stale-lat-set-1',
+      scheduledWorkoutExerciseId: 'schedule-force-stale-lat',
+      setNumber: 1,
+      reps: 10,
+    });
+
+    context.db
+      .update(exercises)
+      .set({ deletedAt: '2026-03-11T00:00:00.000Z' })
+      .where(eq(exercises.id, 'global-bench-press'))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'schedule-force-stale',
+        date: '2026-03-12',
+        startedAt: 1_700_000_700_000,
+        force: true,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'user-1-lat-pulldown',
+            programmingNotes: 'Keep torso still.',
+          }),
+        ],
+        sets: [expect.objectContaining({ exerciseId: 'user-1-lat-pulldown', setNumber: 1 })],
+      }),
+      warnings: [
+        {
+          code: 'STALE_EXERCISES_SKIPPED',
+          exercises: [
+            {
+              exerciseId: 'global-bench-press',
+              snapshotName: 'Bench Press',
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('clears scheduled_workouts.sessionId when a linked session is cancelled and preserves snapshot rows', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedScheduledWorkout({
+      id: 'schedule-cancel-linked',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    seedWorkoutSession({
+      id: 'session-cancel-linked',
+      userId: 'user-1',
+      templateId: 'template-1',
+      scheduledWorkoutId: 'schedule-cancel-linked',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: Date.parse('2026-03-12T10:00:00.000Z'),
+      timeSegments: [{ start: '2026-03-12T10:00:00.000Z', end: null, section: 'main' }],
+    });
+    context.db
+      .update(scheduledWorkouts)
+      .set({ sessionId: 'session-cancel-linked' })
+      .where(eq(scheduledWorkouts.id, 'schedule-cancel-linked'))
+      .run();
+    seedScheduledWorkoutExercise({
+      id: 'schedule-cancel-linked-bench',
+      scheduledWorkoutId: 'schedule-cancel-linked',
+      exerciseId: 'global-bench-press',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Maintain bar path.',
+      agentNotes: 'Keep it at RPE 7.',
+      agentNotesMeta: {
+        author: 'Coach Agent',
+        generatedAt: '2026-03-11T19:45:00.000Z',
+        scheduledDateAtGeneration: '2026-03-12',
+      },
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'schedule-cancel-linked-bench-set-1',
+      scheduledWorkoutExerciseId: 'schedule-cancel-linked-bench',
+      setNumber: 1,
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-cancel-linked',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        status: 'cancelled',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-cancel-linked',
+        status: 'cancelled',
+      }),
+    });
+
+    const linkedSchedule = context.db
+      .select({
+        sessionId: scheduledWorkouts.sessionId,
+      })
+      .from(scheduledWorkouts)
+      .where(eq(scheduledWorkouts.id, 'schedule-cancel-linked'))
+      .limit(1)
+      .get();
+    expect(linkedSchedule).toEqual({
+      sessionId: null,
+    });
+
+    const snapshotRows = context.db
+      .select({
+        id: scheduledWorkoutExercises.id,
+      })
+      .from(scheduledWorkoutExercises)
+      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, 'schedule-cancel-linked'))
+      .all();
+    expect(snapshotRows).toHaveLength(1);
   });
 
   it('does not open any section segment for legacy in-progress sessions with no time segments', async () => {

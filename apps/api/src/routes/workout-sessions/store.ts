@@ -21,7 +21,9 @@ import {
   parseWorkoutSessionFeedback,
   parseWorkoutSessionExerciseProgrammingNotes,
   parseWorkoutSessionTimeSegments,
+  type WorkoutSessionExerciseAgentNotesMeta,
   sessionSets,
+  scheduledWorkouts,
   serializeWorkoutSessionFeedback,
   serializeWorkoutSessionExerciseProgrammingNotes,
   serializeWorkoutSessionTimeSegments,
@@ -38,6 +40,7 @@ type WorkoutSessionRecord = {
   id: string;
   userId: string;
   templateId: string | null;
+  scheduledWorkoutId: string | null;
   name: string;
   date: string;
   status: WorkoutSession['status'];
@@ -47,6 +50,8 @@ type WorkoutSessionRecord = {
   timeSegments: string;
   feedback: string | null;
   exerciseProgrammingNotes: string | null;
+  exerciseAgentNotes: Record<string, string | null> | null;
+  exerciseAgentNotesMeta: Record<string, WorkoutSessionExerciseAgentNotesMeta | null> | null;
   notes: string | null;
   createdAt: number;
   updatedAt: number;
@@ -87,6 +92,7 @@ const workoutSessionSelection = {
   id: workoutSessions.id,
   userId: workoutSessions.userId,
   templateId: workoutSessions.templateId,
+  scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
   name: workoutSessions.name,
   date: workoutSessions.date,
   status: workoutSessions.status,
@@ -96,6 +102,8 @@ const workoutSessionSelection = {
   timeSegments: workoutSessions.timeSegments,
   feedback: workoutSessions.feedback,
   exerciseProgrammingNotes: workoutSessions.exerciseProgrammingNotes,
+  exerciseAgentNotes: workoutSessions.exerciseAgentNotes,
+  exerciseAgentNotesMeta: workoutSessions.exerciseAgentNotesMeta,
   notes: workoutSessions.notes,
   createdAt: workoutSessions.createdAt,
   updatedAt: workoutSessions.updatedAt,
@@ -238,6 +246,8 @@ const buildWorkoutSession = (
   const programmingNotesByExerciseSection = parseWorkoutSessionExerciseProgrammingNotes(
     session.exerciseProgrammingNotes,
   );
+  const agentNotesByExerciseSection = session.exerciseAgentNotes ?? {};
+  const agentNotesMetaByExerciseSection = session.exerciseAgentNotesMeta ?? {};
   const sectionDurations = calculateSectionDurations(timeSegments);
 
   return {
@@ -258,6 +268,8 @@ const buildWorkoutSession = (
       sets,
       exerciseInfoById,
       programmingNotesByExerciseSection,
+      agentNotesByExerciseSection,
+      agentNotesMetaByExerciseSection,
     ),
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
@@ -279,6 +291,8 @@ const buildWorkoutSessionExercises = (
     }
   >,
   programmingNotesByExerciseSection: Record<string, string | null>,
+  agentNotesByExerciseSection: Record<string, string | null>,
+  agentNotesMetaByExerciseSection: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>,
 ): WorkoutSessionExercise[] => {
   const groupedByExercise = new Map<
     string,
@@ -364,6 +378,17 @@ const buildWorkoutSessionExercises = (
         exercise.exerciseId === null
           ? null
           : (programmingNotesByExerciseSection[
+              `${exercise.section ?? 'main'}::${exercise.exerciseId}`
+            ] ?? null),
+      agentNotes:
+        exercise.exerciseId === null
+          ? null
+          : (agentNotesByExerciseSection[`${exercise.section ?? 'main'}::${exercise.exerciseId}`] ??
+            null),
+      agentNotesMeta:
+        exercise.exerciseId === null
+          ? null
+          : (agentNotesMetaByExerciseSection[
               `${exercise.section ?? 'main'}::${exercise.exerciseId}`
             ] ?? null),
       sets: exercise.sets,
@@ -888,22 +913,31 @@ export const createWorkoutSession = async ({
   userId,
   input,
   programmingNotesByExerciseSection,
+  agentNotesByExerciseSection,
+  agentNotesMetaByExerciseSection,
+  scheduledWorkoutId,
+  linkScheduledWorkoutSession,
 }: {
   id: string;
   userId: string;
   input: CreateWorkoutSessionInput;
   programmingNotesByExerciseSection?: Record<string, string | null>;
+  agentNotesByExerciseSection?: Record<string, string | null>;
+  agentNotesMetaByExerciseSection?: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>;
+  scheduledWorkoutId?: string;
+  linkScheduledWorkoutSession?: boolean;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
   const setRows = buildSessionSetRows(id, input.sets);
 
-  const result = db.transaction((tx) => {
+  db.transaction((tx) => {
     const insertResult = tx
       .insert(workoutSessions)
       .values({
         id,
         userId,
         templateId: input.templateId,
+        scheduledWorkoutId: scheduledWorkoutId ?? null,
         name: input.name,
         date: input.date,
         status: input.status,
@@ -915,24 +949,40 @@ export const createWorkoutSession = async ({
         exerciseProgrammingNotes: serializeWorkoutSessionExerciseProgrammingNotes(
           programmingNotesByExerciseSection,
         ),
+        exerciseAgentNotes: agentNotesByExerciseSection ?? null,
+        exerciseAgentNotesMeta: agentNotesMetaByExerciseSection ?? null,
         notes: input.notes,
       })
       .run();
 
     if (insertResult.changes !== 1) {
-      return false;
+      throw new Error('Failed to persist workout session');
     }
 
     if (setRows.length > 0) {
       tx.insert(sessionSets).values(setRows).run();
     }
 
-    return true;
-  });
+    if (linkScheduledWorkoutSession && scheduledWorkoutId) {
+      const linkResult = tx
+        .update(scheduledWorkouts)
+        .set({
+          sessionId: id,
+        })
+        .where(
+          and(
+            eq(scheduledWorkouts.id, scheduledWorkoutId),
+            eq(scheduledWorkouts.userId, userId),
+            isNull(scheduledWorkouts.sessionId),
+          ),
+        )
+        .run();
 
-  if (!result) {
-    throw new Error('Failed to persist workout session');
-  }
+      if (linkResult.changes !== 1) {
+        throw new Error('Failed to link scheduled workout to the new session');
+      }
+    }
+  });
 
   const session = await findWorkoutSessionById(id, userId);
   if (!session) {
@@ -1284,15 +1334,17 @@ const mapSessionSectionToTemplateSection = (
 type SessionExerciseTemplateRoundTripSource = WorkoutSessionExercise & {
   notes?: string | null;
   agentNotes?: string | null;
+  agentNotesMeta?: WorkoutSessionExerciseAgentNotesMeta | null;
 };
 
 const getTemplateNotesFromSessionExercise = (
   exercise: SessionExerciseTemplateRoundTripSource,
 ): string | null => {
   // Agent notes and user notes do not round-trip — they are session-specific.
-  const { programmingNotes, notes, agentNotes } = exercise;
+  const { programmingNotes, notes, agentNotes, agentNotesMeta } = exercise;
   void notes;
   void agentNotes;
+  void agentNotesMeta;
   return programmingNotes ?? null;
 };
 

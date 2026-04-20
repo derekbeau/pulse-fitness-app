@@ -330,6 +330,16 @@ export const workoutSessionExerciseSchema = z.object({
   orderIndex: z.number().int().min(0),
   section: workoutTemplateSectionTypeSchema.nullable(),
   programmingNotes: nullableLongStringSchema.default(null),
+  agentNotes: nullableLongStringSchema.default(null),
+  agentNotesMeta: z
+    .object({
+      author: requiredStringSchema,
+      generatedAt: z.string().datetime({ offset: true }),
+      scheduledDateAtGeneration: dateSchema,
+      stale: z.boolean().optional(),
+    })
+    .nullable()
+    .default(null),
   sets: z.array(sessionSetSchema).max(500),
 });
 
@@ -463,22 +473,47 @@ const workoutSessionExerciseSectionInputSchema = z.object({
   section: workoutTemplateSectionTypeSchema,
 });
 
-export const createWorkoutSessionInputSchema = z
-  .object({
-    templateId: nullableTemplateIdSchema.optional().default(null),
-    templateName: requiredStringSchema.optional(),
-    name: requiredStringSchema,
-    date: dateSchema,
-    status: workoutSessionStatusSchema.optional().default('in-progress'),
-    startedAt: z.number().int(),
-    completedAt: z.number().int().nullable().optional().default(null),
-    duration: nullableIntegerSchema.optional().default(null),
-    timeSegments: validatedTimeSegmentsSchema.optional().default([]),
-    feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
-    notes: nullableLongStringSchema.optional().default(null),
-    sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
+const createWorkoutSessionInputObjectSchema = z.object({
+  templateId: nullableTemplateIdSchema.optional().default(null),
+  templateName: requiredStringSchema.optional(),
+  name: requiredStringSchema,
+  date: dateSchema,
+  status: workoutSessionStatusSchema.optional().default('in-progress'),
+  startedAt: z.number().int(),
+  completedAt: z.number().int().nullable().optional().default(null),
+  duration: nullableIntegerSchema.optional().default(null),
+  timeSegments: validatedTimeSegmentsSchema.optional().default([]),
+  feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
+  notes: nullableLongStringSchema.optional().default(null),
+  sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
+});
+
+export const createWorkoutSessionInputSchema =
+  createWorkoutSessionInputObjectSchema.superRefine(validateWorkoutSessionTiming);
+
+export const createWorkoutSessionRequestSchema = createWorkoutSessionInputObjectSchema
+  .extend({
+    scheduledWorkoutId: requiredStringSchema.optional(),
+    force: z.boolean().optional(),
+    name: requiredStringSchema.optional(),
   })
-  .superRefine(validateWorkoutSessionTiming);
+  .superRefine((value, context) => {
+    const hasScheduledStart = value.scheduledWorkoutId !== undefined;
+    const hasTemplateStart = value.templateId !== null || value.templateName !== undefined;
+    const hasAdHocStart = value.name !== undefined && !hasScheduledStart && !hasTemplateStart;
+    const startModes = [hasScheduledStart, hasTemplateStart, hasAdHocStart].filter(Boolean).length;
+
+    if (startModes === 1) {
+      return;
+    }
+
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        'Provide exactly one session start mode: scheduledWorkoutId, templateId/templateName, or name',
+      path: ['scheduledWorkoutId'],
+    });
+  });
 
 export const updateWorkoutSessionInputSchema = z
   .object({
@@ -584,6 +619,7 @@ export type WorkoutSession = z.infer<typeof workoutSessionSchema>;
 export type WorkoutSessionListItem = z.infer<typeof workoutSessionListItemSchema>;
 export type SessionSetInput = z.infer<typeof sessionSetInputSchema>;
 export type CreateWorkoutSessionInput = z.infer<typeof createWorkoutSessionInputSchema>;
+export type CreateWorkoutSessionRequestInput = z.infer<typeof createWorkoutSessionRequestSchema>;
 export type UpdateWorkoutSessionInput = z.infer<typeof updateWorkoutSessionInputSchema>;
 export type UpdateWorkoutSessionTimeSegmentsInput = z.infer<
   typeof updateWorkoutSessionTimeSegmentsInputSchema

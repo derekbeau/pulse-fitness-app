@@ -5,11 +5,13 @@ import {
   batchUpsertSetsSchema,
   createSetSchema,
   createWorkoutSessionInputSchema,
+  createWorkoutSessionRequestSchema,
   reorderWorkoutSessionExercisesInputSchema,
   sessionCorrectionRequestSchema,
   saveWorkoutSessionAsTemplateInputSchema,
   sessionSetSchema,
   swapWorkoutSessionExerciseInputSchema,
+  type CreateWorkoutSessionRequestInput,
   type CreateWorkoutSessionInput,
   type SessionSetInput,
   updateSetSchema,
@@ -21,10 +23,12 @@ import {
   workoutSessionSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { exercises, workoutSessions } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import {
@@ -44,10 +48,13 @@ import {
 import { allRelatedExercisesOwned } from '../exercises/store.js';
 import {
   deleteScheduledWorkout,
+  findScheduledWorkoutById,
   findScheduledWorkoutBySessionId,
-  linkTodayScheduledWorkoutToSession,
   unlinkScheduledWorkoutSession,
+  linkTodayScheduledWorkoutToSession,
 } from '../scheduled-workouts/store.js';
+import { readSnapshot, type ScheduledWorkoutSnapshot } from '../scheduled-workouts/snapshot-store.js';
+import { findWorkoutTemplateById } from '../workout-templates/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
   applyExerciseNotesToSets,
@@ -66,7 +73,6 @@ import {
   findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
   findWorkoutSessionById,
-  hardDeleteWorkoutSession,
   InvalidSessionCorrectionSetError,
   listSessionSetGroups,
   listWorkoutSessions,
@@ -121,9 +127,28 @@ const WORKOUT_TEMPLATE_NOT_FOUND_RESPONSE = {
   message: 'Workout template not found',
 } as const;
 
+const SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE = {
+  code: 'SCHEDULED_WORKOUT_NOT_FOUND',
+  message: 'Scheduled workout not found',
+} as const;
+
 const INVALID_SESSION_EXERCISE_RESPONSE = {
   code: 'INVALID_SESSION_EXERCISE',
   message: 'Session references one or more unavailable exercises',
+} as const;
+
+const STALE_SNAPSHOT_EXERCISES_RESPONSE = {
+  code: 'STALE_SNAPSHOT_EXERCISES',
+  message: 'Scheduled workout snapshot references deleted or unavailable exercises',
+} as const;
+
+const SCHEDULED_WORKOUT_ALREADY_STARTED_RESPONSE = {
+  code: 'SCHEDULED_WORKOUT_ALREADY_STARTED',
+  message: 'Scheduled workout is already linked to an active session',
+} as const;
+
+const STALE_EXERCISES_SKIPPED_WARNING = {
+  code: 'STALE_EXERCISES_SKIPPED',
 } as const;
 
 const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
@@ -203,6 +228,36 @@ const UNSUPPORTED_SESSION_CORRECTION_RESPONSE = {
   message:
     'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
 } as const;
+
+const staleSnapshotExerciseSchema = z.object({
+  exerciseId: z.string(),
+  snapshotName: z.string(),
+});
+
+const staleSnapshotExercisesErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.literal(STALE_SNAPSHOT_EXERCISES_RESPONSE.code),
+    message: z.string(),
+    staleExercises: z.array(staleSnapshotExerciseSchema),
+  }),
+});
+
+const scheduledWorkoutAlreadyStartedErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.literal(SCHEDULED_WORKOUT_ALREADY_STARTED_RESPONSE.code),
+    message: z.string(),
+    existingSessionId: z.string(),
+  }),
+});
+
+const workoutSessionCreateWarningSchema = z.object({
+  code: z.literal(STALE_EXERCISES_SKIPPED_WARNING.code),
+  exercises: z.array(staleSnapshotExerciseSchema),
+});
+
+const createWorkoutSessionResponseSchema = apiDataResponseSchema(workoutSessionSchema).extend({
+  warnings: z.array(workoutSessionCreateWarningSchema).optional(),
+});
 
 const toCreateWorkoutSessionInput = (
   session: Awaited<ReturnType<typeof findWorkoutSessionById>>,
@@ -295,6 +350,106 @@ const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
   return `${INVALID_SESSION_EXERCISE_RESPONSE.message}: ${preview}${suffix}`;
 };
 
+const listStaleSnapshotExercises = async ({
+  snapshotExercises,
+  userId,
+}: {
+  snapshotExercises: ScheduledWorkoutSnapshot['exercises'];
+  userId: string;
+}) => {
+  const uniqueExerciseIds = [...new Set(snapshotExercises.map((exercise) => exercise.exerciseId))];
+  if (uniqueExerciseIds.length === 0) {
+    return [];
+  }
+
+  const { db } = await import('../../db/index.js');
+  const exerciseRows = db
+    .select({
+      id: exercises.id,
+      userId: exercises.userId,
+      name: exercises.name,
+      deletedAt: exercises.deletedAt,
+    })
+    .from(exercises)
+    .where(inArray(exercises.id, uniqueExerciseIds))
+    .all();
+
+  const exerciseById = new Map(exerciseRows.map((exercise) => [exercise.id, exercise]));
+  const staleExercisesById = new Map<string, { exerciseId: string; snapshotName: string }>();
+
+  for (const snapshotExercise of snapshotExercises) {
+    const resolvedExercise = exerciseById.get(snapshotExercise.exerciseId);
+    const isMissing = !resolvedExercise;
+    const isSoftDeleted = resolvedExercise?.deletedAt != null;
+    const isOutsideUserScope =
+      resolvedExercise !== undefined &&
+      resolvedExercise.userId !== null &&
+      resolvedExercise.userId !== userId;
+
+    if (isMissing || isSoftDeleted || isOutsideUserScope) {
+      staleExercisesById.set(snapshotExercise.exerciseId, {
+        exerciseId: snapshotExercise.exerciseId,
+        snapshotName: resolvedExercise?.name ?? snapshotExercise.exerciseId,
+      });
+    }
+  }
+
+  return [...staleExercisesById.values()];
+};
+
+const buildScheduledSnapshotSessionSeed = ({
+  snapshotExercises,
+  skippedExerciseIds,
+}: {
+  snapshotExercises: ScheduledWorkoutSnapshot['exercises'];
+  skippedExerciseIds: Set<string>;
+}) => {
+  const persistedExercises = snapshotExercises.filter(
+    (exercise) => !skippedExerciseIds.has(exercise.exerciseId),
+  );
+
+  const sets: CreateWorkoutSessionInput['sets'] = persistedExercises.flatMap((exercise) =>
+    exercise.sets.map((set) => ({
+      exerciseId: exercise.exerciseId,
+      orderIndex: exercise.orderIndex,
+      setNumber: set.setNumber,
+      weight: null,
+      reps: set.reps,
+      targetWeight: set.targetWeight,
+      targetWeightMin: set.targetWeightMin,
+      targetWeightMax: set.targetWeightMax,
+      targetSeconds: set.targetSeconds,
+      targetDistance: set.targetDistance,
+      completed: false,
+      skipped: false,
+      supersetGroup: exercise.supersetGroup,
+      section: exercise.section,
+      notes: null,
+    })),
+  );
+
+  const programmingNotesByExerciseSection: Record<string, string | null> = {};
+  const agentNotesByExerciseSection: Record<string, string | null> = {};
+  const agentNotesMetaByExerciseSection: Record<
+    string,
+    NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null
+  > = {};
+
+  for (const exercise of persistedExercises) {
+    const key = `${exercise.section}::${exercise.exerciseId}`;
+    programmingNotesByExerciseSection[key] = exercise.programmingNotes;
+    agentNotesByExerciseSection[key] = exercise.agentNotes;
+    agentNotesMetaByExerciseSection[key] = exercise.agentNotesMeta;
+  }
+
+  return {
+    sets,
+    programmingNotesByExerciseSection,
+    agentNotesByExerciseSection,
+    agentNotesMetaByExerciseSection,
+  };
+};
+
 const ensureOwnedSession = async ({
   sessionId,
   userId,
@@ -364,12 +519,17 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       preHandler: agentRequestTransform,
       onSend: agentEnrichmentOnSend,
       schema: {
-        body: createWorkoutSessionInputSchema,
+        body: createWorkoutSessionRequestSchema,
         response: {
-          201: apiDataResponseSchema(workoutSessionSchema),
+          201: createWorkoutSessionResponseSchema,
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: z.union([
+            staleSnapshotExercisesErrorResponseSchema,
+            scheduledWorkoutAlreadyStartedErrorResponseSchema,
+            apiErrorResponseSchema,
+          ]),
         },
         tags: ['workout-sessions'],
         summary: 'Create a workout session',
@@ -377,10 +537,35 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      let input: CreateWorkoutSessionInput = request.body;
+      const body: CreateWorkoutSessionRequestInput = request.body;
+      const hasScheduledStart = body.scheduledWorkoutId !== undefined;
+      const hasTemplateStart = body.templateId !== null || body.templateName !== undefined;
+      const hasAdHocStart = body.name !== undefined && !hasScheduledStart && !hasTemplateStart;
+      const requestedStartModes = [hasScheduledStart, hasTemplateStart, hasAdHocStart].filter(
+        Boolean,
+      ).length;
+
+      if (requestedStartModes !== 1) {
+        return sendError(
+          reply,
+          400,
+          'VALIDATION_ERROR',
+          'Provide exactly one session start mode: scheduledWorkoutId, templateId/templateName, or name',
+        );
+      }
+
+      let input: CreateWorkoutSessionInput;
       let programmingNotesByExerciseSection: Record<string, string | null> | undefined;
+      let agentNotesByExerciseSection: Record<string, string | null> | undefined;
+      let agentNotesMetaByExerciseSection:
+        | Record<string, NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null>
+        | undefined;
+      let scheduledWorkoutId: string | undefined;
+      let linkScheduledWorkoutSession = false;
+      let warnings: Array<z.infer<typeof workoutSessionCreateWarningSchema>> | undefined;
+
       // templateName is an AgentToken-only convenience; JWT callers must send templateId.
-      if (request.body.templateName !== undefined && !isAgentRequest(request)) {
+      if (body.templateName !== undefined && !isAgentRequest(request)) {
         return sendError(
           reply,
           400,
@@ -390,7 +575,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
 
       // AgentToken callers passed templateName, but middleware could not resolve it to templateId.
-      if (request.body.templateName !== undefined && request.body.templateId === null) {
+      if (body.templateName !== undefined && body.templateId === null) {
         return sendError(
           reply,
           404,
@@ -399,9 +584,129 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      if (request.body.templateId !== null) {
-        const { findWorkoutTemplateById } = await import('../workout-templates/store.js');
-        const template = await findWorkoutTemplateById(request.body.templateId, request.userId);
+      if (hasScheduledStart) {
+        const scheduledWorkoutIdInput = body.scheduledWorkoutId;
+        if (!scheduledWorkoutIdInput) {
+          return sendError(
+            reply,
+            400,
+            'VALIDATION_ERROR',
+            'scheduledWorkoutId is required for scheduled workout starts',
+          );
+        }
+
+        const schedule = await findScheduledWorkoutById(scheduledWorkoutIdInput, request.userId);
+        if (!schedule) {
+          return sendError(
+            reply,
+            404,
+            SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+            SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+          );
+        }
+
+        if (schedule.sessionId !== null) {
+          const { db } = await import('../../db/index.js');
+          const linkedSession = db
+            .select({
+              id: workoutSessions.id,
+              status: workoutSessions.status,
+              deletedAt: workoutSessions.deletedAt,
+            })
+            .from(workoutSessions)
+            .where(
+              and(
+                eq(workoutSessions.id, schedule.sessionId),
+                eq(workoutSessions.userId, request.userId),
+              ),
+            )
+            .limit(1)
+            .get();
+
+          const hasLiveLinkedSession =
+            linkedSession !== undefined &&
+            linkedSession.deletedAt === null &&
+            linkedSession.status !== 'cancelled';
+          if (hasLiveLinkedSession) {
+            return reply.code(409).send({
+              error: {
+                code: SCHEDULED_WORKOUT_ALREADY_STARTED_RESPONSE.code,
+                message: SCHEDULED_WORKOUT_ALREADY_STARTED_RESPONSE.message,
+                existingSessionId: linkedSession.id,
+              },
+            });
+          }
+
+          await unlinkScheduledWorkoutSession(schedule.id, request.userId);
+        }
+
+        const snapshot = await readSnapshot(schedule.id);
+        const staleExercises = await listStaleSnapshotExercises({
+          snapshotExercises: snapshot.exercises,
+          userId: request.userId,
+        });
+
+        if (staleExercises.length > 0 && !body.force) {
+          return reply.code(409).send({
+            error: {
+              code: STALE_SNAPSHOT_EXERCISES_RESPONSE.code,
+              message: STALE_SNAPSHOT_EXERCISES_RESPONSE.message,
+              staleExercises,
+            },
+          });
+        }
+
+        const skippedExerciseIds = new Set(
+          body.force ? staleExercises.map((exercise) => exercise.exerciseId) : [],
+        );
+        const scheduledSeed = buildScheduledSnapshotSessionSeed({
+          snapshotExercises: snapshot.exercises,
+          skippedExerciseIds,
+        });
+
+        const template =
+          schedule.templateId !== null
+            ? await findWorkoutTemplateById(schedule.templateId, request.userId)
+            : undefined;
+        input = {
+          templateId: schedule.templateId,
+          name: body.name ?? template?.name ?? `Scheduled Workout ${schedule.date}`,
+          date: schedule.date,
+          status: body.status,
+          startedAt: body.startedAt,
+          completedAt: body.completedAt,
+          duration: body.duration,
+          timeSegments: body.timeSegments,
+          feedback: body.feedback,
+          notes: body.notes,
+          sets: scheduledSeed.sets,
+        };
+        programmingNotesByExerciseSection = scheduledSeed.programmingNotesByExerciseSection;
+        agentNotesByExerciseSection = scheduledSeed.agentNotesByExerciseSection;
+        agentNotesMetaByExerciseSection = scheduledSeed.agentNotesMetaByExerciseSection;
+        scheduledWorkoutId = schedule.id;
+        linkScheduledWorkoutSession = true;
+
+        if (body.force && staleExercises.length > 0) {
+          warnings = [
+            {
+              code: STALE_EXERCISES_SKIPPED_WARNING.code,
+              exercises: staleExercises,
+            },
+          ];
+        }
+      } else if (hasTemplateStart) {
+        const templateIdInput = body.templateId;
+        if (!templateIdInput) {
+          return sendError(
+            reply,
+            400,
+            'VALIDATION_ERROR',
+            'templateId is required for template starts',
+          );
+        }
+
+        const template = await findWorkoutTemplateById(templateIdInput, request.userId);
         if (!template) {
           return sendError(
             reply,
@@ -411,10 +716,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           );
         }
 
-        if (request.body.sets.length === 0) {
+        if (body.sets.length === 0) {
           input = {
-            ...request.body,
+            ...body,
+            name: body.name ?? template.name,
+            templateId: template.id,
             sets: buildInitialSessionSets(template.sections),
+          };
+        } else {
+          input = {
+            ...body,
+            name: body.name ?? template.name,
+            templateId: template.id,
+            sets: body.sets,
           };
         }
 
@@ -422,6 +736,30 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           templateSections: template.sections,
           sets: input.sets,
         });
+      } else {
+        const adHocName = body.name;
+        if (!adHocName) {
+          return sendError(
+            reply,
+            400,
+            'VALIDATION_ERROR',
+            'name is required for ad-hoc workout starts',
+          );
+        }
+
+        input = {
+          templateId: null,
+          name: adHocName,
+          date: body.date,
+          status: body.status,
+          startedAt: body.startedAt,
+          completedAt: body.completedAt,
+          duration: body.duration,
+          timeSegments: body.timeSegments,
+          feedback: body.feedback,
+          notes: body.notes,
+          sets: body.sets,
+        };
       }
 
       const invalidExerciseIds = await findInvalidSessionExerciseIds({
@@ -442,9 +780,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         userId: request.userId,
         input,
         programmingNotesByExerciseSection,
+        agentNotesByExerciseSection,
+        agentNotesMetaByExerciseSection,
+        scheduledWorkoutId,
+        linkScheduledWorkoutSession,
       });
 
-      if (input.templateId !== null) {
+      if (!hasScheduledStart && input.templateId !== null) {
         await linkTodayScheduledWorkoutToSession({
           userId: request.userId,
           templateId: input.templateId,
@@ -461,6 +803,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       return reply.code(201).send({
         data: session,
+        ...(warnings ? { warnings } : {}),
       });
     },
   );
@@ -1340,6 +1683,33 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
+    if (transitionStatus === 'cancelled' && existingSession.status !== 'cancelled') {
+      const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(params.id, request.userId);
+      if (linkedScheduledWorkout) {
+        await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, request.userId);
+      } else {
+        const { db } = await import('../../db/index.js');
+        const sourceSession = db
+          .select({
+            scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+          })
+          .from(workoutSessions)
+          .where(
+            and(
+              eq(workoutSessions.id, params.id),
+              eq(workoutSessions.userId, request.userId),
+              isNull(workoutSessions.deletedAt),
+            ),
+          )
+          .limit(1)
+          .get();
+
+        if (sourceSession?.scheduledWorkoutId) {
+          await unlinkScheduledWorkoutSession(sourceSession.scheduledWorkoutId, request.userId);
+        }
+      }
+    }
+
     setAgentEnrichmentContext(request, {
       endpoint: 'workout-session.mutation',
       action: 'update',
@@ -1780,8 +2150,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const session = await findWorkoutSessionAccess(request.params.id, request.userId);
-      if (!session) {
+      const existingSession = await findWorkoutSessionById(request.params.id, request.userId);
+      if (!existingSession) {
         return sendError(
           reply,
           404,
@@ -1790,7 +2160,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      if (session.status !== 'in-progress' && session.status !== 'paused') {
+      if (existingSession.status !== 'in-progress' && existingSession.status !== 'paused') {
         return sendError(
           reply,
           409,
@@ -1799,6 +2169,51 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      const basePayload = toCreateWorkoutSessionInput(existingSession);
+      const transitionResult = resolveSessionTransition({
+        existingStatus: existingSession.status,
+        requestedStatus: 'cancelled',
+        currentTimeSegments: basePayload.timeSegments,
+        requestedCompletedAt: basePayload.completedAt,
+        requestedDuration: basePayload.duration,
+        requestedActiveSection: undefined,
+      });
+
+      if (!transitionResult.ok) {
+        return sendError(
+          reply,
+          transitionResult.statusCode,
+          transitionResult.code,
+          transitionResult.message,
+        );
+      }
+
+      const payload = createWorkoutSessionInputSchema.safeParse({
+        ...basePayload,
+        status: 'cancelled',
+        completedAt: transitionResult.completedAt,
+        duration: transitionResult.duration,
+        timeSegments: transitionResult.timeSegments,
+      });
+      if (!payload.success) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid workout session payload');
+      }
+
+      const cancelledSession = await updateWorkoutSession({
+        id: request.params.id,
+        userId: request.userId,
+        input: payload.data,
+      });
+      if (!cancelledSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      let revertedToSchedule = false;
       const linkedScheduledWorkout = await findScheduledWorkoutBySessionId(
         request.params.id,
         request.userId,
@@ -1806,17 +2221,32 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
       if (linkedScheduledWorkout) {
         await unlinkScheduledWorkoutSession(linkedScheduledWorkout.id, request.userId);
-        await hardDeleteWorkoutSession(request.params.id, request.userId);
+        revertedToSchedule = true;
+      } else {
+        const { db } = await import('../../db/index.js');
+        const sourceSession = db
+          .select({
+            scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+          })
+          .from(workoutSessions)
+          .where(
+            and(
+              eq(workoutSessions.id, request.params.id),
+              eq(workoutSessions.userId, request.userId),
+              isNull(workoutSessions.deletedAt),
+            ),
+          )
+          .limit(1)
+          .get();
 
-        return reply.send({
-          data: { revertedToSchedule: true },
-        });
+        if (sourceSession?.scheduledWorkoutId) {
+          await unlinkScheduledWorkoutSession(sourceSession.scheduledWorkoutId, request.userId);
+          revertedToSchedule = true;
+        }
       }
 
-      await deleteWorkoutSession(request.params.id, request.userId);
-
       return reply.send({
-        data: { revertedToSchedule: false },
+        data: { revertedToSchedule },
       });
     },
   );

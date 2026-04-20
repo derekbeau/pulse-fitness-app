@@ -157,6 +157,8 @@ describe('SessionDetail', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: 'Hardstyle, hips snap',
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [
             createSet({
               id: 'set-programming-note-1',
@@ -235,6 +237,8 @@ describe('SessionDetail', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [weightSet],
         },
         {
@@ -246,6 +250,8 @@ describe('SessionDetail', () => {
           orderIndex: 1,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [timeSet],
         },
         {
@@ -257,6 +263,8 @@ describe('SessionDetail', () => {
           orderIndex: 2,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [distanceSet],
         },
       ],
@@ -310,6 +318,8 @@ describe('SessionDetail', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [
             createSet({
               id: 'set-no-programming-note-1',
@@ -379,6 +389,8 @@ describe('SessionDetail', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [
             createSet({
               id: 'set-deleted-1',
@@ -436,6 +448,8 @@ describe('SessionDetail', () => {
           orderIndex: 0,
           section: 'main',
           programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
           sets: [archivedSet],
           exercise: {
             formCues: [],
