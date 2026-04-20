@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import type { WorkoutSession, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -121,7 +121,9 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Session Notes')).toBeInTheDocument();
     expect(screen.getByLabelText(/show comparison/i)).toBeInTheDocument();
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Set 1:/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByTestId('workout-exercise-card-incline-dumbbell-press'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }),
     ).toBeInTheDocument();
@@ -190,6 +192,108 @@ describe('SessionDetail', () => {
       screen.getByTestId('exercise-programming-notes-incline-dumbbell-press'),
     ).toHaveTextContent('Hardstyle, hips snap');
     expect(screen.getByText('User observation: left shoulder felt stable.')).toBeInTheDocument();
+  });
+
+  it('renders completed-mode set rows with actual logged values across tracking types', async () => {
+    const weightSet = createSet({
+      id: 'set-completed-weights',
+      exerciseId: 'incline-dumbbell-press',
+      reps: 10,
+      section: 'main',
+      setNumber: 1,
+      targetWeight: 65,
+      weight: 50,
+    });
+    const timeSet = createSet({
+      id: 'set-completed-time',
+      exerciseId: 'plank-hold',
+      reps: 75,
+      section: 'main',
+      setNumber: 1,
+      targetSeconds: 90,
+      weight: null,
+    });
+    const distanceSet = createSet({
+      id: 'set-completed-distance',
+      exerciseId: 'treadmill-run',
+      reps: 2,
+      section: 'main',
+      setNumber: 1,
+      targetDistance: 3,
+      weight: null,
+    });
+    const currentSession = createSession({
+      id: 'session-completed-mode-set-values',
+      templateId: 'template-upper-push',
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: 'weight_reps',
+          orderIndex: 0,
+          section: 'main',
+          programmingNotes: null,
+          sets: [weightSet],
+        },
+        {
+          exerciseId: 'plank-hold',
+          exerciseName: 'Plank Hold',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: 'seconds_only',
+          orderIndex: 1,
+          section: 'main',
+          programmingNotes: null,
+          sets: [timeSet],
+        },
+        {
+          exerciseId: 'treadmill-run',
+          exerciseName: 'Treadmill Run',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: 'distance',
+          orderIndex: 2,
+          section: 'main',
+          programmingNotes: null,
+          sets: [distanceSet],
+        },
+      ],
+      sets: [weightSet, timeSet, distanceSet],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+
+    const weightCard = screen.getByTestId('workout-exercise-card-incline-dumbbell-press');
+    fireEvent.click(within(weightCard).getByText('Show full set detail'));
+    expect(within(weightCard).getByLabelText('Weight for set 1')).toHaveValue(50);
+    expect(within(weightCard).getByLabelText('Reps for set 1')).toHaveValue(10);
+    expect(within(weightCard).queryByText('Target: 65 lbs')).not.toBeInTheDocument();
+
+    const timeCard = screen.getByTestId('workout-exercise-card-plank-hold');
+    fireEvent.click(within(timeCard).getByText('Show full set detail'));
+    expect(within(timeCard).getByLabelText('Seconds for set 1')).toHaveValue(75);
+    expect(within(timeCard).queryByText('Target: 90 sec')).not.toBeInTheDocument();
+
+    const distanceCard = screen.getByTestId('workout-exercise-card-treadmill-run');
+    fireEvent.click(within(distanceCard).getByText('Show full set detail'));
+    expect(within(distanceCard).getByLabelText('Distance for set 1')).toHaveValue(2);
+    expect(within(distanceCard).queryByText('Target: 3 mi')).not.toBeInTheDocument();
   });
 
   it('does not render a programming notes block when programmingNotes is null', async () => {

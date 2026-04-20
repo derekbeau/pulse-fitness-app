@@ -29,6 +29,15 @@ The scheduled-workout detail page should mirror template-detail exercise renderi
 - `programmingNotes` shown on scheduled cards comes from the resolved template exercise data.
 - Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
 
+## Completed Session Detail Surface
+
+The completed-session detail page should render each exercise through shared `WorkoutExerciseCard` primitives in `readonly-completed` mode.
+
+- Exercise rows render through shared `WorkoutExerciseCard` in `readonly-completed` mode.
+- Completed-mode set rows must show logged values (weight/reps/seconds/distance) and must not fall back to template target values.
+- Session-level composition (history button, comparison blocks, correction editors, and exercise-note markdown) should be injected via card slots from `session-detail.tsx`, not reimplemented as a separate card layout.
+- `programmingNotes` on completed cards comes from the session-exercise snapshot (`session_exercises.programmingNotes`) and is rendered by the primitive `ProgrammingNotesBlock`.
+
 ## Exercise In Template
 
 Each template exercise stores prescription data, not completed performance.
