@@ -5,10 +5,11 @@ import { cn } from '@/lib/utils';
 
 import { formatTrackingTypeLabel } from './formatters';
 
-import type { WorkoutExerciseCardTemplateExercise } from './types';
+import type { WorkoutExerciseCardDensity, WorkoutExerciseCardTemplateExercise } from './types';
 
 type ExerciseHeaderProps = {
   className?: string;
+  density?: WorkoutExerciseCardDensity;
   exercise: Pick<
     WorkoutExerciseCardTemplateExercise,
     | 'equipment'
@@ -27,21 +28,23 @@ type ExerciseHeaderProps = {
 
 export function ExerciseHeader({
   className,
+  density = 'default',
   exercise,
   leadingSlot,
   onOpenDetails,
   targetHint,
   trailingSlot,
 }: ExerciseHeaderProps) {
+  const isCondensed = density === 'condensed';
   const trackingTypeLabel = formatTrackingTypeLabel(exercise.trackingType);
 
   return (
-    <div className={cn('space-y-1.5', className)}>
+    <div className={cn(isCondensed ? 'space-y-1' : 'space-y-1.5', className)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-1.5">
           {leadingSlot ? <div className="pt-0.5">{leadingSlot}</div> : null}
           <div className="min-w-0 space-y-0.5">
-            <h3 className="truncate text-base font-semibold sm:text-lg">
+            <h3 className={cn('truncate text-base font-semibold', !isCondensed && 'sm:text-lg')}>
               {onOpenDetails ? (
                 <button
                   className="cursor-pointer truncate text-left hover:text-primary hover:underline"
@@ -57,7 +60,7 @@ export function ExerciseHeader({
             {targetHint ? (
               <p className="text-xs font-medium text-muted sm:text-sm">{targetHint}</p>
             ) : null}
-            {exercise.notes ? (
+            {exercise.notes && !isCondensed ? (
               <p className="line-clamp-2 text-[11px] italic text-muted/85">{exercise.notes}</p>
             ) : null}
           </div>

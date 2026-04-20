@@ -130,6 +130,10 @@ read-only workout exercises.
   scheduled, and completed pages.
 - Slot contract: use `leadingSlot`, `headerSlot`, and `footerSlot` for view-specific affordances
   (for example drag handles, date chips, or correction actions) without forking the core card UI.
+- Density variant: use `density="default"` for full read-only detail and
+  `density="condensed"` for summary surfaces. Condensed cards tighten spacing, hide the
+  prescription/form-cue blocks, and relabel the set disclosure as "Show set values" while still
+  using the same primitive contract.
 
 ## Page Header Pattern
 

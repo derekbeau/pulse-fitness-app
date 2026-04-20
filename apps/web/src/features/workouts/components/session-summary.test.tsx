@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithQueryClient } from '@/test/render-with-query-client';
@@ -6,8 +6,9 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { SessionSummary } from './session-summary';
 
 describe('SessionSummary', () => {
-  it('opens the save-as-template dialog with prefilled fields and performs a mock save', () => {
+  it('renders condensed shared-card exercise results and preserves summary actions', () => {
     const notesChangeSpy = vi.fn();
+    const doneSpy = vi.fn();
 
     renderWithQueryClient(
       <SessionSummary
@@ -16,6 +17,20 @@ describe('SessionSummary', () => {
         duration="47:12"
         exerciseResults={[
           {
+            completedSetValues: [
+              {
+                completed: true,
+                reps: 10,
+                setNumber: 1,
+                weight: 50,
+              },
+              {
+                completed: true,
+                reps: 9,
+                setNumber: 2,
+                weight: 45,
+              },
+            ],
             id: 'incline-press',
             name: 'Incline Dumbbell Press',
             notes: 'Kept shoulder blades pinned and reduced ROM for shoulder comfort.',
@@ -23,15 +38,25 @@ describe('SessionSummary', () => {
             reps: 32,
             setsCompleted: 4,
             totalSets: 4,
+            trackingType: 'weight_reps',
             volume: 1760,
           },
           {
+            completedSetValues: [
+              {
+                completed: true,
+                reps: 7,
+                setNumber: 1,
+                weight: 15,
+              },
+            ],
             id: 'lateral-raise',
             name: 'Cable Lateral Raise',
             notes: '',
             reps: 28,
             setsCompleted: 4,
             totalSets: 4,
+            trackingType: 'weight_reps',
             volume: 420,
           },
         ]}
@@ -87,7 +112,7 @@ describe('SessionSummary', () => {
             value: 'Pause the first rep of each incline set next time.',
           },
         ]}
-        onDone={() => {}}
+        onDone={doneSpy}
         completedSets={14}
         onNotesChange={notesChangeSpy}
         sessionNotes=""
@@ -106,16 +131,27 @@ describe('SessionSummary', () => {
     expect(screen.getByText('7,460 lbs')).toBeInTheDocument();
     expect(screen.getByText('47:12')).toBeInTheDocument();
     expect(screen.getByText('14/14')).toBeInTheDocument();
+
     expect(screen.getByRole('heading', { name: 'Exercise results' })).toBeInTheDocument();
+    const inclineCard = screen.getByTestId('workout-exercise-card-incline-press');
     expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
+    expect(within(inclineCard).getByText('4/4 sets')).toBeInTheDocument();
+    expect(within(inclineCard).getByText('Volume: 1,760 lbs')).toBeInTheDocument();
+    expect(within(inclineCard).getByText('Reps: 32')).toBeInTheDocument();
     expect(screen.getByTestId('exercise-programming-notes-incline-press')).toHaveTextContent(
       'Hardstyle, hips snap',
     );
     expect(
       screen.getByText('Kept shoulder blades pinned and reduced ROM for shoulder comfort.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Volume: 1,760 lbs')).toBeInTheDocument();
-    expect(screen.getByText('Reps: 32')).toBeInTheDocument();
+
+    expect(within(inclineCard).queryByText('Prescription')).not.toBeInTheDocument();
+    expect(within(inclineCard).queryByRole('button', { name: 'Show form cues' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(inclineCard).getByText('Show set values'));
+    expect(within(inclineCard).getByLabelText('Weight for set 1')).toHaveValue(50);
+    expect(within(inclineCard).getByLabelText('Reps for set 1')).toHaveValue(10);
+
     expect(screen.getByRole('heading', { name: 'Session feedback' })).toBeInTheDocument();
     expect(screen.getByText('2 / 5')).toBeInTheDocument();
     expect(screen.getByText('🙂')).toBeInTheDocument();
@@ -125,6 +161,7 @@ describe('SessionSummary', () => {
     expect(
       screen.getByText('Pause the first rep of each incline set next time.'),
     ).toBeInTheDocument();
+
     expect(
       screen.getByPlaceholderText('What happened today? Anything notable about this session?'),
     ).toBeInTheDocument();
@@ -149,9 +186,6 @@ describe('SessionSummary', () => {
       },
     );
     expect(notesChangeSpy).toHaveBeenCalledWith('Tempo was good but shoulders fatigued early.');
-    expect(screen.getByTestId('exercise-programming-notes-incline-press')).toHaveTextContent(
-      'Hardstyle, hips snap',
-    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
 
@@ -187,6 +221,9 @@ describe('SessionSummary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('Saved "Upper Push" to mock templates.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(doneSpy).toHaveBeenCalledTimes(1);
   });
 
   it('renders tracking-aware summary labels for time-based and mixed sessions', () => {
@@ -195,6 +232,13 @@ describe('SessionSummary', () => {
         duration="12:00"
         exerciseResults={[
           {
+            completedSetValues: [
+              {
+                completed: true,
+                seconds: 120,
+                setNumber: 1,
+              },
+            ],
             id: 'plank',
             metricLabel: 'seconds',
             metricValue: 120,
@@ -202,6 +246,7 @@ describe('SessionSummary', () => {
             reps: 0,
             setsCompleted: 2,
             totalSets: 2,
+            trackingType: 'seconds_only',
           },
         ]}
         exercisesCompleted={1}
@@ -227,12 +272,21 @@ describe('SessionSummary', () => {
         duration="15:24"
         exerciseResults={[
           {
+            completedSetValues: [
+              {
+                completed: true,
+                reps: 8,
+                setNumber: 1,
+                weight: 55,
+              },
+            ],
             id: 'incline-press',
             name: 'Incline Dumbbell Press',
             notes: '- **Brace** at lockout\n- Keep elbows stacked',
             reps: 16,
             setsCompleted: 2,
             totalSets: 2,
+            trackingType: 'weight_reps',
             volume: 880,
           },
         ]}
@@ -267,6 +321,14 @@ describe('SessionSummary', () => {
         duration="10:00"
         exerciseResults={[
           {
+            completedSetValues: [
+              {
+                completed: true,
+                reps: 12,
+                setNumber: 1,
+                weight: 50,
+              },
+            ],
             id: 'incline-press',
             name: 'Incline Dumbbell Press',
             notes: '',
@@ -274,6 +336,7 @@ describe('SessionSummary', () => {
             reps: 12,
             setsCompleted: 2,
             totalSets: 2,
+            trackingType: 'weight_reps',
             volume: 600,
           },
         ]}

@@ -8,6 +8,8 @@ export type WorkoutExerciseCardMode =
 // Reserved for a later migration round.
 // | 'in-progress'
 
+export type WorkoutExerciseCardDensity = 'default' | 'condensed';
+
 export type WorkoutExerciseSetTarget = {
   setNumber: number;
   targetDistance?: number | null;
@@ -80,6 +82,7 @@ export type WorkoutExerciseCardCompletedExercise = {
 type WorkoutExerciseCardCommonProps = {
   cardRef?: (node: HTMLDivElement | null) => void;
   className?: string;
+  density?: WorkoutExerciseCardDensity;
   footerSlot?: ReactNode;
   headerSlot?: ReactNode;
   leadingSlot?: ReactNode;

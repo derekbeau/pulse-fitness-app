@@ -80,4 +80,32 @@ describe('WorkoutExerciseCard', () => {
 
     expect(onOpenDetails).toHaveBeenCalledTimes(1);
   });
+
+  it('applies condensed density by omitting prescription and form-cue blocks', () => {
+    render(
+      <WorkoutExerciseCard
+        density="condensed"
+        exercise={{
+          coachingNotes: 'Cue shoulder blades down and back.',
+          exerciseId: 'exercise-2',
+          formCues: ['Drive knees out'],
+          id: 'template-exercise-2',
+          instructions: 'Stay braced throughout.',
+          name: 'Front Squat',
+          repsMax: 8,
+          repsMin: 6,
+          restSeconds: 120,
+          setTargets: [{ setNumber: 1, targetWeight: 135 }],
+          sets: 3,
+          tempo: '3110',
+          trackingType: 'weight_reps',
+        }}
+        mode="readonly-template"
+      />,
+    );
+
+    expect(screen.queryByText('Prescription')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show form cues' })).not.toBeInTheDocument();
+    expect(screen.getByText('Show set values')).toBeInTheDocument();
+  });
 });

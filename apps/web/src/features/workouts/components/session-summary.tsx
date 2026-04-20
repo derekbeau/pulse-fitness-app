@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardList, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
+import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
 import { formatWeight, type WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,10 @@ import {
 import { getDistanceUnit, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import type { ActiveWorkoutFeedbackDraft } from '../types';
 import { MarkdownNote } from './markdown-note';
+import {
+  SessionSummaryExerciseCard,
+  type SessionSummaryExerciseResult,
+} from './session-summary-exercise-card';
 
 type SessionSummaryProps = {
   className?: string;
@@ -55,18 +59,7 @@ type SessionSummaryProps = {
   workoutName: string;
 };
 
-export type SessionSummaryExerciseResult = {
-  id: string;
-  metricLabel?: TrackingSummaryMetricLabel;
-  metricValue?: number;
-  name: string;
-  notes?: string | null;
-  programmingNotes?: string | null;
-  reps: number;
-  setsCompleted: number;
-  totalSets: number;
-  volume?: number;
-};
+export type { SessionSummaryExerciseResult };
 
 export function SessionSummary({
   className,
@@ -193,56 +186,11 @@ export function SessionSummary({
               </h2>
               <div className="space-y-2">
                 {exerciseResults.map((exercise) => (
-                  <article
-                    className="rounded-2xl border border-black/10 bg-white/45 p-3 dark:border-border dark:bg-card"
+                  <SessionSummaryExerciseCard
+                    exercise={exercise}
                     key={exercise.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-foreground">{exercise.name}</p>
-                      <span className="shrink-0 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[11px] font-semibold text-fuchsia-700 dark:text-fuchsia-300">
-                        {`${exercise.setsCompleted}/${exercise.totalSets} sets`}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      <MetricChip
-                        label={getExerciseMetricLabel(exercise.metricLabel ?? 'volume')}
-                        tone={getMetricTone(exercise.metricLabel ?? 'volume')}
-                        value={formatSummaryMetricValue(
-                          exercise.metricValue ?? exercise.volume ?? 0,
-                          exercise.metricLabel ?? 'volume',
-                          weightUnit,
-                        )}
-                      />
-                      {exercise.reps > 0 && (exercise.metricLabel ?? 'volume') !== 'reps' ? (
-                        <MetricChip label="Reps" tone="count" value={`${exercise.reps}`} />
-                      ) : null}
-                    </div>
-                    {exercise.programmingNotes?.trim() ? (
-                      <div
-                        className="mt-2 flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
-                        data-testid={`exercise-programming-notes-${exercise.id}`}
-                      >
-                        <ClipboardList
-                          aria-hidden="true"
-                          className="mt-0.5 size-3.5 shrink-0 text-muted"
-                        />
-                        <div className="space-y-0.5">
-                          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
-                            Programming notes
-                          </p>
-                          <p className="whitespace-pre-wrap text-[13px] italic text-muted">
-                            {exercise.programmingNotes.trim()}
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-                    {exercise.notes?.trim() ? (
-                      <MarkdownNote
-                        className="mt-2 text-xs text-muted"
-                        content={exercise.notes.trim()}
-                      />
-                    ) : null}
-                  </article>
+                    weightUnit={weightUnit}
+                  />
                 ))}
               </div>
             </section>
@@ -536,20 +484,6 @@ function getSummaryMetricLabel(label: TrackingSummaryMetricLabel | 'mixed') {
   }
 }
 
-function getExerciseMetricLabel(label: TrackingSummaryMetricLabel) {
-  switch (label) {
-    case 'reps':
-      return 'Reps';
-    case 'seconds':
-      return 'Seconds';
-    case 'distance':
-      return 'Distance';
-    case 'volume':
-    default:
-      return 'Volume';
-  }
-}
-
 function formatSummaryMetricValue(
   value: number,
   label: TrackingSummaryMetricLabel,
@@ -645,28 +579,5 @@ function SummaryPill({
       </div>
       <p className="text-sm font-semibold">{value}</p>
     </div>
-  );
-}
-
-function MetricChip({
-  label,
-  tone,
-  value,
-}: {
-  label: string;
-  tone: 'count' | 'time' | 'volume';
-  value: string;
-}) {
-  const toneClass =
-    tone === 'volume'
-      ? 'bg-blue-500/12 text-blue-800 dark:text-blue-200'
-      : tone === 'time'
-        ? 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-200'
-        : 'bg-fuchsia-500/12 text-fuchsia-800 dark:text-fuchsia-200';
-
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', toneClass)}>
-      {`${label}: ${value}`}
-    </span>
   );
 }

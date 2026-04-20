@@ -31,6 +31,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
   const {
     cardRef,
     className,
+    density = 'default',
     footerSlot,
     headerSlot,
     leadingSlot,
@@ -41,6 +42,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
     style,
     weightUnit = 'lbs',
   } = props;
+  const isCondensed = density === 'condensed';
 
   const exercise = props.exercise;
   const setItems =
@@ -74,6 +76,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
   const hasProgrammingNotes =
     typeof exercise.programmingNotes === 'string' && exercise.programmingNotes.trim().length > 0;
   const shouldShowFormCues =
+    !isCondensed &&
     cuesExercise !== null &&
     ((cuesExercise.formCues?.length ?? 0) > 0 ||
       (cuesExercise.templateCues?.length ?? 0) > 0 ||
@@ -84,14 +87,15 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
 
   return (
     <Card
-      className={cn('gap-1.5 py-0', className)}
+      className={cn(isCondensed ? 'gap-1 py-0' : 'gap-1.5 py-0', className)}
       data-testid={getWorkoutExerciseCardTestId(exercise.id)}
       id={getWorkoutExerciseCardElementId(exercise.id)}
       ref={cardRef}
       style={style}
     >
-      <CardHeader className="gap-1.5 py-2.5">
+      <CardHeader className={cn(isCondensed ? 'gap-1 py-2' : 'gap-1.5 py-2.5')}>
         <ExerciseHeader
+          density={density}
           exercise={exercise}
           leadingSlot={leadingSlot}
           onOpenDetails={onOpenDetails}
@@ -100,7 +104,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
         />
       </CardHeader>
 
-      <CardContent className="space-y-2 pb-2.5">
+      <CardContent className={cn(isCondensed ? 'space-y-1.5 pb-2' : 'space-y-2 pb-2.5')}>
         {showLastPerformance ? (
           <LastPerformanceChip
             exerciseId={exercise.exerciseId}
@@ -109,16 +113,18 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
           />
         ) : null}
 
-        <PrescriptionBlock
-          repsMax={exercise.repsMax}
-          repsMin={exercise.repsMin}
-          restSeconds={exercise.restSeconds}
-          setTargets={prescriptionSetTargets}
-          sets={prescriptionSets}
-          tempo={exercise.tempo}
-          trackingType={exercise.trackingType}
-          weightUnit={weightUnit}
-        />
+        {!isCondensed ? (
+          <PrescriptionBlock
+            repsMax={exercise.repsMax}
+            repsMin={exercise.repsMin}
+            restSeconds={exercise.restSeconds}
+            setTargets={prescriptionSetTargets}
+            sets={prescriptionSets}
+            tempo={exercise.tempo}
+            trackingType={exercise.trackingType}
+            weightUnit={weightUnit}
+          />
+        ) : null}
 
         {hasProgrammingNotes ? (
           <ProgrammingNotesBlock
@@ -140,7 +146,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
         {showSetList ? (
           <details className="rounded-xl border border-border/80 bg-secondary/20 px-3 py-2">
             <summary className="cursor-pointer text-xs font-semibold text-muted">
-              Show full set detail
+              {isCondensed ? 'Show set values' : 'Show full set detail'}
             </summary>
             <div className="mt-2">
               <WorkoutExerciseSetList
@@ -162,6 +168,7 @@ export function WorkoutExerciseCard(props: WorkoutExerciseCardProps) {
 export type { WorkoutExerciseCardMode };
 export type {
   WorkoutExerciseCardCompletedExercise,
+  WorkoutExerciseCardDensity,
   WorkoutExerciseCardScheduledExercise,
   WorkoutExerciseCardTemplateExercise,
   WorkoutExerciseSetListItem,
