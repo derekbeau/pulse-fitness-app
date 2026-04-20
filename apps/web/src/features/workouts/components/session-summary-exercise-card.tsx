@@ -1,9 +1,7 @@
-import { formatWeight, type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
-
-import { formatServing } from '@/lib/format-utils';
+import { type ExerciseTrackingType, type WeightUnit } from '@pulse/shared';
 import { cn } from '@/lib/utils';
 
-import { getDistanceUnit, type TrackingSummaryMetricLabel } from '../lib/tracking';
+import { formatSummaryMetricValue, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import { MarkdownNote } from './markdown-note';
 import {
   WorkoutExerciseCard,
@@ -50,6 +48,7 @@ export function SessionSummaryExerciseCard({
     exerciseId: exercise.id,
     id: exercise.id,
     name: exercise.name,
+    // Notes are intentionally rendered in footerSlot to keep the condensed header clean.
     notes: null,
     programmingNotes: exercise.programmingNotes ?? null,
     repsMax: null,
@@ -150,26 +149,6 @@ function getMetricTone(label: TrackingSummaryMetricLabel): 'count' | 'time' | 'v
   }
 
   return 'count';
-}
-
-function formatSummaryMetricValue(
-  value: number,
-  label: TrackingSummaryMetricLabel,
-  weightUnit: WeightUnit,
-) {
-  if (label === 'volume') {
-    return formatWeight(value, weightUnit);
-  }
-
-  if (label === 'reps') {
-    return `${Math.round(value)}`;
-  }
-
-  if (label === 'seconds') {
-    return `${formatServing(value)} sec`;
-  }
-
-  return `${formatServing(value)} ${getDistanceUnit(weightUnit)}`;
 }
 
 function MetricChip({

@@ -108,4 +108,35 @@ describe('WorkoutExerciseCard', () => {
     expect(screen.queryByRole('button', { name: 'Show form cues' })).not.toBeInTheDocument();
     expect(screen.getByText('Show set values')).toBeInTheDocument();
   });
+
+  it('applies condensed density in readonly-completed mode', () => {
+    render(
+      <WorkoutExerciseCard
+        density="condensed"
+        exercise={{
+          completedSets: [
+            {
+              completed: true,
+              reps: 8,
+              setNumber: 1,
+              weight: 135,
+            },
+          ],
+          exerciseId: 'exercise-3',
+          id: 'completed-exercise-2',
+          name: 'Romanian Deadlift',
+          programmingNotes: 'Control the lowering phase.',
+          repsMax: null,
+          repsMin: null,
+          restSeconds: null,
+          tempo: null,
+          trackingType: 'weight_reps',
+        }}
+        mode="readonly-completed"
+      />,
+    );
+
+    expect(screen.queryByText('Prescription')).not.toBeInTheDocument();
+    expect(screen.getByText('Show set values')).toBeInTheDocument();
+  });
 });

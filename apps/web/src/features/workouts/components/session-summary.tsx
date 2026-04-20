@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Dumbbell, ListChecks, Save, X } from 'lucide-react';
-import { formatWeight, type WeightUnit } from '@pulse/shared';
+import { type WeightUnit } from '@pulse/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { formatServing } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -27,7 +26,7 @@ import {
   TEMPLATE_TAG_LIMIT,
   TEMPLATE_TAG_SUGGESTIONS,
 } from '../lib/template-tags';
-import { getDistanceUnit, type TrackingSummaryMetricLabel } from '../lib/tracking';
+import { formatSummaryMetricValue, type TrackingSummaryMetricLabel } from '../lib/tracking';
 import type { ActiveWorkoutFeedbackDraft } from '../types';
 import { MarkdownNote } from './markdown-note';
 import {
@@ -482,26 +481,6 @@ function getSummaryMetricLabel(label: TrackingSummaryMetricLabel | 'mixed') {
     default:
       return 'Total volume';
   }
-}
-
-function formatSummaryMetricValue(
-  value: number,
-  label: TrackingSummaryMetricLabel,
-  weightUnit: WeightUnit,
-) {
-  if (label === 'volume') {
-    return formatWeight(value, weightUnit);
-  }
-
-  if (label === 'reps') {
-    return `${Math.round(value)}`;
-  }
-
-  if (label === 'seconds') {
-    return `${formatServing(value)} sec`;
-  }
-
-  return `${formatServing(value)} ${getDistanceUnit(weightUnit)}`;
 }
 
 function getSummaryMetricValue({
