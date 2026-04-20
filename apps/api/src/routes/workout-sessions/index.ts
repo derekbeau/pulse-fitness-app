@@ -256,6 +256,39 @@ const toCreateWorkoutSessionInput = (
 const getReferencedExerciseIds = (sets: CreateWorkoutSessionInput['sets']) =>
   sets.map((set) => set.exerciseId);
 
+const buildTemplateProgrammingNotesSnapshot = ({
+  templateSections,
+  sets,
+}: {
+  templateSections: Array<{
+    type: CreateWorkoutSessionInput['sets'][number]['section'];
+    exercises: Array<{ exerciseId: string; notes?: string | null }>;
+  }>;
+  sets: CreateWorkoutSessionInput['sets'];
+}): Record<string, string | null> => {
+  const templateNotesByExerciseSection = new Map<string, string | null>();
+
+  for (const section of templateSections) {
+    const sectionKey = section.type ?? 'main';
+    for (const exercise of section.exercises) {
+      templateNotesByExerciseSection.set(
+        `${sectionKey}::${exercise.exerciseId}`,
+        exercise.notes ?? null,
+      );
+    }
+  }
+
+  const sessionExerciseKeys = new Set(
+    sets.map((set) => `${set.section ?? 'main'}::${set.exerciseId}`),
+  );
+  return Object.fromEntries(
+    Array.from(sessionExerciseKeys).map((key) => [
+      key,
+      templateNotesByExerciseSection.get(key) ?? null,
+    ]),
+  );
+};
+
 const buildInvalidExerciseMessage = (invalidExerciseIds: string[]) => {
   const preview = invalidExerciseIds.slice(0, 3).join(', ');
   const suffix = invalidExerciseIds.length > 3 ? ', ...' : '';
@@ -345,6 +378,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       let input: CreateWorkoutSessionInput = request.body;
+      let programmingNotesByExerciseSection: Record<string, string | null> | undefined;
       // templateName is an AgentToken-only convenience; JWT callers must send templateId.
       if (request.body.templateName !== undefined && !isAgentRequest(request)) {
         return sendError(
@@ -383,6 +417,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             sets: buildInitialSessionSets(template.sections),
           };
         }
+
+        programmingNotesByExerciseSection = buildTemplateProgrammingNotesSnapshot({
+          templateSections: template.sections,
+          sets: input.sets,
+        });
       }
 
       const invalidExerciseIds = await findInvalidSessionExerciseIds({
@@ -402,6 +441,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         id: randomUUID(),
         userId: request.userId,
         input,
+        programmingNotesByExerciseSection,
       });
 
       if (input.templateId !== null) {

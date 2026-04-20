@@ -85,6 +85,17 @@ Completed sessions should also store exercise-level set logs and post-workout fe
 
 Session exercise metadata should preserve `supersetGroup` values so completed receipts and history can render grouped supersets consistently.
 
+### Session Exercise Notes Layers
+
+Session exercises intentionally keep two separate note channels:
+
+- `programmingNotes` (read-only): a snapshot of `template_exercises.notes` taken when the session starts from a template. This does not change if the template is edited later.
+- user exercise notes (editable): the workout-time notes entered during the session via the existing exercise-notes flow.
+
+Do not merge these two layers into one textarea; template prescription context and user observations must remain distinct.
+
+When a completed session is saved as a new template (`POST /api/v1/workout-sessions/:id/save-as-template`), only `programmingNotes` round-trips onto `template_exercises.notes`. Session-specific note channels (user exercise notes, and agent notes when present) must be dropped so transient workout context is not promoted into reusable programming.
+
 ## Superset Grouping
 
 - A superset is represented by assigning the same non-null `supersetGroup` id to 2+ exercises in the same section.

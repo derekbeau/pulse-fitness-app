@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  ClipboardList,
   Braces,
   ChevronDown,
   Check,
@@ -795,6 +796,7 @@ function ExerciseCardItem({
   const isExerciseComplete = state === 'completed';
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
+  const programmingNotes = exercise.programmingNotes?.trim() ?? '';
   const hasInjuryCues = exercise.injuryCues.length > 0;
   const priorityAccentClass = embeddedInSuperset
     ? ''
@@ -990,6 +992,21 @@ function ExerciseCardItem({
               ) : null}
             </div>
 
+            {programmingNotes ? (
+              <div
+                className="flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
+                data-testid={`exercise-programming-notes-${exercise.id}`}
+              >
+                <ClipboardList aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted" />
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
+                    Programming notes
+                  </p>
+                  <p className="whitespace-pre-wrap text-[13px] italic text-muted">{programmingNotes}</p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="space-y-2 rounded-2xl border border-border bg-background/80 p-4 sm:flex-1">
                 <div className="flex items-center justify-between">
@@ -1037,7 +1054,6 @@ function ExerciseCardItem({
                   exerciseCues={formCues}
                   sessionCues={sessionCues}
                   templateCues={templateCues}
-                  templateProgrammingNotes={exercise.programmingNotes}
                 />
               </div>
             </div>

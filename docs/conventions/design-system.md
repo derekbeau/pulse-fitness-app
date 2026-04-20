@@ -168,6 +168,16 @@ Guardrails:
 - Always use `--color-on-accent` (or a semantic alias that resolves to it) for text on accent-colored cards.
 - Always verify foreground contrast before shipping.
 
+## Programming Notes Block
+
+Use this treatment for read-only exercise programming notes sourced from templates/snapshots in session UIs.
+
+- Placement: render inside the exercise card body below the exercise header/metrics and above set rows.
+- Separation: keep this block visually distinct from any user-editable notes textarea. Never prefill or merge into the textarea.
+- Visibility: render only when `programmingNotes` is a non-empty string after trim.
+- Visual pattern: `flex items-start gap-2` container with a subtle left accent (`border-l-2 border-primary/35`) and muted surface (`bg-secondary/35`), plus a small `ClipboardList` icon.
+- Typography: compact uppercase label (`text-[10px] font-semibold tracking-[0.16em] text-muted`) and italic body copy (`text-[13px] italic text-muted`) with `whitespace-pre-wrap`.
+
 ## Workout Section Header Controls
 
 Active workout section headers use a dual-action layout:

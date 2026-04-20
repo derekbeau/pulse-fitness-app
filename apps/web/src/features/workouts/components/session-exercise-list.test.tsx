@@ -316,6 +316,96 @@ describe('SessionExerciseList', () => {
     }
   });
 
+  it('renders programming notes separately from editable session notes', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const rowErgExercise = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'row-erg');
+
+    if (!rowErgExercise) {
+      throw new Error('Expected Row Erg exercise in active workout session.');
+    }
+
+    rowErgExercise.programmingNotes = 'Hardstyle, hips snap';
+    rowErgExercise.notes = '';
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+
+    expect(
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+    ).toHaveTextContent('Hardstyle, hips snap');
+
+    fireEvent.click(within(rowErgCard as HTMLElement).getByText('Session notes'));
+    const notesInput = within(rowErgCard as HTMLElement).getByPlaceholderText(
+      'Add any technique reminders, machine settings, or quick context.',
+    );
+    expect(notesInput).toHaveValue('');
+
+    fireEvent.change(notesInput, { target: { value: 'Lower drag factor to 120.' } });
+    expect(notesInput).toHaveValue('Lower drag factor to 120.');
+    expect(
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+    ).toHaveTextContent('Hardstyle, hips snap');
+  });
+
+  it('does not render a programming notes block when programmingNotes is null', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const rowErgExercise = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'row-erg');
+
+    if (!rowErgExercise) {
+      throw new Error('Expected Row Erg exercise in active workout session.');
+    }
+
+    rowErgExercise.programmingNotes = null;
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+    expect(screen.queryByTestId('exercise-programming-notes-row-erg')).not.toBeInTheDocument();
+  });
+
   it('flushes pending exercise notes update on blur', () => {
     vi.useFakeTimers();
 

@@ -305,6 +305,59 @@ describe('sessionCorrectionRequestSchema', () => {
 });
 
 describe('workoutSessionSchema', () => {
+  it('accepts nullable per-exercise programming notes', () => {
+    const session = workoutSessionSchema.parse({
+      id: 'session-programming-notes',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Programming Notes Session',
+      date: '2026-03-01',
+      status: 'completed',
+      startedAt: 1_700_000_000_000,
+      completedAt: 1_700_000_030_000,
+      duration: 1800,
+      timeSegments: [
+        { start: '2026-03-01T10:00:00.000Z', end: '2026-03-01T10:30:00.000Z', section: 'main' },
+      ],
+      sectionDurations: {
+        warmup: 0,
+        main: 1_800_000,
+        cooldown: 0,
+        supplemental: 0,
+      },
+      feedback: null,
+      notes: null,
+      exercises: [
+        {
+          exerciseId: 'exercise-1',
+          exerciseName: 'Barbell Row',
+          trackingType: 'weight_reps',
+          supersetGroup: null,
+          orderIndex: 0,
+          section: 'main',
+          programmingNotes: ' Keep lats tight ',
+          sets: [],
+        },
+        {
+          exerciseId: 'exercise-2',
+          exerciseName: 'Goblet Squat',
+          trackingType: 'weight_reps',
+          supersetGroup: null,
+          orderIndex: 1,
+          section: 'main',
+          programmingNotes: null,
+          sets: [],
+        },
+      ],
+      sets: [],
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_030_000,
+    });
+
+    expect(session.exercises?.[0]?.programmingNotes).toBe('Keep lats tight');
+    expect(session.exercises?.[1]?.programmingNotes).toBeNull();
+  });
+
   it('preserves deleted exercise metadata in historical session responses', () => {
     const session = workoutSessionSchema.parse({
       id: 'session-deleted-metadata',
@@ -393,6 +446,7 @@ describe('workoutSessionSchema', () => {
           },
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [
             {
               id: 'set-1',
@@ -470,6 +524,7 @@ describe('workoutSessionSchema', () => {
           },
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [
             {
               id: 'set-1',

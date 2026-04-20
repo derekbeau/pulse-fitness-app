@@ -19,6 +19,7 @@ describe('SessionSummary', () => {
             id: 'incline-press',
             name: 'Incline Dumbbell Press',
             notes: 'Kept shoulder blades pinned and reduced ROM for shoulder comfort.',
+            programmingNotes: 'Hardstyle, hips snap',
             reps: 32,
             setsCompleted: 4,
             totalSets: 4,
@@ -107,6 +108,9 @@ describe('SessionSummary', () => {
     expect(screen.getByText('14/14')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Exercise results' })).toBeInTheDocument();
     expect(screen.getByText('Incline Dumbbell Press')).toBeInTheDocument();
+    expect(screen.getByTestId('exercise-programming-notes-incline-press')).toHaveTextContent(
+      'Hardstyle, hips snap',
+    );
     expect(
       screen.getByText('Kept shoulder blades pinned and reduced ROM for shoulder comfort.'),
     ).toBeInTheDocument();
@@ -145,6 +149,9 @@ describe('SessionSummary', () => {
       },
     );
     expect(notesChangeSpy).toHaveBeenCalledWith('Tempo was good but shoulders fatigued early.');
+    expect(screen.getByTestId('exercise-programming-notes-incline-press')).toHaveTextContent(
+      'Hardstyle, hips snap',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Save as Template' }));
 
@@ -252,5 +259,33 @@ describe('SessionSummary', () => {
     expect(screen.getByText('conservative').tagName).toBe('EM');
     expect(screen.getByText('<script>alert("xss")</script>')).toBeInTheDocument();
     expect(document.querySelector('script')).not.toBeInTheDocument();
+  });
+
+  it('does not render a programming notes block when programmingNotes is null', () => {
+    renderWithQueryClient(
+      <SessionSummary
+        duration="10:00"
+        exerciseResults={[
+          {
+            id: 'incline-press',
+            name: 'Incline Dumbbell Press',
+            notes: '',
+            programmingNotes: null,
+            reps: 12,
+            setsCompleted: 2,
+            totalSets: 2,
+            volume: 600,
+          },
+        ]}
+        exercisesCompleted={1}
+        onDone={() => {}}
+        totalReps={12}
+        totalSets={2}
+        totalVolume={600}
+        workoutName="Upper Push"
+      />,
+    );
+
+    expect(screen.queryByTestId('exercise-programming-notes-incline-press')).not.toBeInTheDocument();
   });
 });

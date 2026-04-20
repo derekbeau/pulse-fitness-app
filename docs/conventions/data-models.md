@@ -187,6 +187,7 @@ Constraints:
 - `duration`: nullable `integer` minutes
 - `timeSegments`: required JSON text array of `{ start: string, end: string | null, section: 'warmup' | 'main' | 'cooldown' | 'supplemental' }`, default `'[]'`
 - `feedback`: nullable JSON text object for post-session ratings and notes
+- `exerciseProgrammingNotes`: nullable JSON text record keyed by `${section}::${exerciseId}` with `string | null` values; snapshots `template_exercises.notes` at session start
 - `notes`: nullable `text`
 - `deletedAt`: nullable `text` ISO timestamp for soft delete
 - `createdAt`: `integer` Unix ms, required, default now
@@ -201,6 +202,7 @@ Constraints:
 Notes:
 
 - `timeSegments` is stored as JSON text, so schema evolution from legacy `{ start, end }` segments to section-tagged segments is handled in the store/parser layer with read-time backfill (`section: 'main'`) rather than a SQL migration.
+- `exerciseProgrammingNotes` is forward-apply snapshot data: newly created template-backed sessions persist a copy of template exercise notes, while historical sessions keep `null` until explicitly recreated.
 
 #### `session_sets`
 

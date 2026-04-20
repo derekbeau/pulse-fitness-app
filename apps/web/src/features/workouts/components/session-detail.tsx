@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ChevronDown,
+  ClipboardList,
   Dumbbell,
   ListChecks,
   NotebookPen,
@@ -72,6 +73,7 @@ type SessionDetailExercise = {
   groupKey: string;
   name: string;
   notes: string | null;
+  programmingNotes: string | null;
   archived: boolean;
   phaseBadge: 'moderate' | 'rebuild' | 'recovery' | 'test';
   sets: SessionSet[];
@@ -528,6 +530,26 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                   </CardHeader>
 
                   <CardContent className="space-y-3 pb-3">
+                    {exercise.programmingNotes ? (
+                      <div
+                        className="flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
+                        data-testid={`exercise-programming-notes-${exercise.groupKey}`}
+                      >
+                        <ClipboardList
+                          aria-hidden="true"
+                          className="mt-0.5 size-3.5 shrink-0 text-muted"
+                        />
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
+                            Programming notes
+                          </p>
+                          <p className="whitespace-pre-wrap text-[13px] italic text-muted">
+                            {exercise.programmingNotes}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {isEditing ? (
                       <div className="space-y-2.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-accent-mint)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-mint)_10%,transparent)] p-2.5">
                         {exercise.sets.map((set) => (
@@ -915,6 +937,7 @@ function buildSections(
         {
           deletedAt: exercise.deletedAt ?? null,
           exerciseName: exercise.exerciseName,
+          programmingNotes: exercise.programmingNotes?.trim() ?? null,
           supersetGroup: exercise.supersetGroup ?? null,
           trackingType: exercise.trackingType ?? null,
         },
@@ -996,6 +1019,7 @@ function buildSections(
           name,
           archived: Boolean(sessionExerciseMeta?.deletedAt),
           notes: sets.find((set) => set.notes)?.notes ?? null,
+          programmingNotes: sessionExerciseMeta?.programmingNotes ?? null,
           phaseBadge: inferPhaseBadge(sectionType),
           sets: [...sets].sort((left, right) => left.setNumber - right.setNumber),
           supersetGroup:

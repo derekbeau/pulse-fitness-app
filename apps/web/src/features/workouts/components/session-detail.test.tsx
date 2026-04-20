@@ -130,6 +130,127 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('renders programming notes separately from exercise notes', async () => {
+    const currentSession = createSession({
+      id: 'session-programming-notes',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-programming-note-1',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          notes: 'User observation: left shoulder felt stable.',
+          reps: 10,
+          section: 'main',
+          weight: 50,
+        }),
+      ],
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: 'weight_reps',
+          orderIndex: 0,
+          section: 'main',
+          programmingNotes: 'Hardstyle, hips snap',
+          sets: [
+            createSet({
+              id: 'set-programming-note-1',
+              exerciseId: 'incline-dumbbell-press',
+              setNumber: 1,
+              notes: 'User observation: left shoulder felt stable.',
+              reps: 10,
+              section: 'main',
+              weight: 50,
+            }),
+          ],
+        },
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('exercise-programming-notes-incline-dumbbell-press'),
+    ).toHaveTextContent('Hardstyle, hips snap');
+    expect(screen.getByText('User observation: left shoulder felt stable.')).toBeInTheDocument();
+  });
+
+  it('does not render a programming notes block when programmingNotes is null', async () => {
+    const currentSession = createSession({
+      id: 'session-no-programming-notes',
+      templateId: 'template-upper-push',
+      exercises: [
+        {
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          deletedAt: null,
+          supersetGroup: null,
+          trackingType: 'weight_reps',
+          orderIndex: 0,
+          section: 'main',
+          programmingNotes: null,
+          sets: [
+            createSet({
+              id: 'set-no-programming-note-1',
+              exerciseId: 'incline-dumbbell-press',
+              setNumber: 1,
+              reps: 10,
+              section: 'main',
+              weight: 50,
+            }),
+          ],
+        },
+      ],
+      sets: [
+        createSet({
+          id: 'set-no-programming-note-1',
+          exerciseId: 'incline-dumbbell-press',
+          setNumber: 1,
+          reps: 10,
+          section: 'main',
+          weight: 50,
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('exercise-programming-notes-incline-dumbbell-press'),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders deleted exercise placeholders for sets with null exerciseId', async () => {
     const currentSession = createSession({
       id: 'session-null-exercise',
@@ -153,6 +274,7 @@ describe('SessionDetail', () => {
           trackingType: null,
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [
             createSet({
               id: 'set-deleted-1',
@@ -209,6 +331,7 @@ describe('SessionDetail', () => {
           trackingType: 'weight_reps',
           orderIndex: 0,
           section: 'main',
+          programmingNotes: null,
           sets: [archivedSet],
           exercise: {
             formCues: [],
