@@ -314,20 +314,16 @@ const markRescheduledAgentNotesAsStale = async ({
   newDate: string;
 }) => {
   const { db } = await import('../../db/index.js');
-  const exercisesWithAgentNotes = db
-    .select({
-      id: scheduledWorkoutExercises.id,
-      agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta,
-    })
-    .from(scheduledWorkoutExercises)
-    .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
-    .all();
-
-  if (exercisesWithAgentNotes.length === 0) {
-    return;
-  }
-
   db.transaction((tx) => {
+    const exercisesWithAgentNotes = tx
+      .select({
+        id: scheduledWorkoutExercises.id,
+        agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta,
+      })
+      .from(scheduledWorkoutExercises)
+      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
+      .all();
+
     for (const row of exercisesWithAgentNotes) {
       if (!row.agentNotesMeta) {
         continue;
@@ -527,21 +523,23 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const { db } = await import('../../db/index.js');
-      const tokenIdentity =
-        request.agentTokenId === undefined
-          ? undefined
-          : db
-              .select({ name: agentTokens.name })
-              .from(agentTokens)
-              .where(
-                and(
-                  eq(agentTokens.id, request.agentTokenId),
-                  eq(agentTokens.userId, request.userId),
-                ),
-              )
-              .limit(1)
-              .get();
-      const author = tokenIdentity?.name ?? request.agentTokenId ?? 'agent-token';
+      const agentTokenId = request.agentTokenId;
+      if (!agentTokenId) {
+        throw new Error('Agent token id missing for AgentToken-authenticated request');
+      }
+
+      const tokenIdentity = db
+        .select({ name: agentTokens.name })
+        .from(agentTokens)
+        .where(
+          and(
+            eq(agentTokens.id, agentTokenId),
+            eq(agentTokens.userId, request.userId),
+          ),
+        )
+        .limit(1)
+        .get();
+      const author = tokenIdentity?.name ?? agentTokenId;
       const generatedAt = new Date().toISOString();
 
       db.transaction((tx) => {
@@ -625,9 +623,17 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      if (request.body.toExerciseId === request.body.fromExerciseId) {
+        return sendError(
+          reply,
+          400,
+          INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.code,
+          INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.message,
+        );
+      }
+
       if (
         request.body.toExerciseId !== null &&
-        request.body.toExerciseId !== request.body.fromExerciseId &&
         snapshot.exercises.some((exercise) => exercise.exerciseId === request.body.toExerciseId)
       ) {
         return sendError(
@@ -697,6 +703,8 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
             .set({
               exerciseId: request.body.toExerciseId,
               programmingNotes: carryOverProgrammingNotes ? sourceRow.programmingNotes : null,
+              agentNotes: null,
+              agentNotesMeta: null,
               templateCues: null,
             })
             .where(eq(scheduledWorkoutExercises.id, sourceRow.id))

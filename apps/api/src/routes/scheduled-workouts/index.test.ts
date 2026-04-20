@@ -1164,6 +1164,103 @@ describe('scheduled workout routes', () => {
     expect(swappedRows).toEqual([{ exerciseId: 'exercise-swap-target' }]);
   });
 
+  it('clears exercise agent notes metadata when swapping exercises', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedExercise({
+      id: 'exercise-swap-notes-source',
+      userId: 'user-1',
+      name: 'Barbell Bench Press',
+      trackingType: 'weight_reps',
+    });
+    seedExercise({
+      id: 'exercise-swap-notes-target',
+      userId: 'user-1',
+      name: 'Incline Dumbbell Press',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-swap-notes-source',
+      templateId: 'template-1',
+      exerciseId: 'exercise-swap-notes-source',
+      section: 'main',
+      orderIndex: 0,
+      programmingNotes: 'Touch and go.',
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    context.db
+      .update(scheduledWorkoutExercises)
+      .set({
+        agentNotes: 'Try 62 lb today.',
+        agentNotesMeta: {
+          author: 'Coach Pulse',
+          generatedAt: '2026-03-11T00:00:00.000Z',
+          scheduledDateAtGeneration: '2026-03-12',
+          stale: false,
+        },
+      })
+      .where(
+        eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId),
+      )
+      .run();
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-swap`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        fromExerciseId: 'exercise-swap-notes-source',
+        toExerciseId: 'exercise-swap-notes-target',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: scheduledWorkoutId,
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'exercise-swap-notes-target',
+            agentNotes: null,
+            agentNotesMeta: null,
+          }),
+        ],
+      }),
+    });
+
+    const swappedRows = context.db
+      .select({
+        exerciseId: scheduledWorkoutExercises.exerciseId,
+        agentNotes: scheduledWorkoutExercises.agentNotes,
+        agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta,
+      })
+      .from(scheduledWorkoutExercises)
+      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
+      .all();
+    expect(swappedRows).toEqual([
+      {
+        exerciseId: 'exercise-swap-notes-target',
+        agentNotes: null,
+        agentNotesMeta: null,
+      },
+    ]);
+  });
+
   it('swaps snapshot exercises for AgentToken callers and supports carry-over options', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -1234,6 +1331,117 @@ describe('scheduled workout routes', () => {
           }),
         ],
       }),
+    });
+  });
+
+  it('removes snapshot exercises when swapped to null', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedExercise({
+      id: 'exercise-swap-remove-source',
+      userId: 'user-1',
+      name: 'Push-up',
+      trackingType: 'bodyweight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-swap-remove-source',
+      templateId: 'template-1',
+      exerciseId: 'exercise-swap-remove-source',
+      section: 'main',
+      orderIndex: 0,
+      sets: 3,
+      repsMin: 12,
+      repsMax: 12,
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    const removeResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-swap`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        fromExerciseId: 'exercise-swap-remove-source',
+        toExerciseId: null,
+      },
+    });
+    expect(removeResponse.statusCode).toBe(200);
+
+    const detailResponse = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+    expect(detailResponse.statusCode).toBe(200);
+    expect(detailResponse.json()).toEqual({
+      data: expect.objectContaining({
+        id: scheduledWorkoutId,
+        exercises: [],
+      }),
+    });
+  });
+
+  it('rejects identity exercise swaps', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedExercise({
+      id: 'exercise-swap-identity',
+      userId: 'user-1',
+      name: 'Back Squat',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-swap-identity',
+      templateId: 'template-1',
+      exerciseId: 'exercise-swap-identity',
+      section: 'main',
+      orderIndex: 0,
+    });
+
+    const createResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/scheduled-workouts',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-swap`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        fromExerciseId: 'exercise-swap-identity',
+        toExerciseId: 'exercise-swap-identity',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'INVALID_SCHEDULED_WORKOUT_EXERCISE',
+        message: 'Exercise is not available for this user',
+      },
     });
   });
 
