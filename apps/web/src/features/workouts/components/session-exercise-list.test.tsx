@@ -373,6 +373,64 @@ describe('SessionExerciseList', () => {
     ).toHaveTextContent('Hardstyle, hips snap');
   });
 
+  it('renders agent notes inline beneath programming notes on active workout cards', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const session = buildActiveWorkoutSession(
+      activeTemplate,
+      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+    );
+    const rowErgExercise = session.sections
+      .flatMap((section) => section.exercises)
+      .find((exercise) => exercise.id === 'row-erg');
+
+    if (!rowErgExercise) {
+      throw new Error('Expected Row Erg exercise in active workout session.');
+    }
+
+    rowErgExercise.programmingNotes = 'Hardstyle, hips snap';
+    rowErgExercise.agentNotes = 'Last session was smooth. Increase to 62 lb if set one feels easy.';
+    rowErgExercise.agentNotesMeta = {
+      author: 'Coach Pulse',
+      generatedAt: '2026-03-16T09:30:00.000Z',
+      scheduledDateAtGeneration: '2026-03-16',
+      stale: true,
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const rowErgCard = screen
+      .getByRole('heading', { level: 3, name: 'Row Erg' })
+      .closest('[data-slot="card"]');
+
+    if (!rowErgCard) {
+      throw new Error('Expected Row Erg card.');
+    }
+
+    fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+
+    expect(
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+    ).toHaveTextContent('Hardstyle, hips snap');
+    expect(within(rowErgCard as HTMLElement).getByTestId('exercise-agent-notes-row-erg')).toHaveTextContent(
+      'Last session was smooth. Increase to 62 lb if set one feels easy.',
+    );
+    expect(within(rowErgCard as HTMLElement).getByText(/generated Mar 16/i)).toBeInTheDocument();
+    expect(
+      within(rowErgCard as HTMLElement).getByText(/possibly stale — rescheduled/i),
+    ).toBeInTheDocument();
+  });
+
   it('does not render a programming notes block when programmingNotes is null', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');

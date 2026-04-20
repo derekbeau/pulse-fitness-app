@@ -95,7 +95,7 @@ import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts
 import { startCase } from '@/features/workouts/lib/start-case';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
-import type { ActiveWorkoutTemplate } from '@/features/workouts/types';
+import type { ActiveWorkoutExercise, ActiveWorkoutTemplate } from '@/features/workouts/types';
 
 const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
@@ -505,6 +505,8 @@ export function ActiveWorkoutPage() {
                 0,
               ),
               name: exercise.name,
+              agentNotes: exercise.agentNotes ?? null,
+              agentNotesMeta: exercise.agentNotesMeta ?? null,
               notes: exercise.notes,
               programmingNotes: exercise.programmingNotes,
               reps: isRepTrackingType(exercise.trackingType)
@@ -2440,6 +2442,8 @@ function toActiveWorkoutTemplate(template: ApiWorkoutTemplate): ActiveWorkoutTem
       type: section.type,
       title: sectionTitleByType[section.type],
       exercises: section.exercises.map((exercise) => ({
+        agentNotes: null,
+        agentNotesMeta: null,
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
         trackingType: exercise.trackingType,
@@ -2450,6 +2454,7 @@ function toActiveWorkoutTemplate(template: ApiWorkoutTemplate): ActiveWorkoutTem
         restSeconds: exercise.restSeconds ?? 60,
         formCues: exercise.formCues ?? [],
         templateCues: exercise.cues,
+        programmingNotes: exercise.programmingNotes ?? null,
         badges: [],
       })),
     })),
@@ -2534,6 +2539,9 @@ function buildTemplateFromSession(
       restSeconds: fallbackExercise?.restSeconds ?? 60,
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
+      programmingNotes: sessionExercise.programmingNotes ?? fallbackExercise?.programmingNotes ?? null,
+      agentNotes: sessionExercise.agentNotes ?? fallbackExercise?.agentNotes ?? null,
+      agentNotesMeta: sessionExercise.agentNotesMeta ?? fallbackExercise?.agentNotesMeta ?? null,
       badges: fallbackExercise?.badges ?? [],
     });
   }
@@ -2582,6 +2590,9 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       trackingType: ExerciseTrackingType | null;
       section: WorkoutTemplateSectionType | null;
       supersetGroup: string | null;
+      programmingNotes: string | null;
+      agentNotes: string | null;
+      agentNotesMeta: ActiveWorkoutExercise['agentNotesMeta'];
       sets: SessionSet[];
     }
   >();
@@ -2605,6 +2616,9 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       trackingType: null,
       section: set.section,
       supersetGroup: null,
+      programmingNotes: null,
+      agentNotes: null,
+      agentNotesMeta: null,
       sets: [set],
     });
   }

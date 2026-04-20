@@ -29,6 +29,7 @@ import {
   ArrowDown,
   ArrowUp,
   ClipboardList,
+  Sparkles,
   Braces,
   ChevronDown,
   Check,
@@ -159,6 +160,10 @@ const phaseBadgeStyles: Record<ActiveWorkoutPhaseBadge, string> = {
 const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
+});
+const agentNotesGeneratedAtFormatter = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
 });
 
 const supersetAccentStyles = [
@@ -797,6 +802,8 @@ function ExerciseCardItem({
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const programmingNotes = exercise.programmingNotes?.trim() ?? '';
+  const agentNotes = exercise.agentNotes?.trim() ?? '';
+  const agentNotesGeneratedAt = formatAgentNotesGeneratedAt(exercise.agentNotesMeta?.generatedAt);
   const hasInjuryCues = exercise.injuryCues.length > 0;
   const priorityAccentClass = embeddedInSuperset
     ? ''
@@ -1003,6 +1010,30 @@ function ExerciseCardItem({
                     Programming notes
                   </p>
                   <p className="whitespace-pre-wrap text-[13px] italic text-muted">{programmingNotes}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {agentNotes ? (
+              <div
+                className="flex items-start gap-2 rounded-xl border-l-2 border-sky-500/35 bg-sky-500/10 px-3 py-2"
+                data-testid={`exercise-agent-notes-${exercise.id}`}
+              >
+                <Sparkles
+                  aria-hidden="true"
+                  className="mt-0.5 size-3.5 shrink-0 text-sky-700 dark:text-sky-300"
+                />
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
+                    For today
+                  </p>
+                  <p className="whitespace-pre-wrap text-[13px] italic text-muted">{agentNotes}</p>
+                  {agentNotesGeneratedAt || exercise.agentNotesMeta?.stale ? (
+                    <p className="text-[10px] text-muted">
+                      {agentNotesGeneratedAt ? `generated ${agentNotesGeneratedAt}` : 'generated recently'}
+                      {exercise.agentNotesMeta?.stale ? ' • possibly stale — rescheduled' : ''}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -1577,6 +1608,19 @@ function SessionSupersetManagerDialog({
 
 function formatSupersetGroupLabel(groupId: string) {
   return groupId.replace(/-/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatAgentNotesGeneratedAt(generatedAt: string | undefined) {
+  if (!generatedAt) {
+    return null;
+  }
+
+  const parsed = new Date(generatedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return agentNotesGeneratedAtFormatter.format(parsed);
 }
 
 function groupExercises(exercises: ActiveWorkoutExercise[]) {

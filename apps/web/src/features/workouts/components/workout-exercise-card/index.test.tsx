@@ -109,11 +109,50 @@ describe('WorkoutExerciseCard', () => {
     expect(screen.getByText('Show set values')).toBeInTheDocument();
   });
 
+  it('renders agent notes in scheduled mode', () => {
+    render(
+      <WorkoutExerciseCard
+        exercise={{
+          agentNotes: 'Last session moved quickly. Increase by 5 lb if warmup feels easy.',
+          agentNotesMeta: {
+            author: 'Coach Pulse',
+            generatedAt: '2026-03-16T09:30:00.000Z',
+            scheduledDateAtGeneration: '2026-03-16',
+            stale: true,
+          },
+          exerciseId: 'exercise-4',
+          id: 'scheduled-exercise-1',
+          name: 'Incline Dumbbell Press',
+          repsMax: 10,
+          repsMin: 8,
+          restSeconds: 90,
+          setTargets: [{ setNumber: 1, targetWeight: 65 }],
+          sets: 3,
+          tempo: '3110',
+          trackingType: 'weight_reps',
+        }}
+        mode="readonly-scheduled"
+      />,
+    );
+
+    expect(screen.getByTestId('exercise-agent-notes-scheduled-exercise-1')).toHaveTextContent(
+      'Last session moved quickly. Increase by 5 lb if warmup feels easy.',
+    );
+    expect(screen.getByText(/possibly stale — rescheduled/i)).toBeInTheDocument();
+  });
+
   it('applies condensed density in readonly-completed mode', () => {
     render(
       <WorkoutExerciseCard
         density="condensed"
         exercise={{
+          agentNotes: 'Keep first set at RPE 7.',
+          agentNotesMeta: {
+            author: 'Coach Pulse',
+            generatedAt: '2026-03-12T09:30:00.000Z',
+            scheduledDateAtGeneration: '2026-03-12',
+            stale: false,
+          },
           completedSets: [
             {
               completed: true,
@@ -138,5 +177,6 @@ describe('WorkoutExerciseCard', () => {
 
     expect(screen.queryByText('Prescription')).not.toBeInTheDocument();
     expect(screen.getByText('Show set values')).toBeInTheDocument();
+    expect(screen.queryByTestId('exercise-agent-notes-completed-exercise-2')).not.toBeInTheDocument();
   });
 });

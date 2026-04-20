@@ -52,6 +52,8 @@ type TemplateExerciseMetadata = {
 };
 
 type WorkoutTemplateExerciseWithMetadata = ActiveWorkoutTemplateExercise & {
+  agentNotes?: string | null;
+  agentNotesMeta?: ActiveWorkoutTemplateExercise['agentNotesMeta'];
   exercise?: TemplateExerciseMetadata | null;
   programmingNotes?: string | null;
 };
@@ -90,6 +92,8 @@ export function buildActiveWorkoutSession(
 
       return {
         badges: templateExercise.badges,
+        agentNotes: templateExerciseWithMetadata.agentNotes ?? null,
+        agentNotesMeta: templateExerciseWithMetadata.agentNotesMeta ?? null,
         category: enhancedExercise?.category ?? 'compound',
         coachingNotes: templateExerciseWithMetadata.exercise?.coachingNotes ?? null,
         completedSets,

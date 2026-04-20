@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  createWorkoutSessionInputSchema,
+  createWorkoutSessionRequestSchema,
   reorderWorkoutSessionExercisesInputSchema,
   type ReorderWorkoutSessionExercisesInput,
   type WorkoutTemplateSectionType,
@@ -30,7 +30,7 @@ const workoutSessionResponseSchema = z.object({
 
 export { workoutSessionQueryKeys };
 
-type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionInputSchema>;
+type CreateWorkoutSessionRequest = z.input<typeof createWorkoutSessionRequestSchema>;
 type UpdateSessionStartTimeRequest = {
   startedAt: number;
 };
@@ -54,7 +54,7 @@ async function getWorkoutSession(sessionId: string) {
 }
 
 async function startSession(input: CreateWorkoutSessionRequest) {
-  const parsedInput = createWorkoutSessionInputSchema.parse(input);
+  const parsedInput = createWorkoutSessionRequestSchema.parse(input);
   const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
     body: JSON.stringify(parsedInput),
     method: 'POST',
@@ -174,7 +174,7 @@ export function useStartSession() {
 
   return useMutation<WorkoutSession, Error, CreateWorkoutSessionRequest>({
     mutationFn: startSession,
-    onSuccess: async (session) => {
+    onSuccess: async (session, variables) => {
       setStoredActiveWorkoutSessionId(session.id);
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
       queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
@@ -195,6 +195,13 @@ export function useStartSession() {
         queryClient.invalidateQueries({
           queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
         }),
+        ...(variables.scheduledWorkoutId
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: workoutQueryKeys.scheduledWorkout(variables.scheduledWorkoutId),
+              }),
+            ]
+          : []),
         invalidateQueryKeys(
           queryClient,
           crossFeatureInvalidationMap.activeWorkoutSessionMutation(),

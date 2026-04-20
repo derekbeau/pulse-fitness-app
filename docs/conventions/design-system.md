@@ -134,6 +134,9 @@ read-only workout exercises.
   `density="condensed"` for summary surfaces. Condensed cards tighten spacing, hide the
   prescription/form-cue blocks, and relabel the set disclosure as "Show set values" while still
   using the same primitive contract.
+- Notes in condensed mode: keep inline notes minimal. `readonly-completed` condensed cards suppress
+  in-card `AgentNotesBlock`; pass compact free-form notes through `footerSlot` (for example summary
+  metric chips + compact agent notes + user notes).
 
 ## Page Header Pattern
 
@@ -199,6 +202,32 @@ Use this treatment for read-only exercise programming notes sourced from templat
 - Visibility: render only when `programmingNotes` is a non-empty string after trim.
 - Visual pattern: `flex items-start gap-2` container with a subtle left accent (`border-l-2 border-primary/35`) and muted surface (`bg-secondary/35`), plus a small `ClipboardList` icon.
 - Typography: compact uppercase label (`text-[10px] font-semibold tracking-[0.16em] text-muted`) and italic body copy (`text-[13px] italic text-muted`) with `whitespace-pre-wrap`.
+
+## Agent Notes Block
+
+Use this treatment for AI-generated, schedule-aware exercise notes (`agentNotes`) in scheduled,
+active, and completed-session read views.
+
+- Placement: render below `ProgrammingNotesBlock` when shown inline.
+- Visibility: render only when `agentNotes` is a non-empty string after trim.
+- Visual pattern: `Sparkles` icon + distinct sky tone (`border-sky-500/35`, `bg-sky-500/10`) so it
+  is distinguishable from programming and user notes.
+- Footer metadata: render `generated MMM D` from `agentNotesMeta.generatedAt` when present; append
+  `possibly stale — rescheduled` when `agentNotesMeta.stale === true`.
+- Condensed summary rule: in `WorkoutExerciseCard` condensed completed mode, suppress inline
+  rendering and pass a compact `AgentNotesBlock` through `footerSlot`.
+
+## Scheduled Workout Banners
+
+Scheduled-workout detail uses stacked inline status banners above the header for snapshot/template
+state. Prefer `Alert` semantics or equivalent bordered status surfaces with icon + title + body.
+
+- Template drift (non-blocking amber): "This template has been updated since you scheduled this workout."
+- Stale exercises (non-blocking amber): "Some exercises have been removed from your library." Include
+  a `Review` action that opens stale-exercise recovery.
+- Template deleted (informational muted): "Source template was deleted. This snapshot is preserved."
+- Drift banner in this phase is informational-only; do not attach refresh actions until refresh-from-template
+  is implemented server-side.
 
 ## Workout Section Header Controls
 

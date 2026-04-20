@@ -57,11 +57,22 @@ export type WorkoutExerciseCardTemplateExercise = {
   trackingType: ExerciseTrackingType;
 };
 
+export type WorkoutExerciseCardAgentNotesMeta = {
+  author: string;
+  generatedAt: string;
+  scheduledDateAtGeneration: string;
+  stale?: boolean;
+};
+
 export type WorkoutExerciseCardScheduledExercise = WorkoutExerciseCardTemplateExercise & {
+  agentNotes?: string | null;
+  agentNotesMeta?: WorkoutExerciseCardAgentNotesMeta | null;
   scheduledDateLabel?: string | null;
 };
 
 export type WorkoutExerciseCardCompletedExercise = {
+  agentNotes?: string | null;
+  agentNotesMeta?: WorkoutExerciseCardAgentNotesMeta | null;
   completedSets: WorkoutExerciseSetListItem[];
   equipment?: string | null;
   exerciseId: string;
