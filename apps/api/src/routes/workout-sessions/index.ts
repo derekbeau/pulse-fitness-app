@@ -53,7 +53,10 @@ import {
   unlinkScheduledWorkoutSession,
   linkTodayScheduledWorkoutToSession,
 } from '../scheduled-workouts/store.js';
-import { readSnapshot, type ScheduledWorkoutSnapshot } from '../scheduled-workouts/snapshot-store.js';
+import {
+  readSnapshot,
+  type ScheduledWorkoutSnapshot,
+} from '../scheduled-workouts/snapshot-store.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
@@ -596,7 +599,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       let programmingNotesByExerciseSection: Record<string, string | null> | undefined;
       let agentNotesByExerciseSection: Record<string, string | null> | undefined;
       let agentNotesMetaByExerciseSection:
-        | Record<string, NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null>
+        | Record<
+            string,
+            NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null
+          >
         | undefined;
       let scheduledWorkoutId: string | undefined;
       let linkScheduledWorkoutSession = false;
@@ -1454,17 +1460,27 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
           const key = `${exerciseId}:${set.setNumber}`;
           const previous = setMap.get(key);
+          const nextSkipped = set.skipped ?? false;
+          const nextCompleted = set.completed ?? (nextSkipped ? false : true);
 
           if (previous) {
             setMap.set(key, {
               ...previous,
-              weight: set.weight,
-              reps: set.reps,
-              completed: true,
-              skipped: false,
+              weight: set.weight ?? previous.weight,
+              reps: set.reps ?? previous.reps,
+              completed: nextCompleted,
+              skipped: nextSkipped,
+              notes: set.notes ?? previous.notes,
+              supersetGroup: set.supersetGroup ?? previous.supersetGroup,
+              section: set.section ?? previous.section,
             });
             continue;
           }
+
+          const siblingSection =
+            Array.from(setMap.values()).find(
+              (candidate) => candidate.exerciseId === exerciseId && candidate.section !== null,
+            )?.section ?? null;
 
           setMap.set(key, {
             exerciseId,
@@ -1472,11 +1488,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
-            completed: true,
-            skipped: false,
-            supersetGroup: null,
-            section: 'main',
-            notes: null,
+            completed: nextCompleted,
+            skipped: nextSkipped,
+            supersetGroup: set.supersetGroup ?? null,
+            section: set.section ?? siblingSection ?? 'main',
+            notes: set.notes ?? null,
           });
         }
 

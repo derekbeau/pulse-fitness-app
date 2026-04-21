@@ -140,8 +140,6 @@ describe('sessionSetInputSchema', () => {
       setNumber: 1,
       weight: null,
       reps: null,
-      completed: false,
-      skipped: false,
       supersetGroup: null,
       section: null,
       notes: null,
@@ -159,7 +157,7 @@ describe('sessionSetInputSchema', () => {
     ).toThrow();
   });
 
-  it('rejects target weight ranges where min exceeds max', () => {
+  it('rejects unsupported target fields for session set input', () => {
     expect(() =>
       sessionSetInputSchema.parse({
         exerciseId: 'bench-press',
@@ -167,7 +165,7 @@ describe('sessionSetInputSchema', () => {
         targetWeightMin: 150,
         targetWeightMax: 100,
       }),
-    ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
+    ).toThrow("Unrecognized key(s) in object: 'targetWeightMin', 'targetWeightMax'");
   });
 
   it('accepts exerciseName aliases and normalizes to exerciseId', () => {
@@ -183,8 +181,6 @@ describe('sessionSetInputSchema', () => {
       setNumber: 1,
       weight: null,
       reps: 12,
-      completed: false,
-      skipped: false,
       supersetGroup: null,
       section: null,
       notes: null,
@@ -681,7 +677,6 @@ describe('createWorkoutSessionInputSchema', () => {
           reps: 5,
           weight: 275,
           completed: true,
-          skipped: false,
           supersetGroup: null,
           section: 'main',
           notes: 'Fast concentric',
@@ -1021,8 +1016,6 @@ describe('updateWorkoutSessionInputSchema', () => {
           setNumber: 1,
           weight: 95,
           reps: 10,
-          completed: false,
-          skipped: false,
           supersetGroup: null,
           section: null,
           notes: null,

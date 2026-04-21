@@ -396,25 +396,37 @@ const buildWorkoutSessionExercises = (
 };
 
 const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput['sets']) =>
-  sets.map((set) => ({
-    id: randomUUID(),
-    sessionId,
-    exerciseId: set.exerciseId,
-    orderIndex: set.orderIndex,
-    setNumber: set.setNumber,
-    weight: set.weight,
-    reps: set.reps,
-    targetWeight: set.targetWeight,
-    targetWeightMin: set.targetWeightMin,
-    targetWeightMax: set.targetWeightMax,
-    targetSeconds: set.targetSeconds,
-    targetDistance: set.targetDistance,
-    supersetGroup: set.supersetGroup,
-    completed: set.completed,
-    skipped: set.skipped,
-    section: set.section ?? 'main',
-    notes: set.notes,
-  }));
+  sets.map((set) => {
+    const setWithTargets = set as typeof set & {
+      targetWeight?: number | null;
+      targetWeightMin?: number | null;
+      targetWeightMax?: number | null;
+      targetSeconds?: number | null;
+      targetDistance?: number | null;
+    };
+
+    return {
+      id: randomUUID(),
+      sessionId,
+      exerciseId: set.exerciseId,
+      orderIndex: set.orderIndex,
+      setNumber: set.setNumber,
+      weight: set.weight,
+      reps: set.reps,
+      // Scheduled-workout snapshot seeding still passes target fields through the
+      // create path even though public session set input does not accept them.
+      targetWeight: setWithTargets.targetWeight ?? null,
+      targetWeightMin: setWithTargets.targetWeightMin ?? null,
+      targetWeightMax: setWithTargets.targetWeightMax ?? null,
+      targetSeconds: setWithTargets.targetSeconds ?? null,
+      targetDistance: setWithTargets.targetDistance ?? null,
+      supersetGroup: set.supersetGroup,
+      completed: set.completed ?? false,
+      skipped: set.skipped ?? false,
+      section: set.section ?? 'main',
+      notes: set.notes,
+    };
+  });
 
 export const findInvalidSessionExerciseIds = async ({
   userId,

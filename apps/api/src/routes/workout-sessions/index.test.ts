@@ -846,7 +846,9 @@ describe('workout session routes', () => {
       ),
     ).toBe(false);
     expect(
-      persistedTemplateExercises.some((exercise) => exercise.notes === 'This should not round-trip'),
+      persistedTemplateExercises.some(
+        (exercise) => exercise.notes === 'This should not round-trip',
+      ),
     ).toBe(false);
   });
 
@@ -2622,10 +2624,12 @@ describe('workout session routes', () => {
     expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(
       true,
     );
-    expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
+    expect(
+      templatePayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null),
+    ).toBe(true);
+    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(
       true,
     );
-    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(true);
     expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
       true,
     );
@@ -2749,8 +2753,6 @@ describe('workout session routes', () => {
             setNumber: 1,
             weight: 185,
             reps: 8,
-            targetWeightMin: 175,
-            targetWeightMax: 185,
             completed: true,
             section: 'main',
             notes: ' Fast bar path ',
@@ -2830,8 +2832,6 @@ describe('workout session routes', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
-          targetWeightMin: 175,
-          targetWeightMax: 185,
           completed: true,
           skipped: false,
           section: 'main',
@@ -3378,7 +3378,9 @@ describe('workout session routes', () => {
     });
 
     expect(response.statusCode).toBe(201);
-    const payload = response.json() as { data: { id: string; exercises?: Array<{ agentNotes: string | null }> } };
+    const payload = response.json() as {
+      data: { id: string; exercises?: Array<{ agentNotes: string | null }> };
+    };
     expect(payload.data.id).not.toBe('cancelled-linked-session');
     expect(payload.data.exercises).toEqual([
       expect.objectContaining({
@@ -5792,6 +5794,367 @@ describe('workout session routes', () => {
       name: 'Landmine Press',
       userId: 'user-1',
     });
+  });
+
+  it('honors skipped=true in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-skip-bulk-patch',
+      userId: 'user-1',
+      name: 'Skip Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-skip-bulk-patch-set-1',
+      sessionId: 'session-skip-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: false,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-skip-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, skipped: true }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+          skipped: true,
+        }),
+      ]),
+    );
+  });
+
+  it('honors completed=false in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-completed-bulk-patch',
+      userId: 'user-1',
+      name: 'Completed Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-completed-bulk-patch-set-1',
+      sessionId: 'session-completed-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-completed-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, completed: false }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: { sets: Array<{ exerciseId: string | null; setNumber: number; completed: boolean }> };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+        }),
+      ]),
+    );
+  });
+
+  it('defaults omitted completed to true for logged set updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-default-completed-bulk-patch',
+      userId: 'user-1',
+      name: 'Default Completed Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-default-completed-bulk-patch-set-1',
+      sessionId: 'session-default-completed-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      completed: false,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-default-completed-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, weight: 100, reps: 5 }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          weight: number | null;
+          reps: number | null;
+          completed: boolean;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          weight: 100,
+          reps: 5,
+          completed: true,
+        }),
+      ]),
+    );
+  });
+
+  it('round-trips notes and supersetGroup in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-notes-superset-bulk-patch',
+      userId: 'user-1',
+      name: 'Notes Superset Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-notes-superset-bulk-patch-set-1',
+      sessionId: 'session-notes-superset-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      supersetGroup: null,
+      notes: null,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-notes-superset-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'global-bench-press',
+            setNumber: 1,
+            notes: 'left side weak',
+            supersetGroup: 'A',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises?: Array<{ exerciseId: string | null; supersetGroup: string | null }>;
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          notes: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          notes: 'left side weak',
+        }),
+      ]),
+    );
+    expect(payload.data.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          supersetGroup: 'A',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects unsupported session set target fields on patch', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-target-field-reject',
+      userId: 'user-1',
+      name: 'Target Field Reject',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-target-field-reject',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, targetSeconds: 720 }],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expectRequestValidationError(
+      response,
+      'PATCH',
+      '/api/v1/workout-sessions/session-target-field-reject',
+    );
+    expect(response.json()).toMatchObject({
+      error: {
+        details: {
+          issues: [
+            expect.objectContaining({
+              keyword: 'unrecognized_keys',
+              params: {
+                issue: expect.objectContaining({
+                  code: 'unrecognized_keys',
+                  keys: expect.arrayContaining(['targetSeconds']),
+                }),
+              },
+            }),
+          ],
+        },
+      },
+    });
+  });
+
+  it('creates missing sets in patch updates and preserves provided structural fields', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-new-set-patch',
+      userId: 'user-1',
+      name: 'New Set Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-new-set-patch-set-1',
+      sessionId: 'session-new-set-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      section: 'cooldown',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-new-set-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'global-bench-press',
+            setNumber: 2,
+            supersetGroup: 'A',
+            notes: 'left side weak',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises?: Array<{ exerciseId: string | null; supersetGroup: string | null }>;
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+          notes: string | null;
+          section: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 2,
+          completed: true,
+          skipped: false,
+          notes: 'left side weak',
+          section: 'cooldown',
+        }),
+      ]),
+    );
+    expect(payload.data.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          supersetGroup: 'A',
+        }),
+      ]),
+    );
   });
 
   it('applies addExercises/removeExercises/reorderExercises for both JWT and AgentToken callers', async () => {
