@@ -147,6 +147,8 @@ Completed sessions should also store exercise-level set logs and post-workout fe
 
 Session exercise metadata should preserve `supersetGroup` values so completed receipts and history can render grouped supersets consistently.
 
+Set removal is status-scoped: in-progress/paused sessions remove sets through `DELETE /api/v1/workout-sessions/:sessionId/sets/:setId` (with server-side renumbering), while completed sessions are edited only through `PATCH /api/v1/workout-sessions/:id/corrections`.
+
 ### Session Exercise Notes Layers
 
 Session exercises intentionally keep three separate note channels:

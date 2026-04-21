@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
+  useDeleteSessionSet,
   workoutQueryKeys,
   useUpdateSessionSectionTimer,
   useWorkoutSessions,
@@ -179,6 +180,7 @@ export function ActiveWorkoutPage() {
   const updateSessionStartTimeMutation = useUpdateSessionStartTime(sessionId);
   const updateSessionStatusMutation = useUpdateSessionStatus(sessionId);
   const updateSessionSectionTimerMutation = useUpdateSessionSectionTimer(sessionId);
+  const deleteSessionSetMutation = useDeleteSessionSet();
   const cancelAndRevertSessionMutation = useCancelAndRevertSession(sessionId);
   const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
   const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
@@ -1153,23 +1155,66 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    if (activeSessionId) {
-      // API does not yet expose set deletion for active sessions.
-      setSessionError('Removing sets is local-only right now and may not sync across devices.');
-    }
+    const removedSetId = removedSet.id.trim();
+    const previousRestTimer = restTimer;
+    const previousFocusSetId = focusSetId;
+    const shouldClearRestTimer = restTimer?.setId === removedSet.id;
+    const shouldClearFocus = focusSetId === removedSet.id;
 
     setSetDrafts((current) => ({
       ...current,
       [exerciseId]: nextExerciseSets,
     }));
 
-    if (restTimer?.setId === removedSet.id) {
+    if (shouldClearRestTimer) {
       setRestTimer(null);
     }
 
-    if (focusSetId === removedSet.id) {
+    if (shouldClearFocus) {
       setFocusSetId(null);
     }
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    if (
+      removedSetId.length === 0 ||
+      !activeSession?.sets.some((sessionSet) => sessionSet.id === removedSetId)
+    ) {
+      return;
+    }
+
+    setSessionError(null);
+    deleteSessionSetMutation.mutate(
+      {
+        sessionId: activeSessionId,
+        setId: removedSetId,
+      },
+      {
+        onError: (error) => {
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+
+          setSetDrafts((current) => ({
+            ...current,
+            [exerciseId]: sortedSets,
+          }));
+
+          if (shouldClearRestTimer && previousRestTimer) {
+            setRestTimer(previousRestTimer);
+          }
+
+          if (shouldClearFocus) {
+            setFocusSetId(previousFocusSetId);
+          }
+
+          setSessionError('Unable to remove set. Try again.');
+        },
+      },
+    );
   }
 
   function removeExerciseFromLocalState(exerciseId: string, section: WorkoutTemplateSectionType) {
@@ -2522,6 +2567,11 @@ function buildTemplateFromSession(
     const fallbackExercise = fallbackExerciseById.get(sessionExercise.exerciseId)?.exercise;
     const defaultReps = fallbackExercise?.reps ?? inferExerciseRepsFromSets(sessionExercise.sets);
 
+    const sessionSetCount = sessionExercise.sets.reduce(
+      (maxValue, set) => Math.max(maxValue, set.setNumber),
+      0,
+    );
+
     targetSection.exercises.push({
       exerciseId: sessionExercise.exerciseId,
       exerciseName:
@@ -2530,10 +2580,7 @@ function buildTemplateFromSession(
         'Unknown Exercise',
       trackingType: fallbackExercise?.trackingType ?? sessionExercise.trackingType ?? undefined,
       supersetGroup: sessionExercise.supersetGroup ?? fallbackExercise?.supersetGroup ?? null,
-      sets: Math.max(
-        fallbackExercise?.sets ?? 0,
-        sessionExercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0),
-      ),
+      sets: sessionSetCount > 0 ? sessionSetCount : (fallbackExercise?.sets ?? 1),
       reps: defaultReps,
       tempo: fallbackExercise?.tempo ?? '2111',
       restSeconds: fallbackExercise?.restSeconds ?? 60,
