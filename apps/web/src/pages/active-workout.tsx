@@ -89,6 +89,7 @@ import {
   clearStoredActiveWorkoutSessionId,
   clearStoredWorkoutSessionUiState,
   getStoredActiveWorkoutDraft,
+  mergeServerSetDrafts,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
@@ -1893,48 +1894,6 @@ function createSessionSetDrafts(
   return drafts;
 }
 
-function mergeServerSetDrafts(
-  currentSetDrafts: ActiveWorkoutSetDrafts,
-  serverSetDrafts: ActiveWorkoutSetDrafts,
-) {
-  const nextDrafts: ActiveWorkoutSetDrafts = {};
-
-  for (const [exerciseId, serverExerciseDrafts] of Object.entries(serverSetDrafts)) {
-    const currentExerciseDrafts = currentSetDrafts[exerciseId] ?? [];
-
-    nextDrafts[exerciseId] = serverExerciseDrafts.map((serverSetDraft) => {
-      const currentDraft = currentExerciseDrafts.find(
-        (set) => set.number === serverSetDraft.number,
-      );
-
-      if (!currentDraft) {
-        return serverSetDraft;
-      }
-
-      if (currentDraft.completed || serverSetDraft.completed) {
-        // Completed sets are server-authoritative; this may replace uncommitted local input if
-        // an external actor completed the set between poll intervals.
-        return serverSetDraft;
-      }
-
-      return {
-        ...serverSetDraft,
-        distance: currentDraft.distance,
-        reps: currentDraft.reps,
-        seconds: currentDraft.seconds,
-        targetDistance: currentDraft.targetDistance,
-        targetSeconds: currentDraft.targetSeconds,
-        targetWeight: currentDraft.targetWeight,
-        targetWeightMax: currentDraft.targetWeightMax,
-        targetWeightMin: currentDraft.targetWeightMin,
-        weight: currentDraft.weight,
-      };
-    });
-  }
-
-  return nextDrafts;
-}
-
 function hasDraftStructure(setDrafts: ActiveWorkoutSetDrafts) {
   return Object.values(setDrafts).some((exerciseDrafts) => exerciseDrafts.length > 0);
 }
@@ -2586,7 +2545,8 @@ function buildTemplateFromSession(
       restSeconds: fallbackExercise?.restSeconds ?? 60,
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
-      programmingNotes: sessionExercise.programmingNotes ?? fallbackExercise?.programmingNotes ?? null,
+      programmingNotes:
+        sessionExercise.programmingNotes ?? fallbackExercise?.programmingNotes ?? null,
       agentNotes: sessionExercise.agentNotes ?? fallbackExercise?.agentNotes ?? null,
       agentNotesMeta: sessionExercise.agentNotesMeta ?? fallbackExercise?.agentNotesMeta ?? null,
       badges: fallbackExercise?.badges ?? [],

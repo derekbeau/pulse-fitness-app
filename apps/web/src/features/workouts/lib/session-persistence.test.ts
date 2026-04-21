@@ -13,9 +13,31 @@ import {
   getWorkoutExerciseStorageKey,
   getWorkoutSectionStorageKey,
   getStoredActiveWorkoutDraft,
+  mergeExerciseNotes,
+  mergeServerSetDrafts,
   setStoredActiveWorkoutDraft,
   setStoredActiveWorkoutSessionId,
 } from './session-persistence';
+
+type MergeDraftSet = ActiveWorkoutSetDrafts[string][number] & {
+  orderIndex?: number;
+  section?: string | null;
+  skipped?: boolean;
+  supersetGroup?: string | null;
+};
+
+function createDraftSet(overrides: Partial<MergeDraftSet> = {}): MergeDraftSet {
+  return {
+    completed: false,
+    distance: null,
+    id: 'set-1',
+    number: 1,
+    reps: 8,
+    seconds: null,
+    weight: 100,
+    ...overrides,
+  };
+}
 
 describe('session-persistence', () => {
   afterEach(() => {
@@ -117,5 +139,139 @@ describe('session-persistence', () => {
 
     expect(window.localStorage.getItem(`${WORKOUT_SECTIONS_STORAGE_PREFIX}:session-a`)).toBeNull();
     expect(window.localStorage.getItem(`${WORKOUT_EXERCISES_STORAGE_PREFIX}:session-a`)).toBeNull();
+  });
+});
+
+describe('mergeServerSetDrafts', () => {
+  it('uses server values for completed sets even when local has in-progress edits', () => {
+    const local: ActiveWorkoutSetDrafts = {
+      squat: [createDraftSet({ reps: 5, weight: 225 })],
+    };
+    const server: ActiveWorkoutSetDrafts = {
+      squat: [createDraftSet({ completed: true, reps: 8, weight: 245 })],
+    };
+
+    expect(mergeServerSetDrafts(local, server)).toEqual(server);
+  });
+
+  it('uses server values for skipped sets', () => {
+    const local: ActiveWorkoutSetDrafts = {
+      squat: [createDraftSet({ reps: 5, weight: 225 })],
+    };
+    const server: ActiveWorkoutSetDrafts = {
+      squat: [createDraftSet({ completed: true, reps: null, skipped: true, weight: null })],
+    };
+
+    expect(mergeServerSetDrafts(local, server)).toEqual(server);
+  });
+
+  it('keeps local editable fields for in-progress sets while syncing structural server fields', () => {
+    const local: ActiveWorkoutSetDrafts = {
+      squat: [
+        createDraftSet({
+          distance: 0.25,
+          reps: 6,
+          seconds: 45,
+          targetWeight: 205,
+          targetWeightMax: 215,
+          targetWeightMin: 195,
+          weight: 185,
+        }),
+      ],
+    };
+    const server: ActiveWorkoutSetDrafts = {
+      squat: [
+        createDraftSet({
+          distance: null,
+          orderIndex: 3,
+          reps: 10,
+          section: 'main',
+          supersetGroup: 'A',
+          targetWeight: 205,
+          targetWeightMax: 215,
+          targetWeightMin: 195,
+          weight: 135,
+        }),
+      ],
+    };
+
+    expect(mergeServerSetDrafts(local, server)).toEqual({
+      squat: [
+        createDraftSet({
+          distance: 0.25,
+          orderIndex: 3,
+          reps: 6,
+          seconds: 45,
+          section: 'main',
+          supersetGroup: 'A',
+          targetWeight: 205,
+          targetWeightMax: 215,
+          targetWeightMin: 195,
+          weight: 185,
+        }),
+      ],
+    });
+  });
+
+  it('drops local exercises that are missing from the server payload', () => {
+    const local: ActiveWorkoutSetDrafts = {
+      carry: [createDraftSet({ id: 'carry-1' })],
+    };
+
+    expect(mergeServerSetDrafts(local, {})).toEqual({});
+  });
+
+  it('initializes exercises present only on the server', () => {
+    const server: ActiveWorkoutSetDrafts = {
+      row: [createDraftSet({ id: 'row-1', reps: 12 })],
+    };
+
+    expect(mergeServerSetDrafts({}, server)).toEqual(server);
+  });
+
+  it('passes through all server data when local drafts are empty', () => {
+    const server: ActiveWorkoutSetDrafts = {
+      row: [createDraftSet({ id: 'row-1', reps: 12 })],
+    };
+
+    expect(mergeServerSetDrafts({}, server)).toEqual(server);
+  });
+
+  it('is total when the server payload is empty', () => {
+    const local: ActiveWorkoutSetDrafts = {
+      row: [createDraftSet({ id: 'row-1', reps: 12 })],
+    };
+
+    expect(mergeServerSetDrafts(local, {})).toEqual({});
+  });
+});
+
+describe('mergeExerciseNotes', () => {
+  it('prefers non-empty server notes over local notes', () => {
+    expect(
+      mergeExerciseNotes(
+        { squat: 'Local note' },
+        { squat: 'Server note', deadlift: 'Deadlift cue' },
+      ),
+    ).toEqual({
+      deadlift: 'Deadlift cue',
+      squat: 'Server note',
+    });
+  });
+
+  it('keeps local notes when server note is empty', () => {
+    expect(mergeExerciseNotes({ squat: 'Local note' }, { squat: '' })).toEqual({
+      squat: 'Local note',
+    });
+  });
+
+  it('keeps server-only exercise notes', () => {
+    expect(mergeExerciseNotes({}, { squat: 'Server note' })).toEqual({
+      squat: 'Server note',
+    });
+  });
+
+  it('drops local-only exercise notes that are not in server payload', () => {
+    expect(mergeExerciseNotes({ squat: 'Local note' }, {})).toEqual({});
   });
 });
