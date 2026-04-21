@@ -24,6 +24,8 @@ import {
 } from '../../db/schema/index.js';
 import { computeTemplateVersionForTemplateId, readSnapshot } from './snapshot-store.js';
 
+// Supplemental is retained for deterministic ordering of legacy snapshot rows.
+// Structural edit input schemas prevent callers from assigning supplemental.
 const SECTION_RANK: Record<WorkoutTemplateSectionType, number> = {
   warmup: 0,
   main: 1,
@@ -874,7 +876,7 @@ export const updateScheduledWorkoutExerciseSets = async ({
     };
   }
 
-  const didMutate = db.transaction((tx) => {
+  db.transaction((tx) => {
     let mutated = false;
 
     let persistedRows = tx
@@ -986,18 +988,6 @@ export const updateScheduledWorkoutExerciseSets = async ({
 
     return mutated;
   });
-
-  if (didMutate) {
-    const detail = await buildScheduledWorkoutDetail({
-      scheduledWorkoutId,
-      userId,
-    });
-    if (!detail) {
-      throw new Error('Updated scheduled workout could not be loaded');
-    }
-
-    return detail;
-  }
 
   const detail = await buildScheduledWorkoutDetail({
     scheduledWorkoutId,

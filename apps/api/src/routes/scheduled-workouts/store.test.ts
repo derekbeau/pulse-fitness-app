@@ -351,9 +351,7 @@ describe('scheduled workout structural mutation store functions', () => {
     expect(readExerciseRows().find((row) => row.exerciseId === EXERCISE_MAIN_ID)?.supersetGroup).toBe(
       null,
     );
-    const updatedAtAfterFirstRun = readExerciseRows().find(
-      (row) => row.exerciseId === EXERCISE_MAIN_ID,
-    )?.updatedAt;
+    const updatedAtAfterFirstRun = readScheduledWorkoutUpdatedAt();
 
     const secondRun = await context.store.updateScheduledWorkoutExercises({
       userId: USER_ID,
@@ -369,9 +367,7 @@ describe('scheduled workout structural mutation store functions', () => {
     expect(secondRun).toMatchObject({
       id: SCHEDULED_WORKOUT_ID,
     });
-    expect(
-      readExerciseRows().find((row) => row.exerciseId === EXERCISE_MAIN_ID)?.updatedAt,
-    ).toBe(updatedAtAfterFirstRun);
+    expect(readScheduledWorkoutUpdatedAt()).toBe(updatedAtAfterFirstRun);
   });
 
   it('returns unknown-exercise sentinel for exercise updates without mutating rows', async () => {
