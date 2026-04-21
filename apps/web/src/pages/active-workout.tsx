@@ -89,6 +89,7 @@ import {
   clearStoredActiveWorkoutSessionId,
   clearStoredWorkoutSessionUiState,
   getStoredActiveWorkoutDraft,
+  mergeExerciseNotes,
   mergeServerSetDrafts,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
@@ -323,14 +324,14 @@ export function ActiveWorkoutPage() {
 
     if (isSessionSwitch) {
       const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
-      const shouldUseAutosavedDraft =
-        autosavedDraft &&
-        (!hasDraftStructure(serverSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
-      setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : serverSetDrafts);
+      const mergedSetDrafts = autosavedDraft
+        ? mergeServerSetDrafts(autosavedDraft.setDrafts, serverSetDrafts)
+        : serverSetDrafts;
+      setSetDrafts(mergedSetDrafts);
       setExerciseNotes(
-        shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : serverExerciseNotes,
+        mergeExerciseNotes(autosavedDraft?.exerciseNotes ?? {}, serverExerciseNotes),
       );
-      setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
+      setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
       hydratedDraftKeyRef.current = activeSession.id;
@@ -395,13 +396,13 @@ export function ActiveWorkoutPage() {
 
     const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
-    const shouldUseAutosavedDraft =
+    const preferAutosavedDraft =
       autosavedDraft &&
       (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
 
-    setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
-    setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : {});
-    setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
+    setSetDrafts(preferAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
+    setExerciseNotes(preferAutosavedDraft ? autosavedDraft.exerciseNotes : {});
+    setSessionCuesByExercise(preferAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
     setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedSessionIdRef.current = null;
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
