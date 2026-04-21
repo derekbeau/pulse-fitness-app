@@ -62,16 +62,20 @@ export const scheduledWorkoutQueryParamsSchema = z
     path: ['to'],
   });
 
-export const scheduledWorkoutExerciseSetSchema = z.object({
-  setNumber: z.number().int().min(1),
-  repsMin: z.number().int().min(1).nullable(),
-  repsMax: z.number().int().min(1).nullable(),
-  reps: z.number().int().min(1).nullable(),
+const scheduledWorkoutExerciseSetTargetFieldSchemas = {
   targetWeight: z.number().min(0).nullable(),
   targetWeightMin: z.number().min(0).nullable(),
   targetWeightMax: z.number().min(0).nullable(),
   targetSeconds: z.number().int().min(0).nullable(),
   targetDistance: z.number().min(0).nullable(),
+};
+
+export const scheduledWorkoutExerciseSetSchema = z.object({
+  setNumber: z.number().int().min(1),
+  repsMin: z.number().int().min(1).nullable(),
+  repsMax: z.number().int().min(1).nullable(),
+  reps: z.number().int().min(1).nullable(),
+  ...scheduledWorkoutExerciseSetTargetFieldSchemas,
 });
 
 export const scheduledWorkoutExerciseAgentNotesMetaSchema = z.object({
@@ -147,6 +151,85 @@ export const swapScheduledWorkoutExerciseInputSchema = z.object({
 
 export const swapScheduledWorkoutExerciseResponseSchema = scheduledWorkoutDetailSchema;
 
+const scheduledWorkoutEditableSectionSchema = workoutTemplateSectionTypeSchema.refine(
+  (section) => section !== 'supplemental',
+  {
+    message: 'Section must be warmup, main, or cooldown',
+  },
+);
+
+export const reorderScheduledWorkoutInputSchema = z
+  .object({
+    order: z.array(z.string().uuid()).min(1),
+  })
+  .strict();
+
+export const updateScheduledWorkoutExercisesInputSchema = z
+  .object({
+    updates: z
+      .array(
+        z
+          .object({
+            exerciseId: z.string().uuid(),
+            supersetGroup: z.string().nullable().optional(),
+            section: scheduledWorkoutEditableSectionSchema.optional(),
+            tempo: z.string().nullable().optional(),
+            restSeconds: z.number().int().nonnegative().nullable().optional(),
+            programmingNotes: z.string().nullable().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+
+const editableSetTargetFields = [
+  'targetWeight',
+  'targetWeightMin',
+  'targetWeightMax',
+  'targetSeconds',
+  'targetDistance',
+  'repsMin',
+  'repsMax',
+  'reps',
+] as const;
+
+export const updateScheduledWorkoutExerciseSetsInputSchema = z
+  .object({
+    exerciseId: z.string().uuid(),
+    sets: z
+      .array(
+        z
+          .object({
+            setNumber: z.number().int().positive(),
+            targetWeight: scheduledWorkoutExerciseSetTargetFieldSchemas.targetWeight.optional(),
+            targetWeightMin:
+              scheduledWorkoutExerciseSetTargetFieldSchemas.targetWeightMin.optional(),
+            targetWeightMax:
+              scheduledWorkoutExerciseSetTargetFieldSchemas.targetWeightMax.optional(),
+            targetSeconds: scheduledWorkoutExerciseSetTargetFieldSchemas.targetSeconds.optional(),
+            targetDistance: scheduledWorkoutExerciseSetTargetFieldSchemas.targetDistance.optional(),
+            repsMin: z.number().int().nonnegative().nullable().optional(),
+            repsMax: z.number().int().nonnegative().nullable().optional(),
+            reps: z.number().int().nonnegative().nullable().optional(),
+            remove: z.literal(true).optional(),
+          })
+          .strict()
+          .refine(
+            (setUpdate) =>
+              !(
+                setUpdate.remove &&
+                editableSetTargetFields.some((field) => setUpdate[field] != null)
+              ),
+            {
+              message: 'remove cannot be combined with target fields',
+            },
+          ),
+      )
+      .min(1),
+  })
+  .strict();
+
 export type ScheduledWorkout = z.infer<typeof scheduledWorkoutSchema>;
 export type ScheduledWorkoutListItem = z.infer<typeof scheduledWorkoutListItemSchema>;
 export type CreateScheduledWorkoutInput = z.infer<typeof createScheduledWorkoutInputSchema>;
@@ -165,4 +248,11 @@ export type UpdateScheduledWorkoutExerciseNotesInput = z.infer<
 >;
 export type SwapScheduledWorkoutExerciseInput = z.infer<
   typeof swapScheduledWorkoutExerciseInputSchema
+>;
+export type ReorderScheduledWorkoutInput = z.infer<typeof reorderScheduledWorkoutInputSchema>;
+export type UpdateScheduledWorkoutExercisesInput = z.infer<
+  typeof updateScheduledWorkoutExercisesInputSchema
+>;
+export type UpdateScheduledWorkoutExerciseSetsInput = z.infer<
+  typeof updateScheduledWorkoutExerciseSetsInputSchema
 >;

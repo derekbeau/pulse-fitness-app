@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createScheduledWorkoutInputSchema,
   type CreateScheduledWorkoutInput,
+  type ReorderScheduledWorkoutInput,
   scheduledWorkoutDetailSchema,
   type ScheduledWorkoutDetail,
   scheduledWorkoutListItemSchema,
@@ -13,7 +14,12 @@ import {
   type ScheduledWorkout,
   type ScheduledWorkoutListItem,
   type ScheduledWorkoutQueryParams,
+  type UpdateScheduledWorkoutExercisesInput,
+  type UpdateScheduledWorkoutExerciseSetsInput,
   type UpdateScheduledWorkoutExerciseNotesInput,
+  reorderScheduledWorkoutInputSchema,
+  updateScheduledWorkoutExercisesInputSchema,
+  updateScheduledWorkoutExerciseSetsInputSchema,
   updateScheduledWorkoutExerciseNotesInputSchema,
   type UpdateScheduledWorkoutInput,
   updateScheduledWorkoutInputSchema,
@@ -322,5 +328,142 @@ describe('swapScheduledWorkoutExerciseInputSchema', () => {
       fromExerciseId: 'exercise-1',
       toExerciseId: null,
     });
+  });
+});
+
+describe('reorderScheduledWorkoutInputSchema', () => {
+  it('parses valid reorder payloads', () => {
+    const payload: ReorderScheduledWorkoutInput = reorderScheduledWorkoutInputSchema.parse({
+      order: ['de111111-1111-4111-8111-111111111111', 'de222222-2222-4222-8222-222222222222'],
+    });
+
+    expect(payload).toEqual({
+      order: ['de111111-1111-4111-8111-111111111111', 'de222222-2222-4222-8222-222222222222'],
+    });
+  });
+
+  it('rejects empty order arrays', () => {
+    expect(() =>
+      reorderScheduledWorkoutInputSchema.parse({
+        order: [],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects order entries that are not UUIDs', () => {
+    expect(() =>
+      reorderScheduledWorkoutInputSchema.parse({
+        order: ['exercise-1'],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('updateScheduledWorkoutExercisesInputSchema', () => {
+  it('parses partial exercise metadata updates', () => {
+    const payload: UpdateScheduledWorkoutExercisesInput =
+      updateScheduledWorkoutExercisesInputSchema.parse({
+        updates: [
+          {
+            exerciseId: 'de111111-1111-4111-8111-111111111111',
+            supersetGroup: 'A',
+            section: 'main',
+          },
+          {
+            exerciseId: 'de222222-2222-4222-8222-222222222222',
+            restSeconds: 75,
+            programmingNotes: null,
+          },
+        ],
+      });
+
+    expect(payload).toEqual({
+      updates: [
+        {
+          exerciseId: 'de111111-1111-4111-8111-111111111111',
+          supersetGroup: 'A',
+          section: 'main',
+        },
+        {
+          exerciseId: 'de222222-2222-4222-8222-222222222222',
+          restSeconds: 75,
+          programmingNotes: null,
+        },
+      ],
+    });
+  });
+
+  it('rejects unknown fields inside update items', () => {
+    expect(() =>
+      updateScheduledWorkoutExercisesInputSchema.parse({
+        updates: [
+          {
+            exerciseId: 'de111111-1111-4111-8111-111111111111',
+            unknown: 'value',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('updateScheduledWorkoutExerciseSetsInputSchema', () => {
+  it('parses mixed target updates and remove operations', () => {
+    const payload: UpdateScheduledWorkoutExerciseSetsInput =
+      updateScheduledWorkoutExerciseSetsInputSchema.parse({
+        exerciseId: 'de111111-1111-4111-8111-111111111111',
+        sets: [
+          {
+            setNumber: 1,
+            targetSeconds: 720,
+            repsMin: 8,
+            repsMax: 10,
+          },
+          {
+            setNumber: 2,
+            remove: true,
+          },
+        ],
+      });
+
+    expect(payload).toEqual({
+      exerciseId: 'de111111-1111-4111-8111-111111111111',
+      sets: [
+        {
+          setNumber: 1,
+          targetSeconds: 720,
+          repsMin: 8,
+          repsMax: 10,
+        },
+        {
+          setNumber: 2,
+          remove: true,
+        },
+      ],
+    });
+  });
+
+  it('rejects remove operations combined with target fields', () => {
+    expect(() =>
+      updateScheduledWorkoutExerciseSetsInputSchema.parse({
+        exerciseId: 'de111111-1111-4111-8111-111111111111',
+        sets: [
+          {
+            setNumber: 2,
+            remove: true,
+            targetSeconds: 600,
+          },
+        ],
+      }),
+    ).toThrow('remove cannot be combined with target fields');
+  });
+
+  it('rejects empty set update payloads', () => {
+    expect(() =>
+      updateScheduledWorkoutExerciseSetsInputSchema.parse({
+        exerciseId: 'de111111-1111-4111-8111-111111111111',
+        sets: [],
+      }),
+    ).toThrow();
   });
 });
