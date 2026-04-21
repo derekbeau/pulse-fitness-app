@@ -50,6 +50,7 @@ Unified routes with agent conveniences should use middleware hooks instead of ro
 - `preHandler: agentRequestTransform` resolves names, expands shorthand fields, and performs agent auto-create behavior for AgentToken requests.
 - `onSend: agentEnrichmentOnSend` appends optional `agent` guidance from request context when available.
 - Handlers should implement one canonical write/read path and avoid `isAgentRequest()` schema branching.
+- Workout-session set deletion should use `DELETE /api/v1/workout-sessions/:sessionId/sets/:setId` for in-progress sessions and return a `409 session-not-in-progress` conflict for completed/cancelled sessions, where callers can use `PATCH /api/v1/workout-sessions/:id/corrections` to adjust logged values after completion.
 
 ## Unified vs AgentToken-only route pattern
 

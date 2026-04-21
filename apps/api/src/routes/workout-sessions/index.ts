@@ -72,6 +72,7 @@ import {
   batchUpsertSessionSets,
   createSessionSet,
   createWorkoutSession,
+  deleteSessionSet,
   deleteWorkoutSession,
   findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
@@ -81,6 +82,7 @@ import {
   listWorkoutSessions,
   reorderWorkoutSessionExercises,
   saveCompletedSessionAsTemplate,
+  SESSION_SET_DELETE_NOT_IN_PROGRESS,
   SessionSetNotFoundError,
   swapWorkoutSessionExercise,
   updateSessionSet,
@@ -220,6 +222,11 @@ const WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE = {
 const SESSION_SET_NOT_FOUND_RESPONSE = {
   code: 'SESSION_SET_NOT_FOUND',
   message: 'Session set not found',
+} as const;
+
+const SESSION_SET_NOT_IN_PROGRESS_RESPONSE = {
+  code: SESSION_SET_DELETE_NOT_IN_PROGRESS,
+  message: 'Workout session must be in progress to delete sets',
 } as const;
 
 const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
@@ -977,6 +984,76 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: set,
       });
+    },
+  );
+
+  typedApp.delete(
+    '/:sessionId/sets/:setId',
+    {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: sessionSetParamsSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Delete a set from an in-progress workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await ensureOwnedSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
+        reply,
+      });
+      if (!session) {
+        return reply;
+      }
+
+      const result = await deleteSessionSet({
+        sessionId: session.id,
+        setId: request.params.setId,
+      });
+      if (!result) {
+        return sendError(
+          reply,
+          404,
+          SESSION_SET_NOT_FOUND_RESPONSE.code,
+          SESSION_SET_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if ('error' in result && result.error === SESSION_SET_DELETE_NOT_IN_PROGRESS) {
+        return sendError(
+          reply,
+          409,
+          SESSION_SET_NOT_IN_PROGRESS_RESPONSE.code,
+          SESSION_SET_NOT_IN_PROGRESS_RESPONSE.message,
+        );
+      }
+
+      const updatedSession = await findWorkoutSessionById(session.id, request.userId);
+      if (!updatedSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, updatedSession, {
+          endpoint: 'workout-session.mutation',
+          action: 'set',
+          session: updatedSession,
+        }),
+      );
     },
   );
 

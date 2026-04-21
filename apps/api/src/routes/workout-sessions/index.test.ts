@@ -492,6 +492,10 @@ describe('workout session routes', () => {
         },
       }),
       context.app.inject({
+        method: 'DELETE',
+        url: '/api/v1/workout-sessions/session-1/sets/set-1',
+      }),
+      context.app.inject({
         method: 'PATCH',
         url: '/api/v1/workout-sessions/session-1/corrections',
         payload: {
@@ -1804,6 +1808,336 @@ describe('workout session routes', () => {
 
     expect(groupedResponse.statusCode).toBe(200);
     expect(groupedResponse.json()).toEqual(batchResponse.json());
+  });
+
+  it('deletes a set from an in-progress session and renumbers sibling sets', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-success',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Delete Set Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-1',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-2',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-3',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 3,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-cooldown-1',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'cooldown',
+      reps: 12,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-success/sets/session-delete-main-2',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        id: string;
+        sets: Array<{
+          id: string;
+          exerciseId: string | null;
+          section: 'warmup' | 'main' | 'cooldown' | 'supplemental' | null;
+          setNumber: number;
+        }>;
+      };
+    };
+    expect(payload.data.id).toBe('session-delete-success');
+
+    const mainBenchSets = payload.data.sets
+      .filter((set) => set.exerciseId === 'global-bench-press' && set.section === 'main')
+      .sort((left, right) => left.setNumber - right.setNumber)
+      .map((set) => ({ id: set.id, setNumber: set.setNumber }));
+    expect(mainBenchSets).toEqual([
+      { id: 'session-delete-main-1', setNumber: 1 },
+      { id: 'session-delete-main-3', setNumber: 2 },
+    ]);
+
+    const cooldownBenchSets = payload.data.sets
+      .filter((set) => set.exerciseId === 'global-bench-press' && set.section === 'cooldown')
+      .map((set) => ({ id: set.id, setNumber: set.setNumber }));
+    expect(cooldownBenchSets).toEqual([{ id: 'session-delete-cooldown-1', setNumber: 1 }]);
+
+    const persistedSets = context.db
+      .select({
+        id: sessionSets.id,
+        setNumber: sessionSets.setNumber,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-delete-success'))
+      .all()
+      .sort((left, right) => left.id.localeCompare(right.id));
+    expect(persistedSets).toEqual([
+      { id: 'session-delete-cooldown-1', setNumber: 1 },
+      { id: 'session-delete-main-1', setNumber: 1 },
+      { id: 'session-delete-main-3', setNumber: 2 },
+    ]);
+  });
+
+  it('returns 409 when deleting a set from a completed session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-completed',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 1100,
+      duration: 100,
+    });
+    seedSessionSet({
+      id: 'session-delete-completed-set-1',
+      sessionId: 'session-delete-completed',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-completed/sets/session-delete-completed-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'session-not-in-progress',
+        message: 'Workout session must be in progress to delete sets',
+      },
+    });
+  });
+
+  it('returns 404 when deleting a set that does not belong to the requested session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-owner-a',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Owner A',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedWorkoutSession({
+      id: 'session-delete-owner-b',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Owner B',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-owner-b-set-1',
+      sessionId: 'session-delete-owner-b',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-owner-a/sets/session-delete-owner-b-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'SESSION_SET_NOT_FOUND',
+        message: 'Session set not found',
+      },
+    });
+  });
+
+  it('returns 404 when deleting a set from an unknown session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-missing/sets/session-delete-missing-set',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_FOUND',
+        message: 'Workout session not found',
+      },
+    });
+  });
+
+  it('supports AgentToken auth and returns enrichment when deleting a set', async () => {
+    const agentToken = seedAgentToken('user-1', 'agent-delete-set-token');
+
+    seedWorkoutSession({
+      id: 'session-delete-agent',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Agent Delete Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-agent-set-1',
+      sessionId: 'session-delete-agent',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-agent/sets/session-delete-agent-set-1',
+      headers: createAgentTokenHeader(agentToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-delete-agent',
+      }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+        relatedState: expect.objectContaining({
+          action: 'set',
+          status: 'in-progress',
+        }),
+      }),
+    });
+  });
+
+  it('returns 401 when deleting a set without auth', async () => {
+    seedWorkoutSession({
+      id: 'session-delete-no-auth',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'No Auth Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-no-auth-set-1',
+      sessionId: 'session-delete-no-auth',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-no-auth/sets/session-delete-no-auth-set-1',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+      },
+    });
+  });
+
+  it('returns 404 when deleting the same set twice', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-idempotent',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Idempotent Delete Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-idempotent-set-1',
+      sessionId: 'session-delete-idempotent',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const firstResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-idempotent/sets/session-delete-idempotent-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+    expect(firstResponse.statusCode).toBe(200);
+
+    const secondResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-idempotent/sets/session-delete-idempotent-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(secondResponse.statusCode).toBe(404);
+    expect(secondResponse.json()).toEqual({
+      error: {
+        code: 'SESSION_SET_NOT_FOUND',
+        message: 'Session set not found',
+      },
+    });
   });
 
   it('batch-upserted sets inherit an exercise superset group from existing sets', async () => {
