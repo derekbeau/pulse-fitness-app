@@ -3,6 +3,7 @@ import type {
   BodyWeightEntry,
   HabitEntry,
   HabitTrackingType,
+  ScheduledWorkoutDetail,
   WorkoutSession,
 } from '@pulse/shared';
 import type { FastifyRequest, onSendHookHandler } from 'fastify';
@@ -73,6 +74,10 @@ export type AgentEnrichmentContext =
   | {
       endpoint: 'workout-template.mutation';
       action: 'create' | 'update';
+    }
+  | {
+      endpoint: 'scheduled-workout.mutation';
+      action: 'reorder' | 'exercises' | 'exercise-sets';
     };
 
 const requestEnrichmentContext = new WeakMap<FastifyRequest, AgentEnrichmentContext>();
@@ -99,6 +104,17 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isWorkoutSession = (value: unknown): value is WorkoutSession =>
   isRecord(value) && Array.isArray(value.sets) && typeof value.status === 'string';
+
+const isScheduledWorkoutDetail = (value: unknown): value is ScheduledWorkoutDetail =>
+  isRecord(value) &&
+  Array.isArray(value.exercises) &&
+  typeof value.date === 'string' &&
+  value.exercises.every(
+    (exercise) =>
+      isRecord(exercise) &&
+      typeof exercise.exerciseId === 'string' &&
+      Array.isArray(exercise.sets),
+  );
 
 const isHabitEntry = (value: unknown): value is HabitEntry =>
   isRecord(value) &&
@@ -511,6 +527,46 @@ const buildWorkoutTemplateEnrichment = (
   };
 };
 
+const buildScheduledWorkoutEnrichment = (
+  responseData: unknown,
+  context: Extract<AgentEnrichmentContext, { endpoint: 'scheduled-workout.mutation' }>,
+): AgentEnrichment | undefined => {
+  if (!isScheduledWorkoutDetail(responseData)) {
+    return undefined;
+  }
+
+  const exerciseCount = responseData.exercises.length;
+  const setCount = responseData.exercises.reduce(
+    (count, exercise) => count + exercise.sets.length,
+    0,
+  );
+  const supersetGroupCount = new Set(
+    responseData.exercises
+      .map((exercise) => exercise.supersetGroup)
+      .filter((group): group is string => typeof group === 'string' && group.length > 0),
+  ).size;
+
+  return {
+    hints: compactStrings([
+      `${pluralize(exerciseCount, 'exercise')} and ${pluralize(setCount, 'planned set')} are configured for ${responseData.date}.`,
+      supersetGroupCount > 0
+        ? `${pluralize(supersetGroupCount, 'superset group')} currently organize this workout.`
+        : 'No supersets are currently configured.',
+    ]),
+    suggestedActions: compactStrings([
+      'Start the scheduled workout when you are ready to train.',
+      'Re-open the scheduled workout detail to confirm the snapshot structure.',
+    ]),
+    relatedState: {
+      action: context.action,
+      date: responseData.date,
+      exerciseCount,
+      setCount,
+      supersetGroupCount,
+    },
+  };
+};
+
 export const buildAgentEnrichment = (
   request: FastifyRequest,
   responseData: unknown,
@@ -538,6 +594,8 @@ export const buildAgentEnrichment = (
       return buildFoodEnrichment(responseData, context);
     case 'workout-template.mutation':
       return buildWorkoutTemplateEnrichment(responseData, context);
+    case 'scheduled-workout.mutation':
+      return buildScheduledWorkoutEnrichment(responseData, context);
     default:
       return undefined;
   }

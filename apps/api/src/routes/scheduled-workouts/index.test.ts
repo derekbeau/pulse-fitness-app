@@ -15,6 +15,7 @@ import {
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
   scheduledWorkouts,
+  sessionSets,
   templateExercises,
   users,
   workoutSessions,
@@ -222,6 +223,110 @@ const seedTemplateExercise = (values: {
       setTargets: values.setTargets ?? null,
     })
     .run();
+
+const STRUCTURAL_EXERCISE_IDS = {
+  first: '11111111-1111-4111-8111-111111111111',
+  second: '22222222-2222-4222-8222-222222222222',
+  third: '33333333-3333-4333-8333-333333333333',
+} as const;
+
+const UNKNOWN_STRUCTURAL_EXERCISE_ID = '44444444-4444-4444-8444-444444444444';
+
+const seedStructuralSnapshotTemplate = ({
+  templateId = 'template-1',
+  userId = 'user-1',
+}: {
+  templateId?: string;
+  userId?: string;
+} = {}) => {
+  seedExercise({
+    id: STRUCTURAL_EXERCISE_IDS.first,
+    userId,
+    name: 'Incline Bench Press',
+    trackingType: 'weight_reps',
+  });
+  seedExercise({
+    id: STRUCTURAL_EXERCISE_IDS.second,
+    userId,
+    name: 'Single-arm Row',
+    trackingType: 'weight_reps',
+  });
+  seedExercise({
+    id: STRUCTURAL_EXERCISE_IDS.third,
+    userId,
+    name: 'Bike Intervals',
+    trackingType: 'seconds_only',
+  });
+
+  seedTemplateExercise({
+    id: 'template-structural-first',
+    templateId,
+    exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+    section: 'main',
+    orderIndex: 0,
+    sets: 3,
+    repsMin: 8,
+    repsMax: 8,
+    setTargets: [
+      { setNumber: 1, targetWeight: 135 },
+      { setNumber: 2, targetWeight: 145 },
+      { setNumber: 3, targetWeight: 150 },
+    ],
+  });
+  seedTemplateExercise({
+    id: 'template-structural-second',
+    templateId,
+    exerciseId: STRUCTURAL_EXERCISE_IDS.second,
+    section: 'main',
+    orderIndex: 1,
+    sets: 3,
+    repsMin: 10,
+    repsMax: 10,
+    setTargets: [
+      { setNumber: 1, targetWeight: 70 },
+      { setNumber: 2, targetWeight: 75 },
+      { setNumber: 3, targetWeight: 80 },
+    ],
+  });
+  seedTemplateExercise({
+    id: 'template-structural-third',
+    templateId,
+    exerciseId: STRUCTURAL_EXERCISE_IDS.third,
+    section: 'main',
+    orderIndex: 2,
+    sets: 3,
+    repsMin: null,
+    repsMax: null,
+    setTargets: [
+      { setNumber: 1, targetSeconds: 60 },
+      { setNumber: 2, targetSeconds: 60 },
+      { setNumber: 3, targetSeconds: 60 },
+    ],
+  });
+};
+
+const createScheduledWorkoutFromTemplate = async ({
+  authToken,
+  templateId = 'template-1',
+  date = '2026-03-12',
+}: {
+  authToken: string;
+  templateId?: string;
+  date?: string;
+}) => {
+  const response = await context.app.inject({
+    method: 'POST',
+    url: '/api/v1/scheduled-workouts',
+    headers: createAuthorizationHeader(authToken),
+    payload: {
+      templateId,
+      date,
+    },
+  });
+  expect(response.statusCode).toBe(201);
+
+  return (response.json() as { data: { id: string } }).data.id;
+};
 
 describe('scheduled workout routes', () => {
   beforeAll(async () => {
@@ -1464,6 +1569,780 @@ describe('scheduled workout routes', () => {
     });
   });
 
+  it('reorders scheduled workout snapshot exercises and is idempotent for JWT callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+    const reversedOrder = [
+      STRUCTURAL_EXERCISE_IDS.third,
+      STRUCTURAL_EXERCISE_IDS.second,
+      STRUCTURAL_EXERCISE_IDS.first,
+    ];
+
+    const firstResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        order: reversedOrder,
+      },
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    const firstPayload = firstResponse.json() as {
+      data: {
+        exercises: Array<{ exerciseId: string; orderIndex: number }>;
+      };
+      agent?: unknown;
+    };
+    expect(firstPayload.agent).toBeUndefined();
+    expect(firstPayload.data.exercises.map((exercise) => exercise.exerciseId)).toEqual(reversedOrder);
+    expect(firstPayload.data.exercises.map((exercise) => exercise.orderIndex)).toEqual([0, 1, 2]);
+
+    const secondResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        order: reversedOrder,
+      },
+    });
+
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual(firstPayload);
+  });
+
+  it('supports AgentToken auth for reorder and rejects missing auth', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'scheduled-reorder-agent');
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const authedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        order: [
+          STRUCTURAL_EXERCISE_IDS.third,
+          STRUCTURAL_EXERCISE_IDS.second,
+          STRUCTURAL_EXERCISE_IDS.first,
+        ],
+      },
+    });
+
+    expect(authedResponse.statusCode).toBe(200);
+    expect(authedResponse.json()).toEqual({
+      data: expect.objectContaining({ id: scheduledWorkoutId }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+      }),
+    });
+
+    const noAuthResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      payload: {
+        order: [
+          STRUCTURAL_EXERCISE_IDS.third,
+          STRUCTURAL_EXERCISE_IDS.second,
+          STRUCTURAL_EXERCISE_IDS.first,
+        ],
+      },
+    });
+
+    expect(noAuthResponse.statusCode).toBe(401);
+    expect(noAuthResponse.json()).toEqual({
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+      },
+    });
+  });
+
+  it('returns validation and invalid-order errors for scheduled-workout reorder', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const invalidBodyResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        order: ['not-a-uuid'],
+      },
+    });
+    expect(invalidBodyResponse.statusCode).toBe(400);
+    expectRequestValidationError(
+      invalidBodyResponse,
+      'PATCH',
+      `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+    );
+
+    const invalidOrderResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        order: [
+          STRUCTURAL_EXERCISE_IDS.first,
+          STRUCTURAL_EXERCISE_IDS.second,
+          UNKNOWN_STRUCTURAL_EXERCISE_ID,
+        ],
+      },
+    });
+    expect(invalidOrderResponse.statusCode).toBe(400);
+    expect(invalidOrderResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER',
+        message: 'Order must include each snapshot exercise exactly once',
+        details: {
+          missingExerciseIds: [STRUCTURAL_EXERCISE_IDS.third],
+          extraExerciseIds: [UNKNOWN_STRUCTURAL_EXERCISE_ID],
+          duplicateExerciseIds: [],
+        },
+      },
+    });
+  });
+
+  it('returns 404 for reorder when schedule is missing or outside user scope', async () => {
+    const userOneToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const userTwoToken = context.app.jwt.sign(
+      { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedStructuralSnapshotTemplate({ templateId: 'template-3', userId: 'user-2' });
+    const otherUserScheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken: userTwoToken,
+      templateId: 'template-3',
+    });
+
+    const [missingResponse, scopeResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/scheduled-workouts/schedule-missing/reorder',
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          order: [STRUCTURAL_EXERCISE_IDS.first],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/scheduled-workouts/${otherUserScheduledWorkoutId}/reorder`,
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          order: [
+            STRUCTURAL_EXERCISE_IDS.third,
+            STRUCTURAL_EXERCISE_IDS.second,
+            STRUCTURAL_EXERCISE_IDS.first,
+          ],
+        },
+      }),
+    ]);
+
+    for (const response of [missingResponse, scopeResponse]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'SCHEDULED_WORKOUT_NOT_FOUND',
+          message: 'Scheduled workout not found',
+        },
+      });
+    }
+  });
+
+  it('updates scheduled workout exercise fields and is idempotent for JWT callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+    const payload = {
+      updates: [
+        {
+          exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+          supersetGroup: 'A',
+          section: 'main',
+          tempo: '3011',
+          restSeconds: 75,
+          programmingNotes: 'Keep elbows stacked under wrists.',
+        },
+        {
+          exerciseId: STRUCTURAL_EXERCISE_IDS.second,
+          supersetGroup: 'A',
+          programmingNotes: null,
+        },
+      ],
+    };
+
+    const firstResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAuthorizationHeader(authToken),
+      payload,
+    });
+    expect(firstResponse.statusCode).toBe(200);
+    const firstPayload = firstResponse.json() as {
+      data: {
+        exercises: Array<{
+          exerciseId: string;
+          supersetGroup: string | null;
+          section: string;
+          tempo: string | null;
+          restSeconds: number | null;
+          programmingNotes: string | null;
+        }>;
+      };
+      agent?: unknown;
+    };
+    expect(firstPayload.agent).toBeUndefined();
+    expect(firstPayload.data.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+          supersetGroup: 'A',
+          section: 'main',
+          tempo: '3011',
+          restSeconds: 75,
+          programmingNotes: 'Keep elbows stacked under wrists.',
+        }),
+        expect.objectContaining({
+          exerciseId: STRUCTURAL_EXERCISE_IDS.second,
+          supersetGroup: 'A',
+          programmingNotes: null,
+        }),
+      ]),
+    );
+
+    const secondResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAuthorizationHeader(authToken),
+      payload,
+    });
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual(firstPayload);
+  });
+
+  it('supports AgentToken auth for exercise updates and rejects missing auth', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'scheduled-exercise-update-agent');
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const authedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        updates: [
+          {
+            exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+            supersetGroup: 'A',
+          },
+        ],
+      },
+    });
+    expect(authedResponse.statusCode).toBe(200);
+    expect(authedResponse.json()).toEqual({
+      data: expect.objectContaining({ id: scheduledWorkoutId }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+      }),
+    });
+
+    const noAuthResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      payload: {
+        updates: [
+          {
+            exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+            supersetGroup: 'A',
+          },
+        ],
+      },
+    });
+    expect(noAuthResponse.statusCode).toBe(401);
+  });
+
+  it('returns validation and unknown-exercise errors for scheduled-workout exercise updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const invalidBodyResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        updates: [
+          {
+            exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+            section: 'supplemental',
+          },
+        ],
+      },
+    });
+    expect(invalidBodyResponse.statusCode).toBe(400);
+    expectRequestValidationError(
+      invalidBodyResponse,
+      'PATCH',
+      `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+    );
+
+    const unknownExerciseResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        updates: [
+          {
+            exerciseId: UNKNOWN_STRUCTURAL_EXERCISE_ID,
+            supersetGroup: 'A',
+          },
+        ],
+      },
+    });
+    expect(unknownExerciseResponse.statusCode).toBe(400);
+    expect(unknownExerciseResponse.json()).toEqual({
+      error: {
+        code: 'UNKNOWN_SCHEDULED_WORKOUT_EXERCISE',
+        message: `Exercise is not present in this scheduled workout snapshot: ${UNKNOWN_STRUCTURAL_EXERCISE_ID}`,
+      },
+    });
+  });
+
+  it('returns 404 for exercise updates when schedule is missing or outside user scope', async () => {
+    const userOneToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const userTwoToken = context.app.jwt.sign(
+      { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedStructuralSnapshotTemplate({ templateId: 'template-3', userId: 'user-2' });
+    const otherUserScheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken: userTwoToken,
+      templateId: 'template-3',
+    });
+
+    const [missingResponse, scopeResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/scheduled-workouts/schedule-missing/exercises',
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          updates: [{ exerciseId: STRUCTURAL_EXERCISE_IDS.first, supersetGroup: 'A' }],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/scheduled-workouts/${otherUserScheduledWorkoutId}/exercises`,
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          updates: [{ exerciseId: STRUCTURAL_EXERCISE_IDS.first, supersetGroup: 'A' }],
+        },
+      }),
+    ]);
+
+    for (const response of [missingResponse, scopeResponse]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'SCHEDULED_WORKOUT_NOT_FOUND',
+          message: 'Scheduled workout not found',
+        },
+      });
+    }
+  });
+
+  it('updates scheduled workout set prescriptions and is idempotent for JWT callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+    const payload = {
+      exerciseId: STRUCTURAL_EXERCISE_IDS.third,
+      sets: [
+        { setNumber: 1, targetSeconds: 120 },
+        { setNumber: 2, remove: true },
+        { setNumber: 3, remove: true },
+      ],
+    };
+
+    const firstResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload,
+    });
+    expect(firstResponse.statusCode).toBe(200);
+    const firstPayload = firstResponse.json() as {
+      data: {
+        exercises: Array<{
+          exerciseId: string;
+          sets: Array<{ setNumber: number; targetSeconds: number | null }>;
+        }>;
+      };
+      agent?: unknown;
+    };
+    expect(firstPayload.agent).toBeUndefined();
+    const updatedExercise = firstPayload.data.exercises.find(
+      (exercise) => exercise.exerciseId === STRUCTURAL_EXERCISE_IDS.third,
+    );
+    expect(updatedExercise).toBeDefined();
+    expect(updatedExercise?.sets).toEqual([
+      expect.objectContaining({
+        setNumber: 1,
+        targetSeconds: 120,
+      }),
+    ]);
+
+    const secondResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload,
+    });
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual(firstPayload);
+  });
+
+  it('supports AgentToken auth for exercise-set updates and rejects missing auth', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'scheduled-exercise-sets-agent');
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const authedResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+        sets: [{ setNumber: 1, targetWeight: 155 }],
+      },
+    });
+    expect(authedResponse.statusCode).toBe(200);
+    expect(authedResponse.json()).toEqual({
+      data: expect.objectContaining({ id: scheduledWorkoutId }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+      }),
+    });
+
+    const noAuthResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+        sets: [{ setNumber: 1, targetWeight: 155 }],
+      },
+    });
+    expect(noAuthResponse.statusCode).toBe(401);
+  });
+
+  it('returns validation and unknown-exercise errors for scheduled-workout exercise-set updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const invalidBodyResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.third,
+        sets: [{ setNumber: 2, remove: true, targetSeconds: 45 }],
+      },
+    });
+    expect(invalidBodyResponse.statusCode).toBe(400);
+    expectRequestValidationError(
+      invalidBodyResponse,
+      'PATCH',
+      `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+    );
+
+    const unknownExerciseResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: UNKNOWN_STRUCTURAL_EXERCISE_ID,
+        sets: [{ setNumber: 1, targetSeconds: 60 }],
+      },
+    });
+    expect(unknownExerciseResponse.statusCode).toBe(400);
+    expect(unknownExerciseResponse.json()).toEqual({
+      error: {
+        code: 'UNKNOWN_SCHEDULED_WORKOUT_EXERCISE',
+        message: `Exercise is not present in this scheduled workout snapshot: ${UNKNOWN_STRUCTURAL_EXERCISE_ID}`,
+      },
+    });
+  });
+
+  it('returns 404 for exercise-set updates when schedule is missing or outside user scope', async () => {
+    const userOneToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const userTwoToken = context.app.jwt.sign(
+      { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedStructuralSnapshotTemplate({ templateId: 'template-3', userId: 'user-2' });
+    const otherUserScheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken: userTwoToken,
+      templateId: 'template-3',
+    });
+
+    const [missingResponse, scopeResponse] = await Promise.all([
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/scheduled-workouts/schedule-missing/exercise-sets',
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+          sets: [{ setNumber: 1, targetWeight: 155 }],
+        },
+      }),
+      context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/scheduled-workouts/${otherUserScheduledWorkoutId}/exercise-sets`,
+        headers: createAuthorizationHeader(userOneToken),
+        payload: {
+          exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+          sets: [{ setNumber: 1, targetWeight: 155 }],
+        },
+      }),
+    ]);
+
+    for (const response of [missingResponse, scopeResponse]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'SCHEDULED_WORKOUT_NOT_FOUND',
+          message: 'Scheduled workout not found',
+        },
+      });
+    }
+  });
+
+  it('seeds new sessions from edited scheduled snapshots and leaves the template unchanged', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedStructuralSnapshotTemplate();
+    const templateBefore = context.db
+      .select({
+        id: templateExercises.id,
+        exerciseId: templateExercises.exerciseId,
+        section: templateExercises.section,
+        orderIndex: templateExercises.orderIndex,
+        supersetGroup: templateExercises.supersetGroup,
+        tempo: templateExercises.tempo,
+        restSeconds: templateExercises.restSeconds,
+        programmingNotes: templateExercises.programmingNotes,
+        setTargets: templateExercises.setTargets,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, 'template-1'))
+      .all()
+      .sort((left, right) => left.orderIndex - right.orderIndex);
+
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken,
+      date: '2026-03-20',
+    });
+
+    const reorderResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/reorder`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        order: [
+          STRUCTURAL_EXERCISE_IDS.third,
+          STRUCTURAL_EXERCISE_IDS.second,
+          STRUCTURAL_EXERCISE_IDS.first,
+        ],
+      },
+    });
+    expect(reorderResponse.statusCode).toBe(200);
+
+    const updateExercisesResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercises`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        updates: [
+          { exerciseId: STRUCTURAL_EXERCISE_IDS.third, supersetGroup: 'A' },
+          { exerciseId: STRUCTURAL_EXERCISE_IDS.second, supersetGroup: 'A' },
+        ],
+      },
+    });
+    expect(updateExercisesResponse.statusCode).toBe(200);
+    expect(updateExercisesResponse.json()).toEqual({
+      data: expect.objectContaining({
+        exercises: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: STRUCTURAL_EXERCISE_IDS.third,
+            supersetGroup: 'A',
+          }),
+          expect.objectContaining({
+            exerciseId: STRUCTURAL_EXERCISE_IDS.second,
+            supersetGroup: 'A',
+          }),
+        ]),
+      }),
+    });
+
+    const updateSetsResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.third,
+        sets: [
+          { setNumber: 2, remove: true },
+          { setNumber: 3, remove: true },
+        ],
+      },
+    });
+    expect(updateSetsResponse.statusCode).toBe(200);
+
+    const startSessionResponse = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId,
+        date: '2026-03-20',
+        startedAt: Date.parse('2026-03-20T06:30:00.000Z'),
+      },
+    });
+    expect(startSessionResponse.statusCode).toBe(201);
+    const sessionPayload = startSessionResponse.json() as {
+      data: {
+        id: string;
+        sets: Array<{
+          exerciseId: string;
+          orderIndex: number | null;
+          setNumber: number;
+        }>;
+      };
+    };
+
+    const sortedSessionSets = context.db
+      .select({
+        exerciseId: sessionSets.exerciseId,
+        orderIndex: sessionSets.orderIndex,
+        setNumber: sessionSets.setNumber,
+        supersetGroup: sessionSets.supersetGroup,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, sessionPayload.data.id))
+      .all()
+      .sort((left, right) => {
+        const leftOrderIndex = left.orderIndex ?? Number.MAX_SAFE_INTEGER;
+        const rightOrderIndex = right.orderIndex ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrderIndex !== rightOrderIndex) {
+          return leftOrderIndex - rightOrderIndex;
+        }
+
+        return left.setNumber - right.setNumber;
+      });
+
+    const exerciseOrder = [...new Set(sortedSessionSets.map((set) => set.exerciseId))];
+    expect(exerciseOrder).toEqual([
+      STRUCTURAL_EXERCISE_IDS.third,
+      STRUCTURAL_EXERCISE_IDS.second,
+      STRUCTURAL_EXERCISE_IDS.first,
+    ]);
+
+    const setsByExerciseId = sortedSessionSets.reduce<Record<string, typeof sortedSessionSets>>(
+      (accumulator, set) => {
+        if (!set.exerciseId) {
+          return accumulator;
+        }
+        const existing = accumulator[set.exerciseId] ?? [];
+        accumulator[set.exerciseId] = [...existing, set];
+        return accumulator;
+      },
+      {},
+    );
+
+    expect(setsByExerciseId[STRUCTURAL_EXERCISE_IDS.third]).toHaveLength(1);
+    expect(setsByExerciseId[STRUCTURAL_EXERCISE_IDS.second]).toHaveLength(3);
+    expect(setsByExerciseId[STRUCTURAL_EXERCISE_IDS.first]).toHaveLength(3);
+
+    expect(
+      setsByExerciseId[STRUCTURAL_EXERCISE_IDS.third]?.every((set) => set.supersetGroup === 'A'),
+    ).toBe(true);
+    expect(
+      setsByExerciseId[STRUCTURAL_EXERCISE_IDS.second]?.every((set) => set.supersetGroup === 'A'),
+    ).toBe(true);
+    expect(
+      setsByExerciseId[STRUCTURAL_EXERCISE_IDS.first]?.every((set) => set.supersetGroup === null),
+    ).toBe(true);
+
+    const templateAfter = context.db
+      .select({
+        id: templateExercises.id,
+        exerciseId: templateExercises.exerciseId,
+        section: templateExercises.section,
+        orderIndex: templateExercises.orderIndex,
+        supersetGroup: templateExercises.supersetGroup,
+        tempo: templateExercises.tempo,
+        restSeconds: templateExercises.restSeconds,
+        programmingNotes: templateExercises.programmingNotes,
+        setTargets: templateExercises.setTargets,
+      })
+      .from(templateExercises)
+      .where(eq(templateExercises.templateId, 'template-1'))
+      .all()
+      .sort((left, right) => left.orderIndex - right.orderIndex);
+
+    expect(templateAfter).toEqual(templateBefore);
+  });
+
   it('marks agent notes stale when rescheduling by more than two days', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -1610,7 +2489,7 @@ describe('scheduled workout routes', () => {
     });
   });
 
-  it('documents scheduled workout exercise-note and swap paths in OpenAPI with correct security', async () => {
+  it('documents scheduled workout snapshot mutation paths in OpenAPI with correct security', async () => {
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/docs/json',
@@ -1635,6 +2514,18 @@ describe('scheduled workout routes', () => {
     });
     expect(body.paths['/api/v1/scheduled-workouts/{id}/exercise-swap']?.patch).toMatchObject({
       summary: 'Swap or remove an exercise in a scheduled workout snapshot',
+      security: [{ bearerAuth: [] }, { agentToken: [] }],
+    });
+    expect(body.paths['/api/v1/scheduled-workouts/{id}/reorder']?.patch).toMatchObject({
+      summary: 'Reorder exercises in a scheduled workout snapshot',
+      security: [{ bearerAuth: [] }, { agentToken: [] }],
+    });
+    expect(body.paths['/api/v1/scheduled-workouts/{id}/exercises']?.patch).toMatchObject({
+      summary: 'Update exercise-level snapshot fields on a scheduled workout',
+      security: [{ bearerAuth: [] }, { agentToken: [] }],
+    });
+    expect(body.paths['/api/v1/scheduled-workouts/{id}/exercise-sets']?.patch).toMatchObject({
+      summary: 'Update snapshot set prescriptions on a scheduled workout exercise',
       security: [{ bearerAuth: [] }, { agentToken: [] }],
     });
   });
