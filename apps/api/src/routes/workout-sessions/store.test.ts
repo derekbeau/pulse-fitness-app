@@ -79,7 +79,7 @@ const seedWorkoutSession = (values: {
 const seedSessionSet = (values: {
   id: string;
   sessionId: string;
-  exerciseId: string;
+  exerciseId: string | null;
   section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   setNumber: number;
 }) =>
@@ -195,8 +195,16 @@ describe('workout session store deleteSessionSet', () => {
     });
 
     expect(result).toEqual([
-      expect.objectContaining({ id: 'session-middle-delete-main-1', setNumber: 1, section: 'main' }),
-      expect.objectContaining({ id: 'session-middle-delete-main-3', setNumber: 2, section: 'main' }),
+      expect.objectContaining({
+        id: 'session-middle-delete-main-1',
+        setNumber: 1,
+        section: 'main',
+      }),
+      expect.objectContaining({
+        id: 'session-middle-delete-main-3',
+        setNumber: 2,
+        section: 'main',
+      }),
     ]);
 
     const persistedSets = context.db
@@ -379,5 +387,62 @@ describe('workout session store deleteSessionSet', () => {
       id: 'session-scope-b-set-1',
       sessionId: 'session-scope-b',
     });
+  });
+
+  it('renumbers null-exercise rows using IS NULL scope without touching named exercises', async () => {
+    seedWorkoutSession({ id: 'session-null-exercise', userId: 'user-1', status: 'in-progress' });
+    seedSessionSet({
+      id: 'session-null-exercise-null-1',
+      sessionId: 'session-null-exercise',
+      exerciseId: null,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-null-exercise-null-2',
+      sessionId: 'session-null-exercise',
+      exerciseId: null,
+      setNumber: 2,
+    });
+    seedSessionSet({
+      id: 'session-null-exercise-main-1',
+      sessionId: 'session-null-exercise',
+      exerciseId: 'global-row',
+      setNumber: 1,
+    });
+
+    const result = await context.store.deleteSessionSet({
+      sessionId: 'session-null-exercise',
+      setId: 'session-null-exercise-null-1',
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ id: 'session-null-exercise-null-2', setNumber: 1 }),
+    ]);
+
+    const persistedSets = context.db
+      .select({
+        id: sessionSets.id,
+        exerciseId: sessionSets.exerciseId,
+        setNumber: sessionSets.setNumber,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-null-exercise'))
+      .all();
+
+    expect(persistedSets).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'session-null-exercise-null-2',
+          exerciseId: null,
+          setNumber: 1,
+        },
+        {
+          id: 'session-null-exercise-main-1',
+          exerciseId: 'global-row',
+          setNumber: 1,
+        },
+      ]),
+    );
+    expect(persistedSets).toHaveLength(2);
   });
 });
