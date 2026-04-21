@@ -58,6 +58,7 @@ describe('scheduledWorkoutDetailSchema', () => {
       exercises: [
         {
           exerciseId: 'exercise-1',
+          exerciseName: 'Back Squat',
           section: 'main',
           orderIndex: 0,
           programmingNotes: 'Keep reps crisp',
@@ -118,6 +119,7 @@ describe('scheduledWorkoutDetailSchema', () => {
       exercises: [
         {
           exerciseId: 'exercise-1',
+          exerciseName: 'Back Squat',
           section: 'main',
           orderIndex: 0,
           programmingNotes: '   ',
@@ -293,14 +295,13 @@ describe('updateScheduledWorkoutExerciseNotesInputSchema', () => {
 
 describe('swapScheduledWorkoutExerciseInputSchema', () => {
   it('accepts swap payloads with optional carry-over flags', () => {
-    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
-      {
+    const payload: SwapScheduledWorkoutExerciseInput =
+      swapScheduledWorkoutExerciseInputSchema.parse({
         fromExerciseId: 'exercise-1',
         toExerciseId: ' exercise-2 ',
         carryOverProgrammingNotes: true,
         preserveSets: false,
-      },
-    );
+      });
 
     expect(payload).toEqual({
       fromExerciseId: 'exercise-1',
@@ -311,12 +312,11 @@ describe('swapScheduledWorkoutExerciseInputSchema', () => {
   });
 
   it('allows remove-style swaps with a null target exercise id', () => {
-    const payload: SwapScheduledWorkoutExerciseInput = swapScheduledWorkoutExerciseInputSchema.parse(
-      {
+    const payload: SwapScheduledWorkoutExerciseInput =
+      swapScheduledWorkoutExerciseInputSchema.parse({
         fromExerciseId: 'exercise-1',
         toExerciseId: null,
-      },
-    );
+      });
 
     expect(payload).toEqual({
       fromExerciseId: 'exercise-1',

@@ -91,8 +91,12 @@ const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.ex
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const mapSnapshotExercise = (exercise: Awaited<ReturnType<typeof readSnapshot>>['exercises'][number]) => ({
+const mapSnapshotExercise = (
+  exercise: Awaited<ReturnType<typeof readSnapshot>>['exercises'][number],
+  exerciseName: string,
+) => ({
   exerciseId: exercise.exerciseId,
+  exerciseName,
   section: exercise.section,
   orderIndex: exercise.orderIndex,
   programmingNotes: exercise.programmingNotes,
@@ -155,7 +159,9 @@ const toSnapshotSetDrafts = ({
   repsMax: number | null;
   setTargets: TemplateExerciseSetTarget[] | null;
 }) => {
-  const sortedTargets = [...(setTargets ?? [])].sort((left, right) => left.setNumber - right.setNumber);
+  const sortedTargets = [...(setTargets ?? [])].sort(
+    (left, right) => left.setNumber - right.setNumber,
+  );
   const reps = toExactReps(repsMin, repsMax);
 
   if (sortedTargets.length > 0) {
@@ -203,8 +209,9 @@ const buildScheduledWorkoutDetail = async ({
 
   const { db } = await import('../../db/index.js');
   const snapshot = await readSnapshot(scheduledWorkout.id, db);
-  const snapshotExercises = snapshot.exercises.map(mapSnapshotExercise);
-  const uniqueSnapshotExerciseIds = [...new Set(snapshotExercises.map((exercise) => exercise.exerciseId))];
+  const uniqueSnapshotExerciseIds = [
+    ...new Set(snapshot.exercises.map((exercise) => exercise.exerciseId)),
+  ];
 
   const exerciseRows =
     uniqueSnapshotExerciseIds.length === 0
@@ -221,6 +228,12 @@ const buildScheduledWorkoutDetail = async ({
           .all();
 
   const exercisesById = new Map(exerciseRows.map((row) => [row.id, row]));
+  const snapshotExercises = snapshot.exercises.map((exercise) =>
+    mapSnapshotExercise(
+      exercise,
+      exercisesById.get(exercise.exerciseId)?.name ?? UNKNOWN_SNAPSHOT_EXERCISE_NAME,
+    ),
+  );
   const staleByExerciseId = new Map<string, { exerciseId: string; snapshotName: string }>();
 
   for (const snapshotExercise of snapshotExercises) {
@@ -508,7 +521,9 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const snapshot = await readSnapshot(scheduledWorkout.id);
-      const snapshotExerciseIds = new Set(snapshot.exercises.map((exercise) => exercise.exerciseId));
+      const snapshotExerciseIds = new Set(
+        snapshot.exercises.map((exercise) => exercise.exerciseId),
+      );
       const noteUpdates = new Map<string, string | null>();
       for (const note of request.body.notes) {
         noteUpdates.set(note.exerciseId, note.agentNotes);
@@ -535,12 +550,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       const tokenIdentity = db
         .select({ name: agentTokens.name })
         .from(agentTokens)
-        .where(
-          and(
-            eq(agentTokens.id, agentTokenId),
-            eq(agentTokens.userId, request.userId),
-          ),
-        )
+        .where(and(eq(agentTokens.id, agentTokenId), eq(agentTokens.userId, request.userId)))
         .limit(1)
         .get();
       const author = tokenIdentity?.name ?? agentTokenId;
@@ -845,10 +855,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      if (
-        request.body.date !== undefined &&
-        request.body.date !== existingScheduledWorkout.date
-      ) {
+      if (request.body.date !== undefined && request.body.date !== existingScheduledWorkout.date) {
         await markRescheduledAgentNotesAsStale({
           scheduledWorkoutId: scheduledWorkout.id,
           newDate: scheduledWorkout.date,

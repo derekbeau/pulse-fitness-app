@@ -104,14 +104,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
     () => scheduledWorkout?.staleExercises ?? [],
     [scheduledWorkout?.staleExercises],
   );
-  const staleExerciseNameById = useMemo(
-    () => new Map(staleExercises.map((exercise) => [exercise.exerciseId, exercise.snapshotName])),
-    [staleExercises],
-  );
-  const templateExerciseLookup = useMemo(
-    () => buildTemplateExerciseLookup(template),
-    [template],
-  );
+  const templateExerciseLookup = useMemo(() => buildTemplateExerciseLookup(template), [template]);
   const canStartFromSnapshot = scheduledWorkout !== undefined && scheduledWorkout !== null;
   const isMutating =
     startSessionMutation.isPending ||
@@ -291,7 +284,6 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
           })
         }
         scheduledWorkout={scheduledWorkout}
-        staleExerciseNameById={staleExerciseNameById}
         templateExerciseLookup={templateExerciseLookup}
         weightUnit={weightUnit}
       />
@@ -363,13 +355,11 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
 function ScheduledWorkoutSections({
   onOpenHistory,
   scheduledWorkout,
-  staleExerciseNameById,
   templateExerciseLookup,
   weightUnit,
 }: {
   onOpenHistory: (exercise: { exerciseId: string; exerciseName: string }) => void;
   scheduledWorkout: ScheduledWorkoutDetail;
-  staleExerciseNameById: Map<string, string>;
   templateExerciseLookup: TemplateExerciseLookup;
   weightUnit: WeightUnit;
 }) {
@@ -401,7 +391,10 @@ function ScheduledWorkoutSections({
               <h2 className="text-lg font-bold tracking-wide text-foreground">
                 {sectionLabels[section.type]}
               </h2>
-              <Badge className="border-transparent bg-secondary text-secondary-foreground" variant="outline">
+              <Badge
+                className="border-transparent bg-secondary text-secondary-foreground"
+                variant="outline"
+              >
                 {`${section.exercises.length} exercise${section.exercises.length === 1 ? '' : 's'}`}
               </Badge>
             </div>
@@ -410,10 +403,7 @@ function ScheduledWorkoutSections({
           <div className="space-y-1.5 border-t border-border/80 px-3 py-3 sm:px-4 sm:py-3">
             {section.exercises.map((exercise, index) => {
               const templateExercise = resolveTemplateExercise(exercise, templateExerciseLookup);
-              const resolvedName =
-                templateExercise?.exerciseName ??
-                staleExerciseNameById.get(exercise.exerciseId) ??
-                formatExerciseLabel(exercise.exerciseId);
+              const resolvedName = exercise.exerciseName;
 
               return (
                 <ScheduledExerciseCard
@@ -501,7 +491,12 @@ function ScheduledWorkoutBanners({
         <BannerCard
           className="border-amber-500/30 bg-amber-500/12"
           description="This template has been updated since you scheduled this workout."
-          icon={<TriangleAlert aria-hidden="true" className="size-4 text-amber-700 dark:text-amber-200" />}
+          icon={
+            <TriangleAlert
+              aria-hidden="true"
+              className="size-4 text-amber-700 dark:text-amber-200"
+            />
+          }
           testId="scheduled-template-drift-banner"
           title="Template drift"
         />
@@ -516,7 +511,12 @@ function ScheduledWorkoutBanners({
           }
           className="border-amber-500/30 bg-amber-500/10"
           description="Some exercises have been removed from your library."
-          icon={<AlertTriangle aria-hidden="true" className="size-4 text-amber-700 dark:text-amber-200" />}
+          icon={
+            <AlertTriangle
+              aria-hidden="true"
+              className="size-4 text-amber-700 dark:text-amber-200"
+            />
+          }
           testId="scheduled-stale-exercises-banner"
           title="Exercise availability"
         />
@@ -551,7 +551,11 @@ function BannerCard({
   title: string;
 }) {
   return (
-    <div className={cn('rounded-2xl border px-3 py-2.5', className)} data-testid={testId} role="status">
+    <div
+      className={cn('rounded-2xl border px-3 py-2.5', className)}
+      data-testid={testId}
+      role="status"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5">{icon}</span>
@@ -616,13 +620,17 @@ function StaleExerciseRecoveryDialog({
                 key={staleExercise.exerciseId}
               >
                 <div>
-                  <p className="text-sm font-medium text-foreground">{staleExercise.snapshotName}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {staleExercise.snapshotName}
+                  </p>
                 </div>
 
                 <div className="flex gap-2">
                   <Button
                     disabled={startAnywayPending || isRemoving}
-                    onClick={() => onSwapExercise(staleExercise.exerciseId, staleExercise.snapshotName)}
+                    onClick={() =>
+                      onSwapExercise(staleExercise.exerciseId, staleExercise.snapshotName)
+                    }
                     size="sm"
                     type="button"
                     variant="outline"
@@ -799,7 +807,8 @@ function inferTrackingType(snapshotSets: SnapshotExercise['sets']): ExerciseTrac
 
   if (
     snapshotSets.some(
-      (set) => set.targetWeight != null || set.targetWeightMin != null || set.targetWeightMax != null,
+      (set) =>
+        set.targetWeight != null || set.targetWeightMin != null || set.targetWeightMax != null,
     )
   ) {
     return 'weight_reps';
@@ -810,12 +819,4 @@ function inferTrackingType(snapshotSets: SnapshotExercise['sets']): ExerciseTrac
   }
 
   return 'weight_reps';
-}
-
-function formatExerciseLabel(value: string) {
-  return value
-    .split(/[-_ ]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

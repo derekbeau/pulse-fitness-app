@@ -330,7 +330,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('creates and lists scheduled workouts for the authenticated user within a date range', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedScheduledWorkout({
       id: 'existing-1',
@@ -422,7 +425,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('creates snapshot rows on POST and stores templateVersion', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-swing',
@@ -503,7 +509,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns snapshot detail with programming notes and all-clear markers on GET by id', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-press',
@@ -559,6 +568,7 @@ describe('scheduled workout routes', () => {
         exercises: [
           {
             exerciseId: 'exercise-press',
+            exerciseName: 'Overhead Press',
             section: 'main',
             orderIndex: 0,
             programmingNotes: 'Keep glutes tight and bar path straight.',
@@ -606,7 +616,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns templateDrift marker when template changes after scheduling', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-squat',
@@ -674,7 +687,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns staleExercises marker when snapshot exercises are soft-deleted', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-stale',
@@ -734,7 +750,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns templateDeleted marker when the source template is soft-deleted', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-row',
@@ -870,7 +889,9 @@ describe('scheduled workout routes', () => {
     );
     const agentNotesMeta = payload.data.exercises[0]?.agentNotesMeta;
     expect(typeof agentNotesMeta?.generatedAt).toBe('string');
-    expect(new Date(agentNotesMeta?.generatedAt ?? '').toISOString()).toBe(agentNotesMeta?.generatedAt);
+    expect(new Date(agentNotesMeta?.generatedAt ?? '').toISOString()).toBe(
+      agentNotesMeta?.generatedAt,
+    );
 
     const storedExercise = context.db
       .select({
@@ -1214,9 +1235,7 @@ describe('scheduled workout routes', () => {
           stale: false,
         },
       })
-      .where(
-        eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId),
-      )
+      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
       .run();
 
     const response = await context.app.inject({
@@ -1621,7 +1640,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('includes template tracking types in scheduled list items when template exercises exist', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-pullup',
@@ -1674,7 +1696,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('omits templateTrackingTypes when a scheduled template has no exercises', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedScheduledWorkout({
       id: 'scheduled-no-template-exercises',
@@ -1705,7 +1730,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('excludes soft-deleted user exercises from templateTrackingTypes', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedExercise({
       id: 'exercise-active-user',
@@ -1759,7 +1787,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('reschedules a workout date within the user scope', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedWorkoutSession({
       id: 'session-1',
@@ -1817,7 +1848,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('deletes scheduled workouts within the authenticated user scope', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedScheduledWorkout({
       id: 'schedule-1',
@@ -1850,7 +1884,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('does not expose soft-deleted template metadata in list responses', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedTemplate({
       id: 'template-soft-deleted-list',
@@ -1887,7 +1924,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('rejects creation against missing, inaccessible, or soft-deleted templates', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedTemplate({
       id: 'template-soft-deleted',
@@ -1943,7 +1983,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns validation errors for invalid schedule payloads and queries', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const [postResponse, getResponse, patchResponse] = await Promise.all([
       context.app.inject({
@@ -1983,7 +2026,10 @@ describe('scheduled workout routes', () => {
   });
 
   it('returns not found for schedules outside the authenticated user scope', async () => {
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     seedScheduledWorkout({
       id: 'other-user-schedule',

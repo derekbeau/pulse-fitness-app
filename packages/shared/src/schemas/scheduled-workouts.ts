@@ -6,21 +6,18 @@ import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const requiredStringSchema = z.string().trim().min(1).max(255);
 const requiredLongStringSchema = z.string().trim().min(1).max(4000);
-const nullableLongStringSchema = z.preprocess(
-  (value) => {
-    if (value === null || value === undefined) {
-      return null;
-    }
+const nullableLongStringSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
 
-    if (typeof value !== 'string') {
-      return value;
-    }
+  if (typeof value !== 'string') {
+    return value;
+  }
 
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  },
-  requiredLongStringSchema.nullable(),
-);
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, requiredLongStringSchema.nullable());
 
 export const scheduledWorkoutSchema = z.object({
   id: z.string(),
@@ -86,6 +83,7 @@ export const scheduledWorkoutExerciseAgentNotesMetaSchema = z.object({
 
 export const scheduledWorkoutExerciseSchema = z.object({
   exerciseId: requiredStringSchema,
+  exerciseName: requiredStringSchema,
   section: workoutTemplateSectionTypeSchema,
   orderIndex: z.number().int().min(0),
   programmingNotes: nullableLongStringSchema,
@@ -131,21 +129,18 @@ export const updateScheduledWorkoutExerciseNotesResponseSchema = scheduledWorkou
 
 export const swapScheduledWorkoutExerciseInputSchema = z.object({
   fromExerciseId: requiredStringSchema,
-  toExerciseId: z.preprocess(
-    (value) => {
-      if (value === null || value === undefined) {
-        return null;
-      }
+  toExerciseId: z.preprocess((value) => {
+    if (value === null || value === undefined) {
+      return null;
+    }
 
-      if (typeof value !== 'string') {
-        return value;
-      }
+    if (typeof value !== 'string') {
+      return value;
+    }
 
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    },
-    requiredStringSchema.nullable(),
-  ),
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, requiredStringSchema.nullable()),
   carryOverProgrammingNotes: z.boolean().optional(),
   preserveSets: z.boolean().optional(),
 });

@@ -83,6 +83,7 @@ describe('ScheduledWorkoutDetail', () => {
       exercises: [
         {
           exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
           section: 'main',
           orderIndex: 0,
           programmingNotes: 'Top set first, then reduce load for back-off sets.',
@@ -135,13 +136,17 @@ describe('ScheduledWorkoutDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Upper Push' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('workout-exercise-card-snapshot-main-0-incline-dumbbell-press'),
     ).toBeInTheDocument();
     expect(screen.getByText('Programming notes')).toBeInTheDocument();
     expect(screen.getByText('For today')).toBeInTheDocument();
-    expect(screen.getByText('Top set first, then reduce load for back-off sets.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Top set first, then reduce load for back-off sets.'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Last session looked smooth; try 62 lb if warmup set is easy.'),
     ).toBeInTheDocument();
@@ -214,7 +219,10 @@ describe('ScheduledWorkoutDetail', () => {
         return Promise.resolve(jsonResponse({ data: [] }));
       }
 
-      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercise-swap' && method === 'PATCH') {
+      if (
+        url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercise-swap' &&
+        method === 'PATCH'
+      ) {
         const payload = JSON.parse(String(init?.body)) as {
           fromExerciseId: string;
           toExerciseId: string | null;
@@ -362,7 +370,9 @@ describe('ScheduledWorkoutDetail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Start workout' }));
 
-    expect(await screen.findByRole('heading', { name: 'Resolve unavailable exercises' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Resolve unavailable exercises' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Dips')).toBeInTheDocument();
   });
 
@@ -466,18 +476,17 @@ function createScheduledWorkoutDetailPayload({
   date: string;
   exercises?: Array<{
     exerciseId: string;
+    exerciseName: string;
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
     orderIndex: number;
     programmingNotes: string | null;
     agentNotes: string | null;
-    agentNotesMeta:
-      | {
-          author: string;
-          generatedAt: string;
-          scheduledDateAtGeneration: string;
-          stale: boolean;
-        }
-      | null;
+    agentNotesMeta: {
+      author: string;
+      generatedAt: string;
+      scheduledDateAtGeneration: string;
+      stale: boolean;
+    } | null;
     templateCues: string[] | null;
     supersetGroup: string | null;
     tempo: string | null;
@@ -499,12 +508,10 @@ function createScheduledWorkoutDetailPayload({
     snapshotName: string;
   }>;
   templateDeleted?: boolean;
-  templateDrift?:
-    | {
-        changedAt: number;
-        summary: string;
-      }
-    | null;
+  templateDrift?: {
+    changedAt: number;
+    summary: string;
+  } | null;
 }) {
   return {
     id: 'scheduled-1',
@@ -514,35 +521,34 @@ function createScheduledWorkoutDetailPayload({
     sessionId: null,
     createdAt: 1,
     updatedAt: 1,
-    exercises:
-      exercises ??
-      [
-        {
-          exerciseId: 'incline-dumbbell-press',
-          section: 'main',
-          orderIndex: 0,
-          programmingNotes: 'Top set first, then reduce load for back-off sets.',
-          agentNotes: null,
-          agentNotesMeta: null,
-          templateCues: ['Drive feet into the floor', 'Keep wrists stacked'],
-          supersetGroup: null,
-          tempo: '3110',
-          restSeconds: 90,
-          sets: [
-            {
-              setNumber: 1,
-              repsMin: 8,
-              repsMax: 10,
-              reps: null,
-              targetWeight: 70,
-              targetWeightMin: null,
-              targetWeightMax: null,
-              targetSeconds: null,
-              targetDistance: null,
-            },
-          ],
-        },
-      ],
+    exercises: exercises ?? [
+      {
+        exerciseId: 'incline-dumbbell-press',
+        exerciseName: 'Incline Dumbbell Press',
+        section: 'main',
+        orderIndex: 0,
+        programmingNotes: 'Top set first, then reduce load for back-off sets.',
+        agentNotes: null,
+        agentNotesMeta: null,
+        templateCues: ['Drive feet into the floor', 'Keep wrists stacked'],
+        supersetGroup: null,
+        tempo: '3110',
+        restSeconds: 90,
+        sets: [
+          {
+            setNumber: 1,
+            repsMin: 8,
+            repsMax: 10,
+            reps: null,
+            targetWeight: 70,
+            targetWeightMin: null,
+            targetWeightMax: null,
+            targetSeconds: null,
+            targetDistance: null,
+          },
+        ],
+      },
+    ],
     templateDrift,
     staleExercises: staleExercises ?? [],
     templateDeleted,
