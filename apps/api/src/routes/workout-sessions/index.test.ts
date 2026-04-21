@@ -5960,6 +5960,65 @@ describe('workout session routes', () => {
     );
   });
 
+  it('preserves skipped/completed when patching notes only', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-notes-only-state-patch',
+      userId: 'user-1',
+      name: 'Notes Only State Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-notes-only-state-patch-set-1',
+      sessionId: 'session-notes-only-state-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: false,
+      skipped: true,
+      notes: null,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-notes-only-state-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, notes: 'left side weak' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+          notes: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+          skipped: true,
+          notes: 'left side weak',
+        }),
+      ]),
+    );
+  });
+
   it('round-trips notes and supersetGroup in session set patch updates', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
