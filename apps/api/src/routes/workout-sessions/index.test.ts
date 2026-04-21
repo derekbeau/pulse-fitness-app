@@ -1944,7 +1944,48 @@ describe('workout session routes', () => {
     expect(response.json()).toEqual({
       error: {
         code: 'session-not-in-progress',
-        message: 'Workout session must be in progress to delete sets',
+        message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
+      },
+    });
+  });
+
+  it('returns 409 when deleting a set from a cancelled session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-cancelled',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Cancelled Session',
+      date: '2026-03-12',
+      status: 'cancelled',
+      startedAt: 1000,
+      completedAt: null,
+      duration: null,
+    });
+    seedSessionSet({
+      id: 'session-delete-cancelled-set-1',
+      sessionId: 'session-delete-cancelled',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-cancelled/sets/session-delete-cancelled-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'session-not-in-progress',
+        message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
       },
     });
   });

@@ -226,7 +226,7 @@ const SESSION_SET_NOT_FOUND_RESPONSE = {
 
 const SESSION_SET_NOT_IN_PROGRESS_RESPONSE = {
   code: SESSION_SET_DELETE_NOT_IN_PROGRESS,
-  message: 'Workout session must be in progress to delete sets',
+  message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
 } as const;
 
 const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
