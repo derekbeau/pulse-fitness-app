@@ -3,14 +3,17 @@ import { randomUUID } from 'node:crypto';
 import {
   apiDataResponseSchema,
   createScheduledWorkoutInputSchema,
+  reorderScheduledWorkoutInputSchema,
   scheduledWorkoutDetailSchema,
   scheduledWorkoutListItemSchema,
   scheduledWorkoutQueryParamsSchema,
   scheduledWorkoutSchema,
   swapScheduledWorkoutExerciseInputSchema,
   swapScheduledWorkoutExerciseResponseSchema,
+  updateScheduledWorkoutExerciseSetsInputSchema,
   updateScheduledWorkoutExerciseNotesInputSchema,
   updateScheduledWorkoutExerciseNotesResponseSchema,
+  updateScheduledWorkoutExercisesInputSchema,
   updateScheduledWorkoutInputSchema,
   workoutTemplateSchema,
 } from '@pulse/shared';
@@ -31,6 +34,10 @@ import {
 } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
+import {
+  agentEnrichmentOnSend,
+  setAgentEnrichmentContext,
+} from '../../middleware/agent-enrichment.js';
 import {
   apiErrorResponseSchema,
   agentTokenSecurity,
@@ -54,6 +61,9 @@ import {
   findScheduledWorkoutById,
   findScheduledWorkoutByIdWithTemplateVersion,
   listScheduledWorkouts,
+  reorderScheduledWorkoutExercises,
+  updateScheduledWorkoutExerciseSets,
+  updateScheduledWorkoutExercises,
   updateScheduledWorkout,
 } from './store.js';
 
@@ -80,6 +90,16 @@ const SCHEDULED_WORKOUT_DUPLICATE_EXERCISE_RESPONSE = {
 const INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
   code: 'INVALID_SCHEDULED_WORKOUT_EXERCISE',
   message: 'Exercise is not available for this user',
+} as const;
+
+const INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER_RESPONSE = {
+  code: 'INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER',
+  message: 'Order must include each snapshot exercise exactly once',
+} as const;
+
+const UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
+  code: 'UNKNOWN_SCHEDULED_WORKOUT_EXERCISE',
+  message: 'Exercise is not present in this scheduled workout snapshot',
 } as const;
 
 const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
@@ -803,6 +823,174 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       if (!updatedDetail) {
         throw new Error('Swapped scheduled workout could not be loaded');
       }
+
+      return reply.send({
+        data: updatedDetail,
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/:id/reorder',
+    {
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: idParamsSchema,
+        body: reorderScheduledWorkoutInputSchema,
+        response: {
+          200: apiDataResponseSchema(scheduledWorkoutDetailSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Reorder exercises in a scheduled workout snapshot',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const reordered = await reorderScheduledWorkoutExercises({
+        userId: request.userId,
+        scheduledWorkoutId: request.params.id,
+        order: request.body.order,
+      });
+      if (!reordered) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if ('error' in reordered) {
+        return reply.code(400).send({
+          error: {
+            code: INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER_RESPONSE.code,
+            message: INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER_RESPONSE.message,
+            details: {
+              missingExerciseIds: reordered.missingExerciseIds,
+              extraExerciseIds: reordered.extraExerciseIds,
+              duplicateExerciseIds: reordered.duplicateExerciseIds,
+            },
+          },
+        });
+      }
+
+      const reorderedDetail = reordered;
+      setAgentEnrichmentContext(request, {
+        endpoint: 'scheduled-workout.mutation',
+        action: 'reorder',
+      });
+
+      return reply.send({
+        data: reorderedDetail,
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/:id/exercises',
+    {
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: idParamsSchema,
+        body: updateScheduledWorkoutExercisesInputSchema,
+        response: {
+          200: apiDataResponseSchema(scheduledWorkoutDetailSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Update exercise-level snapshot fields on a scheduled workout',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const updated = await updateScheduledWorkoutExercises({
+        userId: request.userId,
+        scheduledWorkoutId: request.params.id,
+        updates: request.body.updates,
+      });
+      if (!updated) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if ('error' in updated) {
+        return sendError(
+          reply,
+          400,
+          UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.code,
+          `${UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.message}: ${updated.exerciseId}`,
+        );
+      }
+
+      const updatedDetail = updated;
+      setAgentEnrichmentContext(request, {
+        endpoint: 'scheduled-workout.mutation',
+        action: 'exercises',
+      });
+
+      return reply.send({
+        data: updatedDetail,
+      });
+    },
+  );
+
+  typedApp.patch(
+    '/:id/exercise-sets',
+    {
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: idParamsSchema,
+        body: updateScheduledWorkoutExerciseSetsInputSchema,
+        response: {
+          200: apiDataResponseSchema(scheduledWorkoutDetailSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['scheduled-workouts'],
+        summary: 'Update snapshot set prescriptions on a scheduled workout exercise',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const updated = await updateScheduledWorkoutExerciseSets({
+        userId: request.userId,
+        scheduledWorkoutId: request.params.id,
+        exerciseId: request.body.exerciseId,
+        sets: request.body.sets,
+      });
+      if (!updated) {
+        return sendError(
+          reply,
+          404,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
+          SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if ('error' in updated) {
+        return sendError(
+          reply,
+          400,
+          UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.code,
+          `${UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.message}: ${updated.exerciseId}`,
+        );
+      }
+
+      const updatedDetail = updated;
+      setAgentEnrichmentContext(request, {
+        endpoint: 'scheduled-workout.mutation',
+        action: 'exercise-sets',
+      });
 
       return reply.send({
         data: updatedDetail,

@@ -363,6 +363,21 @@ Schedules a template for a specific date.
 
 Lists scheduled workouts in the requested date window.
 
+#### `PATCH /api/v1/scheduled-workouts/:id/reorder`
+
+Reorders the scheduled snapshot exercises. Body uses `reorderScheduledWorkoutInputSchema`
+(`{ order: string[] }` of snapshot exercise ids).
+
+#### `PATCH /api/v1/scheduled-workouts/:id/exercises`
+
+Patches exercise-level snapshot fields (`supersetGroup`, `section`, `tempo`, `restSeconds`,
+`programmingNotes`). Body uses `updateScheduledWorkoutExercisesInputSchema`.
+
+#### `PATCH /api/v1/scheduled-workouts/:id/exercise-sets`
+
+Patches per-set snapshot targets for one exercise, including `remove: true` or add-by-set-number
+operations. Body uses `updateScheduledWorkoutExerciseSetsInputSchema`.
+
 #### `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`
 
 Writes per-exercise scheduled-workout enrichment notes before session start.
@@ -450,9 +465,10 @@ Returns the shared nutrition-summary schema (`date`, `meals`, `actual`, `target`
 2. If `POST /api/v1/exercises` returns `created: false`, review `candidates` before retrying with `force: true`.
 3. Create or update templates with `POST` or `PUT /api/v1/workout-templates`.
 4. Schedule training using `POST /api/v1/scheduled-workouts`, then review the plan with `GET /api/v1/scheduled-workouts`.
-5. Enrich the scheduled snapshot with `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`.
-6. Start a session with `POST /api/v1/workout-sessions`.
-7. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
+5. Refine the scheduled snapshot structure as needed with `PATCH /api/v1/scheduled-workouts/:id/reorder`, `PATCH /api/v1/scheduled-workouts/:id/exercises`, and `PATCH /api/v1/scheduled-workouts/:id/exercise-sets`.
+6. Enrich per-exercise notes with `PATCH /api/v1/scheduled-workouts/:id/exercise-notes` (AgentToken only).
+7. Start a session with `POST /api/v1/workout-sessions`.
+8. Continue logging via `PATCH /api/v1/workout-sessions/:id` and use returned `agent` hints to identify the next set.
 
 ## Operational Notes
 

@@ -10,6 +10,7 @@ import {
   createWorkoutSessionInputSchema,
   exerciseQueryParamsSchema,
   exerciseSchema,
+  reorderScheduledWorkoutInputSchema,
   sessionCorrectionRequestSchema,
   scheduledWorkoutDetailSchema,
   scheduledWorkoutListItemSchema,
@@ -18,6 +19,8 @@ import {
   swapScheduledWorkoutExerciseInputSchema,
   swapScheduledWorkoutExerciseResponseSchema,
   reorderWorkoutTemplateExercisesInputSchema,
+  updateScheduledWorkoutExerciseSetsInputSchema,
+  updateScheduledWorkoutExercisesInputSchema,
   updateWorkoutSessionSectionTimerInputSchema,
   swapWorkoutSessionExerciseInputSchema,
   swapWorkoutTemplateExerciseInputSchema,
@@ -38,8 +41,11 @@ import {
   type WorkoutSessionQueryParams,
   type WorkoutTemplateListQueryParams,
   type WorkoutTemplate,
+  type ReorderScheduledWorkoutInput,
   type SwapScheduledWorkoutExerciseInput,
   type SetCorrection,
+  type UpdateScheduledWorkoutExerciseSetsInput,
+  type UpdateScheduledWorkoutExercisesInput,
   type WorkoutTemplateSectionType,
   workoutSessionQueryParamsSchema,
   workoutSessionListItemSchema,
@@ -138,6 +144,18 @@ type DeleteScheduledWorkoutRequest = {
 type SwapScheduledWorkoutExerciseRequest = {
   id: string;
   input: SwapScheduledWorkoutExerciseInput;
+};
+type ReorderScheduledWorkoutRequest = {
+  id: string;
+  input: ReorderScheduledWorkoutInput;
+};
+type UpdateScheduledWorkoutExercisesRequest = {
+  id: string;
+  input: UpdateScheduledWorkoutExercisesInput;
+};
+type UpdateScheduledWorkoutExerciseSetsRequest = {
+  id: string;
+  input: UpdateScheduledWorkoutExerciseSetsInput;
 };
 type DeleteScheduledWorkoutResponse = {
   data: {
@@ -548,6 +566,69 @@ const removeScheduledWorkoutFromList = (
   request: DeleteScheduledWorkoutRequest,
 ) => current?.filter((item) => item.id !== request.id);
 
+const reorderScheduledWorkoutInDetail = <T extends SharedScheduledWorkoutDetail>(
+  current: T | undefined,
+  order: ReorderScheduledWorkoutInput['order'],
+) => {
+  if (!current) {
+    return current;
+  }
+
+  const existingExerciseIds = current.exercises.map((exercise) => exercise.exerciseId);
+  const existingExerciseIdSet = new Set(existingExerciseIds);
+  const nextExerciseIdSet = new Set(order);
+
+  if (
+    existingExerciseIds.length !== order.length ||
+    existingExerciseIdSet.size !== nextExerciseIdSet.size ||
+    !existingExerciseIds.every((exerciseId) => nextExerciseIdSet.has(exerciseId))
+  ) {
+    return current;
+  }
+
+  const orderIndexByExerciseId = new Map(order.map((exerciseId, index) => [exerciseId, index]));
+
+  return {
+    ...current,
+    exercises: current.exercises.map((exercise) => ({
+      ...exercise,
+      orderIndex: orderIndexByExerciseId.get(exercise.exerciseId) ?? exercise.orderIndex,
+    })),
+  };
+};
+
+const updateScheduledWorkoutExercisesInDetail = <T extends SharedScheduledWorkoutDetail>(
+  current: T | undefined,
+  updates: UpdateScheduledWorkoutExercisesInput['updates'],
+) => {
+  if (!current) {
+    return current;
+  }
+
+  const updatesByExerciseId = new Map(updates.map((update) => [update.exerciseId, update]));
+
+  return {
+    ...current,
+    exercises: current.exercises.map((exercise) => {
+      const update = updatesByExerciseId.get(exercise.exerciseId);
+      if (!update) {
+        return exercise;
+      }
+
+      return {
+        ...exercise,
+        ...(update.supersetGroup !== undefined ? { supersetGroup: update.supersetGroup } : {}),
+        ...(update.section !== undefined ? { section: update.section } : {}),
+        ...(update.tempo !== undefined ? { tempo: update.tempo } : {}),
+        ...(update.restSeconds !== undefined ? { restSeconds: update.restSeconds } : {}),
+        ...(update.programmingNotes !== undefined
+          ? { programmingNotes: update.programmingNotes }
+          : {}),
+      };
+    }),
+  };
+};
+
 async function getWorkoutTemplates(params: Partial<WorkoutTemplateListQueryParams> = {}) {
   const parsedParams = workoutTemplateListQueryParamsSchema.parse(params);
   const searchParams = new URLSearchParams({
@@ -918,6 +999,39 @@ async function swapScheduledWorkoutExercise(input: SwapScheduledWorkoutExerciseR
   return payload.data;
 }
 
+async function reorderScheduledWorkout(input: ReorderScheduledWorkoutRequest) {
+  const parsedInput = reorderScheduledWorkoutInputSchema.parse(input.input);
+  const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/reorder`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = z.object({ data: scheduledWorkoutDetailSchema }).parse({ data });
+
+  return payload.data;
+}
+
+async function updateScheduledWorkoutExercises(input: UpdateScheduledWorkoutExercisesRequest) {
+  const parsedInput = updateScheduledWorkoutExercisesInputSchema.parse(input.input);
+  const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercises`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = z.object({ data: scheduledWorkoutDetailSchema }).parse({ data });
+
+  return payload.data;
+}
+
+async function updateScheduledWorkoutExerciseSets(input: UpdateScheduledWorkoutExerciseSetsRequest) {
+  const parsedInput = updateScheduledWorkoutExerciseSetsInputSchema.parse(input.input);
+  const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercise-sets`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  const payload = z.object({ data: scheduledWorkoutDetailSchema }).parse({ data });
+
+  return payload.data;
+}
+
 async function deleteScheduledWorkout(input: DeleteScheduledWorkoutRequest) {
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}`, {
     method: 'DELETE',
@@ -1132,6 +1246,112 @@ export function useSwapScheduledWorkoutExercise() {
         invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
       ]);
       toast.success('Exercise updated');
+    },
+  });
+}
+
+export function useReorderScheduledWorkout() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    SharedScheduledWorkoutDetail,
+    Error,
+    ReorderScheduledWorkoutRequest,
+    { previousDetail?: ScheduledWorkoutDetail }
+  >({
+    mutationFn: reorderScheduledWorkout,
+    onMutate: async (variables) => {
+      const queryKey = workoutQueryKeys.scheduledWorkout(variables.id);
+      await queryClient.cancelQueries({ queryKey });
+      const previousDetail = queryClient.getQueryData<ScheduledWorkoutDetail>(queryKey);
+
+      queryClient.setQueryData<ScheduledWorkoutDetail>(queryKey, (current) =>
+        reorderScheduledWorkoutInDetail(current, variables.input.order),
+      );
+
+      return { previousDetail };
+    },
+    onError: (_error, variables, context) => {
+      if (!context?.previousDetail) {
+        return;
+      }
+
+      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkout(variables.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
+      ]);
+      toast.success('Exercise order updated');
+    },
+  });
+}
+
+export function useUpdateScheduledWorkoutExercises() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    SharedScheduledWorkoutDetail,
+    Error,
+    UpdateScheduledWorkoutExercisesRequest,
+    { previousDetail?: ScheduledWorkoutDetail }
+  >({
+    mutationFn: updateScheduledWorkoutExercises,
+    onMutate: async (variables) => {
+      const queryKey = workoutQueryKeys.scheduledWorkout(variables.id);
+      await queryClient.cancelQueries({ queryKey });
+      const previousDetail = queryClient.getQueryData<ScheduledWorkoutDetail>(queryKey);
+
+      queryClient.setQueryData<ScheduledWorkoutDetail>(queryKey, (current) =>
+        updateScheduledWorkoutExercisesInDetail(current, variables.input.updates),
+      );
+
+      return { previousDetail };
+    },
+    onError: (_error, variables, context) => {
+      if (!context?.previousDetail) {
+        return;
+      }
+
+      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkout(variables.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
+      ]);
+      toast.success('Exercise updated');
+    },
+  });
+}
+
+export function useUpdateScheduledWorkoutExerciseSets() {
+  const queryClient = useQueryClient();
+
+  return useMutation<SharedScheduledWorkoutDetail, Error, UpdateScheduledWorkoutExerciseSetsRequest>({
+    mutationFn: updateScheduledWorkoutExerciseSets,
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkout(variables.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.scheduledWorkoutListRoot(),
+        }),
+        invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.scheduledWorkoutMutation()),
+      ]);
+      toast.success('Set targets updated');
     },
   });
 }

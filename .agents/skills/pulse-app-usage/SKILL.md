@@ -243,6 +243,29 @@ If no new foods were created, explicitly say that existing food entries were reu
 
 - **Create**: `POST /api/v1/scheduled-workouts/` — schedule a template on calendar date(s).
 - **Review**: `GET /api/v1/scheduled-workouts/?from=<YYYY-MM-DD>&to=<YYYY-MM-DD>`
+- **Reorder snapshot exercises**: `PATCH /api/v1/scheduled-workouts/:id/reorder`
+- **Patch snapshot exercise fields**: `PATCH /api/v1/scheduled-workouts/:id/exercises`
+- **Patch snapshot set targets**: `PATCH /api/v1/scheduled-workouts/:id/exercise-sets`
+- **Write per-exercise agent notes** (AgentToken-only): `PATCH /api/v1/scheduled-workouts/:id/exercise-notes`
+
+Refining tomorrow's workout: read the scheduled workout snapshot first, then use `/reorder` for exercise sequence, `/exercises` for per-exercise structural fields, `/exercise-sets` for target/remove/add set shaping, and optionally `/exercise-notes` for session-specific coaching notes.
+
+Quick request shapes:
+
+```json
+PATCH /api/v1/scheduled-workouts/:id/reorder
+{ "order": ["<exercise-uuid-1>", "<exercise-uuid-2>"] }
+```
+
+```json
+PATCH /api/v1/scheduled-workouts/:id/exercises
+{ "updates": [{ "exerciseId": "<exercise-uuid>", "supersetGroup": "A", "section": "main" }] }
+```
+
+```json
+PATCH /api/v1/scheduled-workouts/:id/exercise-sets
+{ "exerciseId": "<exercise-uuid>", "sets": [{ "setNumber": 2, "remove": true }] }
+```
 
 ### Scheduled-workout enrichment
 

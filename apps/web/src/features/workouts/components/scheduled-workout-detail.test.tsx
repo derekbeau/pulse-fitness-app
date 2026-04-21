@@ -7,6 +7,12 @@ import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
+const SCHEDULED_EXERCISE_IDS = {
+  first: '11111111-1111-4111-8111-111111111111',
+  second: '22222222-2222-4222-8222-222222222222',
+  third: '33333333-3333-4333-8333-333333333333',
+};
+
 vi.mock('./schedule-workout-dialog', () => ({
   ScheduleWorkoutDialog: ({
     onOpenChange,
@@ -464,6 +470,400 @@ describe('ScheduledWorkoutDetail', () => {
       });
     });
   });
+
+  it('reorders scheduled exercises with move controls and sends the expected order payload', async () => {
+    let currentDetail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId: SCHEDULED_EXERCISE_IDS.first,
+          exerciseName: 'Front Squat',
+          orderIndex: 0,
+        }),
+        buildSnapshotExercise({
+          exerciseId: SCHEDULED_EXERCISE_IDS.second,
+          exerciseName: 'Bench Press',
+          orderIndex: 1,
+        }),
+        buildSnapshotExercise({
+          exerciseId: SCHEDULED_EXERCISE_IDS.third,
+          exerciseName: 'Romanian Deadlift',
+          orderIndex: 2,
+        }),
+      ],
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1/reorder' && method === 'PATCH') {
+        const payload = JSON.parse(String(init?.body)) as { order: string[] };
+        const orderIndexByExerciseId = new Map(
+          payload.order.map((exerciseId, index) => [exerciseId, index]),
+        );
+
+        currentDetail = {
+          ...currentDetail,
+          exercises: currentDetail.exercises.map((exercise) => ({
+            ...exercise,
+            orderIndex: orderIndexByExerciseId.get(exercise.exerciseId) ?? exercise.orderIndex,
+          })),
+          updatedAt: currentDetail.updatedAt + 1,
+        };
+
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Romanian Deadlift')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move Romanian Deadlift up' }));
+
+    await waitFor(() => {
+      const reorderCall = fetchSpy.mock.calls.find(
+        ([input, requestInit]) =>
+          String(input).includes('/api/v1/scheduled-workouts/scheduled-1/reorder') &&
+          (requestInit?.method ?? 'GET') === 'PATCH',
+      );
+      expect(reorderCall).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Romanian Deadlift up' }));
+
+    await waitFor(() => {
+      const reorderCall = fetchSpy.mock.calls.find(
+        ([input, requestInit]) =>
+          String(input).includes('/api/v1/scheduled-workouts/scheduled-1/reorder') &&
+          (requestInit?.method ?? 'GET') === 'PATCH' &&
+          JSON.parse(String(requestInit?.body)).order[0] === SCHEDULED_EXERCISE_IDS.third,
+      );
+
+      expect(reorderCall).toBeDefined();
+      expect(JSON.parse(String(reorderCall?.[1]?.body))).toEqual({
+        order: [
+          SCHEDULED_EXERCISE_IDS.third,
+          SCHEDULED_EXERCISE_IDS.first,
+          SCHEDULED_EXERCISE_IDS.second,
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      const cards = Array.from(
+        document.querySelectorAll('[data-testid^="workout-exercise-card-snapshot-main"]'),
+      );
+      expect(cards[0]).toHaveAttribute(
+        'data-testid',
+        `workout-exercise-card-snapshot-main-0-${SCHEDULED_EXERCISE_IDS.third}`,
+      );
+    });
+  });
+
+  it('updates superset group from the chip popover', async () => {
+    const exerciseId = SCHEDULED_EXERCISE_IDS.first;
+    let currentDetail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId,
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 0,
+          supersetGroup: null,
+        }),
+      ],
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (
+        url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercises' &&
+        method === 'PATCH'
+      ) {
+        const payload = JSON.parse(String(init?.body)) as {
+          updates: Array<{ exerciseId: string; supersetGroup: string | null }>;
+        };
+        expect(payload).toEqual({
+          updates: [{ exerciseId, supersetGroup: 'A' }],
+        });
+
+        currentDetail = {
+          ...currentDetail,
+          exercises: currentDetail.exercises.map((exercise) =>
+            exercise.exerciseId === exerciseId ? { ...exercise, supersetGroup: 'A' } : exercise,
+          ),
+          updatedAt: currentDetail.updatedAt + 1,
+        };
+
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Superset —' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Superset A' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Superset A' })).toBeInTheDocument();
+    });
+  });
+
+  it('edits set targets through the set editor modal and saves to exercise-sets', async () => {
+    const exerciseId = SCHEDULED_EXERCISE_IDS.first;
+    let currentDetail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId,
+          exerciseName: 'Bike Sprint',
+          orderIndex: 0,
+          sets: [
+            buildSnapshotSet({ setNumber: 1, targetSeconds: 600 }),
+            buildSnapshotSet({ setNumber: 2, targetSeconds: null }),
+          ],
+        }),
+      ],
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (
+        url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercise-sets' &&
+        method === 'PATCH'
+      ) {
+        const payload = JSON.parse(String(init?.body)) as {
+          exerciseId: string;
+          sets: Array<{ setNumber: number; targetSeconds?: number }>;
+        };
+        expect(payload).toEqual({
+          exerciseId,
+          sets: [{ setNumber: 2, targetSeconds: 720 }],
+        });
+
+        currentDetail = {
+          ...currentDetail,
+          exercises: currentDetail.exercises.map((exercise) =>
+            exercise.exerciseId === exerciseId
+              ? {
+                  ...exercise,
+                  sets: exercise.sets.map((set) =>
+                    set.setNumber === 2 ? { ...set, targetSeconds: 720 } : set,
+                  ),
+                }
+              : exercise,
+          ),
+          updatedAt: currentDetail.updatedAt + 1,
+        };
+
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Set 2:/ }));
+    fireEvent.change(screen.getByLabelText('Target seconds'), {
+      target: { value: '720' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save set' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Set 2: 720 sec/ })).toBeInTheDocument();
+    });
+  });
+
+  it('removes a set and shows the updated set count after success', async () => {
+    const exerciseId = SCHEDULED_EXERCISE_IDS.first;
+    let currentDetail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId,
+          exerciseName: 'Leg Press',
+          orderIndex: 0,
+          sets: [
+            buildSnapshotSet({ setNumber: 1, repsMin: 10, repsMax: 12 }),
+            buildSnapshotSet({ setNumber: 2, repsMin: 10, repsMax: 12 }),
+            buildSnapshotSet({ setNumber: 3, repsMin: 10, repsMax: 12 }),
+          ],
+        }),
+      ],
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (
+        url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercise-sets' &&
+        method === 'PATCH'
+      ) {
+        const payload = JSON.parse(String(init?.body)) as {
+          exerciseId: string;
+          sets: Array<{ remove?: true; setNumber: number }>;
+        };
+        expect(payload).toEqual({
+          exerciseId,
+          sets: [{ remove: true, setNumber: 2 }],
+        });
+
+        currentDetail = {
+          ...currentDetail,
+          exercises: currentDetail.exercises.map((exercise) =>
+            exercise.exerciseId === exerciseId
+              ? {
+                  ...exercise,
+                  sets: exercise.sets
+                    .filter((set) => set.setNumber !== 2)
+                    .map((set, index) => ({ ...set, setNumber: index + 1 })),
+                }
+              : exercise,
+          ),
+          updatedAt: currentDetail.updatedAt + 1,
+        };
+
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove set 2' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Set 3:/ })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /Set \d:/ })).toHaveLength(2);
+    });
+  });
+
+  it('shows mutation errors and rolls optimistic superset updates back', async () => {
+    const exerciseId = SCHEDULED_EXERCISE_IDS.first;
+    const currentDetail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId,
+          exerciseName: 'Overhead Press',
+          orderIndex: 0,
+          supersetGroup: null,
+        }),
+      ],
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: currentDetail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (
+        url.pathname === '/api/v1/scheduled-workouts/scheduled-1/exercises' &&
+        method === 'PATCH'
+      ) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: 'UNKNOWN_SCHEDULED_WORKOUT_EXERCISE',
+                message: 'Failed to update superset group',
+              },
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+              status: 500,
+            },
+          ),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Superset —' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Superset A' }));
+
+    expect(
+      await screen.findByTestId('scheduled-workout-structure-error-banner'),
+    ).toHaveTextContent('Failed to update superset group');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Superset —' })).toBeInTheDocument();
+    });
+  });
 });
 
 function createScheduledWorkoutDetailPayload({
@@ -604,5 +1004,43 @@ function createScheduledWorkoutDetailPayload({
           createdAt: 1,
           updatedAt: 1,
         },
+  };
+}
+
+type SnapshotExerciseFixture = NonNullable<
+  Parameters<typeof createScheduledWorkoutDetailPayload>[0]['exercises']
+>[number];
+type SnapshotSetFixture = SnapshotExerciseFixture['sets'][number];
+
+function buildSnapshotSet(overrides: Partial<SnapshotSetFixture>): SnapshotSetFixture {
+  return {
+    setNumber: 1,
+    repsMin: 8,
+    repsMax: 10,
+    reps: null,
+    targetWeight: null,
+    targetWeightMin: null,
+    targetWeightMax: null,
+    targetSeconds: null,
+    targetDistance: null,
+    ...overrides,
+  };
+}
+
+function buildSnapshotExercise(overrides: Partial<SnapshotExerciseFixture>): SnapshotExerciseFixture {
+  return {
+    exerciseId: SCHEDULED_EXERCISE_IDS.first,
+    exerciseName: 'Incline Dumbbell Press',
+    section: 'main',
+    orderIndex: 0,
+    programmingNotes: null,
+    agentNotes: null,
+    agentNotesMeta: null,
+    templateCues: null,
+    supersetGroup: null,
+    tempo: null,
+    restSeconds: 90,
+    sets: [buildSnapshotSet({ setNumber: 1 })],
+    ...overrides,
   };
 }

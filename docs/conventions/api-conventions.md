@@ -102,6 +102,52 @@ When a route is intentionally agent-only:
 - Document OpenAPI security as `[{ agentToken: [] }]` instead of the dual auth array.
 - Return `403 FORBIDDEN` for JWT callers with the standard envelope (`Agent token authentication required`).
 
+## Scheduled-workout Structural Edit Endpoints
+
+Scheduled-workout structural edits use the unified route surface and shared Zod schemas from
+`@pulse/shared`. All three endpoints mutate only scheduled snapshot rows and return
+`{ data: ScheduledWorkoutDetail, agent? }`.
+
+### `PATCH /api/v1/scheduled-workouts/:id/reorder`
+
+- Auth: unified `requireAuth` (`Bearer` JWT or `AgentToken`).
+- Body schema: `reorderScheduledWorkoutInputSchema` (`{ order: string[] }` UUID exercise ids).
+- Error codes:
+  - `400 VALIDATION_ERROR` for malformed payload shape.
+  - `400 INVALID_SCHEDULED_WORKOUT_EXERCISE_ORDER` when `order` does not contain each snapshot
+    exercise exactly once (with `details.missingExerciseIds|extraExerciseIds|duplicateExerciseIds`).
+  - `404 SCHEDULED_WORKOUT_NOT_FOUND` when id is missing or outside caller scope.
+- Idempotency: sending the same complete `order` again is a no-op update and returns the same
+  detail payload shape.
+
+### `PATCH /api/v1/scheduled-workouts/:id/exercises`
+
+- Auth: unified `requireAuth` (`Bearer` JWT or `AgentToken`).
+- Body schema: `updateScheduledWorkoutExercisesInputSchema`
+  (`updates[]` for per-exercise `supersetGroup`, `section`, `tempo`, `restSeconds`,
+  `programmingNotes`).
+- Error codes:
+  - `400 VALIDATION_ERROR` for malformed payload shape.
+  - `400 UNKNOWN_SCHEDULED_WORKOUT_EXERCISE` when an update references an exercise id not present
+    in the scheduled snapshot.
+  - `404 SCHEDULED_WORKOUT_NOT_FOUND` when id is missing or outside caller scope.
+- Idempotency: unchanged field values are ignored; replaying the same update payload is safe and
+  returns the same snapshot detail shape.
+
+### `PATCH /api/v1/scheduled-workouts/:id/exercise-sets`
+
+- Auth: unified `requireAuth` (`Bearer` JWT or `AgentToken`).
+- Body schema: `updateScheduledWorkoutExerciseSetsInputSchema`
+  (`exerciseId` + `sets[]` with target-field edits, `remove: true`, and optional new set inserts).
+- Error codes:
+  - `400 VALIDATION_ERROR` for malformed payload shape (for example invalid field combos such as
+    `remove` plus target edits).
+  - `400 UNKNOWN_SCHEDULED_WORKOUT_EXERCISE` when `exerciseId` is not present in the scheduled
+    snapshot.
+  - `404 SCHEDULED_WORKOUT_NOT_FOUND` when id is missing or outside caller scope.
+- Idempotency: remove/update/add operations are replay-safe; set numbers are re-compacted to
+  contiguous ordering on each successful mutation.
+
 ## Response Envelope
 
 Base success responses return `{ data: T }`.
