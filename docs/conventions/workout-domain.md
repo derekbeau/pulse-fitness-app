@@ -29,7 +29,24 @@ The scheduled-workout detail page should mirror template-detail exercise renderi
 - `programmingNotes` shown on scheduled cards comes from the scheduled snapshot exercise row.
 - Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
 
-Scheduled-workout structural edits (reorder, superset grouping, exercise-level fields, and set-level targets) mutate only the planned snapshot and are intended to seed future session starts. Once a session exists for that schedule, the session becomes the live run and must be edited through workout-session endpoints rather than by mutating the scheduled snapshot structure.
+### Scheduled Workout Structural Edits
+
+Scheduled-workout structural edits are plan-time snapshot edits and never mutate the source
+template.
+
+- `PATCH /api/v1/scheduled-workouts/:id/reorder`: reorder snapshot exercises while preserving the
+  existing exercise set.
+- `PATCH /api/v1/scheduled-workouts/:id/exercises`: patch per-exercise snapshot fields
+  (`supersetGroup`, `section`, `tempo`, `restSeconds`, `programmingNotes`).
+- `PATCH /api/v1/scheduled-workouts/:id/exercise-sets`: patch per-set target fields for one
+  snapshot exercise, including `remove: true` and add-by-setNumber behavior.
+
+Plan vs live run invariant:
+
+- Scheduled workouts are the editable plan snapshot that seeds session start.
+- Once a session is started/linked for that schedule, the session is the live run and further live
+  edits must use workout-session endpoints (for example set logging/deletion/corrections), not
+  scheduled-workout structural mutation routes.
 
 ## Three-layer notes model
 
