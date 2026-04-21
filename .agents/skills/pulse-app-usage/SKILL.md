@@ -229,6 +229,7 @@ If no new foods were created, explicitly say that existing food entries were reu
 - **Complete**: set `status: "completed"` in the PATCH body.
 - **Save as template**: `POST /api/v1/workout-sessions/:id/save-as-template`
 - **Set corrections** (completed sessions only): `PATCH /api/v1/workout-sessions/:id/corrections` with `{ corrections: [{ setId, weight?, reps?, rpe? }] }`. Returns 409 on non-completed sessions.
+- **Delete mis-logged in-progress set**: `DELETE /api/v1/workout-sessions/:sessionId/sets/:setId`; once a session is completed/cancelled, use corrections (`PATCH /api/v1/workout-sessions/:id/corrections`) instead of delete.
 - **Time segment correction**: `PATCH /api/v1/workout-sessions/:id/time-segments` — full segment array replacement.
 
 **Status transitions:**

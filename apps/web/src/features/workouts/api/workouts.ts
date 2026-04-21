@@ -52,7 +52,10 @@ import { z } from 'zod';
 
 import { ApiError, apiRequest, apiRequestWithMeta } from '@/lib/api-client';
 import { createOptimisticMutation } from '@/lib/optimistic';
-import { syncSessionMutationCache } from '@/features/workouts/lib/session-query-cache';
+import {
+  syncSessionMutationCache,
+  workoutSessionQueryKeys,
+} from '@/features/workouts/lib/session-query-cache';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 const paginationMetaSchema = z.object({
@@ -110,6 +113,10 @@ type SwapSessionExerciseRequest = {
   sessionId: string;
   exerciseId: string;
   newExerciseId: string;
+};
+type DeleteSessionSetRequest = {
+  sessionId: string;
+  setId: string;
 };
 type CorrectSessionSetsRequest = {
   sessionId: string;
@@ -834,6 +841,18 @@ async function swapSessionExercise(input: SwapSessionExerciseRequest) {
   return parsedPayload;
 }
 
+async function deleteSessionSet(input: DeleteSessionSetRequest) {
+  const data = await apiRequest<unknown>(
+    `/api/v1/workout-sessions/${input.sessionId}/sets/${input.setId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+  const payload = workoutSessionResponseSchema.parse({ data });
+
+  return payload.data;
+}
+
 async function correctSessionSets(input: CorrectSessionSetsRequest) {
   const parsedInput = sessionCorrectionRequestSchema.parse({
     corrections: input.corrections,
@@ -1326,6 +1345,142 @@ export function useSwapSessionExercise() {
         }),
       ]);
       toast.success('Exercise swapped');
+    },
+  });
+}
+
+const sortSessionSetsForRenumber = (
+  left: WorkoutSession['sets'][number],
+  right: WorkoutSession['sets'][number],
+) =>
+  (left.orderIndex ?? 0) - (right.orderIndex ?? 0) ||
+  left.setNumber - right.setNumber ||
+  left.createdAt - right.createdAt ||
+  left.id.localeCompare(right.id);
+
+function applyOptimisticSessionSetDelete(session: WorkoutSession, setId: string) {
+  const removedSet = session.sets.find((set) => set.id === setId);
+
+  if (!removedSet || !removedSet.exerciseId) {
+    return session;
+  }
+
+  const nextSessionSets = session.sets.filter((set) => set.id !== setId);
+  const scopedSets = nextSessionSets
+    .filter((set) => set.exerciseId === removedSet.exerciseId)
+    .sort(sortSessionSetsForRenumber);
+  const nextSetNumberById = new Map<string, number>();
+  const scopedSetGroups = new Map<string, WorkoutSession['sets'][number][]>();
+
+  for (const scopedSet of scopedSets) {
+    const section = scopedSet.section ?? 'main';
+    const sectionSets = scopedSetGroups.get(section) ?? [];
+    sectionSets.push(scopedSet);
+    scopedSetGroups.set(section, sectionSets);
+  }
+
+  for (const sectionSets of scopedSetGroups.values()) {
+    sectionSets.forEach((set, index) => {
+      nextSetNumberById.set(set.id, index + 1);
+    });
+  }
+
+  return {
+    ...session,
+    exercises: session.exercises?.map((exercise) => {
+      if (exercise.exerciseId !== removedSet.exerciseId) {
+        return exercise;
+      }
+
+      return {
+        ...exercise,
+        sets: exercise.sets
+          .filter((set) => set.id !== setId)
+          .map((set) => {
+            const nextSetNumber = nextSetNumberById.get(set.id);
+
+            if (nextSetNumber === undefined) {
+              return set;
+            }
+
+            return {
+              ...set,
+              setNumber: nextSetNumber,
+            };
+          }),
+      };
+    }),
+    sets: nextSessionSets.map((set) => {
+      const nextSetNumber = nextSetNumberById.get(set.id);
+
+      if (nextSetNumber === undefined) {
+        return set;
+      }
+
+      return {
+        ...set,
+        setNumber: nextSetNumber,
+      };
+    }),
+  };
+}
+
+export function useDeleteSessionSet() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    WorkoutSession,
+    Error,
+    DeleteSessionSetRequest,
+    {
+      previousCanonicalSession: WorkoutSession | undefined;
+      previousDetailSession: WorkoutSession | undefined;
+    }
+  >({
+    mutationFn: deleteSessionSet,
+    onMutate: async (variables) => {
+      const detailQueryKey = workoutSessionQueryKeys.detail(variables.sessionId);
+      const canonicalQueryKey = workoutQueryKeys.session(variables.sessionId);
+
+      await Promise.all([
+        queryClient.cancelQueries({
+          queryKey: detailQueryKey,
+        }),
+        queryClient.cancelQueries({
+          queryKey: canonicalQueryKey,
+        }),
+      ]);
+
+      const previousDetailSession = queryClient.getQueryData<WorkoutSession>(detailQueryKey);
+      const previousCanonicalSession = queryClient.getQueryData<WorkoutSession>(canonicalQueryKey);
+      const sessionSnapshot = previousDetailSession ?? previousCanonicalSession;
+
+      if (sessionSnapshot) {
+        const optimisticSession = applyOptimisticSessionSetDelete(sessionSnapshot, variables.setId);
+        queryClient.setQueryData(detailQueryKey, optimisticSession);
+        queryClient.setQueryData(canonicalQueryKey, optimisticSession);
+      }
+
+      return {
+        previousCanonicalSession,
+        previousDetailSession,
+      };
+    },
+    onError: (_error, variables, context) => {
+      queryClient.setQueryData(
+        workoutSessionQueryKeys.detail(variables.sessionId),
+        context?.previousDetailSession,
+      );
+      queryClient.setQueryData(
+        workoutQueryKeys.session(variables.sessionId),
+        context?.previousCanonicalSession,
+      );
+    },
+    onSuccess: async (session) => {
+      queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
+      queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
+
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
     },
   });
 }

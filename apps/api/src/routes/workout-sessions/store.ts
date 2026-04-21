@@ -83,6 +83,14 @@ type SessionSetRecord = {
   createdAt: number;
 };
 
+type SessionSetRowInput = CreateWorkoutSessionInput['sets'][number] & {
+  targetWeight?: number | null;
+  targetWeightMin?: number | null;
+  targetWeightMax?: number | null;
+  targetSeconds?: number | null;
+  targetDistance?: number | null;
+};
+
 export type SessionSetGroup = {
   exerciseId: string | null;
   sets: SessionSet[];
@@ -395,26 +403,28 @@ const buildWorkoutSessionExercises = (
     }));
 };
 
-const buildSessionSetRows = (sessionId: string, sets: CreateWorkoutSessionInput['sets']) =>
-  sets.map((set) => ({
-    id: randomUUID(),
-    sessionId,
-    exerciseId: set.exerciseId,
-    orderIndex: set.orderIndex,
-    setNumber: set.setNumber,
-    weight: set.weight,
-    reps: set.reps,
-    targetWeight: set.targetWeight,
-    targetWeightMin: set.targetWeightMin,
-    targetWeightMax: set.targetWeightMax,
-    targetSeconds: set.targetSeconds,
-    targetDistance: set.targetDistance,
-    supersetGroup: set.supersetGroup,
-    completed: set.completed,
-    skipped: set.skipped,
-    section: set.section ?? 'main',
-    notes: set.notes,
-  }));
+const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInput[]) =>
+  sets.map((set) => {
+    return {
+      id: randomUUID(),
+      sessionId,
+      exerciseId: set.exerciseId,
+      orderIndex: set.orderIndex,
+      setNumber: set.setNumber,
+      weight: set.weight,
+      reps: set.reps,
+      targetWeight: set.targetWeight ?? null,
+      targetWeightMin: set.targetWeightMin ?? null,
+      targetWeightMax: set.targetWeightMax ?? null,
+      targetSeconds: set.targetSeconds ?? null,
+      targetDistance: set.targetDistance ?? null,
+      supersetGroup: set.supersetGroup,
+      completed: set.completed ?? false,
+      skipped: set.skipped ?? false,
+      section: set.section ?? 'main',
+      notes: set.notes,
+    };
+  });
 
 export const findInvalidSessionExerciseIds = async ({
   userId,
@@ -486,6 +496,12 @@ export class InvalidSessionCorrectionSetError extends Error {
     this.setId = setId;
   }
 }
+
+export const SESSION_SET_DELETE_NOT_IN_PROGRESS = 'session-not-in-progress' as const;
+
+export type SessionSetDeleteStatusError = {
+  error: typeof SESSION_SET_DELETE_NOT_IN_PROGRESS;
+};
 
 export const findWorkoutSessionAccess = async (
   id: string,
@@ -614,6 +630,136 @@ export const updateSessionSet = async ({
   }
 
   return buildSessionSet(updatedSet);
+};
+
+const buildSessionSetExerciseScope = (exerciseId: string | null) =>
+  exerciseId === null ? isNull(sessionSets.exerciseId) : eq(sessionSets.exerciseId, exerciseId);
+
+const buildSessionSetSectionScope = (section: WorkoutTemplateSectionType | null) =>
+  section === null ? isNull(sessionSets.section) : eq(sessionSets.section, section);
+
+export const deleteSessionSet = async ({
+  sessionId,
+  setId,
+}: {
+  sessionId: string;
+  setId: string;
+}): Promise<SessionSet[] | SessionSetDeleteStatusError | undefined> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const targetSet = tx
+      .select(sessionSetSelection)
+      .from(sessionSets)
+      .where(and(eq(sessionSets.id, setId), eq(sessionSets.sessionId, sessionId)))
+      .limit(1)
+      .get();
+
+    if (!targetSet) {
+      return undefined;
+    }
+
+    const parentSession = tx
+      .select(workoutSessionAccessSelection)
+      .from(workoutSessions)
+      .where(and(eq(workoutSessions.id, sessionId), isNull(workoutSessions.deletedAt)))
+      .limit(1)
+      .get();
+
+    if (!parentSession) {
+      return undefined;
+    }
+
+    if (parentSession.status === 'completed' || parentSession.status === 'cancelled') {
+      return {
+        error: SESSION_SET_DELETE_NOT_IN_PROGRESS,
+      };
+    }
+
+    const deleteResult = tx
+      .delete(sessionSets)
+      .where(and(eq(sessionSets.id, setId), eq(sessionSets.sessionId, sessionId)))
+      .run();
+
+    if (deleteResult.changes !== 1) {
+      return undefined;
+    }
+
+    const matchingExerciseSets = tx
+      .select(sessionSetSelection)
+      .from(sessionSets)
+      .where(
+        and(
+          eq(sessionSets.sessionId, sessionId),
+          buildSessionSetExerciseScope(targetSet.exerciseId),
+          buildSessionSetSectionScope(targetSet.section),
+        ),
+      )
+      .all()
+      .sort((left, right) => {
+        if (left.setNumber !== right.setNumber) {
+          return left.setNumber - right.setNumber;
+        }
+
+        return left.createdAt - right.createdAt;
+      });
+
+    const renumberUpdates = matchingExerciseSets
+      .map((set, index) => ({
+        id: set.id,
+        currentSetNumber: set.setNumber,
+        nextSetNumber: index + 1,
+      }))
+      .filter((set) => set.currentSetNumber !== set.nextSetNumber);
+
+    if (renumberUpdates.length > 0) {
+      const maxPersistedSetNumber = matchingExerciseSets.reduce(
+        (maxValue, set) => Math.max(maxValue, set.setNumber),
+        0,
+      );
+      const tempOffset = maxPersistedSetNumber + matchingExerciseSets.length + 1_000;
+
+      for (const update of renumberUpdates) {
+        tx.update(sessionSets)
+          .set({ setNumber: update.nextSetNumber + tempOffset })
+          .where(and(eq(sessionSets.id, update.id), eq(sessionSets.sessionId, sessionId)))
+          .run();
+      }
+
+      for (const update of renumberUpdates) {
+        tx.update(sessionSets)
+          .set({ setNumber: update.nextSetNumber })
+          .where(and(eq(sessionSets.id, update.id), eq(sessionSets.sessionId, sessionId)))
+          .run();
+      }
+    }
+
+    tx.update(workoutSessions)
+      .set({ updatedAt: Date.now() })
+      .where(and(eq(workoutSessions.id, sessionId), isNull(workoutSessions.deletedAt)))
+      .run();
+
+    const updatedSets = tx
+      .select(sessionSetSelection)
+      .from(sessionSets)
+      .where(
+        and(
+          eq(sessionSets.sessionId, sessionId),
+          buildSessionSetExerciseScope(targetSet.exerciseId),
+          buildSessionSetSectionScope(targetSet.section),
+        ),
+      )
+      .all()
+      .sort((left, right) => {
+        if (left.setNumber !== right.setNumber) {
+          return left.setNumber - right.setNumber;
+        }
+
+        return left.createdAt - right.createdAt;
+      });
+
+    return updatedSets.map(buildSessionSet);
+  });
 };
 
 export const listSessionSetGroups = async (sessionId: string): Promise<SessionSetGroup[]> => {

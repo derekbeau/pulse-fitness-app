@@ -392,24 +392,16 @@ export const sessionSetInputSchema = z
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable().optional().default(null),
     reps: nullableIntegerSchema.optional().default(null),
-    targetWeight: z.number().min(0).nullable().optional(),
-    targetWeightMin: z.number().min(0).nullable().optional(),
-    targetWeightMax: z.number().min(0).nullable().optional(),
-    targetSeconds: nullableIntegerSchema.optional(),
-    targetDistance: z.number().min(0).nullable().optional(),
-    completed: z.boolean().optional().default(false),
-    skipped: z.boolean().optional().default(false),
+    completed: z.boolean().optional(),
+    skipped: z.boolean().optional(),
     supersetGroup: nullableShortStringSchema.optional().default(null),
     section: workoutTemplateSectionTypeSchema.nullable().optional().default(null),
     notes: nullableLongStringSchema.optional().default(null),
   })
+  .strict()
   .refine((value) => !(value.completed && value.skipped), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
-  })
-  .refine(hasValidTargetWeightRange, {
-    message: 'targetWeightMin must be less than or equal to targetWeightMax',
-    path: ['targetWeightMax'],
   })
   .transform((value, context) => {
     // Fastify validates/transforms request bodies before preHandler hooks run.
@@ -488,8 +480,9 @@ const createWorkoutSessionInputObjectSchema = z.object({
   sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
 });
 
-export const createWorkoutSessionInputSchema =
-  createWorkoutSessionInputObjectSchema.superRefine(validateWorkoutSessionTiming);
+export const createWorkoutSessionInputSchema = createWorkoutSessionInputObjectSchema.superRefine(
+  validateWorkoutSessionTiming,
+);
 
 export const createWorkoutSessionRequestSchema = createWorkoutSessionInputObjectSchema
   .extend({

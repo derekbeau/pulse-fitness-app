@@ -492,6 +492,10 @@ describe('workout session routes', () => {
         },
       }),
       context.app.inject({
+        method: 'DELETE',
+        url: '/api/v1/workout-sessions/session-1/sets/set-1',
+      }),
+      context.app.inject({
         method: 'PATCH',
         url: '/api/v1/workout-sessions/session-1/corrections',
         payload: {
@@ -846,7 +850,9 @@ describe('workout session routes', () => {
       ),
     ).toBe(false);
     expect(
-      persistedTemplateExercises.some((exercise) => exercise.notes === 'This should not round-trip'),
+      persistedTemplateExercises.some(
+        (exercise) => exercise.notes === 'This should not round-trip',
+      ),
     ).toBe(false);
   });
 
@@ -1804,6 +1810,377 @@ describe('workout session routes', () => {
     expect(groupedResponse.json()).toEqual(batchResponse.json());
   });
 
+  it('deletes a set from an in-progress session and renumbers sibling sets', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-success',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Delete Set Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-1',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-2',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 2,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-main-3',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 3,
+      section: 'main',
+      reps: 8,
+    });
+    seedSessionSet({
+      id: 'session-delete-cooldown-1',
+      sessionId: 'session-delete-success',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'cooldown',
+      reps: 12,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-success/sets/session-delete-main-2',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        id: string;
+        sets: Array<{
+          id: string;
+          exerciseId: string | null;
+          section: 'warmup' | 'main' | 'cooldown' | 'supplemental' | null;
+          setNumber: number;
+        }>;
+      };
+    };
+    expect(payload.data.id).toBe('session-delete-success');
+
+    const mainBenchSets = payload.data.sets
+      .filter((set) => set.exerciseId === 'global-bench-press' && set.section === 'main')
+      .sort((left, right) => left.setNumber - right.setNumber)
+      .map((set) => ({ id: set.id, setNumber: set.setNumber }));
+    expect(mainBenchSets).toEqual([
+      { id: 'session-delete-main-1', setNumber: 1 },
+      { id: 'session-delete-main-3', setNumber: 2 },
+    ]);
+
+    const cooldownBenchSets = payload.data.sets
+      .filter((set) => set.exerciseId === 'global-bench-press' && set.section === 'cooldown')
+      .map((set) => ({ id: set.id, setNumber: set.setNumber }));
+    expect(cooldownBenchSets).toEqual([{ id: 'session-delete-cooldown-1', setNumber: 1 }]);
+
+    const persistedSets = context.db
+      .select({
+        id: sessionSets.id,
+        setNumber: sessionSets.setNumber,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, 'session-delete-success'))
+      .all()
+      .sort((left, right) => left.id.localeCompare(right.id));
+    expect(persistedSets).toEqual([
+      { id: 'session-delete-cooldown-1', setNumber: 1 },
+      { id: 'session-delete-main-1', setNumber: 1 },
+      { id: 'session-delete-main-3', setNumber: 2 },
+    ]);
+  });
+
+  it('returns 409 when deleting a set from a completed session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-completed',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Completed Session',
+      date: '2026-03-12',
+      status: 'completed',
+      startedAt: 1000,
+      completedAt: 1100,
+      duration: 100,
+    });
+    seedSessionSet({
+      id: 'session-delete-completed-set-1',
+      sessionId: 'session-delete-completed',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-completed/sets/session-delete-completed-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'session-not-in-progress',
+        message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
+      },
+    });
+  });
+
+  it('returns 409 when deleting a set from a cancelled session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-cancelled',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Cancelled Session',
+      date: '2026-03-12',
+      status: 'cancelled',
+      startedAt: 1000,
+      completedAt: null,
+      duration: null,
+    });
+    seedSessionSet({
+      id: 'session-delete-cancelled-set-1',
+      sessionId: 'session-delete-cancelled',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-cancelled/sets/session-delete-cancelled-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'session-not-in-progress',
+        message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
+      },
+    });
+  });
+
+  it('returns 404 when deleting a set that does not belong to the requested session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-owner-a',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Owner A',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedWorkoutSession({
+      id: 'session-delete-owner-b',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Owner B',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-owner-b-set-1',
+      sessionId: 'session-delete-owner-b',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-owner-a/sets/session-delete-owner-b-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'SESSION_SET_NOT_FOUND',
+        message: 'Session set not found',
+      },
+    });
+  });
+
+  it('returns 404 when deleting a set from an unknown session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-missing/sets/session-delete-missing-set',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'WORKOUT_SESSION_NOT_FOUND',
+        message: 'Workout session not found',
+      },
+    });
+  });
+
+  it('supports AgentToken auth and returns enrichment when deleting a set', async () => {
+    const agentToken = seedAgentToken('user-1', 'agent-delete-set-token');
+
+    seedWorkoutSession({
+      id: 'session-delete-agent',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Agent Delete Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-agent-set-1',
+      sessionId: 'session-delete-agent',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-agent/sets/session-delete-agent-set-1',
+      headers: createAgentTokenHeader(agentToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: expect.objectContaining({
+        id: 'session-delete-agent',
+      }),
+      agent: expect.objectContaining({
+        hints: expect.any(Array),
+        suggestedActions: expect.any(Array),
+        relatedState: expect.objectContaining({
+          action: 'set',
+          status: 'in-progress',
+        }),
+      }),
+    });
+  });
+
+  it('returns 401 when deleting a set without auth', async () => {
+    seedWorkoutSession({
+      id: 'session-delete-no-auth',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'No Auth Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-no-auth-set-1',
+      sessionId: 'session-delete-no-auth',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-no-auth/sets/session-delete-no-auth-set-1',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+      },
+    });
+  });
+
+  it('returns 404 when deleting the same set twice', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-delete-idempotent',
+      userId: 'user-1',
+      templateId: 'template-1',
+      name: 'Idempotent Delete Session',
+      date: '2026-03-12',
+      status: 'in-progress',
+      startedAt: 1000,
+    });
+    seedSessionSet({
+      id: 'session-delete-idempotent-set-1',
+      sessionId: 'session-delete-idempotent',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+      reps: 8,
+    });
+
+    const firstResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-idempotent/sets/session-delete-idempotent-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+    expect(firstResponse.statusCode).toBe(200);
+
+    const secondResponse = await context.app.inject({
+      method: 'DELETE',
+      url: '/api/v1/workout-sessions/session-delete-idempotent/sets/session-delete-idempotent-set-1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(secondResponse.statusCode).toBe(404);
+    expect(secondResponse.json()).toEqual({
+      error: {
+        code: 'SESSION_SET_NOT_FOUND',
+        message: 'Session set not found',
+      },
+    });
+  });
+
   it('batch-upserted sets inherit an exercise superset group from existing sets', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -2622,10 +2999,12 @@ describe('workout session routes', () => {
     expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(
       true,
     );
-    expect(templatePayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
+    expect(
+      templatePayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null),
+    ).toBe(true);
+    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(
       true,
     );
-    expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotes === null)).toBe(true);
     expect(adHocPayload.data.exercises?.every((exercise) => exercise.agentNotesMeta === null)).toBe(
       true,
     );
@@ -2749,8 +3128,6 @@ describe('workout session routes', () => {
             setNumber: 1,
             weight: 185,
             reps: 8,
-            targetWeightMin: 175,
-            targetWeightMax: 185,
             completed: true,
             section: 'main',
             notes: ' Fast bar path ',
@@ -2830,8 +3207,6 @@ describe('workout session routes', () => {
           setNumber: 1,
           weight: 185,
           reps: 8,
-          targetWeightMin: 175,
-          targetWeightMax: 185,
           completed: true,
           skipped: false,
           section: 'main',
@@ -3378,7 +3753,9 @@ describe('workout session routes', () => {
     });
 
     expect(response.statusCode).toBe(201);
-    const payload = response.json() as { data: { id: string; exercises?: Array<{ agentNotes: string | null }> } };
+    const payload = response.json() as {
+      data: { id: string; exercises?: Array<{ agentNotes: string | null }> };
+    };
     expect(payload.data.id).not.toBe('cancelled-linked-session');
     expect(payload.data.exercises).toEqual([
       expect.objectContaining({
@@ -5792,6 +6169,426 @@ describe('workout session routes', () => {
       name: 'Landmine Press',
       userId: 'user-1',
     });
+  });
+
+  it('honors skipped=true in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-skip-bulk-patch',
+      userId: 'user-1',
+      name: 'Skip Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-skip-bulk-patch-set-1',
+      sessionId: 'session-skip-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: false,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-skip-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, skipped: true }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+          skipped: true,
+        }),
+      ]),
+    );
+  });
+
+  it('honors completed=false in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-completed-bulk-patch',
+      userId: 'user-1',
+      name: 'Completed Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-completed-bulk-patch-set-1',
+      sessionId: 'session-completed-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-completed-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, completed: false }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: { sets: Array<{ exerciseId: string | null; setNumber: number; completed: boolean }> };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+        }),
+      ]),
+    );
+  });
+
+  it('defaults omitted completed to true for logged set updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-default-completed-bulk-patch',
+      userId: 'user-1',
+      name: 'Default Completed Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-default-completed-bulk-patch-set-1',
+      sessionId: 'session-default-completed-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      weight: 185,
+      reps: 8,
+      completed: false,
+      skipped: false,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-default-completed-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, weight: 100, reps: 5 }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          weight: number | null;
+          reps: number | null;
+          completed: boolean;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          weight: 100,
+          reps: 5,
+          completed: true,
+        }),
+      ]),
+    );
+  });
+
+  it('preserves skipped/completed when patching notes only', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-notes-only-state-patch',
+      userId: 'user-1',
+      name: 'Notes Only State Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-notes-only-state-patch-set-1',
+      sessionId: 'session-notes-only-state-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: false,
+      skipped: true,
+      notes: null,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-notes-only-state-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, notes: 'left side weak' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+          notes: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          completed: false,
+          skipped: true,
+          notes: 'left side weak',
+        }),
+      ]),
+    );
+  });
+
+  it('round-trips notes and supersetGroup in session set patch updates', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-notes-superset-bulk-patch',
+      userId: 'user-1',
+      name: 'Notes Superset Bulk Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-notes-superset-bulk-patch-set-1',
+      sessionId: 'session-notes-superset-bulk-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      supersetGroup: null,
+      notes: null,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-notes-superset-bulk-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'global-bench-press',
+            setNumber: 1,
+            notes: 'left side weak',
+            supersetGroup: 'A',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises?: Array<{ exerciseId: string | null; supersetGroup: string | null }>;
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          notes: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          notes: 'left side weak',
+        }),
+      ]),
+    );
+    expect(payload.data.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          supersetGroup: 'A',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects unsupported session set target fields on patch', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-target-field-reject',
+      userId: 'user-1',
+      name: 'Target Field Reject',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-target-field-reject',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'global-bench-press', setNumber: 1, targetSeconds: 720 }],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expectRequestValidationError(
+      response,
+      'PATCH',
+      '/api/v1/workout-sessions/session-target-field-reject',
+    );
+    expect(response.json()).toMatchObject({
+      error: {
+        details: {
+          issues: [
+            expect.objectContaining({
+              keyword: 'unrecognized_keys',
+              params: {
+                issue: expect.objectContaining({
+                  code: 'unrecognized_keys',
+                  keys: expect.arrayContaining(['targetSeconds']),
+                }),
+              },
+            }),
+          ],
+        },
+      },
+    });
+  });
+
+  it('creates missing sets in patch updates and preserves provided structural fields', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedWorkoutSession({
+      id: 'session-new-set-patch',
+      userId: 'user-1',
+      name: 'New Set Patch',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-new-set-patch-set-1',
+      sessionId: 'session-new-set-patch',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      completed: true,
+      skipped: false,
+      section: 'cooldown',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-new-set-patch',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'global-bench-press',
+            setNumber: 2,
+            supersetGroup: 'A',
+            notes: 'left side weak',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises?: Array<{ exerciseId: string | null; supersetGroup: string | null }>;
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          completed: boolean;
+          skipped: boolean;
+          notes: string | null;
+          section: string | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 2,
+          completed: true,
+          skipped: false,
+          notes: 'left side weak',
+          section: 'cooldown',
+        }),
+      ]),
+    );
+    expect(payload.data.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          supersetGroup: 'A',
+        }),
+      ]),
+    );
   });
 
   it('applies addExercises/removeExercises/reorderExercises for both JWT and AgentToken callers', async () => {

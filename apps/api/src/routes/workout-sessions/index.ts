@@ -53,7 +53,10 @@ import {
   unlinkScheduledWorkoutSession,
   linkTodayScheduledWorkoutToSession,
 } from '../scheduled-workouts/store.js';
-import { readSnapshot, type ScheduledWorkoutSnapshot } from '../scheduled-workouts/snapshot-store.js';
+import {
+  readSnapshot,
+  type ScheduledWorkoutSnapshot,
+} from '../scheduled-workouts/snapshot-store.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import {
@@ -69,6 +72,7 @@ import {
   batchUpsertSessionSets,
   createSessionSet,
   createWorkoutSession,
+  deleteSessionSet,
   deleteWorkoutSession,
   findInvalidSessionExerciseIds,
   findWorkoutSessionAccess,
@@ -78,6 +82,7 @@ import {
   listWorkoutSessions,
   reorderWorkoutSessionExercises,
   saveCompletedSessionAsTemplate,
+  SESSION_SET_DELETE_NOT_IN_PROGRESS,
   SessionSetNotFoundError,
   swapWorkoutSessionExercise,
   updateSessionSet,
@@ -217,6 +222,11 @@ const WORKOUT_SESSION_EXERCISE_HAS_LOGGED_SETS_RESPONSE = {
 const SESSION_SET_NOT_FOUND_RESPONSE = {
   code: 'SESSION_SET_NOT_FOUND',
   message: 'Session set not found',
+} as const;
+
+const SESSION_SET_NOT_IN_PROGRESS_RESPONSE = {
+  code: SESSION_SET_DELETE_NOT_IN_PROGRESS,
+  message: 'Use PATCH /workout-sessions/:id/corrections to edit completed sessions.',
 } as const;
 
 const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
@@ -596,7 +606,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       let programmingNotesByExerciseSection: Record<string, string | null> | undefined;
       let agentNotesByExerciseSection: Record<string, string | null> | undefined;
       let agentNotesMetaByExerciseSection:
-        | Record<string, NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null>
+        | Record<
+            string,
+            NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null
+          >
         | undefined;
       let scheduledWorkoutId: string | undefined;
       let linkScheduledWorkoutSession = false;
@@ -971,6 +984,76 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: set,
       });
+    },
+  );
+
+  typedApp.delete(
+    '/:sessionId/sets/:setId',
+    {
+      preHandler: agentRequestTransform,
+      onSend: agentEnrichmentOnSend,
+      schema: {
+        params: sessionSetParamsSchema,
+        response: {
+          200: apiDataResponseSchema(workoutSessionSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        summary: 'Delete a set from an in-progress workout session',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const session = await ensureOwnedSession({
+        sessionId: request.params.sessionId,
+        userId: request.userId,
+        reply,
+      });
+      if (!session) {
+        return reply;
+      }
+
+      const result = await deleteSessionSet({
+        sessionId: session.id,
+        setId: request.params.setId,
+      });
+      if (!result) {
+        return sendError(
+          reply,
+          404,
+          SESSION_SET_NOT_FOUND_RESPONSE.code,
+          SESSION_SET_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      if ('error' in result && result.error === SESSION_SET_DELETE_NOT_IN_PROGRESS) {
+        return sendError(
+          reply,
+          409,
+          SESSION_SET_NOT_IN_PROGRESS_RESPONSE.code,
+          SESSION_SET_NOT_IN_PROGRESS_RESPONSE.message,
+        );
+      }
+
+      const updatedSession = await findWorkoutSessionById(session.id, request.userId);
+      if (!updatedSession) {
+        return sendError(
+          reply,
+          404,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.code,
+          WORKOUT_SESSION_NOT_FOUND_RESPONSE.message,
+        );
+      }
+
+      return reply.send(
+        buildDataResponse(request, updatedSession, {
+          endpoint: 'workout-session.mutation',
+          action: 'set',
+          session: updatedSession,
+        }),
+      );
     },
   );
 
@@ -1440,9 +1523,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           merged.sets.map((set) => [`${set.exerciseId}:${set.setNumber}`, { ...set }]),
         );
         const exerciseOrder = new Map<string, number>();
+        const siblingSectionByExerciseId = new Map<string, SessionSetInput['section']>();
         for (const set of merged.sets) {
           if (!exerciseOrder.has(set.exerciseId)) {
             exerciseOrder.set(set.exerciseId, exerciseOrder.size);
+          }
+
+          if (set.section !== null && !siblingSectionByExerciseId.has(set.exerciseId)) {
+            siblingSectionByExerciseId.set(set.exerciseId, set.section);
           }
         }
 
@@ -1454,16 +1542,43 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
           const key = `${exerciseId}:${set.setNumber}`;
           const previous = setMap.get(key);
+          const hasLoggedFields = set.weight !== null || set.reps !== null;
+          const shouldPreserveCompletionState =
+            previous !== undefined &&
+            set.completed === undefined &&
+            set.skipped === undefined &&
+            !hasLoggedFields;
+
+          const nextSkipped = shouldPreserveCompletionState
+            ? previous.skipped
+            : (set.skipped ?? false);
+          const nextCompleted = shouldPreserveCompletionState
+            ? previous.completed
+            : (set.completed ?? (nextSkipped ? false : true));
 
           if (previous) {
+            const nextSection = set.section ?? previous.section;
+            if (nextSection !== null) {
+              siblingSectionByExerciseId.set(exerciseId, nextSection);
+            }
+
             setMap.set(key, {
               ...previous,
-              weight: set.weight,
-              reps: set.reps,
-              completed: true,
-              skipped: false,
+              weight: set.weight ?? previous.weight,
+              reps: set.reps ?? previous.reps,
+              completed: nextCompleted,
+              skipped: nextSkipped,
+              notes: set.notes ?? previous.notes,
+              supersetGroup: set.supersetGroup ?? previous.supersetGroup,
+              section: nextSection,
             });
             continue;
+          }
+
+          const siblingSection = siblingSectionByExerciseId.get(exerciseId) ?? null;
+          const nextSection = set.section ?? siblingSection ?? 'main';
+          if (nextSection !== null) {
+            siblingSectionByExerciseId.set(exerciseId, nextSection);
           }
 
           setMap.set(key, {
@@ -1472,11 +1587,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
-            completed: true,
-            skipped: false,
-            supersetGroup: null,
-            section: 'main',
-            notes: null,
+            completed: nextCompleted,
+            skipped: nextSkipped,
+            supersetGroup: set.supersetGroup ?? null,
+            section: nextSection,
+            notes: set.notes ?? null,
           });
         }
 
