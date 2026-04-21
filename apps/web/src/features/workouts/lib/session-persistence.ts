@@ -13,6 +13,73 @@ type ActiveWorkoutDraft = {
   setDrafts: ActiveWorkoutSetDrafts;
 };
 
+export function mergeServerSetDrafts(
+  currentSetDrafts: ActiveWorkoutSetDrafts,
+  serverSetDrafts: ActiveWorkoutSetDrafts,
+) {
+  const nextDrafts: ActiveWorkoutSetDrafts = {};
+
+  for (const [exerciseId, serverExerciseDrafts] of Object.entries(serverSetDrafts)) {
+    const currentExerciseDrafts = currentSetDrafts[exerciseId] ?? [];
+
+    nextDrafts[exerciseId] = serverExerciseDrafts.map((serverSetDraft) => {
+      const currentDraft = currentExerciseDrafts.find(
+        (set) => set.number === serverSetDraft.number,
+      );
+
+      if (!currentDraft) {
+        return serverSetDraft;
+      }
+
+      if (currentDraft.completed || serverSetDraft.completed) {
+        // Completed sets are server-authoritative; this may replace uncommitted local input if
+        // an external actor completed the set between poll intervals.
+        return serverSetDraft;
+      }
+
+      return {
+        ...serverSetDraft,
+        distance: currentDraft.distance,
+        reps: currentDraft.reps,
+        seconds: currentDraft.seconds,
+        targetDistance: currentDraft.targetDistance,
+        targetSeconds: currentDraft.targetSeconds,
+        targetWeight: currentDraft.targetWeight,
+        targetWeightMax: currentDraft.targetWeightMax,
+        targetWeightMin: currentDraft.targetWeightMin,
+        weight: currentDraft.weight,
+      };
+    });
+  }
+
+  return nextDrafts;
+}
+
+export function mergeExerciseNotes(
+  local: Record<string, string>,
+  server: Record<string, string>,
+): Record<string, string> {
+  const mergedNotes: Record<string, string> = {};
+
+  for (const [exerciseId, serverNote] of Object.entries(server)) {
+    const localNote = local[exerciseId];
+
+    if (typeof serverNote === 'string' && serverNote.trim().length > 0) {
+      mergedNotes[exerciseId] = serverNote;
+      continue;
+    }
+
+    if (typeof localNote === 'string' && localNote.trim().length > 0) {
+      mergedNotes[exerciseId] = localNote;
+      continue;
+    }
+
+    mergedNotes[exerciseId] = serverNote;
+  }
+
+  return mergedNotes;
+}
+
 function canUseLocalStorage() {
   return typeof window !== 'undefined';
 }

@@ -11,6 +11,7 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
 import {
+  ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX,
   ACTIVE_WORKOUT_SESSION_STORAGE_KEY,
   WORKOUT_EXERCISES_STORAGE_PREFIX,
   WORKOUT_SECTIONS_STORAGE_PREFIX,
@@ -463,6 +464,340 @@ describe('ActiveWorkoutPage', () => {
     expect(window.localStorage.getItem(exerciseStateKey)).toBeNull();
   });
 
+  it('hydrates completed server sets over empty autosaved draft values on session switch', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-completed';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {},
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'incline-dumbbell-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: null,
+            weight: null,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'incline-dumbbell-press',
+            exerciseName: 'Incline Dumbbell Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: true,
+                exerciseId: 'incline-dumbbell-press',
+                id: 'set-1',
+                orderIndex: 0,
+                reps: 8,
+                section: 'main',
+                setNumber: 1,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: true,
+            exerciseId: 'incline-dumbbell-press',
+            id: 'set-1',
+            orderIndex: 0,
+            reps: 8,
+            section: 'main',
+            setNumber: 1,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(
+      within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Reps for set 1'),
+    ).toHaveValue(8);
+  });
+
+  it('preserves in-progress local set values when the server set is still incomplete', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-local-in-progress';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {},
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'incline-dumbbell-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: null,
+            weight: 42,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'incline-dumbbell-press',
+            exerciseName: 'Incline Dumbbell Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: false,
+                exerciseId: 'incline-dumbbell-press',
+                id: 'set-1',
+                orderIndex: 0,
+                reps: null,
+                section: 'main',
+                setNumber: 1,
+                weight: null,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: false,
+            exerciseId: 'incline-dumbbell-press',
+            id: 'set-1',
+            orderIndex: 0,
+            reps: null,
+            section: 'main',
+            setNumber: 1,
+            weight: null,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(
+      within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Weight for set 1'),
+    ).toHaveValue(42);
+  });
+
+  it('drops local-only exercises that are missing from server session payloads', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-drop-local-only-exercise';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {},
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'incline-dumbbell-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'local-only-set-1',
+            number: 1,
+            reps: 6,
+            weight: 40,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            exerciseName: 'Seated Dumbbell Shoulder Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: false,
+                exerciseId: 'seated-dumbbell-shoulder-press',
+                id: 'set-1',
+                orderIndex: 0,
+                reps: 10,
+                section: 'main',
+                setNumber: 1,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: false,
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            id: 'set-1',
+            orderIndex: 0,
+            reps: 10,
+            section: 'main',
+            setNumber: 1,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { level: 3, name: 'Incline Dumbbell Press' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Seated Dumbbell Shoulder Press' }),
+    ).toBeVisible();
+  });
+
+  it('prefers server exercise notes when local and server notes differ', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-notes-server-wins';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {
+        'seated-dumbbell-shoulder-press': 'Local note',
+      },
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'seated-dumbbell-shoulder-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: 9,
+            weight: 35,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            exerciseName: 'Seated Dumbbell Shoulder Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: true,
+                exerciseId: 'seated-dumbbell-shoulder-press',
+                id: 'set-1',
+                notes: 'Server note',
+                orderIndex: 0,
+                reps: 9,
+                section: 'main',
+                setNumber: 1,
+                weight: 35,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: true,
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            id: 'set-1',
+            notes: 'Server note',
+            orderIndex: 0,
+            reps: 9,
+            section: 'main',
+            setNumber: 1,
+            weight: 35,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    const seatedCard = getExerciseCard('Seated Dumbbell Shoulder Press');
+    fireEvent.click(within(seatedCard).getByText('Session notes'));
+    expect(within(seatedCard).getByDisplayValue('Server note')).toBeVisible();
+  });
+
+  it('preserves local session cues during session hydration', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-preserve-cues';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {},
+      sessionCuesByExercise: {
+        'seated-dumbbell-shoulder-press': ['Drive elbows under wrists'],
+      },
+      setDrafts: {
+        'seated-dumbbell-shoulder-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: 10,
+            weight: 35,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            exerciseName: 'Seated Dumbbell Shoulder Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: false,
+                exerciseId: 'seated-dumbbell-shoulder-press',
+                id: 'set-1',
+                orderIndex: 0,
+                reps: 10,
+                section: 'main',
+                setNumber: 1,
+                weight: 35,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: false,
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            id: 'set-1',
+            orderIndex: 0,
+            reps: 10,
+            section: 'main',
+            setNumber: 1,
+            weight: 35,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    await waitFor(() => {
+      const storedDraft = window.localStorage.getItem(
+        `${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`,
+      );
+      expect(storedDraft).not.toBeNull();
+
+      expect(JSON.parse(storedDraft ?? '{}')).toMatchObject({
+        sessionCuesByExercise: {
+          'seated-dumbbell-shoulder-press': ['Drive elbows under wrists'],
+        },
+      });
+    });
+  });
+
   it('uses the selected template from the route query string', () => {
     renderActiveWorkoutPage('/workouts/active?template=lower-quad-dominant');
 
@@ -782,7 +1117,10 @@ describe('ActiveWorkoutPage', () => {
           currentSession = {
             ...currentSession,
             sectionDurations: nextSectionDurations,
-            timeSegments: [...nextTimeSegments, { start: nowIso, end: null, section: payload.section }],
+            timeSegments: [
+              ...nextTimeSegments,
+              { start: nowIso, end: null, section: payload.section },
+            ],
           };
         } else {
           currentSession = {
@@ -807,7 +1145,10 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
 
     const getSectionTimerButton = (sectionTitle: 'Warmup' | 'Main', buttonName: string) => {
-      const heading = screen.getByRole('heading', { level: 2, name: new RegExp(`^${sectionTitle}`) });
+      const heading = screen.getByRole('heading', {
+        level: 2,
+        name: new RegExp(`^${sectionTitle}`),
+      });
       const sectionElement = heading.closest('section');
 
       expect(sectionElement).not.toBeNull();
@@ -2418,6 +2759,154 @@ function getRestTimerRemainingSeconds() {
   throw new Error(`Unable to parse rest timer text: ${timerText}`);
 }
 
+function seedActiveWorkoutDraft(
+  sessionId: string,
+  draft: {
+    exerciseNotes: Record<string, string>;
+    sessionCuesByExercise: Record<string, string[]>;
+    setDrafts: Record<string, Array<ReturnType<typeof createStoredDraftSet>>>;
+  },
+) {
+  window.localStorage.setItem(
+    `${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`,
+    JSON.stringify(draft),
+  );
+}
+
+function mockActiveSessionFetch(sessionId: string, session: MutableInProgressSessionResponse) {
+  const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+
+    if (url.endsWith('/api/v1/auth/register')) {
+      return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+    }
+
+    if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+      return Promise.resolve(jsonResponse({ data: [] }));
+    }
+
+    if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+      return Promise.resolve(
+        jsonResponse({
+          data: [
+            buildWorkoutSessionListItem({
+              id: sessionId,
+              name: session.name,
+              status: session.status,
+              templateId: session.templateId,
+              templateName: session.name,
+            }),
+          ],
+        }),
+      );
+    }
+
+    if (
+      url.endsWith('/api/v1/workout-templates/upper-push') &&
+      (!init?.method || init.method === 'GET')
+    ) {
+      const template = buildWorkoutTemplateResponse('upper-push');
+      if (!template) {
+        return Promise.reject(new Error('Expected upper-push fixture template to exist.'));
+      }
+
+      return Promise.resolve(jsonResponse({ data: template }));
+    }
+
+    if (
+      url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+      (!init?.method || init.method === 'GET')
+    ) {
+      return Promise.resolve(jsonResponse({ data: session }));
+    }
+
+    if (url.includes('/api/v1/exercises/') && url.includes('/history')) {
+      return Promise.resolve(jsonResponse({ data: [] }));
+    }
+
+    if (url.endsWith(`/api/v1/workout-sessions/${sessionId}`) && init?.method === 'PATCH') {
+      return Promise.resolve(jsonResponse({ data: session }));
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+  });
+
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+function createStoredDraftSet(
+  overrides: Partial<{
+    completed: boolean;
+    distance: number | null;
+    id: string;
+    number: number;
+    reps: number | null;
+    seconds: number | null;
+    weight: number | null;
+  }> = {},
+) {
+  return {
+    completed: false,
+    distance: null,
+    id: 'stored-set-1',
+    number: 1,
+    reps: null,
+    seconds: null,
+    weight: null,
+    ...overrides,
+  };
+}
+
+function createHydrationSessionSet(
+  overrides: Partial<MutableInProgressSessionResponse['sets'][number]> = {},
+): MutableInProgressSessionResponse['sets'][number] {
+  return {
+    completed: false,
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    exerciseId: 'incline-dumbbell-press',
+    id: 'session-set-1',
+    notes: null,
+    orderIndex: 0,
+    reps: null,
+    section: 'main',
+    setNumber: 1,
+    skipped: false,
+    weight: null,
+    ...overrides,
+  };
+}
+
+function createHydrationSessionExercise(
+  overrides: Partial<MutableInProgressSessionResponse['exercises'][number]> = {},
+): MutableInProgressSessionResponse['exercises'][number] {
+  return {
+    exerciseId: 'incline-dumbbell-press',
+    exerciseName: 'Incline Dumbbell Press',
+    orderIndex: 0,
+    section: 'main',
+    sets: [createHydrationSessionSet()],
+    ...overrides,
+  };
+}
+
+function buildHydrationSessionResponse(
+  sessionId: string,
+  overrides: {
+    exercises: MutableInProgressSessionResponse['exercises'];
+    sets: MutableInProgressSessionResponse['sets'];
+  },
+): MutableInProgressSessionResponse {
+  const baseSession = buildInProgressSessionResponse(sessionId);
+
+  return {
+    ...baseSession,
+    exercises: overrides.exercises,
+    sets: overrides.sets,
+    updatedAt: Date.parse('2026-03-06T12:00:05.000Z'),
+  };
+}
+
 function buildCompletedSessionResponse() {
   return {
     id: 'created-session-id',
@@ -2450,7 +2939,7 @@ function buildCompletedSessionResponse() {
   };
 }
 
-function buildInProgressSessionResponse(sessionId: string) {
+function buildInProgressSessionResponse(sessionId: string): MutableInProgressSessionResponse {
   return {
     id: sessionId,
     userId: 'user-1',
@@ -2476,6 +2965,7 @@ function buildInProgressSessionResponse(sessionId: string) {
     },
     feedback: null,
     notes: null,
+    exercises: [],
     sets: [],
     createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
     updatedAt: Date.parse('2026-03-06T12:00:00.000Z'),

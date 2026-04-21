@@ -89,6 +89,8 @@ import {
   clearStoredActiveWorkoutSessionId,
   clearStoredWorkoutSessionUiState,
   getStoredActiveWorkoutDraft,
+  mergeExerciseNotes,
+  mergeServerSetDrafts,
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
@@ -322,14 +324,14 @@ export function ActiveWorkoutPage() {
 
     if (isSessionSwitch) {
       const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
-      const shouldUseAutosavedDraft =
-        autosavedDraft &&
-        (!hasDraftStructure(serverSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
-      setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : serverSetDrafts);
+      const mergedSetDrafts = autosavedDraft
+        ? mergeServerSetDrafts(autosavedDraft.setDrafts, serverSetDrafts)
+        : serverSetDrafts;
+      setSetDrafts(mergedSetDrafts);
       setExerciseNotes(
-        shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : serverExerciseNotes,
+        mergeExerciseNotes(autosavedDraft?.exerciseNotes ?? {}, serverExerciseNotes),
       );
-      setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
+      setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
       hydratedDraftKeyRef.current = activeSession.id;
@@ -394,13 +396,13 @@ export function ActiveWorkoutPage() {
 
     const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
-    const shouldUseAutosavedDraft =
+    const preferAutosavedDraft =
       autosavedDraft &&
       (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
 
-    setSetDrafts(shouldUseAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
-    setExerciseNotes(shouldUseAutosavedDraft ? autosavedDraft.exerciseNotes : {});
-    setSessionCuesByExercise(shouldUseAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
+    setSetDrafts(preferAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
+    setExerciseNotes(preferAutosavedDraft ? autosavedDraft.exerciseNotes : {});
+    setSessionCuesByExercise(preferAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
     setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedSessionIdRef.current = null;
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
@@ -1893,48 +1895,6 @@ function createSessionSetDrafts(
   return drafts;
 }
 
-function mergeServerSetDrafts(
-  currentSetDrafts: ActiveWorkoutSetDrafts,
-  serverSetDrafts: ActiveWorkoutSetDrafts,
-) {
-  const nextDrafts: ActiveWorkoutSetDrafts = {};
-
-  for (const [exerciseId, serverExerciseDrafts] of Object.entries(serverSetDrafts)) {
-    const currentExerciseDrafts = currentSetDrafts[exerciseId] ?? [];
-
-    nextDrafts[exerciseId] = serverExerciseDrafts.map((serverSetDraft) => {
-      const currentDraft = currentExerciseDrafts.find(
-        (set) => set.number === serverSetDraft.number,
-      );
-
-      if (!currentDraft) {
-        return serverSetDraft;
-      }
-
-      if (currentDraft.completed || serverSetDraft.completed) {
-        // Completed sets are server-authoritative; this may replace uncommitted local input if
-        // an external actor completed the set between poll intervals.
-        return serverSetDraft;
-      }
-
-      return {
-        ...serverSetDraft,
-        distance: currentDraft.distance,
-        reps: currentDraft.reps,
-        seconds: currentDraft.seconds,
-        targetDistance: currentDraft.targetDistance,
-        targetSeconds: currentDraft.targetSeconds,
-        targetWeight: currentDraft.targetWeight,
-        targetWeightMax: currentDraft.targetWeightMax,
-        targetWeightMin: currentDraft.targetWeightMin,
-        weight: currentDraft.weight,
-      };
-    });
-  }
-
-  return nextDrafts;
-}
-
 function hasDraftStructure(setDrafts: ActiveWorkoutSetDrafts) {
   return Object.values(setDrafts).some((exerciseDrafts) => exerciseDrafts.length > 0);
 }
@@ -2586,7 +2546,8 @@ function buildTemplateFromSession(
       restSeconds: fallbackExercise?.restSeconds ?? 60,
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
-      programmingNotes: sessionExercise.programmingNotes ?? fallbackExercise?.programmingNotes ?? null,
+      programmingNotes:
+        sessionExercise.programmingNotes ?? fallbackExercise?.programmingNotes ?? null,
       agentNotes: sessionExercise.agentNotes ?? fallbackExercise?.agentNotes ?? null,
       agentNotesMeta: sessionExercise.agentNotesMeta ?? fallbackExercise?.agentNotesMeta ?? null,
       badges: fallbackExercise?.badges ?? [],
