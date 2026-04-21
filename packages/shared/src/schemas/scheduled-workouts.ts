@@ -151,12 +151,7 @@ export const swapScheduledWorkoutExerciseInputSchema = z.object({
 
 export const swapScheduledWorkoutExerciseResponseSchema = scheduledWorkoutDetailSchema;
 
-const scheduledWorkoutEditableSectionSchema = workoutTemplateSectionTypeSchema.refine(
-  (section) => section !== 'supplemental',
-  {
-    message: 'Section must be warmup, main, or cooldown',
-  },
-);
+const scheduledWorkoutEditableSectionSchema = z.enum(['warmup', 'main', 'cooldown']);
 
 export const reorderScheduledWorkoutInputSchema = z
   .object({
@@ -183,7 +178,7 @@ export const updateScheduledWorkoutExercisesInputSchema = z
   })
   .strict();
 
-const editableSetTargetFields = [
+const editableSetFields = [
   'targetWeight',
   'targetWeightMin',
   'targetWeightMax',
@@ -219,7 +214,7 @@ export const updateScheduledWorkoutExerciseSetsInputSchema = z
             (setUpdate) =>
               !(
                 setUpdate.remove &&
-                editableSetTargetFields.some((field) => setUpdate[field] != null)
+                editableSetFields.some((field) => setUpdate[field] != null)
               ),
             {
               message: 'remove cannot be combined with target fields',

@@ -405,6 +405,19 @@ describe('updateScheduledWorkoutExercisesInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it("rejects section values outside warmup/main/cooldown (e.g. 'supplemental')", () => {
+    expect(() =>
+      updateScheduledWorkoutExercisesInputSchema.parse({
+        updates: [
+          {
+            exerciseId: 'de111111-1111-4111-8111-111111111111',
+            section: 'supplemental',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
 });
 
 describe('updateScheduledWorkoutExerciseSetsInputSchema', () => {
