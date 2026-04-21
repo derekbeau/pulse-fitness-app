@@ -1475,18 +1475,12 @@ export function useDeleteSessionSet() {
         workoutQueryKeys.session(variables.sessionId),
         context?.previousCanonicalSession,
       );
-      toast.error('Unable to remove set. Try again.');
     },
     onSuccess: async (session) => {
       queryClient.setQueryData(workoutSessionQueryKeys.detail(session.id), session);
       queryClient.setQueryData(workoutQueryKeys.session(session.id), session);
 
-      await Promise.all([
-        syncSessionMutationCache(queryClient, session, { invalidateDashboard: true }),
-        queryClient.invalidateQueries({
-          queryKey: workoutQueryKeys.sessionDetailPrefix(),
-        }),
-      ]);
+      await syncSessionMutationCache(queryClient, session, { invalidateDashboard: true });
     },
   });
 }
