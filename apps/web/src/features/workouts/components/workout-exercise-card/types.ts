@@ -4,6 +4,7 @@ import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 export type WorkoutExerciseCardMode =
   | 'readonly-template'
   | 'readonly-scheduled'
+  | 'editable-scheduled'
   | 'readonly-completed';
 // Reserved for a later migration round.
 // | 'in-progress'
@@ -111,7 +112,7 @@ export type WorkoutExerciseCardTemplateProps = WorkoutExerciseCardCommonProps & 
 
 export type WorkoutExerciseCardScheduledProps = WorkoutExerciseCardCommonProps & {
   exercise: WorkoutExerciseCardScheduledExercise;
-  mode: 'readonly-scheduled';
+  mode: 'readonly-scheduled' | 'editable-scheduled';
 };
 
 export type WorkoutExerciseCardCompletedProps = WorkoutExerciseCardCommonProps & {

@@ -29,6 +29,8 @@ The scheduled-workout detail page should mirror template-detail exercise renderi
 - `programmingNotes` shown on scheduled cards comes from the scheduled snapshot exercise row.
 - Reserve a page-level `bannerSlot` area above the header for future scheduled-workout warning banners. Leave it empty unless a warning feature explicitly populates it.
 
+Scheduled-workout structural edits (reorder, superset grouping, exercise-level fields, and set-level targets) mutate only the planned snapshot and are intended to seed future session starts. Once a session exists for that schedule, the session becomes the live run and must be edited through workout-session endpoints rather than by mutating the scheduled snapshot structure.
+
 ## Three-layer notes model
 
 Workout exercise note content is split into three channels and should stay separate in API,

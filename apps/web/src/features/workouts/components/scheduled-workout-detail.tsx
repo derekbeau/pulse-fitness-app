@@ -1,8 +1,34 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertTriangle, History, Info, TriangleAlert } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  History,
+  Info,
+  Plus,
+  TriangleAlert,
+} from 'lucide-react';
 import type {
   ExerciseTrackingType,
+  UpdateScheduledWorkoutExerciseSetsInput,
   WorkoutTemplate,
   WorkoutTemplateExercise,
   WorkoutTemplateSectionType,
@@ -21,17 +47,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { ApiError } from '@/lib/api-client';
 import { toDateKey } from '@/lib/date-utils';
+import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import {
   type ScheduledWorkoutDetail,
+  useReorderScheduledWorkout,
   useRescheduleWorkout,
   useScheduledWorkoutDetail,
   useSwapScheduledWorkoutExercise,
+  useUpdateScheduledWorkoutExercises,
+  useUpdateScheduledWorkoutExerciseSets,
   useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
@@ -66,12 +99,76 @@ const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
   supplemental: 'border-l-[var(--color-accent-cream)]',
 };
 
+const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+const supersetOptions = ['A', 'B', 'C'] as const;
+
+type EditableSetFieldDefinition = {
+  inputMode: 'decimal' | 'numeric';
+  key: Exclude<keyof UpdateScheduledWorkoutExerciseSetsInput['sets'][number], 'setNumber' | 'remove'>;
+  label: string;
+  step: string;
+  suffix?: string;
+};
+
+const editableSetFields: EditableSetFieldDefinition[] = [
+  {
+    inputMode: 'decimal',
+    key: 'targetWeight',
+    label: 'Target weight',
+    step: '0.5',
+  },
+  {
+    inputMode: 'decimal',
+    key: 'targetWeightMin',
+    label: 'Target weight min',
+    step: '0.5',
+  },
+  {
+    inputMode: 'decimal',
+    key: 'targetWeightMax',
+    label: 'Target weight max',
+    step: '0.5',
+  },
+  {
+    inputMode: 'numeric',
+    key: 'targetSeconds',
+    label: 'Target seconds',
+    step: '1',
+    suffix: 'sec',
+  },
+  {
+    inputMode: 'decimal',
+    key: 'targetDistance',
+    label: 'Target distance',
+    step: '0.1',
+  },
+  {
+    inputMode: 'numeric',
+    key: 'repsMin',
+    label: 'Reps min',
+    step: '1',
+  },
+  {
+    inputMode: 'numeric',
+    key: 'repsMax',
+    label: 'Reps max',
+    step: '1',
+  },
+  {
+    inputMode: 'numeric',
+    key: 'reps',
+    label: 'Reps',
+    step: '1',
+  },
+];
+
 type ScheduledWorkoutDetailProps = {
   bannerSlot?: ReactNode;
   id: string;
 };
 
 type SnapshotExercise = ScheduledWorkoutDetail['exercises'][number];
+type SnapshotExerciseSet = SnapshotExercise['sets'][number];
 
 type TemplateExerciseLookup = {
   byExerciseIdBySection: Map<string, WorkoutTemplateExercise>;
@@ -86,10 +183,14 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   const rescheduleWorkoutMutation = useRescheduleWorkout();
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const swapScheduledExerciseMutation = useSwapScheduledWorkoutExercise();
+  const reorderScheduledWorkoutMutation = useReorderScheduledWorkout();
+  const updateScheduledWorkoutExercisesMutation = useUpdateScheduledWorkoutExercises();
+  const updateScheduledWorkoutExerciseSetsMutation = useUpdateScheduledWorkoutExerciseSets();
   const { confirm, dialog: confirmDialog } = useConfirmation();
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+  const [mutationErrorMessage, setMutationErrorMessage] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<{
     exerciseId: string;
     exerciseName: string;
@@ -106,11 +207,43 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   );
   const templateExerciseLookup = useMemo(() => buildTemplateExerciseLookup(template), [template]);
   const canStartFromSnapshot = scheduledWorkout !== undefined && scheduledWorkout !== null;
+  const isPlanLocked = scheduledWorkout?.sessionId != null;
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  const queueReorderMutation = useDebouncedCallback((order: string[]) => {
+    if (!scheduledWorkout || isPlanLocked) {
+      return;
+    }
+
+    setMutationErrorMessage(null);
+    reorderScheduledWorkoutMutation.mutate(
+      {
+        id: scheduledWorkout.id,
+        input: { order },
+      },
+      {
+        onError: (error) => {
+          setMutationErrorMessage(getMutationErrorMessage(error, 'Unable to reorder exercises.'));
+        },
+      },
+    );
+  }, 250);
   const isMutating =
     startSessionMutation.isPending ||
     rescheduleWorkoutMutation.isPending ||
     unscheduleWorkoutMutation.isPending ||
-    swapScheduledExerciseMutation.isPending;
+    swapScheduledExerciseMutation.isPending ||
+    reorderScheduledWorkoutMutation.isPending ||
+    updateScheduledWorkoutExercisesMutation.isPending ||
+    updateScheduledWorkoutExerciseSetsMutation.isPending;
 
   async function doStart(options?: { force?: boolean }) {
     if (!scheduledWorkout) {
@@ -219,6 +352,63 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
     });
   }
 
+  async function handleUpdateSupersetGroup(exerciseId: string, supersetGroup: string | null) {
+    if (!scheduledWorkout || isPlanLocked) {
+      return;
+    }
+
+    setMutationErrorMessage(null);
+
+    try {
+      await updateScheduledWorkoutExercisesMutation.mutateAsync({
+        id: scheduledWorkout.id,
+        input: {
+          updates: [{ exerciseId, supersetGroup }],
+        },
+      });
+    } catch (error) {
+      setMutationErrorMessage(getMutationErrorMessage(error, 'Unable to update superset group.'));
+    }
+  }
+
+  async function handleUpdateSet(
+    exerciseId: string,
+    setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number],
+  ) {
+    if (!scheduledWorkout || isPlanLocked) {
+      return;
+    }
+
+    setMutationErrorMessage(null);
+
+    try {
+      await updateScheduledWorkoutExerciseSetsMutation.mutateAsync({
+        id: scheduledWorkout.id,
+        input: {
+          exerciseId,
+          sets: [setUpdate],
+        },
+      });
+    } catch (error) {
+      setMutationErrorMessage(
+        getMutationErrorMessage(error, 'Unable to update scheduled workout set targets.'),
+      );
+    }
+  }
+
+  async function handleRemoveSet(exerciseId: string, setNumber: number) {
+    await handleUpdateSet(exerciseId, {
+      remove: true,
+      setNumber,
+    });
+  }
+
+  async function handleAddSet(exerciseId: string, setNumber: number) {
+    await handleUpdateSet(exerciseId, {
+      setNumber,
+    });
+  }
+
   async function handleStartAnyway() {
     await doStart({ force: true });
   }
@@ -276,14 +466,46 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
         templateName={template?.name ?? null}
       />
 
+      {mutationErrorMessage ? (
+        <BannerCard
+          className="border-destructive/35 bg-destructive/10"
+          description={mutationErrorMessage}
+          icon={<AlertTriangle aria-hidden="true" className="size-4 text-destructive" />}
+          testId="scheduled-workout-structure-error-banner"
+          title="Unable to apply edit"
+        />
+      ) : null}
+
+      {isPlanLocked ? (
+        <BannerCard
+          className="border-border/80 bg-secondary/40"
+          description="This workout already has a started session. Structural edits are read-only here."
+          icon={<Info aria-hidden="true" className="size-4 text-muted" />}
+          testId="scheduled-workout-readonly-banner"
+          title="Session in progress"
+        />
+      ) : null}
+
       <ScheduledWorkoutSections
+        isEditLocked={isPlanLocked}
+        isMutating={isMutating}
+        onAddSet={handleAddSet}
         onOpenHistory={(exercise) =>
           setHistoryTarget({
             exerciseId: exercise.exerciseId,
             exerciseName: exercise.exerciseName,
           })
         }
+        onRemoveSet={handleRemoveSet}
+        onReorder={(order) => queueReorderMutation.run(order)}
+        onReorderImmediate={(order) => {
+          queueReorderMutation.run(order);
+          queueReorderMutation.flush();
+        }}
+        onUpdateSet={handleUpdateSet}
+        onUpdateSupersetGroup={handleUpdateSupersetGroup}
         scheduledWorkout={scheduledWorkout}
+        sensors={sensors}
         templateExerciseLookup={templateExerciseLookup}
         weightUnit={weightUnit}
       />
@@ -353,17 +575,39 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
 }
 
 function ScheduledWorkoutSections({
+  isEditLocked,
+  isMutating,
+  onAddSet,
   onOpenHistory,
+  onRemoveSet,
+  onReorder,
+  onReorderImmediate,
+  onUpdateSet,
+  onUpdateSupersetGroup,
   scheduledWorkout,
+  sensors,
   templateExerciseLookup,
   weightUnit,
 }: {
+  isEditLocked: boolean;
+  isMutating: boolean;
+  onAddSet: (exerciseId: string, setNumber: number) => Promise<void>;
   onOpenHistory: (exercise: { exerciseId: string; exerciseName: string }) => void;
+  onRemoveSet: (exerciseId: string, setNumber: number) => Promise<void>;
+  onReorder: (order: string[]) => void;
+  onReorderImmediate: (order: string[]) => void;
+  onUpdateSet: (
+    exerciseId: string,
+    setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number],
+  ) => Promise<void>;
+  onUpdateSupersetGroup: (exerciseId: string, supersetGroup: string | null) => Promise<void>;
   scheduledWorkout: ScheduledWorkoutDetail;
+  sensors: ReturnType<typeof useSensors>;
   templateExerciseLookup: TemplateExerciseLookup;
   weightUnit: WeightUnit;
 }) {
   const nonEmptySections = buildSnapshotSections(scheduledWorkout.exercises);
+  const isInteractionDisabled = isEditLocked || isMutating;
 
   if (nonEmptySections.length === 0) {
     return (
@@ -374,6 +618,23 @@ function ScheduledWorkoutSections({
       </Card>
     );
   }
+
+  const buildReorderPayload = (
+    sectionType: WorkoutTemplateSectionType,
+    reorderedSectionExerciseIds: string[],
+  ) =>
+    sectionOrder.flatMap((candidateSectionType) => {
+      const section = nonEmptySections.find((entry) => entry.type === candidateSectionType);
+      if (!section) {
+        return [];
+      }
+
+      if (candidateSectionType === sectionType) {
+        return reorderedSectionExerciseIds;
+      }
+
+      return section.exercises.map((exercise) => exercise.exerciseId);
+    });
 
   return (
     <div className="space-y-3">
@@ -401,27 +662,87 @@ function ScheduledWorkoutSections({
           </summary>
 
           <div className="space-y-1.5 border-t border-border/80 px-3 py-3 sm:px-4 sm:py-3">
-            {section.exercises.map((exercise, index) => {
-              const templateExercise = resolveTemplateExercise(exercise, templateExerciseLookup);
-              const resolvedName = exercise.exerciseName;
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={({ active, over }) => {
+                if (isInteractionDisabled || !over || active.id === over.id) {
+                  return;
+                }
 
-              return (
-                <ScheduledExerciseCard
-                  exercise={exercise}
-                  exerciseName={resolvedName}
-                  index={index}
-                  key={`${section.type}-${exercise.orderIndex}-${exercise.exerciseId}`}
-                  onOpenHistory={() =>
-                    onOpenHistory({
-                      exerciseId: exercise.exerciseId,
-                      exerciseName: resolvedName,
-                    })
-                  }
-                  templateExercise={templateExercise}
-                  weightUnit={weightUnit}
-                />
-              );
-            })}
+                const exerciseIds = section.exercises.map((exercise) => exercise.exerciseId);
+                const currentIndex = exerciseIds.findIndex((exerciseId) => exerciseId === active.id);
+                const nextIndex = exerciseIds.findIndex((exerciseId) => exerciseId === over.id);
+
+                if (currentIndex === -1 || nextIndex === -1) {
+                  return;
+                }
+
+                const reorderedExerciseIds = arrayMove(exerciseIds, currentIndex, nextIndex);
+                onReorder(buildReorderPayload(section.type, reorderedExerciseIds));
+              }}
+              sensors={sensors}
+            >
+              <SortableContext
+                items={section.exercises.map((exercise) => exercise.exerciseId)}
+                strategy={verticalListSortingStrategy}
+              >
+                {section.exercises.map((exercise, index) => {
+                  const templateExercise = resolveTemplateExercise(exercise, templateExerciseLookup);
+                  const resolvedName = exercise.exerciseName;
+
+                  return (
+                    <ScheduledExerciseCard
+                      exercise={exercise}
+                      exerciseName={resolvedName}
+                      index={index}
+                      isEditLocked={isEditLocked}
+                      isMoveDownDisabled={
+                        index === section.exercises.length - 1 || isInteractionDisabled
+                      }
+                      isMoveUpDisabled={index === 0 || isInteractionDisabled}
+                      isMutating={isMutating}
+                      key={`${section.type}-${exercise.orderIndex}-${exercise.exerciseId}`}
+                      onAddSet={onAddSet}
+                      onMoveDown={() => {
+                        if (index >= section.exercises.length - 1 || isInteractionDisabled) {
+                          return;
+                        }
+
+                        const reorderedExerciseIds = arrayMove(
+                          section.exercises.map((entry) => entry.exerciseId),
+                          index,
+                          index + 1,
+                        );
+                        onReorderImmediate(buildReorderPayload(section.type, reorderedExerciseIds));
+                      }}
+                      onMoveUp={() => {
+                        if (index <= 0 || isInteractionDisabled) {
+                          return;
+                        }
+
+                        const reorderedExerciseIds = arrayMove(
+                          section.exercises.map((entry) => entry.exerciseId),
+                          index,
+                          index - 1,
+                        );
+                        onReorderImmediate(buildReorderPayload(section.type, reorderedExerciseIds));
+                      }}
+                      onOpenHistory={() =>
+                        onOpenHistory({
+                          exerciseId: exercise.exerciseId,
+                          exerciseName: resolvedName,
+                        })
+                      }
+                      onRemoveSet={onRemoveSet}
+                      onUpdateSet={onUpdateSet}
+                      onUpdateSupersetGroup={onUpdateSupersetGroup}
+                      templateExercise={templateExercise}
+                      weightUnit={weightUnit}
+                    />
+                  );
+                })}
+              </SortableContext>
+            </DndContext>
           </div>
         </details>
       ))}
@@ -433,39 +754,343 @@ function ScheduledExerciseCard({
   exercise,
   exerciseName,
   index,
+  isEditLocked,
+  isMoveDownDisabled,
+  isMoveUpDisabled,
+  isMutating,
+  onAddSet,
+  onMoveDown,
+  onMoveUp,
   onOpenHistory,
+  onRemoveSet,
+  onUpdateSet,
+  onUpdateSupersetGroup,
   templateExercise,
   weightUnit,
 }: {
   exercise: SnapshotExercise;
   exerciseName: string;
   index: number;
+  isEditLocked: boolean;
+  isMoveDownDisabled: boolean;
+  isMoveUpDisabled: boolean;
+  isMutating: boolean;
+  onAddSet: (exerciseId: string, setNumber: number) => Promise<void>;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
   onOpenHistory: () => void;
+  onRemoveSet: (exerciseId: string, setNumber: number) => Promise<void>;
+  onUpdateSet: (
+    exerciseId: string,
+    setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number],
+  ) => Promise<void>;
+  onUpdateSupersetGroup: (exerciseId: string, supersetGroup: string | null) => Promise<void>;
   templateExercise: WorkoutTemplateExercise | undefined;
   weightUnit: WeightUnit;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: exercise.exerciseId,
+    disabled: isEditLocked || isMutating,
+  });
+  const [setEditTarget, setSetEditTarget] = useState<SnapshotExerciseSet | null>(null);
+  const nextSetNumber = exercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0) + 1;
+  const supersetLabel = formatSupersetGroupLabel(exercise.supersetGroup);
+
   return (
-    <WorkoutExerciseCard
-      exercise={toWorkoutExerciseCardScheduledExercise(exercise, exerciseName, templateExercise)}
-      footerSlot={
-        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
-      }
-      headerSlot={
+    <>
+      <WorkoutExerciseCard
+        cardRef={setNodeRef}
+        exercise={toWorkoutExerciseCardScheduledExercise(exercise, exerciseName, templateExercise)}
+        footerSlot={
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
+            {isEditLocked ? (
+              <Badge className="border-border/80 bg-secondary/60" variant="outline">
+                {`Superset ${supersetLabel}`}
+              </Badge>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    className="h-7 rounded-full px-2 text-[11px]"
+                    disabled={isMutating}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {`Superset ${supersetLabel}`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-40 p-2">
+                  <div className="space-y-1">
+                    {supersetOptions.map((option) => (
+                      <Button
+                        className="w-full justify-start"
+                        key={option}
+                        onClick={() => {
+                          void onUpdateSupersetGroup(exercise.exerciseId, option);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {`Superset ${option}`}
+                      </Button>
+                    ))}
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        void onUpdateSupersetGroup(exercise.exerciseId, null);
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      Clear grouping
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+
+          <div className="space-y-1.5 rounded-xl border border-border/80 bg-secondary/20 p-2.5">
+            {exercise.sets
+              .slice()
+              .sort((left, right) => left.setNumber - right.setNumber)
+              .map((set) => (
+                <div className="flex items-center justify-between gap-2" key={set.setNumber}>
+                  <Button
+                    className="h-auto min-h-9 flex-1 justify-start px-2 py-1.5 text-left"
+                    disabled={isEditLocked || isMutating}
+                    onClick={() => setSetEditTarget(set)}
+                    type="button"
+                    variant="ghost"
+                  >
+                    <span className="text-xs text-foreground">
+                      {`Set ${set.setNumber}: ${formatSetTargetSummary(set)}`}
+                    </span>
+                  </Button>
+                  {!isEditLocked ? (
+                    <Button
+                      className="h-8 px-2 text-xs"
+                      disabled={isMutating}
+                      onClick={() => {
+                        void onRemoveSet(exercise.exerciseId, set.setNumber);
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {`Remove set ${set.setNumber}`}
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+
+            {!isEditLocked ? (
+              <Button
+                className="w-full justify-center"
+                disabled={isMutating}
+                onClick={() => {
+                  void onAddSet(exercise.exerciseId, nextSetNumber);
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Plus aria-hidden="true" className="size-4" />
+                Add set
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        }
+        headerSlot={
+        <>
+          <Button
+            aria-label={`Open ${exerciseName} history`}
+            className="size-11 min-h-11 min-w-11"
+            onClick={onOpenHistory}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <History aria-hidden="true" className="size-4" />
+          </Button>
+          <Button
+            aria-label={`Move ${exerciseName} up`}
+            className="size-11 min-h-11 min-w-11"
+            disabled={isMoveUpDisabled}
+            onClick={onMoveUp}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowUp aria-hidden="true" className="size-4" />
+          </Button>
+          <Button
+            aria-label={`Move ${exerciseName} down`}
+            className="size-11 min-h-11 min-w-11"
+            disabled={isMoveDownDisabled}
+            onClick={onMoveDown}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowDown aria-hidden="true" className="size-4" />
+          </Button>
+        </>
+        }
+        leadingSlot={
         <Button
-          aria-label={`Open ${exerciseName} history`}
-          className="size-11 min-h-11 min-w-11"
-          onClick={onOpenHistory}
+          aria-label={`Drag handle for ${exerciseName}`}
+          className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
+          disabled={isEditLocked || isMutating}
           size="icon"
           type="button"
           variant="ghost"
+          {...attributes}
+          {...listeners}
         >
-          <History aria-hidden="true" className="size-4" />
+          <GripVertical aria-hidden="true" className="size-4" />
         </Button>
-      }
-      mode="readonly-scheduled"
-      onOpenDetails={onOpenHistory}
-      weightUnit={weightUnit}
-    />
+        }
+        mode="editable-scheduled"
+        onOpenDetails={onOpenHistory}
+        showSetList={false}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
+        weightUnit={weightUnit}
+      />
+      {setEditTarget ? (
+        <EditScheduledSetDialog
+          exerciseName={exerciseName}
+          isPending={isMutating}
+          onClose={() => setSetEditTarget(null)}
+          onSave={async (setUpdate) => {
+            await onUpdateSet(exercise.exerciseId, setUpdate);
+            setSetEditTarget(null);
+          }}
+          set={setEditTarget}
+        />
+      ) : null}
+    </>
+  );
+}
+
+type ScheduledSetEditorDraft = Record<EditableSetFieldDefinition['key'], string>;
+
+const integerSetFieldKeys = new Set<EditableSetFieldDefinition['key']>([
+  'targetSeconds',
+  'repsMin',
+  'repsMax',
+  'reps',
+]);
+
+function EditScheduledSetDialog({
+  exerciseName,
+  isPending,
+  onClose,
+  onSave,
+  set,
+}: {
+  exerciseName: string;
+  isPending: boolean;
+  onClose: () => void;
+  onSave: (setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number]) => Promise<void>;
+  set: SnapshotExerciseSet;
+}) {
+  const [fieldDraft, setFieldDraft] = useState<ScheduledSetEditorDraft>(() => createSetEditorDraft(set));
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    const parsed = parseSetEditorDraft({
+      draft: fieldDraft,
+      set,
+    });
+
+    if (parsed.error) {
+      setValidationError(parsed.error);
+      return;
+    }
+
+    if (Object.keys(parsed.setUpdate).length === 1) {
+      onClose();
+      return;
+    }
+
+    await onSave(parsed.setUpdate);
+  };
+
+  return (
+    <Dialog onOpenChange={(open) => (!open ? onClose() : undefined)} open>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{`Edit ${exerciseName} set ${set.setNumber}`}</DialogTitle>
+          <DialogDescription>
+            Update target values for this set. Leave a field blank to clear it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {editableSetFields.map((field) => {
+            const inputId = `${exerciseName}-${set.setNumber}-${field.key}`;
+
+            return (
+              <div className="space-y-1.5" key={field.key}>
+                <Label className="text-xs font-semibold text-muted" htmlFor={inputId}>
+                  {field.label}
+                </Label>
+                <div className="relative">
+                  <Input
+                    className={field.suffix ? 'pr-12' : undefined}
+                    id={inputId}
+                    inputMode={field.inputMode}
+                    min={0}
+                    onChange={(event) => {
+                      setValidationError(null);
+                      setFieldDraft((current) => ({
+                        ...current,
+                        [field.key]: event.currentTarget.value,
+                      }));
+                    }}
+                    step={field.step}
+                    type="number"
+                    value={fieldDraft[field.key]}
+                  />
+                  {field.suffix ? (
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] font-semibold uppercase text-muted">
+                      {field.suffix}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {validationError ? <p className="text-sm text-destructive">{validationError}</p> : null}
+
+        <DialogFooter>
+          <Button disabled={isPending} onClick={onClose} type="button" variant="ghost">
+            Cancel
+          </Button>
+          <Button
+            disabled={isPending}
+            onClick={() => {
+              void handleSave();
+            }}
+            type="button"
+          >
+            {isPending ? 'Saving…' : 'Save set'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -569,6 +1194,151 @@ function BannerCard({
       </div>
     </div>
   );
+}
+
+function createSetEditorDraft(set: SnapshotExerciseSet): ScheduledSetEditorDraft {
+  return editableSetFields.reduce((draft, field) => {
+    const value = set[field.key];
+
+    return {
+      ...draft,
+      [field.key]: value == null ? '' : `${value}`,
+    };
+  }, {} as ScheduledSetEditorDraft);
+}
+
+function parseSetEditorDraft({
+  draft,
+  set,
+}: {
+  draft: ScheduledSetEditorDraft;
+  set: SnapshotExerciseSet;
+}) {
+  const setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number] = {
+    setNumber: set.setNumber,
+  };
+
+  for (const field of editableSetFields) {
+    const rawValue = draft[field.key].trim();
+    const currentValue = set[field.key] ?? null;
+    let nextValue: number | null;
+
+    if (rawValue.length === 0) {
+      nextValue = null;
+    } else {
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue)) {
+        return {
+          error: `${field.label} must be a valid number.`,
+          setUpdate,
+        };
+      }
+
+      if (parsedValue < 0) {
+        return {
+          error: `${field.label} must be zero or greater.`,
+          setUpdate,
+        };
+      }
+
+      if (integerSetFieldKeys.has(field.key) && !Number.isInteger(parsedValue)) {
+        return {
+          error: `${field.label} must be a whole number.`,
+          setUpdate,
+        };
+      }
+
+      nextValue = parsedValue;
+    }
+
+    if (nextValue !== currentValue) {
+      assignSetUpdateField(setUpdate, field.key, nextValue);
+    }
+  }
+
+  return {
+    setUpdate,
+  };
+}
+
+function assignSetUpdateField(
+  setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number],
+  key: EditableSetFieldDefinition['key'],
+  value: number | null,
+) {
+  switch (key) {
+    case 'targetWeight':
+      setUpdate.targetWeight = value;
+      break;
+    case 'targetWeightMin':
+      setUpdate.targetWeightMin = value;
+      break;
+    case 'targetWeightMax':
+      setUpdate.targetWeightMax = value;
+      break;
+    case 'targetSeconds':
+      setUpdate.targetSeconds = value;
+      break;
+    case 'targetDistance':
+      setUpdate.targetDistance = value;
+      break;
+    case 'repsMin':
+      setUpdate.repsMin = value;
+      break;
+    case 'repsMax':
+      setUpdate.repsMax = value;
+      break;
+    case 'reps':
+      setUpdate.reps = value;
+      break;
+  }
+}
+
+function formatSetTargetSummary(set: SnapshotExerciseSet) {
+  const values: string[] = [];
+
+  if (set.targetWeight != null) {
+    values.push(`wt ${set.targetWeight}`);
+  } else if (set.targetWeightMin != null || set.targetWeightMax != null) {
+    values.push(`wt ${set.targetWeightMin ?? '—'}-${set.targetWeightMax ?? '—'}`);
+  }
+
+  if (set.targetSeconds != null) {
+    values.push(`${set.targetSeconds} sec`);
+  }
+
+  if (set.targetDistance != null) {
+    values.push(`dist ${set.targetDistance}`);
+  }
+
+  if (set.reps != null) {
+    values.push(`${set.reps} reps`);
+  } else if (set.repsMin != null || set.repsMax != null) {
+    values.push(`reps ${set.repsMin ?? '—'}-${set.repsMax ?? '—'}`);
+  }
+
+  return values.length > 0 ? values.join(' • ') : 'No targets';
+}
+
+function formatSupersetGroupLabel(value: string | null) {
+  if (!value) {
+    return '—';
+  }
+
+  const normalized = value
+    .replace(/^superset[-\s]*/i, '')
+    .trim()
+    .toUpperCase();
+
+  return normalized.length > 0 ? normalized : '—';
+}
+
+function getMutationErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }
 
 function StaleExerciseRecoveryDialog({
@@ -723,7 +1493,7 @@ function buildSnapshotSections(snapshotExercises: SnapshotExercise[]) {
     sectionExercises.push(exercise);
   }
 
-  return (['warmup', 'main', 'cooldown', 'supplemental'] as const)
+  return sectionOrder
     .map((sectionType) => ({
       type: sectionType,
       exercises: [...(grouped.get(sectionType) ?? [])].sort(
