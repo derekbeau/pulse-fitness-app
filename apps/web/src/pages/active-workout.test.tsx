@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
+import type { WorkoutSession as ApiWorkoutSession } from '@pulse/shared';
 
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
@@ -16,8 +17,9 @@ import {
   WORKOUT_EXERCISES_STORAGE_PREFIX,
   WORKOUT_SECTIONS_STORAGE_PREFIX,
 } from '@/features/workouts/lib/session-persistence';
+import type { ActiveWorkoutTemplate, ActiveWorkoutTemplateExercise } from '@/features/workouts/types';
 
-import { ActiveWorkoutPage } from './active-workout';
+import { ActiveWorkoutPage, buildTemplateFromSession } from './active-workout';
 
 vi.mock('sonner', () => {
   const toastMock = vi.fn() as ReturnType<typeof vi.fn> & {
@@ -2575,6 +2577,103 @@ describe('ActiveWorkoutPage', () => {
   });
 });
 
+describe('buildTemplateFromSession', () => {
+  it('keeps session supplemental exercises when the snapshot already has supplemental rows', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [
+        createTemplateExerciseForBuildTemplateTests({
+          exerciseId: 'fallback-supplemental-exercise',
+          exerciseName: 'Fallback Supplemental Exercise',
+          reps: '12-15',
+        }),
+      ],
+    });
+    const session = createSessionForBuildTemplateTests({
+      exercises: [
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          orderIndex: 0,
+          section: 'main',
+          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+        }),
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'session-supplemental-exercise',
+          exerciseName: 'Session Supplemental Exercise',
+          orderIndex: 1,
+          section: 'supplemental',
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'session-supplemental-exercise',
+              id: 'supplemental-session-set-1',
+              orderIndex: 1,
+              section: 'supplemental',
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+    const supplementalSection = result.sections.find((section) => section.type === 'supplemental');
+
+    expect(supplementalSection?.exercises.map((exercise) => exercise.exerciseId)).toEqual([
+      'session-supplemental-exercise',
+    ]);
+  });
+
+  it('uses template supplemental exercises when the snapshot has no supplemental rows', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [
+        createTemplateExerciseForBuildTemplateTests({
+          exerciseId: 'fallback-supplemental-exercise',
+          exerciseName: 'Fallback Supplemental Exercise',
+          reps: '15-20',
+        }),
+      ],
+    });
+    const session = createSessionForBuildTemplateTests({
+      exercises: [
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          orderIndex: 0,
+          section: 'main',
+          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+        }),
+      ],
+    });
+
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+    const supplementalSection = result.sections.find((section) => section.type === 'supplemental');
+
+    expect(supplementalSection?.exercises.map((exercise) => exercise.exerciseId)).toEqual([
+      'fallback-supplemental-exercise',
+    ]);
+  });
+
+  it('omits supplemental when neither snapshot nor template has supplemental exercises', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [],
+    });
+    const session = createSessionForBuildTemplateTests({
+      exercises: [
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          orderIndex: 0,
+          section: 'main',
+          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+        }),
+      ],
+    });
+
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+
+    expect(result.sections.find((section) => section.type === 'supplemental')).toBeUndefined();
+  });
+});
+
 function buildWorkoutTemplateResponse(templateId: string) {
   const fixtureTemplate = getMockTemplate(templateId);
   if (!fixtureTemplate) {
@@ -2614,6 +2713,129 @@ function buildWorkoutTemplateResponse(templateId: string) {
     })),
     createdAt: 1,
     updatedAt: 1,
+  };
+}
+
+function createTemplateExerciseForBuildTemplateTests(
+  overrides: Partial<ActiveWorkoutTemplateExercise> = {},
+): ActiveWorkoutTemplateExercise {
+  return {
+    badges: [],
+    exerciseId: 'main-exercise',
+    exerciseName: 'Main Exercise',
+    formCues: [],
+    reps: '8-10',
+    restSeconds: 90,
+    sets: 3,
+    tempo: '2111',
+    ...overrides,
+  };
+}
+
+function createTemplateForBuildTemplateTests({
+  supplementalExercises,
+}: {
+  supplementalExercises: ActiveWorkoutTemplateExercise[];
+}): ActiveWorkoutTemplate {
+  return {
+    description: '',
+    id: 'template-build-helper',
+    name: 'Template Build Helper',
+    sections: [
+      {
+        type: 'main',
+        title: 'Main',
+        exercises: [
+          createTemplateExerciseForBuildTemplateTests({
+            exerciseId: 'main-exercise',
+            exerciseName: 'Main Exercise',
+          }),
+        ],
+      },
+      {
+        type: 'supplemental',
+        title: 'Supplemental',
+        exercises: supplementalExercises,
+      },
+    ],
+    tags: [],
+  };
+}
+
+function createSessionSetForBuildTemplateTests(
+  overrides: Partial<ApiWorkoutSession['sets'][number]> = {},
+): ApiWorkoutSession['sets'][number] {
+  return {
+    completed: false,
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    exerciseId: 'main-exercise',
+    id: 'main-set-1',
+    notes: null,
+    orderIndex: 0,
+    reps: 10,
+    section: 'main',
+    setNumber: 1,
+    skipped: false,
+    weight: 50,
+    ...overrides,
+  };
+}
+
+function createSessionExerciseForBuildTemplateTests(
+  overrides: Partial<NonNullable<ApiWorkoutSession['exercises']>[number]> = {},
+): NonNullable<ApiWorkoutSession['exercises']>[number] {
+  return {
+    agentNotes: null,
+    agentNotesMeta: null,
+    exerciseId: 'main-exercise',
+    exerciseName: 'Main Exercise',
+    orderIndex: 0,
+    programmingNotes: null,
+    section: 'main',
+    sets: [createSessionSetForBuildTemplateTests()],
+    supersetGroup: null,
+    trackingType: 'weight_reps',
+    ...overrides,
+  };
+}
+
+function createSessionForBuildTemplateTests(
+  overrides: Partial<ApiWorkoutSession> = {},
+): ApiWorkoutSession {
+  const { exercises: overrideExercises, sets: overrideSets, ...restOverrides } = overrides;
+  const exercises = overrideExercises ?? [createSessionExerciseForBuildTemplateTests()];
+  const sets = overrideSets ?? exercises.flatMap((exercise) => exercise.sets);
+
+  return {
+    completedAt: null,
+    createdAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    date: '2026-03-06',
+    duration: null,
+    feedback: null,
+    id: 'build-template-session',
+    name: 'Build Template Session',
+    notes: null,
+    sectionDurations: {
+      cooldown: 0,
+      main: 0,
+      supplemental: 0,
+      warmup: 0,
+    },
+    startedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    status: 'in-progress',
+    templateId: 'template-build-helper',
+    timeSegments: [
+      {
+        end: null,
+        section: 'main',
+        start: '2026-03-06T12:00:00.000Z',
+      },
+    ],
+    updatedAt: Date.parse('2026-03-06T12:00:00.000Z'),
+    userId: 'user-1',
+    ...restOverrides,
+    exercises,
+    sets,
   };
 }
 

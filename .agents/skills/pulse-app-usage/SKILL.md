@@ -221,6 +221,7 @@ If no new foods were created, explicitly say that existing food entries were reu
 ### Sessions
 
 - **Start**: `POST /api/v1/workout-sessions/` with `{ "templateId": "<id>" }` or `{ "name": "Ad hoc" }`.
+- Session responses order sections as `warmup → main → cooldown → supplemental → null`. Supplemental exercises added to a template after session creation appear in the active-workout UI via a template fallback, but only become real session rows once the user logs against them.
 - **Log sets**: `PATCH /api/v1/workout-sessions/:id` with `sets: [{ exerciseName, setNumber, weight, reps }]` (middleware resolves `exerciseName` to canonical `exerciseId`).
 - **Add exercises mid-session**: `addExercises: [{ name, sets, reps, section }]`
 - **Remove unstarted exercises**: `removeExercises: [exerciseId]` — returns 409 if exercise has logged sets.

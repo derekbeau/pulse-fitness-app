@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,14 +6,23 @@ import { fileURLToPath } from 'node:url';
 
 import { and, eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WorkoutTemplateSectionType } from '@pulse/shared';
 
-import { exercises, sessionSets, users, workoutSessions } from '../../db/schema/index.js';
+import {
+  agentTokens,
+  exercises,
+  sessionSets,
+  users,
+  workoutSessions,
+} from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 type StoreModule = typeof import('./store.js');
 
 type TestContext = {
+  app: FastifyInstance;
   db: DatabaseModule['db'];
   sqlite: DatabaseModule['sqlite'];
   tempDir: string;
@@ -31,6 +41,24 @@ const seedUser = (values: { id: string; username: string }) =>
       passwordHash: 'not-used-in-this-suite',
     })
     .run();
+
+const createAgentTokenHeader = (token: string) => ({
+  authorization: `AgentToken ${token}`,
+});
+
+const seedAgentToken = (userId: string, token = 'plain-agent-token') => {
+  context.db
+    .insert(agentTokens)
+    .values({
+      id: `agent-token-${userId}`,
+      userId,
+      name: `Agent ${userId}`,
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    })
+    .run();
+
+  return token;
+};
 
 const seedExercise = (values: { id: string; name: string; userId?: string | null }) =>
   context.db
@@ -80,7 +108,8 @@ const seedSessionSet = (values: {
   id: string;
   sessionId: string;
   exerciseId: string | null;
-  section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+  section?: WorkoutTemplateSectionType;
+  orderIndex?: number;
   setNumber: number;
 }) =>
   context.db
@@ -89,7 +118,7 @@ const seedSessionSet = (values: {
       id: values.id,
       sessionId: values.sessionId,
       exerciseId: values.exerciseId,
-      orderIndex: 0,
+      orderIndex: values.orderIndex ?? 0,
       setNumber: values.setNumber,
       weight: null,
       reps: null,
@@ -113,14 +142,20 @@ describe('workout session store deleteSessionSet', () => {
     process.env.DATABASE_URL = join(tempDir, 'test.db');
     vi.resetModules();
 
-    const dbModule = await import('../../db/index.js');
+    const [{ buildServer }, dbModule] = await Promise.all([
+      import('../../index.js'),
+      import('../../db/index.js'),
+    ]);
     migrate(dbModule.db, {
       migrationsFolder: fileURLToPath(new URL('../../../drizzle', import.meta.url)),
     });
 
     const store = await import('./store.js');
+    const app = buildServer();
+    await app.ready();
 
     context = {
+      app,
       db: dbModule.db,
       sqlite: dbModule.sqlite,
       tempDir,
@@ -128,8 +163,9 @@ describe('workout session store deleteSessionSet', () => {
     };
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     if (context) {
+      await context.app.close();
       context.sqlite.close();
       rmSync(context.tempDir, { recursive: true, force: true });
     }
@@ -141,6 +177,7 @@ describe('workout session store deleteSessionSet', () => {
   beforeEach(() => {
     context.db.delete(sessionSets).run();
     context.db.delete(workoutSessions).run();
+    context.db.delete(agentTokens).run();
     context.db.delete(exercises).run();
     context.db.delete(users).run();
 
@@ -149,6 +186,171 @@ describe('workout session store deleteSessionSet', () => {
 
     seedExercise({ id: 'global-bench-press', name: 'Bench Press' });
     seedExercise({ id: 'global-row', name: 'Row' });
+  });
+
+  it('sortSessionSets orders warmup/main/cooldown/supplemental/null/unknown', () => {
+    type SortableSetRecord = Parameters<StoreModule['sortSessionSets']>[0];
+    const baseCreatedAt = Date.now();
+
+    const buildSortableSet = (
+      id: string,
+      section: WorkoutTemplateSectionType | null,
+      createdAtOffset: number,
+    ): SortableSetRecord => ({
+      id,
+      sessionId: 'session-sort',
+      exerciseId: `${id}-exercise`,
+      orderIndex: 0,
+      setNumber: 1,
+      weight: null,
+      reps: null,
+      targetWeight: null,
+      targetWeightMin: null,
+      targetWeightMax: null,
+      targetSeconds: null,
+      targetDistance: null,
+      supersetGroup: null,
+      completed: false,
+      skipped: false,
+      section,
+      notes: null,
+      createdAt: baseCreatedAt + createdAtOffset,
+    });
+
+    const unknownSection = 'legacy' as unknown as WorkoutTemplateSectionType;
+    const rows: SortableSetRecord[] = [
+      buildSortableSet('unknown', unknownSection, 5),
+      buildSortableSet('supplemental', 'supplemental', 4),
+      buildSortableSet('main', 'main', 2),
+      buildSortableSet('null', null, 6),
+      buildSortableSet('cooldown', 'cooldown', 3),
+      buildSortableSet('warmup', 'warmup', 1),
+    ];
+
+    const sortedSections = rows.sort(context.store.sortSessionSets).map((row) => row.section);
+    expect(sortedSections).toEqual([
+      'warmup',
+      'main',
+      'cooldown',
+      'supplemental',
+      null,
+      unknownSection,
+    ]);
+  });
+
+  it('returns GET /workout-sessions/:id sets in warmup/main/cooldown/supplemental order', async () => {
+    seedExercise({ id: 'global-squat', name: 'Squat' });
+    seedExercise({ id: 'global-press', name: 'Press' });
+    seedWorkoutSession({ id: 'session-get-order', userId: 'user-1', status: 'in-progress' });
+    seedSessionSet({
+      id: 'session-get-order-supplemental',
+      sessionId: 'session-get-order',
+      exerciseId: 'global-press',
+      section: 'supplemental',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-get-order-main',
+      sessionId: 'session-get-order',
+      exerciseId: 'global-row',
+      section: 'main',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-get-order-cooldown',
+      sessionId: 'session-get-order',
+      exerciseId: 'global-squat',
+      section: 'cooldown',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-get-order-warmup',
+      sessionId: 'session-get-order',
+      exerciseId: 'global-bench-press',
+      section: 'warmup',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workout-sessions/session-get-order',
+      headers: createAgentTokenHeader(seedAgentToken('user-1')),
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const payload = response.json() as {
+      data: {
+        sets: Array<{ section: WorkoutTemplateSectionType }>;
+      };
+    };
+
+    expect(payload.data.sets.map((set) => set.section)).toEqual([
+      'warmup',
+      'main',
+      'cooldown',
+      'supplemental',
+    ]);
+  });
+
+  it('orders exercises by section as warmup/main/cooldown/supplemental', async () => {
+    seedExercise({ id: 'global-squat', name: 'Squat' });
+    seedExercise({ id: 'global-press', name: 'Press' });
+    seedWorkoutSession({
+      id: 'session-exercise-order',
+      userId: 'user-1',
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-exercise-order-supplemental',
+      sessionId: 'session-exercise-order',
+      exerciseId: 'global-press',
+      section: 'supplemental',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-exercise-order-main',
+      sessionId: 'session-exercise-order',
+      exerciseId: 'global-row',
+      section: 'main',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-exercise-order-cooldown',
+      sessionId: 'session-exercise-order',
+      exerciseId: 'global-squat',
+      section: 'cooldown',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'session-exercise-order-warmup',
+      sessionId: 'session-exercise-order',
+      exerciseId: 'global-bench-press',
+      section: 'warmup',
+      orderIndex: 0,
+      setNumber: 1,
+    });
+
+    const session = await context.store.findWorkoutSessionById('session-exercise-order', 'user-1');
+    expect(session).toBeDefined();
+    if (!session) {
+      throw new Error('Expected seeded session to exist');
+    }
+
+    const exercises = session.exercises ?? [];
+    expect(exercises.map((exercise) => exercise.section)).toEqual([
+      'warmup',
+      'main',
+      'cooldown',
+      'supplemental',
+    ]);
   });
 
   it('deletes a middle set and renumbers remaining sets contiguously within the same exercise section', async () => {
