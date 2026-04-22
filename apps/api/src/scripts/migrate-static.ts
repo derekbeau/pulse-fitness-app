@@ -107,7 +107,7 @@ export type ParsedDailyLog = {
   bodyWeight: number | null;
 };
 
-type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown';
+type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown' | 'supplemental';
 type ExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
 
 type ParsedTemplateExercise = {
@@ -174,7 +174,8 @@ type ExerciseCreateDefaults = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const normalizeLookupKey = (value: string) => value.trim().toLowerCase().replace(WHITESPACE_PATTERN, ' ');
+const normalizeLookupKey = (value: string) =>
+  value.trim().toLowerCase().replace(WHITESPACE_PATTERN, ' ');
 
 const normalizeText = (value: unknown): string | null => {
   if (typeof value !== 'string') {
@@ -296,7 +297,8 @@ const toTwentyFourHourTime = (value: unknown): string | null => {
     return null;
   }
 
-  const normalizedHours = meridiem === 'AM' ? (hours === 12 ? 0 : hours) : hours === 12 ? 12 : hours + 12;
+  const normalizedHours =
+    meridiem === 'AM' ? (hours === 12 ? 0 : hours) : hours === 12 ? 12 : hours + 12;
 
   return `${String(normalizedHours).padStart(2, '0')}:${minutes}`;
 };
@@ -443,7 +445,9 @@ const parseMealItem = (value: unknown): ParsedMealItem | null => {
 
 const parseMeal = (value: unknown, fallbackName: string | null): ParsedMeal | null => {
   if (Array.isArray(value)) {
-    const items = value.map((item) => parseMealItem(item)).filter((item): item is ParsedMealItem => item !== null);
+    const items = value
+      .map((item) => parseMealItem(item))
+      .filter((item): item is ParsedMealItem => item !== null);
 
     if (items.length === 0) {
       return null;
@@ -729,7 +733,10 @@ export const extractBodyWeightFromDailyLog = (raw: unknown): number | null => {
     return null;
   }
 
-  const candidateSources: unknown[] = [getNestedField(raw, 'bodyWeight'), getNestedField(raw, 'weight')];
+  const candidateSources: unknown[] = [
+    getNestedField(raw, 'bodyWeight'),
+    getNestedField(raw, 'weight'),
+  ];
 
   const metrics = getNestedField(raw, 'metrics');
   if (isRecord(metrics)) {
@@ -782,7 +789,10 @@ const listJsonFiles = async (directoryPath: string): Promise<string[]> => {
   return files;
 };
 
-export const loadDailyLogRecords = async (dataRoot: string, logger: Logger): Promise<Map<string, ParsedDailyLog>> => {
+export const loadDailyLogRecords = async (
+  dataRoot: string,
+  logger: Logger,
+): Promise<Map<string, ParsedDailyLog>> => {
   const dailyRoot = join(dataRoot, 'daily');
 
   let dailyFiles: string[];
@@ -832,7 +842,10 @@ const addWeightEntry = (entries: DateWeightMap, date: string | null, weight: num
   entries.set(date, weight);
 };
 
-const parseWeightRecord = (raw: Record<string, unknown>, fallbackDate: string | null): [string | null, number | null] => {
+const parseWeightRecord = (
+  raw: Record<string, unknown>,
+  fallbackDate: string | null,
+): [string | null, number | null] => {
   const date =
     fallbackDate ??
     toDateKey(getNestedField(raw, 'date')) ??
@@ -908,7 +921,10 @@ const loadBodyWeightHistory = async (dataRoot: string, logger: Logger): Promise<
   return parseBodyWeightHistory(payload);
 };
 
-export const mergeWeightEntries = (dailyWeights: DateWeightMap, bodyWeightHistory: DateWeightMap): DateWeightMap => {
+export const mergeWeightEntries = (
+  dailyWeights: DateWeightMap,
+  bodyWeightHistory: DateWeightMap,
+): DateWeightMap => {
   const merged = new Map<string, number>(dailyWeights);
 
   for (const [date, weight] of bodyWeightHistory) {
@@ -949,7 +965,12 @@ const buildHabitLookup = (
   return lookup;
 };
 
-const WORKOUT_SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+const WORKOUT_SECTION_ORDER: WorkoutTemplateSectionType[] = [
+  'warmup',
+  'main',
+  'cooldown',
+  'supplemental',
+];
 const SESSION_TIMELESS_FALLBACK_SUFFIX = 'T00:00:00.000Z';
 const MIGRATION_ID_HASH_LENGTH = 24;
 
@@ -1047,6 +1068,10 @@ const toSectionType = (value: unknown): WorkoutTemplateSectionType => {
     return 'cooldown';
   }
 
+  if (normalized.includes('supplement') || normalized.includes('accessory')) {
+    return 'supplemental';
+  }
+
   return 'main';
 };
 
@@ -1066,7 +1091,11 @@ const toExerciseCategory = (value: unknown): ExerciseCategory | null => {
     return 'cardio';
   }
 
-  if (normalized.includes('mobility') || normalized.includes('stretch') || normalized.includes('warmup')) {
+  if (
+    normalized.includes('mobility') ||
+    normalized.includes('stretch') ||
+    normalized.includes('warmup')
+  ) {
     return 'mobility';
   }
 
@@ -1395,7 +1424,9 @@ const loadWorkoutTemplateRecords = async (
   try {
     files = await listJsonFiles(templatesRoot);
   } catch (error) {
-    logger.warn(`Workout template directory not found or unreadable at ${templatesRoot}: ${String(error)}`);
+    logger.warn(
+      `Workout template directory not found or unreadable at ${templatesRoot}: ${String(error)}`,
+    );
     return [];
   }
 
@@ -1513,7 +1544,8 @@ const parseSessionSet = (
     toPositiveInteger(getNestedField(value, 'number'));
   const indexSetNumber = toNonnegativeInteger(getNestedField(value, 'index'));
 
-  const setNumber = explicitSetNumber ?? (indexSetNumber !== null ? indexSetNumber + 1 : fallbackSetNumber);
+  const setNumber =
+    explicitSetNumber ?? (indexSetNumber !== null ? indexSetNumber + 1 : fallbackSetNumber);
 
   const skipped = toBoolean(getNestedField(value, 'skipped')) ?? false;
   const completed = skipped ? false : (toBoolean(getNestedField(value, 'completed')) ?? true);
@@ -1719,12 +1751,16 @@ const loadWorkoutSessionRecords = async (
   try {
     files = await listJsonFiles(sessionsRoot);
   } catch (error) {
-    logger.warn(`Workout session directory not found or unreadable at ${sessionsRoot}: ${String(error)}`);
+    logger.warn(
+      `Workout session directory not found or unreadable at ${sessionsRoot}: ${String(error)}`,
+    );
     return [];
   }
 
   const sortedFiles = files
-    .filter((filePath) => !relative(sessionsRoot, filePath).replace(/\\/gu, '/').startsWith('templates/'))
+    .filter(
+      (filePath) => !relative(sessionsRoot, filePath).replace(/\\/gu, '/').startsWith('templates/'),
+    )
     .sort((left, right) => left.localeCompare(right));
   const records: ParsedWorkoutSessionRecord[] = [];
 
@@ -1946,7 +1982,9 @@ export const migrateWorkoutTemplatesAndSessions = async ({
         const rows = template.exercises.flatMap((exercise) => {
           const exerciseLookupEntry = exerciseLookup.get(normalizeLookupKey(exercise.name));
           if (!exerciseLookupEntry) {
-            logger.warn(`Template "${template.name}" references missing exercise "${exercise.name}"; skipping.`);
+            logger.warn(
+              `Template "${template.name}" references missing exercise "${exercise.name}"; skipping.`,
+            );
             return [];
           }
 
@@ -1990,7 +2028,9 @@ export const migrateWorkoutTemplatesAndSessions = async ({
         templateNameLookup.set(templateNameKey, templateId);
       }
 
-      logger.info(`Imported workout template "${template.name}" with ${insertedExerciseCount} exercise(s).`);
+      logger.info(
+        `Imported workout template "${template.name}" with ${insertedExerciseCount} exercise(s).`,
+      );
     } catch (error) {
       summary.failedTemplates += 1;
       logger.error(`Failed importing workout template "${template.name}": ${String(error)}`);
@@ -2179,7 +2219,9 @@ export const migrateFoodsDatabase = async ({
     const dedupeKey = normalizeLookupKey(`${name}|${brand ?? ''}`);
 
     if (existingSet.has(dedupeKey)) {
-      logger.info(`Skipping duplicate food "${name}"${brand ? ` (${brand})` : ''} for user ${userId}.`);
+      logger.info(
+        `Skipping duplicate food "${name}"${brand ? ` (${brand})` : ''} for user ${userId}.`,
+      );
       summary.skipped += 1;
       continue;
     }

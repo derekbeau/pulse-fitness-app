@@ -34,7 +34,16 @@ import {
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 
-const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+
+export const sectionRank = (section: WorkoutTemplateSectionType | null): number => {
+  if (section === null) {
+    return SECTION_ORDER.length;
+  }
+
+  const index = SECTION_ORDER.indexOf(section);
+  return index === -1 ? SECTION_ORDER.length + 1 : index;
+};
 
 type WorkoutSessionRecord = {
   id: string;
@@ -162,11 +171,9 @@ const sessionSetSelection = {
   createdAt: sessionSets.createdAt,
 };
 
-const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
-  const leftSectionIndex =
-    left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
-  const rightSectionIndex =
-    right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
+export const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord) => {
+  const leftSectionIndex = sectionRank(left.section);
+  const rightSectionIndex = sectionRank(right.section);
 
   if (leftSectionIndex !== rightSectionIndex) {
     return leftSectionIndex - rightSectionIndex;
@@ -354,10 +361,8 @@ const buildWorkoutSessionExercises = (
 
   return Array.from(groupedByExercise.values())
     .sort((left, right) => {
-      const leftSectionIndex =
-        left.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(left.section);
-      const rightSectionIndex =
-        right.section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(right.section);
+      const leftSectionIndex = sectionRank(left.section);
+      const rightSectionIndex = sectionRank(right.section);
 
       if (leftSectionIndex !== rightSectionIndex) {
         return leftSectionIndex - rightSectionIndex;
