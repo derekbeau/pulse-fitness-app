@@ -147,6 +147,15 @@ A workout session is the user-specific execution record of a template.
 - `sectionDurations`: derived server response field with per-section elapsed milliseconds:
   `{ warmup, main, cooldown, supplemental }`
 
+### Section Ordering And Supplemental Fallback
+
+- API response ordering: `GET /api/v1/workout-sessions/:id` must return both `sets[]` and `exercises[]` ordered as `warmup → main → cooldown → supplemental → null-section orphans → unknown`. This is enforced by `sectionRank` in `apps/api/src/routes/workout-sessions/store.ts`.
+- Unknown section values always sort to the end. If a new section type is introduced, add it to `SECTION_ORDER` in `apps/api/src/routes/workout-sessions/store.ts` so it sorts in the intended position.
+- Session snapshot rule: section membership is snapshotted at session creation via `buildInitialSessionSets` in `apps/api/src/routes/workout-sessions/session-set-utils.ts`. Later template edits do not backfill an in-flight session. To modify upcoming workouts, edit the scheduled-workout snapshot endpoints instead of the template source.
+- Supplemental UI fallback: `buildTemplateFromSession` in `apps/web/src/pages/active-workout.tsx` unions in fallback-template supplemental exercises when the session snapshot has zero supplemental rows.
+- Logging against a fallback-sourced supplemental exercise writes a real supplemental session-set row through the existing bulk `PATCH /api/v1/workout-sessions/:id` path; once logged, that row is part of the session snapshot.
+- Warmup/main/cooldown are not unioned from fallback templates. If those sections are empty in a session response, treat it as data corruption, not expected product behavior.
+
 Timer transition rules:
 
 - `PATCH /api/v1/workout-sessions/:id` transitions to `in-progress` from `scheduled` or `paused` must provide `activeSection` so the server can open a section-specific segment.
