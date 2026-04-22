@@ -2482,7 +2482,7 @@ function formatTemplateExerciseReps(repsMin: number | null, repsMax: number | nu
   return '';
 }
 
-function buildTemplateFromSession(
+export function buildTemplateFromSession(
   activeSession: ApiWorkoutSession | undefined,
   fallbackTemplate: ActiveWorkoutTemplate,
 ): ActiveWorkoutTemplate {
@@ -2552,6 +2552,16 @@ function buildTemplateFromSession(
       agentNotesMeta: sessionExercise.agentNotesMeta ?? fallbackExercise?.agentNotesMeta ?? null,
       badges: fallbackExercise?.badges ?? [],
     });
+  }
+
+  const supplementalSection = sectionsByType.get('supplemental');
+  if (supplementalSection && supplementalSection.exercises.length === 0) {
+    const fallbackSupplemental = fallbackTemplate.sections.find(
+      (section) => section.type === 'supplemental',
+    );
+    if (fallbackSupplemental && fallbackSupplemental.exercises.length > 0) {
+      sectionsByType.set('supplemental', fallbackSupplemental);
+    }
   }
 
   for (const section of sectionsByType.values()) {
