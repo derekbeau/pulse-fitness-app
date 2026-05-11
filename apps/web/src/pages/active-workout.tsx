@@ -1428,6 +1428,9 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    const didCompleteSet =
+      update.completed === true && !previousSet.completed && updatedSet.completed;
+
     if (activeSessionId) {
       setSessionError(null);
       const isTimeBased = isTimeBasedTrackingType(templateExercise.trackingType);
@@ -1451,11 +1454,16 @@ export function ActiveWorkoutPage() {
 
             setSessionError('Unable to sync set update. Try again.');
           },
+          onSuccess: () => {
+            if (didCompleteSet) {
+              startSetSectionTimerIfNeeded(templateExercise.section);
+            }
+          },
         },
       );
     }
 
-    if (update.completed !== true || previousSet.completed || !updatedSet.completed) {
+    if (!didCompleteSet) {
       return;
     }
 
@@ -1489,6 +1497,41 @@ export function ActiveWorkoutPage() {
       token: restTimerTokenRef.current,
     });
     setFocusSetId(null);
+  }
+
+  function startSetSectionTimerIfNeeded(section: WorkoutTemplateSectionType) {
+    if (!activeSessionId || !activeSessionStatus || openTimeSegmentSection === section) {
+      return;
+    }
+
+    if (activeSessionStatus === 'in-progress') {
+      updateSessionSectionTimerMutation.mutate(
+        {
+          action: 'start',
+          section,
+        },
+        {
+          onError: () => {
+            setSessionError('Set saved, but unable to start this section timer.');
+          },
+        },
+      );
+      return;
+    }
+
+    if (activeSessionStatus === 'paused' || activeSessionStatus === 'scheduled') {
+      updateSessionStatusMutation.mutate(
+        {
+          activeSection: section,
+          status: 'in-progress',
+        },
+        {
+          onError: () => {
+            setSessionError('Set saved, but unable to start this section timer.');
+          },
+        },
+      );
+    }
   }
 
   function handleReorderExercises(section: WorkoutTemplateSectionType, exerciseIds: string[]) {

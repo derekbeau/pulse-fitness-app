@@ -17,7 +17,10 @@ import {
   WORKOUT_EXERCISES_STORAGE_PREFIX,
   WORKOUT_SECTIONS_STORAGE_PREFIX,
 } from '@/features/workouts/lib/session-persistence';
-import type { ActiveWorkoutTemplate, ActiveWorkoutTemplateExercise } from '@/features/workouts/types';
+import type {
+  ActiveWorkoutTemplate,
+  ActiveWorkoutTemplateExercise,
+} from '@/features/workouts/types';
 
 import { ActiveWorkoutPage, buildTemplateFromSession } from './active-workout';
 
@@ -1205,6 +1208,196 @@ describe('ActiveWorkoutPage', () => {
           JSON.parse(String(init.body)).section === 'warmup',
       ),
     ).toBe(true);
+  });
+
+  it('starts the completed set section timer when saving a set from another section', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-set-timer-handoff';
+    const warmupSet = createHydrationSessionSet({
+      exerciseId: 'row-erg',
+      id: 'set-warmup-1',
+      orderIndex: 0,
+      section: 'warmup',
+      setNumber: 1,
+    });
+    const mainSet = createHydrationSessionSet({
+      exerciseId: 'incline-dumbbell-press',
+      id: 'set-main-1',
+      orderIndex: 1,
+      section: 'main',
+      setNumber: 1,
+    });
+    let currentSession: MutableInProgressSessionResponse = {
+      ...buildInProgressSessionResponse(sessionId),
+      exercises: [
+        createHydrationSessionExercise({
+          exerciseId: 'row-erg',
+          exerciseName: 'Row Erg',
+          orderIndex: 0,
+          section: 'warmup',
+          sets: [warmupSet],
+          trackingType: 'seconds_only',
+        }),
+        createHydrationSessionExercise({
+          exerciseId: 'incline-dumbbell-press',
+          exerciseName: 'Incline Dumbbell Press',
+          orderIndex: 1,
+          section: 'main',
+          sets: [mainSet],
+          trackingType: 'weight_reps',
+        }),
+      ],
+      sets: [warmupSet, mainSet],
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/auth/register')) {
+        return Promise.resolve(jsonResponse({ data: { token: 'dev-generated-token' } }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=completed&limit=3')) {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.includes('/api/v1/workout-sessions?status=in-progress&status=paused')) {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              buildWorkoutSessionListItem({
+                id: sessionId,
+                status: currentSession.status,
+                templateName: 'Upper Push',
+                name: 'Upper Push',
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}`) &&
+        (!init?.method || init.method === 'GET')
+      ) {
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      if (url.includes(`/api/v1/workout-sessions/${sessionId}/sets/`) && init?.method === 'PATCH') {
+        const setId = url.split('/').at(-1);
+        const payload = JSON.parse(String(init.body)) as {
+          completed?: boolean;
+          reps?: number | null;
+          weight?: number | null;
+        };
+        let updatedSet: MutableInProgressSessionResponse['sets'][number] | null = null;
+        const updateSet = (set: MutableInProgressSessionResponse['sets'][number]) => {
+          if (set.id !== setId) {
+            return set;
+          }
+
+          updatedSet = {
+            ...set,
+            ...payload,
+          };
+          return updatedSet;
+        };
+
+        currentSession = {
+          ...currentSession,
+          exercises: currentSession.exercises.map((exercise) => ({
+            ...exercise,
+            sets: exercise.sets.map(updateSet),
+          })),
+          sets: currentSession.sets.map(updateSet),
+          updatedAt: currentSession.updatedAt + 1,
+        };
+
+        if (!updatedSet) {
+          return Promise.reject(new Error(`Unexpected set id: ${setId}`));
+        }
+
+        return Promise.resolve(jsonResponse({ data: updatedSet }));
+      }
+
+      if (
+        url.endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+        init?.method === 'PATCH'
+      ) {
+        const payload = JSON.parse(String(init.body)) as {
+          action: 'start' | 'pause';
+          section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
+        };
+        const nowIso = new Date(Date.now()).toISOString();
+        const nextTimeSegments = currentSession.timeSegments.map((segment) =>
+          segment.end === null ? { ...segment, end: nowIso } : segment,
+        );
+
+        currentSession = {
+          ...currentSession,
+          timeSegments:
+            payload.action === 'start'
+              ? [...nextTimeSegments, { start: nowIso, end: null, section: payload.section }]
+              : nextTimeSegments,
+          updatedAt: currentSession.updatedAt + 1,
+        };
+
+        return Promise.resolve(jsonResponse({ data: currentSession }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch request: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    completeSet('Incline Dumbbell Press', 1);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/sets/set-main-1`) &&
+            init?.method === 'PATCH',
+        ),
+      ).toBe(true);
+    });
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`),
+      ),
+    ).toBe(false);
+
+    completeSet('Row Erg', 1);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+            init?.method === 'PATCH' &&
+            JSON.parse(String(init.body)).action === 'start' &&
+            JSON.parse(String(init.body)).section === 'warmup',
+        ),
+      ).toBe(true);
+    });
+
+    const warmupSetPatchIndex = fetchMock.mock.calls.findIndex(
+      ([url, init]) =>
+        String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/sets/set-warmup-1`) &&
+        init?.method === 'PATCH',
+    );
+    const sectionTimerIndex = fetchMock.mock.calls.findIndex(
+      ([url, init]) =>
+        String(url).endsWith(`/api/v1/workout-sessions/${sessionId}/section-timer`) &&
+        init?.method === 'PATCH',
+    );
+    expect(warmupSetPatchIndex).toBeGreaterThan(-1);
+    expect(sectionTimerIndex).toBeGreaterThan(warmupSetPatchIndex);
+    expect(currentSession.timeSegments.at(-1)).toMatchObject({
+      end: null,
+      section: 'warmup',
+    });
   });
 
   it('ticks the active section timer live and sums per-section total time', async () => {
@@ -2595,7 +2788,9 @@ describe('buildTemplateFromSession', () => {
           exerciseName: 'Main Exercise',
           orderIndex: 0,
           section: 'main',
-          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+          sets: [
+            createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' }),
+          ],
         }),
         createSessionExerciseForBuildTemplateTests({
           exerciseId: 'session-supplemental-exercise',
@@ -2639,7 +2834,9 @@ describe('buildTemplateFromSession', () => {
           exerciseName: 'Main Exercise',
           orderIndex: 0,
           section: 'main',
-          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+          sets: [
+            createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' }),
+          ],
         }),
       ],
     });
@@ -2663,7 +2860,9 @@ describe('buildTemplateFromSession', () => {
           exerciseName: 'Main Exercise',
           orderIndex: 0,
           section: 'main',
-          sets: [createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' })],
+          sets: [
+            createSessionSetForBuildTemplateTests({ exerciseId: 'main-exercise', section: 'main' }),
+          ],
         }),
       ],
     });
