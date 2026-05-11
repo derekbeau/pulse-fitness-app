@@ -12,6 +12,7 @@ import {
   createMealForDate,
   findMealById,
   findMealItemById,
+  getDailyNutritionSummaryForDate,
   MealFoodOwnershipError,
   patchMealById,
   patchMealItemById,
@@ -38,6 +39,7 @@ vi.mock('../nutrition/store.js', async () => {
     createMealForDate: vi.fn(),
     findMealById: vi.fn(),
     findMealItemById: vi.fn(),
+    getDailyNutritionSummaryForDate: vi.fn(),
     patchMealById: vi.fn(),
     patchMealItemById: vi.fn(),
   };
@@ -84,6 +86,7 @@ describe('meal routes', () => {
     vi.mocked(addItemsToMeal).mockReset();
     vi.mocked(findMealById).mockReset();
     vi.mocked(findMealItemById).mockReset();
+    vi.mocked(getDailyNutritionSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
@@ -965,11 +968,15 @@ describe('meal routes', () => {
         id: 'meal-1',
         name: 'Lunch',
       });
-      expect(body.data.items).toContainEqual(expect.objectContaining({ id: 'item-0', foodId: null }));
+      expect(body.data.items).toContainEqual(
+        expect.objectContaining({ id: 'item-0', foodId: null }),
+      );
       expect(body.data.items).toContainEqual(
         expect.objectContaining({ id: 'item-1', foodId: 'food-1' }),
       );
-      expect(body.data.items).toContainEqual(expect.objectContaining({ id: 'item-2', foodId: null }));
+      expect(body.data.items).toContainEqual(
+        expect.objectContaining({ id: 'item-2', foodId: null }),
+      );
       expect(body.agent).toEqual(
         expect.objectContaining({
           hints: expect.any(Array),
@@ -1213,7 +1220,10 @@ describe('meal routes', () => {
 
     try {
       await app.ready();
-      const jwt = app.jwt.sign({ sub: 'user-1', type: 'session', iss: 'pulse-api' }, { expiresIn: '7d' });
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
 
       const jwtResponse = await app.inject({
         method: 'PATCH',

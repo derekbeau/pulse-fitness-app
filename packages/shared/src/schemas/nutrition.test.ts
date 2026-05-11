@@ -10,6 +10,7 @@ import {
   type PatchMealInput,
   type PatchMealItemInput,
   type NutritionSummary,
+  type NutritionLoggingContext,
   type NutritionWeekSummary,
   addMealItemsInputSchema,
   createMealInputSchema,
@@ -17,6 +18,8 @@ import {
   dailyNutritionSchema,
   deleteMealResultSchema,
   mealItemInputSchema,
+  nutritionLoggingContextQuerySchema,
+  nutritionLoggingContextSchema,
   nutritionWeekSummarySchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
@@ -243,6 +246,7 @@ describe('createMealInputSchema', () => {
       summary: ' Chicken, Rice ',
       time: '12:30',
       notes: ' Post workout ',
+      returnSummary: true,
       items: [
         {
           name: 'Cooked Rice',
@@ -261,6 +265,7 @@ describe('createMealInputSchema', () => {
       summary: 'Chicken, Rice',
       time: '12:30',
       notes: 'Post workout',
+      returnSummary: true,
       items: [
         {
           name: 'Cooked Rice',
@@ -302,6 +307,47 @@ describe('createMealInputSchema', () => {
     };
 
     expect(meal.name).toBe('Breakfast');
+  });
+});
+
+describe('nutritionLoggingContext schemas', () => {
+  it('normalizes query defaults and validates context responses', () => {
+    expect(
+      nutritionLoggingContextQuerySchema.parse({
+        date: '2026-03-09',
+        q: ' tj jam ',
+      }),
+    ).toEqual({
+      date: '2026-03-09',
+      q: 'tj jam',
+      days: 7,
+      limitFoods: 10,
+      limitRecentItems: 50,
+    });
+
+    const context: NutritionLoggingContext = nutritionLoggingContextSchema.parse({
+      date: '2026-03-09',
+      query: {
+        q: 'tj jam',
+        variants: ['tj jam', 'Trader Joe', 'preserves'],
+      },
+      today: {
+        nutrition: null,
+        summary: {
+          date: '2026-03-09',
+          meals: 0,
+          actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          target: null,
+        },
+      },
+      recentMealItems: [],
+      savedFoodMatches: [],
+      frequentFoods: [],
+      shorthandExpansions: [],
+      waterHabit: null,
+    });
+
+    expect(context.query.variants).toContain('preserves');
   });
 });
 

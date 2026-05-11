@@ -2,13 +2,29 @@ import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-
 
 import type {
   CreateMealInput,
+  Food,
+  NutritionFoodMatch,
+  NutritionLoggingContext,
+  NutritionLoggingContextQuery,
+  NutritionRecentMealItem,
+  NutritionShorthandExpansion,
+  NutritionWaterHabitState,
   NutritionWeekDaySummary,
   NutritionWeekSummary,
   PatchMealInput,
   PatchMealItemInput,
 } from '@pulse/shared';
 
-import { foods, mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
+import {
+  foods,
+  habitEntries,
+  habits,
+  mealItems,
+  meals,
+  nutritionLogs,
+  nutritionTargets,
+  users,
+} from '../../db/schema/index.js';
 
 export type NutritionLogRecord = {
   id: string;
@@ -164,6 +180,69 @@ const addUtcDays = (date: Date, days: number) => {
   return nextDate;
 };
 
+const addUtcDateKeyDays = (date: string, days: number) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const getLocalDateKey = (date = new Date(), timeZone?: string) => {
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    ...(timeZone ? { timeZone } : {}),
+  };
+  const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+
+  if (!year || !month || !day) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  return `${year}-${month}-${day}`;
+};
+
+const isValidTimeZone = (value: string) => {
+  try {
+    getLocalDateKey(new Date(), value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const getUserPreferredTimeZone = async (userId: string): Promise<string | undefined> => {
+  const { db } = await import('../../db/index.js');
+  const row =
+    db
+      .select({
+        preferences: users.preferences,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .get() ?? null;
+
+  const preferences = row?.preferences;
+  if (typeof preferences !== 'object' || preferences === null) {
+    return undefined;
+  }
+
+  const timeZone = (preferences as { timeZone?: unknown; timezone?: unknown }).timeZone;
+  const legacyTimezone = (preferences as { timezone?: unknown }).timezone;
+  const candidate =
+    typeof timeZone === 'string'
+      ? timeZone
+      : typeof legacyTimezone === 'string'
+        ? legacyTimezone
+        : undefined;
+
+  return candidate && isValidTimeZone(candidate) ? candidate : undefined;
+};
+
 const getWeekStartMonday = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? -6 : 1 - day;
@@ -217,6 +296,369 @@ const applyFoodUsageTrackingEffects = async (
       logFoodUsageTrackingFailure(userId, effect, error, context);
     });
   }
+};
+
+const normalizeSearchText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const uniqueTextValues = (values: string[]) => {
+  const seen = new Set<string>();
+  const uniqueValues: string[] = [];
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    const normalized = normalizeSearchText(trimmed);
+    if (!trimmed || !normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    uniqueValues.push(trimmed);
+  }
+
+  return uniqueValues;
+};
+
+const STANDARD_SHAKE_EXPANSION: NutritionShorthandExpansion = {
+  phrase: 'standard shake',
+  label: 'Standard shake',
+  score: 1,
+  reason: 'Known shorthand for the usual protein shake ingredients.',
+  items: [
+    {
+      foodName: 'Orgain Chocolate Protein Powder',
+      quantity: 0.5,
+      unit: 'serving',
+      displayQuantity: 1,
+      displayUnit: 'scoop',
+      reason: '0.5 saved serving is logged as 1 scoop.',
+    },
+    {
+      foodName: "Anthony's Premium Pea Protein",
+      quantity: 1.9,
+      unit: 'serving',
+      displayQuantity: 1.9,
+      displayUnit: 'Tbsp',
+      reason: 'Known shake ratio uses 1.9 saved servings/Tbsp.',
+    },
+  ],
+};
+
+export const buildNutritionLoggingContextVariants = (query: string | undefined): string[] => {
+  if (!query) {
+    return [];
+  }
+
+  const normalizedQuery = normalizeSearchText(query);
+  const variants = [query];
+
+  if (/\btj\b/.test(normalizedQuery) || normalizedQuery.includes('trader joe')) {
+    variants.push('tj', 'Trader Joe', "Trader Joe's");
+  }
+
+  if (
+    normalizedQuery.includes('jam') ||
+    normalizedQuery.includes('jelly') ||
+    normalizedQuery.includes('preserve') ||
+    normalizedQuery.includes('raspberry')
+  ) {
+    variants.push('jam', 'preserves', 'jelly', 'raspberry');
+  }
+
+  if (normalizedQuery.includes('standard shake') || normalizedQuery.includes('protein shake')) {
+    variants.push(
+      'standard shake',
+      'Orgain',
+      'Orgain Chocolate Protein Powder',
+      "Anthony's",
+      "Anthony's Premium Pea Protein",
+      'pea protein',
+      'protein powder',
+    );
+  }
+
+  if (normalizedQuery.includes('bread') || normalizedQuery.includes('toast')) {
+    variants.push('bread', 'toast', 'sourdough', 'slice');
+  }
+
+  return uniqueTextValues(variants);
+};
+
+export const getNutritionShorthandExpansions = (
+  query: string | undefined,
+): NutritionShorthandExpansion[] => {
+  if (!query) {
+    return [STANDARD_SHAKE_EXPANSION];
+  }
+
+  const normalizedQuery = normalizeSearchText(query);
+  if (normalizedQuery.includes('standard shake') || normalizedQuery.includes('protein shake')) {
+    return [STANDARD_SHAKE_EXPANSION];
+  }
+
+  return [];
+};
+
+const buildFoodHaystack = (food: Food) =>
+  normalizeSearchText(
+    [food.name, food.brand, food.servingSize, food.tags.join(' ')]
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
+      .join(' '),
+  );
+
+const scoreFoodAgainstVariants = (
+  food: Food,
+  query: string | undefined,
+  variants: string[],
+): Omit<NutritionFoodMatch, 'food'> => {
+  const haystack = buildFoodHaystack(food);
+  const normalizedQuery = query ? normalizeSearchText(query) : '';
+  let bestMatch: Omit<NutritionFoodMatch, 'food'> = {
+    score: 0.5,
+    reason: 'Matched saved food search.',
+    matchedVariant: variants[0] ?? null,
+  };
+
+  for (const variant of variants) {
+    const normalizedVariant = normalizeSearchText(variant);
+    if (!normalizedVariant || !haystack.includes(normalizedVariant)) {
+      continue;
+    }
+
+    const score =
+      normalizedVariant === normalizedQuery ? 1 : normalizedVariant.includes(' ') ? 0.86 : 0.74;
+    if (score > bestMatch.score) {
+      bestMatch = {
+        score,
+        reason:
+          normalizedVariant === normalizedQuery
+            ? `Matched query "${variant}".`
+            : `Matched synonym or alias "${variant}".`,
+        matchedVariant: variant,
+      };
+    }
+  }
+
+  return bestMatch;
+};
+
+const mergeFoodMatches = (matches: NutritionFoodMatch[], limit: number) => {
+  const matchesByFoodId = new Map<string, NutritionFoodMatch>();
+
+  for (const match of matches) {
+    const existing = matchesByFoodId.get(match.food.id);
+    if (!existing || match.score > existing.score) {
+      matchesByFoodId.set(match.food.id, match);
+    }
+  }
+
+  return [...matchesByFoodId.values()]
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return right.score - left.score;
+      }
+
+      if (left.food.usageCount !== right.food.usageCount) {
+        return right.food.usageCount - left.food.usageCount;
+      }
+
+      return left.food.name.localeCompare(right.food.name, undefined, { sensitivity: 'base' });
+    })
+    .slice(0, limit);
+};
+
+const listSavedFoodMatches = async ({
+  userId,
+  query,
+  variants,
+  limit,
+}: {
+  userId: string;
+  query: string | undefined;
+  variants: string[];
+  limit: number;
+}): Promise<NutritionFoodMatch[]> => {
+  if (variants.length === 0) {
+    return [];
+  }
+
+  const { listFoods } = await import('../foods/store.js');
+  const results = await Promise.all(
+    variants.map((variant) =>
+      listFoods(userId, {
+        q: variant,
+        sort: 'recently-updated',
+        page: 1,
+        limit,
+      }),
+    ),
+  );
+
+  const matches = results.flatMap((result) =>
+    result.foods.map<NutritionFoodMatch>((food) => ({
+      food,
+      ...scoreFoodAgainstVariants(food, query, variants),
+    })),
+  );
+
+  return mergeFoodMatches(matches, limit);
+};
+
+const listFrequentFoodMatches = async (
+  userId: string,
+  limit: number,
+): Promise<NutritionFoodMatch[]> => {
+  const { listFoods } = await import('../foods/store.js');
+  const result = await listFoods(userId, {
+    sort: 'most-used',
+    page: 1,
+    limit,
+  });
+
+  return result.foods.map((food) => ({
+    food,
+    score: clampToUnitRange(food.usageCount / 10),
+    reason:
+      food.usageCount > 0
+        ? `Frequent saved food used ${food.usageCount} time${food.usageCount === 1 ? '' : 's'}.`
+        : 'Saved food available for quick logging.',
+    matchedVariant: null,
+  }));
+};
+
+const listRecentMealItems = async ({
+  userId,
+  date,
+  days,
+  limit,
+}: {
+  userId: string;
+  date: string;
+  days: number;
+  limit: number;
+}): Promise<NutritionRecentMealItem[]> => {
+  const { db } = await import('../../db/index.js');
+  const fromDate = addUtcDateKeyDays(date, -days);
+  const toDate = addUtcDateKeyDays(date, -1);
+
+  const rows = db
+    .select({
+      date: nutritionLogs.date,
+      contextMealId: meals.id,
+      mealName: meals.name,
+      mealTime: meals.time,
+      id: mealItems.id,
+      itemMealId: mealItems.mealId,
+      foodId: mealItems.foodId,
+      name: mealItems.name,
+      amount: mealItems.amount,
+      unit: mealItems.unit,
+      displayQuantity: mealItems.displayQuantity,
+      displayUnit: mealItems.displayUnit,
+      calories: mealItems.calories,
+      protein: mealItems.protein,
+      carbs: mealItems.carbs,
+      fat: mealItems.fat,
+      fiber: mealItems.fiber,
+      sugar: mealItems.sugar,
+      createdAt: mealItems.createdAt,
+    })
+    .from(nutritionLogs)
+    .innerJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
+    .innerJoin(mealItems, eq(mealItems.mealId, meals.id))
+    .where(and(eq(nutritionLogs.userId, userId), between(nutritionLogs.date, fromDate, toDate)))
+    .orderBy(desc(nutritionLogs.date), desc(meals.createdAt), desc(mealItems.createdAt))
+    .limit(limit)
+    .all();
+
+  return rows.map((row) => ({
+    date: row.date,
+    mealId: row.contextMealId,
+    mealName: row.mealName,
+    mealTime: row.mealTime,
+    item: {
+      id: row.id,
+      mealId: row.itemMealId,
+      foodId: row.foodId,
+      name: row.name,
+      amount: row.amount,
+      unit: row.unit,
+      displayQuantity: row.displayQuantity,
+      displayUnit: row.displayUnit,
+      calories: row.calories,
+      protein: row.protein,
+      carbs: row.carbs,
+      fat: row.fat,
+      fiber: row.fiber,
+      sugar: row.sugar,
+      createdAt: row.createdAt,
+    },
+  }));
+};
+
+const getWaterHabitState = async (
+  userId: string,
+  date: string,
+): Promise<NutritionWaterHabitState> => {
+  const { db } = await import('../../db/index.js');
+  const waterPattern = '%water%';
+  const habit = db
+    .select({
+      id: habits.id,
+      name: habits.name,
+      trackingType: habits.trackingType,
+      target: habits.target,
+      unit: habits.unit,
+    })
+    .from(habits)
+    .where(
+      and(
+        eq(habits.userId, userId),
+        eq(habits.active, true),
+        isNull(habits.deletedAt),
+        sql`lower(${habits.name}) like ${waterPattern}`,
+      ),
+    )
+    .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
+    .limit(1)
+    .get();
+
+  if (!habit) {
+    return null;
+  }
+
+  const entry = db
+    .select({
+      completed: habitEntries.completed,
+      value: habitEntries.value,
+      isOverride: habitEntries.isOverride,
+    })
+    .from(habitEntries)
+    .where(
+      and(
+        eq(habitEntries.userId, userId),
+        eq(habitEntries.habitId, habit.id),
+        eq(habitEntries.date, date),
+      ),
+    )
+    .limit(1)
+    .get();
+
+  return {
+    habitId: habit.id,
+    name: habit.name,
+    trackingType: habit.trackingType,
+    target: habit.target,
+    unit: habit.unit,
+    date,
+    completed: entry?.completed ?? false,
+    value: entry?.value ?? null,
+    isOverride: entry?.isOverride ?? false,
+  };
 };
 
 export const calculateNutritionCompleteness = (input: {
@@ -451,6 +893,53 @@ export const getDailyNutritionSummaryForDate = async (
           fat: Number(target.fat),
         }
       : null,
+  };
+};
+
+export const getNutritionLoggingContext = async (
+  userId: string,
+  input: NutritionLoggingContextQuery,
+): Promise<NutritionLoggingContext> => {
+  const date = input.date ?? getLocalDateKey(new Date(), await getUserPreferredTimeZone(userId));
+  const query = input.q;
+  const variants = buildNutritionLoggingContextVariants(query);
+  const days = input.days ?? 7;
+  const limitFoods = input.limitFoods ?? 10;
+  const limitRecentItems = input.limitRecentItems ?? 50;
+
+  const [
+    nutrition,
+    summary,
+    recentMealItems,
+    savedFoodMatches,
+    frequentFoods,
+    shorthandExpansions,
+    waterHabit,
+  ] = await Promise.all([
+    getDailyNutritionForDate(userId, date),
+    getDailyNutritionSummaryForDate(userId, date),
+    listRecentMealItems({ userId, date, days, limit: limitRecentItems }),
+    listSavedFoodMatches({ userId, query, variants, limit: limitFoods }),
+    listFrequentFoodMatches(userId, limitFoods),
+    Promise.resolve(getNutritionShorthandExpansions(query)),
+    getWaterHabitState(userId, date),
+  ]);
+
+  return {
+    date,
+    query: {
+      q: query ?? null,
+      variants,
+    },
+    today: {
+      nutrition,
+      summary,
+    },
+    recentMealItems,
+    savedFoodMatches,
+    frequentFoods,
+    shorthandExpansions,
+    waterHabit,
   };
 };
 

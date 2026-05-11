@@ -124,13 +124,12 @@ describe('WorkoutCalendar', () => {
 
     const doneLink = screen.getByRole('link', { name: 'Done' });
     expect(doneLink).toHaveClass('h-2', 'w-2', 'sm:h-auto', 'sm:w-auto');
-    expect(doneLink).toHaveAttribute(
-      'href',
-      '/workouts/session/session-1',
-    );
+    expect(doneLink).toHaveAttribute('href', '/workouts/session/session-1');
     expect(within(doneLink).getByText('Done')).not.toHaveClass('hidden', 'sm:inline');
     expect(doneLink.parentElement).toHaveClass('hidden', 'sm:flex');
-    expect(unavailableWarnings.some((warning) => warning.className.includes('sm:hidden'))).toBe(true);
+    expect(unavailableWarnings.some((warning) => warning.className.includes('sm:hidden'))).toBe(
+      true,
+    );
   });
 
   it('shows selected-day workouts with status-aware actions', async () => {
@@ -259,7 +258,7 @@ describe('WorkoutCalendar', () => {
 
   it('updates selected-day details when a calendar day is tapped', async () => {
     const targetDate = new Date();
-    targetDate.setDate(Math.min(targetDate.getDate(), 11));
+    targetDate.setDate(targetDate.getDate() === 11 ? 10 : 11);
     const targetDateKey = toDateKey(targetDate);
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {

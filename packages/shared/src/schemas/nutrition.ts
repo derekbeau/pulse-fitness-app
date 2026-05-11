@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import { foodSchema } from './foods.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 const nonnegativeNumber = z.number().nonnegative().finite();
@@ -71,6 +72,95 @@ export const nutritionSummarySchema = z.object({
   target: nutritionMacroTotalsSchema.nullable(),
 });
 
+export const dailyNutritionMealWithSummarySchema = dailyNutritionMealSchema.extend({
+  summary: nutritionSummarySchema,
+});
+
+export const createMealResponseSchema = z.union([
+  dailyNutritionMealWithSummarySchema,
+  dailyNutritionMealSchema,
+]);
+
+const optionalLoggingContextQueryText = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}, z.string().max(255).optional());
+
+export const nutritionLoggingContextQuerySchema = z.object({
+  date: dateSchema.optional(),
+  q: optionalLoggingContextQueryText,
+  days: z.coerce.number().int().min(1).max(14).default(7),
+  limitFoods: z.coerce.number().int().min(1).max(50).default(10),
+  limitRecentItems: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const nutritionFoodMatchSchema = z.object({
+  food: foodSchema,
+  score: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  matchedVariant: z.string().min(1).nullable(),
+});
+
+export const nutritionRecentMealItemSchema = z.object({
+  date: dateSchema,
+  mealId: z.string(),
+  mealName: z.string(),
+  mealTime: mealTimeSchema.nullable(),
+  item: nutritionMealItemSchema,
+});
+
+export const nutritionShorthandExpansionItemSchema = z.object({
+  foodName: z.string().min(1),
+  quantity: z.number().positive(),
+  unit: z.string().min(1),
+  displayQuantity: z.number().positive().nullable(),
+  displayUnit: z.string().min(1).nullable(),
+  reason: z.string().min(1),
+});
+
+export const nutritionShorthandExpansionSchema = z.object({
+  phrase: z.string().min(1),
+  label: z.string().min(1),
+  score: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  items: z.array(nutritionShorthandExpansionItemSchema).min(1),
+});
+
+export const nutritionWaterHabitStateSchema = z
+  .object({
+    habitId: z.string(),
+    name: z.string(),
+    trackingType: z.enum(['boolean', 'numeric', 'time']),
+    target: z.number().nullable(),
+    unit: z.string().nullable(),
+    date: dateSchema,
+    completed: z.boolean(),
+    value: z.number().nullable(),
+    isOverride: z.boolean(),
+  })
+  .nullable();
+
+export const nutritionLoggingContextSchema = z.object({
+  date: dateSchema,
+  query: z.object({
+    q: z.string().nullable(),
+    variants: z.array(z.string().min(1)),
+  }),
+  today: z.object({
+    nutrition: dailyNutritionSchema,
+    summary: nutritionSummarySchema,
+  }),
+  recentMealItems: z.array(nutritionRecentMealItemSchema),
+  savedFoodMatches: z.array(nutritionFoodMatchSchema),
+  frequentFoods: z.array(nutritionFoodMatchSchema),
+  shorthandExpansions: z.array(nutritionShorthandExpansionSchema),
+  waterHabit: nutritionWaterHabitStateSchema,
+});
+
 export const nutritionWeekDaySummarySchema = z.object({
   date: dateSchema,
   calories: nonnegativeNumber,
@@ -87,24 +177,25 @@ export const deleteMealResultSchema = z.object({
   success: z.literal(true),
 });
 
-export const mealItemInputSchema = z.object({
-  foodId: z.string().trim().min(1).nullable().optional(),
-  foodName: requiredText().optional(),
-  name: requiredText().optional(),
-  amount: z.number().positive().finite().optional(),
-  quantity: z.number().positive().finite().optional(),
-  unit: requiredText(50).optional(),
-  displayQuantity: z.number().positive().finite().nullable().optional(),
-  displayUnit: z.string().trim().min(1).max(50).nullable().optional(),
-  calories: nonnegativeNumber.optional(),
-  protein: nonnegativeNumber.optional(),
-  carbs: nonnegativeNumber.optional(),
-  fat: nonnegativeNumber.optional(),
-  fiber: nonnegativeNumber.optional(),
-  sugar: nonnegativeNumber.optional(),
-  adhoc: z.boolean().optional(),
-  saveToFoods: z.boolean().optional(),
-})
+export const mealItemInputSchema = z
+  .object({
+    foodId: z.string().trim().min(1).nullable().optional(),
+    foodName: requiredText().optional(),
+    name: requiredText().optional(),
+    amount: z.number().positive().finite().optional(),
+    quantity: z.number().positive().finite().optional(),
+    unit: requiredText(50).optional(),
+    displayQuantity: z.number().positive().finite().nullable().optional(),
+    displayUnit: z.string().trim().min(1).max(50).nullable().optional(),
+    calories: nonnegativeNumber.optional(),
+    protein: nonnegativeNumber.optional(),
+    carbs: nonnegativeNumber.optional(),
+    fat: nonnegativeNumber.optional(),
+    fiber: nonnegativeNumber.optional(),
+    sugar: nonnegativeNumber.optional(),
+    adhoc: z.boolean().optional(),
+    saveToFoods: z.boolean().optional(),
+  })
   .superRefine((value, ctx) => {
     if (value.adhoc === true && value.saveToFoods === true) {
       ctx.addIssue({
@@ -179,6 +270,7 @@ export const createMealInputSchema = z.object({
   time: mealTimeSchema.optional(),
   notes: requiredText(2_000).optional(),
   items: z.array(mealItemInputSchema).min(1),
+  returnSummary: z.boolean().optional(),
 });
 
 export const createMealForDateInputSchema = createMealInputSchema.extend({
@@ -228,8 +320,16 @@ export type NutritionLog = z.infer<typeof nutritionLogSchema>;
 export type NutritionMeal = z.infer<typeof nutritionMealSchema>;
 export type NutritionMealItem = z.infer<typeof nutritionMealItemSchema>;
 export type DailyNutritionMeal = z.infer<typeof dailyNutritionMealSchema>;
+export type DailyNutritionMealWithSummary = z.infer<typeof dailyNutritionMealWithSummarySchema>;
 export type DailyNutrition = z.infer<typeof dailyNutritionSchema>;
 export type NutritionSummary = z.infer<typeof nutritionSummarySchema>;
 export type NutritionWeekDaySummary = z.infer<typeof nutritionWeekDaySummarySchema>;
 export type NutritionWeekSummary = z.infer<typeof nutritionWeekSummarySchema>;
 export type DeleteMealResult = z.infer<typeof deleteMealResultSchema>;
+export type CreateMealResponse = z.infer<typeof createMealResponseSchema>;
+export type NutritionLoggingContextQuery = z.infer<typeof nutritionLoggingContextQuerySchema>;
+export type NutritionFoodMatch = z.infer<typeof nutritionFoodMatchSchema>;
+export type NutritionRecentMealItem = z.infer<typeof nutritionRecentMealItemSchema>;
+export type NutritionShorthandExpansion = z.infer<typeof nutritionShorthandExpansionSchema>;
+export type NutritionWaterHabitState = z.infer<typeof nutritionWaterHabitStateSchema>;
+export type NutritionLoggingContext = z.infer<typeof nutritionLoggingContextSchema>;

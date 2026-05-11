@@ -1,9 +1,11 @@
 import {
   apiDataResponseSchema,
+  createMealResponseSchema,
   createMealInputSchema,
-  dailyNutritionMealSchema,
   dailyNutritionSchema,
   deleteMealResultSchema,
+  nutritionLoggingContextQuerySchema,
+  nutritionLoggingContextSchema,
   nutritionMealItemSchema,
   nutritionMealSchema,
   nutritionSummarySchema,
@@ -16,7 +18,10 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import {
+  agentEnrichmentOnSend,
+  setAgentEnrichmentContext,
+} from '../../middleware/agent-enrichment.js';
 import { trackFoodUsage } from '../foods/store.js';
 import {
   apiErrorResponseSchema,
@@ -35,6 +40,7 @@ import {
   findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  getNutritionLoggingContext,
   getNutritionWeekSummaryForDate,
   patchMealById,
   patchMealItemById,
@@ -72,6 +78,32 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  typedApp.get(
+    '/logging-context',
+    {
+      schema: {
+        querystring: nutritionLoggingContextQuerySchema,
+        response: {
+          200: apiDataResponseSchema(nutritionLoggingContextSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get nutrition logging context',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const context = await getNutritionLoggingContext(request.userId, request.query);
+
+      reply.header('Cache-Control', 'private, no-cache');
+
+      return reply.send({
+        data: context,
+      });
+    },
+  );
+
   typedApp.post(
     '/:date/meals',
     {
@@ -80,7 +112,7 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         params: dateParamsSchema,
         body: createMealInputSchema,
         response: {
-          201: apiDataResponseSchema(dailyNutritionMealSchema),
+          201: apiDataResponseSchema(createMealResponseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
         },
@@ -90,7 +122,8 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const created = await createMealForDate(request.userId, request.params.date, request.body);
+      const { returnSummary = false, ...mealInput } = request.body;
+      const created = await createMealForDate(request.userId, request.params.date, mealInput);
 
       const foodIds = [
         ...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString)),
@@ -125,8 +158,15 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         mealMacros,
       });
 
+      const data = returnSummary
+        ? {
+            ...created,
+            summary: await getDailyNutritionSummaryForDate(request.userId, request.params.date),
+          }
+        : created;
+
       return reply.code(201).send({
-        data: created,
+        data,
       });
     },
   );

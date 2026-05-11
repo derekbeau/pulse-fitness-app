@@ -136,6 +136,20 @@ describe('OpenAPI docs', () => {
       expect(body.paths?.['/api/v1/nutrition/{date}/summary']?.get.parameters).toEqual(
         expect.arrayContaining([expect.objectContaining({ name: 'date', in: 'path' })]),
       );
+      expect(body.paths?.['/api/v1/nutrition/logging-context']?.get).toMatchObject({
+        summary: 'Get nutrition logging context',
+        tags: ['nutrition'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/nutrition/logging-context']?.get.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'date', in: 'query' }),
+          expect.objectContaining({ name: 'q', in: 'query' }),
+          expect.objectContaining({ name: 'days', in: 'query' }),
+          expect.objectContaining({ name: 'limitFoods', in: 'query' }),
+          expect.objectContaining({ name: 'limitRecentItems', in: 'query' }),
+        ]),
+      );
 
       expect(body.paths?.['/api/v1/exercises/{id}/last-performance']?.get).toMatchObject({
         summary: 'Get recent completed performances for an exercise',

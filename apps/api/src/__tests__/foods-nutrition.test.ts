@@ -157,11 +157,15 @@ const sortFoods = (
   }
 
   if (sort === 'newest') {
-    return [...foods].sort((left, right) => right.createdAt - left.createdAt || byName(left, right));
+    return [...foods].sort(
+      (left, right) => right.createdAt - left.createdAt || byName(left, right),
+    );
   }
 
   if (sort === 'oldest') {
-    return [...foods].sort((left, right) => left.createdAt - right.createdAt || byName(left, right));
+    return [...foods].sort(
+      (left, right) => left.createdAt - right.createdAt || byName(left, right),
+    );
   }
 
   if (sort === 'name-desc') {
@@ -492,6 +496,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
       target: null,
     };
   }),
+  getNutritionLoggingContext: vi.fn(),
   deleteMealForDate: vi.fn(async (userId: string, date: string, mealId: string) => {
     const log = testState.nutritionLogs.get(getLogKey(userId, date));
     if (!log) {

@@ -1,6 +1,7 @@
 import {
   addMealItemsInputSchema,
   apiDataResponseSchema,
+  createMealResponseSchema,
   createMealForDateInputSchema,
   type CreateMealForDateInput,
   dailyNutritionMealSchema,
@@ -13,7 +14,10 @@ import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { sendError } from '../../lib/reply.js';
-import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import {
+  agentEnrichmentOnSend,
+  setAgentEnrichmentContext,
+} from '../../middleware/agent-enrichment.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
@@ -29,6 +33,7 @@ import {
   createMealForDate,
   findMealById,
   findMealItemById,
+  getDailyNutritionSummaryForDate,
   MealFoodOwnershipError,
   patchMealById,
   patchMealItemById,
@@ -173,7 +178,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       schema: {
         body: createMealForDateInputSchema,
         response: {
-          201: apiDataResponseSchema(dailyNutritionMealSchema),
+          201: apiDataResponseSchema(createMealResponseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
@@ -242,8 +247,15 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
         mealMacros,
       });
 
+      const data = request.body.returnSummary
+        ? {
+            ...created,
+            summary: await getDailyNutritionSummaryForDate(request.userId, request.body.date),
+          }
+        : created;
+
       return reply.code(201).send({
-        data: created,
+        data,
       });
     },
   );

@@ -15,6 +15,7 @@ import {
   findMealItemForDate,
   getDailyNutritionForDate,
   getDailyNutritionSummaryForDate,
+  getNutritionLoggingContext,
   getNutritionWeekSummaryForDate,
   patchMealById,
   patchMealItemById,
@@ -27,6 +28,7 @@ vi.mock('./store.js', () => ({
   findMealItemForDate: vi.fn(),
   getDailyNutritionForDate: vi.fn(),
   getDailyNutritionSummaryForDate: vi.fn(),
+  getNutritionLoggingContext: vi.fn(),
   getNutritionWeekSummaryForDate: vi.fn(),
   patchMealById: vi.fn(),
   patchMealItemById: vi.fn(),
@@ -156,6 +158,97 @@ const nutritionSummary = {
   },
 };
 
+const loggingContext = {
+  date: '2026-03-09',
+  query: {
+    q: 'tj jam',
+    variants: [
+      'tj jam',
+      'tj',
+      'Trader Joe',
+      "Trader Joe's",
+      'jam',
+      'preserves',
+      'jelly',
+      'raspberry',
+    ],
+  },
+  today: {
+    nutrition: {
+      log: {
+        id: 'log-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        notes: null,
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
+      },
+      meals: [
+        {
+          meal,
+          items: mealItems,
+        },
+      ],
+    },
+    summary: nutritionSummary,
+  },
+  recentMealItems: [
+    {
+      date: '2026-03-08',
+      mealId: 'meal-previous',
+      mealName: 'Breakfast',
+      mealTime: '08:00',
+      item: {
+        ...mealItems[0],
+        id: 'item-previous',
+        mealId: 'meal-previous',
+      },
+    },
+  ],
+  savedFoodMatches: [
+    {
+      food: {
+        id: 'food-jam',
+        userId: 'user-1',
+        name: 'TJ Organic Reduced Sugar Raspberry Preserves',
+        brand: "Trader Joe's",
+        servingSize: '1 Tbsp (18g)',
+        servingGrams: 18,
+        calories: 25,
+        protein: 0,
+        carbs: 7,
+        fat: 0,
+        fiber: null,
+        sugar: null,
+        verified: true,
+        source: null,
+        notes: null,
+        usageCount: 4,
+        tags: ['spread'],
+        lastUsedAt: 1_700_000_000_000,
+        createdAt: 1_699_000_000_000,
+        updatedAt: 1_700_000_000_000,
+      },
+      score: 0.86,
+      reason: 'Matched synonym or alias "preserves".',
+      matchedVariant: 'preserves',
+    },
+  ],
+  frequentFoods: [],
+  shorthandExpansions: [],
+  waterHabit: {
+    habitId: 'habit-water',
+    name: 'Water',
+    trackingType: 'numeric' as const,
+    target: 8,
+    unit: 'glasses',
+    date: '2026-03-09',
+    completed: false,
+    value: 5,
+    isOverride: false,
+  },
+};
+
 const nutritionWeekSummary = [
   {
     date: '2026-03-02',
@@ -230,6 +323,7 @@ describe('nutrition routes', () => {
     vi.mocked(findMealItemForDate).mockReset();
     vi.mocked(getDailyNutritionForDate).mockReset();
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
+    vi.mocked(getNutritionLoggingContext).mockReset();
     vi.mocked(getNutritionWeekSummaryForDate).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
@@ -329,6 +423,132 @@ describe('nutrition routes', () => {
       });
       expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
       expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('creates a meal with an updated daily summary when requested', async () => {
+    vi.mocked(createMealForDate).mockResolvedValue({
+      meal,
+      items: mealItems,
+    });
+    vi.mocked(getDailyNutritionSummaryForDate).mockResolvedValue(nutritionSummary);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/nutrition/2026-03-09/meals',
+        headers: createAuthorizationHeader(authToken),
+        payload: {
+          name: 'Lunch',
+          returnSummary: true,
+          items: [
+            {
+              foodId: 'food-1',
+              name: 'Chicken Breast',
+              amount: 8,
+              unit: 'oz',
+              calories: 374,
+              protein: 70,
+              carbs: 0,
+              fat: 8,
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        data: {
+          meal,
+          items: mealItems,
+          summary: nutritionSummary,
+        },
+      });
+      expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
+        name: 'Lunch',
+        items: [
+          {
+            foodId: 'food-1',
+            name: 'Chicken Breast',
+            amount: 8,
+            unit: 'oz',
+            calories: 374,
+            protein: 70,
+            carbs: 0,
+            fat: 8,
+          },
+        ],
+      });
+      expect(vi.mocked(getDailyNutritionSummaryForDate)).toHaveBeenCalledWith(
+        'user-1',
+        '2026-03-09',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('gets logging context for JWT and AgentToken callers', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(getNutritionLoggingContext).mockResolvedValue(loggingContext);
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/logging-context?date=2026-03-09&q=%20tj%20jam%20&days=7',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/logging-context?date=2026-03-09&q=tj%20jam',
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(jwtResponse.headers['cache-control']).toBe('private, no-cache');
+      expect(jwtResponse.json()).toEqual({
+        data: loggingContext,
+      });
+      expect(agentResponse.statusCode).toBe(200);
+      expect(agentResponse.json()).toEqual({
+        data: loggingContext,
+      });
+      expect(vi.mocked(getNutritionLoggingContext)).toHaveBeenNthCalledWith(1, 'user-1', {
+        date: '2026-03-09',
+        q: 'tj jam',
+        days: 7,
+        limitFoods: 10,
+        limitRecentItems: 50,
+      });
+      expect(vi.mocked(getNutritionLoggingContext)).toHaveBeenNthCalledWith(2, 'user-1', {
+        date: '2026-03-09',
+        q: 'tj jam',
+        days: 7,
+        limitFoods: 10,
+        limitRecentItems: 50,
+      });
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();
     }
