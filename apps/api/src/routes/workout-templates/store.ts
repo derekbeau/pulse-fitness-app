@@ -13,7 +13,7 @@ import type {
 
 import { exercises, templateExercises, workoutTemplates } from '../../db/schema/index.js';
 
-const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
 type TemplateRecord = {
   id: string;

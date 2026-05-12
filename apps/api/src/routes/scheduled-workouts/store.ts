@@ -22,15 +22,15 @@ import {
   templateExercises,
   workoutTemplates,
 } from '../../db/schema/index.js';
-import { computeTemplateVersionForTemplateId, readSnapshot } from './snapshot-store.js';
+import { readSnapshot, templateVersionMatchesCurrentTemplate } from './snapshot-store.js';
 
 // Supplemental is retained for deterministic ordering of legacy snapshot rows.
 // Structural edit input schemas prevent callers from assigning supplemental.
 const SECTION_RANK: Record<WorkoutTemplateSectionType, number> = {
   warmup: 0,
   main: 1,
-  cooldown: 2,
-  supplemental: 3,
+  supplemental: 2,
+  cooldown: 3,
 };
 const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
 const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
@@ -233,12 +233,13 @@ const buildScheduledWorkoutDetail = async ({
     templateDeleted = !sourceTemplate || sourceTemplate.deletedAt !== null;
 
     if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkout.templateVersion) {
-      const currentTemplateVersion = await computeTemplateVersionForTemplateId(
-        scheduledWorkout.templateId,
-        db,
-      );
+      const templateVersionMatches = await templateVersionMatchesCurrentTemplate({
+        database: db,
+        templateId: scheduledWorkout.templateId,
+        templateVersion: scheduledWorkout.templateVersion,
+      });
 
-      if (currentTemplateVersion !== scheduledWorkout.templateVersion) {
+      if (!templateVersionMatches) {
         templateDrift = {
           changedAt: sourceTemplate.updatedAt,
           summary: TEMPLATE_DRIFT_SUMMARY,
@@ -651,7 +652,9 @@ export const reorderScheduledWorkoutExercises = async ({
   userId: string;
   scheduledWorkoutId: string;
   order: ReorderScheduledWorkoutInput['order'];
-}): Promise<ScheduledWorkoutDetail | ReorderScheduledWorkoutExercisesValidationError | undefined> => {
+}): Promise<
+  ScheduledWorkoutDetail | ReorderScheduledWorkoutExercisesValidationError | undefined
+> => {
   const { db } = await import('../../db/index.js');
 
   const scheduledWorkout = await findScheduledWorkoutById(scheduledWorkoutId, userId);
@@ -667,7 +670,9 @@ export const reorderScheduledWorkoutExercises = async ({
     .sort(sortSnapshotExercises);
 
   const existingExerciseIds = new Set(snapshotRows.map((row) => row.exerciseId));
-  const missingExerciseIds = [...existingExerciseIds].filter((exerciseId) => !order.includes(exerciseId));
+  const missingExerciseIds = [...existingExerciseIds].filter(
+    (exerciseId) => !order.includes(exerciseId),
+  );
   const extraExerciseIds = order.filter((exerciseId) => !existingExerciseIds.has(exerciseId));
   const duplicateExerciseIds = getDuplicateIds(order);
 
@@ -742,7 +747,9 @@ export const updateScheduledWorkoutExercises = async ({
   userId: string;
   scheduledWorkoutId: string;
   updates: UpdateScheduledWorkoutExercisesInput['updates'];
-}): Promise<ScheduledWorkoutDetail | UpdateScheduledWorkoutExercisesValidationError | undefined> => {
+}): Promise<
+  ScheduledWorkoutDetail | UpdateScheduledWorkoutExercisesValidationError | undefined
+> => {
   const { db } = await import('../../db/index.js');
 
   const scheduledWorkout = await findScheduledWorkoutById(scheduledWorkoutId, userId);
@@ -790,10 +797,7 @@ export const updateScheduledWorkoutExercises = async ({
       payload.restSeconds = update.restSeconds;
       row.restSeconds = update.restSeconds;
     }
-    if (
-      update.programmingNotes !== undefined &&
-      update.programmingNotes !== row.programmingNotes
-    ) {
+    if (update.programmingNotes !== undefined && update.programmingNotes !== row.programmingNotes) {
       payload.programmingNotes = update.programmingNotes;
       row.programmingNotes = update.programmingNotes;
     }
@@ -848,7 +852,9 @@ export const updateScheduledWorkoutExerciseSets = async ({
   scheduledWorkoutId: string;
   exerciseId: UpdateScheduledWorkoutExerciseSetsInput['exerciseId'];
   sets: UpdateScheduledWorkoutExerciseSetsInput['sets'];
-}): Promise<ScheduledWorkoutDetail | UpdateScheduledWorkoutExercisesValidationError | undefined> => {
+}): Promise<
+  ScheduledWorkoutDetail | UpdateScheduledWorkoutExercisesValidationError | undefined
+> => {
   const { db } = await import('../../db/index.js');
 
   const scheduledWorkout = await findScheduledWorkoutById(scheduledWorkoutId, userId);

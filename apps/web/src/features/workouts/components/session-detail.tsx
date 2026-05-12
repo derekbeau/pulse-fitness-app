@@ -1,6 +1,14 @@
 import { useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, ChevronDown, Dumbbell, ListChecks, NotebookPen, Repeat2, Scale } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Dumbbell,
+  ListChecks,
+  NotebookPen,
+  Repeat2,
+  Scale,
+} from 'lucide-react';
 import {
   type ExerciseTrackingType,
   type SessionSet,
@@ -622,7 +630,6 @@ function resolveCorrectionMetric(value: string, fallback: number | null) {
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
-
 function toCompletedSetListItem(
   set: SessionSet,
   trackingType: ExerciseTrackingType,
@@ -697,8 +704,9 @@ function buildSections(
   const templateTrackingTypeById = new Map<string, ExerciseTrackingType>();
   const sessionExerciseMetaById = new Map(
     (session.exercises ?? [])
-      .filter((exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
-        typeof exercise.exerciseId === 'string',
+      .filter(
+        (exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
+          typeof exercise.exerciseId === 'string',
       )
       .map((exercise) => [
         exercise.exerciseId,
@@ -747,8 +755,8 @@ function buildSections(
   >([
     ['warmup', new Map()],
     ['main', new Map()],
-    ['cooldown', new Map()],
     ['supplemental', new Map()],
+    ['cooldown', new Map()],
   ]);
   const sortedSets = [...session.sets].sort(
     (left, right) => left.setNumber - right.setNumber || left.createdAt - right.createdAt,
@@ -756,7 +764,9 @@ function buildSections(
 
   for (const set of sortedSets) {
     const templateSection =
-      typeof set.exerciseId === 'string' ? templateSectionByExerciseId.get(set.exerciseId) : undefined;
+      typeof set.exerciseId === 'string'
+        ? templateSectionByExerciseId.get(set.exerciseId)
+        : undefined;
     const derivedSection = set.section ?? templateSection ?? 'supplemental';
     const sectionMap =
       sectionBuckets.get(derivedSection) ??
@@ -772,7 +782,7 @@ function buildSections(
     sectionBuckets.set(derivedSection, sectionMap);
   }
 
-  return (['warmup', 'main', 'cooldown', 'supplemental'] as const)
+  return (['warmup', 'main', 'supplemental', 'cooldown'] as const)
     .map((sectionType) => {
       const groupedExercises =
         sectionBuckets.get(sectionType) ??
@@ -785,9 +795,9 @@ function buildSections(
         const name =
           exerciseId === null
             ? 'Deleted exercise'
-            : sessionExerciseMeta?.exerciseName ??
+            : (sessionExerciseMeta?.exerciseName ??
               templateExerciseNameById.get(exerciseId) ??
-              formatLabel(exerciseId);
+              formatLabel(exerciseId));
         const trackingType = resolveTrackingType({
           trackingType:
             (typeof exerciseId === 'string'
@@ -876,8 +886,9 @@ function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | 
   const exerciseIds = new Set<string | null>();
   const sessionTrackingTypeById = new Map(
     (session.exercises ?? [])
-      .filter((exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
-        typeof exercise.exerciseId === 'string',
+      .filter(
+        (exercise): exercise is WorkoutSessionExerciseRecord & { exerciseId: string } =>
+          typeof exercise.exerciseId === 'string',
       )
       .map((exercise) => [exercise.exerciseId, exercise.trackingType]),
   );

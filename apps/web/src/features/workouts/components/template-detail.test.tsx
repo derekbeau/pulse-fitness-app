@@ -245,11 +245,13 @@ describe('WorkoutTemplateDetail', () => {
       data: {
         ...templatePayload.data,
         sections: [
-          ...templatePayload.data.sections,
+          templatePayload.data.sections[0],
+          templatePayload.data.sections[1],
           {
             type: 'supplemental',
             exercises: [],
           },
+          templatePayload.data.sections[2],
         ],
       },
     };
@@ -278,6 +280,52 @@ describe('WorkoutTemplateDetail', () => {
 
     expect(supplementalSection).not.toBeNull();
     expect(supplementalSection).toHaveClass('border-l-[var(--color-accent-cream)]');
+  });
+
+  it('renders supplemental template sections before cooldown', async () => {
+    const templateWithSupplemental = {
+      data: {
+        ...templatePayload.data,
+        sections: [
+          templatePayload.data.sections[0],
+          templatePayload.data.sections[1],
+          {
+            type: 'supplemental',
+            exercises: [],
+          },
+          templatePayload.data.sections[2],
+        ],
+      },
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templateWithSupplemental));
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    const warmup = await screen.findByRole('heading', { level: 2, name: 'Warmup' });
+    const main = screen.getByRole('heading', { level: 2, name: 'Main' });
+    const supplemental = screen.getByRole('heading', { level: 2, name: 'Supplemental' });
+    const cooldown = screen.getByRole('heading', { level: 2, name: 'Cooldown' });
+
+    expect(warmup.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      main.compareDocumentPosition(supplemental) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      supplemental.compareDocumentPosition(cooldown) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('edits template exercise prescription fields from the exercise menu', async () => {

@@ -158,6 +158,68 @@ describe('ScheduledWorkoutDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders supplemental sections before cooldown', async () => {
+    const detail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      exercises: [
+        buildSnapshotExercise({
+          exerciseId: 'cooldown-exercise',
+          exerciseName: 'Cooldown Exercise',
+          section: 'cooldown',
+        }),
+        buildSnapshotExercise({
+          exerciseId: 'supplemental-exercise',
+          exerciseName: 'Supplemental Exercise',
+          section: 'supplemental',
+        }),
+        buildSnapshotExercise({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          section: 'main',
+        }),
+        buildSnapshotExercise({
+          exerciseId: 'warmup-exercise',
+          exerciseName: 'Warmup Exercise',
+          section: 'warmup',
+        }),
+      ],
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: detail }));
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    const warmup = await screen.findByRole('heading', { level: 2, name: 'Warmup' });
+    const main = screen.getByRole('heading', { level: 2, name: 'Main' });
+    const supplemental = screen.getByRole('heading', { level: 2, name: 'Supplemental' });
+    const cooldown = screen.getByRole('heading', { level: 2, name: 'Cooldown' });
+
+    expect(warmup.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      main.compareDocumentPosition(supplemental) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      supplemental.compareDocumentPosition(cooldown) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('renders template drift, stale exercise, and template deleted banners from marker states', async () => {
     const detail = createScheduledWorkoutDetailPayload({
       date: toDateKey(new Date()),
@@ -856,9 +918,9 @@ describe('ScheduledWorkoutDetail', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Superset —' }));
     fireEvent.click(screen.getByRole('button', { name: 'Superset A' }));
 
-    expect(
-      await screen.findByTestId('scheduled-workout-structure-error-banner'),
-    ).toHaveTextContent('Failed to update superset group');
+    expect(await screen.findByTestId('scheduled-workout-structure-error-banner')).toHaveTextContent(
+      'Failed to update superset group',
+    );
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Superset —' })).toBeInTheDocument();
@@ -1027,7 +1089,9 @@ function buildSnapshotSet(overrides: Partial<SnapshotSetFixture>): SnapshotSetFi
   };
 }
 
-function buildSnapshotExercise(overrides: Partial<SnapshotExerciseFixture>): SnapshotExerciseFixture {
+function buildSnapshotExercise(
+  overrides: Partial<SnapshotExerciseFixture>,
+): SnapshotExerciseFixture {
   return {
     exerciseId: SCHEDULED_EXERCISE_IDS.first,
     exerciseName: 'Incline Dumbbell Press',

@@ -968,8 +968,8 @@ const buildHabitLookup = (
 const WORKOUT_SECTION_ORDER: WorkoutTemplateSectionType[] = [
   'warmup',
   'main',
-  'cooldown',
   'supplemental',
+  'cooldown',
 ];
 const SESSION_TIMELESS_FALLBACK_SUFFIX = 'T00:00:00.000Z';
 const MIGRATION_ID_HASH_LENGTH = 24;

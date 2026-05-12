@@ -51,8 +51,8 @@ import { templateBelongsToUser } from '../workout-templates/template-access.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 
 import {
-  computeTemplateVersionForTemplateId,
   readSnapshot,
+  templateVersionMatchesCurrentTemplate,
   writeSnapshot,
 } from './snapshot-store.js';
 import {
@@ -294,12 +294,13 @@ const buildScheduledWorkoutDetail = async ({
     templateDeleted = !sourceTemplate || sourceTemplate.deletedAt !== null;
 
     if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkout.templateVersion) {
-      const currentTemplateVersion = await computeTemplateVersionForTemplateId(
-        scheduledWorkout.templateId,
-        db,
-      );
+      const templateVersionMatches = await templateVersionMatchesCurrentTemplate({
+        database: db,
+        templateId: scheduledWorkout.templateId,
+        templateVersion: scheduledWorkout.templateVersion,
+      });
 
-      if (currentTemplateVersion !== scheduledWorkout.templateVersion) {
+      if (!templateVersionMatches) {
         templateDrift = {
           changedAt: sourceTemplate.updatedAt,
           summary: TEMPLATE_DRIFT_SUMMARY,

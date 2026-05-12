@@ -99,12 +99,15 @@ const sectionAccentStyles: Record<WorkoutTemplateSectionType, string> = {
   supplemental: 'border-l-[var(--color-accent-cream)]',
 };
 
-const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 const supersetOptions = ['A', 'B', 'C'] as const;
 
 type EditableSetFieldDefinition = {
   inputMode: 'decimal' | 'numeric';
-  key: Exclude<keyof UpdateScheduledWorkoutExerciseSetsInput['sets'][number], 'setNumber' | 'remove'>;
+  key: Exclude<
+    keyof UpdateScheduledWorkoutExerciseSetsInput['sets'][number],
+    'setNumber' | 'remove'
+  >;
   label: string;
   step: string;
   suffix?: string;
@@ -670,7 +673,9 @@ function ScheduledWorkoutSections({
                 }
 
                 const exerciseIds = section.exercises.map((exercise) => exercise.exerciseId);
-                const currentIndex = exerciseIds.findIndex((exerciseId) => exerciseId === active.id);
+                const currentIndex = exerciseIds.findIndex(
+                  (exerciseId) => exerciseId === active.id,
+                );
                 const nextIndex = exerciseIds.findIndex((exerciseId) => exerciseId === over.id);
 
                 if (currentIndex === -1 || nextIndex === -1) {
@@ -687,7 +692,10 @@ function ScheduledWorkoutSections({
                 strategy={verticalListSortingStrategy}
               >
                 {section.exercises.map((exercise, index) => {
-                  const templateExercise = resolveTemplateExercise(exercise, templateExerciseLookup);
+                  const templateExercise = resolveTemplateExercise(
+                    exercise,
+                    templateExerciseLookup,
+                  );
                   const resolvedName = exercise.exerciseName;
 
                   return (
@@ -793,7 +801,8 @@ function ScheduledExerciseCard({
     disabled: isEditLocked || isMutating,
   });
   const [setEditTarget, setSetEditTarget] = useState<SnapshotExerciseSet | null>(null);
-  const nextSetNumber = exercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0) + 1;
+  const nextSetNumber =
+    exercise.sets.reduce((maxValue, set) => Math.max(maxValue, set.setNumber), 0) + 1;
   const supersetLabel = formatSupersetGroupLabel(exercise.supersetGroup);
 
   return (
@@ -802,160 +811,160 @@ function ScheduledExerciseCard({
         cardRef={setNodeRef}
         exercise={toWorkoutExerciseCardScheduledExercise(exercise, exerciseName, templateExercise)}
         footerSlot={
-        <div className="space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
-            {isEditLocked ? (
-              <Badge className="border-border/80 bg-secondary/60" variant="outline">
-                {`Superset ${supersetLabel}`}
-              </Badge>
-            ) : (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    className="h-7 rounded-full px-2 text-[11px]"
-                    disabled={isMutating}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {`Superset ${supersetLabel}`}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-40 p-2">
-                  <div className="space-y-1">
-                    {supersetOptions.map((option) => (
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{`Exercise #${index + 1}`}</p>
+              {isEditLocked ? (
+                <Badge className="border-border/80 bg-secondary/60" variant="outline">
+                  {`Superset ${supersetLabel}`}
+                </Badge>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      className="h-7 rounded-full px-2 text-[11px]"
+                      disabled={isMutating}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {`Superset ${supersetLabel}`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-40 p-2">
+                    <div className="space-y-1">
+                      {supersetOptions.map((option) => (
+                        <Button
+                          className="w-full justify-start"
+                          key={option}
+                          onClick={() => {
+                            void onUpdateSupersetGroup(exercise.exerciseId, option);
+                          }}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {`Superset ${option}`}
+                        </Button>
+                      ))}
                       <Button
                         className="w-full justify-start"
-                        key={option}
                         onClick={() => {
-                          void onUpdateSupersetGroup(exercise.exerciseId, option);
+                          void onUpdateSupersetGroup(exercise.exerciseId, null);
                         }}
                         size="sm"
                         type="button"
                         variant="ghost"
                       >
-                        {`Superset ${option}`}
+                        Clear grouping
                       </Button>
-                    ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
+            <div className="space-y-1.5 rounded-xl border border-border/80 bg-secondary/20 p-2.5">
+              {exercise.sets
+                .slice()
+                .sort((left, right) => left.setNumber - right.setNumber)
+                .map((set) => (
+                  <div className="flex items-center justify-between gap-2" key={set.setNumber}>
                     <Button
-                      className="w-full justify-start"
-                      onClick={() => {
-                        void onUpdateSupersetGroup(exercise.exerciseId, null);
-                      }}
-                      size="sm"
+                      className="h-auto min-h-9 flex-1 justify-start px-2 py-1.5 text-left"
+                      disabled={isEditLocked || isMutating}
+                      onClick={() => setSetEditTarget(set)}
                       type="button"
                       variant="ghost"
                     >
-                      Clear grouping
+                      <span className="text-xs text-foreground">
+                        {`Set ${set.setNumber}: ${formatSetTargetSummary(set)}`}
+                      </span>
                     </Button>
+                    {!isEditLocked ? (
+                      <Button
+                        className="h-8 px-2 text-xs"
+                        disabled={isMutating}
+                        onClick={() => {
+                          void onRemoveSet(exercise.exerciseId, set.setNumber);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {`Remove set ${set.setNumber}`}
+                      </Button>
+                    ) : null}
                   </div>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+                ))}
 
-          <div className="space-y-1.5 rounded-xl border border-border/80 bg-secondary/20 p-2.5">
-            {exercise.sets
-              .slice()
-              .sort((left, right) => left.setNumber - right.setNumber)
-              .map((set) => (
-                <div className="flex items-center justify-between gap-2" key={set.setNumber}>
-                  <Button
-                    className="h-auto min-h-9 flex-1 justify-start px-2 py-1.5 text-left"
-                    disabled={isEditLocked || isMutating}
-                    onClick={() => setSetEditTarget(set)}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <span className="text-xs text-foreground">
-                      {`Set ${set.setNumber}: ${formatSetTargetSummary(set)}`}
-                    </span>
-                  </Button>
-                  {!isEditLocked ? (
-                    <Button
-                      className="h-8 px-2 text-xs"
-                      disabled={isMutating}
-                      onClick={() => {
-                        void onRemoveSet(exercise.exerciseId, set.setNumber);
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {`Remove set ${set.setNumber}`}
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-
-            {!isEditLocked ? (
-              <Button
-                className="w-full justify-center"
-                disabled={isMutating}
-                onClick={() => {
-                  void onAddSet(exercise.exerciseId, nextSetNumber);
-                }}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Plus aria-hidden="true" className="size-4" />
-                Add set
-              </Button>
-            ) : null}
+              {!isEditLocked ? (
+                <Button
+                  className="w-full justify-center"
+                  disabled={isMutating}
+                  onClick={() => {
+                    void onAddSet(exercise.exerciseId, nextSetNumber);
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                  Add set
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
         }
         headerSlot={
-        <>
-          <Button
-            aria-label={`Open ${exerciseName} history`}
-            className="size-11 min-h-11 min-w-11"
-            onClick={onOpenHistory}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <History aria-hidden="true" className="size-4" />
-          </Button>
-          <Button
-            aria-label={`Move ${exerciseName} up`}
-            className="size-11 min-h-11 min-w-11"
-            disabled={isMoveUpDisabled}
-            onClick={onMoveUp}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowUp aria-hidden="true" className="size-4" />
-          </Button>
-          <Button
-            aria-label={`Move ${exerciseName} down`}
-            className="size-11 min-h-11 min-w-11"
-            disabled={isMoveDownDisabled}
-            onClick={onMoveDown}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowDown aria-hidden="true" className="size-4" />
-          </Button>
-        </>
+          <>
+            <Button
+              aria-label={`Open ${exerciseName} history`}
+              className="size-11 min-h-11 min-w-11"
+              onClick={onOpenHistory}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <History aria-hidden="true" className="size-4" />
+            </Button>
+            <Button
+              aria-label={`Move ${exerciseName} up`}
+              className="size-11 min-h-11 min-w-11"
+              disabled={isMoveUpDisabled}
+              onClick={onMoveUp}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowUp aria-hidden="true" className="size-4" />
+            </Button>
+            <Button
+              aria-label={`Move ${exerciseName} down`}
+              className="size-11 min-h-11 min-w-11"
+              disabled={isMoveDownDisabled}
+              onClick={onMoveDown}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowDown aria-hidden="true" className="size-4" />
+            </Button>
+          </>
         }
         leadingSlot={
-        <Button
-          aria-label={`Drag handle for ${exerciseName}`}
-          className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
-          disabled={isEditLocked || isMutating}
-          size="icon"
-          type="button"
-          variant="ghost"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical aria-hidden="true" className="size-4" />
-        </Button>
+          <Button
+            aria-label={`Drag handle for ${exerciseName}`}
+            className="-ml-1 mt-0.5 size-11 min-h-11 min-w-11 touch-none"
+            disabled={isEditLocked || isMutating}
+            size="icon"
+            type="button"
+            variant="ghost"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical aria-hidden="true" className="size-4" />
+          </Button>
         }
         mode="editable-scheduled"
         onOpenDetails={onOpenHistory}
@@ -1004,7 +1013,9 @@ function EditScheduledSetDialog({
   onSave: (setUpdate: UpdateScheduledWorkoutExerciseSetsInput['sets'][number]) => Promise<void>;
   set: SnapshotExerciseSet;
 }) {
-  const [fieldDraft, setFieldDraft] = useState<ScheduledSetEditorDraft>(() => createSetEditorDraft(set));
+  const [fieldDraft, setFieldDraft] = useState<ScheduledSetEditorDraft>(() =>
+    createSetEditorDraft(set),
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSave = async () => {
@@ -1480,8 +1491,8 @@ function buildSnapshotSections(snapshotExercises: SnapshotExercise[]) {
   const grouped = new Map<WorkoutTemplateSectionType, SnapshotExercise[]>([
     ['warmup', []],
     ['main', []],
-    ['cooldown', []],
     ['supplemental', []],
+    ['cooldown', []],
   ]);
 
   for (const exercise of snapshotExercises) {

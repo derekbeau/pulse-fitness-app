@@ -16,8 +16,14 @@ import {
 
 type PulseDb = typeof import('../../db/index.js').db;
 
-const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 const SECTION_RANK: Record<WorkoutTemplateSectionType, number> = {
+  warmup: 0,
+  main: 1,
+  supplemental: 2,
+  cooldown: 3,
+};
+const LEGACY_SECTION_RANK: Record<WorkoutTemplateSectionType, number> = {
   warmup: 0,
   main: 1,
   cooldown: 2,
@@ -152,21 +158,23 @@ const toExerciseProgrammingNotes = (
   row: Pick<TemplateExerciseSnapshotRow, 'programmingNotes' | 'notes'>,
 ) => row.programmingNotes ?? row.notes ?? null;
 
-const compareTemplateExercises = (
-  left: TemplateExerciseSnapshotRow,
-  right: TemplateExerciseSnapshotRow,
-) => {
-  const sectionDelta = SECTION_RANK[left.section] - SECTION_RANK[right.section];
-  if (sectionDelta !== 0) {
-    return sectionDelta;
-  }
+const compareTemplateExercisesByRank =
+  (sectionRank: Record<WorkoutTemplateSectionType, number>) =>
+  (left: TemplateExerciseSnapshotRow, right: TemplateExerciseSnapshotRow): number => {
+    const sectionDelta = sectionRank[left.section] - sectionRank[right.section];
+    if (sectionDelta !== 0) {
+      return sectionDelta;
+    }
 
-  if (left.orderIndex !== right.orderIndex) {
-    return left.orderIndex - right.orderIndex;
-  }
+    if (left.orderIndex !== right.orderIndex) {
+      return left.orderIndex - right.orderIndex;
+    }
 
-  return left.id.localeCompare(right.id);
-};
+    return left.id.localeCompare(right.id);
+  };
+
+const compareTemplateExercises = compareTemplateExercisesByRank(SECTION_RANK);
+const compareLegacyTemplateExercises = compareTemplateExercisesByRank(LEGACY_SECTION_RANK);
 
 const toExactReps = (repsMin: number | null, repsMax: number | null): number | null => {
   if (repsMin === null || repsMax === null) {
@@ -256,15 +264,46 @@ export const computeTemplateVersionForTemplateId = async (
   templateId: string,
   database?: PulseDb,
 ): Promise<string> => {
+  const versions = await computeCompatibleTemplateVersionsForTemplateId(templateId, database);
+
+  return versions.current;
+};
+
+export const computeCompatibleTemplateVersionsForTemplateId = async (
+  templateId: string,
+  database?: PulseDb,
+): Promise<{ current: string; compatible: string[] }> => {
   const db = await resolveDb(database);
   const templateRows = db
     .select(templateExerciseSnapshotSelection)
     .from(templateExercises)
     .where(eq(templateExercises.templateId, templateId))
-    .all()
-    .sort(compareTemplateExercises);
+    .all();
+  const current = computeScheduledWorkoutTemplateVersion(
+    [...templateRows].sort(compareTemplateExercises),
+  );
+  const legacy = computeScheduledWorkoutTemplateVersion(
+    [...templateRows].sort(compareLegacyTemplateExercises),
+  );
 
-  return computeScheduledWorkoutTemplateVersion(templateRows);
+  return {
+    current,
+    compatible: Array.from(new Set([current, legacy])),
+  };
+};
+
+export const templateVersionMatchesCurrentTemplate = async ({
+  database,
+  templateId,
+  templateVersion,
+}: {
+  database?: PulseDb;
+  templateId: string;
+  templateVersion: string;
+}): Promise<boolean> => {
+  const versions = await computeCompatibleTemplateVersionsForTemplateId(templateId, database);
+
+  return versions.compatible.includes(templateVersion);
 };
 
 export const readSnapshot = async (

@@ -34,7 +34,7 @@ import {
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 
-const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
 export const sectionRank = (section: WorkoutTemplateSectionType | null): number => {
   if (section === null) {

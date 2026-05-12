@@ -2,7 +2,7 @@ import type { WorkoutSessionTimeSegment } from './workout-sessions.js';
 
 const INVALID_WORKOUT_SESSION_TIME_SEGMENTS_ERROR =
   'Expected a JSON-encoded workout session time segments array.';
-const WORKOUT_SECTIONS = ['warmup', 'main', 'cooldown', 'supplemental'] as const;
+const WORKOUT_SECTIONS = ['warmup', 'main', 'supplemental', 'cooldown'] as const;
 type WorkoutSection = (typeof WORKOUT_SECTIONS)[number];
 type LegacyWorkoutSessionTimeSegment = Omit<WorkoutSessionTimeSegment, 'section'> &
   Partial<Pick<WorkoutSessionTimeSegment, 'section'>>;

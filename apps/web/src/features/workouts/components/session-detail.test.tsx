@@ -121,15 +121,70 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Session Notes')).toBeInTheDocument();
     expect(screen.getByLabelText(/show comparison/i)).toBeInTheDocument();
     expect(screen.queryByText('Volume progression')).not.toBeInTheDocument();
-    expect(
-      screen.getByTestId('workout-exercise-card-incline-dumbbell-press'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('workout-exercise-card-incline-dumbbell-press')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
+  });
+
+  it('renders supplemental receipt sections before cooldown', async () => {
+    const currentSession = createSession({
+      id: 'session-section-order',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-cooldown',
+          exerciseId: 'cooldown-exercise',
+          section: 'cooldown',
+        }),
+        createSet({
+          id: 'set-supplemental',
+          exerciseId: 'supplemental-exercise',
+          section: 'supplemental',
+        }),
+        createSet({
+          id: 'set-main',
+          exerciseId: 'main-exercise',
+          section: 'main',
+        }),
+        createSet({
+          id: 'set-warmup',
+          exerciseId: 'warmup-exercise',
+          section: 'warmup',
+        }),
+      ],
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    const warmup = await screen.findByRole('heading', { level: 3, name: 'Warmup' });
+    const main = screen.getByRole('heading', { level: 3, name: 'Main' });
+    const supplemental = screen.getByRole('heading', { level: 3, name: 'Supplemental' });
+    const cooldown = screen.getByRole('heading', { level: 3, name: 'Cooldown' });
+
+    expect(warmup.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      main.compareDocumentPosition(supplemental) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      supplemental.compareDocumentPosition(cooldown) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('renders programming notes separately from exercise notes', async () => {

@@ -53,11 +53,11 @@ Plan vs live run invariant:
 Workout exercise note content is split into three channels and should stay separate in API,
 storage, and UI rendering.
 
-| Field | Source | Mutable after session-start? | Rendered as |
-| --- | --- | --- | --- |
-| `programmingNotes` | Template, snapshotted on schedule or session-create | No | Read-only "programming" block |
-| `agentNotes` | Agent PATCH between schedule and session-start | No (client) | Read-only "✨ For today" block |
-| `notes` (user) | User textarea on session | Yes | User textarea |
+| Field              | Source                                              | Mutable after session-start? | Rendered as                    |
+| ------------------ | --------------------------------------------------- | ---------------------------- | ------------------------------ |
+| `programmingNotes` | Template, snapshotted on schedule or session-create | No                           | Read-only "programming" block  |
+| `agentNotes`       | Agent PATCH between schedule and session-start      | No (client)                  | Read-only "✨ For today" block |
+| `notes` (user)     | User textarea on session                            | Yes                          | User textarea                  |
 
 Lifecycle rules:
 
@@ -145,11 +145,11 @@ A workout session is the user-specific execution record of a template.
 - `duration`: total elapsed minutes for the session
 - `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp, nullable `end`, and a `section` (`warmup`, `main`, `cooldown`, or `supplemental`)
 - `sectionDurations`: derived server response field with per-section elapsed milliseconds:
-  `{ warmup, main, cooldown, supplemental }`
+  `{ warmup, main, supplemental, cooldown }`
 
 ### Section Ordering And Supplemental Fallback
 
-- API response ordering: `GET /api/v1/workout-sessions/:id` must return both `sets[]` and `exercises[]` ordered as `warmup → main → cooldown → supplemental → null-section orphans → unknown`. This is enforced by `sectionRank` in `apps/api/src/routes/workout-sessions/store.ts`.
+- API response ordering: `GET /api/v1/workout-sessions/:id` must return both `sets[]` and `exercises[]` ordered as `warmup → main → supplemental → cooldown → null-section orphans → unknown`. This is enforced by `sectionRank` in `apps/api/src/routes/workout-sessions/store.ts`.
 - Unknown section values always sort to the end. If a new section type is introduced, add it to `SECTION_ORDER` in `apps/api/src/routes/workout-sessions/store.ts` so it sorts in the intended position.
 - Session snapshot rule: section membership is snapshotted at session creation via `buildInitialSessionSets` in `apps/api/src/routes/workout-sessions/session-set-utils.ts`. Later template edits do not backfill an in-flight session. To modify upcoming workouts, edit the scheduled-workout snapshot endpoints instead of the template source.
 - Supplemental UI fallback: `buildTemplateFromSession` in `apps/web/src/pages/active-workout.tsx` unions in fallback-template supplemental exercises when the session snapshot has zero supplemental rows.

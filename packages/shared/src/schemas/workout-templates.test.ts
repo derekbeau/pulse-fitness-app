@@ -187,8 +187,8 @@ describe('workoutTemplateSchema', () => {
       sections: [
         { type: 'warmup', exercises: [] },
         { type: 'main', exercises: [] },
-        { type: 'cooldown', exercises: [] },
         { type: 'supplemental', exercises: [] },
+        { type: 'cooldown', exercises: [] },
       ],
       createdAt: 1,
       updatedAt: 1,
@@ -198,9 +198,20 @@ describe('workoutTemplateSchema', () => {
     expect(parsed.sections.map((section) => section.type)).toEqual([
       'warmup',
       'main',
-      'cooldown',
       'supplemental',
+      'cooldown',
     ]);
+
+    const oldOrderResult = workoutTemplateSchema.safeParse({
+      ...fourSectionPayload,
+      sections: [
+        { type: 'warmup', exercises: [] },
+        { type: 'main', exercises: [] },
+        { type: 'cooldown', exercises: [] },
+        { type: 'supplemental', exercises: [] },
+      ],
+    });
+    expect(oldOrderResult.success).toBe(false);
 
     const fiveSectionResult = workoutTemplateSchema.safeParse({
       ...fourSectionPayload,

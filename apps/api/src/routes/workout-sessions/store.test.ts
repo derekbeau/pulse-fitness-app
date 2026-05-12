@@ -188,7 +188,7 @@ describe('workout session store deleteSessionSet', () => {
     seedExercise({ id: 'global-row', name: 'Row' });
   });
 
-  it('sortSessionSets orders warmup/main/cooldown/supplemental/null/unknown', () => {
+  it('sortSessionSets orders warmup/main/supplemental/cooldown/null/unknown', () => {
     type SortableSetRecord = Parameters<StoreModule['sortSessionSets']>[0];
     const baseCreatedAt = Date.now();
 
@@ -231,14 +231,14 @@ describe('workout session store deleteSessionSet', () => {
     expect(sortedSections).toEqual([
       'warmup',
       'main',
-      'cooldown',
       'supplemental',
+      'cooldown',
       null,
       unknownSection,
     ]);
   });
 
-  it('returns GET /workout-sessions/:id sets in warmup/main/cooldown/supplemental order', async () => {
+  it('returns GET /workout-sessions/:id sets in warmup/main/supplemental/cooldown order', async () => {
     seedExercise({ id: 'global-squat', name: 'Squat' });
     seedExercise({ id: 'global-press', name: 'Press' });
     seedWorkoutSession({ id: 'session-get-order', userId: 'user-1', status: 'in-progress' });
@@ -292,12 +292,12 @@ describe('workout session store deleteSessionSet', () => {
     expect(payload.data.sets.map((set) => set.section)).toEqual([
       'warmup',
       'main',
-      'cooldown',
       'supplemental',
+      'cooldown',
     ]);
   });
 
-  it('orders exercises by section as warmup/main/cooldown/supplemental', async () => {
+  it('orders exercises by section as warmup/main/supplemental/cooldown', async () => {
     seedExercise({ id: 'global-squat', name: 'Squat' });
     seedExercise({ id: 'global-press', name: 'Press' });
     seedWorkoutSession({
@@ -348,8 +348,8 @@ describe('workout session store deleteSessionSet', () => {
     expect(exercises.map((exercise) => exercise.section)).toEqual([
       'warmup',
       'main',
-      'cooldown',
       'supplemental',
+      'cooldown',
     ]);
   });
 

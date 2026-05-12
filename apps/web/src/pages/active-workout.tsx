@@ -109,8 +109,8 @@ const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
 const workoutSectionOrder: WorkoutTemplateSectionType[] = [
   'warmup',
   'main',
-  'cooldown',
   'supplemental',
+  'cooldown',
 ];
 
 const createEmptyTemplate = (templateId: string): ActiveWorkoutTemplate => ({
@@ -2533,7 +2533,7 @@ export function buildTemplateFromSession(
     return fallbackTemplate;
   }
 
-  const sectionOrder: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown', 'supplemental'];
+  const sectionOrder = workoutSectionOrder;
   const fallbackExerciseById = new Map(
     fallbackTemplate.sections.flatMap((section) =>
       section.exercises.map((exercise) => [

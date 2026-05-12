@@ -39,8 +39,8 @@ const nullableNonNegativeNumberSchema = z.number().min(0).nullable();
 export const workoutTemplateSectionTypeSchema = z.enum([
   'warmup',
   'main',
-  'cooldown',
   'supplemental',
+  'cooldown',
 ]);
 export const workoutTemplateExerciseSetSchema = z
   .object({
@@ -176,10 +176,10 @@ export const workoutTemplateSchema = z.object({
       (sections) =>
         sections[0]?.type === 'warmup' &&
         sections[1]?.type === 'main' &&
-        sections[2]?.type === 'cooldown' &&
-        (sections.length === 3 || sections[3]?.type === 'supplemental'),
+        ((sections.length === 3 && sections[2]?.type === 'cooldown') ||
+          (sections[2]?.type === 'supplemental' && sections[3]?.type === 'cooldown')),
       {
-        message: 'Sections must be ordered warmup, main, cooldown, then optional supplemental',
+        message: 'Sections must be ordered warmup, main, optional supplemental, then cooldown',
       },
     ),
   createdAt: z.number().int(),

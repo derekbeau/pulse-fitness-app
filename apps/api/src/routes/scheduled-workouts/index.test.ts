@@ -21,6 +21,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
+import { computeScheduledWorkoutTemplateVersion } from './snapshot-store.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -328,6 +329,49 @@ const createScheduledWorkoutFromTemplate = async ({
   return (response.json() as { data: { id: string } }).data.id;
 };
 
+const computeLegacyTemplateVersion = (templateId: string) => {
+  const legacySectionRank: Record<string, number> = {
+    warmup: 0,
+    main: 1,
+    cooldown: 2,
+    supplemental: 3,
+  };
+  const templateRows = context.db
+    .select({
+      id: templateExercises.id,
+      exerciseId: templateExercises.exerciseId,
+      section: templateExercises.section,
+      orderIndex: templateExercises.orderIndex,
+      sets: templateExercises.sets,
+      repsMin: templateExercises.repsMin,
+      repsMax: templateExercises.repsMax,
+      tempo: templateExercises.tempo,
+      restSeconds: templateExercises.restSeconds,
+      supersetGroup: templateExercises.supersetGroup,
+      notes: templateExercises.notes,
+      programmingNotes: templateExercises.programmingNotes,
+      cues: templateExercises.cues,
+      setTargets: templateExercises.setTargets,
+    })
+    .from(templateExercises)
+    .where(eq(templateExercises.templateId, templateId))
+    .all()
+    .sort((left, right) => {
+      const sectionDelta = legacySectionRank[left.section] - legacySectionRank[right.section];
+      if (sectionDelta !== 0) {
+        return sectionDelta;
+      }
+
+      if (left.orderIndex !== right.orderIndex) {
+        return left.orderIndex - right.orderIndex;
+      }
+
+      return left.id.localeCompare(right.id);
+    });
+
+  return computeScheduledWorkoutTemplateVersion(templateRows);
+};
+
 describe('scheduled workout routes', () => {
   beforeAll(async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'pulse-scheduled-workout-routes-'));
@@ -611,6 +655,168 @@ describe('scheduled workout routes', () => {
       .from(scheduledWorkoutExerciseSets)
       .all();
     expect(setRows).toHaveLength(2);
+  });
+
+  it('returns scheduled workout exercises in warmup/main/supplemental/cooldown order', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const exercisesToSeed = [
+      ['exercise-cooldown', 'Cooldown Stretch'],
+      ['exercise-supplemental', 'Face Pull'],
+      ['exercise-main', 'Bench Press'],
+      ['exercise-warmup', 'Band Pull Apart'],
+    ] as const;
+
+    for (const [id, name] of exercisesToSeed) {
+      seedExercise({
+        id,
+        userId: 'user-1',
+        name,
+      });
+    }
+
+    seedTemplateExercise({
+      id: 'template-order-cooldown',
+      templateId: 'template-1',
+      exerciseId: 'exercise-cooldown',
+      section: 'cooldown',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-order-supplemental',
+      templateId: 'template-1',
+      exerciseId: 'exercise-supplemental',
+      section: 'supplemental',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-order-main',
+      templateId: 'template-1',
+      exerciseId: 'exercise-main',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-order-warmup',
+      templateId: 'template-1',
+      exerciseId: 'exercise-warmup',
+      section: 'warmup',
+      orderIndex: 0,
+    });
+
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken,
+      date: '2026-03-12',
+    });
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises: Array<{ section: 'warmup' | 'main' | 'supplemental' | 'cooldown' }>;
+      };
+    };
+
+    expect(payload.data.exercises.map((exercise) => exercise.section)).toEqual([
+      'warmup',
+      'main',
+      'supplemental',
+      'cooldown',
+    ]);
+  });
+
+  it('does not flag unchanged scheduled workouts with old-order template versions as drifted', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const exercisesToSeed = [
+      ['exercise-cooldown', 'Cooldown Stretch'],
+      ['exercise-supplemental', 'Face Pull'],
+      ['exercise-main', 'Bench Press'],
+      ['exercise-warmup', 'Band Pull Apart'],
+    ] as const;
+
+    for (const [id, name] of exercisesToSeed) {
+      seedExercise({
+        id,
+        userId: 'user-1',
+        name,
+      });
+    }
+
+    seedTemplateExercise({
+      id: 'template-legacy-version-cooldown',
+      templateId: 'template-1',
+      exerciseId: 'exercise-cooldown',
+      section: 'cooldown',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-legacy-version-supplemental',
+      templateId: 'template-1',
+      exerciseId: 'exercise-supplemental',
+      section: 'supplemental',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-legacy-version-main',
+      templateId: 'template-1',
+      exerciseId: 'exercise-main',
+      section: 'main',
+      orderIndex: 0,
+    });
+    seedTemplateExercise({
+      id: 'template-legacy-version-warmup',
+      templateId: 'template-1',
+      exerciseId: 'exercise-warmup',
+      section: 'warmup',
+      orderIndex: 0,
+    });
+
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({
+      authToken,
+      date: '2026-03-12',
+    });
+    const legacyTemplateVersion = computeLegacyTemplateVersion('template-1');
+    context.db
+      .update(scheduledWorkouts)
+      .set({
+        templateVersion: legacyTemplateVersion,
+      })
+      .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
+      .run();
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        exercises: Array<{ section: 'warmup' | 'main' | 'supplemental' | 'cooldown' }>;
+        templateDrift: unknown;
+      };
+    };
+
+    expect(payload.data.templateDrift).toBeNull();
+    expect(payload.data.exercises.map((exercise) => exercise.section)).toEqual([
+      'warmup',
+      'main',
+      'supplemental',
+      'cooldown',
+    ]);
   });
 
   it('returns snapshot detail with programming notes and all-clear markers on GET by id', async () => {
@@ -1599,7 +1805,9 @@ describe('scheduled workout routes', () => {
       agent?: unknown;
     };
     expect(firstPayload.agent).toBeUndefined();
-    expect(firstPayload.data.exercises.map((exercise) => exercise.exerciseId)).toEqual(reversedOrder);
+    expect(firstPayload.data.exercises.map((exercise) => exercise.exerciseId)).toEqual(
+      reversedOrder,
+    );
     expect(firstPayload.data.exercises.map((exercise) => exercise.orderIndex)).toEqual([0, 1, 2]);
 
     const secondResponse = await context.app.inject({

@@ -2817,6 +2817,77 @@ describe('buildTemplateFromSession', () => {
     ]);
   });
 
+  it('orders session-derived sections before cooldown when supplemental is present', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [],
+    });
+    const session = createSessionForBuildTemplateTests({
+      exercises: [
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'cooldown-exercise',
+          exerciseName: 'Cooldown Exercise',
+          orderIndex: 0,
+          section: 'cooldown',
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'cooldown-exercise',
+              id: 'cooldown-session-set-1',
+              section: 'cooldown',
+            }),
+          ],
+        }),
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'warmup-exercise',
+          exerciseName: 'Warmup Exercise',
+          orderIndex: 0,
+          section: 'warmup',
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'warmup-exercise',
+              id: 'warmup-session-set-1',
+              section: 'warmup',
+            }),
+          ],
+        }),
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'supplemental-exercise',
+          exerciseName: 'Supplemental Exercise',
+          orderIndex: 0,
+          section: 'supplemental',
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'supplemental-exercise',
+              id: 'supplemental-session-set-1',
+              section: 'supplemental',
+            }),
+          ],
+        }),
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          orderIndex: 0,
+          section: 'main',
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'main-exercise',
+              id: 'main-session-set-1',
+              section: 'main',
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+
+    expect(result.sections.map((section) => section.type)).toEqual([
+      'warmup',
+      'main',
+      'supplemental',
+      'cooldown',
+    ]);
+  });
+
   it('uses template supplemental exercises when the snapshot has no supplemental rows', () => {
     const fallbackTemplate = createTemplateForBuildTemplateTests({
       supplementalExercises: [

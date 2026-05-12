@@ -671,8 +671,8 @@ describe('workout session routes', () => {
       const sectionOrder: Record<string, number> = {
         warmup: 0,
         main: 1,
-        cooldown: 2,
-        supplemental: 3,
+        supplemental: 2,
+        cooldown: 3,
       };
 
       const leftSection = sectionOrder[left.section];
@@ -817,8 +817,8 @@ describe('workout session routes', () => {
         const sectionOrder: Record<string, number> = {
           warmup: 0,
           main: 1,
-          cooldown: 2,
-          supplemental: 3,
+          supplemental: 2,
+          cooldown: 3,
         };
         if (left.section !== right.section) {
           return sectionOrder[left.section] - sectionOrder[right.section];
