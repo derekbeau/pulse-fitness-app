@@ -52,6 +52,8 @@ type MetricInputConfig = {
 
 type InputValues = Record<InputKey, number | null>;
 
+const SET_VALUE_UPDATE_DEBOUNCE_MS = 700;
+
 export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   {
     completed,
@@ -89,7 +91,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   );
   const debouncedOnUpdate = useDebouncedCallback((update: SetRowUpdate) => {
     onUpdate(update);
-  }, 250);
+  }, SET_VALUE_UPDATE_DEBOUNCE_MS);
   const localCompleted = completed;
   const targetHint = formatTargetHint({
     targetDistance,

@@ -37,6 +37,8 @@ vi.mock('sonner', () => {
   };
 });
 
+const SET_VALUE_UPDATE_DEBOUNCE_MS = 700;
+
 describe('ActiveWorkoutPage', () => {
   beforeEach(() => {
     vi.mocked(toast).mockClear();
@@ -141,7 +143,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '9' },
     });
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 3')).toBeInTheDocument();
@@ -165,7 +167,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '8' },
     });
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
@@ -241,7 +243,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '10' },
     });
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
@@ -271,7 +273,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '8' },
     });
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();
@@ -285,7 +287,7 @@ describe('ActiveWorkoutPage', () => {
       target: { value: '52.5' },
     });
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('After Incline Dumbbell Press set 1')).toBeInTheDocument();

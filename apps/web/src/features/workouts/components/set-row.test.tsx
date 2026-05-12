@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SetRow } from './set-row';
 
+const SET_VALUE_UPDATE_DEBOUNCE_MS = 700;
+
 describe('SetRow', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -39,7 +41,7 @@ describe('SetRow', () => {
 
     expect(onUpdate).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith({
@@ -48,6 +50,34 @@ describe('SetRow', () => {
       reps: 10,
       seconds: null,
       weight: 60,
+    });
+  });
+
+  it('waits for a keypad-friendly pause before saving multi-digit edits', () => {
+    const onUpdate = vi.fn();
+
+    render(<SetRow completed={false} onUpdate={onUpdate} reps={8} setNumber={1} weight={50} />);
+
+    const repsInput = screen.getByLabelText('Reps for set 1');
+    fireEvent.change(repsInput, { target: { value: '1' } });
+    vi.advanceTimersByTime(250);
+
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    fireEvent.change(repsInput, { target: { value: '15' } });
+    vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS - 1);
+
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
+      distance: null,
+      reps: 15,
+      seconds: null,
+      weight: 50,
     });
   });
 
@@ -76,7 +106,7 @@ describe('SetRow', () => {
     render(<SetRow completed={false} onUpdate={onUpdate} reps={null} setNumber={2} weight={60} />);
 
     fireEvent.change(screen.getByLabelText('Reps for set 2'), { target: { value: '8' } });
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
 
     expect(onUpdate).toHaveBeenCalledWith({
       completed: true,
@@ -117,7 +147,7 @@ describe('SetRow', () => {
     );
 
     fireEvent.change(screen.getByLabelText('Seconds for set 4'), { target: { value: '45' } });
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
 
     expect(onUpdate).toHaveBeenCalledWith({
       completed: true,
@@ -149,7 +179,7 @@ describe('SetRow', () => {
     expect(screen.getByLabelText('Zone for set 1')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('RPE for set 1'), { target: { value: '3' } });
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(SET_VALUE_UPDATE_DEBOUNCE_MS);
 
     expect(onUpdate).toHaveBeenCalledWith({
       completed: true,
