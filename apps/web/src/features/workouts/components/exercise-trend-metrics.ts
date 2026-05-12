@@ -41,6 +41,7 @@ export function getMetricOptionsForTrackingType(
       return [metricDefinitions.max_reps];
     case 'reps_seconds':
     case 'seconds_only':
+    case 'duration':
     case 'cardio':
       return [metricDefinitions.max_time];
     case 'distance':

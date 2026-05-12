@@ -79,6 +79,8 @@ type SessionSetRecord = {
   setNumber: number;
   weight: number | null;
   reps: number | null;
+  rpe: number | null;
+  zone: number | null;
   targetWeight: number | null;
   targetWeightMin: number | null;
   targetWeightMax: number | null;
@@ -158,6 +160,8 @@ const sessionSetSelection = {
   setNumber: sessionSets.setNumber,
   weight: sessionSets.weight,
   reps: sessionSets.reps,
+  rpe: sessionSets.rpe,
+  zone: sessionSets.zone,
   targetWeight: sessionSets.targetWeight,
   targetWeightMin: sessionSets.targetWeightMin,
   targetWeightMax: sessionSets.targetWeightMax,
@@ -203,6 +207,8 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   setNumber: set.setNumber,
   weight: set.weight,
   reps: set.reps,
+  ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+  ...(set.zone !== null ? { zone: set.zone } : {}),
   ...(set.targetWeight !== null ? { targetWeight: set.targetWeight } : {}),
   ...(set.targetWeightMin !== null ? { targetWeightMin: set.targetWeightMin } : {}),
   ...(set.targetWeightMax !== null ? { targetWeightMax: set.targetWeightMax } : {}),
@@ -418,6 +424,8 @@ const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInpu
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
+      rpe: set.rpe ?? null,
+      zone: set.zone ?? null,
       targetWeight: set.targetWeight ?? null,
       targetWeightMin: set.targetWeightMin ?? null,
       targetWeightMax: set.targetWeightMax ?? null,
@@ -572,6 +580,8 @@ export const createSessionSet = async ({
       setNumber: resolvedSetNumber,
       weight: input.weight,
       reps: input.reps,
+      rpe: input.rpe ?? null,
+      zone: input.zone ?? null,
       supersetGroup: sameExerciseSupersetGroup,
       section: normalizedSection,
     })
@@ -608,6 +618,8 @@ export const updateSessionSet = async ({
   const persistedInput = {
     weight: input.weight,
     reps: input.reps,
+    rpe: input.rpe,
+    zone: input.zone,
     completed: input.completed,
     skipped: input.skipped,
     notes: input.notes,
@@ -836,12 +848,12 @@ export const applySessionCorrections = async ({
         setId: string;
         weight?: number;
         reps?: number;
+        rpe?: number;
+        zone?: number;
       }
     >();
 
     for (const correction of corrections) {
-      // The correction payload reserves `rpe` for future set-level support.
-      // The current session_sets table only persists weight/reps, so update the fields we can store.
       const persistedCorrection = persistedCorrectionsBySetId.get(correction.setId) ?? {
         setId: correction.setId,
       };
@@ -854,6 +866,14 @@ export const applySessionCorrections = async ({
         persistedCorrection.reps = correction.reps;
       }
 
+      if (correction.rpe !== undefined) {
+        persistedCorrection.rpe = correction.rpe;
+      }
+
+      if (correction.zone !== undefined) {
+        persistedCorrection.zone = correction.zone;
+      }
+
       persistedCorrectionsBySetId.set(correction.setId, persistedCorrection);
     }
 
@@ -863,6 +883,8 @@ export const applySessionCorrections = async ({
         setId: string;
         weight?: number;
         reps?: number;
+        rpe?: number;
+        zone?: number;
       }>
     >();
 
@@ -870,8 +892,10 @@ export const applySessionCorrections = async ({
       const persistedFieldKey = [
         correction.weight !== undefined ? 'weight' : null,
         correction.reps !== undefined ? 'reps' : null,
+        correction.rpe !== undefined ? 'rpe' : null,
+        correction.zone !== undefined ? 'zone' : null,
       ]
-        .filter((field): field is 'weight' | 'reps' => field !== null)
+        .filter((field): field is 'weight' | 'reps' | 'rpe' | 'zone' => field !== null)
         .join(',');
 
       if (!persistedFieldKey) {
@@ -884,7 +908,7 @@ export const applySessionCorrections = async ({
     }
 
     for (const [persistedFieldKey, groupedCorrections] of correctionsByPersistedFields.entries()) {
-      const updatePayload: Partial<Record<'weight' | 'reps', SQL<number>>> = {};
+      const updatePayload: Partial<Record<'weight' | 'reps' | 'rpe' | 'zone', SQL<number>>> = {};
       const groupedSetIds = groupedCorrections.map((correction) => correction.setId);
 
       if (persistedFieldKey.includes('weight')) {
@@ -895,6 +919,8 @@ export const applySessionCorrections = async ({
             setId: string;
             weight: number;
             reps?: number;
+            rpe?: number;
+            zone?: number;
           } => correction.weight !== undefined,
         );
         const weightCases = sql.join(
@@ -915,6 +941,8 @@ export const applySessionCorrections = async ({
             setId: string;
             weight?: number;
             reps: number;
+            rpe?: number;
+            zone?: number;
           } => correction.reps !== undefined,
         );
         const repsCases = sql.join(
@@ -925,6 +953,50 @@ export const applySessionCorrections = async ({
           sql.raw(' '),
         );
         updatePayload.reps = sql<number>`case ${repsCases} else ${sessionSets.reps} end`;
+      }
+
+      if (persistedFieldKey.includes('rpe')) {
+        const rpeCorrections = groupedCorrections.filter(
+          (
+            correction,
+          ): correction is {
+            setId: string;
+            weight?: number;
+            reps?: number;
+            rpe: number;
+            zone?: number;
+          } => correction.rpe !== undefined,
+        );
+        const rpeCases = sql.join(
+          rpeCorrections.map(
+            (correction) =>
+              sql`when ${sessionSets.id} = ${correction.setId} then ${correction.rpe}`,
+          ),
+          sql.raw(' '),
+        );
+        updatePayload.rpe = sql<number>`case ${rpeCases} else ${sessionSets.rpe} end`;
+      }
+
+      if (persistedFieldKey.includes('zone')) {
+        const zoneCorrections = groupedCorrections.filter(
+          (
+            correction,
+          ): correction is {
+            setId: string;
+            weight?: number;
+            reps?: number;
+            rpe?: number;
+            zone: number;
+          } => correction.zone !== undefined,
+        );
+        const zoneCases = sql.join(
+          zoneCorrections.map(
+            (correction) =>
+              sql`when ${sessionSets.id} = ${correction.setId} then ${correction.zone}`,
+          ),
+          sql.raw(' '),
+        );
+        updatePayload.zone = sql<number>`case ${zoneCases} else ${sessionSets.zone} end`;
       }
 
       tx.update(sessionSets)
@@ -1015,6 +1087,8 @@ export const batchUpsertSessionSets = async ({
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
+            rpe: set.rpe ?? null,
+            zone: set.zone ?? null,
             section: normalizedSection,
           })
           .where(and(eq(sessionSets.id, set.id), eq(sessionSets.sessionId, sessionId)))
@@ -1041,6 +1115,8 @@ export const batchUpsertSessionSets = async ({
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
+          rpe: set.rpe ?? null,
+          zone: set.zone ?? null,
           supersetGroup: inheritedSupersetGroup,
           section: normalizedSection,
         })

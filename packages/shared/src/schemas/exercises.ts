@@ -38,7 +38,13 @@ const nullableCoachingNotesSchema = z.preprocess(
   z.string().trim().min(1).max(8000).nullable(),
 );
 
-export const exerciseCategorySchema = z.enum(['compound', 'isolation', 'cardio', 'mobility']);
+export const exerciseCategorySchema = z.enum([
+  'compound',
+  'isolation',
+  'cardio',
+  'cardio_flow',
+  'mobility',
+]);
 export const exerciseSortSchema = z.enum([
   'name-asc',
   'name-desc',
@@ -53,6 +59,7 @@ export const exerciseTrackingTypeSchema = z.enum([
   'reps_only',
   'reps_seconds',
   'seconds_only',
+  'duration',
   'distance',
   'cardio',
 ]);

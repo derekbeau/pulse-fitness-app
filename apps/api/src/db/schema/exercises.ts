@@ -5,7 +5,12 @@ import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-cor
 
 import { users } from './users.js';
 
-export type WorkoutExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
+export type WorkoutExerciseCategory =
+  | 'compound'
+  | 'isolation'
+  | 'cardio'
+  | 'cardio_flow'
+  | 'mobility';
 export type WorkoutExerciseTrackingType =
   | 'weight_reps'
   | 'weight_seconds'
@@ -13,6 +18,7 @@ export type WorkoutExerciseTrackingType =
   | 'reps_only'
   | 'reps_seconds'
   | 'seconds_only'
+  | 'duration'
   | 'distance'
   | 'cardio';
 
@@ -55,11 +61,11 @@ export const exercises = sqliteTable(
     index('exercises_user_id_idx').on(table.userId),
     check(
       'exercises_category_check',
-      sql`${table.category} in ('compound', 'isolation', 'cardio', 'mobility')`,
+      sql`${table.category} in ('compound', 'isolation', 'cardio', 'cardio_flow', 'mobility')`,
     ),
     check(
       'exercises_tracking_type_check',
-      sql`${table.trackingType} in ('weight_reps', 'weight_seconds', 'bodyweight_reps', 'reps_only', 'reps_seconds', 'seconds_only', 'distance', 'cardio')`,
+      sql`${table.trackingType} in ('weight_reps', 'weight_seconds', 'bodyweight_reps', 'reps_only', 'reps_seconds', 'seconds_only', 'duration', 'distance', 'cardio')`,
     ),
   ],
 );

@@ -231,6 +231,8 @@ Every exercise in the shared catalog belongs to exactly one category:
   Example: cable lateral raise, leg extension, rope triceps pushdown
 - `cardio`: conditioning-focused efforts
   Example: row erg, air bike, jump rope
+- `cardio_flow`: continuous duration-based cardio, yoga, flow, and walk efforts
+  Example: Yoga Flow, Peloton Zone 2, recovery walk
 - `mobility`: range-of-motion or tissue-prep work
   Example: couch stretch, world's greatest stretch, banded shoulder external rotation
 

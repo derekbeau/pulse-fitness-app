@@ -167,6 +167,8 @@ export const sessionSets = sqliteTable(
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),
     reps: integer('reps'),
+    rpe: integer('rpe'),
+    zone: integer('zone'),
     targetWeight: real('target_weight'),
     targetWeightMin: real('target_weight_min'),
     targetWeightMax: real('target_weight_max'),
@@ -199,5 +201,7 @@ export const sessionSets = sqliteTable(
       'session_sets_completion_state_check',
       sql`not (${table.completed} and ${table.skipped})`,
     ),
+    check('session_sets_rpe_check', sql`${table.rpe} is null or ${table.rpe} between 1 and 10`),
+    check('session_sets_zone_check', sql`${table.zone} is null or ${table.zone} between 1 and 5`),
   ],
 );

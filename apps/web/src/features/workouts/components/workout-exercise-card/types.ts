@@ -24,6 +24,7 @@ export type WorkoutExerciseSetListItem = {
   completed?: boolean;
   distance?: number | null;
   reps?: number | null;
+  rpe?: number | null;
   seconds?: number | null;
   setNumber: number;
   targetDistance?: number | null;
@@ -32,6 +33,7 @@ export type WorkoutExerciseSetListItem = {
   targetWeightMax?: number | null;
   targetWeightMin?: number | null;
   weight?: number | null;
+  zone?: number | null;
 };
 
 export type WorkoutExerciseCardTemplateExercise = {

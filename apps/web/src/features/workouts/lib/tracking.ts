@@ -5,21 +5,25 @@ import { formatServing } from '@/lib/format-utils';
 type SetMetrics = {
   distance?: number | null;
   reps?: number | null;
+  rpe?: number | null;
   setNumber?: number | null;
   skipped?: boolean;
   seconds?: number | null;
   weight?: number | null;
+  zone?: number | null;
 };
 
 type ResolveTrackingTypeInput = {
-  category?: 'cardio' | 'compound' | 'isolation' | 'mobility' | null;
+  category?: 'cardio' | 'cardio_flow' | 'compound' | 'isolation' | 'mobility' | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
   prescribedReps?: string | null;
   trackingType?: ExerciseTrackingType | null;
 };
 
-const timePattern = /\b(?:sec|secs|second|seconds|min|mins|minute|minutes)\b/i;
+const secondPattern = /\b(?:sec|secs|second|seconds)\b/i;
+const minutePattern = /\b(?:min|mins|minute|minutes)\b/i;
+const timePattern = new RegExp(`${secondPattern.source}|${minutePattern.source}`, 'i');
 const TRACKING_TYPE_ORDER: ExerciseTrackingType[] = [
   'weight_reps',
   'bodyweight_reps',
@@ -27,6 +31,7 @@ const TRACKING_TYPE_ORDER: ExerciseTrackingType[] = [
   'weight_seconds',
   'reps_seconds',
   'seconds_only',
+  'duration',
   'distance',
   'cardio',
 ];
@@ -52,12 +57,20 @@ export function resolveTrackingType({
     return 'cardio';
   }
 
+  if (category === 'cardio_flow') {
+    return minutePattern.test(descriptor) ? 'duration' : 'seconds_only';
+  }
+
   if (descriptor.includes('distance') || /\b(?:km|mi|mile|miles|meter|meters)\b/.test(descriptor)) {
     return 'distance';
   }
 
   if (descriptor.includes('bodyweight')) {
     return 'bodyweight_reps';
+  }
+
+  if (/\b(?:flow|walk|yoga|zone\s*2)\b/.test(descriptor)) {
+    return 'duration';
   }
 
   if (/\b(?:stretch|plank|hold|isometric)\b/.test(descriptor)) {
@@ -73,7 +86,9 @@ export function resolveTrackingType({
       return 'reps_seconds';
     }
 
-    return 'seconds_only';
+    return secondPattern.test(descriptor) && !minutePattern.test(descriptor)
+      ? 'seconds_only'
+      : 'duration';
   }
 
   if (category === 'mobility') {
@@ -116,6 +131,7 @@ export function isTimeBasedTrackingType(trackingType: ExerciseTrackingType) {
     trackingType === 'weight_seconds' ||
     trackingType === 'reps_seconds' ||
     trackingType === 'seconds_only' ||
+    trackingType === 'duration' ||
     trackingType === 'cardio'
   );
 }
@@ -166,22 +182,23 @@ export function formatSetSummary(
 
   switch (trackingType) {
     case 'weight_reps':
-      return `${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`;
+      return appendEffort(`${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`, set);
     case 'weight_seconds':
-      return `${prefix}${joinSegments(weightLabel, secondsLabel, ' × ')}`;
+      return appendEffort(`${prefix}${joinSegments(weightLabel, secondsLabel, ' × ')}`, set);
     case 'bodyweight_reps':
     case 'reps_only':
-      return `${prefix}${repsLabel ?? '-'}`;
+      return appendEffort(`${prefix}${repsLabel ?? '-'}`, set);
     case 'reps_seconds':
-      return `${prefix}${joinSegments(repsLabel, secondsLabel, ' × ')}`;
+      return appendEffort(`${prefix}${joinSegments(repsLabel, secondsLabel, ' × ')}`, set);
     case 'seconds_only':
-      return `${prefix}${secondsLabel ?? '-'}`;
+    case 'duration':
+      return appendEffort(`${prefix}${secondsLabel ?? '-'}`, set);
     case 'distance':
-      return `${prefix}${distanceLabel ?? '-'}`;
+      return appendEffort(`${prefix}${distanceLabel ?? '-'}`, set);
     case 'cardio':
-      return `${prefix}${joinSegments(secondsLabel, distanceLabel, ' / ')}`;
+      return appendEffort(`${prefix}${joinSegments(secondsLabel, distanceLabel, ' / ')}`, set);
     default:
-      return `${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`;
+      return appendEffort(`${prefix}${joinSegments(weightLabel, repsLabel, ' × ')}`, set);
   }
 }
 
@@ -230,6 +247,7 @@ function formatSetCompact(
     case 'reps_seconds':
       return r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
     case 'seconds_only':
+    case 'duration':
       return s ?? '-';
     case 'distance':
       return d ?? '-';
@@ -265,6 +283,7 @@ function formatCompactHistorySet(
     case 'reps_seconds':
       return r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
     case 'seconds_only':
+    case 'duration':
       return s ?? '-';
     case 'distance':
       return d ?? '-';
@@ -292,6 +311,7 @@ export function isSetCompleteForTrackingType(trackingType: ExerciseTrackingType,
     case 'reps_seconds':
       return reps > 0 && seconds > 0;
     case 'seconds_only':
+    case 'duration':
       return seconds > 0;
     case 'distance':
       return (set.distance ?? set.reps ?? 0) > 0;
@@ -318,6 +338,7 @@ export function getSetVolume(trackingType: ExerciseTrackingType, set: SetMetrics
     case 'reps_seconds':
       return reps * seconds;
     case 'seconds_only':
+    case 'duration':
       return seconds;
     case 'distance':
       return set.distance ?? set.reps ?? 0;
@@ -340,6 +361,7 @@ export function getTrackingSummaryMetricLabel(
     case 'weight_seconds':
     case 'reps_seconds':
     case 'seconds_only':
+    case 'duration':
     case 'cardio':
       return 'seconds';
     case 'distance':
@@ -379,6 +401,7 @@ export function getTrackingVolumeLabel(trackingType: ExerciseTrackingType) {
     case 'reps_only':
       return 'reps';
     case 'seconds_only':
+    case 'duration':
     case 'cardio':
       return 'seconds';
     default:
@@ -421,6 +444,8 @@ export function getTrackingTypeLabel(trackingType: ExerciseTrackingType) {
       return 'Reps + time';
     case 'seconds_only':
       return 'Time only';
+    case 'duration':
+      return 'Duration';
     case 'distance':
       return 'Distance';
     case 'cardio':
@@ -475,6 +500,19 @@ function joinSegments(left: string | null, right: string | null, separator: stri
   }
 
   return left ?? right ?? '-';
+}
+
+function appendEffort(label: string, set: SetMetrics) {
+  const effort = [
+    set.rpe != null ? `RPE ${formatMetricNumber(set.rpe)}` : null,
+    set.zone != null ? `Zone ${formatMetricNumber(set.zone)}` : null,
+  ].filter((value): value is string => value !== null);
+
+  if (effort.length === 0) {
+    return label;
+  }
+
+  return `${label} (${effort.join(' / ')})`;
 }
 
 export function formatMetricNumber(value: number) {

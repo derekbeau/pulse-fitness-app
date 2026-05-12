@@ -84,7 +84,7 @@ const seedExercise = (values: {
   name: string;
   muscleGroups: string[];
   equipment: string;
-  category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  category: 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
   trackingType?:
     | 'weight_reps'
     | 'weight_seconds'
@@ -92,6 +92,7 @@ const seedExercise = (values: {
     | 'reps_only'
     | 'reps_seconds'
     | 'seconds_only'
+    | 'duration'
     | 'distance'
     | 'cardio';
   formCues?: string[];

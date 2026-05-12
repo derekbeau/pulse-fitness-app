@@ -599,7 +599,7 @@ function buildSessionSetDrafts(sets: SessionSet[]) {
 function buildChangedSetCorrections(
   sets: SessionSet[],
   drafts: Record<string, SessionSetDraft>,
-): { setId: string; reps?: number; weight?: number }[] {
+): { setId: string; reps?: number; rpe?: number; weight?: number; zone?: number }[] {
   return sets.flatMap((set) => {
     const draft = drafts[set.id];
 
@@ -609,10 +609,14 @@ function buildChangedSetCorrections(
 
     const nextWeight = resolveCorrectionMetric(draft.weight, set.weight);
     const nextReps = resolveCorrectionMetric(draft.reps, set.reps);
+    const nextRpe = resolveCorrectionMetric(draft.rpe, set.rpe ?? null);
+    const nextZone = resolveCorrectionMetric(draft.zone, set.zone ?? null);
     const correction = {
       setId: set.id,
       ...(nextWeight !== set.weight && nextWeight !== null ? { weight: nextWeight } : {}),
       ...(nextReps !== set.reps && nextReps !== null ? { reps: nextReps } : {}),
+      ...(nextRpe !== (set.rpe ?? null) && nextRpe !== null ? { rpe: nextRpe } : {}),
+      ...(nextZone !== (set.zone ?? null) && nextZone !== null ? { zone: nextZone } : {}),
     };
 
     return Object.keys(correction).length > 1 ? [correction] : [];
@@ -639,51 +643,64 @@ function toCompletedSetListItem(
       return {
         completed: set.completed,
         reps: null,
+        rpe: set.rpe ?? null,
         seconds: set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
     case 'seconds_only':
+    case 'duration':
       return {
         completed: set.completed,
         reps: null,
+        rpe: set.rpe ?? null,
         seconds: set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
     case 'distance':
       return {
         completed: set.completed,
         distance: getSetDistance(set) ?? set.reps ?? null,
         reps: null,
+        rpe: set.rpe ?? null,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
     case 'cardio':
       return {
         completed: set.completed,
         distance: getSetDistance(set),
         reps: null,
+        rpe: set.rpe ?? null,
         seconds: set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
     case 'reps_seconds':
       return {
         completed: set.completed,
         reps: set.reps,
+        rpe: set.rpe ?? null,
         // Temporary bridge until reps_seconds has a dedicated persisted seconds field.
         seconds: set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
     default:
       return {
         completed: set.completed,
         distance: getSetDistance(set),
         reps: set.reps,
+        rpe: set.rpe ?? null,
         setNumber: set.setNumber,
         weight: set.weight,
+        zone: set.zone ?? null,
       };
   }
 }

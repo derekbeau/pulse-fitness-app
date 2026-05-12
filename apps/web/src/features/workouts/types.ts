@@ -12,6 +12,7 @@ export type WorkoutBadgeType =
   | 'pull'
   | 'legs'
   | 'cardio'
+  | 'cardio_flow'
   | 'mobility';
 
 export type ActiveWorkoutAgentNotesMeta = {
@@ -92,6 +93,7 @@ export type ActiveWorkoutSet = {
   distance: number | null;
   number: number;
   reps: number | null;
+  rpe?: number | null;
   seconds: number | null;
   targetDistance?: number | null;
   targetSeconds?: number | null;
@@ -99,6 +101,7 @@ export type ActiveWorkoutSet = {
   targetWeightMax?: number | null;
   targetWeightMin?: number | null;
   weight: number | null;
+  zone?: number | null;
 };
 
 export type ActiveWorkoutSetDrafts = Record<string, ActiveWorkoutSet[]>;

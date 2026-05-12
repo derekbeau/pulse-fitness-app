@@ -108,7 +108,7 @@ export type ParsedDailyLog = {
 };
 
 type WorkoutTemplateSectionType = 'warmup' | 'main' | 'cooldown' | 'supplemental';
-type ExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'mobility';
+type ExerciseCategory = 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
 
 type ParsedTemplateExercise = {
   name: string;
@@ -1085,6 +1085,10 @@ const toExerciseCategory = (value: unknown): ExerciseCategory | null => {
 
   if (normalized.includes('isolation')) {
     return 'isolation';
+  }
+
+  if (normalized.includes('flow') || normalized.includes('yoga')) {
+    return 'cardio_flow';
   }
 
   if (normalized.includes('cardio') || normalized.includes('conditioning')) {

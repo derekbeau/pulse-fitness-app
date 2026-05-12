@@ -42,6 +42,8 @@ export function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
       return 'Reps × Seconds';
     case 'seconds_only':
       return 'Seconds Only';
+    case 'duration':
+      return 'Duration';
     case 'distance':
       return 'Distance';
     case 'cardio':
@@ -78,6 +80,7 @@ function formatTargetByTrackingType(
 
   switch (trackingType) {
     case 'seconds_only':
+    case 'duration':
       return secondsLabel;
     case 'weight_seconds':
       if (weightLabel && secondsLabel) {
@@ -185,6 +188,10 @@ export function formatPrescription(
   const trackingTypeLabel = exercise.trackingType === 'bodyweight_reps' ? ' (bodyweight)' : '';
 
   if (setTargetSummary) {
+    if (exercise.trackingType === 'duration') {
+      return setTargetSummary;
+    }
+
     if (exercise.sets !== null) {
       return `${exercise.sets} x ${setTargetSummary}${trackingTypeLabel}`;
     }
@@ -192,13 +199,21 @@ export function formatPrescription(
     return `${setTargetSummary}${trackingTypeLabel}`;
   }
 
-  if (exercise.trackingType === 'seconds_only') {
+  if (exercise.trackingType === 'seconds_only' || exercise.trackingType === 'duration') {
     if (repsTarget) {
       if (exercise.sets !== null) {
+        if (exercise.trackingType === 'duration') {
+          return `${repsTarget} sec`;
+        }
+
         return `${exercise.sets} x ${repsTarget} sec`;
       }
 
       return `${repsTarget} sec`;
+    }
+
+    if (exercise.trackingType === 'duration') {
+      return 'Duration target not set';
     }
 
     if (exercise.sets !== null) {
@@ -248,6 +263,10 @@ export function formatCompactSetSummary(
   const setTargetSummary = summarizeSetTargets(exercise, weightUnit);
   const repsTarget = formatRepTarget(exercise.repsMin, exercise.repsMax);
 
+  if (exercise.trackingType === 'duration' && setTargetSummary) {
+    return setTargetSummary;
+  }
+
   if (exercise.sets !== null && setTargetSummary) {
     return `${exercise.sets}×${setTargetSummary}`;
   }
@@ -276,7 +295,10 @@ export function formatCompactSetSummary(
 export function buildTemplateSetListItems(
   exercise: Pick<WorkoutExerciseCardTemplateExercise, 'setTargets' | 'sets' | 'trackingType'>,
 ): WorkoutExerciseSetListItem[] {
-  const setCount = Math.max(exercise.sets ?? 0, exercise.setTargets?.length ?? 0);
+  const setCount =
+    exercise.trackingType === 'duration'
+      ? 1
+      : Math.max(exercise.sets ?? 0, exercise.setTargets?.length ?? 0);
 
   return Array.from({ length: setCount }).map((_, index) => {
     const setNumber = index + 1;

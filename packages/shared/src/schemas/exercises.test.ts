@@ -148,8 +148,8 @@ describe('createExerciseInputSchema', () => {
       name: ' Romanian Deadlift ',
       muscleGroups: ['hamstrings', 'glutes'],
       equipment: ' barbell ',
-      category: 'compound',
-      trackingType: 'cardio',
+      category: 'cardio_flow',
+      trackingType: 'duration',
       tags: ['hinge'],
       formCues: ['hips back'],
       instructions: '   ',
@@ -159,8 +159,8 @@ describe('createExerciseInputSchema', () => {
       name: 'Romanian Deadlift',
       muscleGroups: ['hamstrings', 'glutes'],
       equipment: 'barbell',
-      category: 'compound',
-      trackingType: 'cardio',
+      category: 'cardio_flow',
+      trackingType: 'duration',
       tags: ['hinge'],
       formCues: ['hips back'],
       instructions: null,
@@ -187,8 +187,8 @@ describe('createExerciseInputSchema', () => {
       name: 'Air Bike',
       muscleGroups: ['conditioning'],
       equipment: 'air bike',
-      category: 'cardio',
-      trackingType: 'cardio',
+      category: 'cardio_flow',
+      trackingType: 'duration',
       tags: ['conditioning'],
       formCues: ['steady pace'],
       instructions: null,
@@ -197,7 +197,7 @@ describe('createExerciseInputSchema', () => {
       force: false,
     };
 
-    expect(payload.category).toBe('cardio');
+    expect(payload.category).toBe('cardio_flow');
   });
 
   it('accepts exerciseName alias and applies agent-compatible defaults', () => {
@@ -289,8 +289,8 @@ describe('mergeExerciseInputSchema', () => {
 
 describe('exerciseTrackingTypeSchema', () => {
   it('accepts declared tracking types and rejects unsupported values', () => {
-    const validType: ExerciseTrackingType = exerciseTrackingTypeSchema.parse('bodyweight_reps');
-    expect(validType).toBe('bodyweight_reps');
+    const validType: ExerciseTrackingType = exerciseTrackingTypeSchema.parse('duration');
+    expect(validType).toBe('duration');
     expect(() => exerciseTrackingTypeSchema.parse('strength')).toThrow();
   });
 });

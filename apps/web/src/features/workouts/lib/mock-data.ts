@@ -60,7 +60,7 @@ const exerciseCatalog = new Map<string, ExerciseCatalogEntry>([
   ['rope-triceps-pushdown', { category: 'isolation', name: 'Rope Triceps Pushdown' }],
   ['face-pull', { category: 'isolation', name: 'Face Pull' }],
   ['air-bike', { category: 'cardio', name: 'Air Bike' }],
-  ["worlds-greatest-stretch", { category: 'mobility', name: "World's Greatest Stretch" }],
+  ['worlds-greatest-stretch', { category: 'mobility', name: "World's Greatest Stretch" }],
   ['high-bar-back-squat', { category: 'compound', name: 'High-Bar Back Squat' }],
   ['leg-press', { category: 'compound', name: 'Leg Press' }],
   ['bulgarian-split-squat', { category: 'compound', name: 'Bulgarian Split Squat' }],
@@ -74,10 +74,7 @@ const exerciseCatalog = new Map<string, ExerciseCatalogEntry>([
 ]);
 
 const templateExerciseCatalog = new Map<string, TemplateExerciseCatalogEntry>([
-  [
-    'row-erg',
-    { badges: ['cardio'], reps: '4 min', restSeconds: 30, sets: 1, tempo: '1111' },
-  ],
+  ['row-erg', { badges: ['cardio'], reps: '4 min', restSeconds: 30, sets: 1, tempo: '1111' }],
   [
     'banded-shoulder-external-rotation',
     {
@@ -777,11 +774,10 @@ function getLastPerformance(exerciseId: string): ActiveWorkoutLastPerformance | 
   };
 }
 
-function inferBadgesFromCategory(
-  category: ExerciseCategory | undefined,
-): WorkoutBadgeType[] {
+function inferBadgesFromCategory(category: ExerciseCategory | undefined): WorkoutBadgeType[] {
   switch (category) {
     case 'cardio':
+    case 'cardio_flow':
       return ['cardio'];
     case 'mobility':
       return ['mobility'];

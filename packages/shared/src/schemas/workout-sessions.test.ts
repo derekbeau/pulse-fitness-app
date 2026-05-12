@@ -157,7 +157,22 @@ describe('sessionSetInputSchema', () => {
     ).toThrow();
   });
 
-  it('rejects unsupported target fields for session set input', () => {
+  it('accepts target fields for session set input and rejects invalid ranges', () => {
+    expect(
+      sessionSetInputSchema.parse({
+        exerciseId: 'bench-press',
+        setNumber: 1,
+        targetSeconds: 1800,
+        targetWeightMin: 100,
+        targetWeightMax: 150,
+      }),
+    ).toMatchObject({
+      exerciseId: 'bench-press',
+      targetSeconds: 1800,
+      targetWeightMin: 100,
+      targetWeightMax: 150,
+    });
+
     expect(() =>
       sessionSetInputSchema.parse({
         exerciseId: 'bench-press',
@@ -165,7 +180,7 @@ describe('sessionSetInputSchema', () => {
         targetWeightMin: 150,
         targetWeightMax: 100,
       }),
-    ).toThrow("Unrecognized key(s) in object: 'targetWeightMin', 'targetWeightMax'");
+    ).toThrow('targetWeightMin must be less than or equal to targetWeightMax');
   });
 
   it('accepts exerciseName aliases and normalizes to exerciseId', () => {
@@ -198,6 +213,8 @@ describe('sessionSetSchema', () => {
         setNumber: 1,
         weight: 185,
         reps: 8,
+        rpe: 3,
+        zone: 2,
         completed: false,
         skipped: false,
         section: 'main',
@@ -211,6 +228,8 @@ describe('sessionSetSchema', () => {
       setNumber: 1,
       weight: 185,
       reps: 8,
+      rpe: 3,
+      zone: 2,
       completed: false,
       skipped: false,
       section: 'main',
@@ -246,12 +265,14 @@ describe('setCorrectionSchema', () => {
       setId: ' set-1 ',
       reps: 9,
       rpe: 8,
+      zone: 2,
     });
 
     expect(payload).toEqual({
       setId: 'set-1',
       reps: 9,
       rpe: 8,
+      zone: 2,
     });
   });
 

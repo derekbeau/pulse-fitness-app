@@ -37,8 +37,10 @@ export function WorkoutExerciseSetList({
           <SetRow
             completed={mode === 'readonly-completed' ? (setItem.completed ?? true) : false}
             distance={setItem.distance ?? null}
+            label={trackingType === 'duration' ? 'Duration' : undefined}
             onUpdate={() => undefined}
             reps={setItem.reps ?? null}
+            rpe={setItem.rpe ?? null}
             seconds={setItem.seconds ?? null}
             setNumber={setItem.setNumber}
             targetDistance={mode === 'readonly-completed' ? null : (setItem.targetDistance ?? null)}
@@ -53,6 +55,7 @@ export function WorkoutExerciseSetList({
             trackingType={trackingType}
             weight={setItem.weight ?? null}
             weightUnit={weightUnit}
+            zone={setItem.zone ?? null}
           />
         </div>
       ))}

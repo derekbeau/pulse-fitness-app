@@ -36,11 +36,12 @@ const categoryBadgeStyles = {
     'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
   cardio:
     'border-transparent bg-[var(--color-accent-mint)] text-on-mint dark:bg-emerald-500/20 dark:text-emerald-400',
+  cardio_flow: 'border-transparent bg-sky-500/15 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
   mobility:
     'border-transparent bg-[var(--color-accent-cream)] text-on-cream dark:bg-amber-500/20 dark:text-amber-400',
 } as const;
 
-const categoryOptions = ['compound', 'isolation', 'cardio', 'mobility'] as const;
+const categoryOptions = ['compound', 'isolation', 'cardio', 'cardio_flow', 'mobility'] as const;
 const exerciseSortValues: ExerciseSort[] = [
   'name-asc',
   'name-desc',
@@ -264,7 +265,11 @@ export function ExerciseLibrary({ className }: ExerciseLibraryProps) {
           </FilterField>
         }
         viewToggle={
-          <ViewToggle onChange={setView} storageKey={EXERCISE_LIBRARY_VIEW_STORAGE_KEY} view={view} />
+          <ViewToggle
+            onChange={setView}
+            storageKey={EXERCISE_LIBRARY_VIEW_STORAGE_KEY}
+            view={view}
+          />
         }
       >
         <FilterField label="Muscle group">
@@ -499,7 +504,7 @@ function ExerciseCard({
               className={cn(categoryBadgeStyles[exercise.category], 'capitalize')}
               variant="outline"
             >
-              {exercise.category}
+              {formatLabel(exercise.category)}
             </Badge>
           </div>
         </div>
@@ -625,6 +630,10 @@ function parseExerciseSort(value: string | null): ExerciseSort {
 }
 
 function formatLabel(value: string) {
+  if (value === 'cardio_flow') {
+    return 'Cardio / Flow';
+  }
+
   return value
     .split(/[-_ ]+/)
     .filter(Boolean)

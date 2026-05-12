@@ -20,9 +20,7 @@ import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useExercise } from '../api/workouts';
 import { getWorkoutExerciseCardElementId } from './workout-exercise-card';
 import { formatCompactSets } from '../lib/tracking';
-import type {
-  ActiveWorkoutPerformanceHistorySession,
-} from '../types';
+import type { ActiveWorkoutPerformanceHistorySession } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 
 type ExerciseDetailModalContext = 'template' | 'session' | 'library' | 'receipt';
@@ -44,7 +42,9 @@ const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
 });
 const EMPTY_HISTORY: ActiveWorkoutPerformanceHistorySession[] = [];
 
-function getDefaultActiveTab(context: ExerciseDetailModalContext): 'overview' | 'history' | 'trends' {
+function getDefaultActiveTab(
+  context: ExerciseDetailModalContext,
+): 'overview' | 'history' | 'trends' {
   return context === 'session' ? 'history' : 'overview';
 }
 
@@ -163,7 +163,10 @@ export function ExerciseDetailModal({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <OverviewField label="Category" value={formatLabel(exercise.category)} />
                   <OverviewField label="Equipment" value={formatLabel(exercise.equipment)} />
-                  <OverviewField label="Tracking type" value={formatTrackingTypeLabel(trackingType)} />
+                  <OverviewField
+                    label="Tracking type"
+                    value={formatTrackingTypeLabel(trackingType)}
+                  />
                   <OverviewField
                     label="Muscle groups"
                     value={
@@ -346,13 +349,7 @@ export function ExerciseDetailModal({
   );
 }
 
-function OverviewField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function OverviewField({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2.5">
       <p className="text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">{label}</p>
@@ -371,6 +368,10 @@ function formatTrackingTypeLabel(trackingType: ExerciseTrackingType) {
 }
 
 function formatLabel(value: string) {
+  if (value === 'cardio_flow') {
+    return 'Cardio / Flow';
+  }
+
   return value
     .split(/[-_ ]+/)
     .filter(Boolean)

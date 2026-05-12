@@ -137,7 +137,7 @@ const seedExercise = (values: {
   id: string;
   userId?: string | null;
   name: string;
-  category?: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  category?: 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
   trackingType?:
     | 'weight_reps'
     | 'weight_seconds'
@@ -145,6 +145,7 @@ const seedExercise = (values: {
     | 'reps_only'
     | 'reps_seconds'
     | 'seconds_only'
+    | 'duration'
     | 'distance'
     | 'cardio';
   formCues?: string[];
@@ -239,6 +240,8 @@ const seedSessionSet = (values: {
   setNumber: number;
   weight?: number | null;
   reps?: number | null;
+  rpe?: number | null;
+  zone?: number | null;
   targetWeight?: number | null;
   targetWeightMin?: number | null;
   targetWeightMax?: number | null;
@@ -260,6 +263,8 @@ const seedSessionSet = (values: {
       setNumber: values.setNumber,
       weight: values.weight ?? null,
       reps: values.reps ?? null,
+      rpe: values.rpe ?? null,
+      zone: values.zone ?? null,
       targetWeight: values.targetWeight ?? null,
       targetWeightMin: values.targetWeightMin ?? null,
       targetWeightMax: values.targetWeightMax ?? null,
@@ -2677,7 +2682,7 @@ describe('workout session routes', () => {
       otherUserResponse,
       invalidSetResponse,
       emptyCorrectionsResponse,
-      unsupportedCorrectionResponse,
+      effortCorrectionResponse,
     ] = await Promise.all([
       context.app.inject({
         method: 'PATCH',
@@ -2772,14 +2777,11 @@ describe('workout session routes', () => {
       '/api/v1/workout-sessions/session-completed/corrections',
     );
 
-    expect(unsupportedCorrectionResponse.statusCode).toBe(400);
-    expect(unsupportedCorrectionResponse.json()).toEqual({
-      error: {
-        code: 'INVALID_SESSION_CORRECTION',
-        message:
-          'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet: set-1',
-      },
-    });
+    expect(effortCorrectionResponse.statusCode).toBe(200);
+    expect(
+      (effortCorrectionResponse.json() as { data: { sets: Array<{ id: string; rpe?: number }> } })
+        .data.sets,
+    ).toEqual([expect.objectContaining({ id: 'set-1', rpe: 8 })]);
   });
 
   it('snapshots template exercise notes into per-exercise programming notes when starting a session', async () => {
@@ -6466,7 +6468,7 @@ describe('workout session routes', () => {
     );
   });
 
-  it('rejects unsupported session set target fields on patch', async () => {
+  it('accepts session set target fields on patch', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -6490,29 +6492,25 @@ describe('workout session routes', () => {
       },
     });
 
-    expect(response.statusCode).toBe(400);
-    expectRequestValidationError(
-      response,
-      'PATCH',
-      '/api/v1/workout-sessions/session-target-field-reject',
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          setNumber: number;
+          targetSeconds: number | null;
+        }>;
+      };
+    };
+    expect(payload.data.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'global-bench-press',
+          setNumber: 1,
+          targetSeconds: 720,
+        }),
+      ]),
     );
-    expect(response.json()).toMatchObject({
-      error: {
-        details: {
-          issues: [
-            expect.objectContaining({
-              keyword: 'unrecognized_keys',
-              params: {
-                issue: expect.objectContaining({
-                  code: 'unrecognized_keys',
-                  keys: expect.arrayContaining(['targetSeconds']),
-                }),
-              },
-            }),
-          ],
-        },
-      },
-    });
   });
 
   it('creates missing sets in patch updates and preserves provided structural fields', async () => {
@@ -6703,6 +6701,75 @@ describe('workout session routes', () => {
         (set) => set.exerciseId,
       ),
     ).not.toContain('user-1-lat-pulldown');
+  });
+
+  it('preserves duration targets and effort fields when adding exercises', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    seedExercise({
+      id: 'user-1-yoga-flow',
+      userId: 'user-1',
+      name: 'Yoga Flow',
+      category: 'cardio_flow',
+      trackingType: 'duration',
+    });
+    seedWorkoutSession({
+      id: 'session-duration-add',
+      userId: 'user-1',
+      name: 'Duration Add Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-duration-add',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        addExercises: [
+          {
+            exerciseId: 'user-1-yoga-flow',
+            sets: 3,
+            durationSeconds: 1800,
+            targetSeconds: 1800,
+            rpe: 3,
+            zone: 2,
+            section: 'cooldown',
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      data: {
+        sets: Array<{
+          exerciseId: string | null;
+          reps: number | null;
+          rpe?: number;
+          zone?: number;
+          targetSeconds?: number;
+          section: string | null;
+          setNumber: number;
+        }>;
+      };
+    };
+    const durationSets = payload.data.sets.filter((set) => set.exerciseId === 'user-1-yoga-flow');
+
+    expect(durationSets).toEqual([
+      expect.objectContaining({
+        reps: 1800,
+        rpe: 3,
+        zone: 2,
+        targetSeconds: 1800,
+        section: 'cooldown',
+        setNumber: 1,
+      }),
+    ]);
   });
 
   it('adds duplicate exercise ids in different sections and keeps section-local set numbering', async () => {

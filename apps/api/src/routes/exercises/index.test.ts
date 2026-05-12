@@ -95,7 +95,7 @@ const seedExercise = (values: {
   name: string;
   muscleGroups: string[];
   equipment: string;
-  category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  category: 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
   tags?: string[];
   formCues?: string[];
   instructions?: string | null;
@@ -1297,9 +1297,21 @@ describe('exercise routes', () => {
       category: 'compound',
     });
 
-    context.db.update(exercises).set({ createdAt: 1000 }).where(eq(exercises.id, 'exercise-zeta')).run();
-    context.db.update(exercises).set({ createdAt: 2000 }).where(eq(exercises.id, 'exercise-alpha')).run();
-    context.db.update(exercises).set({ createdAt: 3000 }).where(eq(exercises.id, 'exercise-mid')).run();
+    context.db
+      .update(exercises)
+      .set({ createdAt: 1000 })
+      .where(eq(exercises.id, 'exercise-zeta'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ createdAt: 2000 })
+      .where(eq(exercises.id, 'exercise-alpha'))
+      .run();
+    context.db
+      .update(exercises)
+      .set({ createdAt: 3000 })
+      .where(eq(exercises.id, 'exercise-mid'))
+      .run();
 
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -1320,18 +1332,14 @@ describe('exercise routes', () => {
     ]);
 
     expect(nameAscResponse.statusCode).toBe(200);
-    expect((nameAscResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id)).toEqual([
-      'exercise-alpha',
-      'exercise-mid',
-      'exercise-zeta',
-    ]);
+    expect(
+      (nameAscResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id),
+    ).toEqual(['exercise-alpha', 'exercise-mid', 'exercise-zeta']);
 
     expect(newestResponse.statusCode).toBe(200);
-    expect((newestResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id)).toEqual([
-      'exercise-mid',
-      'exercise-alpha',
-      'exercise-zeta',
-    ]);
+    expect(
+      (newestResponse.json() as { data: Array<{ id: string }> }).data.map((row) => row.id),
+    ).toEqual(['exercise-mid', 'exercise-alpha', 'exercise-zeta']);
   });
 
   it('returns the same paginated list format for JWT and AgentToken auth', async () => {

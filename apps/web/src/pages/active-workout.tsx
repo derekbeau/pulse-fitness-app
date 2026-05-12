@@ -1391,8 +1391,10 @@ export function ActiveWorkoutPage() {
       completed?: boolean;
       distance?: number | null;
       reps?: number | null;
+      rpe?: number | null;
       seconds?: number | null;
       weight?: number | null;
+      zone?: number | null;
     },
   ) {
     const exerciseSets = setDrafts[exerciseId] ?? [];
@@ -1438,7 +1440,9 @@ export function ActiveWorkoutPage() {
         completed: updatedSet.completed,
         // Bridge for time-based exercises: store seconds in the `reps` column until DB support lands.
         reps: isTimeBased ? updatedSet.seconds : updatedSet.reps,
+        ...(update.rpe !== undefined ? { rpe: updatedSet.rpe ?? null } : {}),
         weight: isWeightedTrackingType(templateExercise.trackingType) ? updatedSet.weight : null,
+        ...(update.zone !== undefined ? { zone: updatedSet.zone ?? null } : {}),
       };
       updateSetMutation.mutate(
         {
@@ -1912,6 +1916,7 @@ function createSessionSetDrafts(
       id: sessionSet.id,
       number: sessionSet.setNumber,
       reps: nextReps,
+      ...(sessionSet.rpe !== undefined && sessionSet.rpe !== null ? { rpe: sessionSet.rpe } : {}),
       seconds: nextSeconds,
       targetDistance: sessionSet.targetDistance ?? null,
       targetSeconds: sessionSet.targetSeconds ?? null,
@@ -1919,6 +1924,9 @@ function createSessionSetDrafts(
       targetWeightMax: sessionSet.targetWeightMax ?? null,
       targetWeightMin: sessionSet.targetWeightMin ?? null,
       weight: isWeightedTrackingType(trackingType) ? sessionSet.weight : null,
+      ...(sessionSet.zone !== undefined && sessionSet.zone !== null
+        ? { zone: sessionSet.zone }
+        : {}),
     };
     const existingSets = drafts[sessionSet.exerciseId] ?? [];
     const existingSetIndex = existingSets.findIndex((set) => set.number === sessionSet.setNumber);

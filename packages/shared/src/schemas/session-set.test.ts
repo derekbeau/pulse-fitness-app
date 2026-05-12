@@ -34,10 +34,40 @@ describe('createSetSchema', () => {
       setNumber: 1,
       seconds: 120,
       distance: 750,
+      rpe: 4,
+      zone: 2,
     });
 
     expect(payload.seconds).toBe(120);
     expect(payload.distance).toBe(750);
+    expect(payload.rpe).toBe(4);
+    expect(payload.zone).toBe(2);
+  });
+
+  it('rejects durations over six hours and effort outside supported ranges', () => {
+    expect(() =>
+      createSetSchema.parse({
+        exerciseId: 'global-rower',
+        setNumber: 1,
+        seconds: 21_601,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createSetSchema.parse({
+        exerciseId: 'global-rower',
+        setNumber: 1,
+        rpe: 11,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createSetSchema.parse({
+        exerciseId: 'global-rower',
+        setNumber: 1,
+        zone: 6,
+      }),
+    ).toThrow();
   });
 });
 
@@ -45,7 +75,9 @@ describe('updateSetSchema', () => {
   it('accepts partial set updates', () => {
     const payload = updateSetSchema.parse({
       reps: 8,
+      rpe: 7,
       seconds: 45,
+      zone: 2,
       completed: true,
       notes: '  Smooth tempo  ',
     });
@@ -54,7 +86,9 @@ describe('updateSetSchema', () => {
 
     expect(typedPayload).toEqual({
       reps: 8,
+      rpe: 7,
       seconds: 45,
+      zone: 2,
       completed: true,
       notes: 'Smooth tempo',
     });

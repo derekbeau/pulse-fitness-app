@@ -162,6 +162,7 @@ const seedExercise = (values: {
     | 'reps_only'
     | 'reps_seconds'
     | 'seconds_only'
+    | 'duration'
     | 'distance'
     | 'cardio';
 }) =>

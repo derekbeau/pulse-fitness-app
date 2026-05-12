@@ -129,8 +129,8 @@ Constraints:
 - `name`: `text`, required
 - `muscleGroups`: JSON text array of muscle-group keys
 - `equipment`: `text`, required
-- `category`: `text`, required, one of `compound | isolation | cardio | mobility`
-- `trackingType`: `text`, required, one of `weight_reps | weight_seconds | bodyweight_reps | reps_only | reps_seconds | seconds_only | distance | cardio`
+- `category`: `text`, required, one of `compound | isolation | cardio | cardio_flow | mobility`
+- `trackingType`: `text`, required, one of `weight_reps | weight_seconds | bodyweight_reps | reps_only | reps_seconds | seconds_only | duration | distance | cardio`
 - `tags`: JSON text array for exercise classification labels, default `[]`
 - `formCues`: JSON text array for durable technique guidance, default `[]`
 - `instructions`: nullable `text`
@@ -220,6 +220,13 @@ Notes:
 - `setNumber`: `integer`, required
 - `weight`: nullable `real`
 - `reps`: nullable `integer`
+- `rpe`: nullable `integer`, 1-10 effort rating
+- `zone`: nullable `integer`, 1-5 cardio/effort zone
+- `targetWeight`: nullable `real`
+- `targetWeightMin`: nullable `real`
+- `targetWeightMax`: nullable `real`
+- `targetSeconds`: nullable `integer`
+- `targetDistance`: nullable `real`
 - `completed`: boolean-backed `integer`, required, default `false`
 - `skipped`: boolean-backed `integer`, required, default `false`
 - `section`: nullable `text`, one of `warmup | main | cooldown`

@@ -128,6 +128,39 @@ describe('SetRow', () => {
     });
   });
 
+  it('renders duration rows as one block with effort inputs', () => {
+    const onUpdate = vi.fn();
+
+    render(
+      <SetRow
+        completed={false}
+        label="Duration"
+        onUpdate={onUpdate}
+        reps={null}
+        seconds={1800}
+        setNumber={1}
+        targetSeconds={1800}
+        trackingType="duration"
+      />,
+    );
+
+    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Target: 1800 sec')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zone for set 1')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('RPE for set 1'), { target: { value: '3' } });
+    vi.advanceTimersByTime(250);
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      completed: true,
+      distance: null,
+      reps: null,
+      rpe: 3,
+      seconds: 1800,
+      weight: null,
+    });
+  });
+
   it('uses km distance suffix for metric users', () => {
     render(
       <SetRow

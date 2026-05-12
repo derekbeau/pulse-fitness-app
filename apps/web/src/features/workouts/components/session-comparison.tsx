@@ -354,6 +354,7 @@ function getPrimarySetMetric(set: SessionSet, trackingType: ExerciseTrackingType
   switch (trackingType) {
     case 'weight_seconds':
     case 'seconds_only':
+    case 'duration':
     case 'cardio':
       return getSetSeconds(set) ?? 0;
     case 'distance':
@@ -367,6 +368,7 @@ function getSetDeltaLabel(trackingType: ExerciseTrackingType) {
   if (
     trackingType === 'weight_seconds' ||
     trackingType === 'seconds_only' ||
+    trackingType === 'duration' ||
     trackingType === 'cardio'
   ) {
     return 'Seconds';

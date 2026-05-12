@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { exerciseTrackingTypeSchema } from './exercises.js';
-import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
+import { MAX_DURATION_SECONDS, workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -45,6 +45,8 @@ const nullableTemplateIdSchema = z.preprocess(
   requiredStringSchema.nullable(),
 );
 const nullableIntegerSchema = z.number().int().min(0).nullable();
+const nullableRpeSchema = z.number().int().min(1).max(10).nullable();
+const nullableZoneSchema = z.number().int().min(1).max(5).nullable();
 const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStringSchema);
 
 const validateWorkoutSessionTiming = (
@@ -294,10 +296,12 @@ export const sessionSetSchema = z
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable(),
     reps: nullableIntegerSchema,
+    rpe: nullableRpeSchema.optional(),
+    zone: nullableZoneSchema.optional(),
     targetWeight: z.number().min(0).nullable().optional(),
     targetWeightMin: z.number().min(0).nullable().optional(),
     targetWeightMax: z.number().min(0).nullable().optional(),
-    targetSeconds: nullableIntegerSchema.optional(),
+    targetSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
     targetDistance: z.number().min(0).nullable().optional(),
     completed: z.boolean(),
     skipped: z.boolean(),
@@ -392,6 +396,13 @@ export const sessionSetInputSchema = z
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable().optional().default(null),
     reps: nullableIntegerSchema.optional().default(null),
+    rpe: nullableRpeSchema.optional(),
+    zone: nullableZoneSchema.optional(),
+    targetWeight: z.number().min(0).nullable().optional(),
+    targetWeightMin: z.number().min(0).nullable().optional(),
+    targetWeightMax: z.number().min(0).nullable().optional(),
+    targetSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
+    targetDistance: z.number().min(0).nullable().optional(),
     completed: z.boolean().optional(),
     skipped: z.boolean().optional(),
     supersetGroup: nullableShortStringSchema.optional().default(null),
@@ -402,6 +413,10 @@ export const sessionSetInputSchema = z
   .refine((value) => !(value.completed && value.skipped), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
+  })
+  .refine(hasValidTargetWeightRange, {
+    message: 'targetWeightMin must be less than or equal to targetWeightMax',
+    path: ['targetWeightMax'],
   })
   .transform((value, context) => {
     // Fastify validates/transforms request bodies before preHandler hooks run.
@@ -431,8 +446,12 @@ const workoutSessionExerciseMutationInputSchema = z
     exerciseName: requiredStringSchema.optional(),
     name: requiredStringSchema.optional(),
     sets: z.number().int().min(1).max(100),
-    reps: z.number().int().min(0).max(1000).nullable().optional(),
+    reps: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
+    durationSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).optional(),
+    targetSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).optional(),
     weight: z.number().min(0).nullable().optional(),
+    rpe: nullableRpeSchema.optional(),
+    zone: nullableZoneSchema.optional(),
     section: workoutTemplateSectionTypeSchema.optional().default('main'),
   })
   .transform((value, context) => {
@@ -449,9 +468,14 @@ const workoutSessionExerciseMutationInputSchema = z
     const normalized = {
       ...value,
       exerciseId: resolvedExerciseId,
+      reps: value.durationSeconds ?? value.targetSeconds ?? value.reps,
+      targetSeconds: value.targetSeconds,
+      sets:
+        value.durationSeconds !== undefined || value.targetSeconds !== undefined ? 1 : value.sets,
     };
     delete normalized.exerciseName;
     delete normalized.name;
+    delete normalized.durationSeconds;
     return normalized;
   });
 
@@ -549,10 +573,15 @@ export const setCorrectionSchema = z
     setId: requiredStringSchema,
     weight: z.number().min(0).optional(),
     reps: z.number().int().min(0).optional(),
-    rpe: z.number().min(0).max(10).optional(),
+    rpe: z.number().int().min(1).max(10).optional(),
+    zone: z.number().int().min(1).max(5).optional(),
   })
   .refine(
-    (value) => value.weight !== undefined || value.reps !== undefined || value.rpe !== undefined,
+    (value) =>
+      value.weight !== undefined ||
+      value.reps !== undefined ||
+      value.rpe !== undefined ||
+      value.zone !== undefined,
     {
       message: 'At least one correction field must be provided',
     },

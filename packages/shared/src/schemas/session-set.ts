@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
+import { MAX_DURATION_SECONDS, workoutTemplateSectionTypeSchema } from './workout-templates.js';
 
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -35,8 +35,10 @@ export const createSetSchema = z.object({
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable().optional().default(null),
   reps: z.number().int().min(0).nullable().optional().default(null),
-  seconds: z.number().int().min(0).nullable().optional().default(null),
+  seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional().default(null),
   distance: z.number().min(0).nullable().optional().default(null),
+  rpe: z.number().int().min(1).max(10).nullable().optional(),
+  zone: z.number().int().min(1).max(5).nullable().optional(),
   section: workoutTemplateSectionTypeSchema.nullable().optional().default(null),
 });
 
@@ -44,8 +46,10 @@ export const updateSetSchema = z
   .object({
     weight: z.number().min(0).nullable().optional(),
     reps: z.number().int().min(0).nullable().optional(),
-    seconds: z.number().int().min(0).nullable().optional(),
+    seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
     distance: z.number().min(0).nullable().optional(),
+    rpe: z.number().int().min(1).max(10).nullable().optional(),
+    zone: z.number().int().min(1).max(5).nullable().optional(),
     completed: z.boolean().optional(),
     skipped: z.boolean().optional(),
     notes: z.preprocess(normalizeOptionalString, nullableLongStringSchema.optional()),

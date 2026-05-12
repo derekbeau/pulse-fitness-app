@@ -59,6 +59,19 @@ describe('tracking format helpers', () => {
     ).toBe('300 sec / 1.2 mi');
   });
 
+  it('formats duration sets with effort metadata', () => {
+    expect(
+      formatSetSummary(
+        {
+          reps: 1800,
+          rpe: 3,
+          zone: 2,
+        },
+        'duration',
+      ),
+    ).toBe('1,800 sec (RPE 3 / Zone 2)');
+  });
+
   it('does not infer seconds from reps for reps-seconds history when fallback is disabled', () => {
     expect(
       formatSetSummary(
@@ -74,9 +87,11 @@ describe('tracking format helpers', () => {
 
   it('uses tracking-aware aggregate labels and values', () => {
     expect(getTrackingSummaryMetricLabel('weight_seconds')).toBe('seconds');
+    expect(getTrackingSummaryMetricLabel('duration')).toBe('seconds');
     expect(getTrackingSummaryMetricLabel('distance')).toBe('distance');
     expect(getSetSummaryMetricValue('weight_reps', { reps: 5, weight: 100 })).toBe(500);
     expect(getSetSummaryMetricValue('seconds_only', { reps: 40 })).toBe(40);
+    expect(getSetSummaryMetricValue('duration', { reps: 1800 })).toBe(1800);
   });
 
   it('formats mixed metric breakdown values consistently', () => {

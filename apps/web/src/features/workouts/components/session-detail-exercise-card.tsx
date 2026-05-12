@@ -18,7 +18,9 @@ import {
 
 export type SessionSetDraft = {
   reps: string;
+  rpe: string;
   weight: string;
+  zone: string;
 };
 
 export type SessionSetDraftKey = keyof SessionSetDraft;
@@ -73,7 +75,9 @@ export function SessionDetailExerciseCard({
               </Badge>
             ) : null}
             <p className="text-sm text-muted">
-              {`${exercise.sets.length} logged set${exercise.sets.length === 1 ? '' : 's'}`}
+              {exercise.trackingType === 'duration'
+                ? 'Duration logged'
+                : `${exercise.sets.length} logged set${exercise.sets.length === 1 ? '' : 's'}`}
             </p>
           </div>
 
@@ -165,7 +169,9 @@ function SessionSetEditor({
     <div className="rounded-2xl border border-border/70 bg-background/70 p-2.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">{`Set ${set.setNumber}`}</p>
+          <p className="text-sm font-semibold text-foreground">
+            {trackingType === 'duration' ? 'Duration' : `Set ${set.setNumber}`}
+          </p>
           <p className="text-xs text-muted">{formatSetLabel(set, trackingType, weightUnit)}</p>
         </div>
         {set.skipped ? (
@@ -199,7 +205,8 @@ function SessionSetEditor({
                     className={cn('h-10 pr-10', field.suffix ? 'pr-12' : '')}
                     id={inputId}
                     inputMode={field.inputMode}
-                    min={0}
+                    max={field.max}
+                    min={field.min ?? 0}
                     onChange={(event) => onChange(field.key, event.currentTarget.value)}
                     step={field.step}
                     type="number"
@@ -230,6 +237,8 @@ type SessionSetEditorField = {
   inputMode: 'decimal' | 'numeric';
   key: SessionSetDraftKey;
   label: string;
+  max?: number;
+  min?: number;
   step: string;
   suffix?: string;
 };
@@ -257,9 +266,26 @@ function getSessionSetEditorFields(
     inputMode: 'numeric',
     key: 'reps',
     // seconds are stored in the reps column for time-based tracking types
-    label: 'Seconds',
+    label: trackingType === 'duration' ? 'Duration' : 'Seconds',
+    max: 21_600,
     step: '1',
     suffix: 'sec',
+  };
+  const rpeField: SessionSetEditorField = {
+    inputMode: 'numeric',
+    key: 'rpe',
+    label: 'RPE',
+    max: 10,
+    min: 1,
+    step: '1',
+  };
+  const zoneField: SessionSetEditorField = {
+    inputMode: 'numeric',
+    key: 'zone',
+    label: 'Zone',
+    max: 5,
+    min: 1,
+    step: '1',
   };
 
   switch (trackingType) {
@@ -274,6 +300,8 @@ function getSessionSetEditorFields(
     case 'seconds_only':
     case 'cardio':
       return [secondsField];
+    case 'duration':
+      return [secondsField, rpeField, zoneField];
     case 'distance':
     default:
       return [];
@@ -301,7 +329,9 @@ function getReadOnlyCorrectionSummary(
 export function createSessionSetDraft(set: SessionSet): SessionSetDraft {
   return {
     reps: set.reps != null ? `${set.reps}` : '',
+    rpe: set.rpe != null ? `${set.rpe}` : '',
     weight: set.weight != null ? `${set.weight}` : '',
+    zone: set.zone != null ? `${set.zone}` : '',
   };
 }
 
@@ -317,8 +347,12 @@ function formatSetLabel(
 }
 
 function formatLabel(value: string) {
+  if (value === 'cardio_flow') {
+    return 'Cardio / Flow';
+  }
+
   return value
-    .split(/[- ]+/)
+    .split(/[-_ ]+/)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');

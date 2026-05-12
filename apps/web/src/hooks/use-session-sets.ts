@@ -172,6 +172,8 @@ export function useLogSet(sessionId: string | null | undefined) {
         setNumber: variables.setNumber,
         weight: variables.weight ?? null,
         reps: variables.reps ?? null,
+        ...(variables.rpe !== undefined ? { rpe: variables.rpe } : {}),
+        ...(variables.zone !== undefined ? { zone: variables.zone } : {}),
         targetWeight: undefined,
         targetWeightMin: undefined,
         targetWeightMax: undefined,
@@ -222,11 +224,13 @@ export function useUpdateSet(sessionId: string | null | undefined) {
             ? {}
             : { completed: variables.update.completed }),
           ...(variables.update.reps === undefined ? {} : { reps: variables.update.reps }),
+          ...(variables.update.rpe === undefined ? {} : { rpe: variables.update.rpe }),
           ...(variables.update.notes === undefined
             ? {}
             : { notes: (variables.update.notes ?? null) as string | null }),
           ...(variables.update.skipped === undefined ? {} : { skipped: variables.update.skipped }),
           ...(variables.update.weight === undefined ? {} : { weight: variables.update.weight }),
+          ...(variables.update.zone === undefined ? {} : { zone: variables.update.zone }),
         };
 
         return nextSet;

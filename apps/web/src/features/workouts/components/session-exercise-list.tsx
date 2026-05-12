@@ -799,6 +799,7 @@ function ExerciseCardItem({
       };
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
+  const isDurationExercise = exercise.trackingType === 'duration';
   const formCues = exercise.formCues;
   const templateCues = exercise.templateCues;
   const programmingNotes = exercise.programmingNotes?.trim() ?? '';
@@ -810,7 +811,7 @@ function ExerciseCardItem({
     : exercise.priority === 'required'
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
-  const canRemoveSet = exercise.sets.length > 1;
+  const canRemoveSet = !isDurationExercise && exercise.sets.length > 1;
   const exercisePanelId = `exercise-panel-${exercise.id}`;
   const toggleExpanded = () => {
     setExpandedExercises((current) => ({
@@ -882,7 +883,7 @@ function ExerciseCardItem({
                 <span className="truncate">{exercise.name}</span>
               </h3>
               <p className="text-xs text-muted sm:text-sm">
-                {`${exercise.completedSets}/${exercise.targetSets} sets`}
+                {formatExerciseProgress(exercise)}
                 <span className="ml-1.5 opacity-70">{`· ${formatEstimateMinuteRange(estimateExerciseTime(exercise))}`}</span>
               </p>
             </div>
@@ -928,7 +929,10 @@ function ExerciseCardItem({
             <DropdownMenuItem onClick={handleMenuAction(onRenameExercise)}>
               Rename exercise
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleMenuAction(() => onAddSet(exercise.id))}>
+            <DropdownMenuItem
+              disabled={isDurationExercise}
+              onClick={handleMenuAction(() => onAddSet(exercise.id))}
+            >
               Add Set
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -989,7 +993,7 @@ function ExerciseCardItem({
                   {formatPhaseBadge(exercise.phaseBadge)}
                 </Badge>
               ) : null}
-              <MetadataPill label={exercise.category.replace(/\b\w/g, (c) => c.toUpperCase())} />
+              <MetadataPill label={formatCategoryLabel(exercise.category)} />
               {exercise.priority === 'optional' ? <MetadataPill label="Optional" /> : null}
               {exercise.tempo ? (
                 <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
@@ -1009,7 +1013,9 @@ function ExerciseCardItem({
                   <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
                     Programming notes
                   </p>
-                  <p className="whitespace-pre-wrap text-[13px] italic text-muted">{programmingNotes}</p>
+                  <p className="whitespace-pre-wrap text-[13px] italic text-muted">
+                    {programmingNotes}
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -1030,7 +1036,9 @@ function ExerciseCardItem({
                   <p className="whitespace-pre-wrap text-[13px] italic text-muted">{agentNotes}</p>
                   {agentNotesGeneratedAt || exercise.agentNotesMeta?.stale ? (
                     <p className="text-[10px] text-muted">
-                      {agentNotesGeneratedAt ? `generated ${agentNotesGeneratedAt}` : 'generated recently'}
+                      {agentNotesGeneratedAt
+                        ? `generated ${agentNotesGeneratedAt}`
+                        : 'generated recently'}
                       {exercise.agentNotesMeta?.stale ? ' • possibly stale — rescheduled' : ''}
                     </p>
                   ) : null}
@@ -1173,11 +1181,13 @@ function ExerciseCardItem({
               <Fragment key={set.id}>
                 <SetRow
                   completed={set.completed}
+                  label={isDurationExercise ? 'Duration' : undefined}
                   onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
                   ref={(element) => {
                     repsInputRefs.current[set.id] = element;
                   }}
                   reps={set.reps}
+                  rpe={set.rpe}
                   setNumber={set.number}
                   trackingType={exercise.trackingType}
                   distance={set.distance}
@@ -1188,6 +1198,7 @@ function ExerciseCardItem({
                   targetWeightMin={set.targetWeightMin}
                   weight={set.weight}
                   weightUnit={weightUnit}
+                  zone={set.zone}
                   seconds={set.seconds}
                 />
               </Fragment>
@@ -1305,6 +1316,22 @@ function getExerciseState(
   return 'upcoming';
 }
 
+function formatExerciseProgress(exercise: ActiveWorkoutExercise) {
+  if (exercise.trackingType === 'duration') {
+    return exercise.completedSets >= exercise.targetSets ? 'Duration logged' : 'Duration pending';
+  }
+
+  return `${exercise.completedSets}/${exercise.targetSets} sets`;
+}
+
+function formatCategoryLabel(category: string) {
+  if (category === 'cardio_flow') {
+    return 'Cardio / Flow';
+  }
+
+  return category.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
   for (const section of session.sections) {
     for (const exercise of section.exercises) {
@@ -1330,6 +1357,12 @@ function formatExerciseSubtitle({
   const repTarget = parsePrescribedRepTarget(exercise.prescribedReps);
   const trackedTarget = formatTrackedRepTarget(repTarget, exercise.trackingType, weightUnit);
   const sets = exercise.prescribedSets;
+
+  if (exercise.trackingType === 'duration') {
+    const targetSeconds = exercise.sets.find((set) => set.targetSeconds != null)?.targetSeconds;
+    return targetSeconds != null ? `${targetSeconds} sec` : 'Duration';
+  }
+
   const hasWeightLadder =
     (exercise.trackingType === 'weight_reps' || exercise.trackingType === 'weight_seconds') &&
     exercise.reversePyramid.some((target) => target.targetWeight > 0);
@@ -1444,6 +1477,7 @@ function formatTrackedRepTarget(
 
   if (
     trackingType === 'seconds_only' ||
+    trackingType === 'duration' ||
     trackingType === 'weight_seconds' ||
     trackingType === 'cardio' ||
     trackingType === 'reps_seconds'

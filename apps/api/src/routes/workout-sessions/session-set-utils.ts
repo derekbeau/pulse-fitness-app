@@ -12,7 +12,19 @@ export const toExerciseSectionKey = (
 export const buildInitialSessionSets = (
   sections: Array<{
     type: WorkoutTemplateSectionType;
-    exercises: Array<{ exerciseId: string; sets: number | null; supersetGroup?: string | null }>;
+    exercises: Array<{
+      exerciseId: string;
+      sets: number | null;
+      setTargets?: Array<{
+        setNumber: number;
+        targetDistance?: number | null;
+        targetSeconds?: number | null;
+        targetWeight?: number | null;
+        targetWeightMax?: number | null;
+        targetWeightMin?: number | null;
+      }> | null;
+      supersetGroup?: string | null;
+    }>;
   }>,
 ): CreateWorkoutSessionInput['sets'] => {
   const sets: CreateWorkoutSessionInput['sets'] = [];
@@ -22,7 +34,25 @@ export const buildInitialSessionSets = (
       const setCount = exercise.sets ?? 1;
 
       for (let setNumber = 1; setNumber <= setCount; setNumber += 1) {
+        const target =
+          exercise.setTargets?.find((entry) => entry.setNumber === setNumber) ??
+          exercise.setTargets?.[setNumber - 1] ??
+          null;
+        const targetValues =
+          target !== null
+            ? Object.fromEntries(
+                Object.entries({
+                  targetDistance: target.targetDistance,
+                  targetSeconds: target.targetSeconds,
+                  targetWeight: target.targetWeight,
+                  targetWeightMax: target.targetWeightMax,
+                  targetWeightMin: target.targetWeightMin,
+                }).filter(([, value]) => value !== undefined && value !== null),
+              )
+            : {};
+
         sets.push({
+          ...targetValues,
           exerciseId: exercise.exerciseId,
           orderIndex: exerciseIndex,
           setNumber,
@@ -111,7 +141,9 @@ export const reorderSessionSetsByExercise = (
     const preferred = reorderedBySection.get(section) ?? [];
     reorderedBySection.set(section, [
       ...preferred,
-      ...currentExerciseSectionKeys.filter((exerciseSectionKey) => !preferred.includes(exerciseSectionKey)),
+      ...currentExerciseSectionKeys.filter(
+        (exerciseSectionKey) => !preferred.includes(exerciseSectionKey),
+      ),
     ]);
   }
 

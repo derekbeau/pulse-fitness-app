@@ -11,15 +11,19 @@ type SetRowUpdate = {
   completed?: boolean;
   distance?: number | null;
   reps?: number | null;
+  rpe?: number | null;
   seconds?: number | null;
   weight?: number | null;
+  zone?: number | null;
 };
 
 type SetRowProps = {
   completed: boolean;
   distance?: number | null;
+  label?: string;
   onUpdate: (update: SetRowUpdate) => void;
   reps: number | null;
+  rpe?: number | null;
   seconds?: number | null;
   setNumber: number;
   targetDistance?: number | null;
@@ -30,14 +34,17 @@ type SetRowProps = {
   trackingType?: ExerciseTrackingType;
   weight?: number | null;
   weightUnit?: WeightUnit;
+  zone?: number | null;
 };
 
-type InputKey = 'distance' | 'reps' | 'seconds' | 'weight';
+type InputKey = 'distance' | 'reps' | 'rpe' | 'seconds' | 'weight' | 'zone';
 
 type MetricInputConfig = {
   ariaLabel: string;
   inputMode: 'decimal' | 'numeric';
   key: InputKey;
+  max?: number;
+  min?: number;
   placeholder: string;
   step: string;
   suffix?: string;
@@ -49,8 +56,10 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   {
     completed,
     distance = null,
+    label,
     onUpdate,
     reps,
+    rpe = null,
     seconds = null,
     setNumber,
     targetDistance = null,
@@ -61,6 +70,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     trackingType = 'weight_reps',
     weight = null,
     weightUnit = 'lbs',
+    zone = null,
   },
   ref,
 ) {
@@ -70,8 +80,10 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     {
       distance,
       reps,
+      rpe,
       seconds,
       weight,
+      zone,
     },
     localOverrides,
   );
@@ -98,14 +110,14 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
       data-slot="set-row"
     >
       <div className="shrink-0">
-        <span className="text-xs font-semibold text-muted">{`Set ${setNumber}`}</span>
+        <span className="text-xs font-semibold text-muted">{label ?? `Set ${setNumber}`}</span>
         {targetHint ? <p className="text-[10px] text-muted">{targetHint}</p> : null}
       </div>
 
       <div
         className={cn(
           'grid min-w-0 flex-1 items-center gap-1.5',
-          inputs.length === 1 ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
+          getInputGridClassName(inputs.length),
         )}
       >
         {inputs.map((input, index) => (
@@ -124,7 +136,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
               }));
 
               const autoCompleted = isSetCompleteForTrackingType(trackingType, nextValues);
-              debouncedOnUpdate.run({ ...nextValues, completed: autoCompleted });
+              debouncedOnUpdate.run(buildSetRowUpdate(nextValues, input.key, autoCompleted));
             }}
             onBlur={() => {
               debouncedOnUpdate.flush();
@@ -161,7 +173,8 @@ const MetricInput = forwardRef<
           completed && 'border-emerald-500/20 bg-background/80 opacity-80',
         )}
         inputMode={input.inputMode}
-        min={0}
+        max={input.max}
+        min={input.min ?? 0}
         onBlur={onBlur}
         onChange={(event) => onChange(parseNumberInput(event.currentTarget.value))}
         placeholder={input.placeholder}
@@ -234,12 +247,33 @@ function getMetricInputs(trackingType: ExerciseTrackingType, weightUnit: WeightU
     suffix: 'reps',
   };
   const secondsInput: MetricInputConfig = {
-    ariaLabel: 'Seconds',
+    ariaLabel: trackingType === 'duration' ? 'Duration' : 'Seconds',
     inputMode: 'numeric',
     key: 'seconds',
+    max: 21_600,
     placeholder: '--',
     step: '1',
     suffix: 'sec',
+  };
+  const rpeInput: MetricInputConfig = {
+    ariaLabel: 'RPE',
+    inputMode: 'numeric',
+    key: 'rpe',
+    max: 10,
+    min: 1,
+    placeholder: '--',
+    step: '1',
+    suffix: 'rpe',
+  };
+  const zoneInput: MetricInputConfig = {
+    ariaLabel: 'Zone',
+    inputMode: 'numeric',
+    key: 'zone',
+    max: 5,
+    min: 1,
+    placeholder: '--',
+    step: '1',
+    suffix: 'zone',
   };
   const distanceInput: MetricInputConfig = {
     ariaLabel: 'Distance',
@@ -262,6 +296,8 @@ function getMetricInputs(trackingType: ExerciseTrackingType, weightUnit: WeightU
       return { inputs: [repsInput, secondsInput], separator: '×' };
     case 'seconds_only':
       return { inputs: [secondsInput], separator: null };
+    case 'duration':
+      return { inputs: [secondsInput, rpeInput, zoneInput], separator: null };
     case 'distance':
       return { inputs: [distanceInput], separator: null };
     case 'cardio':
@@ -302,6 +338,7 @@ function formatTargetHint({
     case 'weight_reps':
       return weightValue ? `Target: ${weightValue}` : null;
     case 'seconds_only':
+    case 'duration':
       return secondsValue ? `Target: ${secondsValue}` : null;
     case 'weight_seconds':
       if (weightValue && secondsValue) {
@@ -334,6 +371,7 @@ function shouldAttachFocusRef(inputKey: InputKey, trackingType: ExerciseTracking
       return inputKey === 'reps';
     case 'weight_seconds':
     case 'seconds_only':
+    case 'duration':
     case 'cardio':
       return inputKey === 'seconds';
     case 'distance':
@@ -341,6 +379,18 @@ function shouldAttachFocusRef(inputKey: InputKey, trackingType: ExerciseTracking
     default:
       return inputKey === 'reps';
   }
+}
+
+function getInputGridClassName(inputCount: number) {
+  if (inputCount === 1) {
+    return 'grid-cols-1';
+  }
+
+  if (inputCount === 2) {
+    return 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]';
+  }
+
+  return 'grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]';
 }
 
 function parseNumberInput(value: string) {
@@ -364,6 +414,22 @@ function resolveInputValues(
   return {
     ...serverValues,
     ...localOverrides,
+  };
+}
+
+function buildSetRowUpdate(
+  values: InputValues,
+  changedInput: InputKey,
+  completed: boolean,
+): SetRowUpdate {
+  return {
+    completed,
+    distance: values.distance,
+    reps: values.reps,
+    ...(changedInput === 'rpe' || values.rpe !== null ? { rpe: values.rpe } : {}),
+    seconds: values.seconds,
+    weight: values.weight,
+    ...(changedInput === 'zone' || values.zone !== null ? { zone: values.zone } : {}),
   };
 }
 

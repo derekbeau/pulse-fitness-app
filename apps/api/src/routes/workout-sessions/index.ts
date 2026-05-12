@@ -234,12 +234,6 @@ const INVALID_SESSION_CORRECTION_SET_RESPONSE = {
   message: 'One or more corrections reference sets outside the workout session',
 } as const;
 
-const UNSUPPORTED_SESSION_CORRECTION_RESPONSE = {
-  code: 'INVALID_SESSION_CORRECTION',
-  message:
-    'Workout session corrections must include weight or reps. Set-level RPE corrections are not persisted yet',
-} as const;
-
 const staleSnapshotExerciseSchema = z.object({
   exerciseId: z.string(),
   snapshotName: z.string(),
@@ -308,6 +302,13 @@ const toCreateWorkoutSessionInput = (
               setNumber: set.setNumber,
               weight: set.weight,
               reps: set.reps,
+              rpe: set.rpe ?? null,
+              zone: set.zone ?? null,
+              targetWeight: set.targetWeight ?? null,
+              targetWeightMin: set.targetWeightMin ?? null,
+              targetWeightMax: set.targetWeightMax ?? null,
+              targetSeconds: set.targetSeconds ?? null,
+              targetDistance: set.targetDistance ?? null,
               completed: set.completed,
               skipped: set.skipped,
               supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
@@ -426,6 +427,8 @@ const buildScheduledSnapshotSessionSeed = ({
       setNumber: set.setNumber,
       weight: null,
       reps: set.reps,
+      rpe: null,
+      zone: null,
       targetWeight: set.targetWeight,
       targetWeightMin: set.targetWeightMin,
       targetWeightMax: set.targetWeightMax,
@@ -1076,18 +1079,6 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const unsupportedCorrection = request.body.corrections.find(
-        (correction) => correction.weight === undefined && correction.reps === undefined,
-      );
-      if (unsupportedCorrection) {
-        return sendError(
-          reply,
-          400,
-          UNSUPPORTED_SESSION_CORRECTION_RESPONSE.code,
-          `${UNSUPPORTED_SESSION_CORRECTION_RESPONSE.message}: ${unsupportedCorrection.setId}`,
-        );
-      }
-
       try {
         const session = await applySessionCorrections({
           sessionId: request.params.sessionId,
@@ -1566,6 +1557,23 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
               ...previous,
               weight: set.weight ?? previous.weight,
               reps: set.reps ?? previous.reps,
+              rpe: Object.hasOwn(set, 'rpe') ? (set.rpe ?? null) : (previous.rpe ?? null),
+              zone: Object.hasOwn(set, 'zone') ? (set.zone ?? null) : (previous.zone ?? null),
+              targetWeight: Object.hasOwn(set, 'targetWeight')
+                ? (set.targetWeight ?? null)
+                : (previous.targetWeight ?? null),
+              targetWeightMin: Object.hasOwn(set, 'targetWeightMin')
+                ? (set.targetWeightMin ?? null)
+                : (previous.targetWeightMin ?? null),
+              targetWeightMax: Object.hasOwn(set, 'targetWeightMax')
+                ? (set.targetWeightMax ?? null)
+                : (previous.targetWeightMax ?? null),
+              targetSeconds: Object.hasOwn(set, 'targetSeconds')
+                ? (set.targetSeconds ?? null)
+                : (previous.targetSeconds ?? null),
+              targetDistance: Object.hasOwn(set, 'targetDistance')
+                ? (set.targetDistance ?? null)
+                : (previous.targetDistance ?? null),
               completed: nextCompleted,
               skipped: nextSkipped,
               notes: set.notes ?? previous.notes,
@@ -1587,6 +1595,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
+            rpe: set.rpe ?? null,
+            zone: set.zone ?? null,
+            targetWeight: set.targetWeight ?? null,
+            targetWeightMin: set.targetWeightMin ?? null,
+            targetWeightMax: set.targetWeightMax ?? null,
+            targetSeconds: set.targetSeconds ?? null,
+            targetDistance: set.targetDistance ?? null,
             completed: nextCompleted,
             skipped: nextSkipped,
             supersetGroup: set.supersetGroup ?? null,
@@ -1657,6 +1672,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             setNumber: maxSetNumber + setOffset,
             weight: exercise.weight ?? null,
             reps: exercise.reps ?? null,
+            rpe: exercise.rpe ?? null,
+            zone: exercise.zone ?? null,
+            targetSeconds: exercise.targetSeconds ?? null,
             completed: false,
             skipped: false,
             supersetGroup: null,

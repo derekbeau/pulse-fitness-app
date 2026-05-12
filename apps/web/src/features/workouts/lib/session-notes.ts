@@ -70,11 +70,13 @@ export function buildSessionSetInputs(
         orderIndex: exerciseOrderIndexById[exerciseId] ?? 0,
         notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
         reps: isTimeBased ? draftSet.seconds : draftSet.reps,
+        ...(draftSet.rpe !== undefined && draftSet.rpe !== null ? { rpe: draftSet.rpe } : {}),
         section: templateExercise?.section ?? null,
         setNumber: draftSet.number,
         skipped: false,
         supersetGroup: templateExercise?.exercise.supersetGroup ?? null,
         weight: isWeightedTrackingType(trackingType) ? draftSet.weight : null,
+        ...(draftSet.zone !== undefined && draftSet.zone !== null ? { zone: draftSet.zone } : {}),
       });
     }
   }

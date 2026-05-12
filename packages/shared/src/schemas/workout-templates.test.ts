@@ -330,6 +330,49 @@ describe('createWorkoutTemplateInputSchema', () => {
     });
   });
 
+  it('normalizes duration exercise inputs into one long target block', () => {
+    const payload = createWorkoutTemplateInputSchema.parse({
+      name: 'Cardio Flow',
+      sections: [
+        {
+          type: 'main',
+          exercises: [
+            {
+              exerciseId: 'peloton-zone-2',
+              durationSeconds: 2700,
+              sets: 4,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(payload.sections[0]?.exercises[0]).toMatchObject({
+      exerciseId: 'peloton-zone-2',
+      sets: 1,
+      setTargets: [{ setNumber: 1, targetSeconds: 2700 }],
+    });
+  });
+
+  it('rejects duration targets above six hours', () => {
+    expect(() =>
+      createWorkoutTemplateInputSchema.parse({
+        name: 'Too Long',
+        sections: [
+          {
+            type: 'main',
+            exercises: [
+              {
+                exerciseId: 'walk',
+                durationSeconds: 21_601,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it('accepts agent convenience fields on exercises', () => {
     const payload = createWorkoutTemplateInputSchema.parse({
       name: 'Agent Template',

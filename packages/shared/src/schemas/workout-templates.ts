@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { exerciseTrackingTypeSchema } from './exercises.js';
 
+export const MAX_DURATION_SECONDS = 21_600;
+
 const normalizeNullableString = (value: unknown) => {
   if (value === null || value === undefined) {
     return null;
@@ -35,6 +37,8 @@ const nullableTempoSchema = z.preprocess(
 const nullablePositiveIntSchema = z.number().int().min(1).max(999).nullable();
 const nullableRestSecondsSchema = z.number().int().min(0).max(3600).nullable();
 const nullableNonNegativeNumberSchema = z.number().min(0).nullable();
+const durationSecondsInputSchema = z.number().int().min(0).max(MAX_DURATION_SECONDS);
+const nullableDurationSecondsSchema = durationSecondsInputSchema.nullable();
 
 export const workoutTemplateSectionTypeSchema = z.enum([
   'warmup',
@@ -48,7 +52,7 @@ export const workoutTemplateExerciseSetSchema = z
     targetWeight: nullableNonNegativeNumberSchema.optional(),
     targetWeightMin: nullableNonNegativeNumberSchema.optional(),
     targetWeightMax: nullableNonNegativeNumberSchema.optional(),
-    targetSeconds: z.number().int().min(0).nullable().optional(),
+    targetSeconds: nullableDurationSecondsSchema.optional(),
     targetDistance: nullableNonNegativeNumberSchema.optional(),
   })
   .refine(
@@ -121,7 +125,11 @@ const workoutTemplateExerciseInputSchema = z
   .object({
     exerciseId: requiredStringSchema.optional(),
     exerciseName: requiredStringSchema.optional(),
-    reps: z.union([z.number().int().min(1).max(1000), z.string().trim().min(1).max(20)]).optional(),
+    reps: z
+      .union([z.number().int().min(1).max(MAX_DURATION_SECONDS), z.string().trim().min(1).max(20)])
+      .optional(),
+    durationSeconds: durationSecondsInputSchema.optional(),
+    targetSeconds: durationSecondsInputSchema.optional(),
     sets: nullablePositiveIntSchema.optional().default(null),
     repsMin: nullablePositiveIntSchema.optional().default(null),
     repsMax: nullablePositiveIntSchema.optional().default(null),
@@ -151,8 +159,29 @@ const workoutTemplateExerciseInputSchema = z
       return z.NEVER;
     }
 
+    const resolvedDurationSeconds = value.durationSeconds ?? value.targetSeconds;
+    const { durationSeconds, targetSeconds, ...normalizedValue } = value;
+    void durationSeconds;
+    void targetSeconds;
+
+    if (resolvedDurationSeconds !== undefined) {
+      const [firstTarget, ...remainingTargets] = normalizedValue.setTargets ?? [];
+      const durationTarget = {
+        ...(firstTarget ?? { setNumber: 1 }),
+        setNumber: 1,
+        targetSeconds: resolvedDurationSeconds,
+      };
+
+      return {
+        ...normalizedValue,
+        exerciseId: resolvedExerciseId,
+        sets: 1,
+        setTargets: [durationTarget, ...remainingTargets],
+      };
+    }
+
     return {
-      ...value,
+      ...normalizedValue,
       exerciseId: resolvedExerciseId,
     };
   });

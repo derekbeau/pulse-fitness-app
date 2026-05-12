@@ -314,6 +314,7 @@ function shouldSeedSeconds(trackingType: ExerciseTrackingType) {
     trackingType === 'weight_seconds' ||
     trackingType === 'reps_seconds' ||
     trackingType === 'seconds_only' ||
+    trackingType === 'duration' ||
     trackingType === 'cardio'
   );
 }

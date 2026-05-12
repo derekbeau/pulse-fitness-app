@@ -75,6 +75,30 @@ describe('buildInitialSessionSets', () => {
       },
     ]);
   });
+
+  it('copies duration target seconds into the initial session block', () => {
+    const sets = buildInitialSessionSets([
+      {
+        type: 'cooldown',
+        exercises: [
+          {
+            exerciseId: 'yoga-flow',
+            sets: 1,
+            setTargets: [{ setNumber: 1, targetSeconds: 1800 }],
+          },
+        ],
+      },
+    ]);
+
+    expect(sets).toEqual([
+      expect.objectContaining({
+        exerciseId: 'yoga-flow',
+        section: 'cooldown',
+        setNumber: 1,
+        targetSeconds: 1800,
+      }),
+    ]);
+  });
 });
 
 describe('buildExerciseSectionOrder', () => {

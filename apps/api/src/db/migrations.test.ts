@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -1136,6 +1136,194 @@ describe('migration 0037 scheduled workout snapshot schema', () => {
     expect(migrationSql).toContain('`exercise_agent_notes_meta` text');
     expect(migrationSql).toContain(
       'FOREIGN KEY (`scheduled_workout_id`) REFERENCES `scheduled_workouts`(`id`) ON UPDATE no action ON DELETE set null',
+    );
+  });
+});
+
+describe('migration 0038 duration activity support', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('allows duration tracking/category values and adds set effort columns', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0038-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY NOT NULL
+        );
+
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          user_id TEXT,
+          name TEXT NOT NULL,
+          muscle_groups TEXT NOT NULL,
+          equipment TEXT NOT NULL,
+          category TEXT NOT NULL,
+          tracking_type TEXT DEFAULT 'weight_reps' NOT NULL,
+          tags TEXT DEFAULT '[]' NOT NULL,
+          form_cues TEXT DEFAULT '[]' NOT NULL,
+          instructions TEXT,
+          coaching_notes TEXT,
+          related_exercise_ids TEXT DEFAULT '[]' NOT NULL,
+          deleted_at TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE session_sets (
+          id TEXT PRIMARY KEY NOT NULL,
+          session_id TEXT NOT NULL,
+          exercise_id TEXT,
+          order_index INTEGER DEFAULT 0 NOT NULL,
+          set_number INTEGER NOT NULL,
+          weight REAL,
+          reps INTEGER,
+          target_weight REAL,
+          target_weight_min REAL,
+          target_weight_max REAL,
+          target_seconds INTEGER,
+          target_distance REAL,
+          superset_group TEXT,
+          completed INTEGER DEFAULT 0 NOT NULL,
+          skipped INTEGER DEFAULT 0 NOT NULL,
+          section TEXT DEFAULT 'main' NOT NULL,
+          notes TEXT,
+          created_at INTEGER NOT NULL
+        );
+      `);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0038_duration_activity_support.sql'),
+        'utf8',
+      );
+      expect(migrationSql).not.toContain('BEGIN TRANSACTION');
+      expect(migrationSql.indexOf('ALTER TABLE `session_sets` ADD `rpe`')).toBeLessThan(
+        migrationSql.indexOf('CREATE TABLE `__new_exercises`'),
+      );
+      runSqlStatements(db, migrationSql);
+
+      db.prepare(
+        `
+          INSERT INTO exercises (
+            id,
+            user_id,
+            name,
+            muscle_groups,
+            equipment,
+            category,
+            tracking_type,
+            tags,
+            form_cues,
+            instructions,
+            coaching_notes,
+            related_exercise_ids,
+            deleted_at,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run(
+        'duration-exercise',
+        null,
+        'Yoga Flow',
+        JSON.stringify(['full-body']),
+        'mat',
+        'cardio_flow',
+        'duration',
+        JSON.stringify([]),
+        JSON.stringify([]),
+        null,
+        null,
+        JSON.stringify([]),
+        null,
+        Date.now(),
+        Date.now(),
+      );
+
+      db.prepare(
+        `
+          INSERT INTO session_sets (
+            id,
+            session_id,
+            exercise_id,
+            order_index,
+            set_number,
+            reps,
+            rpe,
+            zone,
+            completed,
+            skipped,
+            section,
+            created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      ).run('set-1', 'session-1', 'duration-exercise', 0, 1, 1800, 3, 2, 1, 0, 'main', Date.now());
+
+      const row = db
+        .prepare(`SELECT tracking_type AS trackingType, category FROM exercises WHERE id = ?`)
+        .get('duration-exercise') as { trackingType: string; category: string };
+      const setRow = db.prepare(`SELECT rpe, zone FROM session_sets WHERE id = ?`).get('set-1') as {
+        rpe: number;
+        zone: number;
+      };
+
+      expect(row).toEqual({ trackingType: 'duration', category: 'cardio_flow' });
+      expect(setRow).toEqual({ rpe: 3, zone: 2 });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('includes Drizzle snapshot metadata for the duration schema', () => {
+    const snapshotPath = join(process.cwd(), 'drizzle/meta/0038_snapshot.json');
+
+    expect(existsSync(snapshotPath)).toBe(true);
+
+    const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as {
+      tables: {
+        exercises: {
+          checkConstraints: Record<string, { value: string }>;
+        };
+        session_sets: {
+          columns: Record<string, unknown>;
+          checkConstraints: Record<string, { value: string }>;
+        };
+      };
+    };
+
+    expect(snapshot.tables.exercises.checkConstraints.exercises_category_check.value).toContain(
+      "'cardio_flow'",
+    );
+    expect(
+      snapshot.tables.exercises.checkConstraints.exercises_tracking_type_check.value,
+    ).toContain("'duration'");
+    expect(snapshot.tables.session_sets.columns).toEqual(
+      expect.objectContaining({
+        rpe: expect.objectContaining({ type: 'integer' }),
+        zone: expect.objectContaining({ type: 'integer' }),
+      }),
+    );
+    expect(snapshot.tables.session_sets.checkConstraints).toEqual(
+      expect.objectContaining({
+        session_sets_rpe_check: expect.objectContaining({
+          value: expect.stringContaining('between 1 and 10'),
+        }),
+        session_sets_zone_check: expect.objectContaining({
+          value: expect.stringContaining('between 1 and 5'),
+        }),
+      }),
     );
   });
 });

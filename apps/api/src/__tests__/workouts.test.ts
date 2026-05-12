@@ -78,7 +78,7 @@ const seedExercise = (values: {
   name: string;
   muscleGroups: string[];
   equipment: string;
-  category: 'compound' | 'isolation' | 'cardio' | 'mobility';
+  category: 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
 }) =>
   context.db
     .insert(exercises)
