@@ -33,6 +33,7 @@ describe('use-last-performance hook', () => {
               setNumber: 1,
               weight: 105,
               reps: 9,
+              seconds: 30,
             },
             {
               setNumber: 2,
@@ -62,6 +63,7 @@ describe('use-last-performance hook', () => {
             setNumber: 1,
             weight: 105,
             reps: 9,
+            seconds: 30,
           },
           {
             completed: true,
@@ -82,6 +84,7 @@ describe('use-last-performance hook', () => {
               setNumber: 1,
               weight: 105,
               reps: 9,
+              seconds: 30,
             },
             {
               completed: true,

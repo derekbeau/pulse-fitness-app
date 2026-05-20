@@ -167,6 +167,8 @@ export const sessionSets = sqliteTable(
     setNumber: integer('set_number').notNull(),
     weight: real('weight'),
     reps: integer('reps'),
+    seconds: integer('seconds'),
+    distance: real('distance'),
     rpe: integer('rpe'),
     zone: integer('zone'),
     targetWeight: real('target_weight'),
@@ -193,6 +195,8 @@ export const sessionSets = sqliteTable(
       table.setNumber,
     ),
     check('session_sets_set_number_check', sql`${table.setNumber} > 0`),
+    check('session_sets_seconds_check', sql`${table.seconds} is null or ${table.seconds} >= 0`),
+    check('session_sets_distance_check', sql`${table.distance} is null or ${table.distance} >= 0`),
     check(
       'session_sets_section_check',
       sql`${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,

@@ -285,7 +285,9 @@ function getLastPerformance(
     sessionId: previousSession.id,
     sets: exerciseLog.sets.map((set) => ({
       completed: set.completed,
+      ...(set.distance != null ? { distance: set.distance } : {}),
       reps: set.reps,
+      ...(set.seconds != null ? { seconds: set.seconds } : {}),
       setNumber: set.setNumber,
       weight: set.weight ?? null,
     })),

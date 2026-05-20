@@ -644,7 +644,7 @@ function toCompletedSetListItem(
         completed: set.completed,
         reps: null,
         rpe: set.rpe ?? null,
-        seconds: set.reps,
+        seconds: set.seconds ?? set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
         zone: set.zone ?? null,
@@ -655,7 +655,7 @@ function toCompletedSetListItem(
         completed: set.completed,
         reps: null,
         rpe: set.rpe ?? null,
-        seconds: set.reps,
+        seconds: set.seconds ?? set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
         zone: set.zone ?? null,
@@ -663,7 +663,7 @@ function toCompletedSetListItem(
     case 'distance':
       return {
         completed: set.completed,
-        distance: getSetDistance(set) ?? set.reps ?? null,
+        distance: getSetDistance(set) ?? set.distance ?? set.reps ?? null,
         reps: null,
         rpe: set.rpe ?? null,
         setNumber: set.setNumber,
@@ -673,10 +673,10 @@ function toCompletedSetListItem(
     case 'cardio':
       return {
         completed: set.completed,
-        distance: getSetDistance(set),
+        distance: getSetDistance(set) ?? set.distance ?? null,
         reps: null,
         rpe: set.rpe ?? null,
-        seconds: set.reps,
+        seconds: set.seconds ?? set.reps,
         setNumber: set.setNumber,
         weight: set.weight,
         zone: set.zone ?? null,
@@ -686,8 +686,7 @@ function toCompletedSetListItem(
         completed: set.completed,
         reps: set.reps,
         rpe: set.rpe ?? null,
-        // Temporary bridge until reps_seconds has a dedicated persisted seconds field.
-        seconds: set.reps,
+        seconds: set.seconds ?? null,
         setNumber: set.setNumber,
         weight: set.weight,
         zone: set.zone ?? null,
@@ -695,7 +694,7 @@ function toCompletedSetListItem(
     default:
       return {
         completed: set.completed,
-        distance: getSetDistance(set),
+        distance: getSetDistance(set) ?? set.distance ?? null,
         reps: set.reps,
         rpe: set.rpe ?? null,
         setNumber: set.setNumber,

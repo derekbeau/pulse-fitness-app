@@ -18,6 +18,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
+import type { WorkoutExerciseTrackingType } from '../../db/schema/exercises.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -96,6 +97,7 @@ const seedExercise = (values: {
   muscleGroups: string[];
   equipment: string;
   category: 'compound' | 'isolation' | 'cardio' | 'cardio_flow' | 'mobility';
+  trackingType?: WorkoutExerciseTrackingType;
   tags?: string[];
   formCues?: string[];
   instructions?: string | null;
@@ -111,6 +113,7 @@ const seedExercise = (values: {
       instructions: values.instructions ?? null,
       coachingNotes: values.coachingNotes ?? null,
       relatedExerciseIds: values.relatedExerciseIds ?? [],
+      trackingType: values.trackingType ?? 'weight_reps',
     })
     .run();
 
@@ -147,6 +150,10 @@ const seedSessionSet = (values: {
   setNumber: number;
   weight?: number | null;
   reps?: number | null;
+  seconds?: number | null;
+  distance?: number | null;
+  notes?: string | null;
+  completed?: boolean;
 }) =>
   context.db
     .insert(sessionSets)
@@ -157,10 +164,12 @@ const seedSessionSet = (values: {
       setNumber: values.setNumber,
       weight: values.weight ?? null,
       reps: values.reps ?? null,
-      completed: false,
+      seconds: values.seconds ?? null,
+      distance: values.distance ?? null,
+      completed: values.completed ?? false,
       skipped: false,
       section: 'main',
-      notes: null,
+      notes: values.notes ?? null,
     })
     .run();
 
@@ -722,7 +731,7 @@ describe('exercise routes', () => {
 
     context.db
       .update(workoutSessions)
-      .set({ notes: 'Felt stronger than last week.' })
+      .set({ notes: 'Overall workout note.' })
       .where(eq(workoutSessions.id, 'session-latest'))
       .run();
 
@@ -741,6 +750,7 @@ describe('exercise routes', () => {
       setNumber: 1,
       weight: 105,
       reps: 8,
+      notes: 'Felt stronger than last week.',
     });
     seedSessionSet({
       id: 'set-latest-2',
@@ -799,6 +809,113 @@ describe('exercise routes', () => {
               setNumber: 1,
               weight: 95,
               reps: 10,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('returns reps-seconds history and skips blank exercise appearances before applying limit', async () => {
+    seedExercise({
+      id: 'mcgill-curl-up',
+      userId: 'user-1',
+      name: 'McGill Curl Up',
+      muscleGroups: ['core'],
+      equipment: 'bodyweight',
+      category: 'mobility',
+      trackingType: 'reps_seconds',
+    });
+
+    seedWorkoutSession({
+      id: 'session-blank',
+      userId: 'user-1',
+      name: 'Core Day Blank',
+      date: '2026-05-20',
+      status: 'completed',
+      startedAt: Date.parse('2026-05-20T10:00:00.000Z'),
+      completedAt: Date.parse('2026-05-20T10:30:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-may-18',
+      userId: 'user-1',
+      name: 'Core Day',
+      date: '2026-05-18',
+      status: 'completed',
+      startedAt: Date.parse('2026-05-18T10:00:00.000Z'),
+      completedAt: Date.parse('2026-05-18T10:30:00.000Z'),
+    });
+    seedWorkoutSession({
+      id: 'session-may-11',
+      userId: 'user-1',
+      name: 'Core Day Previous',
+      date: '2026-05-11',
+      status: 'completed',
+      startedAt: Date.parse('2026-05-11T10:00:00.000Z'),
+      completedAt: Date.parse('2026-05-11T10:30:00.000Z'),
+    });
+
+    seedSessionSet({
+      id: 'set-blank',
+      sessionId: 'session-blank',
+      exerciseId: 'mcgill-curl-up',
+      setNumber: 1,
+    });
+    seedSessionSet({
+      id: 'set-may-18',
+      sessionId: 'session-may-18',
+      exerciseId: 'mcgill-curl-up',
+      setNumber: 1,
+      reps: 5,
+      seconds: 10,
+      notes: 'Keep the brace crisp.',
+    });
+    seedSessionSet({
+      id: 'set-may-11',
+      sessionId: 'session-may-11',
+      exerciseId: 'mcgill-curl-up',
+      setNumber: 1,
+      reps: 4,
+      seconds: 10,
+    });
+
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/mcgill-curl-up/history?limit=2',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        {
+          sessionId: 'session-may-18',
+          date: '2026-05-18',
+          notes: 'Keep the brace crisp.',
+          sets: [
+            {
+              setNumber: 1,
+              weight: null,
+              reps: 5,
+              seconds: 10,
+            },
+          ],
+        },
+        {
+          sessionId: 'session-may-11',
+          date: '2026-05-11',
+          notes: null,
+          sets: [
+            {
+              setNumber: 1,
+              weight: null,
+              reps: 4,
+              seconds: 10,
             },
           ],
         },

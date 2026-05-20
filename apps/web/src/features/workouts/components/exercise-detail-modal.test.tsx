@@ -111,6 +111,55 @@ describe('ExerciseDetailModal', () => {
     expect(screen.getByRole('button', { name: 'View notes' })).toBeInTheDocument();
   });
 
+  it('renders reps-seconds history as reps times seconds and only shows note icons for exercise notes', () => {
+    useExerciseMock.mockReturnValue({
+      data: {
+        category: 'mobility',
+        coachingNotes: null,
+        equipment: 'bodyweight',
+        formCues: [],
+        id: 'mcgill-curl-up',
+        instructions: null,
+        muscleGroups: ['core'],
+        name: 'McGill Curl Up',
+        tags: [],
+        trackingType: 'reps_seconds',
+        userId: 'user-1',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      isPending: false,
+    } as unknown as ReturnType<typeof useExercise>);
+    useExerciseHistoryMock.mockReturnValue({
+      data: [
+        {
+          date: '2026-05-18',
+          notes: 'Keep the brace crisp.',
+          sessionId: 'session-may-18',
+          sets: [{ reps: 5, seconds: 10, setNumber: 1, weight: null }],
+        },
+        {
+          date: '2026-05-11',
+          notes: null,
+          sessionId: 'session-may-11',
+          sets: [{ reps: 4, seconds: 10, setNumber: 1, weight: null }],
+        },
+      ],
+      isPending: false,
+    } as unknown as ReturnType<typeof useExerciseHistory>);
+
+    renderModal({
+      context: 'session',
+      exerciseId: 'mcgill-curl-up',
+      onOpenChange: vi.fn(),
+      open: true,
+    });
+
+    expect(screen.getByText('May 18, 2026 · 5x10s')).toBeInTheDocument();
+    expect(screen.getByText('May 11, 2026 · 4x10s')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View notes' })).toHaveLength(1);
+  });
+
   it('renders trends tab with trend chart', () => {
     renderModal({
       context: 'template',

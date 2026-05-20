@@ -29,7 +29,7 @@ describe('use-exercise-history hook', () => {
           date: '2026-03-08',
           notes: 'Felt strong.',
           sets: [
-            { setNumber: 1, weight: 105, reps: 9 },
+            { setNumber: 1, weight: 105, reps: 9, seconds: 30 },
             { setNumber: 2, weight: 100, reps: 8 },
           ],
         },
@@ -49,7 +49,7 @@ describe('use-exercise-history hook', () => {
         date: '2026-03-08',
         notes: 'Felt strong.',
         sets: [
-          { setNumber: 1, weight: 105, reps: 9 },
+          { setNumber: 1, weight: 105, reps: 9, seconds: 30 },
           { setNumber: 2, weight: 100, reps: 8 },
         ],
       },

@@ -164,6 +164,8 @@ export const exerciseLastPerformanceSetSchema = z.object({
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable(),
   reps: z.number().int().min(0).nullable(),
+  seconds: z.number().int().min(0).nullable().optional(),
+  distance: z.number().min(0).nullable().optional(),
 });
 
 export const exerciseLastPerformanceSchema = z.object({

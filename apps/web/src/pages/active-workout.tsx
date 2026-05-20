@@ -1435,13 +1435,15 @@ export function ActiveWorkoutPage() {
 
     if (activeSessionId) {
       setSessionError(null);
-      const isTimeBased = isTimeBasedTrackingType(templateExercise.trackingType);
+      const trackingType = templateExercise.trackingType;
+      const tracksDistance = trackingType === 'distance' || trackingType === 'cardio';
       const persistedUpdate = {
         completed: updatedSet.completed,
-        // Bridge for time-based exercises: store seconds in the `reps` column until DB support lands.
-        reps: isTimeBased ? updatedSet.seconds : updatedSet.reps,
+        reps: isRepTrackingType(trackingType) ? updatedSet.reps : null,
+        seconds: isTimeBasedTrackingType(trackingType) ? updatedSet.seconds : null,
+        distance: tracksDistance ? updatedSet.distance : null,
         ...(update.rpe !== undefined ? { rpe: updatedSet.rpe ?? null } : {}),
-        weight: isWeightedTrackingType(templateExercise.trackingType) ? updatedSet.weight : null,
+        weight: isWeightedTrackingType(trackingType) ? updatedSet.weight : null,
         ...(update.zone !== undefined ? { zone: updatedSet.zone ?? null } : {}),
       };
       updateSetMutation.mutate(
@@ -1908,8 +1910,15 @@ function createSessionSetDrafts(
     const trackingType =
       templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
     const isTimeBased = isTimeBasedTrackingType(trackingType);
-    const nextSeconds = isTimeBased ? sessionSet.reps : null;
-    const nextReps = isTimeBased ? null : sessionSet.reps;
+    const nextSeconds = isTimeBased ? (sessionSet.seconds ?? sessionSet.reps) : null;
+    const nextReps =
+      trackingType === 'reps_seconds'
+        ? sessionSet.seconds != null
+          ? sessionSet.reps
+          : null
+        : isTimeBased
+          ? null
+          : sessionSet.reps;
     const nextSet = {
       completed: sessionSet.completed,
       distance: null,

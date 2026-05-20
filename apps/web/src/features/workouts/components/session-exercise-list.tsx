@@ -1440,8 +1440,13 @@ function formatHistoryPreviewEntries({
     const setSummary = formatCompactSets(
       history.sets.map((set) =>
         trackingType === 'distance'
-          ? { distance: set.reps, weight: set.weight }
-          : { reps: set.reps, weight: set.weight },
+          ? { distance: set.distance ?? set.reps, weight: set.weight }
+          : {
+              distance: set.distance,
+              reps: set.reps,
+              seconds: set.seconds,
+              weight: set.weight,
+            },
       ),
       trackingType,
       {

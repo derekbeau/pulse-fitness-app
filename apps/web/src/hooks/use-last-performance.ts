@@ -26,10 +26,15 @@ function mapLastPerformance(
   }
 
   const sets = payload.sets
-    .filter((set): set is typeof set & { reps: number } => set.reps !== null)
+    .filter(
+      (set) =>
+        set.weight !== null || set.reps !== null || set.seconds != null || set.distance != null,
+    )
     .map((set) => ({
       completed: true,
+      ...(set.distance != null ? { distance: set.distance } : {}),
       reps: set.reps,
+      ...(set.seconds != null ? { seconds: set.seconds } : {}),
       setNumber: set.setNumber,
       weight: set.weight,
     }));

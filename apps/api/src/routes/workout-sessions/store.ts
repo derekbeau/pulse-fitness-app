@@ -79,6 +79,8 @@ type SessionSetRecord = {
   setNumber: number;
   weight: number | null;
   reps: number | null;
+  seconds: number | null;
+  distance: number | null;
   rpe: number | null;
   zone: number | null;
   targetWeight: number | null;
@@ -160,6 +162,8 @@ const sessionSetSelection = {
   setNumber: sessionSets.setNumber,
   weight: sessionSets.weight,
   reps: sessionSets.reps,
+  seconds: sessionSets.seconds,
+  distance: sessionSets.distance,
   rpe: sessionSets.rpe,
   zone: sessionSets.zone,
   targetWeight: sessionSets.targetWeight,
@@ -207,6 +211,8 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   setNumber: set.setNumber,
   weight: set.weight,
   reps: set.reps,
+  ...(set.seconds !== null ? { seconds: set.seconds } : {}),
+  ...(set.distance !== null ? { distance: set.distance } : {}),
   ...(set.rpe !== null ? { rpe: set.rpe } : {}),
   ...(set.zone !== null ? { zone: set.zone } : {}),
   ...(set.targetWeight !== null ? { targetWeight: set.targetWeight } : {}),
@@ -424,6 +430,8 @@ const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInpu
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
+      seconds: set.seconds,
+      distance: set.distance,
       rpe: set.rpe ?? null,
       zone: set.zone ?? null,
       targetWeight: set.targetWeight ?? null,
@@ -580,6 +588,8 @@ export const createSessionSet = async ({
       setNumber: resolvedSetNumber,
       weight: input.weight,
       reps: input.reps,
+      seconds: input.seconds,
+      distance: input.distance,
       rpe: input.rpe ?? null,
       zone: input.zone ?? null,
       supersetGroup: sameExerciseSupersetGroup,
@@ -618,6 +628,8 @@ export const updateSessionSet = async ({
   const persistedInput = {
     weight: input.weight,
     reps: input.reps,
+    seconds: input.seconds,
+    distance: input.distance,
     rpe: input.rpe,
     zone: input.zone,
     completed: input.completed,
@@ -1087,6 +1099,8 @@ export const batchUpsertSessionSets = async ({
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
+            seconds: set.seconds,
+            distance: set.distance,
             rpe: set.rpe ?? null,
             zone: set.zone ?? null,
             section: normalizedSection,
@@ -1115,6 +1129,8 @@ export const batchUpsertSessionSets = async ({
           setNumber: set.setNumber,
           weight: set.weight,
           reps: set.reps,
+          seconds: set.seconds,
+          distance: set.distance,
           rpe: set.rpe ?? null,
           zone: set.zone ?? null,
           supersetGroup: inheritedSupersetGroup,

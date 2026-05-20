@@ -58,6 +58,8 @@ export const buildInitialSessionSets = (
           setNumber,
           weight: null,
           reps: null,
+          seconds: null,
+          distance: null,
           completed: false,
           skipped: false,
           supersetGroup: exercise.supersetGroup ?? null,

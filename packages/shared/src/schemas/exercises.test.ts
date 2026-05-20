@@ -342,6 +342,7 @@ describe('exerciseLastPerformanceSchema', () => {
         {
           setNumber: 1,
           reps: 10,
+          seconds: 30,
           weight: 60,
         },
         {
@@ -359,6 +360,7 @@ describe('exerciseLastPerformanceSchema', () => {
         {
           setNumber: 1,
           reps: 10,
+          seconds: 30,
           weight: 60,
         },
         {

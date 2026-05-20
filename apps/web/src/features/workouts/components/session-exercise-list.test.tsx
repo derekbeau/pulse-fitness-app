@@ -422,9 +422,9 @@ describe('SessionExerciseList', () => {
     expect(
       within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
     ).toHaveTextContent('Hardstyle, hips snap');
-    expect(within(rowErgCard as HTMLElement).getByTestId('exercise-agent-notes-row-erg')).toHaveTextContent(
-      'Last session was smooth. Increase to 62 lb if set one feels easy.',
-    );
+    expect(
+      within(rowErgCard as HTMLElement).getByTestId('exercise-agent-notes-row-erg'),
+    ).toHaveTextContent('Last session was smooth. Increase to 62 lb if set one feels easy.');
     expect(within(rowErgCard as HTMLElement).getByText(/generated Mar 16/i)).toBeInTheDocument();
     expect(
       within(rowErgCard as HTMLElement).getByText(/possibly stale — rescheduled/i),
@@ -893,9 +893,13 @@ describe('SessionExerciseList', () => {
     expect(rowErgToggle).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(
-      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Exercise actions for Row Erg' }),
+      within(rowErgCard as HTMLElement).getByRole('button', {
+        name: 'Exercise actions for Row Erg',
+      }),
     );
-    fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Exercise Details' }));
+    fireEvent.click(
+      within(rowErgCard as HTMLElement).getByRole('button', { name: 'Exercise Details' }),
+    );
 
     expect(rowErgToggle).toHaveAttribute('aria-expanded', 'false');
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
@@ -1522,6 +1526,124 @@ describe('SessionExerciseList', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('formats API reps-seconds quick history as reps times seconds and guards note icons', () => {
+    const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+    useLastPerformanceSpy.mockImplementation((_, options) => {
+      if (options?.includeRelated === false) {
+        return {
+          data: {
+            history: {
+              date: '2026-05-18',
+              notes: 'Keep the brace crisp.',
+              sessionId: 'session-may-18',
+              sets: [{ completed: true, reps: 5, seconds: 10, setNumber: 1, weight: null }],
+            },
+            historyEntries: [
+              {
+                date: '2026-05-18',
+                notes: 'Keep the brace crisp.',
+                sessionId: 'session-may-18',
+                sets: [{ completed: true, reps: 5, seconds: 10, setNumber: 1, weight: null }],
+              },
+              {
+                date: '2026-05-11',
+                notes: null,
+                sessionId: 'session-may-11',
+                sets: [{ completed: true, reps: 4, seconds: 10, setNumber: 1, weight: null }],
+              },
+            ],
+            related: [],
+          },
+        } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+      }
+
+      return {
+        data: {
+          history: null,
+          historyEntries: [],
+          related: [],
+        },
+      } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>;
+    });
+
+    const session: ActiveWorkoutSessionData = {
+      completedSets: 0,
+      currentExercise: 1,
+      currentExerciseId: 'mcgill-curl-up',
+      sections: [
+        {
+          exercises: [
+            {
+              badges: ['mobility'],
+              category: 'mobility',
+              completedSets: 0,
+              formCues: [],
+              id: 'mcgill-curl-up',
+              injuryCues: [],
+              lastPerformance: null,
+              name: 'McGill Curl Up',
+              notes: '',
+              phaseBadge: 'moderate',
+              prescribedSets: 2,
+              prescribedReps: '5 reps + 10 sec hold',
+              priority: 'required',
+              restSeconds: 60,
+              reversePyramid: [],
+              sets: [
+                {
+                  completed: false,
+                  distance: null,
+                  id: 'mcgill-curl-up-set-1',
+                  number: 1,
+                  reps: 5,
+                  seconds: 10,
+                  weight: null,
+                },
+              ],
+              supersetGroup: null,
+              templateCues: [],
+              tempo: null,
+              targetSets: 1,
+              trackingType: 'reps_seconds',
+            },
+          ],
+          id: 'main',
+          title: 'Main',
+          type: 'main',
+        },
+      ],
+      totalExercises: 1,
+      totalSets: 1,
+      workoutName: 'Custom Session',
+    };
+
+    renderWithQueryClient(
+      <SessionExerciseList
+        enableApiLastPerformance
+        onAddSet={vi.fn()}
+        onExerciseNotesChange={vi.fn()}
+        onRemoveSet={vi.fn()}
+        onSetUpdate={vi.fn()}
+        session={session}
+      />,
+    );
+
+    const card = screen
+      .getByRole('heading', { level: 3, name: 'McGill Curl Up' })
+      .closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+
+    fireEvent.click(getExercisePanelToggle('McGill Curl Up', 'mcgill-curl-up'));
+
+    expect(within(card as HTMLElement).getByText(/May 18 · 5x10s/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/May 11 · 4x10s/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getAllByRole('button', { name: 'View notes' })).toHaveLength(
+      1,
+    );
+
+    useLastPerformanceSpy.mockRestore();
+  });
+
   it('renders a compact subtitle for time-based exercises', () => {
     const session: ActiveWorkoutSessionData = {
       completedSets: 1,
@@ -1822,7 +1944,9 @@ describe('SessionExerciseList', () => {
     expect(within(card as HTMLElement).getByText(/Mar 20 · 75x6/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 18 · 70x8/)).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText(/Mar 15 · 65x10/)).toBeInTheDocument();
-    expect(within(card as HTMLElement).getByRole('button', { name: 'View notes' })).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).getByRole('button', { name: 'View notes' }),
+    ).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText(/Mar 10 · 60x12/)).not.toBeInTheDocument();
 
     useLastPerformanceSpy.mockRestore();

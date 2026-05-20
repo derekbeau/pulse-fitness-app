@@ -88,6 +88,26 @@ const exerciseSelection = {
   updatedAt: exercises.updatedAt,
 };
 
+const sessionSetHasPerformanceValue = () =>
+  or(
+    isNotNull(sessionSets.weight),
+    isNotNull(sessionSets.reps),
+    isNotNull(sessionSets.seconds),
+    isNotNull(sessionSets.distance),
+  );
+
+const hasPerformanceValue = (set: {
+  distance?: number | null;
+  reps: number | null;
+  seconds?: number | null;
+  weight: number | null;
+}) => set.weight !== null || set.reps !== null || set.seconds != null || set.distance != null;
+
+const normalizeSetNote = (note: string | null) => {
+  const normalized = note?.trim();
+  return normalized && normalized.length > 0 ? normalized : null;
+};
+
 const buildListWhereClause = ({
   userId,
   q,
@@ -378,7 +398,9 @@ export const mergeExercises = async (
     const winner = tx
       .select(exerciseSelection)
       .from(exercises)
-      .where(and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .where(
+        and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+      )
       .limit(1)
       .get();
 
@@ -389,7 +411,9 @@ export const mergeExercises = async (
     const loser = tx
       .select(exerciseSelection)
       .from(exercises)
-      .where(and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .where(
+        and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+      )
       .limit(1)
       .get();
 
@@ -503,13 +527,17 @@ export const mergeExercises = async (
 
     tx.update(exercises)
       .set({ deletedAt: new Date().toISOString(), updatedAt: Date.now() })
-      .where(and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .where(
+        and(eq(exercises.id, loserId), eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+      )
       .run();
 
     const mergedWinner = tx
       .select(exerciseSelection)
       .from(exercises)
-      .where(and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)))
+      .where(
+        and(eq(exercises.id, winnerId), eq(exercises.userId, userId), isNull(exercises.deletedAt)),
+      )
       .limit(1)
       .get();
 
@@ -852,6 +880,7 @@ export const findExerciseLastPerformance = async ({
         isNull(workoutSessions.deletedAt),
         eq(workoutSessions.status, 'completed'),
         eq(sessionSets.exerciseId, exerciseId),
+        sessionSetHasPerformanceValue(),
       ),
     )
     .groupBy(
@@ -880,10 +909,18 @@ export const findExerciseLastPerformance = async ({
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
+      seconds: sessionSets.seconds,
+      distance: sessionSets.distance,
       createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
-    .where(and(inArray(sessionSets.sessionId, sessionIds), eq(sessionSets.exerciseId, exerciseId)))
+    .where(
+      and(
+        inArray(sessionSets.sessionId, sessionIds),
+        eq(sessionSets.exerciseId, exerciseId),
+        sessionSetHasPerformanceValue(),
+      ),
+    )
     .orderBy(asc(sessionSets.sessionId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
     .all();
 
@@ -894,6 +931,8 @@ export const findExerciseLastPerformance = async ({
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
+      ...(set.seconds !== null ? { seconds: set.seconds } : {}),
+      ...(set.distance !== null ? { distance: set.distance } : {}),
     });
     setsBySessionId.set(set.sessionId, currentSets);
   }
@@ -942,6 +981,7 @@ export const findExercisePerformanceHistory = async ({
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         eq(workoutSessions.status, 'completed'),
+        sessionSetHasPerformanceValue(),
       ),
     )
     .groupBy(
@@ -971,25 +1011,52 @@ export const findExercisePerformanceHistory = async ({
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
+      seconds: sessionSets.seconds,
+      distance: sessionSets.distance,
+      notes: sessionSets.notes,
       createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
-    .where(and(inArray(sessionSets.sessionId, sessionIds), eq(sessionSets.exerciseId, exerciseId)))
+    .where(
+      and(
+        inArray(sessionSets.sessionId, sessionIds),
+        eq(sessionSets.exerciseId, exerciseId),
+        sessionSetHasPerformanceValue(),
+      ),
+    )
     .orderBy(asc(sessionSets.sessionId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
     .all();
 
   const setsBySessionId = new Map<
     string,
-    Array<{ setNumber: number; weight: number | null; reps: number | null }>
+    Array<{
+      distance?: number | null;
+      reps: number | null;
+      seconds?: number | null;
+      setNumber: number;
+      weight: number | null;
+    }>
   >();
+  const notesBySessionId = new Map<string, string | null>();
   for (const set of completedSets) {
+    if (!hasPerformanceValue(set)) {
+      continue;
+    }
+
     const currentSets = setsBySessionId.get(set.sessionId) ?? [];
     currentSets.push({
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
+      ...(set.seconds !== null ? { seconds: set.seconds } : {}),
+      ...(set.distance !== null ? { distance: set.distance } : {}),
     });
     setsBySessionId.set(set.sessionId, currentSets);
+
+    const normalizedNote = normalizeSetNote(set.notes);
+    if (normalizedNote && !notesBySessionId.has(set.sessionId)) {
+      notesBySessionId.set(set.sessionId, normalizedNote);
+    }
   }
 
   return sessions.flatMap((session) => {
@@ -1002,7 +1069,7 @@ export const findExercisePerformanceHistory = async ({
       {
         sessionId: session.sessionId,
         date: session.date,
-        notes: session.notes,
+        notes: notesBySessionId.get(session.sessionId) ?? null,
         sets,
       },
     ];
@@ -1036,6 +1103,7 @@ const findExercisesLastPerformanceById = async ({
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         eq(workoutSessions.status, 'completed'),
+        sessionSetHasPerformanceValue(),
       ),
     )
     .groupBy(
@@ -1088,6 +1156,8 @@ const findExercisesLastPerformanceById = async ({
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
+      seconds: sessionSets.seconds,
+      distance: sessionSets.distance,
       createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
@@ -1098,6 +1168,7 @@ const findExercisesLastPerformanceById = async ({
         inArray(sessionSets.sessionId, latestSessionIds),
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
+        sessionSetHasPerformanceValue(),
       ),
     )
     .orderBy(asc(sessionSets.exerciseId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
@@ -1108,7 +1179,13 @@ const findExercisesLastPerformanceById = async ({
     {
       sessionId: string;
       date: string;
-      sets: Array<{ setNumber: number; weight: number | null; reps: number | null }>;
+      sets: Array<{
+        distance?: number | null;
+        reps: number | null;
+        seconds?: number | null;
+        setNumber: number;
+        weight: number | null;
+      }>;
     }
   >();
 
@@ -1132,6 +1209,8 @@ const findExercisesLastPerformanceById = async ({
             setNumber: set.setNumber,
             weight: set.weight,
             reps: set.reps,
+            ...(set.seconds !== null ? { seconds: set.seconds } : {}),
+            ...(set.distance !== null ? { distance: set.distance } : {}),
           },
         ],
       });
@@ -1142,6 +1221,8 @@ const findExercisesLastPerformanceById = async ({
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
+      ...(set.seconds !== null ? { seconds: set.seconds } : {}),
+      ...(set.distance !== null ? { distance: set.distance } : {}),
     });
   }
 

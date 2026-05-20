@@ -92,6 +92,147 @@ describe('migration 0013_bitter_bloodaxe', () => {
   });
 });
 
+describe('migration 0039_thick_nebula', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('adds persisted seconds and distance columns to session sets without requiring old columns', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0039-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE session_sets (
+          id TEXT PRIMARY KEY NOT NULL,
+          session_id TEXT NOT NULL,
+          exercise_id TEXT,
+          order_index INTEGER DEFAULT 0 NOT NULL,
+          set_number INTEGER NOT NULL,
+          weight REAL,
+          reps INTEGER,
+          rpe INTEGER,
+          zone INTEGER,
+          target_weight REAL,
+          target_weight_min REAL,
+          target_weight_max REAL,
+          target_seconds INTEGER,
+          target_distance REAL,
+          superset_group TEXT,
+          completed INTEGER DEFAULT false NOT NULL,
+          skipped INTEGER DEFAULT false NOT NULL,
+          section TEXT DEFAULT 'main' NOT NULL,
+          notes TEXT,
+          created_at INTEGER DEFAULT (unixepoch() * 1000) NOT NULL
+        );
+
+        INSERT INTO session_sets (
+          id,
+          session_id,
+          exercise_id,
+          order_index,
+          set_number,
+          weight,
+          reps,
+          rpe,
+          zone,
+          target_weight,
+          target_weight_min,
+          target_weight_max,
+          target_seconds,
+          target_distance,
+          superset_group,
+          completed,
+          skipped,
+          section,
+          notes,
+          created_at
+        )
+        VALUES (
+          'set-1',
+          'session-1',
+          'exercise-1',
+          0,
+          1,
+          NULL,
+          10,
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          NULL,
+          30,
+          NULL,
+          NULL,
+          1,
+          0,
+          'main',
+          'Brace well',
+          1779300000000
+        );
+      `);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0039_thick_nebula.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const row = db
+        .prepare(`SELECT reps, seconds, distance, notes FROM session_sets WHERE id = 'set-1'`)
+        .get() as { distance: number | null; notes: string; reps: number; seconds: number | null };
+
+      expect(row).toEqual({
+        reps: 10,
+        seconds: null,
+        distance: null,
+        notes: 'Brace well',
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('includes Drizzle snapshot metadata for persisted set seconds and distance', () => {
+    const snapshotPath = join(process.cwd(), 'drizzle/meta/0039_snapshot.json');
+
+    expect(existsSync(snapshotPath)).toBe(true);
+
+    const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as {
+      tables: {
+        session_sets: {
+          columns: Record<string, unknown>;
+          checkConstraints: Record<string, { value: string }>;
+        };
+      };
+    };
+
+    expect(snapshot.tables.session_sets.columns).toEqual(
+      expect.objectContaining({
+        seconds: expect.objectContaining({ type: 'integer' }),
+        distance: expect.objectContaining({ type: 'real' }),
+      }),
+    );
+    expect(snapshot.tables.session_sets.checkConstraints).toEqual(
+      expect.objectContaining({
+        session_sets_seconds_check: expect.objectContaining({
+          value: expect.stringContaining('>= 0'),
+        }),
+        session_sets_distance_check: expect.objectContaining({
+          value: expect.stringContaining('>= 0'),
+        }),
+      }),
+    );
+  });
+});
+
 describe('migration 0014_lazy_bromley', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {

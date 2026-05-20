@@ -6,7 +6,7 @@ import type {
 } from '@pulse/shared';
 
 import type { ActiveWorkoutSetDrafts, ActiveWorkoutTemplate } from '@/features/workouts/types';
-import { isTimeBasedTrackingType, isWeightedTrackingType } from './tracking';
+import { isRepTrackingType, isTimeBasedTrackingType, isWeightedTrackingType } from './tracking';
 
 type TemplateExerciseLookup = Map<
   string,
@@ -61,7 +61,7 @@ export function buildSessionSetInputs(
     const templateExercise = templateExerciseById.get(exerciseId);
     const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[exerciseId]);
     const trackingType = templateExercise?.trackingType ?? 'weight_reps';
-    const isTimeBased = isTimeBasedTrackingType(trackingType);
+    const tracksDistance = trackingType === 'distance' || trackingType === 'cardio';
 
     for (const draftSet of [...draftSets].sort((left, right) => left.number - right.number)) {
       sessionSets.push({
@@ -69,7 +69,9 @@ export function buildSessionSetInputs(
         exerciseId,
         orderIndex: exerciseOrderIndexById[exerciseId] ?? 0,
         notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
-        reps: isTimeBased ? draftSet.seconds : draftSet.reps,
+        reps: isRepTrackingType(trackingType) ? draftSet.reps : null,
+        seconds: isTimeBasedTrackingType(trackingType) ? draftSet.seconds : null,
+        distance: tracksDistance ? draftSet.distance : null,
         ...(draftSet.rpe !== undefined && draftSet.rpe !== null ? { rpe: draftSet.rpe } : {}),
         section: templateExercise?.section ?? null,
         setNumber: draftSet.number,

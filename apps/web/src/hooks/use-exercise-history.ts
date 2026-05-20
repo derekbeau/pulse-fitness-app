@@ -18,7 +18,9 @@ async function getExerciseHistory(
   limit: number,
 ): Promise<ActiveWorkoutPerformanceHistorySession[]> {
   try {
-    const data = await apiRequest<unknown>(`/api/v1/exercises/${exerciseId}/history?limit=${limit}`);
+    const data = await apiRequest<unknown>(
+      `/api/v1/exercises/${exerciseId}/history?limit=${limit}`,
+    );
     const payload = exercisePerformanceHistorySchema.parse(data);
 
     return payload.map((session) => ({
@@ -26,7 +28,9 @@ async function getExerciseHistory(
       notes: session.notes,
       sessionId: session.sessionId,
       sets: session.sets.map((set) => ({
+        ...(set.distance != null ? { distance: set.distance } : {}),
         reps: set.reps,
+        ...(set.seconds != null ? { seconds: set.seconds } : {}),
         setNumber: set.setNumber,
         weight: set.weight,
       })),

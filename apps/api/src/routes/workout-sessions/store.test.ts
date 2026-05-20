@@ -204,6 +204,8 @@ describe('workout session store deleteSessionSet', () => {
       setNumber: 1,
       weight: null,
       reps: null,
+      seconds: null,
+      distance: null,
       rpe: null,
       zone: null,
       targetWeight: null,

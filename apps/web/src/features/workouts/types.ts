@@ -65,10 +65,12 @@ export type ActiveWorkoutTemplate = {
 
 export type ActiveWorkoutHistoricalLoggedSet = {
   completed: boolean;
-  reps: number;
+  distance?: number | null;
+  reps: number | null;
+  seconds?: number | null;
   setNumber: number;
   timestamp: string;
-  weight?: number;
+  weight?: number | null;
 };
 
 export type ActiveWorkoutHistoricalExerciseLog = {
@@ -108,7 +110,9 @@ export type ActiveWorkoutSetDrafts = Record<string, ActiveWorkoutSet[]>;
 
 export type ActiveWorkoutLastPerformanceSet = {
   completed: boolean;
-  reps: number;
+  distance?: number | null;
+  reps: number | null;
+  seconds?: number | null;
   setNumber: number;
   weight: number | null;
 };
@@ -121,7 +125,9 @@ export type ActiveWorkoutLastPerformance = {
 };
 
 export type ActiveWorkoutPerformanceHistorySet = {
+  distance?: number | null;
   reps: number | null;
+  seconds?: number | null;
   setNumber: number;
   weight: number | null;
 };
