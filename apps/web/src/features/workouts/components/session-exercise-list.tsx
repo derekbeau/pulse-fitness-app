@@ -80,6 +80,7 @@ import type {
   ActiveWorkoutExercise,
   ActiveWorkoutExerciseHistorySummary,
   ActiveWorkoutPhaseBadge,
+  ActiveWorkoutRelatedLastPerformance,
   ActiveWorkoutSessionData,
 } from '../types';
 import {
@@ -457,6 +458,12 @@ export function SessionExerciseList({
                                 exerciseName: item.exercise.name,
                               })
                             }
+                            onOpenRelatedHistory={(relatedExercise) =>
+                              setHistoryTarget({
+                                exerciseId: relatedExercise.exerciseId,
+                                exerciseName: relatedExercise.exerciseName,
+                              })
+                            }
                             sectionType={section.type}
                             onSwapExercise={() =>
                               setSwapTarget({
@@ -572,6 +579,12 @@ export function SessionExerciseList({
                                     setHistoryTarget({
                                       exerciseId: exercise.id,
                                       exerciseName: exercise.name,
+                                    })
+                                  }
+                                  onOpenRelatedHistory={(relatedExercise) =>
+                                    setHistoryTarget({
+                                      exerciseId: relatedExercise.exerciseId,
+                                      exerciseName: relatedExercise.exerciseName,
                                     })
                                   }
                                   sectionType={section.type}
@@ -717,6 +730,7 @@ type ExerciseCardItemProps = {
   onMoveDown: () => void;
   onMoveUp: () => void;
   onOpenHistory: () => void;
+  onOpenRelatedHistory: (relatedExercise: ActiveWorkoutRelatedLastPerformance) => void;
   onRemoveExercise?: (
     exerciseId: string,
     section: ActiveWorkoutSessionData['sections'][number]['type'],
@@ -751,6 +765,7 @@ function ExerciseCardItem({
   onMoveDown,
   onMoveUp,
   onOpenHistory,
+  onOpenRelatedHistory,
   onRemoveExercise,
   onRenameExercise,
   onSwapExercise,
@@ -1118,27 +1133,46 @@ function ExerciseCardItem({
                       className="rounded-xl border border-emerald-500/20 bg-background/70 px-3 py-2"
                       key={relatedExercise.exerciseId}
                     >
-                      <p className="text-xs font-semibold tracking-[0.14em] text-muted uppercase">
-                        {relatedExercise.exerciseName}
-                      </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {(() => {
-                          const previewEntries = formatHistoryPreviewEntries({
-                            historyEntries: relatedExercise.history
-                              ? [relatedExercise.history]
-                              : [],
-                            maxEntries: 1,
-                            trackingType: relatedExercise.trackingType,
-                            weightUnit,
-                          });
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold tracking-[0.14em] text-muted uppercase">
+                          {relatedExercise.exerciseName}
+                        </p>
+                        <button
+                          className="flex cursor-pointer items-center gap-1 text-xs text-primary hover:underline"
+                          onClick={() => onOpenRelatedHistory(relatedExercise)}
+                          type="button"
+                        >
+                          <BarChart3 aria-hidden="true" className="size-3.5" />
+                          View all
+                        </button>
+                      </div>
+                      {(() => {
+                        const previewEntries = formatHistoryPreviewEntries({
+                          historyEntries: relatedExercise.history ? [relatedExercise.history] : [],
+                          maxEntries: 1,
+                          trackingType: relatedExercise.trackingType,
+                          weightUnit,
+                        });
 
-                          if (previewEntries.length === 0) {
-                            return 'No completed sets yet.';
-                          }
+                        if (previewEntries.length === 0) {
+                          return (
+                            <p className="mt-1 text-sm text-foreground">No completed sets yet.</p>
+                          );
+                        }
 
-                          return previewEntries[0]?.text;
-                        })()}
-                      </p>
+                        return (
+                          <div className="mt-1 space-y-1">
+                            {previewEntries.map((entry) => (
+                              <div className="flex items-center gap-1.5" key={entry.key}>
+                                <p className="text-sm text-foreground">{entry.text}</p>
+                                {entry.notes?.trim() ? (
+                                  <NotesIndicator className="h-6 w-6" notes={entry.notes} />
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>

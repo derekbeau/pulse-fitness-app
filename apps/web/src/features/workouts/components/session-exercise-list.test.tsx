@@ -2039,12 +2039,49 @@ describe('SessionExerciseList', () => {
     });
   });
 
-  it('renders related history collapsed by default and expands on demand', () => {
+  it('renders related history collapsed by default and expands on demand', async () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
     }
 
     const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/exercises/incline-bench') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'incline-bench',
+              userId: 'user-1',
+              name: 'Incline Bench Press',
+              muscleGroups: ['chest'],
+              equipment: 'dumbbells',
+              category: 'compound',
+              trackingType: 'weight_reps',
+              tags: [],
+              formCues: ['Brace hard'],
+              instructions: 'Press on a slight incline.',
+              coachingNotes: null,
+              relatedExerciseIds: [],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/exercises/incline-bench/history') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [],
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
     useLastPerformanceSpy.mockImplementation((_, options) => {
       if (options?.includeRelated === false) {
         return {
@@ -2079,6 +2116,7 @@ describe('SessionExerciseList', () => {
                     trackingType: 'weight_reps',
                     history: {
                       date: '2026-03-08',
+                      notes: 'Keep shoulder packed.',
                       sessionId: 'session-8',
                       sets: [{ completed: true, reps: 8, setNumber: 1, weight: 60 }],
                     },
@@ -2142,8 +2180,24 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Related history'));
     const relatedExerciseLabel = within(rowErgCard as HTMLElement).getByText('Incline Bench Press');
     expect(relatedExerciseLabel).toBeVisible();
-    expect(relatedExerciseLabel.closest('div')).toHaveTextContent(/60x8/);
+    const relatedExerciseCard = relatedExerciseLabel.parentElement?.parentElement;
+    if (!relatedExerciseCard) {
+      throw new Error('Expected related exercise history card.');
+    }
 
+    expect(within(relatedExerciseCard).getByText(/Mar 8 · 60x8/)).toBeInTheDocument();
+    expect(
+      within(relatedExerciseCard).getByRole('button', { name: 'View notes' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(relatedExerciseCard).getByRole('button', { name: 'View all' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Incline Bench Press')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Session history')).toBeInTheDocument();
+
+    fetchSpy.mockRestore();
+    window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
     useLastPerformanceSpy.mockRestore();
   });
 
