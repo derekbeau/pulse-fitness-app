@@ -233,6 +233,105 @@ describe('migration 0039_thick_nebula', () => {
   });
 });
 
+describe('migration 0040_mcgill_curl_up_backfill', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('moves legacy McGill Curl-Up seconds out of reps and repairs template targets', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0040-'));
+    tempDirs.push(tempDir);
+    const dbPath = join(tempDir, 'migration.db');
+    const db = new Database(dbPath);
+
+    try {
+      db.exec(`
+        CREATE TABLE exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          tracking_type TEXT NOT NULL
+        );
+
+        CREATE TABLE session_sets (
+          id TEXT PRIMARY KEY NOT NULL,
+          exercise_id TEXT,
+          reps INTEGER,
+          seconds INTEGER,
+          target_seconds INTEGER
+        );
+
+        CREATE TABLE template_exercises (
+          id TEXT PRIMARY KEY NOT NULL,
+          exercise_id TEXT NOT NULL,
+          reps_min INTEGER,
+          reps_max INTEGER,
+          set_targets TEXT
+        );
+
+        INSERT INTO exercises (id, name, tracking_type)
+        VALUES
+          ('mcgill', 'McGill Curl-Up', 'reps_seconds'),
+          ('plank', 'Side Plank', 'seconds_only');
+
+        INSERT INTO session_sets (id, exercise_id, reps, seconds, target_seconds)
+        VALUES
+          ('legacy-mcgill', 'mcgill', 5, NULL, NULL),
+          ('new-mcgill', 'mcgill', 1, 10, NULL),
+          ('other-exercise', 'plank', 30, NULL, NULL);
+
+        INSERT INTO template_exercises (id, exercise_id, reps_min, reps_max, set_targets)
+        VALUES
+          ('week-template', 'mcgill', 10, 10, NULL),
+          ('old-template', 'mcgill', 1, 1, '[{"setNumber":1,"targetSeconds":10}]');
+      `);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0040_mcgill_curl_up_backfill.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+
+      const rows = db
+        .prepare(`SELECT id, reps, seconds, target_seconds AS targetSeconds FROM session_sets`)
+        .all() as Array<{
+        id: string;
+        reps: number | null;
+        seconds: number | null;
+        targetSeconds: number | null;
+      }>;
+
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          { id: 'legacy-mcgill', reps: 1, seconds: 5, targetSeconds: 10 },
+          { id: 'new-mcgill', reps: 1, seconds: 10, targetSeconds: 10 },
+          { id: 'other-exercise', reps: 30, seconds: null, targetSeconds: null },
+        ]),
+      );
+
+      const repairedTemplate = db
+        .prepare(
+          `SELECT reps_min AS repsMin, reps_max AS repsMax, set_targets AS setTargets
+           FROM template_exercises
+           WHERE id = 'week-template'`,
+        )
+        .get() as { repsMin: number; repsMax: number; setTargets: string };
+
+      expect(repairedTemplate).toEqual({
+        repsMin: 1,
+        repsMax: 1,
+        setTargets: '[{"setNumber":1,"targetSeconds":10},{"setNumber":2,"targetSeconds":10}]',
+      });
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe('migration 0014_lazy_bromley', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {

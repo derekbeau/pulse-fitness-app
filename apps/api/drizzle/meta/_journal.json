@@ -281,6 +281,13 @@
       "when": 1779304114801,
       "tag": "0039_thick_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1779305432000,
+      "tag": "0040_mcgill_curl_up_backfill",
+      "breakpoints": true
     }
   ]
 }
