@@ -2599,7 +2599,10 @@ export function buildTemplateFromSession(
         fallbackExerciseNameById.get(sessionExercise.exerciseId) ||
         'Unknown Exercise',
       trackingType: fallbackExercise?.trackingType ?? sessionExercise.trackingType ?? undefined,
-      supersetGroup: sessionExercise.supersetGroup ?? fallbackExercise?.supersetGroup ?? null,
+      supersetGroup:
+        sessionExercise.supersetGroup === undefined
+          ? (fallbackExercise?.supersetGroup ?? null)
+          : sessionExercise.supersetGroup,
       sets: sessionSetCount > 0 ? sessionSetCount : (fallbackExercise?.sets ?? 1),
       reps: defaultReps,
       tempo: fallbackExercise?.tempo ?? '2111',

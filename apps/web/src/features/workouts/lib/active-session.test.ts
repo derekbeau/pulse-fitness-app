@@ -156,6 +156,38 @@ describe('active-session helpers', () => {
     expect(squat?.injuryCues).toEqual([]);
   });
 
+  it('allows explicit null superset overrides to clear template groups', () => {
+    if (!activeTemplate) {
+      throw new Error('Expected upper-push template in mock data.');
+    }
+
+    const supersetTemplate = structuredClone(activeTemplate);
+    const mainSection = supersetTemplate.sections.find((section) => section.type === 'main');
+    const firstExercise = mainSection?.exercises[0];
+    if (!mainSection || !firstExercise) {
+      throw new Error('Expected main section with exercises in template.');
+    }
+
+    mainSection.exercises[0] = {
+      ...firstExercise,
+      supersetGroup: 'push-a',
+    };
+
+    const session = buildActiveWorkoutSession(
+      supersetTemplate,
+      createInitialWorkoutSetDrafts(supersetTemplate, new Set()),
+      {
+        exerciseSupersetOverrides: {
+          [firstExercise.exerciseId]: null,
+        },
+      },
+    );
+    const firstMainExercise = session.sections.find((section) => section.type === 'main')
+      ?.exercises[0];
+
+    expect(firstMainExercise?.supersetGroup).toBeNull();
+  });
+
   it('uses template-provided exercise names when the exercise id is not in mock data', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');

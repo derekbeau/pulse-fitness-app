@@ -533,6 +533,73 @@ describe('ActiveWorkoutPage', () => {
     ).toHaveValue(8);
   });
 
+  it('ungroups a superset in a live session by sending null and updating the UI', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-live-superset-ungroup';
+    const groupedExercises = [
+      createHydrationSessionExercise({
+        exerciseId: 'cable-lateral-raise',
+        exerciseName: 'Cable Lateral Raise',
+        orderIndex: 0,
+        section: 'main',
+        supersetGroup: 'push-a',
+        sets: [
+          createHydrationSessionSet({
+            exerciseId: 'cable-lateral-raise',
+            id: 'set-cable-lateral-raise-1',
+            orderIndex: 0,
+            section: 'main',
+            setNumber: 1,
+          }),
+        ],
+      }),
+      createHydrationSessionExercise({
+        exerciseId: 'rope-triceps-pushdown',
+        exerciseName: 'Rope Triceps Pushdown',
+        orderIndex: 1,
+        section: 'main',
+        supersetGroup: 'push-a',
+        sets: [
+          createHydrationSessionSet({
+            exerciseId: 'rope-triceps-pushdown',
+            id: 'set-rope-triceps-pushdown-1',
+            orderIndex: 1,
+            section: 'main',
+            setNumber: 1,
+          }),
+        ],
+      }),
+    ];
+    const session = buildHydrationSessionResponse(sessionId, {
+      exercises: groupedExercises,
+      sets: groupedExercises.flatMap((exercise) => exercise.sets),
+    });
+    const fetchMock = mockActiveSessionFetch(sessionId, session);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    const ungroupButton = await screen.findByRole('button', { name: 'Ungroup' });
+    fireEvent.click(ungroupButton);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/v1/workout-sessions/${sessionId}`,
+        expect.objectContaining({
+          body: JSON.stringify({
+            exercises: [
+              { exerciseId: 'cable-lateral-raise', supersetGroup: null },
+              { exerciseId: 'rope-triceps-pushdown', supersetGroup: null },
+            ],
+          }),
+          method: 'PATCH',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Ungroup' })).not.toBeInTheDocument();
+    });
+  });
+
   it('preserves in-progress local set values when the server set is still incomplete', async () => {
     vi.useRealTimers();
     const sessionId = 'session-merge-local-in-progress';
@@ -2944,6 +3011,38 @@ describe('buildTemplateFromSession', () => {
     const result = buildTemplateFromSession(session, fallbackTemplate);
 
     expect(result.sections.find((section) => section.type === 'supplemental')).toBeUndefined();
+  });
+
+  it('keeps explicit null session superset groups instead of falling back to the template group', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [],
+    });
+    const session = createSessionForBuildTemplateTests({
+      exercises: [
+        createSessionExerciseForBuildTemplateTests({
+          exerciseId: 'main-exercise',
+          exerciseName: 'Main Exercise',
+          section: 'main',
+          supersetGroup: null,
+          sets: [
+            createSessionSetForBuildTemplateTests({
+              exerciseId: 'main-exercise',
+              section: 'main',
+            }),
+          ],
+        }),
+      ],
+    });
+
+    fallbackTemplate.sections[0].exercises[0] = {
+      ...fallbackTemplate.sections[0].exercises[0],
+      supersetGroup: 'push-a',
+    };
+
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+    const mainExercise = result.sections.find((section) => section.type === 'main')?.exercises[0];
+
+    expect(mainExercise?.supersetGroup).toBeNull();
   });
 });
 

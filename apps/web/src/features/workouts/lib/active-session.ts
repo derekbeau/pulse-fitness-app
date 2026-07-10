@@ -89,6 +89,10 @@ export function buildActiveWorkoutSession(
       });
       const sets = getWorkoutSets(templateExercise, setDrafts);
       const completedSets = sets.filter((set) => set.completed).length;
+      const hasSupersetOverride = Object.hasOwn(
+        exerciseSupersetOverrides,
+        templateExercise.exerciseId,
+      );
 
       return {
         badges: templateExercise.badges,
@@ -116,11 +120,9 @@ export function buildActiveWorkoutSession(
         restSeconds: templateExercise.restSeconds,
         reversePyramid: enhancedExercise?.reversePyramid ?? [],
         sets,
-        supersetGroup:
-          exerciseSupersetOverrides[templateExercise.exerciseId] ??
-          templateExercise.supersetGroup ??
-          enhancedExercise?.supersetGroup ??
-          null,
+        supersetGroup: hasSupersetOverride
+          ? exerciseSupersetOverrides[templateExercise.exerciseId]
+          : (templateExercise.supersetGroup ?? enhancedExercise?.supersetGroup ?? null),
         tempo: templateExercise.tempo ?? null,
         targetSets: sets.length,
         trackingType,
