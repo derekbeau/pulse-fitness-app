@@ -88,10 +88,11 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Inspect browser console and failed network requests.
 - [ ] Verify 320, 375, 390, 430, 768, and 1280 px layouts.
 - [ ] Produce and independently verify a Tailscale-accessible preview URL.
-- [ ] Have a fresh reviewer compare the implementation against every definition-of-done item.
-- [ ] Resolve all blocking findings and rerun affected gates.
+- [ ] Have Codex perform a fresh self-review against every definition-of-done item.
+- [ ] Resolve all Codex-found blocking issues and rerun affected gates.
+- [ ] Hand off to Hermes/Vector for the independent acceptance review; Codex must not perform or waive this gate.
 
-**Gate:** `verification-report.md` contains reproducible green evidence and no unresolved blocking findings.
+**Gate:** Codex's `verification-report.md` contains reproducible green evidence, no unresolved Codex-found blocking issues, and the verdict `AWAITING VECTOR REVIEW`.
 
 ## Final handoff criteria
 
@@ -100,3 +101,4 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] CI is green or every external/non-code blocker is explicitly documented.
 - [ ] Preview URL and test workflow are verified before Derek receives them.
 - [ ] Production remains unchanged.
+- [ ] Codex stops at `AWAITING VECTOR REVIEW`; only Vector may promote the verdict to `READY FOR DEREK PREVIEW`.

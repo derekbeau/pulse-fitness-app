@@ -1,10 +1,11 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** Ready for implementation  
-**Branch:** `feat/adaptive-tdee-v1`  
-**Worktree:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`  
-**Base commit:** `019e185` (`origin/main` when worktree was created)  
-**Specification commit:** `59eefa3`  
+**Overall:** Ready for implementation<br>
+**Branch:** `feat/adaptive-tdee-v1`<br>
+**ChatGPT project:** `pulse-fitness-app`<br>
+**Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app` on `feat/adaptive-tdee-v1`<br>
+**Base commit:** `019e185` (`origin/main` when worktree was created)<br>
+**Specification commit:** `59eefa3`<br>
 **Last updated:** 2026-08-12
 
 ## Completed
@@ -13,7 +14,7 @@
 - Independent technical review completed and material findings incorporated.
 - Specification math vectors independently recalculated.
 - Specification citations, formatting, typecheck, build, and existing test suite passed before worktree creation.
-- Dedicated permanent worktree and feature branch created.
+- Dedicated feature branch created and selected in the existing ChatGPT `pulse-fitness-app` project.
 - Durable execution/handoff documents created under `agent-workspace/`.
 
 ## Current milestone
@@ -51,3 +52,13 @@ After each work session or milestone commit, update:
 - `Next actions`
 - `Blocking issues`
 - Latest commit and verification results when available
+
+## Vector review handoff gate
+
+Codex is the implementation owner, not the final acceptance authority. After Codex completes its own implementation, automated checks, browser QA, and preview verification:
+
+1. Set `Overall` to `AWAITING VECTOR REVIEW`.
+2. Set the final verdict in `verification-report.md` to `AWAITING VECTOR REVIEW`.
+3. Push the feature branch and update draft PR #100.
+4. Stop. Do not mark the feature `READY FOR DEREK PREVIEW`, make the PR ready for review, merge, or deploy.
+5. Derek will return to Hermes/Vector. Vector independently reruns acceptance and either records blocking findings or changes the verdict to `READY FOR DEREK PREVIEW`.

@@ -103,9 +103,9 @@ Use an isolated development database. Capture screenshots when they clarify a re
 | Seed/test workflow             | Pending |
 | Production isolation confirmed | Pending |
 
-## Independent review
+## Vector independent review
 
-A fresh reviewer must compare the implementation against every item in specification section 27 and inspect migrations, concurrency, data isolation, browser behavior, and the complete branch diff.
+After Codex completes and stops, Hermes/Vector must independently compare the implementation against every item in specification section 27 and inspect migrations, concurrency, data isolation, browser behavior, and the complete branch diff.
 
 **Blocking findings:** Pending  
 **Non-blocking findings:** Pending  
@@ -115,4 +115,6 @@ A fresh reviewer must compare the implementation against every item in specifica
 
 `NOT READY`
 
-Change to `READY FOR DEREK PREVIEW` only after all required checks pass and the preview URL is independently verified.
+Codex may change this only to `AWAITING VECTOR REVIEW` after its implementation and verification pass. Codex must then stop, push, and hand off.
+
+Only Hermes/Vector may change `AWAITING VECTOR REVIEW` to `READY FOR DEREK PREVIEW`, after independently rerunning acceptance and verifying the preview. Codex must not mark the feature ready for Derek, make the PR ready for review, merge, or deploy.

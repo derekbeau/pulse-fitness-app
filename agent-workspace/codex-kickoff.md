@@ -1,16 +1,14 @@
 # Codex Desktop Kickoff: Adaptive TDEE v1
 
-Use this prompt in a Codex Desktop chat opened on the permanent project/worktree:
-
-`/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
+Use this prompt in Codex Desktop inside the existing `pulse-fitness-app` project with branch `feat/adaptive-tdee-v1` selected.
 
 ---
 
 Implement the complete Adaptive TDEE and Nutrition Coaching v1 specification in `docs/specs/adaptive-tdee-v1.md`.
 
-You are operating in the permanent worktree `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on branch `feat/adaptive-tdee-v1`. Read `AGENTS.md` and every file in `agent-workspace/` before acting. The specification is the implementation and acceptance contract. `agent-workspace/current-status.md` is the live handoff state.
+You are operating in the existing `pulse-fitness-app` ChatGPT project on branch `feat/adaptive-tdee-v1`. Read `AGENTS.md` and every file in `agent-workspace/` before acting. The specification is the implementation contract. `agent-workspace/current-status.md` is the live handoff state.
 
-Own the goal from baseline verification through a working isolated development preview. Do not stop after planning, scaffolding, or a partial backend. Follow `agent-workspace/implementation-plan.md` in dependency order and continue until all milestones and the final independent acceptance gate are complete.
+Own the goal from baseline verification through a working isolated development preview. Do not stop after planning, scaffolding, or a partial backend. Follow `agent-workspace/implementation-plan.md` in dependency order and continue until all implementation and Codex verification milestones are complete, then stop at the mandatory Vector handoff gate.
 
 Operating requirements:
 
@@ -37,11 +35,20 @@ Required completion gates:
 8. Clean formatting, lint, typecheck, complete test suite, production build, migration tests, and Playwright flows.
 9. Real browser acceptance with console/network inspection at required responsive widths.
 10. Verified local and Tailscale-accessible development preview using non-production data.
-11. Fresh independent review against every definition-of-done item, with all blocking findings resolved.
+11. Fresh Codex self-review against every definition-of-done item, with all Codex-found blocking issues resolved.
 
 Use side chats/subagents for read-only status or reviews without interrupting the main goal. Keep one primary integration owner. If blocked, document the exact blocker and continue every independent task that remains possible.
 
-Stop only for a genuine product decision, unavailable credential, destructive production action, or blocker that cannot be resolved locally. Otherwise keep working until `agent-workspace/verification-report.md` can honestly say `READY FOR DEREK PREVIEW`.
+Stop only for a genuine product decision, unavailable credential, destructive production action, or blocker that cannot be resolved locally. Otherwise keep working until every implementation and Codex verification gate is green.
+
+Then perform this mandatory handoff exactly:
+
+1. Set `agent-workspace/current-status.md` Overall to `AWAITING VECTOR REVIEW`.
+2. Set `agent-workspace/verification-report.md` final verdict to `AWAITING VECTOR REVIEW`.
+3. Commit all completed work, push `feat/adaptive-tdee-v1`, and update draft PR #100.
+4. Stop and tell Derek to return to Hermes/Vector for independent acceptance.
+
+You are not the final acceptance authority. Do not write `READY FOR DEREK PREVIEW`, make the PR ready for review, merge, deploy, or modify production. Only Hermes/Vector may promote the verdict after independently rerunning acceptance.
 
 Final response must include:
 
