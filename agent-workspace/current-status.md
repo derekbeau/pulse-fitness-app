@@ -1,6 +1,6 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 1 REVIEW<br>
+**Overall:** VECTOR GATE 1 CHANGES REQUIRED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
 **ChatGPT project:** `pulse-fitness-app`<br>
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
@@ -30,22 +30,27 @@
 - The tracked `pnpm dev:gate0` path owns the ignored reviewed-map location and is the only runtime/browser environment used for Milestone 1.
 - Browser QA covered pounds and kilograms writes, preference changes, dashboard weight surfaces, weight history, settings, and habits. It found and resolved stale display-unit caches plus two hard-coded dashboard unit labels; the final rerun had no console errors or failed API requests.
 - Targeted Milestone 1 regression coverage passed 241 tests. Uncached lint, typecheck, full tests, and build passed; full package tests now total 1,879 across 245 files, plus 3 Gate 0 isolation tests.
+- Vector independently reran 167 targeted tests, the uncached full quality pipeline, cross-unit browser/API QA, live SQLite integrity checks, and production-snapshot isolation checks.
+- Vector recorded three Gate 1 blockers in `vector-gate-1-review.md`: production cannot yet supply the mandatory reviewed map, AgentToken weight enrichment drops the unit, and overwriting an existing map does not enforce mode `0600`.
 
 ## Current milestone
 
-**Milestone 1: Canonical weight foundation — awaiting independent review**
+**Milestone 1: Canonical weight foundation — changes required**
 
-Milestone 1 implementation, self-review, automated checks, and built-in-browser QA are complete. No Milestone 2 work has started.
+Milestone 1 implementation and most independent verification are green, but Vector rejected the reviewed commit pending the three fixes in `vector-gate-1-review.md`. No Milestone 2 work has started.
 
 ## Next actions
 
-1. Hermes/Vector independently reviews the complete Milestone 1 diff, migration safety, reader audit, tests, and browser evidence.
-2. Vector records either `VECTOR GATE 1 APPROVED` or blocking findings.
-3. Milestone 2 remains prohibited until Derek explicitly authorizes a new Codex goal after Gate 1 approval.
+1. Repair only the three findings in `vector-gate-1-review.md`.
+2. Rerun affected tests, the uncached full pipeline, isolated browser/API verification, and update evidence.
+3. Commit and push, set `AWAITING VECTOR GATE 1 RE-REVIEW`, and stop.
+4. Milestone 2 remains prohibited until Vector approves Gate 1.
 
 ## Blocking issues
 
-None.
+- Production container startup has no secure path to receive the mandatory reviewed legacy-unit map.
+- AgentToken mutation enrichment emits unitless weight values and deltas.
+- Existing permissive migration-map files remain permissive when overwritten instead of being forced to mode `0600`.
 
 ## Non-blocking warnings
 

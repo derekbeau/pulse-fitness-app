@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** AWAITING VECTOR GATE 1 REVIEW<br>
+**Status:** VECTOR GATE 1 CHANGES REQUIRED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex Milestone 1 self-review complete; awaiting Vector independent review<br>
-**Last verified state:** Milestone 1 commit at the PR #100 head
+**Reviewer:** Vector independent Gate 1 review complete; changes required<br>
+**Last verified state:** Gate 1 implementation commit `f80d209` plus Vector review evidence
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -79,7 +79,7 @@ Developer-console inspection returned zero warnings/errors on the clean rerun. V
 
 ### Milestone 1: canonical weight foundation
 
-Verdict: `AWAITING VECTOR GATE 1 REVIEW`
+Verdict: `VECTOR GATE 1 CHANGES REQUIRED`
 
 #### Migration preflight and storage invariants
 
@@ -135,6 +135,16 @@ Browser QA found three presentation/cache defects and fixed them before the fina
 - Confirmed migration map, isolated databases, credentials, generated build output, and production data are ignored and absent from the diff.
 - Confirmed no Milestone 2 nutrition-completeness/provenance schema, API, or UI work was introduced.
 - `git diff --check` passed; no unresolved Codex-found blocking issue remains.
+
+#### Vector independent Gate 1 review
+
+Independent reruns passed 167 targeted tests and the uncached lint, typecheck, full-test, and build pipeline. Vector also verified pounds-origin and kilograms-origin rows through the live isolated app, canonical/compatibility storage invariants, preference-change rendering, clean in-app console/request diagnostics, and an unchanged production snapshot hash.
+
+Gate 1 nevertheless remains rejected for three blockers documented in `vector-gate-1-review.md`:
+
+1. The production container path cannot supply the mandatory reviewed legacy-unit map, so a legacy production database would fail closed without a usable deployment mechanism.
+2. AgentToken weight mutation enrichment repeats weight and delta values without their display unit.
+3. The migration-map writer does not force an existing permissive file to mode `0600` when overwriting it.
 
 ### Nutrition completeness and target provenance
 
