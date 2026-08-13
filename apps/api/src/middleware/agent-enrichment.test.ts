@@ -202,7 +202,7 @@ describe('buildDataResponse', () => {
       },
       agent: {
         hints: [
-          'Weight is down by 0.5 compared with the prior saved reading.',
+          'Weight is down by 0.5 lbs compared with the prior saved reading.',
           'Consistent check-ins under similar conditions make the trend easier to interpret.',
         ],
         suggestedActions: [
@@ -212,10 +212,46 @@ describe('buildDataResponse', () => {
           date: '2026-03-07',
           weight: 181.5,
           previousWeight: 182,
+          unit: 'lbs',
           trendDirection: 'down',
           delta: -0.5,
         },
       },
     });
+  });
+
+  it.each([
+    ['lbs', 181.5, 182, 'Weight is down by 0.5 lbs compared with the prior saved reading.'],
+    ['kg', 81.5, 80, 'Weight is up by 1.5 kg compared with the prior saved reading.'],
+  ] as const)('keeps %s explicit in weight mutation enrichment', (unit, weight, previous, hint) => {
+    const response = buildDataResponse(
+      createRequest('agent-token'),
+      {
+        id: 'entry-1',
+        date: '2026-03-07',
+        weight,
+        unit,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+      {
+        endpoint: 'weight.mutation',
+        previousEntry: {
+          id: 'entry-0',
+          date: '2026-03-06',
+          weight: previous,
+          unit,
+          notes: null,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      },
+    );
+
+    expect(response.agent?.hints?.[0]).toBe(hint);
+    expect(response.agent?.relatedState).toEqual(
+      expect.objectContaining({ unit, weight, previousWeight: previous }),
+    );
   });
 });

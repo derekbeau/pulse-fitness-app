@@ -158,7 +158,7 @@ Response:
       "target": { "calories": 2400, "protein": 200, "carbs": 250, "fat": 80 },
       "meals": []
     },
-    "weight": { "current": 182.4, "trend7d": -0.8 },
+    "weight": { "current": 182.4, "trend7d": -0.8, "unit": "lbs" },
     "habits": [
       { "name": "Hydrate", "trackingType": "numeric", "streak": 5, "todayCompleted": true }
     ],

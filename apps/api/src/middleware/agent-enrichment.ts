@@ -111,9 +111,7 @@ const isScheduledWorkoutDetail = (value: unknown): value is ScheduledWorkoutDeta
   typeof value.date === 'string' &&
   value.exercises.every(
     (exercise) =>
-      isRecord(exercise) &&
-      typeof exercise.exerciseId === 'string' &&
-      Array.isArray(exercise.sets),
+      isRecord(exercise) && typeof exercise.exerciseId === 'string' && Array.isArray(exercise.sets),
   );
 
 const isHabitEntry = (value: unknown): value is HabitEntry =>
@@ -126,6 +124,7 @@ const isWeightEntry = (value: unknown): value is BodyWeightEntry =>
   isRecord(value) &&
   typeof value.date === 'string' &&
   typeof value.weight === 'number' &&
+  (value.unit === 'lbs' || value.unit === 'kg') &&
   typeof value.id === 'string';
 
 const isFoodSummary = (value: unknown): value is FoodSummary =>
@@ -437,14 +436,15 @@ const buildWeightEnrichment = (
 
   const previousWeight = context.previousEntry?.weight;
   const delta = previousWeight === undefined ? undefined : responseData.weight - previousWeight;
+  const unit = responseData.unit;
   const trendDirection =
     delta === undefined ? 'unknown' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
 
   return {
     hints: compactStrings([
       delta === undefined
-        ? `Logged ${formatNumber(responseData.weight)} for ${responseData.date}. Another check-in later this week will help establish direction.`
-        : `Weight is ${trendDirection} by ${formatNumber(Math.abs(delta))} compared with the prior saved reading.`,
+        ? `Logged ${formatNumber(responseData.weight)} ${unit} for ${responseData.date}. Another check-in later this week will help establish direction.`
+        : `Weight is ${trendDirection} by ${formatNumber(Math.abs(delta))} ${unit} compared with the prior saved reading.`,
       'Consistent check-ins under similar conditions make the trend easier to interpret.',
     ]),
     suggestedActions: ['Keep a steady weigh-in cadence, ideally daily or several times per week.'],
@@ -452,6 +452,7 @@ const buildWeightEnrichment = (
       date: responseData.date,
       weight: responseData.weight,
       previousWeight,
+      unit,
       trendDirection,
       delta,
     }),
@@ -504,7 +505,10 @@ const buildWorkoutTemplateEnrichment = (
   const sectionCount = responseData.sections.length;
   const exerciseCount = responseData.sections
     .filter(isRecord)
-    .reduce((count, section) => count + (Array.isArray(section.exercises) ? section.exercises.length : 0), 0);
+    .reduce(
+      (count, section) => count + (Array.isArray(section.exercises) ? section.exercises.length : 0),
+      0,
+    );
   const templateName = typeof responseData.name === 'string' ? responseData.name : 'Template';
 
   return {
@@ -516,7 +520,9 @@ const buildWorkoutTemplateEnrichment = (
     ]),
     suggestedActions: compactStrings([
       'Start a workout session from this template when needed.',
-      context.action === 'update' ? 'Re-check set targets for time- and load-based movements.' : undefined,
+      context.action === 'update'
+        ? 'Re-check set targets for time- and load-based movements.'
+        : undefined,
     ]),
     relatedState: compactRecord({
       action: context.action,

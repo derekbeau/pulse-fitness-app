@@ -3,6 +3,7 @@ import {
   computeEWMA,
   computeWeightInsights,
   createWeightInputSchema,
+  formatWeight as formatWeightWithUnit,
   type BodyWeightEntry,
   type CreateWeightInput,
 } from '@pulse/shared';
@@ -130,9 +131,11 @@ export function WeightHistory() {
   const [addErrorMessage, setAddErrorMessage] = useState('');
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState('');
+  const [editingUnit, setEditingUnit] = useState<'lbs' | 'kg'>('lbs');
   const [editingNotes, setEditingNotes] = useState('');
   const [editingWeightError, setEditingWeightError] = useState('');
-  const { formatWeight, weightUnit } = useWeightUnit();
+  const { weightUnit } = useWeightUnit();
+  const addWeightPlaceholder = weightUnit === 'kg' ? '82.3' : '181.4';
 
   const {
     formState: { errors: addEntryErrors },
@@ -170,6 +173,8 @@ export function WeightHistory() {
   );
   const yDomain = useMemo(() => computeYAxisDomain(chartData), [chartData]);
   const latestEntry = sortedWeightEntries[0] ?? null;
+  const responseUnit = latestEntry?.unit ?? weightUnit;
+  const formatResponseWeight = (value: number) => formatWeightWithUnit(value, responseUnit);
 
   async function onSubmitNewEntry(values: CreateWeightInput) {
     setAddErrorMessage('');
@@ -191,6 +196,7 @@ export function WeightHistory() {
   function startEditing(entry: BodyWeightEntry) {
     setEditingEntryId(entry.id);
     setEditingWeight(entry.weight.toString());
+    setEditingUnit(entry.unit);
     setEditingNotes(entry.notes ?? '');
     setEditingWeightError('');
   }
@@ -198,6 +204,7 @@ export function WeightHistory() {
   function stopEditing() {
     setEditingEntryId(null);
     setEditingWeight('');
+    setEditingUnit('lbs');
     setEditingNotes('');
     setEditingWeightError('');
   }
@@ -233,7 +240,7 @@ export function WeightHistory() {
         input: {
           notes: editingNotes.trim().length > 0 ? editingNotes.trim() : null,
           weight: parsedWeight,
-          unit: weightUnit,
+          unit: editingUnit,
         },
       });
       stopEditing();
@@ -295,7 +302,7 @@ export function WeightHistory() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="weight-entry-value">
-                Weight
+                Weight ({weightUnit})
               </label>
               <Input
                 id="weight-entry-value"
@@ -305,7 +312,7 @@ export function WeightHistory() {
                 inputMode="decimal"
                 aria-invalid={addEntryErrors.weight ? true : undefined}
                 disabled={logWeightMutation.isPending}
-                placeholder="181.4"
+                placeholder={addWeightPlaceholder}
                 {...register('weight', { valueAsNumber: true })}
               />
               {addEntryErrors.weight?.message ? (
@@ -391,7 +398,7 @@ export function WeightHistory() {
                 Latest entry
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
-                {latestEntry ? formatWeight(latestEntry.weight) : '--'}
+                {latestEntry ? formatWeightWithUnit(latestEntry.weight, latestEntry.unit) : '--'}
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/40 px-4 py-3">
@@ -399,7 +406,7 @@ export function WeightHistory() {
                 Period average
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
-                {chartData.length > 0 ? formatWeight(rangeInsights.avgWeight) : '--'}
+                {chartData.length > 0 ? formatResponseWeight(rangeInsights.avgWeight) : '--'}
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/40 px-4 py-3">
@@ -408,7 +415,7 @@ export function WeightHistory() {
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
                 {chartData.length > 0
-                  ? formatSignedChange(rangeInsights.periodChange, formatWeight)
+                  ? formatSignedChange(rangeInsights.periodChange, formatResponseWeight)
                   : '--'}
               </p>
             </div>
@@ -486,10 +493,10 @@ export function WeightHistory() {
                     }}
                     formatter={(value: number | undefined, name: string | undefined) => {
                       if (name === 'scale') {
-                        return [formatWeight(value ?? 0), 'Logged weight'];
+                        return [formatResponseWeight(value ?? 0), 'Logged weight'];
                       }
 
-                      return [formatWeight(value ?? 0), 'Trend weight'];
+                      return [formatResponseWeight(value ?? 0), 'Trend weight'];
                     }}
                     labelFormatter={(label) =>
                       typeof label === 'string'
@@ -586,14 +593,15 @@ export function WeightHistory() {
                               className="text-sm font-medium text-foreground"
                               htmlFor={`weight-edit-${entry.id}`}
                             >
-                              Weight
+                              Weight ({editingUnit})
                             </label>
                             <Input
-                              aria-label={`Weight value for ${formattedDate}`}
+                              aria-label={`Weight value for ${formattedDate} (${editingUnit})`}
                               className="h-10"
                               id={`weight-edit-${entry.id}`}
                               inputMode="decimal"
                               min="0.1"
+                              placeholder={editingUnit === 'kg' ? '82.3' : '181.4'}
                               onChange={(event) => {
                                 setEditingWeight(event.currentTarget.value);
                                 setEditingWeightError('');
@@ -650,7 +658,7 @@ export function WeightHistory() {
                       ) : (
                         <>
                           <p className="text-lg font-semibold text-primary">
-                            {formatWeight(entry.weight)}
+                            {formatWeightWithUnit(entry.weight, entry.unit)}
                           </p>
                           {entry.notes ? (
                             <p className="break-words text-sm text-muted">{entry.notes}</p>

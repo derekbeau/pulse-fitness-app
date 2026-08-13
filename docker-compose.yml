@@ -10,9 +10,16 @@ services:
       - HOST=0.0.0.0
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=/data/pulse.db
+      - BODY_WEIGHT_LEGACY_UNIT_MAP_PATH=/run/pulse-secrets/body-weight-legacy-unit-map.json
       - AGENT_TOKEN_CLAUDE_CODE=${AGENT_TOKEN_CLAUDE_CODE}
     volumes:
       - pulse-data:/data
+      # Host-only secret directory. For a non-empty legacy database, place the reviewed
+      # mode-0600 map here before startup. Canonical/fresh/legacy-empty databases need no map.
+      - type: bind
+        source: ${PULSE_SECRETS_HOST_DIR:-./runtime-secrets}
+        target: /run/pulse-secrets
+        read_only: true
 
   web:
     build:

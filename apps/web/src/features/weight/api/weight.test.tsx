@@ -83,6 +83,7 @@ describe('weight api hooks', () => {
         id: 'weight-1',
         date: '2026-03-07',
         weight: 181.4,
+        unit: 'lbs',
         notes: 'Fasted',
         createdAt: 1,
         updatedAt: 1,
@@ -107,6 +108,7 @@ describe('weight api hooks', () => {
           id: 'weight-1',
           date: '2026-03-01',
           weight: 182.1,
+          unit: 'lbs',
           notes: null,
           createdAt: 1,
           updatedAt: 1,
@@ -135,6 +137,7 @@ describe('weight api hooks', () => {
           id: 'weight-1',
           date: '2026-03-07',
           weight: 181.4,
+          unit: 'lbs',
           notes: null,
           createdAt: 1,
           updatedAt: 1,
@@ -162,6 +165,7 @@ describe('weight api hooks', () => {
               id: 'weight-1',
               date: '2026-03-07',
               weight: 181.4,
+              unit: 'lbs',
               notes: null,
               createdAt: 1,
               updatedAt: 1,
@@ -200,6 +204,101 @@ describe('weight api hooks', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight?page=2&limit=10', expect.any(Object));
   });
 
+  it('rejects an invalid unitless latest response', async () => {
+    mockFetch.mockResolvedValue(
+      createJsonResponse({
+        id: 'weight-1',
+        date: '2026-03-07',
+        weight: 181.4,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useLatestWeight(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('rejects an invalid unitless list response', async () => {
+    mockFetch.mockResolvedValue(
+      createJsonResponse([
+        {
+          id: 'weight-1',
+          date: '2026-03-07',
+          weight: 181.4,
+          notes: null,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useWeightEntries(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('rejects an invalid unitless paginated response', async () => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'weight-1',
+              date: '2026-03-07',
+              weight: 181.4,
+              notes: null,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+          meta: { page: 1, limit: 10, total: 1 },
+        }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 },
+      ),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => usePaginatedWeightEntries({ page: 1, limit: 10 }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('rejects mixed display units before returning a weight collection', async () => {
+    mockFetch.mockResolvedValue(
+      createJsonResponse([
+        {
+          id: 'weight-1',
+          date: '2026-03-06',
+          weight: 181.4,
+          unit: 'lbs',
+          notes: null,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 'weight-2',
+          date: '2026-03-07',
+          weight: 82.1,
+          unit: 'kg',
+          notes: null,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ]),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useWeightEntries(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toEqual(
+      new Error('Weight response contains mixed display units.'),
+    );
+  });
+
   it('optimistically logs a weight entry, updates dashboard caches, and invalidates weight queries', async () => {
     const deferred = createDeferredPromise<Response>();
 
@@ -210,6 +309,7 @@ describe('weight api hooks', () => {
       id: 'weight-1',
       date: '2026-03-06',
       weight: 181.4,
+      unit: 'lbs',
       notes: null,
       createdAt: 1,
       updatedAt: 1,
@@ -219,6 +319,7 @@ describe('weight api hooks', () => {
         id: 'weight-1',
         date: '2026-03-06',
         weight: 181.4,
+        unit: 'lbs',
         notes: null,
         createdAt: 1,
         updatedAt: 1,
@@ -273,6 +374,7 @@ describe('weight api hooks', () => {
         expect.objectContaining({
           date: '2026-03-07',
           weight: 180.8,
+          unit: 'lbs',
         }),
       ]);
       expect(queryClient.getQueryData(dashboardSnapshotQueryKeys.detail('2026-03-07'))).toEqual(
@@ -312,6 +414,7 @@ describe('weight api hooks', () => {
           id: 'weight-2',
           date: '2026-03-07',
           weight: 180.8,
+          unit: 'lbs',
           notes: null,
           createdAt: 1,
           updatedAt: 2,
@@ -351,6 +454,7 @@ describe('weight api hooks', () => {
         id: 'weight-1',
         date: '2026-03-06',
         weight: 181.4,
+        unit: 'lbs',
         notes: null,
         createdAt: 1,
         updatedAt: 1,
@@ -495,6 +599,7 @@ describe('weight api hooks', () => {
         id: 'weight-2',
         date: '2026-03-07',
         weight: 180.1,
+        unit: 'lbs',
         notes: null,
         createdAt: 1,
         updatedAt: 3,
@@ -529,5 +634,48 @@ describe('weight api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
+  });
+
+  it('rejects an invalid unitless create response', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'weight-2',
+        date: '2026-03-07',
+        weight: 180.1,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 3,
+      }),
+    );
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useLogWeight(), { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ date: '2026-03-07', weight: 180.1, unit: 'lbs' }),
+      ).rejects.toThrow();
+    });
+  });
+
+  it('rejects an invalid unitless patch response', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'weight-2',
+        date: '2026-03-07',
+        weight: 180.1,
+        notes: null,
+        createdAt: 1,
+        updatedAt: 3,
+      }),
+    );
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useUpdateWeight(), { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          id: 'weight-2',
+          input: { weight: 180.1, unit: 'lbs' },
+        }),
+      ).rejects.toThrow();
+    });
   });
 });

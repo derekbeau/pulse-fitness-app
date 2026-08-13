@@ -92,6 +92,10 @@ const runWeightMigrationReview = (repoRoot, environment, unit) =>
         'src/scripts/review-body-weight-migration.ts',
         '--assign-all',
         unit,
+        '--reviewed-by',
+        'Gate 0 isolated fixture reviewer',
+        '--known-history',
+        `Reviewed isolated Gate 0 fixture history confirms all legacy entries use ${unit}.`,
       ],
       {
         cwd: repoRoot,

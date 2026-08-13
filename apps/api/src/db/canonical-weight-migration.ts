@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { chmodSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 import type Database from 'better-sqlite3';
 import { convertWeightToKg, isCanonicalBodyWeight, type WeightUnit } from '@pulse/shared';
@@ -42,6 +43,32 @@ const getBodyWeightColumnNames = (sqlite: Database.Database) =>
       (column) => column.name,
     ),
   );
+
+type TableColumn = {
+  name: string;
+  notnull: number;
+  pk: number;
+};
+
+const REQUIRED_CANONICAL_COLUMNS = new Map<string, { notNull: boolean; primaryKey?: boolean }>([
+  ['id', { notNull: true, primaryKey: true }],
+  ['user_id', { notNull: true }],
+  ['date', { notNull: true }],
+  ['weight', { notNull: true }],
+  ['weight_kg', { notNull: true }],
+  ['unit_at_entry', { notNull: true }],
+  ['notes', { notNull: false }],
+  ['created_at', { notNull: true }],
+  ['updated_at', { notNull: true }],
+]);
+
+const REQUIRED_CANONICAL_CHECKS = [
+  'body_weight_date_format_check',
+  'body_weight_weight_check',
+  'body_weight_weight_kg_check',
+  'body_weight_unit_at_entry_check',
+  'body_weight_legacy_pounds_check',
+] as const;
 
 const resetTemporaryMigrationMap = (sqlite: Database.Database) => {
   sqlite.exec(`
@@ -112,11 +139,45 @@ export const parseLegacyWeightUnitMap = (value: unknown): LegacyWeightUnitMap =>
 };
 
 export const readLegacyWeightUnitMap = (mapPath: string) => {
+  const stat = lstatSync(mapPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error('Legacy weight migration map must be a regular, non-symlink file.');
+  }
+  if ((stat.mode & 0o077) !== 0) {
+    throw new Error('Legacy weight migration map permissions must be 0600 or stricter.');
+  }
+
   const raw = readFileSync(mapPath, 'utf8');
   return {
     map: parseLegacyWeightUnitMap(JSON.parse(raw) as unknown),
     sha256: createHash('sha256').update(raw).digest('hex'),
   };
+};
+
+export const writeLegacyWeightUnitMap = (mapPath: string, migrationMap: LegacyWeightUnitMap) => {
+  const resolvedMap = parseLegacyWeightUnitMap(migrationMap);
+  const temporaryPath = join(
+    dirname(mapPath),
+    `.${basename(mapPath)}.${process.pid}.${Date.now()}.tmp`,
+  );
+
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(resolvedMap, null, 2)}\n`, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600,
+    });
+    chmodSync(temporaryPath, 0o600);
+    renameSync(temporaryPath, mapPath);
+    chmodSync(mapPath, 0o600);
+  } catch (error) {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // The temporary file may not have been created or may already have been renamed.
+    }
+    throw error;
+  }
 };
 
 const assertMapMatchesInventory = (
@@ -149,13 +210,74 @@ const assertMapMatchesInventory = (
 };
 
 const assertCanonicalTableIntegrity = (sqlite: Database.Database) => {
+  const columns = sqlite.prepare(`PRAGMA table_info('body_weight')`).all() as TableColumn[];
+  const columnsByName = new Map(columns.map((column) => [column.name, column]));
+  for (const [name, invariant] of REQUIRED_CANONICAL_COLUMNS) {
+    const column = columnsByName.get(name);
+    if (
+      !column ||
+      (invariant.notNull && column.notnull !== 1) ||
+      (invariant.primaryKey && column.pk !== 1)
+    ) {
+      throw new Error(`Canonical body-weight schema is missing the required ${name} invariant.`);
+    }
+  }
+
+  const indexes = sqlite.prepare(`PRAGMA index_list('body_weight')`).all() as Array<{
+    name: string;
+    unique: number;
+  }>;
+  const hasUserDateUnique = indexes.some((index) => {
+    if (index.unique !== 1) return false;
+    const indexedColumns = sqlite.prepare(`PRAGMA index_info('${index.name}')`).all() as Array<{
+      name: string;
+      seqno: number;
+    }>;
+    return (
+      indexedColumns
+        .sort((left, right) => left.seqno - right.seqno)
+        .map((column) => column.name)
+        .join(',') === 'user_id,date'
+    );
+  });
+  if (!hasUserDateUnique) {
+    throw new Error('Canonical body-weight schema is missing the user/date unique invariant.');
+  }
+
+  const foreignKeys = sqlite.prepare(`PRAGMA foreign_key_list('body_weight')`).all() as Array<{
+    from: string;
+    on_delete: string;
+    table: string;
+    to: string;
+  }>;
+  const hasUserCascade = foreignKeys.some(
+    (foreignKey) =>
+      foreignKey.from === 'user_id' &&
+      foreignKey.table === 'users' &&
+      foreignKey.to === 'id' &&
+      foreignKey.on_delete.toUpperCase() === 'CASCADE',
+  );
+  if (!hasUserCascade) {
+    throw new Error('Canonical body-weight schema is missing the cascading user foreign key.');
+  }
+
+  const tableDefinition = sqlite
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'body_weight'`)
+    .get() as { sql?: string } | undefined;
+  const normalizedDefinition = tableDefinition?.sql?.toLowerCase() ?? '';
+  if (REQUIRED_CANONICAL_CHECKS.some((checkName) => !normalizedDefinition.includes(checkName))) {
+    throw new Error('Canonical body-weight schema is missing required check constraints.');
+  }
+
   const invalidRow = sqlite
     .prepare(
       `
         SELECT id
         FROM body_weight
         WHERE
-          weight_kg IS NULL
+          weight IS NULL
+          OR weight_kg IS NULL
+          OR unit_at_entry IS NULL
           OR unit_at_entry NOT IN ('lbs', 'kg')
           OR weight_kg < 25
           OR weight_kg > 350

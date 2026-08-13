@@ -239,7 +239,7 @@ describe('weight routes', () => {
         },
         agent: {
           hints: [
-            'Logged 181.5 for 2026-03-07. Another check-in later this week will help establish direction.',
+            'Logged 181.5 lbs for 2026-03-07. Another check-in later this week will help establish direction.',
             'Consistent check-ins under similar conditions make the trend easier to interpret.',
           ],
           suggestedActions: [
@@ -248,6 +248,7 @@ describe('weight routes', () => {
           relatedState: {
             date: '2026-03-07',
             weight: 181.5,
+            unit: 'lbs',
             trendDirection: 'unknown',
           },
         },

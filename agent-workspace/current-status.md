@@ -1,82 +1,52 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 1 CHANGES REQUIRED<br>
-**Branch:** `feat/adaptive-tdee-v1`<br>
-**ChatGPT project:** `pulse-fitness-app`<br>
-**Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
-**Base commit:** `019e185` (`origin/main` when worktree was created)<br>
-**Specification commit:** `59eefa3`<br>
-**Last updated:** 2026-08-12
+**Overall:** AWAITING VECTOR GATE 1 RE-REVIEW
+**Branch:** `feat/adaptive-tdee-v1`
+**Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
+**Last updated:** 2026-08-13
 
 ## Completed
 
-- Full repository-specific product, algorithm, data-model, API, UI, migration, and testing specification written at `docs/specs/adaptive-tdee-v1.md`.
-- Independent technical review completed and material findings incorporated.
-- Specification math vectors independently recalculated.
-- Specification citations, formatting, typecheck, build, and existing test suite passed before worktree creation.
-- Dedicated feature branch created and selected in the existing ChatGPT `pulse-fitness-app` project.
-- Durable execution/handoff documents created under `agent-workspace/`.
-- Dependencies verified with `pnpm install --frozen-lockfile --offline`.
-- Isolated read-only seed and writable development copies established under `apps/api/data/`; the production volume was not opened or changed.
-- Isolated test user registered through the real UI and a weight entry written/read through the running app.
-- Final uncached lint, typecheck, test, and build gates passed (3 isolation tests plus 1,863 package tests across 243 files).
-- Built-in-browser smoke testing passed on 11 primary routes, and Vector's repaired Dashboard -> Nutrition -> Dashboard rerun produced no console warnings/errors or failed requests.
-- Browser-discovered local-date rollover and Recharts initialization warnings were fixed and regression-tested.
-- A tracked `pnpm dev:gate0` command now enforces the isolated writable database and ports 3102/5274, rejects default/production/snapshot paths, and shuts down both child servers together.
-- Vector independently resolved and verified both Gate 0 blockers before Milestone 1 began.
-- Canonical body-weight migration preflight now requires an exact reviewed per-user legacy-unit map and fails closed for absent, partial, extra-user, out-of-range, and partially canonicalized inputs.
-- Migration 0041 adds non-null canonical `weightKg` and `unitAtEntry`; the compatibility `weight` column is fixed in pounds with an exact-conversion constraint.
-- Weight routes, dashboard snapshots/trends, referential habit reads, agent context, static import, shared schemas, and all web weight surfaces now read canonical kilograms and convert only at response/display boundaries.
-- The tracked `pnpm dev:gate0` path owns the ignored reviewed-map location and is the only runtime/browser environment used for Milestone 1.
-- Browser QA covered pounds and kilograms writes, preference changes, dashboard weight surfaces, weight history, settings, and habits. It found and resolved stale display-unit caches plus two hard-coded dashboard unit labels; the final rerun had no console errors or failed API requests.
-- Targeted Milestone 1 regression coverage passed 241 tests. Uncached lint, typecheck, full tests, and build passed; full package tests now total 1,879 across 245 files, plus 3 Gate 0 isolation tests.
-- Vector independently reran 167 targeted tests, the uncached full quality pipeline, cross-unit browser/API QA, live SQLite integrity checks, and production-snapshot isolation checks.
-- Vector recorded three Gate 1 blockers in `vector-gate-1-review.md`: production cannot yet supply the mandatory reviewed map, AgentToken weight enrichment drops the unit, and overwriting an existing map does not enforce mode `0600`.
+- Milestone 0 isolation remains Vector-approved; production data and deployment were not touched.
+- Milestone 1 canonical-weight implementation remains complete.
+- All eight Vector Gate 1 findings have been repaired and regression-covered:
+  1. Production API startup now receives the reviewed map through a read-only secret bind mount and fails closed for insecure/missing legacy maps.
+  2. AgentToken weight enrichment includes `lbs`/`kg` in hints and related state.
+  3. Reviewed-map writes atomically replace the destination and force mode `0600` for new and existing files.
+  4. Canonical preflight validates nulls, columns, constraints, unique index, and cascading foreign key.
+  5. Agent writes reuse the canonical weight schema and documented examples include output units.
+  6. Weight-history add/edit controls expose the active unit and unit-specific placeholders.
+  7. History and detailed trends render response units and reject mixed-unit collections instead of relabeling stale values.
+  8. Weight hooks parse list/latest/paginated/create/patch/delete responses at the runtime boundary.
+- Focused repair suites passed: container/Gate 0 6/6, migration/enrichment 18/18, agent schemas 10/10, weight boundary hooks 15/15, history/trend 16/16.
+- Real API-container preflight rejected a non-empty legacy database without a map and accepted the same database with a regular mode-0600 reviewed map.
+- Final isolated browser QA saved the kilogram edit, changed preference through Settings to pounds, verified converted history/dashboard/trend values, and verified pounds add/edit labels and placeholders. Diagnostics were zero console warnings/errors, zero unhandled errors/rejections, and zero non-abort failed resources.
+- Live API open files were only `pulse-tdee-dev.db` plus WAL/SHM. SQLite `quick_check` was `ok`; all 25 rows had canonical kg, pounds compatibility, and valid `unitAtEntry`; invalid rows and maximum compatibility delta were both zero.
+- Production snapshot SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`.
+- Exact uncached pipeline passed: lint, typecheck, tests (6 startup isolation + 1,899 package tests), and production build. Lint retained only four pre-existing Fast Refresh warnings.
 
 ## Current milestone
 
-**Milestone 1: Canonical weight foundation — changes required**
+**Milestone 1: canonical weight foundation — AWAITING VECTOR GATE 1 RE-REVIEW**
 
-Milestone 1 implementation and most independent verification are green, but Vector rejected the reviewed commit pending the three fixes in `vector-gate-1-review.md`. No Milestone 2 work has started.
+Milestone 2 has not started and remains unauthorized until Vector independently approves Gate 1.
 
 ## Next actions
 
-1. Repair only the three findings in `vector-gate-1-review.md`.
-2. Rerun affected tests, the uncached full pipeline, isolated browser/API verification, and update evidence.
-3. Commit and push, set `AWAITING VECTOR GATE 1 RE-REVIEW`, and stop.
-4. Milestone 2 remains prohibited until Vector approves Gate 1.
+1. Vector independently re-reviews the eight repaired findings and evidence.
+2. If approved, Vector may authorize Milestone 2 in a separate goal.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 2 during this state.
 
 ## Blocking issues
 
-- Production container startup has no secure path to receive the mandatory reviewed legacy-unit map.
-- AgentToken mutation enrichment emits unitless weight values and deltas.
-- Existing permissive migration-map files remain permissive when overwritten instead of being forced to mode `0600`.
+No Codex-known Gate 1 blockers remain. Approval is intentionally withheld pending Vector re-review.
 
 ## Non-blocking warnings
 
-- The copied production baseline contains 37 pre-existing foreign-key violations (34 `session_sets -> exercises`, 3 `template_exercises -> exercises`); tracked separately in GitHub issue #101. Milestone 0 did not repair or write production data.
-- Lint passes with four pre-existing Fast Refresh warnings in workout files; there are zero lint errors.
-- The repository has no configured format-check script. A whole-repository Prettier diagnostic found 107 historical mismatches outside this milestone; changed files are checked separately.
-- Production deployment is explicitly out of scope until Derek approves it.
-
-## Required update protocol
-
-After each work session or milestone commit, update:
-
-- `Overall`
-- `Last updated`
-- `Completed`
-- `Current milestone`
-- `Next actions`
-- `Blocking issues`
-- Latest commit and verification results when available
+- The copied production baseline contains 37 pre-existing foreign-key violations tracked in issue #101.
+- Lint reports four pre-existing Fast Refresh warnings and zero errors.
+- Production deployment is explicitly out of scope.
 
 ## Vector review handoff protocol
 
-Every milestone is a separate Codex goal. Codex completes implementation, automated checks, self-review, built-in-browser QA, evidence, commit, and push for only the currently authorized milestone, then:
-
-1. Set `Overall` to `AWAITING VECTOR GATE N REVIEW` (or `AWAITING VECTOR FINAL REVIEW` after Milestone 6).
-2. Record the same milestone verdict in `verification-report.md`.
-3. Push the feature branch and update draft PR #100.
-4. Stop the goal. Do not begin the next milestone, self-approve the gate, mark the feature `READY FOR DEREK PREVIEW`, make the PR ready for review, merge, or deploy.
-5. Derek returns to Hermes/Vector. Vector independently reviews that gate and either records blocking findings or authorizes the next milestone. Only the final Vector review may change the verdict to `READY FOR DEREK PREVIEW`.
+PR #100 must remain draft. Only Vector may approve Gate 1 or authorize the next milestone; Codex must stop at `AWAITING VECTOR GATE 1 RE-REVIEW`.

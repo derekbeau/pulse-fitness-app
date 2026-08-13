@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 1 CHANGES REQUIRED<br>
+**Status:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector independent Gate 1 review complete; changes required<br>
-**Last verified state:** Gate 1 implementation commit `f80d209` plus Vector review evidence
+**Reviewer:** Codex repair verification complete; awaiting independent Vector re-review<br>
+**Last verified state:** complete eight-finding Gate 1 repair, isolated browser/SQLite QA, and green uncached pipeline
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -79,7 +79,7 @@ Developer-console inspection returned zero warnings/errors on the clean rerun. V
 
 ### Milestone 1: canonical weight foundation
 
-Verdict: `VECTOR GATE 1 CHANGES REQUIRED`
+Verdict: `AWAITING VECTOR GATE 1 RE-REVIEW`
 
 #### Migration preflight and storage invariants
 
@@ -138,13 +138,39 @@ Browser QA found three presentation/cache defects and fixed them before the fina
 
 #### Vector independent Gate 1 review
 
-Independent reruns passed 167 targeted tests and the uncached lint, typecheck, full-test, and build pipeline. Vector also verified pounds-origin and kilograms-origin rows through the live isolated app, canonical/compatibility storage invariants, preference-change rendering, clean in-app console/request diagnostics, and an unchanged production snapshot hash.
+Independent reruns at the original Gate 1 commit passed 167 targeted tests and the then-current uncached lint, typecheck, full-test, and build pipeline. Vector also verified pounds-origin and kilograms-origin rows through the live isolated app, canonical/compatibility storage invariants, preference-change rendering, clean in-app console/request diagnostics, and an unchanged production snapshot hash.
 
-Gate 1 nevertheless remains rejected for three blockers documented in `vector-gate-1-review.md`:
+Vector nevertheless rejected that commit for the eight blockers recorded in `vector-gate-1-review.md`. The following section records their repair and re-review evidence.
 
-1. The production container path cannot supply the mandatory reviewed legacy-unit map, so a legacy production database would fail closed without a usable deployment mechanism.
-2. AgentToken weight mutation enrichment repeats weight and delta values without their display unit.
-3. The migration-map writer does not force an existing permissive file to mode `0600` when overwriting it.
+#### Gate 1 repair and re-review evidence
+
+All eight blockers in `vector-gate-1-review.md` were repaired and verified on 2026-08-13:
+
+1. Production startup now uses a read-only host secret mount plus an image entrypoint that distinguishes fresh/empty/canonical databases from non-empty legacy databases and fails closed unless a secure reviewed map is available.
+2. AgentToken weight enrichment includes the response unit in natural-language hints and `relatedState` for pounds and kilograms.
+3. Map writes use mode-0600 temporary creation, atomic replacement, and final chmod, including overwrite of permissive files.
+4. Already-canonical preflight validates null rows, required column invariants, named checks, user/date uniqueness, and cascading user foreign key.
+5. Agent weight writes reuse `createWeightInputSchema`, including converted 25-350 kg bounds, and the agent documentation carries output units.
+6. History add/edit controls visibly identify pounds/kilograms and use unit-specific placeholders.
+7. History and detailed trends derive units from response entries and reject mixed-unit responses rather than silently relabeling values.
+8. Weight hooks parse shared runtime schemas for latest/list/paginated/create/patch/delete responses.
+
+Focused checks passed: startup/container 6/6, migration/enrichment 18/18, agent schemas 10/10, weight boundary hooks 15/15, history/trend 16/16. Real container preflight rejected a non-empty legacy database without a map (exit 1) and accepted it with a regular mode-0600 reviewed map.
+
+Final browser QA saved the kilogram edit, persisted the real Settings kg-to-pounds switch, verified converted history/dashboard/detailed-trend values, and inspected pounds and kilograms labels/placeholders. The final pounds dashboard showed logged `182.6 lbs`, compact trend `180.4 lbs`, and detailed trend values consistently in pounds. Diagnostics recorded zero console warnings/errors, zero window errors/unhandled rejections, and zero non-abort failed resources.
+
+The API process opened only `pulse-tdee-dev.db` plus WAL/SHM. SQLite `quick_check` returned `ok`; 25 rows had 0 invalid canonical rows, max compatibility delta `0.000000000000`, 23 pounds-origin and 2 kilogram-origin rows. Production snapshot SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`. The dev process was stopped through the process tool and ports 3102/5274 were free.
+
+Final exact uncached pipeline, all exit 0:
+
+| Command                           | Observed result                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                             |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                                                   |
+| `TURBO_FORCE=true pnpm test`      | Startup isolation 6/6; Turbo 6/6, 0 cached; shared 342, API 602, web 955 (1,899 package tests across 245 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,830 modules                                                                   |
+
+Complete diff self-review found no Milestone 2, deploy, merge, or PR-ready scope. Current state is `AWAITING VECTOR GATE 1 RE-REVIEW`; approval is intentionally withheld.
 
 ### Nutrition completeness and target provenance
 

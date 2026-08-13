@@ -1,11 +1,13 @@
 import { type QueryKey, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type {
-  BodyWeightEntry,
-  CreateWeightInput,
-  DashboardSnapshot,
-  DashboardWeightTrendPoint,
-  DeleteWeightResult,
-  PatchWeightInput,
+import {
+  bodyWeightEntrySchema,
+  deleteWeightResultSchema,
+  type BodyWeightEntry,
+  type CreateWeightInput,
+  type DashboardSnapshot,
+  type DashboardWeightTrendPoint,
+  type DeleteWeightResult,
+  type PatchWeightInput,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -96,32 +98,55 @@ const buildWeightEntriesPath = ({ days, from, limit, page, to }: WeightListFilte
   return queryString ? `/api/v1/weight?${queryString}` : '/api/v1/weight';
 };
 
-const fetchLatestWeight = () => apiRequest<BodyWeightEntry | null>('/api/v1/weight/latest');
+const fetchLatestWeight = async () => {
+  const response = await apiRequest<unknown>('/api/v1/weight/latest');
+  return bodyWeightEntrySchema.nullable().parse(response);
+};
 
-const fetchWeightEntries = (filters: WeightListFilters) =>
-  apiRequest<BodyWeightEntry[]>(buildWeightEntriesPath(filters));
+const parseWeightEntryCollection = (response: unknown) => {
+  const entries = bodyWeightEntrySchema.array().parse(response);
+  if (new Set(entries.map((entry) => entry.unit)).size > 1) {
+    throw new Error('Weight response contains mixed display units.');
+  }
+  return entries;
+};
 
-const fetchPaginatedWeightEntries = (
+const fetchWeightEntries = async (filters: WeightListFilters) => {
+  const response = await apiRequest<unknown>(buildWeightEntriesPath(filters));
+  return parseWeightEntryCollection(response);
+};
+
+const fetchPaginatedWeightEntries = async (
   filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters,
-) =>
-  apiRequestWithMeta<BodyWeightEntry[], PaginatedWeightListMeta>(buildWeightEntriesPath(filters));
+) => {
+  const { data, meta } = await apiRequestWithMeta<unknown, PaginatedWeightListMeta>(
+    buildWeightEntriesPath(filters),
+  );
+  return { data: parseWeightEntryCollection(data), meta };
+};
 
-const postWeightEntry = (input: CreateWeightInput) =>
-  apiRequest<BodyWeightEntry>('/api/v1/weight', {
+const postWeightEntry = async (input: CreateWeightInput) => {
+  const response = await apiRequest<unknown>('/api/v1/weight', {
     body: JSON.stringify(input),
     method: 'POST',
   });
+  return bodyWeightEntrySchema.parse(response);
+};
 
-const deleteWeightEntry = (id: string) =>
-  apiRequest<DeleteWeightResult>(`/api/v1/weight/${id}`, {
+const deleteWeightEntry = async (id: string) => {
+  const response = await apiRequest<unknown>(`/api/v1/weight/${id}`, {
     method: 'DELETE',
   });
+  return deleteWeightResultSchema.parse(response) as DeleteWeightResult;
+};
 
-const patchWeightEntry = (id: string, input: PatchWeightInput) =>
-  apiRequest<BodyWeightEntry>(`/api/v1/weight/${id}`, {
+const patchWeightEntry = async (id: string, input: PatchWeightInput) => {
+  const response = await apiRequest<unknown>(`/api/v1/weight/${id}`, {
     body: JSON.stringify(input),
     method: 'PATCH',
   });
+  return bodyWeightEntrySchema.parse(response);
+};
 
 const compareWeightEntries = (left: BodyWeightEntry, right: BodyWeightEntry) =>
   left.date.localeCompare(right.date) ||

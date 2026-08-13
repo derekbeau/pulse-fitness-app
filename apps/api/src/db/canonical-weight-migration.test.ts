@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
@@ -8,7 +9,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   prepareCanonicalWeightMigration,
+  readLegacyWeightUnitMap,
   type LegacyWeightUnitMap,
+  writeLegacyWeightUnitMap,
 } from './canonical-weight-migration.js';
 
 const migrationSql = readFileSync(
@@ -223,5 +226,47 @@ describe('canonical body-weight migration', () => {
     expect(columns.find((column) => column.name === 'unit_at_entry')?.notnull).toBe(1);
     expect(prepareCanonicalWeightMigration(sqlite).state).toBe('already-canonical');
     sqlite.close();
+  });
+
+  it('forces migration-map mode 0600 on create and overwrite', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-weight-map-'));
+    const mapPath = join(root, 'map.json');
+    try {
+      writeLegacyWeightUnitMap(mapPath, reviewedMap({ 'user-a': 'lbs' }));
+      expect(statSync(mapPath).mode & 0o777).toBe(0o600);
+      expect(readLegacyWeightUnitMap(mapPath).map.users).toEqual({ 'user-a': 'lbs' });
+
+      writeFileSync(mapPath, '{}');
+      chmodSync(mapPath, 0o644);
+      writeLegacyWeightUnitMap(mapPath, reviewedMap({ 'user-b': 'kg' }));
+      expect(statSync(mapPath).mode & 0o777).toBe(0o600);
+      expect(readLegacyWeightUnitMap(mapPath).map.users).toEqual({ 'user-b': 'kg' });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed for a canonical-looking table with nullable fields or missing invariants', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE users (id TEXT PRIMARY KEY NOT NULL);
+      INSERT INTO users VALUES ('user-a');
+      CREATE TABLE body_weight (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        weight REAL,
+        weight_kg REAL,
+        unit_at_entry TEXT,
+        notes TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      INSERT INTO body_weight VALUES ('w1','user-a','2026-08-01',NULL,NULL,NULL,NULL,1,1);
+    `);
+
+    expect(() => prepareCanonicalWeightMigration(db)).toThrow(/schema|required|invariant/u);
+    db.close();
   });
 });

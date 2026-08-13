@@ -34,7 +34,7 @@ Verification gate: [`agent-workspace/verification-report.md`](agent-workspace/ve
 
 ## Current verification
 
-Milestone 1 implemented; Vector Gate 1 review recorded `VECTOR GATE 1 CHANGES REQUIRED`:
+Milestone 1 Gate 1 repair is complete and the branch is `AWAITING VECTOR GATE 1 RE-REVIEW`:
 
 - [x] Independent technical review completed and findings incorporated
 - [x] Formula vectors independently recalculated
@@ -53,9 +53,14 @@ Milestone 1 implemented; Vector Gate 1 review recorded `VECTOR GATE 1 CHANGES RE
 - [x] 241 targeted Milestone 1 tests passed; uncached full lint, typecheck, 1,879 package tests, and build passed
 - [x] Built-in-browser weight/dashboard/settings/habits QA passed with clean console and request diagnostics
 - [x] Vector independently reran targeted and full checks plus cross-unit isolated browser/database QA
-- [ ] Supply the mandatory reviewed legacy-unit map securely to the production container startup path
-- [ ] Add units to AgentToken weight mutation hints and related state
-- [ ] Force reviewed migration-map permissions to mode `0600` on both create and overwrite
+- [x] Secure reviewed-map bind mount and fail-closed production entrypoint added and container-verified
+- [x] AgentToken weight mutation hints and related state include units for pounds and kilograms
+- [x] Reviewed migration-map creation and overwrite force mode `0600`
+- [x] Canonical-table schema/null integrity, shared agent bounds, unit-visible history forms, response-unit rendering, and runtime schema parsing repaired and covered
+- [x] Final isolated kg-to-pounds browser QA passed with zero console/request diagnostics
+- [x] Final SQLite audit passed: 25 rows, zero invalid rows, zero compatibility delta; production snapshot hash unchanged
+- [x] Exact uncached lint/typecheck/test/build pipeline passed (1,899 package tests plus 6 startup-isolation tests)
+- [ ] Vector Gate 1 re-review and approval
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
 ## Review focus

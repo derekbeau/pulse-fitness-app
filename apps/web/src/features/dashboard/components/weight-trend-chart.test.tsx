@@ -184,6 +184,43 @@ describe('WeightTrendChart', () => {
     });
   });
 
+  it('uses response kg units when profile preference is stale', async () => {
+    const kgEntries = weightEntriesFixture.map((entry) => ({
+      ...entry,
+      weight: Number((entry.weight / 2.2046226218).toFixed(1)),
+      unit: 'kg' as const,
+    }));
+    mockFetch.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: kgEntries }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    const { container } = renderChart();
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Weight trend chart' })).toBeInTheDocument();
+    });
+    expect(container.querySelector('[data-slot="weight-trend-current-trend"]')).toHaveTextContent(
+      'kg',
+    );
+    expect(container.querySelector('[data-slot="weight-trend-period-average"]')).toHaveTextContent(
+      'kg',
+    );
+    expect(screen.queryByText(/lbs/)).not.toBeInTheDocument();
+  });
+
   it('refetches after dashboard weight trend invalidation', async () => {
     const { queryClient } = renderChart();
 
