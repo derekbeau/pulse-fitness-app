@@ -7,8 +7,13 @@ import {
   adaptiveCheckInStateSchema,
   adaptiveConfidenceLabelSchema,
   adaptiveGoalTypeSchema,
+  adaptiveAcceptInputSchema,
+  adaptiveCheckInQuerySchema,
+  adaptiveNutritionStateSchema,
   adaptiveProgramCalculationSchema,
+  adaptiveProgramMutationSchema,
   adaptiveProgramSetupSchema,
+  adaptivePreviewInputSchema,
   adaptiveRecommendationSchema,
   adaptiveReasonCodeSchema,
   adaptiveRmrEquationSchema,
@@ -34,6 +39,22 @@ const validProgram = {
   systemCalorieFloorKcal: 1500,
   userCalorieFloorKcal: 1600,
   algorithmVersion: 'adaptive-tdee-v1' as const,
+};
+
+const validProgramMutation = {
+  status: 'active' as const,
+  timeZone: 'America/Detroit',
+  heightCm: 178,
+  birthDate: '1990-02-28',
+  rmrEquation: 'mifflin_male' as const,
+  activityLevel: 'active' as const,
+  manualBaselineTdeeKcal: null,
+  goalType: 'lose' as const,
+  targetWeightKg: 75,
+  goalRatePctPerWeek: -0.5,
+  proteinGrams: 180,
+  fatAllocationPct: 30,
+  currentWeight: { weight: 180, unit: 'lbs' as const },
 };
 
 describe('adaptive TDEE schemas', () => {
@@ -329,5 +350,70 @@ describe('adaptive TDEE schemas', () => {
     expect(
       adaptiveRecommendationSchema.safeParse({ ...nonUpdating, state: 'unknown' }).success,
     ).toBe(false);
+  });
+
+  it('validates lifecycle program mutations and applies explicit control defaults', () => {
+    expect(adaptiveProgramMutationSchema.parse(validProgramMutation)).toMatchObject({
+      ...validProgramMutation,
+      rebaseline: false,
+      supersedePending: false,
+    });
+    expect(
+      adaptiveProgramMutationSchema.safeParse({
+        ...validProgramMutation,
+        rmrEquation: 'manual_tdee',
+        heightCm: null,
+        birthDate: null,
+        activityLevel: null,
+        manualBaselineTdeeKcal: null,
+      }).success,
+    ).toBe(false);
+    for (const field of ['heightCm', 'birthDate', 'activityLevel'] as const) {
+      expect(
+        adaptiveProgramMutationSchema.safeParse({ ...validProgramMutation, [field]: null }).success,
+      ).toBe(false);
+    }
+    expect(
+      adaptiveProgramMutationSchema.safeParse({
+        ...validProgramMutation,
+        targetWeightKg: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      adaptiveProgramMutationSchema.safeParse({
+        ...validProgramMutation,
+        goalType: 'maintain',
+        targetWeightKg: null,
+        goalRatePctPerWeek: -0.1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('validates preview, acceptance, pagination, and empty read-state contracts', () => {
+    expect(adaptivePreviewInputSchema.parse({ kind: 'manual' })).toEqual({
+      kind: 'manual',
+      includeToday: false,
+    });
+    expect(
+      adaptivePreviewInputSchema.safeParse({ kind: 'weekly', includeToday: true }).success,
+    ).toBe(false);
+    expect(adaptiveAcceptInputSchema.parse({})).toEqual({ replaceSameDateTarget: false });
+    expect(adaptiveCheckInQuerySchema.parse({ page: '2', limit: '100' })).toEqual({
+      page: 2,
+      limit: 100,
+    });
+    expect(adaptiveCheckInQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
+    expect(
+      adaptiveNutritionStateSchema.parse({
+        state: 'setup_required',
+        program: null,
+        currentTarget: null,
+        latestAcceptedCheckIn: null,
+        pendingCheckIn: null,
+        checkInDue: false,
+        nextCheckInDate: null,
+        eligibility: null,
+      }),
+    ).toMatchObject({ state: 'setup_required' });
   });
 });

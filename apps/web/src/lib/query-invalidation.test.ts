@@ -8,7 +8,11 @@ import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
 
-import { adaptiveNutritionQueryKey, crossFeatureInvalidationMap } from './query-invalidation';
+import {
+  adaptiveNutritionQueryKey,
+  crossFeatureInvalidationMap,
+  nutritionTargetQueryKey,
+} from './query-invalidation';
 
 describe('crossFeatureInvalidationMap', () => {
   it('returns the expected workout-session invalidations', () => {
@@ -50,11 +54,28 @@ describe('crossFeatureInvalidationMap', () => {
 
   it('returns the expected weight invalidations', () => {
     expect(crossFeatureInvalidationMap.weightMutation()).toEqual([
+      adaptiveNutritionQueryKey,
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+    ]);
+  });
+
+  it('returns complete adaptive lifecycle invalidations', () => {
+    expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+    ]);
+    expect(crossFeatureInvalidationMap.adaptivePreviewMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+    ]);
+    expect(crossFeatureInvalidationMap.adaptiveResolutionMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+      nutritionTargetQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      macroTrendQueryKeys.all,
     ]);
   });
 });

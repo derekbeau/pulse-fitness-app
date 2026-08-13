@@ -16,7 +16,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Canonical weight foundation and all-reader migration
 - [x] Nutrition completeness and adaptive target provenance
 - [x] Pure deterministic adaptive TDEE algorithm
-- [ ] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
+- [x] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
 - [ ] Coach UI, completion controls, history, accessibility, and responsive behavior
 - [ ] Backtest, seeded staging preview, browser acceptance, and independent review
 
@@ -88,9 +88,15 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Gate 3 repair regressions passed (50 focused shared; 400 full shared); exact uncached lint/typecheck/test/build passed with 1,994 package tests plus 7 startup/security tests and zero cached tasks
 - [x] Vector independently re-reviewed the Gate 3 repair, repeated the focused and exact uncached full gates, and passed isolated API/browser acceptance
 - [x] Vector Gate 3 approved
+- [x] Lifetime program state, replayable check-in snapshots, JWT/AgentToken route policy, and OpenAPI contracts
+- [x] Immediate-transaction preview/accept lifecycle with pending/held reuse, supersession, stale rejection, idempotent resolution, same-date replacement, and goal maintenance
+- [x] Real two-connection SQLite contention/convergence plus setup, rebaseline, aggregation, midnight, due scheduling, pagination, and cross-user coverage
+- [x] Complete adaptive/weight/target/nutrition/dashboard query invalidation map
+- [x] Milestone 4 exact uncached gates passed: startup/security 7, shared 402, API 657, web 960, lint/typecheck/build; zero cached Turbo tasks
+- [x] Isolated real API lifecycle and built-in-browser affected-surface/Swagger QA passed with clean console diagnostics
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
-Current milestone state: `VECTOR GATE 3 APPROVED`. Milestone 4 has not started; PR #100 remains draft.
+Current milestone state: `AWAITING VECTOR GATE 4 REVIEW`. Milestone 5 has not started; PR #100 remains draft.
 
 ## Review focus
 

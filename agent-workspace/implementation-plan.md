@@ -52,15 +52,15 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 4: Program, check-in, and API lifecycle
 
-- [ ] Add the lifetime program and immutable check-in tables.
-- [ ] Implement read state and eligibility progress.
-- [ ] Implement preview with pending-only fingerprint uniqueness.
-- [ ] Implement explicit SQLite immediate transactions or a proven compare-and-swap alternative.
-- [ ] Implement supersession, held attempts, acceptance, decline, history, and detail routes.
-- [ ] Pin stale acceptance to persisted preview boundaries.
-- [ ] Add real two-connection SQLite concurrency tests.
-- [ ] Add repeated accept/decline, reverted fingerprint, midnight, held schedule, and cross-user tests.
-- [ ] Add all required query/cache invalidation paths.
+- [x] Add the lifetime program and immutable check-in tables.
+- [x] Implement read state and eligibility progress.
+- [x] Implement preview with pending-only fingerprint uniqueness.
+- [x] Implement explicit SQLite immediate transactions or a proven compare-and-swap alternative.
+- [x] Implement supersession, held attempts, acceptance, decline, history, and detail routes.
+- [x] Pin stale acceptance to persisted preview boundaries.
+- [x] Add real two-connection SQLite concurrency tests.
+- [x] Add repeated accept/decline, reverted fingerprint, midnight, held schedule, and cross-user tests.
+- [x] Add all required query/cache invalidation paths.
 
 **Codex gate:** check-ins are replayable, idempotent where specified, stale-safe, and concurrency-safe; API/concurrency self-review, targeted and real two-connection tests, built-in-browser exercise of every runnable API-backed state, pushed commit, then stop at `AWAITING VECTOR GATE 4 REVIEW`.
 

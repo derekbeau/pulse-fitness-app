@@ -445,6 +445,13 @@ Upserts a habit entry for a date. AgentToken responses may include completion hi
 
 ### Nutrition Summary
 
+#### Adaptive nutrition
+
+Agents may read `GET /api/v1/adaptive-nutrition`, list or inspect check-ins, and call
+`POST /api/v1/adaptive-nutrition/check-ins/preview`. A preview is an auditable proposal only: it
+never applies targets. Program configuration, acceptance, and decline are deliberate user decisions
+and therefore reject AgentToken auth with `403 FORBIDDEN`; those routes require a Pulse session JWT.
+
 #### `GET /api/v1/nutrition/:date/summary`
 
 Returns the shared nutrition-summary schema (`date`, `meals`, `actual`, `target`) for both auth modes, with optional agent enrichment containing remaining-macro guidance.

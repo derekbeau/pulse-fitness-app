@@ -30,8 +30,22 @@ downgrade complete days to partial in their data transaction.
 Nutrition-target responses include `source`, `adaptiveCheckInId`, and `macroCalories`. The existing
 manual target mutation never accepts caller-owned provenance: unknown adaptive-link fields are
 stripped by the shared request schema, and the store persists `source = manual`, a null check-in
-link, and server-derived macro calories. Adaptive target writes remain internal until the later
-check-in lifecycle milestone.
+link, and server-derived macro calories. Adaptive target writes occur only when the JWT-only
+acceptance route validates and resolves an owned pending check-in inside an immediate transaction.
+
+### Adaptive nutrition lifecycle
+
+The `/api/v1/adaptive-nutrition` plugin uses shared strict schemas and standard response envelopes:
+
+- `GET /` and `GET /check-ins[/:id]`: JWT or AgentToken read state and replayable history.
+- `POST /check-ins/preview`: JWT or AgentToken mutation that persists a proposal or held attempt but never changes targets.
+- `PUT /program`, `POST /check-ins/:id/accept`, and `POST /check-ins/:id/decline`: JWT-only account/coaching decisions.
+
+Preview and acceptance use explicit SQLite immediate transactions. Identical pending previews
+converge, changed inputs supersede the old pending row, and acceptance recomputes the fingerprint
+from the check-in's persisted local date and boundaries. Stale inputs return `409 CHECKIN_STALE`;
+same-date target replacement requires `replaceSameDateTarget: true`. Accepted and repeatedly
+declined rows are idempotent as specified, while held/superseded/other terminal rows are not reopened.
 
 ## Request Validation
 

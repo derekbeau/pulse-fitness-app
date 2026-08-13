@@ -365,7 +365,36 @@ Verdict: `VECTOR GATE 3 APPROVED`.
 
 ### Check-in/API lifecycle and concurrency
 
-Pending.
+Milestone 4 implements the full program/check-in API lifecycle on the existing migration-0042
+persistence foundation. Shared Zod contracts cover program mutation/read state, eligibility,
+versioned input snapshots, preview/accept bodies, compact history, full detail, and accepted target
+responses. The API exposes read/preview to JWT and AgentToken callers while preserving JWT-only
+program, accept, and decline decisions.
+
+The store uses `better-sqlite3` immediate transactions for setup/update, preview, acceptance, and
+decline. It reads exact local-date ranges and canonical kilograms, reuses identical pending or
+same-kind/date held calculations, supersedes changed actionable pending rows, never reopens terminal
+rows, and revalidates the fingerprint against the preview's persisted date before acceptance.
+Acceptance atomically resolves same-date policy, adaptive target provenance, goal-to-maintenance,
+and check-in status.
+
+Focused checks passed 48/48: shared schema/docs 20, API routes/store 22, and web invalidation 6.
+The 15 real-store tests include two separate SQLite connections, explicit lock contention, convergent
+preview/accept behavior, setup weight age cases, rebaseline stability, held due scheduling, source
+change/revert, midnight pinning, conflict replacement, decline and accept idempotency, pagination,
+goal completion, and cross-user isolation. Seven route tests cover response serialization, OpenAPI,
+JWT/AgentToken access, validation, and stable lifecycle error codes.
+
+Exact uncached gates all exited 0: lint 3/3 with zero errors and four pre-existing warnings;
+typecheck 3/3; startup/security 7/7 plus shared 402, API 657, and web 960 tests (2,019 package tests);
+build 3/3 with 3,832 Vite modules. Turbo reported zero cached tasks.
+
+Real `pnpm dev:gate0` API exercise covered setup-required, program/baseline creation, pending state,
+accept and repeated accept, held weekly preview and repeated preview, the expected held-accept 409,
+paginated history, and full detail. Built-in-browser smoke rendered Dashboard, Nutrition, Weight
+History, Settings, and live Swagger lifecycle documentation. Browser console warnings/errors were
+empty; every observed UI/docs request was HTTP 200, apart from the intentional API conflict probe.
+The isolated servers were stopped. Production was not accessed or changed.
 
 ### Coach UI and completion controls
 
@@ -386,7 +415,7 @@ Record exact commands, exit codes, test counts, duration, and commit SHA.
 - [x] Production build
 - [x] Fresh migration chain
 - [x] Legacy migration fixture
-- [ ] Real SQLite concurrency tests
+- [x] Real SQLite concurrency tests
 - [ ] Playwright/E2E suite
 
 ## Browser acceptance matrix
@@ -445,7 +474,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`VECTOR GATE 3 APPROVED`
+`AWAITING VECTOR GATE 4 REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

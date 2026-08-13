@@ -462,9 +462,11 @@ after the owned check-in snapshot is verified to preserve the row being replaced
 
 #### `adaptive_nutrition_programs`
 
-One lifetime row per user holds future adaptive-coaching configuration and baseline values.
-Milestone 2 establishes the constrained persistence shape and ownership only; lifecycle routes and
-algorithm behavior are added in later milestones.
+One lifetime row per user holds adaptive-coaching configuration and stable baseline values. Ordinary
+updates preserve calculated baseline fields; only explicit `rebaseline: true` recalculates them.
+Creating or rebaselining requires a setup-entered weight or canonical saved weight no more than seven
+program-local calendar days old. A calculation-affecting update explicitly supersedes a pending
+check-in.
 
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, unique, FK -> `users.id`, `ON DELETE CASCADE`
@@ -474,9 +476,8 @@ algorithm behavior are added in later milestones.
 
 #### `adaptive_nutrition_checkins`
 
-Immutable calculation/audit rows serve as the restricted provenance source for adaptive targets.
-Milestone 2 establishes storage and snapshot immutability; preview, acceptance, decline, and the
-rest of the check-in lifecycle are later milestones.
+Immutable calculation/audit rows are the restricted provenance source for adaptive targets and now
+back the operational preview, acceptance, decline, history, and detail lifecycle.
 
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`, indexed with `createdAt`
@@ -491,7 +492,8 @@ rest of the check-in lifecycle are later milestones.
 A database trigger forbids changes to calculation inputs, outputs, boundaries, and target snapshots
 after insert. Only resolution fields (`status`, `acceptedNutritionTargetId`, and `resolvedAt`) may
 change. Pending-fingerprint and one-pending-per-program partial unique indexes are installed for the
-later lifecycle implementation.
+lifecycle. Stores build inputs and resolve check-ins in explicit SQLite immediate transactions;
+stale acceptance rereads mutable rows using the persisted preview boundaries and never writes a target.
 
 A delete trigger blocks every individual check-in deletion. Account deletion creates a user-scoped
 authorization row inside the same SQLite write transaction, then explicitly deletes that user's

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { nutritionLogStatusSchema } from './nutrition.js';
+import { createNutritionTargetInputSchema, nutritionTargetSchema } from './nutrition-targets.js';
+import { weightUnitSchema } from './users.js';
 
 export const adaptiveTdeeAlgorithmVersionSchema = z.literal('adaptive-tdee-v1');
 export const adaptiveProgramStatusSchema = z.enum(['active', 'paused']);
@@ -438,6 +440,211 @@ export const adaptiveRecommendationSchema = z.discriminatedUnion('state', [
     .strict(),
 ]);
 
+const adaptiveProgramMutationObjectSchema = z
+  .object({
+    status: adaptiveProgramStatusSchema.default('active'),
+    timeZone: z.string().trim().min(1),
+    heightCm: z.number().min(100).max(250).finite().nullable(),
+    birthDate: dateSchema.nullable(),
+    rmrEquation: adaptiveRmrEquationSchema,
+    activityLevel: adaptiveActivityLevelSchema.nullable(),
+    manualBaselineTdeeKcal: z.number().min(800).max(8000).finite().nullable(),
+    goalType: adaptiveGoalTypeSchema,
+    targetWeightKg: bodyWeightKgSchema.nullable(),
+    goalRatePctPerWeek: z.number().min(-1).max(0.5).finite(),
+    proteinGrams: z.number().int().min(40).max(400),
+    fatAllocationPct: z.number().min(20).max(40).finite(),
+    userCalorieFloorKcal: z.number().int().min(1200).optional(),
+    currentWeight: z
+      .object({
+        weight: z.number().positive().finite().max(1500),
+        unit: weightUnitSchema.optional(),
+      })
+      .strict()
+      .nullable()
+      .optional(),
+    rebaseline: z.boolean().default(false),
+    supersedePending: z.boolean().default(false),
+  })
+  .strict();
+
+export const adaptiveProgramMutationSchema = adaptiveProgramMutationObjectSchema.superRefine(
+  (program, context) => {
+    if (program.rmrEquation === 'manual_tdee') {
+      if (program.manualBaselineTdeeKcal === null) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Manual RMR mode requires a manual baseline TDEE',
+          path: ['manualBaselineTdeeKcal'],
+        });
+      }
+    } else {
+      for (const field of ['heightCm', 'birthDate', 'activityLevel'] as const) {
+        if (program[field] === null) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Mifflin-St Jeor requires height, birth date, and activity level',
+            path: [field],
+          });
+        }
+      }
+    }
+
+    if (program.goalType === 'maintain' && program.goalRatePctPerWeek !== 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Maintenance requires a zero weekly goal rate',
+        path: ['goalRatePctPerWeek'],
+      });
+    }
+    if (program.goalType !== 'maintain' && program.targetWeightKg === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Weight-change goals require a target weight',
+        path: ['targetWeightKg'],
+      });
+    }
+    if (program.goalType === 'lose' && program.goalRatePctPerWeek > -0.1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Loss rate must be between -1.0 and -0.1 percent per week',
+        path: ['goalRatePctPerWeek'],
+      });
+    }
+    if (program.goalType === 'gain' && program.goalRatePctPerWeek < 0.1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Gain rate must be between 0.1 and 0.5 percent per week',
+        path: ['goalRatePctPerWeek'],
+      });
+    }
+  },
+);
+
+export const adaptiveProgramSchema = adaptiveProgramCalculationObjectSchema
+  .extend({
+    id: z.string().min(1),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .strict()
+  .superRefine(validateAdaptiveProgram);
+
+export const adaptiveCheckInInputSnapshotSchema = z
+  .object({
+    version: z.literal(1),
+    constants: adaptiveTdeeConstantsSchema,
+    program: adaptiveProgramCalculationSchema,
+    priorTdee: adaptivePriorTdeeSchema.nullable(),
+    currentTarget: adaptiveCurrentTargetSchema.nullable(),
+    boundaries: adaptiveDateBoundariesSchema,
+    includeToday: z.boolean(),
+    nutritionDays: z.array(adaptiveNutritionDaySchema),
+    weightEntries: z.array(adaptiveWeightEntrySchema),
+  })
+  .strict();
+
+export const adaptivePreviewInputSchema = z
+  .object({
+    kind: z.enum(['weekly', 'manual']),
+    includeToday: z.boolean().default(false),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (input.kind === 'weekly' && input.includeToday) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Weekly check-ins cannot include today',
+        path: ['includeToday'],
+      });
+    }
+  });
+
+export const adaptiveAcceptInputSchema = z
+  .object({ replaceSameDateTarget: z.boolean().default(false) })
+  .strict();
+
+export const adaptiveCheckInQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+  })
+  .strict();
+
+export const adaptiveCheckInSummarySchema = z
+  .object({
+    id: z.string().min(1),
+    kind: adaptiveCheckInKindSchema,
+    status: adaptiveCheckInStatusSchema,
+    calculationState: adaptiveCheckInStateSchema,
+    localDate: dateSchema,
+    analysisStart: dateSchema.nullable(),
+    analysisEnd: dateSchema.nullable(),
+    includeToday: z.boolean(),
+    algorithmVersion: adaptiveTdeeAlgorithmVersionSchema,
+    dataFingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+    reasonCodes: z.array(adaptiveReasonCodeSchema),
+    priorTdeeKcal: calorieSchema.nullable(),
+    observedTdeeKcal: z.number().finite().nullable(),
+    proposedTdeeKcal: calorieSchema.nullable(),
+    currentTargets: nutritionTargetSchema.nullable(),
+    proposedTargets: createNutritionTargetInputSchema.nullable(),
+    acceptedNutritionTargetId: z.string().nullable(),
+    resolvedAt: z.number().int().nullable(),
+    createdAt: z.number().int(),
+  })
+  .strict();
+
+export const adaptiveCheckInDetailSchema = adaptiveCheckInSummarySchema
+  .extend({
+    inputSnapshot: adaptiveCheckInInputSnapshotSchema,
+    calculationSnapshot: adaptiveRecommendationSchema,
+  })
+  .strict();
+
+export const adaptiveEligibilityProgressSchema = z
+  .object({
+    eligible: z.boolean(),
+    completeNutritionDays: z.number().int().nonnegative(),
+    requiredCompleteNutritionDays: z.number().int().positive(),
+    weighIns: z.number().int().nonnegative(),
+    requiredWeighIns: z.number().int().positive(),
+    weightSpanDays: z.number().int().nonnegative(),
+    requiredWeightSpanDays: z.number().int().positive(),
+    latestWeightAgeDays: z.number().int().nonnegative().nullable(),
+    reasonCodes: z.array(adaptiveReasonCodeSchema),
+  })
+  .strict();
+
+export const adaptiveNutritionReadStateSchema = z.enum([
+  'setup_required',
+  'baseline',
+  'learning',
+  'updating',
+  'holding',
+  'pending_recommendation',
+]);
+
+export const adaptiveNutritionStateSchema = z
+  .object({
+    state: adaptiveNutritionReadStateSchema,
+    program: adaptiveProgramSchema.nullable(),
+    currentTarget: nutritionTargetSchema.nullable(),
+    latestAcceptedCheckIn: adaptiveCheckInSummarySchema.nullable(),
+    pendingCheckIn: adaptiveCheckInSummarySchema.nullable(),
+    checkInDue: z.boolean(),
+    nextCheckInDate: dateSchema.nullable(),
+    eligibility: adaptiveEligibilityProgressSchema.nullable(),
+  })
+  .strict();
+
+export const adaptiveAcceptResultSchema = z
+  .object({
+    checkIn: adaptiveCheckInDetailSchema,
+    target: nutritionTargetSchema,
+  })
+  .strict();
+
 export type AdaptiveActivityLevel = z.infer<typeof adaptiveActivityLevelSchema>;
 export type AdaptiveCheckInKind = z.infer<typeof adaptiveCheckInKindSchema>;
 export type AdaptiveCheckInStatus = z.infer<typeof adaptiveCheckInStatusSchema>;
@@ -449,8 +656,19 @@ export type AdaptiveNutritionDay = z.infer<typeof adaptiveNutritionDaySchema>;
 export type AdaptivePriorTdee = z.infer<typeof adaptivePriorTdeeSchema>;
 export type AdaptiveProgramCalculation = z.infer<typeof adaptiveProgramCalculationSchema>;
 export type AdaptiveProgramSetup = z.infer<typeof adaptiveProgramSetupSchema>;
+export type AdaptiveProgramMutation = z.infer<typeof adaptiveProgramMutationSchema>;
+export type AdaptiveProgram = z.infer<typeof adaptiveProgramSchema>;
 export type AdaptiveReasonCode = z.infer<typeof adaptiveReasonCodeSchema>;
 export type AdaptiveRecommendation = z.infer<typeof adaptiveRecommendationSchema>;
+export type AdaptiveCheckInInputSnapshot = z.infer<typeof adaptiveCheckInInputSnapshotSchema>;
+export type AdaptiveCheckInSummary = z.infer<typeof adaptiveCheckInSummarySchema>;
+export type AdaptiveCheckInDetail = z.infer<typeof adaptiveCheckInDetailSchema>;
+export type AdaptiveEligibilityProgress = z.infer<typeof adaptiveEligibilityProgressSchema>;
+export type AdaptiveNutritionReadState = z.infer<typeof adaptiveNutritionReadStateSchema>;
+export type AdaptiveNutritionState = z.infer<typeof adaptiveNutritionStateSchema>;
+export type AdaptivePreviewInput = z.infer<typeof adaptivePreviewInputSchema>;
+export type AdaptiveAcceptInput = z.infer<typeof adaptiveAcceptInputSchema>;
+export type AdaptiveAcceptResult = z.infer<typeof adaptiveAcceptResultSchema>;
 export type AdaptiveRmrEquation = z.infer<typeof adaptiveRmrEquationSchema>;
 export type AdaptiveTdeeConstants = z.infer<typeof adaptiveTdeeConstantsSchema>;
 export type AdaptiveWeightEntry = z.infer<typeof adaptiveWeightEntrySchema>;
