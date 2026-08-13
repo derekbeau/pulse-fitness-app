@@ -38,6 +38,8 @@ export function CheckInDataDetails({ checkIn }: { checkIn: AdaptiveCheckInDetail
         />
       </summary>
       <div className="space-y-5 border-t border-border/70 px-4 py-4">
+        {checkIn.kind === 'baseline' ? <BaselineSetupDetails checkIn={checkIn} /> : null}
+
         <section aria-labelledby={`check-in-summary-${checkIn.id}`} className="space-y-3">
           <h3 className="font-semibold" id={`check-in-summary-${checkIn.id}`}>
             Calculation summary
@@ -139,6 +141,46 @@ export function CheckInDataDetails({ checkIn }: { checkIn: AdaptiveCheckInDetail
         <p className="text-sm leading-relaxed text-muted-foreground">{buildExplanation(checkIn)}</p>
       </div>
     </details>
+  );
+}
+
+function BaselineSetupDetails({ checkIn }: { checkIn: AdaptiveCheckInDetail }) {
+  const program = checkIn.inputSnapshot.program;
+  const isManual = program.rmrEquation === 'manual_tdee';
+
+  return (
+    <section
+      aria-labelledby={`baseline-setup-${checkIn.id}`}
+      className="space-y-3 rounded-xl border border-border/70 bg-background/50 p-3"
+    >
+      <h3 className="font-semibold" id={`baseline-setup-${checkIn.id}`}>
+        Starting estimate details
+      </h3>
+      {isManual ? (
+        <p className="text-sm text-muted-foreground">
+          Starting expenditure was entered manually, so no Estimated RMR or activity multiplier was
+          used.
+        </p>
+      ) : (
+        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <DetailValue
+            label="Estimated RMR"
+            value={formatAdaptiveCalories(program.estimatedRmrKcal)}
+          />
+          <DetailValue
+            label="Activity multiplier"
+            value={
+              program.activityMultiplier == null
+                ? 'Unavailable'
+                : String(program.activityMultiplier)
+            }
+          />
+        </dl>
+      )}
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Personalization generally requires multiple weeks of complete nutrition and weight data.
+      </p>
+    </section>
   );
 }
 

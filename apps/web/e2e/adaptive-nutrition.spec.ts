@@ -148,6 +148,36 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await expect(page.getByRole('button', { name: 'View calculation' })).toBeFocused();
   });
 
+  test('shows equation baseline inputs and outputs before acceptance', async ({ page }) => {
+    const equationToken = await registerUser('atdee-equation');
+    await authenticatePage(page, equationToken);
+    await page.goto('/nutrition?view=coach');
+
+    await page.getByLabel('Birth date').fill('1990-02-28');
+    await page.getByLabel('Starting activity level').selectOption('active');
+    await page.getByLabel('Current weight (lbs)').fill('180');
+    await page.getByLabel('Goal', { exact: true }).selectOption('maintain');
+    await page.getByRole('button', { name: 'Preview starting targets' }).click();
+
+    await expect(page.getByRole('button', { name: 'Use these targets' })).toBeVisible();
+    await expect(page.getByText('Starting expenditure')).toBeVisible();
+    const comparison = page.getByLabel('Recommendation comparison');
+    await expect(comparison.getByText('Calories', { exact: true })).toBeVisible();
+    await expect(comparison.getByText('Protein', { exact: true })).toBeVisible();
+    await expect(comparison.getByText('Carbohydrates', { exact: true })).toBeVisible();
+    await expect(comparison.getByText('Fat', { exact: true })).toBeVisible();
+
+    await page.getByText('How Pulse calculated this').click();
+    const setupDetails = page.getByRole('region', { name: 'Starting estimate details' });
+    const rmrDetail = setupDetails.getByText('Estimated RMR').locator('..');
+    await expect(rmrDetail).toContainText(/^Estimated RMR\d[\d,]* kcal$/);
+    await expect(setupDetails.getByText('Activity multiplier')).toBeVisible();
+    await expect(setupDetails.getByText('1.55')).toBeVisible();
+    await expect(
+      setupDetails.getByText(/multiple weeks of complete nutrition and weight data/i),
+    ).toBeVisible();
+  });
+
   test('shows the learning state while nutrition coverage is incomplete', async ({ page }) => {
     await authenticatePage(page);
     await page.goto('/nutrition?view=coach');

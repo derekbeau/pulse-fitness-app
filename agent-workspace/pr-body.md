@@ -104,9 +104,15 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Milestone 5 focused RTL passed 70 tests; exact uncached gates passed 2,047 package tests plus 7 startup/security tests
 - [x] Adaptive Playwright suite passed 7/7 major paths in installed Chrome against the isolated Gate 0 runtime
 - [x] Built-in-browser acceptance passed all six Coach states and required widths with keyboard/focus checks, no overflow, empty final console diagnostics, and no unexpected failed requests
+- [x] Gate 5 repair exposes snapshot-backed Estimated RMR and activity multiplier on equation baseline review before acceptance
+- [x] Manual baseline review omits equation values, discloses manual starting expenditure, and both modes show the multiple-weeks personalization warning
+- [x] Permanent equation/manual RTL passed; installed-Chrome adaptive Playwright now passes 8/8 with equation setup-preview coverage
+- [x] Gate 5 repair exact uncached gates passed startup/security 7, shared 402, API 658, web 989, lint/typecheck/build, and zero cached Turbo tasks
+- [x] Vector independently re-reviewed the Gate 5 disclosure repair, reran 53 focused RTL and 8 Chrome Playwright scenarios, and repeated the exact uncached repository gates
+- [x] Vector Gate 5 approved
 - [ ] Milestone 6 backtest, deterministic fixtures, staging/Tailscale preview, and final independent review
 
-Current milestone state: `AWAITING VECTOR GATE 5 REVIEW`. Milestone 6 has not started; PR #100 remains draft.
+Current milestone state: `VECTOR GATE 5 APPROVED`. Milestone 6 has not started; PR #100 remains draft.
 
 ## Review focus
 

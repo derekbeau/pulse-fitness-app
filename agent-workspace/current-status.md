@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 5 REVIEW<br>
+**Overall:** VECTOR GATE 5 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 5 Coach UI complete)
+**Last updated:** 2026-08-13 (Gate 5 setup-preview disclosure repair complete)
 
 ## Completed
 
@@ -75,17 +75,25 @@
 - Playwright passed 7/7 major adaptive paths in installed Chrome: setup/baseline/history, learning, actionable preview/acceptance, stale recovery, completion/downgrade, narrow responsive plus tab keyboard behavior, and keyboard-only setup/acceptance.
 - Built-in-browser QA used only `pnpm dev:gate0` and the isolated database. All six Coach states, day-status changes, comparison/details, confirmation focus trap/restoration, history, and dashboard review link were exercised. Widths 320, 375, 390, 430, 768, and 1280 had no horizontal overflow; final console error/warning logs were empty and no unexpected network request failed.
 - Production was not accessed, deployed, or changed. Milestone 6 backtest, deterministic state fixtures, staging/Tailscale preview, and final acceptance review have not started.
+- Gate 5 repair adds the missing post-submit equation-baseline disclosure: Estimated RMR and activity multiplier are now visible in the existing calculation details before acceptance, while starting expenditure and proposed calories/macros remain in their existing review surfaces.
+- Manual-TDEE baselines explicitly say the starting expenditure was entered manually and do not display or invent Estimated RMR/activity values. Both baseline modes show that personalization generally requires multiple weeks of complete nutrition and weight data.
+- Permanent RTL coverage passes for equation and manual baseline paths, including all required setup-preview outputs. The installed-Chrome adaptive Playwright suite passes 8/8, including equation inputs and outputs visible before `Use these targets`.
+- Repair verification passed `git diff --check`, 44/44 focused adaptive/Nutrition web tests, web lint/typecheck, and the exact uncached repository lint/typecheck/test/build sequence. Full tests passed startup/security 7, shared 402, API 658, and web 989; Turbo reported zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Complete scope review found changes only in the Milestone 5 web disclosure, its RTL/Playwright coverage, and writer evidence. No API, shared, database, schema, Milestone 6, production, deploy, commit, or push work was introduced.
+- Vector independently inspected the complete six-file repair and confirmed the new disclosure reads immutable snapshot values, adds no client-side calculation, preserves manual-mode honesty, and does not duplicate the existing target comparison.
+- Vector independently reran 53/53 focused RTL tests and 8/8 installed-Chrome Playwright scenarios, then repeated the exact uncached repository pipeline. Startup/security 7, shared 402, API 658, and web 989 tests passed; lint, typecheck, and all three builds passed with zero cached tasks.
+- Production isolation remained intact: the copied snapshot hash stayed `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`, no production access or deployment occurred, and all test/runtime ports were free afterward.
 
 ## Current milestone
 
-**Milestone 5: Coach and completion UI — AWAITING VECTOR GATE 5 REVIEW**
+**Milestone 5: Coach and completion UI — VECTOR GATE 5 APPROVED**
 
-The complete review-before-apply Coach experience and nutrition-day completion controls are implemented, self-reviewed, covered by RTL and Playwright, and verified in the built-in browser at every required width. Milestone 6 remains untouched.
+The confirmed setup-preview disclosure defect is repaired and independently approved. The complete review-before-apply Coach experience remains covered by RTL and Playwright, and Milestone 6 remains untouched.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Await Vector Gate 5 review and explicit authorization before beginning Milestone 6.
+2. Await explicit authorization before beginning Milestone 6.
 3. Do not deploy, merge, or make PR #100 ready.
 
 ## Blocking issues
@@ -100,4 +108,4 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 5 is `AWAITING VECTOR GATE 5 REVIEW`; Milestone 6 has not started.
+PR #100 remains draft. Milestone 5 is `VECTOR GATE 5 APPROVED`; Milestone 6 has not started.

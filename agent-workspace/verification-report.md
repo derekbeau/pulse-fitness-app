@@ -491,6 +491,67 @@ overflow and action targets were at least 44 px high. Final console warning/erro
 no unexpected network request failed. The process was stopped after verification. Production remained
 unchanged, and no Milestone 6 work was started.
 
+#### Gate 5 setup-preview disclosure repair
+
+Vector's adversarial equation-baseline RTL regression was reproduced first: the focused test failed on
+missing `Estimated RMR` while the persisted baseline and existing starting-expenditure/target review
+remained correct. Root cause was bounded to the post-submit UI: the immutable program snapshot already
+carried `estimatedRmrKcal` and `activityMultiplier`, but calculation details never rendered them.
+
+The repair adds a baseline-only semantic `Starting estimate details` section inside the existing
+calculation disclosure. Equation mode renders snapshot-backed Estimated RMR and activity multiplier;
+manual mode instead explains that starting expenditure was entered manually and renders neither formula
+value. Both modes display the required multiple-weeks personalization warning on the actual pending
+review. Starting expenditure stays in the status card, and initial calories/protein/carbohydrates/fat stay
+in the existing comparison, avoiding duplicate targets and client-side business math.
+
+Permanent RTL covers both formula and manual baselines. Equation assertions include Estimated RMR
+`1,700 kcal`, multiplier `1.55`, starting expenditure `2,500 kcal`, the existing calorie/macro comparison,
+and the personalization warning. Manual assertions prove equation values are omitted. Playwright adds a
+real equation setup and proves the inputs/outputs and warning are visible before acceptance.
+
+Final writer verification, all exit 0:
+
+| Command                                                                                                       | Observed result                                                               |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `git diff --check`                                                                                            | Pass                                                                          |
+| `pnpm --filter @pulse/web exec vitest run src/features/adaptive-nutrition/components/adaptive-coach.test.tsx` | 13/13                                                                         |
+| `pnpm --filter @pulse/web exec vitest run src/features/adaptive-nutrition src/pages/nutrition.test.tsx`       | 44/44 across 6 files                                                          |
+| `pnpm --filter @pulse/web lint`                                                                               | Pass; zero errors, four pre-existing Fast Refresh warnings                    |
+| `pnpm --filter @pulse/web typecheck`                                                                          | Pass                                                                          |
+| `PLAYWRIGHT_CHANNEL=chrome pnpm --filter @pulse/web test:e2e -- e2e/adaptive-nutrition.spec.ts`               | 8/8                                                                           |
+| `TURBO_FORCE=true pnpm lint`                                                                                  | 3/3, 0 cached; zero errors, four pre-existing warnings                        |
+| `TURBO_FORCE=true pnpm typecheck`                                                                             | 3/3, 0 cached                                                                 |
+| `TURBO_FORCE=true pnpm test`                                                                                  | Startup/security 7/7; shared 402, API 658, web 989; 6/6 Turbo tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`                                                                                 | 3/3, 0 cached; Vite transformed 3,843 modules                                 |
+
+Complete diff review found no API, shared, database, schema, Milestone 6, production, deployment, commit,
+or push scope. Writer verdict: `AWAITING VECTOR GATE 5 RE-REVIEW`.
+
+#### Vector independent Gate 5 re-review
+
+Vector independently inspected the complete six-file repair. The equation disclosure reads only the
+immutable program snapshot, manual mode explicitly avoids invented formula values, existing target
+comparison remains the sole calorie/macro review surface, and no client-side business math was added.
+No API, shared, database, schema, Milestone 6, production, deployment, or PR-readiness scope entered the
+repair.
+
+Independent focused verification passed 53/53 tests across adaptive hooks, setup, Coach states,
+completion controls, formatting, Nutrition integration, and confirmation behavior. The installed-Chrome
+adaptive Playwright suite passed 8/8, including equation-based Estimated RMR/activity disclosure before
+acceptance, immutable history, learning/updating flows, stale refresh, completion downgrade, responsive
+tab behavior, and keyboard-only setup/acceptance.
+
+Vector repeated `git diff --check`, Prettier, web lint/typecheck, and the exact uncached repository
+lint/typecheck/test/build sequence. All exited 0 with zero cached Turbo tasks. Tests passed
+startup/security 7/7, shared 402/402, API 658/658, and web 989/989; lint retained only four pre-existing
+Fast Refresh warnings; all three builds passed and Vite transformed 3,843 modules.
+
+The copied production snapshot SHA-256 remained
+`fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`. Production was not accessed or
+changed, no deployment occurred, all test/runtime ports were free, PR #100 remained draft, and Milestone
+6 did not start. Vector verdict: `VECTOR GATE 5 APPROVED`.
+
 ### Backtest and stale-data behavior
 
 Pending.
@@ -565,7 +626,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 5 REVIEW`
+`VECTOR GATE 5 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

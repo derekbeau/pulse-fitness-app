@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   ADAPTIVE_TDEE_CONSTANTS,
   type AdaptiveCheckInDetail,
@@ -348,6 +348,119 @@ describe('AdaptiveCoach', () => {
     expect(screen.getByText('180.8 lbs')).toBeInTheDocument();
     expect(screen.getByText('High · 80%')).toBeInTheDocument();
     expect(screen.getByText('Complete dates used')).toBeInTheDocument();
+  });
+
+  it('shows the required equation-based baseline inputs and outputs in the setup preview', () => {
+    const formulaProgram = {
+      ...program,
+      rmrEquation: 'mifflin_male' as const,
+      heightCm: 178,
+      birthDate: '1990-02-28',
+      activityLevel: 'active' as const,
+      activityMultiplier: 1.55,
+      estimatedRmrKcal: 1700,
+      calculatedBaselineTdeeKcal: 2635,
+      manualBaselineTdeeKcal: null,
+      baselineTdeeKcal: 2500,
+    };
+    const baselineDetail: AdaptiveCheckInDetail = {
+      ...detail,
+      kind: 'baseline',
+      calculationState: 'baseline',
+      priorTdeeKcal: null,
+      proposedTdeeKcal: 2500,
+      inputSnapshot: {
+        ...detail.inputSnapshot,
+        program: {
+          ...detail.inputSnapshot.program,
+          status: formulaProgram.status,
+          timeZone: formulaProgram.timeZone,
+          rmrEquation: formulaProgram.rmrEquation,
+          heightCm: formulaProgram.heightCm,
+          birthDate: formulaProgram.birthDate,
+          activityLevel: formulaProgram.activityLevel,
+          activityMultiplier: formulaProgram.activityMultiplier,
+          estimatedRmrKcal: formulaProgram.estimatedRmrKcal,
+          calculatedBaselineTdeeKcal: formulaProgram.calculatedBaselineTdeeKcal,
+          manualBaselineTdeeKcal: formulaProgram.manualBaselineTdeeKcal,
+          baselineTdeeKcal: formulaProgram.baselineTdeeKcal,
+        },
+      },
+      calculationSnapshot: {
+        ...detail.calculationSnapshot,
+        state: 'baseline',
+        priorTdeeKcal: 2500,
+        observedTdeeKcal: null,
+        confidence: null,
+        adaptiveUpdate: null,
+        weightTrendKgPerDay: null,
+      } as AdaptiveCheckInDetail['calculationSnapshot'],
+    };
+    mocks.useState.mockReturnValue({
+      data: createState('pending_recommendation', {
+        program: formulaProgram,
+        pendingCheckIn: baselineDetail,
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useCheckIn.mockReturnValue({ data: baselineDetail, isLoading: false, isError: false });
+
+    render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByText('How Pulse calculated this'));
+
+    const setupDetails = screen.getByRole('region', { name: 'Starting estimate details' });
+    expect(within(setupDetails).getByText('Estimated RMR')).toBeInTheDocument();
+    expect(within(setupDetails).getByText('1,700 kcal')).toBeInTheDocument();
+    expect(within(setupDetails).getByText('Activity multiplier')).toBeInTheDocument();
+    expect(within(setupDetails).getByText('1.55')).toBeInTheDocument();
+    expect(screen.getByText('Starting expenditure')).toBeInTheDocument();
+    expect(screen.getAllByText('2,500 kcal').length).toBeGreaterThan(0);
+    const comparison = screen.getByLabelText('Recommendation comparison');
+    expect(within(comparison).getByText('Calories')).toBeInTheDocument();
+    expect(within(comparison).getByText('Protein')).toBeInTheDocument();
+    expect(within(comparison).getByText('Carbohydrates')).toBeInTheDocument();
+    expect(within(comparison).getByText('Fat')).toBeInTheDocument();
+    expect(
+      screen.getByText(/multiple weeks of complete nutrition and weight data/i),
+    ).toBeInTheDocument();
+  });
+
+  it('discloses a manual baseline without inventing equation inputs', () => {
+    const baselineDetail: AdaptiveCheckInDetail = {
+      ...detail,
+      kind: 'baseline',
+      calculationState: 'baseline',
+      calculationSnapshot: {
+        ...detail.calculationSnapshot,
+        state: 'baseline',
+        observedTdeeKcal: null,
+        confidence: null,
+        adaptiveUpdate: null,
+        weightTrendKgPerDay: null,
+      } as AdaptiveCheckInDetail['calculationSnapshot'],
+    };
+    mocks.useState.mockReturnValue({
+      data: createState('pending_recommendation', { pendingCheckIn: baselineDetail }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useCheckIn.mockReturnValue({ data: baselineDetail, isLoading: false, isError: false });
+
+    render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByText('How Pulse calculated this'));
+
+    const setupDetails = screen.getByRole('region', { name: 'Starting estimate details' });
+    expect(
+      within(setupDetails).getByText(/starting expenditure was entered manually/i),
+    ).toBeInTheDocument();
+    expect(within(setupDetails).queryByText('Estimated RMR')).not.toBeInTheDocument();
+    expect(within(setupDetails).queryByText('Activity multiplier')).not.toBeInTheDocument();
+    expect(
+      within(setupDetails).getByText(/multiple weeks of complete nutrition and weight data/i),
+    ).toBeInTheDocument();
   });
 
   it('confirms same-date replacement before accepting and supports decline', async () => {
