@@ -209,7 +209,11 @@ export function TrendSparkline({
           data-slot="trend-sparkline-chart"
           role="img"
         >
-          <ResponsiveContainer height="100%" width="100%">
+          <ResponsiveContainer
+            height="100%"
+            initialDimension={{ height: 48, width: 320 }}
+            width="100%"
+          >
             <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
               <Tooltip
                 content={({ active, payload }) => {

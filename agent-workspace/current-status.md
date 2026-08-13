@@ -1,6 +1,6 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 0 CHANGES REQUIRED<br>
+**Overall:** VECTOR GATE 0 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
 **ChatGPT project:** `pulse-fitness-app`<br>
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
@@ -19,29 +19,27 @@
 - Dependencies verified with `pnpm install --frozen-lockfile --offline`.
 - Isolated read-only seed and writable development copies established under `apps/api/data/`; the production volume was not opened or changed.
 - Isolated test user registered through the real UI and a weight entry written/read through the running app.
-- Final uncached lint, typecheck, test, and build gates passed (1,862 tests across 242 files).
-- Built-in-browser smoke testing passed on 11 primary routes with no console warnings/errors or failed-request messages on the clean rerun.
+- Final uncached lint, typecheck, test, and build gates passed (3 isolation tests plus 1,863 package tests across 243 files).
+- Built-in-browser smoke testing passed on 11 primary routes, and Vector's repaired Dashboard -> Nutrition -> Dashboard rerun produced no console warnings/errors or failed requests.
 - Browser-discovered local-date rollover and Recharts initialization warnings were fixed and regression-tested.
-- Codex self-review completed with no blocking findings and no Milestone 1 work started.
+- A tracked `pnpm dev:gate0` command now enforces the isolated writable database and ports 3102/5274, rejects default/production/snapshot paths, and shuts down both child servers together.
+- Vector independently resolved and verified both Gate 0 blockers. No Milestone 1 work started.
 
 ## Current milestone
 
-**Milestone 0: Baseline and development isolation — changes required**
+**Milestone 0: Baseline and development isolation — approved**
 
-Milestone 1 has not started and remains unauthorized. Vector's blocking findings are recorded in `agent-workspace/vector-gate-0-review.md`.
+Milestone 1 has not started. Gate 0 is approved; Derek may authorize the Milestone 1 Codex goal.
 
 ## Next actions
 
-1. Resume the Milestone 0 Codex goal only.
-2. Resolve every blocker in `agent-workspace/vector-gate-0-review.md`.
-3. Repeat Codex self-review, uncached checks, and built-in-browser QA.
-4. Commit and push the correction, update evidence, and stop again at `AWAITING VECTOR GATE 0 REVIEW`.
-5. Do not begin Milestone 1 unless Vector records Gate 0 approval and Derek authorizes the next Codex goal.
+1. Derek authorizes the Milestone 1 Codex goal.
+2. Codex implements only the canonical weight foundation defined in `implementation-plan.md` and the specification.
+3. Codex completes self-review, automated checks, and built-in-browser QA, then commits, pushes, and stops at `AWAITING VECTOR GATE 1 REVIEW`.
 
 ## Blocking issues
 
-- Dashboard browser navigation still emits Recharts width/height initialization warnings despite the clean-console claim.
-- Isolated startup is not yet enforced by a tracked fail-closed command; ignored env state can fall back to the default database path.
+None.
 
 ## Non-blocking warnings
 

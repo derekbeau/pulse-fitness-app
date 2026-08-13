@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 const monorepoRoot = path.resolve(__dirname, '../..');
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, monorepoRoot, '');
+  const env = { ...loadEnv(mode, monorepoRoot, ''), ...process.env };
 
   const apiPort = env.VITE_API_PORT ?? '3001';
   const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? `http://127.0.0.1:${apiPort}`;

@@ -1,23 +1,23 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 0 CHANGES REQUIRED<br>
+**Status:** VECTOR GATE 0 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex self-review complete; Vector independent review found blockers<br>
-**Last verified state:** Milestone 0 working tree based on `350cd5d`; pushed commit is the PR #100 head
+**Reviewer:** Codex self-review complete; Vector independent repair and acceptance complete<br>
+**Last verified state:** Gate 0 repair based on `76dcbdd`; final commit is the PR #100 head
 
 This report must contain observed results, not intended commands or agent self-reports.
 
 ## Baseline
 
-| Check      | Command                                                                   | Result                                                                                        | State/date                           |
-| ---------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Formatting | Pre-commit `prettier --write` on all 12 changed files; `git diff --check` | Pass; all changed files were normalized by the commit hook                                    | Milestone 0 commit, 2026-08-12       |
-| Lint       | `TURBO_FORCE=true pnpm lint`                                              | Pass, exit 0; 3/3 tasks, 0 cached; 0 errors and 4 pre-existing Fast Refresh warnings; 14.10 s | Milestone 0 working tree, 2026-08-12 |
-| Typecheck  | `TURBO_FORCE=true pnpm typecheck`                                         | Pass, exit 0; 3/3 tasks, 0 cached; 12.48 s                                                    | Milestone 0 working tree, 2026-08-12 |
-| Tests      | `TURBO_FORCE=true pnpm test`                                              | Pass, exit 0; 6/6 tasks, 0 cached; 242 files and 1,862 tests; 61.27 s                         | Milestone 0 working tree, 2026-08-12 |
-| Build      | `TURBO_FORCE=true pnpm build`                                             | Pass, exit 0; 3/3 tasks, 0 cached; Vite transformed 3,830 modules; 9.84 s                     | Milestone 0 working tree, 2026-08-12 |
+| Check      | Command                                                                  | Result                                                                                                     | State/date                |
+| ---------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Formatting | Pre-commit `prettier --write` on Gate 0 repair files; `git diff --check` | Pass; all changed files were normalized by the commit hook                                                 | Gate 0 repair, 2026-08-12 |
+| Lint       | `TURBO_FORCE=true pnpm lint`                                             | Pass, exit 0; 3/3 tasks, 0 cached; 0 errors and 4 pre-existing Fast Refresh warnings; 13.13 s              | Gate 0 repair, 2026-08-12 |
+| Typecheck  | `TURBO_FORCE=true pnpm typecheck`                                        | Pass, exit 0; 3/3 tasks, 0 cached; 12.11 s                                                                 | Gate 0 repair, 2026-08-12 |
+| Tests      | `TURBO_FORCE=true pnpm test`                                             | Pass, exit 0; 3 isolation tests plus 6/6 Turbo tasks, 0 cached; 243 files and 1,863 package tests; 77.88 s | Gate 0 repair, 2026-08-12 |
+| Build      | `TURBO_FORCE=true pnpm build`                                            | Pass, exit 0; 3/3 tasks, 0 cached; Vite transformed 3,830 modules; 13.51 s                                 | Gate 0 repair, 2026-08-12 |
 
-Package test totals: shared 30 files/331 tests, API 51 files/586 tests, web 161 files/945 tests.
+Package test totals: shared 30 files/331 tests, API 51 files/586 tests, web 162 files/946 tests. The tracked Gate 0 startup guard adds 3 passing Node tests.
 
 ## Milestone verification
 
@@ -25,7 +25,7 @@ For each milestone, record targeted test results, Codex self-review findings and
 
 ### Milestone 0: baseline and development isolation
 
-Verdict: `AWAITING VECTOR GATE 0 REVIEW`
+Verdict: `VECTOR GATE 0 APPROVED`
 
 #### Dependency and database isolation
 
@@ -36,6 +36,7 @@ Verdict: `AWAITING VECTOR GATE 0 REVIEW`
 - After browser QA, the seed hash was still `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; the active copy changed as expected to `3adf3caef86a5462830339bcaf6df3df3ca4bdd834a000fb32a0036d3f0bdd4c`.
 - SQLite `PRAGMA quick_check` returned `ok` for both files. The existing migration journal contains 42 migrations.
 - The isolated API process on port 3102 had only `pulse-tdee-dev.db`, its WAL, and its SHM open. It did not open the seed or `/data/pulse.db`.
+- `pnpm dev:gate0` is the tracked, repeatable startup path. It enforces API 3102, web 5274, proxy 3102, and the exact writable `apps/api/data/pulse-tdee-dev.db` path. Focused tests prove it rejects the default database, `/data/pulse.db`, the read-only snapshot, production-named paths, arbitrary paths, missing/read-only files, and symlinks.
 - The isolated test user `tdee-gate0` was registered through the real UI. A browser-created `Milestone 0 isolated write` weight row was confirmed for that user in the active database only. Credentials remain ignored and are not recorded here.
 - The copied baseline has 37 pre-existing foreign-key violations: 34 `session_sets -> exercises` and 3 `template_exercises -> exercises`. Repair is outside Milestone 0 and tracked in GitHub issue #101.
 
@@ -59,7 +60,7 @@ Clean rerun scenarios:
 | Profile `/profile`       | Isolated test-user profile           | None                        |
 | Settings `/settings`     | Settings sections                    | None                        |
 
-Developer-console inspection returned zero warnings/errors on the clean rerun. Navigation, authentication, the weight POST, and the subsequent read all completed; there were no console failed-resource/request messages. The local API and web health checks remained HTTP 200.
+Developer-console inspection returned zero warnings/errors on the clean rerun. Vector independently repeated Dashboard -> Nutrition -> Dashboard after the repair and captured `{"console":[],"failed":[]}`. Navigation, authentication, the weight POST, and the subsequent read all completed; there were no console failed-resource/request messages. The local API and web health checks remained HTTP 200.
 
 #### Findings resolved during self-review
 
@@ -164,13 +165,13 @@ Use an isolated development database. Capture screenshots when they clarify a re
 
 After Codex completes and stops, Hermes/Vector must independently compare the implementation against every item in specification section 27 and inspect migrations, concurrency, data isolation, browser behavior, and the complete branch diff.
 
-**Blocking findings:** Two; see `agent-workspace/vector-gate-0-review.md`<br>
-**Non-blocking findings:** The ignored `.env` is accepted by app env-file parsing but is not shell-sourceable because a display-name value contains spaces.<br>
-**Resolution commits:** Pending
+**Blocking findings:** None. Both findings in `agent-workspace/vector-gate-0-review.md` are resolved and independently verified.<br>
+**Non-blocking findings:** Four pre-existing Fast Refresh lint warnings and 37 pre-existing copied-baseline foreign-key violations remain documented and out of Gate 0 scope.<br>
+**Resolution commits:** Gate 0 repair and approval commit recorded in branch history.
 
 ## Final verdict
 
-`VECTOR GATE 0 CHANGES REQUIRED`
+`VECTOR GATE 0 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

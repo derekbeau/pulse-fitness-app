@@ -6,8 +6,10 @@
   "scripts": {
     "prepare": "husky",
     "dev": "turbo run dev",
+    "dev:gate0": "node scripts/dev-gate0-isolated.mjs",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "pnpm test:gate0-isolation && turbo run test",
+    "test:gate0-isolation": "node --test scripts/dev-gate0-isolated.test.mjs",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write ."

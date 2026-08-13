@@ -1,7 +1,7 @@
 # Vector Review: Adaptive TDEE Gate 0
 
-**Reviewed commit:** `db5ea0d5c776a112f65bdd82b318132d4da3b9c2`  
-**Verdict:** `VECTOR GATE 0 CHANGES REQUIRED`  
+**Reviewed commit:** `db5ea0d5c776a112f65bdd82b318132d4da3b9c2`<br>
+**Verdict:** `VECTOR GATE 0 APPROVED`<br>
 **Date:** 2026-08-12
 
 ## Blocking findings
@@ -56,3 +56,14 @@ Required correction:
 ## Resubmission requirements
 
 Codex must resume **Milestone 0 only**, resolve both blockers, self-review, rerun automated and built-in-browser QA, update the workspace evidence, commit and push, then stop again at `AWAITING VECTOR GATE 0 REVIEW`. Do not begin Milestone 1.
+
+## Resolution and independent acceptance
+
+Both blockers were repaired and independently verified by Vector:
+
+- The Dashboard trend sparkline now supplies an initial Recharts dimension, has component-level regression coverage including Strict Mode remount behavior, and emits no warnings during Dashboard -> Nutrition -> Dashboard navigation.
+- `pnpm dev:gate0` now starts both services with fixed ports and the exact isolated writable database, fails closed for default/production/snapshot/arbitrary/symlink/read-only paths, and has three focused Node tests.
+- The uncached lint, typecheck, full test, and build pipeline passed. Totals were 3 isolation tests plus 1,863 package tests across 243 package test files.
+- The live API process opened only `pulse-tdee-dev.db` plus WAL/SHM. Both databases passed `PRAGMA quick_check`, and the read-only seed SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`.
+
+Gate 0 is approved. Milestone 1 remains unstarted until Derek authorizes its Codex goal.
