@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 1 APPROVED<br>
+**Status:** VECTOR GATE 2 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector independent Gate 1 re-review approved<br>
-**Last verified state:** commit `2e539387c690f09710648d591e57c5d8501d88af`; all Gate 1 repairs independently verified
+**Reviewer:** Vector independent Gate 2 re-review complete<br>
+**Last verified state:** Gate 2 approved repair tree; final commit recorded after publication
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -259,6 +259,28 @@ The first full runs exposed one unused import and stale Settings response fixtur
 
 Complete diff self-review found no Milestone 3 algorithm, deployment, merge, or PR-ready scope. `git diff --check` passed. Verdict: `AWAITING VECTOR GATE 2 REVIEW`.
 
+#### Gate 2 integrity repair
+
+The confirmed review failures were reproduced and repaired. Migration 0042 now blocks every check-in delete unless a user-specific account-deletion scope row exists inside the same transaction. Account deletion explicitly removes targets, check-ins, programs, then user; a forced late FK failure proves full rollback, and a second user's rows remain untouched. A composite program/user foreign key rejects cross-user check-in ownership at the database layer.
+
+The adaptive target writer now joins through the owned program, requires a pending non-holding check-in, parses the persisted proposal through `createNutritionTargetInputSchema`, rejects missing/null/malformed/extra proposal data, and requires exact calories, macros, and effective date equality.
+
+Observed focused checks: API migration/auth/nutrition/target 116/116; shared schemas 49/49; web nutrition/settings/invalidation 63/63. Exact final gates all exited 0: `git diff --check`; lint 3/3 uncached with only four pre-existing warnings; typecheck 3/3 uncached; tests startup/security 7/7 plus shared 350, API 635, web 959 (1,944 package tests across 249 files), Turbo 6/6 uncached; build 3/3 uncached with 3,830 Vite modules transformed.
+
+No UI changed, so the repair writer did not repeat browser QA. No Milestone 3+ behavior or production change was introduced. Writer verdict: `AWAITING VECTOR GATE 2 RE-REVIEW`.
+
+#### Vector independent Gate 2 re-review
+
+Vector did not accept the repair agent's report at face value. The repair agent had stopped before commit/push because `git diff --cached --check` found two trailing-space defects; Vector corrected those defects, inspected every staged repair file, and independently repeated the gate.
+
+- Focused/full package reruns passed: API 635/635, shared 350/350, and web 959/959.
+- A freshly migrated disposable SQLite database rejected direct check-in deletion and cross-user program linkage, retained the audit row, returned `quick_check = ok`, and had zero foreign-key violations.
+- The isolated app ran on API 3102 and web 5274. Nutrition and Settings rendered normally, health returned HTTP 200, no failed API resources appeared, and `lsof` showed only `pulse-tdee-dev.db` plus WAL/SHM open by the API. The preview was stopped and both ports were free.
+- The copied production snapshot hash remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; production was not accessed or changed. The 37 known copied-baseline foreign-key violations remain separately tracked in issue #101.
+- Exact final sequence exited 0: `git diff --cached --check`; uncached lint 3/3 with zero errors and four pre-existing warnings; uncached typecheck 3/3; startup/security 7/7 plus Turbo tests 6/6 with shared 350, API 635, web 959; uncached build 3/3 with 3,830 Vite modules transformed.
+
+Complete repair scope review found no adaptive algorithm, acceptance lifecycle, Milestone 3+, deployment, merge, or PR-ready behavior. Verdict: `VECTOR GATE 2 APPROVED`.
+
 ### Pure adaptive algorithm
 
 Pending.
@@ -345,7 +367,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 2 REVIEW`
+`VECTOR GATE 2 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

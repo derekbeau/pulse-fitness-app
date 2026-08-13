@@ -71,9 +71,15 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Old/fresh migration, real SQLite rollback, provenance, route, response-boundary, and invalidation coverage
 - [x] Isolated built-in-browser Nutrition and Settings QA with clean console and expected request diagnostics
 - [x] Milestone 2 exact uncached pipeline passed (1,932 package tests plus 7 startup/security tests; zero cached Turbo tasks)
+- [x] Gate 2 integrity repair: immutable check-in delete guard with transaction-scoped account deletion
+- [x] Same-owner program/check-in database constraint and actionable exact-proposal adaptive writer guard
+- [x] Adversarial deletion, rollback, cross-user, terminal/held, and malformed-proposal regressions
+- [x] Repair exact uncached pipeline passed (1,944 package tests plus 7 startup/security tests; zero cached Turbo tasks)
+- [x] Vector independently re-reviewed the repair, repeated fresh-database adversarial checks and isolated browser/API acceptance, and reran the exact uncached pipeline
+- [x] Vector Gate 2 approved
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
-Current milestone state: `AWAITING VECTOR GATE 2 REVIEW`. Milestone 3 has not started; PR #100 remains draft.
+Current milestone state: `VECTOR GATE 2 APPROVED`. Milestone 3 has not started and still requires separate authorization; PR #100 remains draft.
 
 ## Review focus
 

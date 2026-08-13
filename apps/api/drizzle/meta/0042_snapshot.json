@@ -108,6 +108,33 @@
         }
       }
     },
+    "adaptive_nutrition_account_deletion_scope": {
+      "name": "adaptive_nutrition_account_deletion_scope",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "adaptive_nutrition_account_deletion_scope_user_id_users_id_fk": {
+          "name": "adaptive_nutrition_account_deletion_scope_user_id_users_id_fk",
+          "tableFrom": "adaptive_nutrition_account_deletion_scope",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "adaptive_nutrition_checkins": {
       "name": "adaptive_nutrition_checkins",
       "columns": {
@@ -317,6 +344,15 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "adaptive_nutrition_checkins_program_user_fk": {
+          "name": "adaptive_nutrition_checkins_program_user_fk",
+          "tableFrom": "adaptive_nutrition_checkins",
+          "tableTo": "adaptive_nutrition_programs",
+          "columnsFrom": ["program_id", "user_id"],
+          "columnsTo": ["id", "user_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -521,6 +557,12 @@
           "name": "adaptive_nutrition_programs_user_id_unique",
           "columns": ["user_id"],
           "isUnique": true
+        },
+        "adaptive_nutrition_programs_id_user_id_unique": {
+          "name": "adaptive_nutrition_programs_id_user_id_unique",
+          "columns": ["id", "user_id"],
+          "isUnique": true,
+          "where": null
         }
       },
       "foreignKeys": {

@@ -189,9 +189,13 @@ describe('migration 0042 adaptive nutrition foundation', () => {
           ).current_targets,
         ),
       ).toEqual(originalTarget);
+      sqlite.prepare("DELETE FROM nutrition_targets WHERE user_id = 'user-1'").run();
       expect(() =>
         sqlite.prepare("DELETE FROM adaptive_nutrition_checkins WHERE id = 'check-in-1'").run(),
-      ).toThrow(/FOREIGN KEY constraint failed/u);
+      ).toThrow(/account deletion scope/u);
+      expect(
+        sqlite.prepare("SELECT id FROM adaptive_nutrition_checkins WHERE id = 'check-in-1'").get(),
+      ).toEqual({ id: 'check-in-1' });
       expect(() =>
         sqlite
           .prepare(
@@ -209,14 +213,9 @@ describe('migration 0042 adaptive nutrition foundation', () => {
           )
           .run(),
       ).not.toThrow();
-      sqlite.prepare("DELETE FROM nutrition_targets WHERE user_id = 'user-1'").run();
-      sqlite.prepare("DELETE FROM users WHERE id = 'user-1'").run();
-      expect(
-        sqlite.prepare('SELECT COUNT(*) AS count FROM adaptive_nutrition_checkins').get(),
-      ).toEqual({ count: 0 });
-      expect(
-        sqlite.prepare('SELECT COUNT(*) AS count FROM adaptive_nutrition_programs').get(),
-      ).toEqual({ count: 0 });
+      expect(() => sqlite.prepare("DELETE FROM users WHERE id = 'user-1'").run()).toThrow(
+        /account deletion scope/u,
+      );
     } finally {
       sqlite.close();
     }
@@ -245,6 +244,14 @@ describe('migration 0042 adaptive nutrition foundation', () => {
         'nutrition_targets',
       ]);
       expect(sqlite.pragma('foreign_key_check')).toEqual([]);
+      expect(
+        sqlite
+          .prepare(
+            `SELECT name FROM sqlite_master
+             WHERE type = 'trigger' AND name = 'adaptive_nutrition_checkins_delete_guard'`,
+          )
+          .get(),
+      ).toEqual({ name: 'adaptive_nutrition_checkins_delete_guard' });
     } finally {
       sqlite.close();
     }

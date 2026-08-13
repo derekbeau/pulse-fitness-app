@@ -1,8 +1,16 @@
 import { and, desc, eq, lte } from 'drizzle-orm';
 
-import type { CreateNutritionTargetInput, NutritionTarget } from '@pulse/shared';
+import {
+  createNutritionTargetInputSchema,
+  type CreateNutritionTargetInput,
+  type NutritionTarget,
+} from '@pulse/shared';
 
-import { adaptiveNutritionCheckIns, nutritionTargets } from '../../db/schema/index.js';
+import {
+  adaptiveNutritionCheckIns,
+  adaptiveNutritionPrograms,
+  nutritionTargets,
+} from '../../db/schema/index.js';
 
 export class AdaptiveCheckInNotFoundError extends Error {
   constructor() {
@@ -22,6 +30,20 @@ export class ReplacedTargetSnapshotMismatchError extends Error {
   constructor() {
     super('The check-in does not preserve the same-date target being replaced');
     this.name = 'ReplacedTargetSnapshotMismatchError';
+  }
+}
+
+export class AdaptiveCheckInNotActionableError extends Error {
+  constructor() {
+    super('Only a pending actionable adaptive check-in can persist a target');
+    this.name = 'AdaptiveCheckInNotActionableError';
+  }
+}
+
+export class AdaptiveProposedTargetMismatchError extends Error {
+  constructor() {
+    super('The adaptive target must exactly match the check-in proposal');
+    this.name = 'AdaptiveProposedTargetMismatchError';
   }
 }
 
@@ -62,6 +84,23 @@ const targetSnapshotsMatch = (left: NutritionTarget | null, right: NutritionTarg
     left.effectiveDate === right.effectiveDate &&
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt
+  );
+};
+
+const proposedTargetsMatch = (proposal: unknown, input: CreateNutritionTargetInput) => {
+  const parsed = createNutritionTargetInputSchema.safeParse(proposal);
+  if (!parsed.success || !proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
+    return false;
+  }
+
+  const expectedKeys = ['calories', 'carbs', 'effectiveDate', 'fat', 'protein'];
+  return (
+    JSON.stringify(Object.keys(proposal).sort()) === JSON.stringify(expectedKeys) &&
+    parsed.data.calories === input.calories &&
+    parsed.data.protein === input.protein &&
+    parsed.data.carbs === input.carbs &&
+    parsed.data.fat === input.fat &&
+    parsed.data.effectiveDate === input.effectiveDate
   );
 };
 
@@ -120,8 +159,20 @@ export const persistAdaptiveNutritionTarget = async (
 
   return db.transaction((tx) => {
     const checkIn = tx
-      .select({ currentTargets: adaptiveNutritionCheckIns.currentTargets })
+      .select({
+        currentTargets: adaptiveNutritionCheckIns.currentTargets,
+        proposedTargets: adaptiveNutritionCheckIns.proposedTargets,
+        status: adaptiveNutritionCheckIns.status,
+        calculationState: adaptiveNutritionCheckIns.calculationState,
+      })
       .from(adaptiveNutritionCheckIns)
+      .innerJoin(
+        adaptiveNutritionPrograms,
+        and(
+          eq(adaptiveNutritionPrograms.id, adaptiveNutritionCheckIns.programId),
+          eq(adaptiveNutritionPrograms.userId, adaptiveNutritionCheckIns.userId),
+        ),
+      )
       .where(
         and(
           eq(adaptiveNutritionCheckIns.id, checkInId),
@@ -133,6 +184,14 @@ export const persistAdaptiveNutritionTarget = async (
 
     if (!checkIn) {
       throw new AdaptiveCheckInNotFoundError();
+    }
+
+    if (checkIn.status !== 'pending' || checkIn.calculationState === 'holding') {
+      throw new AdaptiveCheckInNotActionableError();
+    }
+
+    if (!proposedTargetsMatch(checkIn.proposedTargets, input)) {
+      throw new AdaptiveProposedTargetMismatchError();
     }
 
     const existing =

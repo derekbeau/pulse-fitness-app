@@ -33,7 +33,18 @@ const manualTarget = {
   updatedAt: 100,
 };
 
-const seedProgramAndCheckIn = (currentTargets: typeof manualTarget | null) => {
+const proposedTarget = {
+  calories: 2300,
+  protein: 185,
+  carbs: 260,
+  fat: 75,
+  effectiveDate: '2026-03-09',
+};
+
+const seedProgramAndCheckIn = (
+  currentTargets: typeof manualTarget | null,
+  overrides: Partial<typeof adaptiveNutritionCheckIns.$inferInsert> = {},
+) => {
   dbModule.db
     .insert(adaptiveNutritionPrograms)
     .values({
@@ -68,6 +79,8 @@ const seedProgramAndCheckIn = (currentTargets: typeof manualTarget | null) => {
       calculationSnapshot: { version: 1 },
       reasonCodes: [],
       currentTargets,
+      proposedTargets: proposedTarget,
+      ...overrides,
     })
     .run();
 };
@@ -90,11 +103,10 @@ describe('nutrition target provenance store', () => {
     vi.resetModules();
   });
 
-  beforeEach(() => {
-    dbModule.db.delete(nutritionTargets).run();
-    dbModule.db.delete(adaptiveNutritionCheckIns).run();
-    dbModule.db.delete(adaptiveNutritionPrograms).run();
-    dbModule.db.delete(users).run();
+  beforeEach(async () => {
+    const { deleteUserAccount } = await import('../auth/store.js');
+    await deleteUserAccount('user-1');
+    await deleteUserAccount('user-2');
     dbModule.db
       .insert(users)
       .values([
@@ -192,7 +204,11 @@ describe('nutrition target provenance store', () => {
     ).rejects.toBeInstanceOf(AdaptiveCheckInNotFoundError);
 
     dbModule.db.delete(nutritionTargets).run();
-    dbModule.db.delete(adaptiveNutritionCheckIns).run();
+    dbModule.db
+      .update(adaptiveNutritionCheckIns)
+      .set({ status: 'superseded', resolvedAt: Date.now() })
+      .where(eq(adaptiveNutritionCheckIns.id, 'check-in-1'))
+      .run();
     dbModule.db
       .insert(adaptiveNutritionCheckIns)
       .values({
@@ -210,6 +226,7 @@ describe('nutrition target provenance store', () => {
         calculationSnapshot: { version: 1 },
         reasonCodes: [],
         currentTargets: null,
+        proposedTargets: { ...proposedTarget, calories: 2400, protein: 190, carbs: 270, fat: 80 },
       })
       .run();
     dbModule.db
@@ -238,7 +255,9 @@ describe('nutrition target provenance store', () => {
       .insert(nutritionTargets)
       .values({ userId: 'user-1', ...manualTarget })
       .run();
-    seedProgramAndCheckIn(manualTarget);
+    seedProgramAndCheckIn(manualTarget, {
+      proposedTargets: { ...proposedTarget, effectiveDate: '2026-03-10' },
+    });
 
     await expect(
       persistAdaptiveNutritionTarget(
@@ -258,6 +277,66 @@ describe('nutrition target provenance store', () => {
       adaptiveCheckInId: 'check-in-1',
       effectiveDate: '2026-03-10',
     });
+  });
+
+  it.each([
+    ['held', 'holding'],
+    ['declined', 'baseline'],
+    ['superseded', 'baseline'],
+    ['accepted', 'baseline'],
+    ['pending', 'holding'],
+  ] as const)(
+    'rejects a %s check-in as a target provenance source',
+    async (status, calculationState) => {
+      const { AdaptiveCheckInNotActionableError, persistAdaptiveNutritionTarget } =
+        await import('./store.js');
+      seedProgramAndCheckIn(null, { status, calculationState });
+
+      await expect(
+        persistAdaptiveNutritionTarget('user-1', 'check-in-1', proposedTarget, false),
+      ).rejects.toBeInstanceOf(AdaptiveCheckInNotActionableError);
+    },
+  );
+
+  it.each([
+    ['null', null],
+    ['malformed', { calories: 2300 }],
+    ['different values', { ...proposedTarget, calories: 2290 }],
+    ['different effective date', { ...proposedTarget, effectiveDate: '2026-03-10' }],
+    ['unexpected fields', { ...proposedTarget, fabricated: true }],
+  ])('rejects %s proposed-target provenance', async (_label, persistedProposal) => {
+    const { AdaptiveProposedTargetMismatchError, persistAdaptiveNutritionTarget } =
+      await import('./store.js');
+    seedProgramAndCheckIn(null, { proposedTargets: persistedProposal });
+
+    await expect(
+      persistAdaptiveNutritionTarget('user-1', 'check-in-1', proposedTarget, false),
+    ).rejects.toBeInstanceOf(AdaptiveProposedTargetMismatchError);
+  });
+
+  it('database-rejects a check-in that claims another user than its program owner', () => {
+    seedProgramAndCheckIn(null);
+    expect(() =>
+      dbModule.db
+        .insert(adaptiveNutritionCheckIns)
+        .values({
+          id: 'cross-user-check-in',
+          userId: 'user-2',
+          programId: 'program-1',
+          kind: 'manual',
+          status: 'held',
+          calculationState: 'holding',
+          localDate: '2026-03-10',
+          algorithmVersion: 'adaptive-tdee-v1',
+          dataFingerprint: 'b'.repeat(64),
+          inputSnapshot: { version: 1 },
+          calculationSnapshot: { version: 1 },
+          reasonCodes: [],
+          currentTargets: null,
+          proposedTargets: null,
+        })
+        .run(),
+    ).toThrow(/FOREIGN KEY constraint failed/u);
   });
 
   it('allows account deletion only through target-first transaction ordering', async () => {
@@ -291,5 +370,33 @@ describe('nutrition target provenance store', () => {
         .where(and(eq(users.id, 'user-2'), eq(users.username, 'user-2')))
         .get(),
     ).toEqual({ id: 'user-2' });
+  });
+
+  it('rolls account deletion back atomically and never affects another user', async () => {
+    const { deleteUserAccount } = await import('../auth/store.js');
+    seedProgramAndCheckIn(null);
+    dbModule.sqlite.exec(`
+      CREATE TABLE account_delete_blocker (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE RESTRICT
+      );
+      INSERT INTO account_delete_blocker(user_id) VALUES ('user-1');
+    `);
+
+    await expect(deleteUserAccount('user-1')).rejects.toThrow(/FOREIGN KEY constraint failed/u);
+    expect(
+      dbModule.db.select({ id: users.id }).from(users).where(eq(users.id, 'user-1')).get(),
+    ).toEqual({ id: 'user-1' });
+    expect(
+      dbModule.db
+        .select({ id: adaptiveNutritionCheckIns.id })
+        .from(adaptiveNutritionCheckIns)
+        .where(eq(adaptiveNutritionCheckIns.userId, 'user-1'))
+        .get(),
+    ).toEqual({ id: 'check-in-1' });
+    expect(
+      dbModule.db.select({ id: users.id }).from(users).where(eq(users.id, 'user-2')).get(),
+    ).toEqual({ id: 'user-2' });
+
+    dbModule.sqlite.exec('DROP TABLE account_delete_blocker;');
   });
 });

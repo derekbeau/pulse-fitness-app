@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { habits, nutritionTargets, users } from '../../db/schema/index.js';
+import {
+  adaptiveNutritionAccountDeletionScope,
+  adaptiveNutritionCheckIns,
+  adaptiveNutritionPrograms,
+  habits,
+  nutritionTargets,
+  users,
+} from '../../db/schema/index.js';
 
 export type AuthUserRecord = {
   id: string;
@@ -161,9 +168,17 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
   return db.transaction((tx) => {
-    // Adaptive targets restrict deletion of their immutable source check-in. Delete targets first,
-    // then let the user cascade remove check-ins, the lifetime program, and all remaining data.
+    const user = tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+    if (!user) {
+      return false;
+    }
+
+    // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
+    // another account deletion from borrowing it, and rollback restores every ordered deletion.
+    tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
     tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
+    tx.delete(adaptiveNutritionCheckIns).where(eq(adaptiveNutritionCheckIns.userId, userId)).run();
+    tx.delete(adaptiveNutritionPrograms).where(eq(adaptiveNutritionPrograms.userId, userId)).run();
     const result = tx.delete(users).where(eq(users.id, userId)).run();
     return result.changes === 1;
   });

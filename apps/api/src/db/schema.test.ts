@@ -700,8 +700,11 @@ describe('adaptive nutrition persistence schema', () => {
       ]),
     );
     const config = getTableConfig(adaptiveNutritionCheckIns);
-    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys).toHaveLength(3);
     expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.foreignKeys.map((foreignKey) => foreignKey.getName())).toContain(
+      'adaptive_nutrition_checkins_program_user_fk',
+    );
     expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
       'adaptive_nutrition_checkins_one_pending_per_program_unique',
       'adaptive_nutrition_checkins_pending_fingerprint_unique',

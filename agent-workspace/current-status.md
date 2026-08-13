@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 2 REVIEW<br>
+**Overall:** VECTOR GATE 2 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 2 implementation complete)
+**Last updated:** 2026-08-13 (Vector Gate 2 approved)
 
 ## Completed
 
@@ -35,22 +35,28 @@
 - Migration verification covers old and fresh databases, legacy defaults, schema constraints, foreign keys, restricted deletion, and snapshot immutability. Real SQLite store tests cover downgrade behavior and transaction rollback.
 - Built-in-browser QA verified target save/refetch, a complete day becoming partial after a meal edit, and future-day completion rejection. The affected Nutrition and Settings surfaces had zero browser console warnings/errors and no unexpected failed requests.
 - Final exact uncached pipeline passed: startup/security 7/7; shared 350, API 623, and web 959 tests (1,932 package tests across 249 files); lint and typecheck with zero cached tasks; and all three production builds with zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Gate 2 repair makes check-in deletion database-immutable with a narrowly scoped transactional account-deletion escape hatch, enforces same-owner program linkage with a composite foreign key, and requires pending actionable check-ins with exact typed persisted proposals before adaptive target persistence.
+- Adversarial migration/store tests cover direct deletion, successful isolated account deletion, rollback, cross-user isolation/linkage, terminal/held states, and malformed/null/mismatched proposals.
+- Repair gates passed: focused API 116, shared 49, and web 63 tests; exact uncached lint/typecheck/test/build passed with 1,944 package tests plus 7 startup/security tests and zero cached Turbo tasks.
+- Vector independently inspected the full staged repair, corrected two documentation whitespace defects, reran API 635/635, shared 350/350, web 959/959, and the 7 startup/security tests, and repeated the exact uncached lint/typecheck/test/build pipeline with zero cached tasks.
+- Vector independently migrated a fresh database and proved direct check-in deletion and cross-user program linkage fail while the audit row remains; `quick_check` returned `ok` with zero foreign-key violations.
+- Vector repeated isolated API/browser acceptance on ports 3102/5274. Nutrition and Settings rendered, health returned HTTP 200, no failed API resources appeared, and the API opened only `pulse-tdee-dev.db` plus WAL/SHM. The process was stopped and both ports were free.
 
 ## Current milestone
 
-**Milestone 2: nutrition completeness and target provenance — AWAITING VECTOR GATE 2 REVIEW**
+**Milestone 2: nutrition completeness and target provenance — VECTOR GATE 2 APPROVED**
 
-Milestone 2 is implemented, self-reviewed, browser-verified, and ready for independent Vector review. Milestone 3 has not started.
+The confirmed Gate 2 integrity failures are repaired, regression-covered, and independently approved. Milestone 3 has not started.
 
 ## Next actions
 
-1. Wait for Vector Gate 2 review.
-2. Keep PR #100 draft.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 3 without separate authorization after Gate 2 approval.
+1. Keep PR #100 draft.
+2. Wait for Derek to authorize the Milestone 3 Goal prompt.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 3 without separate authorization.
 
 ## Blocking issues
 
-No Codex-found Milestone 2 blockers remain.
+No Milestone 2 blockers remain.
 
 ## Non-blocking warnings
 
@@ -60,4 +66,4 @@ No Codex-found Milestone 2 blockers remain.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 2 is stopped at `AWAITING VECTOR GATE 2 REVIEW`; Vector must independently review it before Milestone 3 can be authorized.
+PR #100 remains draft. Milestone 2 is `VECTOR GATE 2 APPROVED`; Milestone 3 still requires Derek's separate authorization and a Goal-format prompt.

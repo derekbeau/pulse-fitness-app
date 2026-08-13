@@ -4,6 +4,7 @@ import type { NutritionTarget } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
+  foreignKey,
   index,
   integer,
   real,
@@ -60,6 +61,7 @@ export const adaptiveNutritionPrograms = sqliteTable(
   },
   (table) => [
     uniqueIndex('adaptive_nutrition_programs_user_id_unique').on(table.userId),
+    uniqueIndex('adaptive_nutrition_programs_id_user_id_unique').on(table.id, table.userId),
     check('adaptive_nutrition_programs_status_check', sql`${table.status} in ('active', 'paused')`),
     check(
       'adaptive_nutrition_programs_rmr_equation_check',
@@ -94,6 +96,15 @@ export const adaptiveNutritionPrograms = sqliteTable(
       sql`${table.systemCalorieFloorKcal} >= 1200 and ${table.userCalorieFloorKcal} >= ${table.systemCalorieFloorKcal}`,
     ),
   ],
+);
+
+export const adaptiveNutritionAccountDeletionScope = sqliteTable(
+  'adaptive_nutrition_account_deletion_scope',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
 );
 
 export const adaptiveNutritionCheckIns = sqliteTable(
@@ -140,6 +151,11 @@ export const adaptiveNutritionCheckIns = sqliteTable(
   },
   (table) => [
     index('adaptive_nutrition_checkins_user_id_created_at_idx').on(table.userId, table.createdAt),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_checkins_program_user_fk',
+    }).onDelete('cascade'),
     index('adaptive_nutrition_checkins_program_id_local_date_idx').on(
       table.programId,
       table.localDate,

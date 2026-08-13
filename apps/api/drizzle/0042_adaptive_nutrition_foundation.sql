@@ -24,6 +24,7 @@ CREATE TABLE `adaptive_nutrition_checkins` (
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`program_id`) REFERENCES `adaptive_nutrition_programs`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`program_id`,`user_id`) REFERENCES `adaptive_nutrition_programs`(`id`,`user_id`) ON UPDATE no action ON DELETE cascade,
 	CONSTRAINT "adaptive_nutrition_checkins_kind_check" CHECK("adaptive_nutrition_checkins"."kind" in ('baseline', 'weekly', 'manual')),
 	CONSTRAINT "adaptive_nutrition_checkins_status_check" CHECK("adaptive_nutrition_checkins"."status" in ('pending', 'accepted', 'declined', 'superseded', 'held')),
 	CONSTRAINT "adaptive_nutrition_checkins_calculation_state_check" CHECK("adaptive_nutrition_checkins"."calculation_state" in ('baseline', 'learning', 'updating', 'holding')),
@@ -73,6 +74,11 @@ CREATE TABLE `adaptive_nutrition_programs` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `adaptive_nutrition_programs_user_id_unique` ON `adaptive_nutrition_programs` (`user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `adaptive_nutrition_programs_id_user_id_unique` ON `adaptive_nutrition_programs` (`id`,`user_id`);--> statement-breakpoint
+CREATE TABLE `adaptive_nutrition_account_deletion_scope` (
+	`user_id` text PRIMARY KEY NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_nutrition_logs` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -144,4 +150,14 @@ WHEN
 	OR NEW.`proposed_targets` IS NOT OLD.`proposed_targets`
 BEGIN
 	SELECT RAISE(ABORT, 'adaptive nutrition check-in snapshots are immutable');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `adaptive_nutrition_checkins_delete_guard`
+BEFORE DELETE ON `adaptive_nutrition_checkins`
+WHEN NOT EXISTS (
+	SELECT 1 FROM `adaptive_nutrition_account_deletion_scope`
+	WHERE `user_id` = OLD.`user_id`
+)
+BEGIN
+	SELECT RAISE(ABORT, 'adaptive nutrition check-ins may only be deleted in account deletion scope');
 END;

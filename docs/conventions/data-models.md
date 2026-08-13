@@ -455,9 +455,10 @@ Constraints:
 - `nutrition_targets_provenance_check`
 - `nutrition_targets_macro_calories_nonnegative_check`
 
-Manual writes always clear adaptive linkage and calculate macro calories server-side. Adaptive
-replacement updates the existing same-date row only after its owned check-in snapshot is verified
-to preserve the row being replaced.
+Manual writes always clear adaptive linkage and calculate macro calories server-side. The internal
+adaptive writer accepts only a pending, non-holding check-in whose persisted, typed proposal exactly
+matches the target values and effective date. Replacement updates the existing same-date row only
+after the owned check-in snapshot is verified to preserve the row being replaced.
 
 #### `adaptive_nutrition_programs`
 
@@ -479,7 +480,8 @@ rest of the check-in lifecycle are later milestones.
 
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`, indexed with `createdAt`
-- `programId`: `text`, required, FK -> `adaptive_nutrition_programs.id`, `ON DELETE CASCADE`
+- `programId`: `text`, required, FK -> `adaptive_nutrition_programs.id`, `ON DELETE CASCADE`; a
+  composite `(programId, userId)` foreign key also requires the program and check-in owners to match
 - kind/status/state/date, boundary, version, and fingerprint columns from the specification
 - `inputSnapshot`, `calculationSnapshot`, `reasonCodes`, `currentTargets`, and `proposedTargets`:
   JSON audit snapshots
@@ -490,6 +492,11 @@ A database trigger forbids changes to calculation inputs, outputs, boundaries, a
 after insert. Only resolution fields (`status`, `acceptedNutritionTargetId`, and `resolvedAt`) may
 change. Pending-fingerprint and one-pending-per-program partial unique indexes are installed for the
 later lifecycle implementation.
+
+A delete trigger blocks every individual check-in deletion. Account deletion creates a user-scoped
+authorization row inside the same SQLite write transaction, then explicitly deletes that user's
+targets, check-ins, program, and user in order. The authorization row cascades away with the user;
+rollback restores the whole sequence, and foreign keys remain enabled globally.
 
 #### `dashboard_config`
 
