@@ -554,11 +554,98 @@ changed, no deployment occurred, all test/runtime ports were free, PR #100 remai
 
 ### Backtest and stale-data behavior
 
-Pending.
+Milestone 6 adds `scripts/backtest-adaptive-tdee.ts` with strict versioned JSON input and migrated SQLite
+input. Each JSON/CSV row includes check-in and analysis dates, nutrition and weight input dates/counts,
+average intake, trend weight/slope, observed TDEE, every confidence component, prior/proposed TDEE,
+goal calories/macros, state, and reason codes. Sequential eligible rows simulate acceptance in memory so
+later rows replay the preceding adaptive estimate without writing a target or check-in.
+
+SQLite replay opens with `readonly: true`, `fileMustExist: true`, and `query_only=ON`; validates the
+canonical `weight_kg` column; verifies `total_changes() = 0`; and compares source SHA-256 before and after
+close. Explicit completion dates are overlaid only in memory.
+
+Observed replay evidence:
+
+- The tracked deterministic JSON vector produced an `updating` March–April row from 20 complete days
+  and eight weights while excluding the one `unknown` low-intake date. The August row was `holding`,
+  with zero weight inputs, no observed TDEE, and no proposed TDEE.
+- The private production-copy replay used 20 explicit March 18–April 7 completion labels and produced an
+  April 8 estimate. Its August 13 row was `holding`, used zero weights, and produced neither observed nor
+  proposed TDEE. The source SHA-256 was identical before and after, and all stored nutrition statuses
+  remained `unknown`.
+- Focused Vitest passed 3/3 backtest cases, including JSON/CSV shape, incomplete-day exclusion,
+  stale-history refusal, read-only SQLite bytes, and in-memory-only completion overrides.
+
+### Milestone 6 synthetic preview and browser acceptance
+
+`pnpm seed:adaptive-tdee-preview -- --date 2026-08-13` builds seven deterministic users covering setup,
+baseline, learning, updating, holding, pending recommendation, and goal-reached acceptance. The seeder
+rejects every database except the exact regular non-symlink Gate 0 path. Its integration test passed 1/1,
+including all expected states, goal acceptance changing the program to `maintain`, and an identical
+second seed.
+
+Before tailnet binding, the production-derived replay copy was moved to a private ignored file. A fresh
+database was migrated and seeded, then verified to contain exactly seven `adaptive-preview-*` users and
+zero other users. The Gate 0 host guard accepts only `127.0.0.1` or an exact Tailscale IPv4 in
+`100.64.0.0/10`; focused startup/security tests passed 8/8 and reject all-interface, LAN, public,
+out-of-range Tailscale, production, arbitrary, missing, read-only, and symlink targets.
+
+Installed Chrome passed the existing 8/8 adaptive scenarios and the new deterministic 4/4 fixture
+scenarios. Together they cover setup/baseline, equation disclosure, learning, held stale weight, eligible
+preview, stale acceptance/refresh, completion downgrade, keyboard-only acceptance, decline, immutable
+history, re-preview/acceptance, goal completion, and responsive behavior. The new suite recorded zero
+console warnings/errors, page errors, request failures, or HTTP failure responses. It initially exposed
+a real `/favicon.ico` 404; the tracked SVG favicon repair removed it before the green rerun.
+
+The built-in browser independently exercised all six Coach read states plus the goal-reached path,
+decline/history, new preview, same-date replacement, acceptance, and goal-to-maintenance acceptance.
+Widths 320, 375, 390, 430, 768, and 1280 each had `scrollWidth === clientWidth`; the primary action was
+44 px high at every width. Final built-in-browser warning/error logs were empty.
+
+Preview verification:
+
+| Probe                                                 | Result   |
+| ----------------------------------------------------- | -------- |
+| `http://127.0.0.1:3102/health`                        | HTTP 200 |
+| `http://100.87.91.127:5274/`                          | HTTP 200 |
+| `http://100.87.91.127:5274/health` through Vite proxy | HTTP 200 |
+
+### Milestone 6 definition-of-done self-review
+
+| #   | Definition-of-done item                        | Codex evidence                                                                 |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Reproducible setup baseline and macros         | Shared vectors, API lifecycle, RTL, Playwright, synthetic setup/baseline       |
+| 2   | Canonical kg with preferred-unit display       | Gate 1 migration/store/boundary/unit/browser suites remain green               |
+| 3   | Only explicit complete days enter calculations | Shared invariants, SQLite replay, unknown-day exclusion                        |
+| 4   | Meal changes invalidate completion             | API transaction tests and existing browser/Playwright downgrade flow           |
+| 5   | Eligible data are replayable                   | JSON and private production-copy April estimates plus immutable detail history |
+| 6   | Specific ineligible/held states                | Shared vectors, API store tests, held fixture, stale August replay             |
+| 7   | Weekly/manual deterministic parity             | Pure calculation and API scheduling/lifecycle tests                            |
+| 8   | Unchanged preview idempotence                  | API store/concurrency suite                                                    |
+| 9   | Changed sources make pending stale             | API fingerprint/stale tests and installed-Chrome stale refresh                 |
+| 10  | Atomic target apply/replace with audit         | SQLite transaction/concurrency tests and browser same-date acceptance          |
+| 11  | Decline changes no target/prior                | API lifecycle tests and deterministic decline/history browser flow             |
+| 12  | Historical target effectiveness                | Nutrition target store/history tests                                           |
+| 13  | Production history does not extrapolate        | Private production-copy August hold with zero current weight inputs            |
+| 14  | All required test layers pass                  | Startup, shared, API, web, backtest, Playwright, and browser evidence          |
+| 15  | Lint/typecheck/test/build pass                 | Detached clean checkout, exact uncached gates below                            |
+| 16  | Deploy only after approval and backup          | No deploy performed; production unchanged; intentionally reserved for later    |
+
+Fresh whole-diff review found no unresolved blocking issue. Scope is limited to read-only replay,
+deterministic isolated fixtures, tailnet-safe host validation, permanent acceptance coverage,
+operator/evidence documentation, and the favicon repair found by strict browser diagnostics.
 
 ## Final clean-run quality gates
 
-Record exact commands, exit codes, test counts, duration, and commit SHA.
+Detached clean verification commit: `88fa83e38563ac5afb147a1a752a5e78c9c0f980` (staged code tree
+`ddaed72f69842c31c28f1e86c6864a74b97c4e3b`). All commands exited 0.
+
+| Command                           | Observed result                                                           |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3 tasks, 0 cached, zero errors; four pre-existing Fast Refresh warnings |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3 tasks, 0 cached                                                       |
+| `TURBO_FORCE=true pnpm test`      | Startup/security 8; shared 402; API 662; web 989; 6/6 tasks, 0 cached     |
+| `TURBO_FORCE=true pnpm build`     | 3/3 tasks, 0 cached; Vite transformed 3,843 modules                       |
 
 - [x] Formatting
 - [x] Lint
@@ -586,9 +673,9 @@ Use an isolated development database. Capture screenshots when they clarify a re
 | Same-date target conflict                   | Passed | Browser + RTL                               |
 | Stale preview rejection                     | Passed | Playwright + RTL                            |
 | Accept and target invalidation              | Passed | Browser + Playwright + hook tests           |
-| Decline and repeated decline                | Passed | RTL + existing API lifecycle tests          |
+| Decline and repeated decline                | Passed | Browser + Playwright + API lifecycle tests  |
 | History and calculation details             | Passed | Browser + Playwright + RTL                  |
-| Goal-reached maintenance transition         | Passed | RTL + existing algorithm/API tests          |
+| Goal-reached maintenance transition         | Passed | Browser + Playwright + algorithm/API tests  |
 | Due badge after held weekly attempt         | Passed | Browser dashboard link + RTL state coverage |
 
 ## Responsive and accessibility checks
@@ -606,15 +693,15 @@ Use an isolated development database. Capture screenshots when they clarify a re
 
 ## Development preview
 
-| Item                           | Value                                                                                                       |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Local URL                      | `http://127.0.0.1:5274` during Gate 0 verification; local process stopped after QA                          |
-| Tailscale URL                  | Not required for Milestone 0                                                                                |
-| API health                     | HTTP 200 at `http://127.0.0.1:3102/health`                                                                  |
-| Web health                     | HTTP 200 at `http://127.0.0.1:5274/`; proxied `/health` also HTTP 200                                       |
-| Development database path      | `apps/api/data/pulse-tdee-dev.db`                                                                           |
-| Seed/test workflow             | Read-only copied seed -> writable ignored copy -> UI-registered isolated test user                          |
-| Production isolation confirmed | Yes; unchanged seed hash, active-process open-file proof, no production volume/database/process interaction |
+| Item                           | Value                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Local URL                      | Not bound for final handoff; final web preview uses the exact tailnet-only address                           |
+| Tailscale URL                  | `http://100.87.91.127:5274`; exact tailnet bind verified HTTP 200                                            |
+| API health                     | HTTP 200 at `http://127.0.0.1:3102/health`                                                                   |
+| Web health                     | HTTP 200 at the Tailscale root; proxied `/health` also HTTP 200                                              |
+| Development database path      | `apps/api/data/pulse-tdee-dev.db`                                                                            |
+| Seed/test workflow             | Fresh migrated DB -> seven deterministic synthetic fixtures -> strict Chrome and built-in-browser acceptance |
+| Production isolation confirmed | Yes; unchanged seed hash, active-process open-file proof, no production volume/database/process interaction  |
 
 ## Vector independent review
 
@@ -626,7 +713,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`VECTOR GATE 5 APPROVED`
+`AWAITING VECTOR FINAL REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

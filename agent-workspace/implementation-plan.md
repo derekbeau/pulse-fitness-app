@@ -79,26 +79,26 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 6: Backtest, staging preview, and independent review
 
-- [ ] Add the read-only backtest script.
-- [ ] Build deterministic fixtures for every Coach state.
-- [ ] Verify stale historical data cannot produce a current estimate.
-- [ ] Run lint, typecheck, complete tests, and production build from a clean checkout.
-- [ ] Start an isolated development environment on non-production ports/data.
-- [ ] Exercise setup, learning, held, eligible preview, stale acceptance, accept, decline, history, and goal completion in a real browser.
-- [ ] Inspect browser console and failed network requests.
-- [ ] Verify 320, 375, 390, 430, 768, and 1280 px layouts.
-- [ ] Produce and independently verify a Tailscale-accessible preview URL.
-- [ ] Have Codex perform a fresh self-review against every definition-of-done item.
-- [ ] Resolve all Codex-found blocking issues and rerun affected gates.
+- [x] Add the read-only backtest script.
+- [x] Build deterministic fixtures for every Coach state.
+- [x] Verify stale historical data cannot produce a current estimate.
+- [x] Run lint, typecheck, complete tests, and production build from a clean checkout.
+- [x] Start an isolated development environment on non-production ports/data.
+- [x] Exercise setup, learning, held, eligible preview, stale acceptance, accept, decline, history, and goal completion in a real browser.
+- [x] Inspect browser console and failed network requests.
+- [x] Verify 320, 375, 390, 430, 768, and 1280 px layouts.
+- [x] Produce and independently verify a Tailscale-accessible preview URL.
+- [x] Have Codex perform a fresh self-review against every definition-of-done item.
+- [x] Resolve all Codex-found blocking issues and rerun affected gates.
 - [ ] Hand off to Hermes/Vector for the independent acceptance review; Codex must not perform or waive this gate.
 
 **Codex gate:** `verification-report.md` contains reproducible green evidence, no unresolved Codex-found blocking issues, and the verdict `AWAITING VECTOR FINAL REVIEW`. Push the final milestone commit and stop for Vector's independent acceptance.
 
 ## Final handoff criteria
 
-- [ ] Feature branch is clean and pushed.
-- [ ] Draft PR accurately describes implemented scope and current verification.
-- [ ] CI is green or every external/non-code blocker is explicitly documented.
-- [ ] Preview URL and test workflow are verified before Derek receives them.
-- [ ] Production remains unchanged.
-- [ ] Codex stops after every milestone at its named Vector gate; only Vector may authorize the next milestone or promote the final verdict to `READY FOR DEREK PREVIEW`.
+- [x] Feature branch is clean and pushed.
+- [x] Draft PR accurately describes implemented scope and current verification.
+- [x] CI is green or every external/non-code blocker is explicitly documented.
+- [x] Preview URL and test workflow are verified before Derek receives them.
+- [x] Production remains unchanged.
+- [x] Codex stops after every milestone at its named Vector gate; only Vector may authorize the next milestone or promote the final verdict to `READY FOR DEREK PREVIEW`.

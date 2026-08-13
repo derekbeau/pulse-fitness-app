@@ -7,6 +7,8 @@
     "prepare": "husky",
     "dev": "turbo run dev",
     "dev:gate0": "node scripts/dev-gate0-isolated.mjs",
+    "backtest:adaptive-tdee": "pnpm --filter @pulse/api exec tsx ../../scripts/backtest-adaptive-tdee.ts",
+    "seed:adaptive-tdee-preview": "pnpm --filter @pulse/api exec tsx ../../scripts/seed-adaptive-tdee-preview.ts",
     "build": "turbo run build",
     "test": "pnpm test:gate0-isolation && turbo run test",
     "test:gate0-isolation": "node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs",

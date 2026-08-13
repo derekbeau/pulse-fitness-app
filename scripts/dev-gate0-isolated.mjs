@@ -13,8 +13,26 @@ export const GATE0_API_PORT = 3102;
 export const GATE0_WEB_PORT = 5274;
 export const GATE0_DATABASE_RELATIVE_PATH = 'apps/api/data/pulse-tdee-dev.db';
 export const GATE0_WEIGHT_MAP_RELATIVE_PATH = 'apps/api/data/body-weight-legacy-unit-map.json';
+export const GATE0_DEFAULT_WEB_HOST = '127.0.0.1';
 
-export const resolveGate0Config = (repoRoot) => {
+export const validateGate0WebHost = (host) => {
+  if (host === GATE0_DEFAULT_WEB_HOST) return host;
+  const octets = host.split('.').map(Number);
+  const isTailscaleIpv4 =
+    octets.length === 4 &&
+    octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255) &&
+    octets[0] === 100 &&
+    octets[1] >= 64 &&
+    octets[1] <= 127;
+  if (!isTailscaleIpv4) {
+    throw new Error(
+      'Refusing Gate 0 startup: web host must be 127.0.0.1 or a Tailscale IPv4 address in 100.64.0.0/10.',
+    );
+  }
+  return host;
+};
+
+export const resolveGate0Config = (repoRoot, webHost = GATE0_DEFAULT_WEB_HOST) => {
   const databasePath = resolve(repoRoot, GATE0_DATABASE_RELATIVE_PATH);
   const weightMapPath = resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH);
 
@@ -23,6 +41,7 @@ export const resolveGate0Config = (repoRoot) => {
     databasePath,
     proxyPort: GATE0_API_PORT,
     webPort: GATE0_WEB_PORT,
+    webHost: validateGate0WebHost(webHost),
     weightMapPath,
   };
 };
@@ -68,14 +87,14 @@ export const createGate0Environment = (baseEnvironment, config) => ({
   VITE_PORT: String(config.webPort),
 });
 
-const assertPortAvailable = (port) =>
+const assertPortAvailable = (host, port) =>
   new Promise((resolvePromise, reject) => {
     const server = net.createServer();
     server.unref();
     server.once('error', () => {
       reject(new Error(`Refusing Gate 0 startup: port ${port} is already in use.`));
     });
-    server.listen({ host: '127.0.0.1', port }, () => {
+    server.listen({ host, port }, () => {
       server.close(() => resolvePromise());
     });
   });
@@ -120,7 +139,11 @@ const runWeightMigrationReview = (repoRoot, environment, unit) =>
 const start = async () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(scriptDir, '..');
-  const config = resolveGate0Config(repoRoot);
+  const webHostArgument = process.argv.find((argument) => argument.startsWith('--web-host='));
+  const config = resolveGate0Config(
+    repoRoot,
+    webHostArgument?.split('=', 2)[1] ?? GATE0_DEFAULT_WEB_HOST,
+  );
 
   validateGate0Database(repoRoot, config.databasePath);
   await access(config.databasePath, constants.R_OK | constants.W_OK);
@@ -148,7 +171,10 @@ const start = async () => {
     return;
   }
 
-  await Promise.all([assertPortAvailable(config.apiPort), assertPortAvailable(config.webPort)]);
+  await Promise.all([
+    assertPortAvailable(GATE0_DEFAULT_WEB_HOST, config.apiPort),
+    assertPortAvailable(config.webHost, config.webPort),
+  ]);
 
   const children = [
     spawn('pnpm', ['--filter', '@pulse/api', 'dev'], {
@@ -158,7 +184,7 @@ const start = async () => {
     }),
     spawn(
       'pnpm',
-      ['--filter', '@pulse/web', 'dev', '--host', '127.0.0.1', '--port', '5274', '--strictPort'],
+      ['--filter', '@pulse/web', 'dev', '--host', config.webHost, '--port', '5274', '--strictPort'],
       {
         cwd: repoRoot,
         env: environment,
@@ -168,7 +194,7 @@ const start = async () => {
   ];
 
   console.log(`Gate 0 API: http://127.0.0.1:${config.apiPort}`);
-  console.log(`Gate 0 web: http://127.0.0.1:${config.webPort}`);
+  console.log(`Gate 0 web: http://${config.webHost}:${config.webPort}`);
   console.log(`Gate 0 database: ${GATE0_DATABASE_RELATIVE_PATH}`);
   console.log('Press Ctrl-C to stop both isolated development servers.');
 

@@ -62,6 +62,33 @@ pnpm install
 pnpm dev        # Start web + api in parallel
 ```
 
+### Adaptive TDEE acceptance tools
+
+The Adaptive TDEE replay is read-only and accepts either a versioned JSON export or a migrated SQLite
+database. This deterministic fixture demonstrates an eligible March–April estimate followed by an
+August hold that cannot reuse stale weights:
+
+```bash
+pnpm backtest:adaptive-tdee -- \
+  --input scripts/fixtures/adaptive-tdee-backtest.json \
+  --format json
+```
+
+The isolated Coach preview uses only `apps/api/data/pulse-tdee-dev.db`. Start Gate 0 once to migrate a
+fresh database, stop it, then seed every Coach state and restart the preview:
+
+```bash
+pnpm dev:gate0
+pnpm seed:adaptive-tdee-preview -- --date 2026-08-13
+pnpm dev:gate0
+```
+
+For a tailnet preview, bind the web server to this machine's exact Tailscale IPv4 address with
+`pnpm dev:gate0 -- --web-host=<tailscale-ipv4>`. The startup guard accepts only loopback or an address
+inside Tailscale's `100.64.0.0/10` range; it rejects all-interface, LAN, and public binds. Never expose a
+production-derived database copy. Recreate `pulse-tdee-dev.db` as a fresh migrated database containing
+only the deterministic fixtures before starting a tailnet preview.
+
 ### Other Commands
 
 ```bash

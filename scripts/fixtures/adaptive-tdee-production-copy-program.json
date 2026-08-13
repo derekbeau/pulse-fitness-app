@@ -1,0 +1,21 @@
+{
+  "status": "active",
+  "timeZone": "America/Detroit",
+  "rmrEquation": "manual_tdee",
+  "heightCm": null,
+  "birthDate": null,
+  "activityLevel": null,
+  "activityMultiplier": null,
+  "estimatedRmrKcal": null,
+  "calculatedBaselineTdeeKcal": null,
+  "manualBaselineTdeeKcal": 2500,
+  "baselineTdeeKcal": 2500,
+  "goalType": "maintain",
+  "targetWeightKg": null,
+  "goalRatePctPerWeek": 0,
+  "proteinGrams": 160,
+  "fatAllocationPct": 30,
+  "systemCalorieFloorKcal": 1500,
+  "userCalorieFloorKcal": 1500,
+  "algorithmVersion": "adaptive-tdee-v1"
+}

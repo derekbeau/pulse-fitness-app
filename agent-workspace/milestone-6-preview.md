@@ -1,0 +1,71 @@
+# Milestone 6 Preview and Backtest Runbook
+
+This runbook is non-production only. The preview must use the tracked Gate 0 ports and exact ignored
+database path. A database containing production-derived health data must never be bound to a network
+interface.
+
+## Historical replay
+
+The self-contained JSON vector proves explicit completion labels are required and stale April weights
+cannot generate an August estimate:
+
+```bash
+pnpm backtest:adaptive-tdee -- \
+  --input scripts/fixtures/adaptive-tdee-backtest.json \
+  --format json
+```
+
+For the private production-copy replay, select the intended user without recording identity in tracked
+evidence and provide:
+
+- `scripts/fixtures/adaptive-tdee-production-copy-checkins.json`
+- `scripts/fixtures/adaptive-tdee-production-copy-complete-dates.json`
+- `scripts/fixtures/adaptive-tdee-production-copy-program.json`
+
+The SQLite source is opened read-only with `query_only=ON`. The command fails if the canonical
+`weight_kg` column is absent, if the connection reports a write, or if the source database SHA-256
+changes. Completion overrides exist only in memory; stored `unknown` values remain unchanged.
+
+## Synthetic Coach preview
+
+1. Create and migrate a fresh `apps/api/data/pulse-tdee-dev.db` with `pnpm dev:gate0`, then stop it.
+2. Run `pnpm seed:adaptive-tdee-preview -- --date 2026-08-13`.
+3. Confirm the database contains exactly the seven `adaptive-preview-*` users and no other users.
+4. Start locally with `pnpm dev:gate0`, or use
+   `pnpm dev:gate0 -- --web-host=<tailscale-ipv4>` after confirming the address with
+   `tailscale ip -4`.
+5. Verify `/`, proxied `/health`, and the direct API `/health` before handoff.
+
+All preview accounts use the test-only password `adaptive-preview-only`:
+
+| Username                        | Expected state or path                                      |
+| ------------------------------- | ----------------------------------------------------------- |
+| `adaptive-preview-setup`        | Setup required                                              |
+| `adaptive-preview-baseline`     | Baseline active                                             |
+| `adaptive-preview-learning`     | Learning with insufficient recent data                      |
+| `adaptive-preview-updating`     | Eligible and ready for a manual check-in                    |
+| `adaptive-preview-holding`      | Prior estimate held because recent weight is stale          |
+| `adaptive-preview-pending`      | Pending recommendation plus prior-decline history           |
+| `adaptive-preview-goal-reached` | Pending goal-reached proposal; acceptance moves to maintain |
+
+The seeder is idempotent: rerunning it removes and rebuilds only `adaptive-preview-*` users. It rejects
+every database path except the regular, non-symlink Gate 0 database.
+
+## Browser acceptance
+
+Run installed-Chrome coverage against the already-running isolated stack:
+
+```bash
+BASE_URL=http://<preview-host>:5274 \
+API_BASE_URL=http://127.0.0.1:3102 \
+E2E_PORT=5274 \
+API_PORT=3102 \
+PLAYWRIGHT_CHANNEL=chrome \
+pnpm --filter @pulse/web test:e2e -- \
+  e2e/adaptive-nutrition.spec.ts \
+  e2e/adaptive-preview-fixtures.spec.ts
+```
+
+The fixture suite fails on console warnings/errors, page errors, transport failures, or any HTTP response
+at or above 400. It covers every Coach state, decline/history/re-preview/acceptance, goal completion, and
+320, 375, 390, 430, 768, and 1280 px widths.

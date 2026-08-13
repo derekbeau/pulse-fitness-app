@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "program": {
+    "status": "active",
+    "timeZone": "America/Detroit",
+    "rmrEquation": "manual_tdee",
+    "heightCm": null,
+    "birthDate": null,
+    "activityLevel": null,
+    "activityMultiplier": null,
+    "estimatedRmrKcal": null,
+    "calculatedBaselineTdeeKcal": null,
+    "manualBaselineTdeeKcal": 2500,
+    "baselineTdeeKcal": 2500,
+    "goalType": "maintain",
+    "targetWeightKg": null,
+    "goalRatePctPerWeek": 0,
+    "proteinGrams": 160,
+    "fatAllocationPct": 30,
+    "systemCalorieFloorKcal": 1500,
+    "userCalorieFloorKcal": 1500,
+    "algorithmVersion": "adaptive-tdee-v1"
+  },
+  "nutritionDays": [
+    {
+      "id": "nutrition-01",
+      "date": "2026-03-12",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773316800000
+    },
+    {
+      "id": "nutrition-02",
+      "date": "2026-03-13",
+      "status": "unknown",
+      "calories": 900,
+      "itemCount": 2,
+      "updatedAt": 1773403200000
+    },
+    {
+      "id": "nutrition-03",
+      "date": "2026-03-14",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773489600000
+    },
+    {
+      "id": "nutrition-04",
+      "date": "2026-03-15",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773576000000
+    },
+    {
+      "id": "nutrition-05",
+      "date": "2026-03-16",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773662400000
+    },
+    {
+      "id": "nutrition-06",
+      "date": "2026-03-17",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773748800000
+    },
+    {
+      "id": "nutrition-07",
+      "date": "2026-03-18",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773835200000
+    },
+    {
+      "id": "nutrition-08",
+      "date": "2026-03-19",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1773921600000
+    },
+    {
+      "id": "nutrition-09",
+      "date": "2026-03-20",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774008000000
+    },
+    {
+      "id": "nutrition-10",
+      "date": "2026-03-21",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774094400000
+    },
+    {
+      "id": "nutrition-11",
+      "date": "2026-03-22",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774180800000
+    },
+    {
+      "id": "nutrition-12",
+      "date": "2026-03-23",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774267200000
+    },
+    {
+      "id": "nutrition-13",
+      "date": "2026-03-24",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774353600000
+    },
+    {
+      "id": "nutrition-14",
+      "date": "2026-03-25",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774440000000
+    },
+    {
+      "id": "nutrition-15",
+      "date": "2026-03-26",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774526400000
+    },
+    {
+      "id": "nutrition-16",
+      "date": "2026-03-27",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774612800000
+    },
+    {
+      "id": "nutrition-17",
+      "date": "2026-03-28",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774699200000
+    },
+    {
+      "id": "nutrition-18",
+      "date": "2026-03-29",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774785600000
+    },
+    {
+      "id": "nutrition-19",
+      "date": "2026-03-30",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774872000000
+    },
+    {
+      "id": "nutrition-20",
+      "date": "2026-03-31",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1774958400000
+    },
+    {
+      "id": "nutrition-21",
+      "date": "2026-04-01",
+      "status": "complete",
+      "calories": 2400,
+      "itemCount": 4,
+      "updatedAt": 1775044800000
+    }
+  ],
+  "weightEntries": [
+    { "id": "weight-01", "date": "2026-03-06", "weightKg": 82.1, "updatedAt": 1772798400000 },
+    { "id": "weight-02", "date": "2026-03-10", "weightKg": 82.05, "updatedAt": 1773144000000 },
+    { "id": "weight-03", "date": "2026-03-14", "weightKg": 82.0, "updatedAt": 1773489600000 },
+    { "id": "weight-04", "date": "2026-03-18", "weightKg": 81.95, "updatedAt": 1773835200000 },
+    { "id": "weight-05", "date": "2026-03-22", "weightKg": 81.9, "updatedAt": 1774180800000 },
+    { "id": "weight-06", "date": "2026-03-26", "weightKg": 81.85, "updatedAt": 1774526400000 },
+    { "id": "weight-07", "date": "2026-03-30", "weightKg": 81.8, "updatedAt": 1774872000000 },
+    { "id": "weight-08", "date": "2026-04-01", "weightKg": 81.75, "updatedAt": 1775044800000 }
+  ],
+  "currentTargets": [],
+  "checkIns": [
+    { "date": "2026-04-02", "kind": "manual", "includeToday": false },
+    { "date": "2026-08-13", "kind": "manual", "includeToday": false }
+  ]
+}

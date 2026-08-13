@@ -18,6 +18,7 @@ import {
   createGate0Environment,
   resolveGate0Config,
   validateGate0Database,
+  validateGate0WebHost,
 } from './dev-gate0-isolated.mjs';
 
 const tempRoots = [];
@@ -59,6 +60,16 @@ describe('Gate 0 isolated development startup', () => {
     assert.equal(environment.VITE_API_PORT, '3102');
     assert.equal(environment.VITE_API_PROXY_TARGET, 'http://127.0.0.1:3102');
     assert.equal(environment.VITE_PORT, '5274');
+    assert.equal(config.webHost, '127.0.0.1');
+  });
+
+  it('allows only loopback or an exact Tailscale IPv4 preview host', () => {
+    assert.equal(validateGate0WebHost('127.0.0.1'), '127.0.0.1');
+    assert.equal(validateGate0WebHost('100.64.0.1'), '100.64.0.1');
+    assert.equal(validateGate0WebHost('100.127.255.254'), '100.127.255.254');
+    for (const rejectedHost of ['0.0.0.0', '192.168.1.5', '100.63.255.255', '100.128.0.1']) {
+      assert.throws(() => validateGate0WebHost(rejectedHost), /Refusing Gate 0 startup/);
+    }
   });
 
   it('rejects default, production, snapshot, and arbitrary database paths', () => {

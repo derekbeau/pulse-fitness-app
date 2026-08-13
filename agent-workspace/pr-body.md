@@ -110,9 +110,10 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Gate 5 repair exact uncached gates passed startup/security 7, shared 402, API 658, web 989, lint/typecheck/build, and zero cached Turbo tasks
 - [x] Vector independently re-reviewed the Gate 5 disclosure repair, reran 53 focused RTL and 8 Chrome Playwright scenarios, and repeated the exact uncached repository gates
 - [x] Vector Gate 5 approved
-- [ ] Milestone 6 backtest, deterministic fixtures, staging/Tailscale preview, and final independent review
+- [x] Milestone 6 read-only backtest, deterministic fixtures, sanitized Tailscale preview, clean-checkout gates, and Codex acceptance
+- [ ] Vector final independent acceptance review
 
-Current milestone state: `VECTOR GATE 5 APPROVED`. Milestone 6 has not started; PR #100 remains draft.
+Current milestone state: `AWAITING VECTOR FINAL REVIEW`. Codex-owned Milestone 6 work is complete; PR #100 remains draft and production remains unchanged.
 
 ## Review focus
 

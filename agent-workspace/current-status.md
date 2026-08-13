@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 5 APPROVED<br>
+**Overall:** AWAITING VECTOR FINAL REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Gate 5 setup-preview disclosure repair complete)
+**Last updated:** 2026-08-13 (Milestone 6 implementation and Codex acceptance complete)
 
 ## Completed
 
@@ -83,18 +83,28 @@
 - Vector independently inspected the complete six-file repair and confirmed the new disclosure reads immutable snapshot values, adds no client-side calculation, preserves manual-mode honesty, and does not duplicate the existing target comparison.
 - Vector independently reran 53/53 focused RTL tests and 8/8 installed-Chrome Playwright scenarios, then repeated the exact uncached repository pipeline. Startup/security 7, shared 402, API 658, and web 989 tests passed; lint, typecheck, and all three builds passed with zero cached tasks.
 - Production isolation remained intact: the copied snapshot hash stayed `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`, no production access or deployment occurred, and all test/runtime ports were free afterward.
+- Milestone 6 adds a read-only JSON/SQLite backtest with JSON/CSV output, strict canonical-schema checks, in-memory completion overrides, `query_only` enforcement, zero-connection-write enforcement, and before/after source hashing.
+- The private production-copy replay generated a March–April estimate only after 20 dates were explicitly labeled complete in memory. Its August row held with zero current weight inputs and no observed or proposed TDEE; the source hash remained unchanged and stored unknown labels were not modified.
+- An idempotent Gate 0 seeder creates setup, baseline, learning, updating, holding, pending, and goal-reached fixtures. It is restricted to the exact regular non-symlink `pulse-tdee-dev.db`; permanent tests verify every state, goal-to-maintenance acceptance, and deterministic rebuild behavior.
+- The network preview was rebuilt from a fresh migrated database containing exactly seven synthetic fixture users and zero non-fixture users before binding to the exact Tailscale address. Production-derived history remained in a private local file and was never network-exposed.
+- Installed-Chrome acceptance passed the existing 8 adaptive flows plus 4 deterministic fixture flows. The fixture suite fails on console warnings/errors, page errors, transport failures, or any HTTP status at or above 400. It covered every Coach state, decline/history/re-preview/acceptance, goal completion, and all six required widths.
+- Built-in-browser acceptance repeated every Coach state, decline/history/acceptance, goal completion, same-date replacement, and widths 320/375/390/430/768/1280. Every width had exact client/scroll width equality and a 44 px primary action; console warnings/errors were empty.
+- Browser diagnostics found one real missing `/favicon.ico` resource. A tracked SVG favicon and document link repaired it; the strict Playwright suite passed clean afterward.
+- The exact uncached pipeline passed from detached clean verification commit `88fa83e`: lint and typecheck 3/3, startup/security 8/8, shared 402, API 662, web 989, and production build 3/3, with zero cached Turbo tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Fresh Codex self-review against all 16 definition-of-done items found no unresolved blocker. Item 16 remains intentionally unperformed: production deployment requires separate explicit approval after Vector acceptance and a verified backup.
+- Tailscale preview `http://100.87.91.127:5274` and proxied health both returned HTTP 200; direct isolated API health at `http://127.0.0.1:3102/health` returned HTTP 200. PR #100 remains draft.
 
 ## Current milestone
 
-**Milestone 5: Coach and completion UI — VECTOR GATE 5 APPROVED**
+**Milestone 6: backtest, synthetic preview, and Codex acceptance — AWAITING VECTOR FINAL REVIEW**
 
-The confirmed setup-preview disclosure defect is repaired and independently approved. The complete review-before-apply Coach experience remains covered by RTL and Playwright, and Milestone 6 remains untouched.
+All Codex-owned implementation, replay, clean-checkout, browser, responsive, diagnostics, preview, and self-review work is complete. Independent final acceptance remains exclusively owned by Hermes/Vector.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Await explicit authorization before beginning Milestone 6.
-3. Do not deploy, merge, or make PR #100 ready.
+2. Hermes/Vector independently reruns final acceptance and verifies the preview.
+3. Do not deploy, merge, make PR #100 ready, or mark the feature ready for Derek unless Vector promotes the verdict.
 
 ## Blocking issues
 
@@ -108,4 +118,4 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 5 is `VECTOR GATE 5 APPROVED`; Milestone 6 has not started.
+PR #100 remains draft. Codex verdict is `AWAITING VECTOR FINAL REVIEW`; only Hermes/Vector may change it to `READY FOR DEREK PREVIEW`.
