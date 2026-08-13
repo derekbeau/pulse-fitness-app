@@ -310,6 +310,46 @@ describe('eligibility, confidence, and holds', () => {
     expect(result.adaptiveUpdate).toBeNull();
   });
 
+  it('counts unique complete dates and deterministically uses the latest row per date', () => {
+    const oneDateRepeated = makeNutritionDays(12).map((day, index) => ({
+      ...day,
+      id: `duplicate-${index}`,
+      date: BOUNDARIES.analysisStart,
+      updatedAt: index,
+    }));
+    const repeatedResult = evaluateEligibility({
+      boundaries: BOUNDARIES,
+      nutritionDays: oneDateRepeated,
+      weightEntries: makeDailyWeights(),
+    });
+    expect(repeatedResult.usableNutritionDays).toHaveLength(1);
+    expect(repeatedResult.holdReasons).toContain('INSUFFICIENT_NUTRITION');
+
+    const completeDates = makeNutritionDays(12, 2400);
+    const firstCompleteDate = completeDates[0];
+    if (!firstCompleteDate) throw new Error('Expected a complete nutrition fixture day');
+    const staleDuplicate = {
+      ...firstCompleteDate,
+      id: 'stale-duplicate',
+      calories: 9000,
+      updatedAt: 0,
+    };
+    const latestResult = evaluateEligibility({
+      boundaries: BOUNDARIES,
+      nutritionDays: [staleDuplicate, ...completeDates].reverse(),
+      weightEntries: makeDailyWeights(),
+    });
+    expect(latestResult.usableNutritionDays).toHaveLength(12);
+    expect(latestResult.averageDailyIntakeKcal).toBe(2400);
+    expect(
+      evaluateEligibility({
+        boundaries: BOUNDARIES,
+        nutritionDays: [...completeDates, staleDuplicate],
+        weightEntries: makeDailyWeights(),
+      }),
+    ).toEqual(latestResult);
+  });
+
   it('excludes partial days entirely from the intake average (vector F)', () => {
     const nutritionDays = [
       ...makeNutritionDays(12, 2400),
@@ -612,6 +652,21 @@ describe('adaptive update, goal calories, and macro allocation', () => {
     }
   });
 
+  it('does not silently discard an explicit calorie floor above adaptive TDEE', () => {
+    const floorLimited = calculateGoalCalories({
+      goalType: 'lose',
+      goalRatePctPerWeek: -0.5,
+      targetWeightKg: 70,
+      latestTrendWeightKg: 80,
+      adaptiveTdeeKcal: 1800,
+      systemCalorieFloorKcal: 2000,
+      userCalorieFloorKcal: 2000,
+    });
+    expect(floorLimited.goalCalories).toBe(2000);
+    expect(floorLimited.goalCalories).toBeGreaterThanOrEqual(2000);
+    expect(floorLimited.reasonCodes).toContain('CALORIE_FLOOR_APPLIED');
+  });
+
   it('switches to maintenance within goal-completion tolerance', () => {
     const goal = calculateGoalCalories({
       goalType: 'lose',
@@ -694,6 +749,13 @@ describe('adaptive update, goal calories, and macro allocation', () => {
         code: 'MACRO_CONFIGURATION_INFEASIBLE',
       }),
     );
+  });
+
+  it('reports macro calorie difference as goal calories minus macro calories', () => {
+    const macros = allocateMacros({ goalCalories: 2000, proteinGrams: 150, fatAllocationPct: 30 });
+    expect(macros.macroCalories).toBe(2001);
+    expect(macros.calorieDifference).toBe(-1);
+    expect(macros.calorieDifference).toBe(macros.calories - macros.macroCalories);
   });
 });
 

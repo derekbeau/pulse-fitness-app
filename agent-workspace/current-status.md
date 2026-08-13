@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 3 REVIEW<br>
+**Overall:** VECTOR GATE 3 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 3 implementation complete)
+**Last updated:** 2026-08-13 (Gate 3 bounded repair complete)
 
 ## Completed
 
@@ -47,22 +47,28 @@
 - Milestone 3 verification passed 13 schema tests and 34 algorithm tests; the exact uncached pipeline passed startup/security 7/7 plus 1,991 package tests across 251 files, lint, typecheck, and all three builds with zero cached Turbo tasks.
 - Built-in-browser smoke used only `pnpm dev:gate0` and the isolated `pulse-tdee-dev.db`. Dashboard, Nutrition, Weight History, and Settings rendered; browser console diagnostics were empty and every observed API request returned HTTP 200. The isolated process was stopped afterward.
 - Production was not accessed or changed; the copied production snapshot SHA-256 remains `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`.
+- Gate 3 repair now preserves an explicit loss calorie floor even when it exceeds Adaptive TDEE, reports macro calorie difference as goal minus macro-derived calories, and counts/averages deterministic unique complete nutrition dates rather than source rows.
+- Permanent regressions cover the above-TDEE floor boundary, the exact `2000 -> 2001` macro sign case, duplicate rows failing the 12-date threshold, duplicate rows not distorting intake, and input-order determinism.
+- Repair verification passed 50/50 focused shared tests and 400/400 full shared tests. Exact uncached repository lint, typecheck, tests (400 shared + 635 API + 959 web, plus 7 startup/security), and all three builds passed with zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Vector independently inspected the complete five-file repair, reran the 50 focused tests, and repeated the exact uncached repository pipeline with 400 shared, 635 API, 959 web, and 7 startup/security tests passing and zero cached tasks.
+- Vector repeated isolated API/browser smoke on ports 3102/5274. Dashboard, Nutrition, Weight History, and Settings rendered without application errors, `/health` returned 200, and the API opened only `pulse-tdee-dev.db` plus WAL/SHM. The process was stopped afterward.
+- The copied production snapshot SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`. No Milestone 4+, production, deployment, merge, or PR-ready work was introduced.
 
 ## Current milestone
 
-**Milestone 3: pure adaptive algorithm — AWAITING VECTOR GATE 3 REVIEW**
+**Milestone 3: pure adaptive algorithm — VECTOR GATE 3 APPROVED**
 
 The deterministic calculation module, shared contracts, required vectors, invariants, full gates, and isolated browser smoke are complete. Milestone 4 has not started.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Wait for Vector to independently review Gate 3.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 4 without separate authorization after Vector approval.
+2. Await the separate Goal-format Milestone 4 authorization prompt.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 4 without that separate authorization.
 
 ## Blocking issues
 
-No Codex-found Milestone 3 blockers remain.
+No writer-found Milestone 3 blockers remain after the bounded Gate 3 repair.
 
 ## Non-blocking warnings
 
@@ -72,4 +78,4 @@ No Codex-found Milestone 3 blockers remain.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 3 is `AWAITING VECTOR GATE 3 REVIEW`; Codex has stopped before Milestone 4.
+PR #100 remains draft. Milestone 3 is `VECTOR GATE 3 APPROVED`; Milestone 4 has not started.

@@ -325,6 +325,44 @@ Built-in-browser smoke used only `pnpm dev:gate0` on isolated ports 3102/5274 an
 
 Complete diff self-review found no database/API lifecycle, UI, Milestone 4+, deployment, merge, or PR-ready behavior. Formatting and whitespace checks passed. The copied production snapshot SHA-256 remains `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; production was not accessed or changed. Verdict: `AWAITING VECTOR GATE 3 REVIEW`.
 
+#### Gate 3 bounded repair evidence
+
+Vector's adversarial probes reproduced three defects before repair: an explicit 2,000 kcal floor was silently reduced to a 1,800 kcal Adaptive TDEE, the 2,000 kcal macro vector with 2,001 macro-derived kcal reported `+1` instead of `-1`, and 12 rows for one date manufactured nutrition eligibility. The temporary untracked probe file was folded into the permanent shared algorithm suite and removed.
+
+The bounded repair:
+
+1. Implements section 12.4 literally by retaining `max(system floor, user floor, minimumByDeficit)` without capping it to Adaptive TDEE. The explicit stored floor wins at the exceptional boundary; ordinary loss configurations remain at or below Adaptive TDEE.
+2. Implements section 13.2's `goalCalories - macroCalories` sign.
+3. Selects one nutrition row per calendar date before eligibility and averaging, using greatest `updatedAt` then greatest `id` as a deterministic tie-break. Regressions prove duplicate rows cannot satisfy 12 dates, a stale high-calorie duplicate cannot distort intake, and reversed input yields identical output.
+
+Observed repair checks, all exit 0:
+
+| Command                                                                                                              | Observed result                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `git diff --check`                                                                                                   | Pass                                                                                                           |
+| `pnpm --filter @pulse/shared exec vitest run src/utils/adaptive-tdee.test.ts src/schemas/adaptive-nutrition.test.ts` | 2 files, 50/50 tests passed                                                                                    |
+| `pnpm --filter @pulse/shared test`                                                                                   | 32 files, 400/400 tests passed                                                                                 |
+| `pnpm --filter @pulse/shared lint` / `typecheck`                                                                     | Both passed                                                                                                    |
+| `TURBO_FORCE=true pnpm lint`                                                                                         | 3/3 tasks, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                      |
+| `TURBO_FORCE=true pnpm typecheck`                                                                                    | 3/3 tasks, 0 cached                                                                                            |
+| `TURBO_FORCE=true pnpm test`                                                                                         | Startup/security 7/7; shared 400, API 635, web 959 (1,994 package tests across 251 files); 6/6 tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`                                                                                        | 3/3 tasks, 0 cached; Vite transformed 3,832 modules                                                            |
+
+No browser QA was repeated by the repair writer because the repair changes only pure shared calculation logic and unit tests. No commit, push, merge, deployment, PR-readiness change, production access, or Milestone 4+ work was performed. Writer verdict: `AWAITING VECTOR GATE 3 RE-REVIEW`.
+
+#### Vector independent Gate 3 re-review
+
+Vector inspected the complete repair rather than accepting the writer report. The source diff is limited to deterministic nutrition-date selection, literal calorie-floor preservation, macro-difference sign correction, permanent regressions, and truthful workspace evidence. No database/API lifecycle, UI, Milestone 4+, deployment, merge, or PR-ready behavior was introduced.
+
+Independent evidence:
+
+- Focused schemas and algorithm regressions passed 50/50.
+- Exact sequence exited 0: `git diff --check`; uncached lint 3/3 with zero errors and four pre-existing warnings; uncached typecheck 3/3; startup/security 7/7 plus shared 400, API 635, and web 959 tests; uncached build 3/3 with 3,832 Vite modules transformed. Turbo reported zero cached tasks throughout.
+- Isolated Gate 0 API/web acceptance used ports 3102/5274 and only `pulse-tdee-dev.db`. `/health` returned 200; Dashboard, Nutrition, Weight History, and Settings rendered without an application error; the API opened only the isolated database plus WAL/SHM. The process was stopped and both ports were released.
+- SQLite `quick_check` was `ok`. The copied production snapshot SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; the 37 known copied-baseline foreign-key violations remain separately tracked in issue #101.
+
+Verdict: `VECTOR GATE 3 APPROVED`.
+
 ### Check-in/API lifecycle and concurrency
 
 Pending.
@@ -407,7 +445,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 3 REVIEW`
+`VECTOR GATE 3 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

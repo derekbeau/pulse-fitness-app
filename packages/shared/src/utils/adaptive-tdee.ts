@@ -364,6 +364,23 @@ function compareDateAndId<T extends { date: string; id: string }>(left: T, right
   return left.id < right.id ? -1 : 1;
 }
 
+function selectLatestNutritionDayByDate(
+  days: readonly AdaptiveNutritionDay[],
+): AdaptiveNutritionDay[] {
+  const latestByDate = new Map<string, AdaptiveNutritionDay>();
+  for (const day of [...days].sort(compareDateAndId)) {
+    const current = latestByDate.get(day.date);
+    if (
+      current === undefined ||
+      day.updatedAt > current.updatedAt ||
+      (day.updatedAt === current.updatedAt && day.id > current.id)
+    ) {
+      latestByDate.set(day.date, day);
+    }
+  }
+  return [...latestByDate.values()].sort(compareDateAndId);
+}
+
 export function interpolateDailyWeights(
   entries: readonly AdaptiveWeightEntry[],
 ): InterpolatedWeightPoint[] {
@@ -585,8 +602,11 @@ export function evaluateEligibility(input: {
 
   const firstTrendDate = trendPoints[0]?.date ?? null;
   const lastTrendDate = trendPoints.at(-1)?.date ?? null;
-  const nutritionInAnalysis = input.nutritionDays.filter(
-    (day) => day.date >= input.boundaries.analysisStart && day.date <= input.boundaries.analysisEnd,
+  const nutritionInAnalysis = selectLatestNutritionDayByDate(
+    input.nutritionDays.filter(
+      (day) =>
+        day.date >= input.boundaries.analysisStart && day.date <= input.boundaries.analysisEnd,
+    ),
   );
   const excludedIncompleteDays = nutritionInAnalysis.filter(
     (day) => day.status !== 'complete',
@@ -805,10 +825,7 @@ export function calculateGoalCalories(input: {
       input.systemCalorieFloorKcal,
       input.userCalorieFloorKcal,
     );
-    const effectiveMinimum = Math.min(
-      input.adaptiveTdeeKcal,
-      Math.max(configuredFloor, deficitMinimum),
-    );
+    const effectiveMinimum = Math.max(configuredFloor, deficitMinimum);
     if (rawGoalCalories < effectiveMinimum) {
       goalCalories = ceilToIncrement(effectiveMinimum, constants.calorieRoundingIncrement);
       reasonCodes.push('CALORIE_FLOOR_APPLIED');
@@ -818,7 +835,6 @@ export function calculateGoalCalories(input: {
     } else {
       goalCalories = roundToIncrement(rawGoalCalories, constants.calorieRoundingIncrement);
     }
-    goalCalories = Math.min(goalCalories, input.adaptiveTdeeKcal);
   } else {
     goalCalories = roundToIncrement(rawGoalCalories, constants.calorieRoundingIncrement);
   }
@@ -891,7 +907,7 @@ export function allocateMacros(input: {
     carbs,
     fat,
     macroCalories,
-    calorieDifference: macroCalories - input.goalCalories,
+    calorieDifference: input.goalCalories - macroCalories,
   };
 }
 

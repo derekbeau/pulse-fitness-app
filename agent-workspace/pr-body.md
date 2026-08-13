@@ -84,9 +84,13 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Required vectors A-K and boundary/invariant regressions; 13 schema and 34 algorithm tests
 - [x] Milestone 3 exact uncached pipeline passed (1,991 package tests plus 7 startup/security tests; zero cached Turbo tasks)
 - [x] Isolated Gate 0 browser smoke passed on Dashboard, Nutrition, Weight History, and Settings with clean console and all observed API requests HTTP 200
+- [x] Gate 3 repair preserves explicit calorie floors, corrects macro-difference sign, and deduplicates complete nutrition dates deterministically
+- [x] Gate 3 repair regressions passed (50 focused shared; 400 full shared); exact uncached lint/typecheck/test/build passed with 1,994 package tests plus 7 startup/security tests and zero cached tasks
+- [x] Vector independently re-reviewed the Gate 3 repair, repeated the focused and exact uncached full gates, and passed isolated API/browser acceptance
+- [x] Vector Gate 3 approved
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
-Current milestone state: `AWAITING VECTOR GATE 3 REVIEW`. Milestone 4 has not started; PR #100 remains draft.
+Current milestone state: `VECTOR GATE 3 APPROVED`. Milestone 4 has not started; PR #100 remains draft.
 
 ## Review focus
 
