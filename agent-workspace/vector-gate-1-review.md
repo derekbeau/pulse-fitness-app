@@ -2,7 +2,7 @@
 
 **Previously reviewed commit:** `f80d2094b10531cc80f840f74f4b7e9b48b924fa`
 **Previous verdict:** `VECTOR GATE 1 CHANGES REQUIRED`
-**Current state:** `AWAITING VECTOR GATE 1 RE-REVIEW`
+**Current state:** `VECTOR GATE 1 APPROVED`
 **Re-review date:** 2026-08-13
 
 ## Re-review blocker
@@ -69,7 +69,7 @@ The complete repair diff was reviewed against all eight findings. No nutrition-c
 
 ## Required next state
 
-`AWAITING VECTOR GATE 1 RE-REVIEW`
+`VECTOR GATE 1 APPROVED`
 
 The remaining finding-4 gap is repaired. Targeted migration/database tests passed 16/16 and startup tests passed 6/6. The exact uncached pipeline passed lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build; all Turbo tasks were uncached. PR #100 remains draft. Milestone 2 is unauthorized until Vector independently approves Gate 1.
 
@@ -83,4 +83,20 @@ Subsequent independent review confirmed three remaining classes. The current bra
 
 Observed final verification: startup/security 7/7; API migration/database/enrichment 25/25; web boundary/history 26/26; API image build passed; real image legacy preflight exited 1 without a map and 0 with a secure read-only map; fresh image health returned OK. The exact uncached command passed lint, typecheck, 1,905 package tests plus 7 startup/security tests, and build with zero cached Turbo tasks. No UI changed, so browser QA was not repeated.
 
-**Current state remains:** `AWAITING VECTOR GATE 1 RE-REVIEW`. PR #100 must remain draft; no deploy, merge, or Milestone 2 work is authorized.
+That repair returned the branch for final independent review. PR #100 remained draft; no deploy, merge, or Milestone 2 work was authorized.
+
+## Vector final verdict
+
+**`VECTOR GATE 1 APPROVED`** at commit `2e539387c690f09710648d591e57c5d8501d88af`.
+
+Vector independently verified the final repair rather than relying on writer evidence:
+
+- 58 focused startup/security, migration/database/enrichment, and web-boundary/history checks passed.
+- The exact uncached lint, typecheck, test, and build pipeline passed: 1,905 package tests plus 7 startup/security tests, with zero cached Turbo tasks.
+- A real Git fixture was ignored and a real BuildKit-exported context excluded `/runtime-secrets/`.
+- Canonical preflight rejects named no-op checks, partial unique indexes, null/malformed rows, and impossible/non-ISO dates while migration 0041 remains valid.
+- Paginated entries and metadata are runtime parsed, including malformed-meta rejection.
+- Earlier live pounds/kilograms browser QA remained clean, the isolated database had 25 valid canonical rows with zero compatibility delta, and the production snapshot hash remained unchanged.
+- Branch and origin matched, the worktree was clean, ports 3102/5274 were free, GitHub checks were green, and PR #100 remained draft.
+
+Milestone 2 is not started or implicitly authorized by this approval; it requires a separate kickoff.

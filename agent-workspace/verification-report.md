@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
+**Status:** VECTOR GATE 1 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex final three-class repair verification complete; awaiting independent Vector re-review<br>
-**Last verified state:** host-map isolation, adversarial canonical preflight, and paginated metadata parsing repaired; targeted/container and exact uncached full checks green
+**Reviewer:** Vector independent Gate 1 re-review approved<br>
+**Last verified state:** commit `2e539387c690f09710648d591e57c5d8501d88af`; all Gate 1 repairs independently verified
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -79,7 +79,7 @@ Developer-console inspection returned zero warnings/errors on the clean rerun. V
 
 ### Milestone 1: canonical weight foundation
 
-Verdict: `AWAITING VECTOR GATE 1 RE-REVIEW`
+Verdict: `VECTOR GATE 1 APPROVED`
 
 #### Migration preflight and storage invariants
 

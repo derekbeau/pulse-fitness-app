@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
+**Overall:** VECTOR GATE 1 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (final three-class Gate 1 follow-up)
+**Last updated:** 2026-08-13 (Vector Gate 1 approval)
 
 ## Completed
 
@@ -31,19 +31,19 @@
 
 ## Current milestone
 
-**Milestone 1: canonical weight foundation — AWAITING VECTOR GATE 1 RE-REVIEW**
+**Milestone 1: canonical weight foundation — VECTOR GATE 1 APPROVED**
 
-Milestone 2 has not started and remains unauthorized until Vector independently approves Gate 1.
+Milestone 2 has not started. Gate 1 approval does not begin the next milestone; it requires a separate kickoff.
 
 ## Next actions
 
-1. Vector independently re-reviews the final three-class repairs and the complete Gate 1 evidence.
-2. If approved, Vector may authorize Milestone 2 in a separate goal.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 2 during this state.
+1. Wait for a separate Milestone 2 kickoff.
+2. Keep PR #100 draft.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 2 without that kickoff.
 
 ## Blocking issues
 
-No Codex-known Gate 1 blockers remain. Approval is intentionally withheld pending Vector re-review.
+No Gate 1 blockers remain.
 
 ## Non-blocking warnings
 
@@ -53,4 +53,4 @@ No Codex-known Gate 1 blockers remain. Approval is intentionally withheld pendin
 
 ## Vector review handoff protocol
 
-PR #100 must remain draft. Only Vector may approve Gate 1 or authorize the next milestone; Codex must stop at `AWAITING VECTOR GATE 1 RE-REVIEW`.
+PR #100 remains draft. Vector approved Gate 1 after independent targeted, adversarial, full-pipeline, container, browser, and database verification. Milestone 2 remains stopped pending a separate kickoff.

@@ -34,7 +34,7 @@ Verification gate: [`agent-workspace/verification-report.md`](agent-workspace/ve
 
 ## Current verification
 
-Milestone 1 Gate 1 repair is complete and the branch is `AWAITING VECTOR GATE 1 RE-REVIEW`:
+Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d8501d88af`:
 
 - [x] Independent technical review completed and findings incorporated
 - [x] Formula vectors independently recalculated
@@ -64,7 +64,7 @@ Milestone 1 Gate 1 repair is complete and the branch is `AWAITING VECTOR GATE 1 
 - [x] Canonical preflight rejects partial unique indexes and malformed existing calendar dates while migration 0041 continues to pass
 - [x] Paginated weight metadata is runtime-parsed with shared schema coverage for page zero and negative totals
 - [x] Final exact uncached pipeline passed (1,905 package tests plus 7 startup/security tests; zero cached Turbo tasks)
-- [ ] Vector Gate 1 re-review and approval
+- [x] Vector Gate 1 re-review and approval
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
 ## Review focus
