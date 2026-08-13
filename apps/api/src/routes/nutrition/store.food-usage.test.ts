@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getTableName = (table: object) =>
   (table as Record<symbol, unknown>)[Symbol.for('drizzle:Name')];
 
+const createNutritionLogDowngrade = () => ({
+  set: vi.fn(() => ({
+    where: vi.fn(() => ({ run: vi.fn(() => ({ changes: 0 })) })),
+  })),
+});
+
 const testState = vi.hoisted(() => {
   const db = {
     transaction: vi.fn(),
@@ -119,6 +125,13 @@ const createTxForMealInsert = (returnedItems: Array<Record<string, unknown>>) =>
         throw new Error(`Unexpected select table: ${String(table)}`);
       }),
     })),
+    update: vi.fn((table) => {
+      if (getTableName(table) === 'nutrition_logs') {
+        return createNutritionLogDowngrade();
+      }
+
+      throw new Error(`Unexpected update table: ${String(table)}`);
+    }),
   };
 };
 
@@ -221,6 +234,10 @@ const createTxForAddMealItems = (options: {
         };
       }
 
+      if (getTableName(table) === 'nutrition_logs') {
+        return createNutritionLogDowngrade();
+      }
+
       throw new Error(`Unexpected update table: ${String(table)}`);
     }),
   };
@@ -270,6 +287,13 @@ const createTxForMealDelete = (
       }
 
       throw new Error(`Unexpected delete table: ${String(table)}`);
+    }),
+    update: vi.fn((table) => {
+      if (getTableName(table) === 'nutrition_logs') {
+        return createNutritionLogDowngrade();
+      }
+
+      throw new Error(`Unexpected update table: ${String(table)}`);
     }),
   };
 };
@@ -341,6 +365,10 @@ const createTxForMealItemPatch = (options: {
             })),
           })),
         };
+      }
+
+      if (getTableName(table) === 'nutrition_logs') {
+        return createNutritionLogDowngrade();
       }
 
       throw new Error(`Unexpected update table: ${String(table)}`);

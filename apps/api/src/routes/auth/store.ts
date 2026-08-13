@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { habits, users } from '../../db/schema/index.js';
+import { habits, nutritionTargets, users } from '../../db/schema/index.js';
 
 export type AuthUserRecord = {
   id: string;
@@ -154,5 +154,17 @@ export const ensureStarterHabitsForUser = async (userId: string): Promise<void> 
     if (habitInsertResult.changes !== starterHabits.length) {
       throw new Error('Failed to persist starter habits');
     }
+  });
+};
+
+export const deleteUserAccount = async (userId: string): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    // Adaptive targets restrict deletion of their immutable source check-in. Delete targets first,
+    // then let the user cascade remove check-ins, the lifetime program, and all remaining data.
+    tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
+    const result = tx.delete(users).where(eq(users.id, userId)).run();
+    return result.changes === 1;
   });
 };

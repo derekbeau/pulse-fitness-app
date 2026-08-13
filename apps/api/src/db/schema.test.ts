@@ -22,6 +22,8 @@ import type {
 } from './schema/index.js';
 import {
   activities,
+  adaptiveNutritionCheckIns,
+  adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
   conditionProtocols,
@@ -590,6 +592,9 @@ describe('nutritionTargets schema', () => {
       'protein',
       'carbs',
       'fat',
+      'source',
+      'adaptiveCheckInId',
+      'macroCalories',
       'effectiveDate',
       'createdAt',
       'updatedAt',
@@ -603,8 +608,12 @@ describe('nutritionTargets schema', () => {
     expect(columns.updatedAt.onUpdateFn).toBeTypeOf('function');
 
     const config = getTableConfig(nutritionTargets);
-    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.foreignKeys).toHaveLength(2);
     expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(getTableName(config.foreignKeys[1].reference().foreignTable)).toBe(
+      'adaptive_nutrition_checkins',
+    );
+    expect(config.foreignKeys[1]?.onDelete).toBe('restrict');
     expect(config.indexes).toHaveLength(0);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
@@ -616,7 +625,10 @@ describe('nutritionTargets schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'nutrition_targets_effective_date_format_check',
+      'nutrition_targets_macro_calories_nonnegative_check',
       'nutrition_targets_macros_nonnegative_check',
+      'nutrition_targets_provenance_check',
+      'nutrition_targets_source_check',
     ]);
   });
 });
@@ -631,11 +643,14 @@ describe('nutritionLogs schema', () => {
       'userId',
       'date',
       'notes',
+      'status',
+      'statusUpdatedAt',
       'createdAt',
       'updatedAt',
     ]);
 
     expect(columns.id.defaultFn).toBeTypeOf('function');
+    expect(columns.status.default).toBe('unknown');
     expect(columns.createdAt.default).toBeDefined();
     expect(columns.createdAt.defaultFn).toBeTypeOf('function');
     expect(columns.updatedAt.default).toBeDefined();
@@ -651,8 +666,47 @@ describe('nutritionLogs schema', () => {
       'user_id',
       'date',
     ]);
-    expect(config.checks.map((constraint) => constraint.name)).toEqual([
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'nutrition_logs_date_format_check',
+      'nutrition_logs_status_check',
+    ]);
+  });
+});
+
+describe('adaptive nutrition persistence schema', () => {
+  it('defines one lifetime program per user with cascade ownership', () => {
+    expect(getTableName(adaptiveNutritionPrograms)).toBe('adaptive_nutrition_programs');
+    const config = getTableConfig(adaptiveNutritionPrograms);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(config.indexes.map((entry) => entry.config.name)).toContain(
+      'adaptive_nutrition_programs_user_id_unique',
+    );
+    expect(config.checks.map((entry) => entry.name)).toContain(
+      'adaptive_nutrition_programs_calorie_floor_check',
+    );
+  });
+
+  it('defines immutable check-in snapshot columns and pending uniqueness', () => {
+    expect(getTableName(adaptiveNutritionCheckIns)).toBe('adaptive_nutrition_checkins');
+    const columns = getTableColumns(adaptiveNutritionCheckIns);
+    expect(Object.keys(columns)).toEqual(
+      expect.arrayContaining([
+        'inputSnapshot',
+        'calculationSnapshot',
+        'currentTargets',
+        'proposedTargets',
+        'acceptedNutritionTargetId',
+      ]),
+    );
+    const config = getTableConfig(adaptiveNutritionCheckIns);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_checkins_one_pending_per_program_unique',
+      'adaptive_nutrition_checkins_pending_fingerprint_unique',
+      'adaptive_nutrition_checkins_program_id_local_date_idx',
+      'adaptive_nutrition_checkins_user_id_created_at_idx',
     ]);
   });
 });

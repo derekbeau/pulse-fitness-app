@@ -1,21 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  unique,
-} from 'drizzle-orm/sqlite-core';
+import { check, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 import { users } from './users.js';
+import { adaptiveNutritionCheckIns } from './adaptive-nutrition.js';
 
 export const nutritionTargets = sqliteTable(
   'nutrition_targets',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -23,6 +19,11 @@ export const nutritionTargets = sqliteTable(
     protein: real('protein').notNull(),
     carbs: real('carbs').notNull(),
     fat: real('fat').notNull(),
+    source: text('source').$type<'manual' | 'adaptive'>().notNull().default('manual'),
+    adaptiveCheckInId: text('adaptive_check_in_id').references(() => adaptiveNutritionCheckIns.id, {
+      onDelete: 'restrict',
+    }),
+    macroCalories: real('macro_calories'),
     effectiveDate: text('effective_date').notNull(),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
@@ -43,6 +44,15 @@ export const nutritionTargets = sqliteTable(
     check(
       'nutrition_targets_macros_nonnegative_check',
       sql`${table.calories} >= 0 and ${table.protein} >= 0 and ${table.carbs} >= 0 and ${table.fat} >= 0`,
+    ),
+    check('nutrition_targets_source_check', sql`${table.source} in ('manual', 'adaptive')`),
+    check(
+      'nutrition_targets_provenance_check',
+      sql`(${table.source} = 'manual' and ${table.adaptiveCheckInId} is null) or (${table.source} = 'adaptive' and ${table.adaptiveCheckInId} is not null)`,
+    ),
+    check(
+      'nutrition_targets_macro_calories_nonnegative_check',
+      sql`${table.macroCalories} is null or ${table.macroCalories} >= 0`,
     ),
   ],
 );

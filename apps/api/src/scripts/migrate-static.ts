@@ -20,6 +20,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../db/schema/index.js';
+import { downgradeCompleteNutritionLogs } from '../db/nutrition-completeness.js';
 
 export const DEFAULT_STATIC_DATA_ROOT = '/Volumes/meridian/Projects/health-fitness-static/data';
 export const DEFAULT_WORKOUT_TEMPLATE_SUBPATH = join('workouts', 'templates');
@@ -2464,6 +2465,8 @@ export const migrateDailyLogsAndBodyWeight = async ({
                 .run();
             }
           }
+
+          downgradeCompleteNutritionLogs(tx, [nutritionLog.id]);
         }
 
         if (dayRecord && dayRecord.habits.length > 0) {

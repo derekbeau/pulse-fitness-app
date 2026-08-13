@@ -29,6 +29,8 @@ type StoredNutritionLog = {
   userId: string;
   date: string;
   notes: string | null;
+  status: 'unknown' | 'partial' | 'complete';
+  statusUpdatedAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -399,6 +401,8 @@ vi.mock('../routes/nutrition/store.js', () => ({
           userId,
           date,
           notes: null,
+          status: 'unknown',
+          statusUpdatedAt: null,
           createdAt: now,
           updatedAt: now,
         };

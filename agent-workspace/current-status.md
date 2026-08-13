@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 1 APPROVED<br>
+**Overall:** AWAITING VECTOR GATE 2 REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Vector Gate 1 approval)
+**Last updated:** 2026-08-13 (Milestone 2 implementation complete)
 
 ## Completed
 
@@ -28,22 +28,29 @@
 - Repair verification passed: migration/startup 22/22 targeted tests; exact uncached lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build all passed with zero cached tasks.
 - The final independent follow-up classes are repaired: `/runtime-secrets/` is root-ignored by Git and Docker with a real build-context regression; canonical preflight rejects partial unique indexes and existing impossible/non-ISO dates using shared date semantics; and paginated weight metadata is parsed with `apiMetaSchema` at the HTTP boundary.
 - Final follow-up verification passed: startup/security 7/7, API migration/enrichment 25/25, web weight boundary/history 26/26, API Docker image build and real legacy/fresh-container checks, plus the exact uncached lint/typecheck/test/build pipeline (1,905 package tests across 245 files, 7 startup/security tests, and zero cached Turbo tasks).
+- Milestone 2 adds explicit `unknown | partial | complete` nutrition-log status, migrates legacy rows to `unknown`, and exposes an authenticated status mutation with future-date and missing-log validation.
+- Every in-scope meal, item, food-merge, permanent-food-purge, and static-reimport mutation atomically downgrades an explicitly complete day to partial.
+- Nutrition targets now retain manual/adaptive provenance, server-derived macro calories, restricted check-in linkage, and exact same-date replacement snapshots. Manual API writes cannot spoof adaptive provenance.
+- Adaptive program/check-in persistence is scaffolded only to support Milestone 2 provenance and immutable snapshots; no Milestone 3 algorithm or later lifecycle was implemented.
+- Migration verification covers old and fresh databases, legacy defaults, schema constraints, foreign keys, restricted deletion, and snapshot immutability. Real SQLite store tests cover downgrade behavior and transaction rollback.
+- Built-in-browser QA verified target save/refetch, a complete day becoming partial after a meal edit, and future-day completion rejection. The affected Nutrition and Settings surfaces had zero browser console warnings/errors and no unexpected failed requests.
+- Final exact uncached pipeline passed: startup/security 7/7; shared 350, API 623, and web 959 tests (1,932 package tests across 249 files); lint and typecheck with zero cached tasks; and all three production builds with zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
 
 ## Current milestone
 
-**Milestone 1: canonical weight foundation — VECTOR GATE 1 APPROVED**
+**Milestone 2: nutrition completeness and target provenance — AWAITING VECTOR GATE 2 REVIEW**
 
-Milestone 2 has not started. Gate 1 approval does not begin the next milestone; it requires a separate kickoff.
+Milestone 2 is implemented, self-reviewed, browser-verified, and ready for independent Vector review. Milestone 3 has not started.
 
 ## Next actions
 
-1. Wait for a separate Milestone 2 kickoff.
+1. Wait for Vector Gate 2 review.
 2. Keep PR #100 draft.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 2 without that kickoff.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 3 without separate authorization after Gate 2 approval.
 
 ## Blocking issues
 
-No Gate 1 blockers remain.
+No Codex-found Milestone 2 blockers remain.
 
 ## Non-blocking warnings
 
@@ -53,4 +60,4 @@ No Gate 1 blockers remain.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Vector approved Gate 1 after independent targeted, adversarial, full-pipeline, container, browser, and database verification. Milestone 2 remains stopped pending a separate kickoff.
+PR #100 remains draft. Milestone 2 is stopped at `AWAITING VECTOR GATE 2 REVIEW`; Vector must independently review it before Milestone 3 can be authorized.

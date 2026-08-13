@@ -20,6 +20,11 @@ import {
   patchMealById,
   patchMealItemById,
 } from './store.js';
+import {
+  FutureNutritionDateError,
+  NutritionLogRequiredError,
+  updateNutritionLogStatus,
+} from './status-store.js';
 
 vi.mock('./store.js', () => ({
   createMealForDate: vi.fn(),
@@ -33,6 +38,14 @@ vi.mock('./store.js', () => ({
   patchMealById: vi.fn(),
   patchMealItemById: vi.fn(),
 }));
+
+vi.mock('./status-store.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./status-store.js')>();
+  return {
+    ...actual,
+    updateNutritionLogStatus: vi.fn(),
+  };
+});
 
 vi.mock('../foods/store.js', () => ({
   trackFoodUsage: vi.fn(),
@@ -180,6 +193,8 @@ const loggingContext = {
         userId: 'user-1',
         date: '2026-03-09',
         notes: null,
+        status: 'unknown' as const,
+        statusUpdatedAt: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_000,
       },
@@ -325,6 +340,7 @@ describe('nutrition routes', () => {
     vi.mocked(getDailyNutritionSummaryForDate).mockReset();
     vi.mocked(getNutritionLoggingContext).mockReset();
     vi.mocked(getNutritionWeekSummaryForDate).mockReset();
+    vi.mocked(updateNutritionLogStatus).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
     vi.mocked(trackFoodUsage).mockReset();
@@ -334,6 +350,110 @@ describe('nutrition routes', () => {
     vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
+  });
+
+  it('updates nutrition status for JWT and AgentToken callers', async () => {
+    const unknownLog = {
+      id: 'log-1',
+      userId: 'user-1',
+      date: '2026-03-09',
+      notes: null,
+      status: 'complete' as const,
+      statusUpdatedAt: 1_700_000_200_000,
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_200_000,
+    };
+    vi.mocked(updateNutritionLogStatus)
+      .mockResolvedValueOnce(unknownLog)
+      .mockResolvedValueOnce({ ...unknownLog, status: 'partial' });
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const jwtResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/status',
+        headers: createAuthorizationHeader(authToken),
+        payload: { status: 'complete' },
+      });
+      const agentResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/status',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        payload: { status: 'partial' },
+      });
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual({ data: unknownLog });
+      expect(agentResponse.statusCode).toBe(200);
+      expect(agentResponse.json().data.status).toBe('partial');
+      expect(vi.mocked(updateNutritionLogStatus)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '2026-03-09',
+        'complete',
+      );
+      expect(vi.mocked(updateNutritionLogStatus)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        '2026-03-09',
+        'partial',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('maps nutrition status domain errors and rejects invalid status values', async () => {
+    vi.mocked(updateNutritionLogStatus)
+      .mockRejectedValueOnce(new FutureNutritionDateError())
+      .mockRejectedValueOnce(new NutritionLogRequiredError());
+
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const futureResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-10/status',
+        headers: createAuthorizationHeader(authToken),
+        payload: { status: 'complete' },
+      });
+      const missingResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-08/status',
+        headers: createAuthorizationHeader(authToken),
+        payload: { status: 'partial' },
+      });
+      const invalidResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-08/status',
+        headers: createAuthorizationHeader(authToken),
+        payload: { status: 'done' },
+      });
+
+      expect(futureResponse.statusCode).toBe(400);
+      expect(futureResponse.json().error.code).toBe('FUTURE_NUTRITION_DATE');
+      expect(missingResponse.statusCode).toBe(409);
+      expect(missingResponse.json().error.code).toBe('NUTRITION_LOG_REQUIRED');
+      expect(invalidResponse.statusCode).toBe(400);
+      expect(vi.mocked(updateNutritionLogStatus)).toHaveBeenCalledTimes(2);
+    } finally {
+      await app.close();
+    }
   });
 
   afterEach(() => {
@@ -611,6 +731,8 @@ describe('nutrition routes', () => {
           userId: 'user-1',
           date: '2026-03-09',
           notes: null,
+          status: 'unknown',
+          statusUpdatedAt: null,
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_000_000,
         },
@@ -652,6 +774,8 @@ describe('nutrition routes', () => {
             userId: 'user-1',
             date: '2026-03-09',
             notes: null,
+            status: 'unknown',
+            statusUpdatedAt: null,
             createdAt: 1_700_000_000_000,
             updatedAt: 1_700_000_000_000,
           },

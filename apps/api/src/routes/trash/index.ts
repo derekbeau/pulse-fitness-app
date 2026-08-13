@@ -22,6 +22,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
+import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
 import {
@@ -337,14 +338,16 @@ const purgeTrashItem = async ({
 
     case 'foods':
       return db.transaction((tx) => {
-        const linkedMealIds = tx
-          .select({ mealId: mealItems.mealId })
+        const linkedMeals = tx
+          .select({ mealId: mealItems.mealId, nutritionLogId: nutritionLogs.id })
           .from(mealItems)
+          .innerJoin(meals, eq(meals.id, mealItems.mealId))
+          .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
           .where(eq(mealItems.foodId, id))
           .all();
 
-        if (linkedMealIds.length > 0) {
-          const mealIds = [...new Set(linkedMealIds.map((row) => row.mealId))];
+        if (linkedMeals.length > 0) {
+          const mealIds = [...new Set(linkedMeals.map((row) => row.mealId))];
           const ownedMealIds = tx
             .select({ id: meals.id })
             .from(meals)
@@ -354,9 +357,18 @@ const purgeTrashItem = async ({
             .map((row) => row.id);
 
           if (ownedMealIds.length > 0) {
-            tx.delete(mealItems)
+            const deletedItems = tx
+              .delete(mealItems)
               .where(and(eq(mealItems.foodId, id), inArray(mealItems.mealId, ownedMealIds)))
               .run();
+            if (deletedItems.changes > 0) {
+              downgradeCompleteNutritionLogs(
+                tx,
+                linkedMeals
+                  .filter((row) => ownedMealIds.includes(row.mealId))
+                  .map((row) => row.nutritionLogId),
+              );
+            }
           }
         }
 

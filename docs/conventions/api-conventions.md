@@ -19,6 +19,20 @@ Current examples:
 - `/api/v1/agent-tokens`
 - `/api/v1/context`
 
+### Nutrition completeness
+
+`PATCH /api/v1/nutrition/:date/status` accepts JWT or AgentToken auth and body
+`{ "status": "unknown" | "partial" | "complete" }`. It returns the updated nutrition log in the
+standard envelope. Completing a future date returns `400 FUTURE_NUTRITION_DATE`; changing status
+without an owned log returns `409 NUTRITION_LOG_REQUIRED`. Meal and item mutations automatically
+downgrade complete days to partial in their data transaction.
+
+Nutrition-target responses include `source`, `adaptiveCheckInId`, and `macroCalories`. The existing
+manual target mutation never accepts caller-owned provenance: unknown adaptive-link fields are
+stripped by the shared request schema, and the store persists `source = manual`, a null check-in
+link, and server-derived macro calories. Adaptive target writes remain internal until the later
+check-in lifecycle milestone.
+
 ## Request Validation
 
 - Validate every request boundary with Zod: body, querystring, params, and headers when applicable.

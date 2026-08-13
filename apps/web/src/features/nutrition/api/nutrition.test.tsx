@@ -6,6 +6,7 @@ import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import { createQueryClientWrapper } from '@/test/query-client';
+import { adaptiveNutritionQueryKey } from '@/lib/query-invalidation';
 
 import { nutritionQueryKeys } from './keys';
 import {
@@ -14,6 +15,7 @@ import {
   useRenameMeal,
   useNutritionSummary,
   useNutritionWeekSummary,
+  useUpdateNutritionStatus,
 } from './nutrition';
 
 const mockFetch = vi.fn();
@@ -40,6 +42,8 @@ describe('nutrition api hooks', () => {
           userId: 'user-1',
           date: '2026-03-09',
           notes: null,
+          status: 'unknown',
+          statusUpdatedAt: null,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -279,6 +283,9 @@ describe('nutrition api hooks', () => {
       queryKey: nutritionQueryKeys.weekSummary('2026-03-09'),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: adaptiveNutritionQueryKey,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: dashboardSnapshotQueryKeys.all,
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
@@ -293,6 +300,38 @@ describe('nutrition api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: habitChainQueryKeys.all,
     });
+  });
+
+  it('updates explicit day status and invalidates day plus adaptive state', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        id: 'log-1',
+        userId: 'user-1',
+        date: '2026-03-09',
+        notes: null,
+        status: 'complete',
+        statusUpdatedAt: 2,
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    );
+
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateNutritionStatus(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ date: '2026-03-09', status: 'complete' });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/2026-03-09/status',
+      expect.objectContaining({ body: JSON.stringify({ status: 'complete' }), method: 'PATCH' }),
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.day('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
   });
 
   it('renames a meal and invalidates daily + summary + week-summary cache for that date', async () => {
@@ -355,6 +394,8 @@ describe('nutrition api hooks', () => {
         userId: 'user-1',
         date: '2026-03-09',
         notes: null,
+        status: 'unknown',
+        statusUpdatedAt: null,
         createdAt: 1,
         updatedAt: 1,
       },

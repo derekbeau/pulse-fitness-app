@@ -8,6 +8,8 @@ const nonnegativeNumber = z.number().nonnegative().finite();
 
 const mealTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
+export const nutritionLogStatusSchema = z.enum(['unknown', 'partial', 'complete']);
+
 export const nutritionMacroTotalsSchema = z.object({
   calories: nonnegativeNumber,
   protein: nonnegativeNumber,
@@ -20,8 +22,14 @@ export const nutritionLogSchema = z.object({
   userId: z.string(),
   date: dateSchema,
   notes: z.string().nullable(),
+  status: nutritionLogStatusSchema,
+  statusUpdatedAt: z.number().int().nullable(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
+});
+
+export const updateNutritionLogStatusInputSchema = z.object({
+  status: nutritionLogStatusSchema,
 });
 
 export const nutritionMealSchema = z.object({
@@ -317,6 +325,8 @@ export type PatchMealInput = z.infer<typeof patchMealInputSchema>;
 export type PatchMealItemInput = z.infer<typeof patchMealItemInputSchema>;
 export type NutritionMacroTotals = z.infer<typeof nutritionMacroTotalsSchema>;
 export type NutritionLog = z.infer<typeof nutritionLogSchema>;
+export type NutritionLogStatus = z.infer<typeof nutritionLogStatusSchema>;
+export type UpdateNutritionLogStatusInput = z.infer<typeof updateNutritionLogStatusInputSchema>;
 export type NutritionMeal = z.infer<typeof nutritionMealSchema>;
 export type NutritionMealItem = z.infer<typeof nutritionMealItemSchema>;
 export type DailyNutritionMeal = z.infer<typeof dailyNutritionMealSchema>;

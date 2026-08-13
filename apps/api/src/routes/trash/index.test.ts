@@ -173,7 +173,10 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
     const response = await context.app.inject({
       method: 'GET',
       url: '/api/v1/trash',
@@ -210,7 +213,10 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
     const response = await context.app.inject({
       method: 'POST',
       url: '/api/v1/trash/habits/habit-1/restore',
@@ -269,6 +275,8 @@ describe('trash routes', () => {
         id: 'log-1',
         userId: 'user-1',
         date: '2026-03-10',
+        status: 'complete',
+        statusUpdatedAt: 1,
       })
       .run();
     context.db
@@ -317,7 +325,10 @@ describe('trash routes', () => {
       })
       .run();
 
-    const authToken = context.app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
 
     const purgeFoodResponse = await context.app.inject({
       method: 'DELETE',
@@ -343,6 +354,13 @@ describe('trash routes', () => {
         .where(eq(mealItems.id, 'meal-item-1'))
         .get(),
     ).toBeUndefined();
+    expect(
+      context.db
+        .select({ status: nutritionLogs.status })
+        .from(nutritionLogs)
+        .where(eq(nutritionLogs.id, 'log-1'))
+        .get(),
+    ).toEqual({ status: 'partial' });
     expect(
       context.db
         .select({ id: workoutSessions.id })

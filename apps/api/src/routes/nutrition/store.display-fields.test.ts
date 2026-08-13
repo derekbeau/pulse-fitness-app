@@ -97,6 +97,17 @@ const createTxForMealInsert = (returnedItems: Array<Record<string, unknown>>) =>
         throw new Error(`Unexpected select table: ${String(table)}`);
       }),
     })),
+    update: vi.fn((table) => {
+      if (table === nutritionLogs) {
+        return {
+          set: vi.fn(() => ({
+            where: vi.fn(() => ({ run: vi.fn(() => ({ changes: 0 })) })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected update table: ${String(table)}`);
+    }),
   };
 
   return tx;

@@ -489,12 +489,16 @@ describe('migrate-static script', () => {
     });
 
     expect(captured.errorMessages).toEqual([]);
-    expect(captured.warnMessages.some((line) => line.includes('Missing food reference for "Mystery Food"'))).toBe(
-      true,
-    );
-    expect(captured.warnMessages.some((line) => line.includes('Missing habit reference for "Unknown Habit"'))).toBe(
-      true,
-    );
+    expect(
+      captured.warnMessages.some((line) =>
+        line.includes('Missing food reference for "Mystery Food"'),
+      ),
+    ).toBe(true);
+    expect(
+      captured.warnMessages.some((line) =>
+        line.includes('Missing habit reference for "Unknown Habit"'),
+      ),
+    ).toBe(true);
 
     expect(dbModule.db.select().from(nutritionLogs).all()).toHaveLength(2);
     expect(dbModule.db.select().from(meals).all()).toHaveLength(3);
@@ -582,6 +586,8 @@ describe('migrate-static script', () => {
       bodyWeight: dbModule.db.select().from(bodyWeight).all().length,
     };
 
+    dbModule.db.update(nutritionLogs).set({ status: 'complete', statusUpdatedAt: 1 }).run();
+
     await scriptModule.migrateDailyLogsAndBodyWeight({
       userId: 'user-1',
       dataRoot,
@@ -597,6 +603,13 @@ describe('migrate-static script', () => {
     };
 
     expect(secondPassCounts).toEqual(firstPassCounts);
+    expect(
+      dbModule.db
+        .select({ status: nutritionLogs.status })
+        .from(nutritionLogs)
+        .all()
+        .map((row) => row.status),
+    ).toEqual(['partial', 'partial']);
 
     const overriddenWeight = dbModule.db
       .select({
@@ -699,7 +712,10 @@ describe('migrate-static script', () => {
       .from(sessionSets)
       .innerJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
       .where(
-        and(eq(sessionSets.sessionId, upperSession?.id ?? ''), eq(exercises.name, 'Barbell Bench Press')),
+        and(
+          eq(sessionSets.sessionId, upperSession?.id ?? ''),
+          eq(exercises.name, 'Barbell Bench Press'),
+        ),
       )
       .limit(1)
       .get();
@@ -762,7 +778,12 @@ describe('migrate-static script', () => {
     expect(allFoods).toHaveLength(4); // 2 seeded + 2 inserted
 
     const yogurt = dbModule.db
-      .select({ brand: foods.brand, protein: foods.protein, verified: foods.verified, source: foods.source })
+      .select({
+        brand: foods.brand,
+        protein: foods.protein,
+        verified: foods.verified,
+        source: foods.source,
+      })
       .from(foods)
       .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Greek Yogurt')))
       .limit(1)
@@ -833,10 +854,18 @@ describe('migrate-static script', () => {
 
   it('is idempotent for foods migration when re-run', async () => {
     await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
-    const firstCount = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all().length;
+    const firstCount = dbModule.db
+      .select()
+      .from(foods)
+      .where(eq(foods.userId, 'user-1'))
+      .all().length;
 
     await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
-    const secondCount = dbModule.db.select().from(foods).where(eq(foods.userId, 'user-1')).all().length;
+    const secondCount = dbModule.db
+      .select()
+      .from(foods)
+      .where(eq(foods.userId, 'user-1'))
+      .all().length;
 
     expect(secondCount).toBe(firstCount);
   });

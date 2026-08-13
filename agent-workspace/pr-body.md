@@ -14,7 +14,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 
 - [x] Baseline and isolated development database
 - [x] Canonical weight foundation and all-reader migration
-- [ ] Nutrition completeness and adaptive target provenance
+- [x] Nutrition completeness and adaptive target provenance
 - [ ] Pure deterministic adaptive TDEE algorithm
 - [ ] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
 - [ ] Coach UI, completion controls, history, accessibility, and responsive behavior
@@ -65,7 +65,15 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Paginated weight metadata is runtime-parsed with shared schema coverage for page zero and negative totals
 - [x] Final exact uncached pipeline passed (1,905 package tests plus 7 startup/security tests; zero cached Turbo tasks)
 - [x] Vector Gate 1 re-review and approval
+- [x] Explicit nutrition-log completeness status, legacy `unknown` migration, and authenticated validation route
+- [x] Atomic complete-to-partial downgrade across every in-scope meal, item, food, purge, and static-reimport mutation
+- [x] Manual/adaptive target provenance, server-derived macro calories, restricted check-in linkage, and immutable same-date snapshots
+- [x] Old/fresh migration, real SQLite rollback, provenance, route, response-boundary, and invalidation coverage
+- [x] Isolated built-in-browser Nutrition and Settings QA with clean console and expected request diagnostics
+- [x] Milestone 2 exact uncached pipeline passed (1,932 package tests plus 7 startup/security tests; zero cached Turbo tasks)
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
+
+Current milestone state: `AWAITING VECTOR GATE 2 REVIEW`. Milestone 3 has not started; PR #100 remains draft.
 
 ## Review focus
 

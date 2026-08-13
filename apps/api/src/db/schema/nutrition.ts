@@ -17,6 +17,8 @@ export const nutritionLogs = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     date: text('date').notNull(),
     notes: text('notes'),
+    status: text('status').$type<'unknown' | 'partial' | 'complete'>().notNull().default('unknown'),
+    statusUpdatedAt: integer('status_updated_at', { mode: 'number' }),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
@@ -32,6 +34,10 @@ export const nutritionLogs = sqliteTable(
     check(
       'nutrition_logs_date_format_check',
       sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      'nutrition_logs_status_check',
+      sql`${table.status} in ('unknown', 'partial', 'complete')`,
     ),
   ],
 );

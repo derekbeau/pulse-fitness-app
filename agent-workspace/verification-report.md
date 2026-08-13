@@ -229,7 +229,35 @@ The first exact run exposed the root monorepo-script assertion that records the 
 
 ### Nutrition completeness and target provenance
 
-Pending.
+Implemented and self-reviewed on 2026-08-13:
+
+- Added explicit nutrition-log `unknown | partial | complete` status, legacy migration to `unknown`, audit timestamps, and authenticated status mutation. Complete status rejects future dates in the user's program timezone and missing nutrition logs.
+- Added a shared transactional downgrade primitive and applied it to meal create/edit/delete, item append/edit/delete, food merge, permanent food purge, and static reimport. Real SQLite tests prove complete-to-partial downgrades and rollback atomicity.
+- Added manual/adaptive nutrition-target provenance, server-derived macro calories, restricted check-in linkage, and immutable target snapshots. Public target writes always persist manual provenance; the internal adaptive writer requires an owned check-in, exact snapshot matching, and explicit same-date replacement.
+- Added only the adaptive program/check-in tables needed by Milestone 2's foreign key and snapshot contract. No adaptive calculation, preview, acceptance, or other Milestone 3/4 behavior is present.
+- Old/fresh migration coverage verifies legacy defaults, constraints, foreign keys, restricted target deletion, immutable check-ins, and the complete migration chain.
+- Web response boundaries parse the new nutrition and target fields. Status, meal, target, dashboard, trend, and future adaptive query invalidation paths are regression-covered.
+
+Targeted verification, all exit 0:
+
+| Command/check                                     | Observed result                                                                                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @pulse/api test -- --run`          | 56 files, 623 tests passed                                                                                                                           |
+| Migration/schema/store/route integration coverage | Old/fresh databases, defaults, constraints, restricted linkage, snapshots, downgrade cases, rollback, status validation, and provenance cases passed |
+| Shared and web targeted regressions               | Runtime schemas, target/status hooks, cache invalidation, Nutrition, and Settings regressions passed                                                 |
+
+Built-in-browser QA used only `pnpm dev:gate0` on isolated ports 3102/5274 and `apps/api/data/pulse-tdee-dev.db`. Settings saved and refetched a manual 2,175-calorie target with macros. Nutrition displayed the isolated test meal; after marking the day complete, editing the meal through the UI changed its persisted status to partial. A future-day completion attempt returned the expected HTTP 400 `FUTURE_NUTRITION_DATE`. Browser diagnostics contained zero console warnings/errors and no unexpected failed requests; the only non-2xx request was that intentional validation probe. The ephemeral QA agent token was deleted and the development process was stopped.
+
+The first full runs exposed one unused import and stale Settings response fixtures; both were repaired and covered before the final exact rerun. Final exact uncached pipeline, all exit 0:
+
+| Command                           | Observed result                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                            |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                                                  |
+| `TURBO_FORCE=true pnpm test`      | Startup/security 7/7; Turbo 6/6, 0 cached; shared 350, API 623, web 959 (1,932 package tests across 249 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,830 modules                                                                  |
+
+Complete diff self-review found no Milestone 3 algorithm, deployment, merge, or PR-ready scope. `git diff --check` passed. Verdict: `AWAITING VECTOR GATE 2 REVIEW`.
 
 ### Pure adaptive algorithm
 
@@ -317,7 +345,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 1 RE-REVIEW`
+`AWAITING VECTOR GATE 2 REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

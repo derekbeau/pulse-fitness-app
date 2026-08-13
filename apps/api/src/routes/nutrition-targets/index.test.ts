@@ -61,6 +61,9 @@ describe('nutrition target routes', () => {
       protein: 180,
       carbs: 250,
       fat: 70,
+      source: 'manual',
+      adaptiveCheckInId: null,
+      macroCalories: 2_350,
       effectiveDate: '2026-03-07',
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_000_000,
@@ -70,7 +73,10 @@ describe('nutrition target routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/nutrition-targets',
@@ -80,6 +86,9 @@ describe('nutrition target routes', () => {
           protein: 180,
           carbs: 250,
           fat: 70,
+          source: 'manual',
+          adaptiveCheckInId: null,
+          macroCalories: 2_350,
           effectiveDate: '2026-03-07',
         },
       });
@@ -92,6 +101,9 @@ describe('nutrition target routes', () => {
           protein: 180,
           carbs: 250,
           fat: 70,
+          source: 'manual',
+          adaptiveCheckInId: null,
+          macroCalories: 2_350,
           effectiveDate: '2026-03-07',
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_000_000,
@@ -114,7 +126,10 @@ describe('nutrition target routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/nutrition-targets',
@@ -148,6 +163,9 @@ describe('nutrition target routes', () => {
         protein: 185,
         carbs: 240,
         fat: 72,
+        source: 'adaptive',
+        adaptiveCheckInId: 'check-in-2',
+        macroCalories: 2_348,
         effectiveDate: '2026-03-07',
         createdAt: 1_700_000_100_000,
         updatedAt: 1_700_000_100_000,
@@ -184,6 +202,9 @@ describe('nutrition target routes', () => {
           protein: 185,
           carbs: 240,
           fat: 72,
+          source: 'adaptive',
+          adaptiveCheckInId: 'check-in-2',
+          macroCalories: 2_348,
           effectiveDate: '2026-03-07',
           createdAt: 1_700_000_100_000,
           updatedAt: 1_700_000_100_000,
@@ -212,6 +233,9 @@ describe('nutrition target routes', () => {
         protein: 185,
         carbs: 240,
         fat: 72,
+        source: 'adaptive',
+        adaptiveCheckInId: 'check-in-2',
+        macroCalories: 2_348,
         effectiveDate: '2026-03-07',
         createdAt: 1_700_000_100_000,
         updatedAt: 1_700_000_100_000,
@@ -222,6 +246,9 @@ describe('nutrition target routes', () => {
         protein: 180,
         carbs: 250,
         fat: 70,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        macroCalories: 2_350,
         effectiveDate: '2026-02-01',
         createdAt: 1_699_000_000_000,
         updatedAt: 1_699_000_000_000,
@@ -232,7 +259,10 @@ describe('nutrition target routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/nutrition-targets',
@@ -248,6 +278,9 @@ describe('nutrition target routes', () => {
             protein: 185,
             carbs: 240,
             fat: 72,
+            source: 'adaptive',
+            adaptiveCheckInId: 'check-in-2',
+            macroCalories: 2_348,
             effectiveDate: '2026-03-07',
             createdAt: 1_700_000_100_000,
             updatedAt: 1_700_000_100_000,
@@ -258,6 +291,9 @@ describe('nutrition target routes', () => {
             protein: 180,
             carbs: 250,
             fat: 70,
+            source: 'manual',
+            adaptiveCheckInId: null,
+            macroCalories: 2_350,
             effectiveDate: '2026-02-01',
             createdAt: 1_699_000_000_000,
             updatedAt: 1_699_000_000_000,

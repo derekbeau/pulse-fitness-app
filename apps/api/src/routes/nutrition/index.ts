@@ -12,6 +12,8 @@ import {
   nutritionWeekSummarySchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
+  updateNutritionLogStatusInputSchema,
+  nutritionLogSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -45,6 +47,11 @@ import {
   patchMealById,
   patchMealItemById,
 } from './store.js';
+import {
+  FutureNutritionDateError,
+  NutritionLogRequiredError,
+  updateNutritionLogStatus,
+} from './status-store.js';
 
 const isNonEmptyString = (value: string | null): value is string =>
   typeof value === 'string' && value.length > 0;
@@ -75,6 +82,53 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: summary,
       });
+    },
+  );
+
+  typedApp.patch(
+    '/:date/status',
+    {
+      schema: {
+        params: dateParamsSchema,
+        body: updateNutritionLogStatusInputSchema,
+        response: {
+          200: apiDataResponseSchema(nutritionLogSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Update explicit nutrition-day completeness status',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const log = await updateNutritionLogStatus(
+          request.userId,
+          request.params.date,
+          request.body.status,
+        );
+        return reply.send({ data: log });
+      } catch (error) {
+        if (error instanceof FutureNutritionDateError) {
+          return sendError(
+            reply,
+            400,
+            'FUTURE_NUTRITION_DATE',
+            'Future nutrition dates cannot be marked complete',
+          );
+        }
+        if (error instanceof NutritionLogRequiredError) {
+          return sendError(
+            reply,
+            409,
+            'NUTRITION_LOG_REQUIRED',
+            'A nutrition log is required before its status can be changed',
+          );
+        }
+        throw error;
+      }
     },
   );
 

@@ -27,13 +27,13 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 2: Nutrition completeness and target provenance
 
-- [ ] Add `unknown | partial | complete` nutrition-log status.
-- [ ] Migrate all existing rows to `unknown`.
-- [ ] Implement status mutation and validation.
-- [ ] Downgrade complete days to partial atomically whenever meals/items change.
-- [ ] Add manual/adaptive target provenance and restricted check-in linkage.
-- [ ] Preserve same-date replacement history in check-in snapshots.
-- [ ] Add schema, migration, store, route, and invalidation tests.
+- [x] Add `unknown | partial | complete` nutrition-log status.
+- [x] Migrate all existing rows to `unknown`.
+- [x] Implement status mutation and validation.
+- [x] Downgrade complete days to partial atomically whenever meals/items change.
+- [x] Add manual/adaptive target provenance and restricted check-in linkage.
+- [x] Preserve same-date replacement history in check-in snapshots.
+- [x] Add schema, migration, store, route, and invalidation tests.
 
 **Codex gate:** only explicitly complete, unchanged days can enter adaptive calculations; schema/API self-review, targeted tests, built-in-browser verification of affected nutrition and target surfaces, pushed commit, then stop at `AWAITING VECTOR GATE 2 REVIEW`.
 

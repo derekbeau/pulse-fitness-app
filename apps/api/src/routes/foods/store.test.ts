@@ -9,6 +9,7 @@ const dbState = vi.hoisted(() => ({
   selectResults: [] as SelectResultConfig[],
   selectBuilders: [] as Array<{
     from: ReturnType<typeof vi.fn>;
+    innerJoin: ReturnType<typeof vi.fn>;
     where: ReturnType<typeof vi.fn>;
     orderBy: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
@@ -75,6 +76,7 @@ const flattenSql = (value: unknown): string => {
 const createSelectBuilder = (result: SelectResultConfig) => {
   const builder = {
     from: vi.fn(),
+    innerJoin: vi.fn(),
     where: vi.fn(),
     orderBy: vi.fn(),
     limit: vi.fn(),
@@ -84,6 +86,7 @@ const createSelectBuilder = (result: SelectResultConfig) => {
   };
 
   builder.from.mockReturnValue(builder);
+  builder.innerJoin.mockReturnValue(builder);
   builder.where.mockReturnValue(builder);
   builder.orderBy.mockReturnValue(builder);
   builder.limit.mockReturnValue(builder);
@@ -132,6 +135,7 @@ vi.mock('../../db/index.js', () => ({
     const db = {
       transaction: dbState.transaction,
       select: vi.fn(() => createSelectBuilder(dbState.selectResults.shift() ?? {})),
+      selectDistinct: vi.fn(() => createSelectBuilder(dbState.selectResults.shift() ?? {})),
       insert: vi.fn(() => ({
         values: vi.fn((values: unknown) => {
           dbState.insertValues.push(values);
@@ -483,6 +487,9 @@ describe('foods store', () => {
         }),
       },
       {
+        all: [],
+      },
+      {
         get: buildStoredFood({
           id: winnerId,
           usageCount: 11,
@@ -543,6 +550,9 @@ describe('foods store', () => {
           usageCount: 3,
           lastUsedAt: 1_700_000_500_000,
         }),
+      },
+      {
+        all: [],
       },
       {
         get: buildStoredFood({

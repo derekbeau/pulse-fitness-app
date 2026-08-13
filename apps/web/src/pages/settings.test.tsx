@@ -38,6 +38,9 @@ type TestState = {
     protein: number;
     carbs: number;
     fat: number;
+    source: 'manual' | 'adaptive';
+    adaptiveCheckInId: string | null;
+    macroCalories: number | null;
     effectiveDate: string;
     createdAt: number;
     updatedAt: number;
@@ -182,8 +185,25 @@ describe('SettingsPage', () => {
             );
           }
 
+          const input = JSON.parse(String(init.body)) as {
+            calories: number;
+            protein: number;
+            carbs: number;
+            fat: number;
+            effectiveDate: string;
+          };
+          state.nutritionCurrent = {
+            id: 'target-1',
+            ...input,
+            source: 'manual',
+            adaptiveCheckInId: null,
+            macroCalories: input.protein * 4 + input.carbs * 4 + input.fat * 9,
+            createdAt: 1,
+            updatedAt: 1,
+          };
+
           return Promise.resolve(
-            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+            new Response(JSON.stringify({ data: state.nutritionCurrent }), {
               headers: { 'Content-Type': 'application/json' },
               status: 200,
             }),
