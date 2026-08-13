@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 4 APPROVED<br>
+**Overall:** AWAITING VECTOR GATE 5 REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 4 lifecycle repair complete)
+**Last updated:** 2026-08-13 (Milestone 5 Coach UI complete)
 
 ## Completed
 
@@ -67,17 +67,25 @@
 - Vector independently inspected the complete five-file repair and confirmed identical pending reuse still precedes bounded supersession, while changed pending-to-held/actionable transitions remain atomic inside the existing immediate transaction.
 - Vector independently reran 23/23 focused API lifecycle tests, 15/15 shared schema tests, 6/6 web invalidation tests, the fresh migration integrity checks, and the exact uncached repository pipeline. Startup/security 7, shared 402, API 658, and web 960 tests passed; lint, typecheck, and all three builds passed with zero cached tasks.
 - Vector repeated isolated runtime QA on ports 3102/5274. Health, Dashboard, Nutrition, and all seven live adaptive Swagger endpoints rendered; the API opened only `pulse-tdee-dev.db` and not the production snapshot. The copied production snapshot hash remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; both ports were free after shutdown.
+- Milestone 5 adds the Nutrition Coach tab, dashboard review badge, guided baseline setup, explicit setup/baseline/learning/updating/holding/pending states, calculation disclosure, accept/decline flows, immutable history detail, same-date confirmation, and stale-preview recovery.
+- Nutrition Log now exposes accessible unknown/partial/complete controls, confirms completion for today, and reflects the existing server-side complete-to-partial downgrade after meal changes.
+- Adaptive frontend hooks parse shared schemas at response boundaries and invalidate program, check-in, targets, nutrition, weight, and dashboard query families after each lifecycle mutation.
+- Final self-review found and repaired a cross-unit setup comparison that could compare a saved kilogram weight directly with a pound target; direction validation now compares canonical kilograms and has a permanent regression.
+- Focused frontend verification passed 70 tests across adaptive components, API hooks, formatting, Nutrition, Dashboard, and confirmation behavior. The exact uncached repository pipeline passed startup/security 7 plus shared 402, API 658, and web 987 tests (2,047 package tests; 2,054 total), plus lint, typecheck, and all three production builds with zero cached Turbo tasks.
+- Playwright passed 7/7 major adaptive paths in installed Chrome: setup/baseline/history, learning, actionable preview/acceptance, stale recovery, completion/downgrade, narrow responsive plus tab keyboard behavior, and keyboard-only setup/acceptance.
+- Built-in-browser QA used only `pnpm dev:gate0` and the isolated database. All six Coach states, day-status changes, comparison/details, confirmation focus trap/restoration, history, and dashboard review link were exercised. Widths 320, 375, 390, 430, 768, and 1280 had no horizontal overflow; final console error/warning logs were empty and no unexpected network request failed.
+- Production was not accessed, deployed, or changed. Milestone 6 backtest, deterministic state fixtures, staging/Tailscale preview, and final acceptance review have not started.
 
 ## Current milestone
 
-**Milestone 4: program, check-in, and API lifecycle — VECTOR GATE 4 APPROVED**
+**Milestone 5: Coach and completion UI — AWAITING VECTOR GATE 5 REVIEW**
 
-The bounded pending-to-held lifecycle repair, durable regression, independent diff review, fresh database checks, isolated acceptance, and full uncached gates are approved. Preview idempotency and explicit immediate-transaction safety remain intact.
+The complete review-before-apply Coach experience and nutrition-day completion controls are implemented, self-reviewed, covered by RTL and Playwright, and verified in the built-in browser at every required width. Milestone 6 remains untouched.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Await separate authorization before beginning Milestone 5.
+2. Await Vector Gate 5 review and explicit authorization before beginning Milestone 6.
 3. Do not deploy, merge, or make PR #100 ready.
 
 ## Blocking issues
@@ -92,4 +100,4 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 4 is `VECTOR GATE 4 APPROVED`; Milestone 5 has not started.
+PR #100 remains draft. Milestone 5 is `AWAITING VECTOR GATE 5 REVIEW`; Milestone 6 has not started.

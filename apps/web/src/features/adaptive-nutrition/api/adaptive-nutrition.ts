@@ -1,0 +1,141 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  adaptiveAcceptResultSchema,
+  adaptiveCheckInDetailSchema,
+  adaptiveCheckInSummarySchema,
+  adaptiveNutritionStateSchema,
+  adaptiveProgramSchema,
+  apiMetaSchema,
+  type AdaptiveAcceptInput,
+  type AdaptivePreviewInput,
+  type AdaptiveProgramMutation,
+} from '@pulse/shared';
+import { toast } from 'sonner';
+
+import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
+
+import { adaptiveNutritionQueryKeys } from './keys';
+
+const fetchAdaptiveNutritionState = (signal?: AbortSignal) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition', { signal }).then((value) =>
+    adaptiveNutritionStateSchema.parse(value),
+  );
+
+const putAdaptiveNutritionProgram = (input: AdaptiveProgramMutation) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition/program', {
+    body: input,
+    method: 'PUT',
+  }).then((value) => adaptiveProgramSchema.parse(value));
+
+const previewAdaptiveNutritionCheckIn = (input: AdaptivePreviewInput) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition/check-ins/preview', {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveCheckInDetailSchema.parse(value));
+
+const acceptAdaptiveNutritionCheckIn = ({
+  id,
+  input,
+}: {
+  id: string;
+  input: AdaptiveAcceptInput;
+}) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/check-ins/${id}/accept`, {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveAcceptResultSchema.parse(value));
+
+const declineAdaptiveNutritionCheckIn = (id: string) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/check-ins/${id}/decline`, {
+    method: 'POST',
+  }).then((value) => adaptiveCheckInDetailSchema.parse(value));
+
+const fetchAdaptiveNutritionHistory = async (page: number, limit: number, signal?: AbortSignal) => {
+  const response = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/adaptive-nutrition/check-ins?page=${page}&limit=${limit}`,
+    { signal },
+  );
+
+  return {
+    data: adaptiveCheckInSummarySchema.array().parse(response.data),
+    meta: apiMetaSchema.parse(response.meta),
+  };
+};
+
+const fetchAdaptiveNutritionCheckIn = (id: string, signal?: AbortSignal) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/check-ins/${id}`, { signal }).then((value) =>
+    adaptiveCheckInDetailSchema.parse(value),
+  );
+
+export const useAdaptiveNutritionState = () =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.state(),
+    queryFn: ({ signal }) => fetchAdaptiveNutritionState(signal),
+  });
+
+export const useAdaptiveNutritionHistory = (page = 1, limit = 20) =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.history(page, limit),
+    queryFn: ({ signal }) => fetchAdaptiveNutritionHistory(page, limit, signal),
+  });
+
+export const useAdaptiveNutritionCheckIn = (id: string | null, enabled = true) =>
+  useQuery({
+    enabled: enabled && id !== null,
+    queryKey: adaptiveNutritionQueryKeys.detail(id ?? 'none'),
+    queryFn: ({ signal }) => fetchAdaptiveNutritionCheckIn(id ?? '', signal),
+  });
+
+export const usePutAdaptiveNutritionProgram = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: putAdaptiveNutritionProgram,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptiveProgramMutation());
+      toast.success('Nutrition coaching program created');
+    },
+  });
+};
+
+export const usePreviewAdaptiveNutritionCheckIn = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: previewAdaptiveNutritionCheckIn,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptivePreviewMutation());
+    },
+  });
+};
+
+export const useAcceptAdaptiveNutritionCheckIn = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: acceptAdaptiveNutritionCheckIn,
+    onSuccess: async () => {
+      await invalidateQueryKeys(
+        queryClient,
+        crossFeatureInvalidationMap.adaptiveResolutionMutation(),
+      );
+      toast.success('Adaptive targets accepted');
+    },
+  });
+};
+
+export const useDeclineAdaptiveNutritionCheckIn = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: declineAdaptiveNutritionCheckIn,
+    onSuccess: async () => {
+      await invalidateQueryKeys(
+        queryClient,
+        crossFeatureInvalidationMap.adaptiveResolutionMutation(),
+      );
+      toast.success('Current targets kept');
+    },
+  });
+};

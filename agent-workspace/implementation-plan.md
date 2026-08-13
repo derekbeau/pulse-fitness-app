@@ -66,14 +66,14 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 5: Coach and completion UI
 
-- [ ] Add the Nutrition Coach tab and due badge.
-- [ ] Implement setup with recent/entered weight requirements.
-- [ ] Implement setup, baseline, learning, updating, holding, and pending states.
-- [ ] Add nutrition-day completion controls.
-- [ ] Add recommendation comparison, calculation details, acceptance, decline, and history.
-- [ ] Implement same-date target replacement confirmation and stale recovery.
-- [ ] Meet accessibility requirements and responsive widths.
-- [ ] Add RTL and Playwright coverage for all major paths.
+- [x] Add the Nutrition Coach tab and due badge.
+- [x] Implement setup with recent/entered weight requirements.
+- [x] Implement setup, baseline, learning, updating, holding, and pending states.
+- [x] Add nutrition-day completion controls.
+- [x] Add recommendation comparison, calculation details, acceptance, decline, and history.
+- [x] Implement same-date target replacement confirmation and stale recovery.
+- [x] Meet accessibility requirements and responsive widths.
+- [x] Add RTL and Playwright coverage for all major paths.
 
 **Codex gate:** every primary state is usable with keyboard and at all specified responsive widths without console/network errors; complete built-in-browser walkthrough, accessibility self-review, screenshots/evidence, pushed commit, then stop at `AWAITING VECTOR GATE 5 REVIEW`.
 

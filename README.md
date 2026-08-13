@@ -9,7 +9,7 @@ A personal health and fitness tracking app. Most data entry happens via AI agent
 - **Active Workout Sessions** — Multiple concurrent active sessions, server-side session state, and agent-driven mid-session exercise add/remove/reorder updates
 - **Workout Planning** — Calendar scheduling plus reschedule/remove workflows linked to templates and sessions
 - **Exercise Management** — Taxonomy improvements (category/form cues/tags), dedup-aware creation, metadata enrichment workflows, card/table library view toggle, and a unified exercise detail modal across templates/sessions/library
-- **Nutrition** — Tabbed nutrition workspace with `Log`, `Foods`, and `Trends` views, explicit `unknown | partial | complete` day status, effective-dated target provenance, and a replayable Adaptive TDEE program/check-in API (meals entered via agent API)
+- **Nutrition** — Tabbed nutrition workspace with `Log`, `Coach`, `Foods`, and `Trends` views, explicit `unknown | partial | complete` day status, and review-before-apply Adaptive TDEE setup, readiness, recommendations, calculations, and history (meals entered via agent API)
 - **Foods** — Per-user food database inside Nutrition (`/nutrition?view=foods`) with search, management, soft delete support, and recency tracking (`lastUsedAt`)
 - **Unified List Controls** — Exercises, foods, and workout templates use shared sort controls and per-page pagination
 - **Standardized Route Headers** — Shared `PageHeader` pattern for consistent title, description, back-navigation, and header action layouts across pages

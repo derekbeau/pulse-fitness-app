@@ -460,7 +460,36 @@ Vector verdict: `VECTOR GATE 4 APPROVED`.
 
 ### Coach UI and completion controls
 
-Pending.
+Milestone 5 implements the responsive Nutrition Coach tab, dashboard review link, setup and rebaseline
+form, all six program states, day-completion controls, recommendation comparison and calculation
+disclosure, accept/decline/history flows, same-date replacement confirmation, and stale-preview recovery.
+Shared Zod contracts are parsed at every new HTTP boundary, and lifecycle mutations invalidate all
+affected adaptive, target, nutrition, weight, and dashboard query families.
+
+Final whole-diff self-review found one cross-unit goal-direction defect: a saved kilogram weight could be
+compared directly with a pound target. Direction validation now compares canonical kilograms, and a
+saved-kg/target-lb regression is included.
+
+Focused verification passed 70/70 tests across adaptive API hooks, formatting, setup, state rendering,
+day status, Nutrition integration, Dashboard integration, and confirmation focus restoration. The exact
+uncached repository sequence passed `git diff --check`, lint, typecheck, tests, and build with zero cached
+Turbo tasks: startup/security 7/7, shared 402/402, API 658/658, and web 987/987 (2,047 package tests;
+2,054 total including startup/security).
+Lint retained only the four documented pre-existing Fast Refresh warnings.
+
+Playwright passed 7/7 adaptive scenarios using installed Chrome against the tracked Gate 0 environment:
+setup through accepted baseline and history, learning, actionable manual acceptance, stale-preview
+recovery, today's completion plus automatic downgrade, narrow-width/tab keyboard behavior, and
+keyboard-only setup and acceptance.
+
+The built-in browser used only `pnpm dev:gate0`, ports 3102/5274, and
+`apps/api/data/pulse-tdee-dev.db`. It exercised setup, baseline, learning, updating, holding, and pending
+states; completion changes; calculation details; same-date confirmation; history; and the Dashboard
+review link. The confirmation dialog trapped focus and restored it to its trigger after cancellation.
+At 320, 375, 390, 430, 768, and 1280 px, the document width matched the viewport with no horizontal
+overflow and action targets were at least 44 px high. Final console warning/error logs were empty and
+no unexpected network request failed. The process was stopped after verification. Production remained
+unchanged, and no Milestone 6 work was started.
 
 ### Backtest and stale-data behavior
 
@@ -478,41 +507,41 @@ Record exact commands, exit codes, test counts, duration, and commit SHA.
 - [x] Fresh migration chain
 - [x] Legacy migration fixture
 - [x] Real SQLite concurrency tests
-- [ ] Playwright/E2E suite
+- [x] Playwright/E2E suite
 
 ## Browser acceptance matrix
 
 Use an isolated development database. Capture screenshots when they clarify a result. Inspect console errors and failed network requests for every flow.
 
-| Flow                                        | Result  | Evidence/notes |
-| ------------------------------------------- | ------- | -------------- |
-| New-user setup and baseline preview         | Pending |                |
-| Setup without current weight                | Pending |                |
-| Learning/insufficient-data state            | Pending |                |
-| Held stale-weight state                     | Pending |                |
-| Complete/partial/unknown day behavior       | Pending |                |
-| Complete day downgraded after food mutation | Pending |                |
-| Eligible manual check-in                    | Pending |                |
-| Same-date target conflict                   | Pending |                |
-| Stale preview rejection                     | Pending |                |
-| Accept and target invalidation              | Pending |                |
-| Decline and repeated decline                | Pending |                |
-| History and calculation details             | Pending |                |
-| Goal-reached maintenance transition         | Pending |                |
-| Due badge after held weekly attempt         | Pending |                |
+| Flow                                        | Result | Evidence/notes                              |
+| ------------------------------------------- | ------ | ------------------------------------------- |
+| New-user setup and baseline preview         | Passed | Browser + Playwright                        |
+| Setup without current weight                | Passed | RTL validation                              |
+| Learning/insufficient-data state            | Passed | Browser + Playwright                        |
+| Held stale-weight state                     | Passed | Browser state + RTL reason/action coverage  |
+| Complete/partial/unknown day behavior       | Passed | Browser + RTL                               |
+| Complete day downgraded after food mutation | Passed | Browser + Playwright                        |
+| Eligible manual check-in                    | Passed | Browser + Playwright                        |
+| Same-date target conflict                   | Passed | Browser + RTL                               |
+| Stale preview rejection                     | Passed | Playwright + RTL                            |
+| Accept and target invalidation              | Passed | Browser + Playwright + hook tests           |
+| Decline and repeated decline                | Passed | RTL + existing API lifecycle tests          |
+| History and calculation details             | Passed | Browser + Playwright + RTL                  |
+| Goal-reached maintenance transition         | Passed | RTL + existing algorithm/API tests          |
+| Due badge after held weekly attempt         | Passed | Browser dashboard link + RTL state coverage |
 
 ## Responsive and accessibility checks
 
-- [ ] 320 px
-- [ ] 375 px
-- [ ] 390 px
-- [ ] 430 px
-- [ ] 768 px
-- [ ] 1280 px
-- [ ] Keyboard-only setup and acceptance
-- [ ] Focus trapping/restoration
-- [ ] Status not communicated by color alone
-- [ ] No horizontal overflow
+- [x] 320 px
+- [x] 375 px
+- [x] 390 px
+- [x] 430 px
+- [x] 768 px
+- [x] 1280 px
+- [x] Keyboard-only setup and acceptance
+- [x] Focus trapping/restoration
+- [x] Status not communicated by color alone
+- [x] No horizontal overflow
 
 ## Development preview
 
@@ -536,7 +565,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`VECTOR GATE 4 APPROVED`
+`AWAITING VECTOR GATE 5 REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

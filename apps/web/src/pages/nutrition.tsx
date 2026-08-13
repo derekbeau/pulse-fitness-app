@@ -1,17 +1,23 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { type KeyboardEvent, useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FoodList } from '@/features/foods';
+import {
+  AdaptiveCoach,
+  NutritionDayStatusControl,
+  useAdaptiveNutritionState,
+} from '@/features/adaptive-nutrition';
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
 import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
 import {
@@ -38,7 +44,7 @@ import {
   type MealSortDirection,
 } from '@/features/nutrition/lib/nutrition-utils';
 
-const NUTRITION_VIEWS = ['log', 'foods', 'trends'] as const;
+const NUTRITION_VIEWS = ['log', 'coach', 'foods', 'trends'] as const;
 
 type NutritionView = (typeof NUTRITION_VIEWS)[number];
 
@@ -46,10 +52,33 @@ function isNutritionView(value: string | null): value is NutritionView {
   return value != null && NUTRITION_VIEWS.includes(value as NutritionView);
 }
 
+function handleViewTabKeyDown(
+  event: KeyboardEvent<HTMLDivElement>,
+  setActiveView: (view: NutritionView) => void,
+) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'));
+  const currentIndex = tabs.indexOf(document.activeElement as HTMLElement);
+  if (currentIndex < 0) return;
+  event.preventDefault();
+  const nextIndex =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? tabs.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  tabs[nextIndex]?.focus();
+  setActiveView(NUTRITION_VIEWS[nextIndex]);
+}
+
 export function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
   const activeView: NutritionView = isNutritionView(viewParam) ? viewParam : 'log';
+  const adaptiveStateQuery = useAdaptiveNutritionState();
+  const coachNeedsAttention = Boolean(
+    adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn,
+  );
 
   useEffect(() => {
     if (isNutritionView(viewParam)) {
@@ -86,48 +115,95 @@ export function NutritionPage() {
               <li>Daily summary and macro rings show actual intake compared with your targets.</li>
               <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
               <li>Food definition edits later will not retroactively change past meal macros.</li>
+              <li>
+                Mark days Complete only when every calorie-containing item is represented. Meal
+                changes automatically return a Complete day to Partial.
+              </li>
+              <li>
+                Nutrition Coach estimates personalized expenditure from complete days and weight
+                trend; recommendations require your approval.
+              </li>
             </ul>
           </HelpIcon>
         }
         description={
           activeView === 'log'
             ? 'Review daily meal logs and macro progress.'
-            : activeView === 'foods'
-              ? 'Browse and manage your saved foods library.'
-              : 'Track calories and macros across 7, 30, or 90 days.'
+            : activeView === 'coach'
+              ? 'Review your expenditure estimate, data readiness, and target recommendations.'
+              : activeView === 'foods'
+                ? 'Browse and manage your saved foods library.'
+                : 'Track calories and macros across 7, 30, or 90 days.'
         }
         title="Nutrition"
       >
         <div
           aria-label="Nutrition views"
-          className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1"
-          role="group"
+          className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-1 sm:w-fit sm:rounded-full"
+          onKeyDown={(event) => handleViewTabKeyDown(event, setActiveView)}
+          role="tablist"
         >
           <Button
-            aria-pressed={activeView === 'log'}
+            aria-controls="nutrition-view-panel"
+            aria-selected={activeView === 'log'}
             className="rounded-full"
+            id="nutrition-view-log"
             onClick={() => setActiveView('log')}
+            role="tab"
             size="sm"
+            tabIndex={activeView === 'log' ? 0 : -1}
             type="button"
             variant={activeView === 'log' ? 'default' : 'ghost'}
           >
             Log
           </Button>
           <Button
-            aria-pressed={activeView === 'foods'}
+            aria-controls="nutrition-view-panel"
+            aria-selected={activeView === 'coach'}
             className="rounded-full"
-            onClick={() => setActiveView('foods')}
+            id="nutrition-view-coach"
+            onClick={() => setActiveView('coach')}
+            role="tab"
             size="sm"
+            tabIndex={activeView === 'coach' ? 0 : -1}
+            type="button"
+            variant={activeView === 'coach' ? 'default' : 'ghost'}
+          >
+            Coach
+            {coachNeedsAttention ? (
+              <Badge
+                aria-hidden="true"
+                className="border-current bg-current/10 px-1.5 text-[0.65rem] text-inherit"
+                variant="outline"
+              >
+                {adaptiveStateQuery.data?.pendingCheckIn ? 'Review' : 'Due'}
+              </Badge>
+            ) : null}
+            {coachNeedsAttention ? <span className="sr-only"> needs attention</span> : null}
+          </Button>
+          <Button
+            aria-controls="nutrition-view-panel"
+            aria-selected={activeView === 'foods'}
+            className="rounded-full"
+            id="nutrition-view-foods"
+            onClick={() => setActiveView('foods')}
+            role="tab"
+            size="sm"
+            tabIndex={activeView === 'foods' ? 0 : -1}
             type="button"
             variant={activeView === 'foods' ? 'default' : 'ghost'}
           >
             Foods
           </Button>
           <Button
-            aria-pressed={activeView === 'trends'}
+            aria-controls="nutrition-view-panel"
+            aria-selected={activeView === 'trends'}
             className="rounded-full"
+            id="nutrition-view-trends"
             onClick={() => setActiveView('trends')}
+            role="tab"
             size="sm"
+            tabIndex={activeView === 'trends' ? 0 : -1}
             type="button"
             variant={activeView === 'trends' ? 'default' : 'ghost'}
           >
@@ -136,13 +212,21 @@ export function NutritionPage() {
         </div>
       </PageHeader>
 
-      {activeView === 'log' ? (
-        <NutritionLogTab />
-      ) : activeView === 'foods' ? (
-        <FoodList />
-      ) : (
-        <NutritionTrends />
-      )}
+      <div
+        aria-labelledby={`nutrition-view-${activeView}`}
+        id="nutrition-view-panel"
+        role="tabpanel"
+      >
+        {activeView === 'log' ? (
+          <NutritionLogTab />
+        ) : activeView === 'coach' ? (
+          <AdaptiveCoach />
+        ) : activeView === 'foods' ? (
+          <FoodList />
+        ) : (
+          <NutritionTrends />
+        )}
+      </div>
     </section>
   );
 }
@@ -281,6 +365,12 @@ function NutritionLogTab() {
       ) : weekSummaryQuery.isError ? (
         <p className="text-sm text-muted">Unable to load week summary.</p>
       ) : null}
+
+      <NutritionDayStatusControl
+        date={dateKey}
+        isToday={isSelectedDateToday}
+        status={dailyNutritionQuery.data?.log.status ?? null}
+      />
 
       {nutritionError ? (
         <section className="rounded-2xl border border-destructive/30 px-5 py-6">

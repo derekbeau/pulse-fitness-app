@@ -2,10 +2,12 @@ import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar, LayoutDashboard, Pencil } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
@@ -20,6 +22,7 @@ import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
+import { useAdaptiveNutritionState } from '@/features/adaptive-nutrition';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
@@ -123,6 +126,7 @@ export function DashboardPage() {
   const snapshotQuery = useDashboardSnapshot(selectedDateKey, {
     refetchIntervalMs: getForegroundPollingInterval(DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS),
   });
+  const adaptiveStateQuery = useAdaptiveNutritionState();
   // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits({
@@ -562,7 +566,7 @@ export function DashboardPage() {
           }
           title="Dashboard"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
@@ -578,6 +582,21 @@ export function DashboardPage() {
                 />
               </PopoverContent>
             </Popover>
+            {adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn ? (
+              <Button asChild className="rounded-full" size="sm" variant="outline">
+                <Link to="/nutrition?view=coach">
+                  Nutrition Coach
+                  <Badge aria-hidden="true" className="px-1.5 text-[0.65rem]">
+                    {adaptiveStateQuery.data.pendingCheckIn ? 'Review' : 'Due'}
+                  </Badge>
+                  <span className="sr-only">
+                    {adaptiveStateQuery.data.pendingCheckIn
+                      ? ' recommendation ready'
+                      : ' check-in due'}
+                  </span>
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </PageHeader>
       </div>

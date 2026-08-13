@@ -121,6 +121,19 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
     const method = init?.method ?? 'GET';
     const pathParts = url.pathname.split('/').filter(Boolean);
 
+    if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
+      return createJsonResponse({
+        state: 'setup_required',
+        program: null,
+        currentTarget: null,
+        latestAcceptedCheckIn: null,
+        pendingCheckIn: null,
+        checkInDue: false,
+        nextCheckInDate: null,
+        eligibility: null,
+      });
+    }
+
     if (pathParts[0] !== 'api' || pathParts[1] !== 'v1' || pathParts[2] !== 'nutrition') {
       throw new Error(`Unhandled request: ${method} ${url.pathname}`);
     }
@@ -188,6 +201,23 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       });
     }
 
+    if (method === 'PATCH' && pathParts.length === 5 && pathParts[4] === 'status') {
+      if (!dateState.daily) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NUTRITION_LOG_REQUIRED', message: 'Log required' } }),
+          { headers: { 'Content-Type': 'application/json' }, status: 409 },
+        );
+      }
+      const rawBody =
+        typeof init?.body === 'string'
+          ? (JSON.parse(init.body) as { status: 'unknown' | 'partial' | 'complete' })
+          : (init?.body as unknown as { status: 'unknown' | 'partial' | 'complete' });
+      dateState.daily.log.status = rawBody.status;
+      dateState.daily.log.statusUpdatedAt = 2;
+      state.set(date, dateState);
+      return createJsonResponse(dateState.daily.log);
+    }
+
     if (method === 'PATCH' && pathParts.length === 6 && pathParts[4] === 'meals') {
       if (!dateState.daily) {
         return new Response(
@@ -243,6 +273,10 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       }
 
       mealEntry.meal.name = nextName;
+      if (dateState.daily.log.status === 'complete') {
+        dateState.daily.log.status = 'partial';
+        dateState.daily.log.statusUpdatedAt = 3;
+      }
       state.set(date, dateState);
 
       return createJsonResponse(mealEntry.meal);
@@ -268,6 +302,13 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
 
       dateState.daily = {
         ...dateState.daily,
+        log: {
+          ...dateState.daily.log,
+          status:
+            dateState.daily.log.status === 'complete' ? 'partial' : dateState.daily.log.status,
+          statusUpdatedAt:
+            dateState.daily.log.status === 'complete' ? 3 : dateState.daily.log.statusUpdatedAt,
+        },
         meals: dateState.daily.meals.filter((entry) => entry.meal.id !== mealId),
       };
       state.set(date, dateState);
@@ -463,7 +504,7 @@ describe('NutritionPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders log, foods, and trends tabs and syncs the active view to search params', async () => {
+  it('renders log, Coach, foods, and trends tabs and syncs the active view to search params', async () => {
     const { fetchMock: baseFetchMock } = createNutritionApiMock({
       '2026-03-06': {
         daily: null,
@@ -541,32 +582,40 @@ describe('NutritionPage', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Log' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Foods' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: 'Trends' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Foods' }));
+    screen.getByRole('tab', { name: 'Log' }).focus();
+    fireEvent.keyDown(screen.getByRole('tablist', { name: 'Nutrition views' }), {
+      key: 'ArrowRight',
+    });
+    expect(screen.getByRole('tab', { name: 'Coach' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Coach' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=coach');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Foods' }));
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Foods' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=foods');
     expect(screen.getByText('Search your foods database')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Trends' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Trends' }));
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Trends' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=trends');
     expect(screen.getByRole('heading', { name: 'Macro trends' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Log' }));
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Log' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
     expect(screen.getByRole('heading', { name: 'Meals logged' })).toBeInTheDocument();
   });
@@ -606,7 +655,7 @@ describe('NutritionPage', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Foods' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Foods' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=foods');
     expect(screen.getByText('Search your foods database')).toBeInTheDocument();
   });
@@ -641,7 +690,7 @@ describe('NutritionPage', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('button', { name: 'Trends' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Trends' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('location-search')).toHaveTextContent('?view=trends');
     expect(screen.getByRole('heading', { name: 'Macro trends' })).toBeInTheDocument();
   });
@@ -1102,6 +1151,59 @@ describe('NutritionPage', () => {
     await Promise.resolve();
 
     expect(getMealHeading('Early Meal')).toBeInTheDocument();
+  });
+
+  it('marks a past day complete and shows the automatic partial downgrade after a meal edit', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': {
+        daily: null,
+        target: TARGETS,
+      },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            status: 'unknown',
+            statusUpdatedAt: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    fireEvent.click(screen.getByRole('button', { name: /Complete All intake is logged/ }));
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.getByRole('button', { name: /Complete All intake is logged/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
+    const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
+    fireEvent.change(input, { target: { value: 'Edited Breakfast' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(screen.getByRole('button', { name: /Partial Something is missing/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('does not call rename mutation when editing is cancelled or name is empty', async () => {
