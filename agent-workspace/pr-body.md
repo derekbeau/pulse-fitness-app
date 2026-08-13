@@ -94,9 +94,13 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Complete adaptive/weight/target/nutrition/dashboard query invalidation map
 - [x] Milestone 4 exact uncached gates passed: startup/security 7, shared 402, API 657, web 960, lint/typecheck/build; zero cached Turbo tasks
 - [x] Isolated real API lifecycle and built-in-browser affected-surface/Swagger QA passed with clean console diagnostics
+- [x] Gate 4 pending-to-held repair supersedes stale actionable pending rows before held persistence while preserving identical pending/held reuse and immediate-transaction safety
+- [x] Durable pending -> changed inputs -> held regression passed; exact uncached gates passed with startup/security 7, shared 402, API 658, web 960, and zero cached tasks
+- [x] Vector independently re-reviewed the Gate 4 repair, repeated focused/fresh-database/full uncached gates, and passed isolated API/browser acceptance with production isolation intact
+- [x] Vector Gate 4 approved
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
-Current milestone state: `AWAITING VECTOR GATE 4 REVIEW`. Milestone 5 has not started; PR #100 remains draft.
+Current milestone state: `VECTOR GATE 4 APPROVED`. Milestone 5 has not started; PR #100 remains draft.
 
 ## Review focus
 

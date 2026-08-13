@@ -560,4 +560,36 @@ describe('adaptive nutrition lifecycle store', () => {
       AdaptiveCheckInNotAcceptableError,
     );
   });
+
+  it('makes a held preview the current read state after changed data invalidates a pending recommendation', () => {
+    acceptBaselineAndAdvance();
+    seedEligibleHistory('user-1');
+    const firstUpdate = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+    storeA.acceptCheckIn('user-1', firstUpdate.id, { replaceSameDateTarget: false });
+    dbA
+      .update(mealItems)
+      .set({ calories: 2500 })
+      .where(eq(mealItems.id, 'user-1-item-2026-06-12'))
+      .run();
+    const actionable = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+    expect(actionable.status).toBe('pending');
+
+    for (let day = 1; day <= 10; day += 1) {
+      const date = `2026-06-${String(day).padStart(2, '0')}`;
+      dbA
+        .update(nutritionLogs)
+        .set({ status: 'partial', updatedAt: nowMs + 1000 + day })
+        .where(eq(nutritionLogs.id, `user-1-log-${date}`))
+        .run();
+    }
+    const held = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+    const repeated = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+
+    expect(held.status).toBe('held');
+    expect(repeated.id).toBe(held.id);
+    expect(storeA.findCheckInDetail('user-1', actionable.id)?.status).toBe('superseded');
+    expect(storeA.getState('user-1').pendingCheckIn).toBeNull();
+    expect(storeA.getState('user-1').state).toBe('holding');
+    expect(storeA.listCheckIns('user-1', {}).meta.total).toBe(4);
+  });
 });

@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 4 REVIEW<br>
+**Overall:** VECTOR GATE 4 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 4 complete)
+**Last updated:** 2026-08-13 (Milestone 4 lifecycle repair complete)
 
 ## Completed
 
@@ -61,22 +61,28 @@
 - Targeted Milestone 4 checks passed 20 shared schema/docs, 22 API route/store, and 6 web invalidation tests. Exact uncached lint, typecheck, test, and build gates passed with startup/security 7, shared 402, API 657, and web 960 tests; Turbo reported zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
 - Real isolated API QA covered setup-required, pending baseline, repeated acceptance, held weekly preview reuse, held acceptance conflict, history, and detail. Built-in-browser QA covered Dashboard, Nutrition, Weight History, Settings, and the live Swagger lifecycle docs with no console warnings/errors; all UI requests were 200 and the intentional held-accept probe returned 409. The isolated process was stopped.
 - Production was not accessed, deployed, or changed. Milestone 5 UI work was not started.
+- Gate 4 repair fixes the confirmed pending-to-held replacement defect: after identical-pending reuse is ruled out, preview now supersedes any pending row before either held-row reuse/new held persistence or actionable persistence, all inside the existing explicit immediate transaction.
+- A real SQLite regression proves an accepted update followed by an actionable pending recommendation and changed inputs producing a held preview leaves the stale proposal superseded, exposes no pending check-in, reports `holding`, and reuses the identical held row without adding history.
+- Repair verification passed 23/23 focused store/route tests, API lint/typecheck, `git diff --check`, and the exact uncached repository lint/typecheck/test/build sequence. Full tests passed startup/security 7, shared 402, API 658, and web 960; Turbo reported zero cached tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Vector independently inspected the complete five-file repair and confirmed identical pending reuse still precedes bounded supersession, while changed pending-to-held/actionable transitions remain atomic inside the existing immediate transaction.
+- Vector independently reran 23/23 focused API lifecycle tests, 15/15 shared schema tests, 6/6 web invalidation tests, the fresh migration integrity checks, and the exact uncached repository pipeline. Startup/security 7, shared 402, API 658, and web 960 tests passed; lint, typecheck, and all three builds passed with zero cached tasks.
+- Vector repeated isolated runtime QA on ports 3102/5274. Health, Dashboard, Nutrition, and all seven live adaptive Swagger endpoints rendered; the API opened only `pulse-tdee-dev.db` and not the production snapshot. The copied production snapshot hash remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; both ports were free after shutdown.
 
 ## Current milestone
 
-**Milestone 4: program, check-in, and API lifecycle — AWAITING VECTOR GATE 4 REVIEW**
+**Milestone 4: program, check-in, and API lifecycle — VECTOR GATE 4 APPROVED**
 
-The replayable lifecycle, stale-safe and idempotent resolution semantics, immediate-transaction concurrency, required invalidations, full gates, real isolated API exercise, and browser smoke are complete.
+The bounded pending-to-held lifecycle repair, durable regression, independent diff review, fresh database checks, isolated acceptance, and full uncached gates are approved. Preview idempotency and explicit immediate-transaction safety remain intact.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Await Vector's independent Gate 4 review.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 5 without separate authorization after Gate 4 approval.
+2. Await separate authorization before beginning Milestone 5.
+3. Do not deploy, merge, or make PR #100 ready.
 
 ## Blocking issues
 
-No writer-found Milestone 4 blockers remain after full diff self-review.
+None.
 
 ## Non-blocking warnings
 
@@ -86,4 +92,4 @@ No writer-found Milestone 4 blockers remain after full diff self-review.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 4 is `AWAITING VECTOR GATE 4 REVIEW`; Milestone 5 has not started.
+PR #100 remains draft. Milestone 4 is `VECTOR GATE 4 APPROVED`; Milestone 5 has not started.

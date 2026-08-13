@@ -396,6 +396,68 @@ History, Settings, and live Swagger lifecycle documentation. Browser console war
 empty; every observed UI/docs request was HTTP 200, apart from the intentional API conflict probe.
 The isolated servers were stopped. Production was not accessed or changed.
 
+#### Gate 4 pending-to-held lifecycle repair
+
+The confirmed failure reproduced before repair: the temporary adversarial store regression ran 16
+tests with 15 passing and failed because the older actionable row remained `pending` after a changed-
+fingerprint held preview. That stale row took priority in `getState`, contradicting the newly persisted
+hold.
+
+The minimal repair keeps preview inside the existing `better-sqlite3` immediate transaction. It first
+returns an identical pending row unchanged; otherwise it supersedes the program's pending row before
+the held/actionable branch. The existing same-kind, same-local-date, same-fingerprint held lookup still
+reuses its row, and a new held or actionable row is inserted in the same transaction as supersession.
+No schema, route, shared contract, web invalidation, or UI code changed.
+
+The durable real-SQLite regression creates and accepts an update, creates a later actionable pending
+recommendation, changes source completeness until the next preview is held, and proves the pending row
+is superseded, `pendingCheckIn` is null, state is `holding`, and repeating the identical held preview
+reuses the held ID without adding history. Existing unchanged-pending and held-reuse tests remain green.
+
+Observed repair checks, all exit 0 after repair:
+
+| Command                                                                                                                                        | Observed result                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `pnpm --filter @pulse/api exec vitest run src/routes/adaptive-nutrition/store.integration.test.ts src/routes/adaptive-nutrition/index.test.ts` | 2 files, 23/23 tests passed                                                                   |
+| `pnpm --filter @pulse/api lint` / `pnpm --filter @pulse/api typecheck`                                                                         | Both passed                                                                                   |
+| `git diff --check`                                                                                                                             | Passed                                                                                        |
+| `TURBO_FORCE=true pnpm lint`                                                                                                                   | 3/3 tasks, 0 cached, zero errors; four pre-existing Fast Refresh warnings                     |
+| `TURBO_FORCE=true pnpm typecheck`                                                                                                              | 3/3 tasks, 0 cached                                                                           |
+| `TURBO_FORCE=true pnpm test`                                                                                                                   | Startup/security 7/7; shared 402, API 658, web 960 (2,020 package tests); 6/6 tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`                                                                                                                  | 3/3 tasks, 0 cached; Vite transformed 3,832 modules                                           |
+
+Complete repair diff review found only the bounded store lifecycle change, its regression, and writer
+evidence. No browser QA was repeated because no route contract or UI changed. No commit, push,
+deployment, production access/change, PR-readiness change, self-approval, or Milestone 5 work occurred.
+Writer verdict: `AWAITING VECTOR GATE 4 RE-REVIEW`.
+
+#### Vector independent Gate 4 re-review
+
+Vector independently inspected the full five-file repair. The change preserves identical pending-row
+reuse before mutation, then supersedes any different pending row before held reuse or new held/actionable
+persistence, all inside the existing explicit immediate transaction. No schema, route contract, UI,
+Milestone 5, deployment, or production scope entered the repair.
+
+Independent focused checks passed: adaptive store/route 23/23, shared adaptive schemas 15/15, and web
+invalidation 6/6. The real SQLite suite includes the repaired pending-to-held transition, unchanged
+pending and held reuse, stale rejection, idempotent decisions, ownership, and two-connection lock and
+convergence behavior. A fresh migration returned `quick_check=ok`, zero foreign-key violations, both
+pending uniqueness indexes, and both immutable-audit triggers.
+
+Vector repeated the exact uncached repository pipeline. `git diff --check`, lint, typecheck, tests, and
+build all exited 0; Turbo reported zero cached tasks. Tests passed startup/security 7/7, shared 402/402,
+API 658/658, and web 960/960. Lint retained only four pre-existing Fast Refresh warnings; all three
+builds passed and Vite transformed 3,832 modules.
+
+Isolated `pnpm dev:gate0` QA returned HTTP 200 for API health and web root. Dashboard and Nutrition
+rendered with the isolated QA user, and live Swagger exposed all seven adaptive lifecycle endpoints.
+The API process opened only `pulse-tdee-dev.db` plus its SQLite sidecars and did not open the production
+snapshot. The copied production snapshot SHA-256 remained
+`fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`. The isolated stack was stopped
+and ports 3102/5274 were free. PR #100 remained draft and Milestone 5 did not start.
+
+Vector verdict: `VECTOR GATE 4 APPROVED`.
+
 ### Coach UI and completion controls
 
 Pending.
@@ -474,7 +536,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 4 REVIEW`
+`VECTOR GATE 4 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

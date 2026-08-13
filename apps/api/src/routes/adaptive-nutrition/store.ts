@@ -851,6 +851,17 @@ export const createAdaptiveNutritionStore = (options: {
         .get();
       if (existingPending) return parseCheckInDetail(existingPending);
 
+      db.update(adaptiveNutritionCheckIns)
+        .set({ status: 'superseded', resolvedAt: timestamp })
+        .where(
+          and(
+            eq(adaptiveNutritionCheckIns.userId, userId),
+            eq(adaptiveNutritionCheckIns.programId, program.id),
+            eq(adaptiveNutritionCheckIns.status, 'pending'),
+          ),
+        )
+        .run();
+
       const actionable = bundle.recommendation.state === 'updating';
       if (!actionable) {
         const reusableHeld = db
@@ -873,17 +884,6 @@ export const createAdaptiveNutritionStore = (options: {
           .limit(1)
           .get();
         if (reusableHeld) return parseCheckInDetail(reusableHeld);
-      } else {
-        db.update(adaptiveNutritionCheckIns)
-          .set({ status: 'superseded', resolvedAt: timestamp })
-          .where(
-            and(
-              eq(adaptiveNutritionCheckIns.userId, userId),
-              eq(adaptiveNutritionCheckIns.programId, program.id),
-              eq(adaptiveNutritionCheckIns.status, 'pending'),
-            ),
-          )
-          .run();
       }
       return insertCheckIn(userId, program.id, bundle, localDate, timestamp);
     });
