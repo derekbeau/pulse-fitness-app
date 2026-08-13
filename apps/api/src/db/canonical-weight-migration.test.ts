@@ -199,6 +199,12 @@ describe('canonical body-weight migration', () => {
         )
         .get(),
     ).toEqual({ required: 1 });
+    expect(
+      db
+        .prepare(`PRAGMA index_list('body_weight')`)
+        .all()
+        .find((index) => (index as { name: string }).name === 'body_weight_user_id_date_unique'),
+    ).toMatchObject({ partial: 0, unique: 1 });
     db.close();
   });
 
@@ -296,6 +302,47 @@ describe('canonical body-weight migration', () => {
     `);
 
     expect(() => prepareCanonicalWeightMigration(db)).toThrow(/check constraints/u);
+    db.close();
+  });
+
+  it('rejects a partial unique user/date index, including an ineffective WHERE 0 index', () => {
+    const db = createLegacyDatabase();
+    expect(prepareCanonicalWeightMigration(db).state).toBe('legacy-empty');
+    runMigration(db);
+    db.exec(`
+      DROP INDEX body_weight_user_id_date_unique;
+      CREATE UNIQUE INDEX body_weight_user_id_date_unique
+        ON body_weight (user_id, date)
+        WHERE 0;
+    `);
+
+    expect(
+      db
+        .prepare(`PRAGMA index_list('body_weight')`)
+        .all()
+        .find((index) => (index as { name: string }).name === 'body_weight_user_id_date_unique'),
+    ).toMatchObject({ partial: 1, unique: 1 });
+    expect(() => prepareCanonicalWeightMigration(db)).toThrow(/user\/date unique invariant/u);
+    db.close();
+  });
+
+  it.each([
+    ['an impossible calendar date', '2026-02-30', false],
+    ['a non-ISO date format', '2026/02/28', true],
+  ])('rejects existing canonical rows with %s', (_label, date, bypassChecks) => {
+    const db = createLegacyDatabase();
+    expect(prepareCanonicalWeightMigration(db).state).toBe('legacy-empty');
+    runMigration(db);
+    db.prepare(`INSERT INTO users (id, weight_unit) VALUES ('user-a', 'lbs')`).run();
+    if (bypassChecks) db.pragma('ignore_check_constraints = ON');
+    db.prepare(
+      `INSERT INTO body_weight
+        (id, user_id, date, weight, weight_kg, unit_at_entry, notes, created_at, updated_at)
+       VALUES ('weight-a', 'user-a', ?, ?, 80, 'kg', NULL, 1, 1)`,
+    ).run(date, 80 / 0.45359237);
+    if (bypassChecks) db.pragma('ignore_check_constraints = OFF');
+
+    expect(() => prepareCanonicalWeightMigration(db)).toThrow(/integrity|calendar date/u);
     db.close();
   });
 });

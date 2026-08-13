@@ -3,7 +3,12 @@ import { chmodSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSy
 import { basename, dirname, join } from 'node:path';
 
 import Database from 'better-sqlite3';
-import { convertWeightToKg, isCanonicalBodyWeight, type WeightUnit } from '@pulse/shared';
+import {
+  convertWeightToKg,
+  dateSchema,
+  isCanonicalBodyWeight,
+  type WeightUnit,
+} from '@pulse/shared';
 
 export const LEGACY_WEIGHT_UNIT_MAP_ENV = 'BODY_WEIGHT_LEGACY_UNIT_MAP_PATH';
 
@@ -357,10 +362,11 @@ const assertCanonicalTableIntegrity = (sqlite: Database.Database) => {
 
   const indexes = sqlite.prepare(`PRAGMA index_list('body_weight')`).all() as Array<{
     name: string;
+    partial: number;
     unique: number;
   }>;
   const hasUserDateUnique = indexes.some((index) => {
-    if (index.unique !== 1) return false;
+    if (index.unique !== 1 || index.partial !== 0) return false;
     const indexedColumns = sqlite.prepare(`PRAGMA index_info('${index.name}')`).all() as Array<{
       name: string;
       seqno: number;
@@ -427,6 +433,16 @@ const assertCanonicalTableIntegrity = (sqlite: Database.Database) => {
 
   if (invalidRow !== undefined) {
     throw new Error('Canonical body-weight integrity check failed.');
+  }
+
+  const invalidDateRow = (
+    sqlite.prepare(`SELECT id, date FROM body_weight`).all() as Array<{
+      date: string;
+      id: string;
+    }>
+  ).find((row) => !dateSchema.safeParse(row.date).success);
+  if (invalidDateRow) {
+    throw new Error('Canonical body-weight integrity check failed: invalid calendar date.');
   }
 };
 

@@ -72,3 +72,15 @@ The complete repair diff was reviewed against all eight findings. No nutrition-c
 `AWAITING VECTOR GATE 1 RE-REVIEW`
 
 The remaining finding-4 gap is repaired. Targeted migration/database tests passed 16/16 and startup tests passed 6/6. The exact uncached pipeline passed lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build; all Turbo tasks were uncached. PR #100 remains draft. Milestone 2 is unauthorized until Vector independently approves Gate 1.
+
+## Final three-class follow-up handoff
+
+Subsequent independent review confirmed three remaining classes. The current branch repairs them without changing the required state:
+
+- **Host-only directory safety:** both ignore files contain root-anchored `/runtime-secrets/`. A behavioral test proves the exact map fixture is Git-ignored and absent from a real BuildKit-exported `COPY .` context; `git ls-files runtime-secrets` is empty.
+- **Canonical adversarial schema/data:** preflight rejects every partial unique `(user_id,date)` index via `PRAGMA index_list.partial`, including `WHERE 0`, and validates every existing date with shared `dateSchema` calendar semantics. Impossible and non-ISO stored dates reject; migration 0041 still passes with `partial: 0`.
+- **Paginated metadata:** the web boundary parses metadata with shared `apiMetaSchema`; page zero and negative totals reject while entry parsing and mixed-unit rejection remain intact.
+
+Observed final verification: startup/security 7/7; API migration/database/enrichment 25/25; web boundary/history 26/26; API image build passed; real image legacy preflight exited 1 without a map and 0 with a secure read-only map; fresh image health returned OK. The exact uncached command passed lint, typecheck, 1,905 package tests plus 7 startup/security tests, and build with zero cached Turbo tasks. No UI changed, so browser QA was not repeated.
+
+**Current state remains:** `AWAITING VECTOR GATE 1 RE-REVIEW`. PR #100 must remain draft; no deploy, merge, or Milestone 2 work is authorized.

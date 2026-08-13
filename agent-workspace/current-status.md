@@ -3,7 +3,7 @@
 **Overall:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13
+**Last updated:** 2026-08-13 (final three-class Gate 1 follow-up)
 
 ## Completed
 
@@ -26,6 +26,8 @@
 - Exact uncached pipeline passed: lint, typecheck, tests (6 startup isolation + 1,899 package tests), and production build. Lint retained only four pre-existing Fast Refresh warnings.
 - The remaining finding-4 gap is repaired: preflight now behaviorally probes a clone of the live SQLite table definition, accepting migration-0041 boundaries while rejecting malformed dates, non-positive compatibility pounds, out-of-range kilograms, invalid provenance, and incompatible pounds. Correctly named `CHECK (1)` no-ops are regression-covered.
 - Repair verification passed: migration/startup 22/22 targeted tests; exact uncached lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build all passed with zero cached tasks.
+- The final independent follow-up classes are repaired: `/runtime-secrets/` is root-ignored by Git and Docker with a real build-context regression; canonical preflight rejects partial unique indexes and existing impossible/non-ISO dates using shared date semantics; and paginated weight metadata is parsed with `apiMetaSchema` at the HTTP boundary.
+- Final follow-up verification passed: startup/security 7/7, API migration/enrichment 25/25, web weight boundary/history 26/26, API Docker image build and real legacy/fresh-container checks, plus the exact uncached lint/typecheck/test/build pipeline (1,905 package tests across 245 files, 7 startup/security tests, and zero cached Turbo tasks).
 
 ## Current milestone
 
@@ -35,7 +37,7 @@ Milestone 2 has not started and remains unauthorized until Vector independently 
 
 ## Next actions
 
-1. Vector independently re-reviews the eight repaired findings and evidence.
+1. Vector independently re-reviews the final three-class repairs and the complete Gate 1 evidence.
 2. If approved, Vector may authorize Milestone 2 in a separate goal.
 3. Do not deploy, merge, make PR #100 ready, or begin Milestone 2 during this state.
 

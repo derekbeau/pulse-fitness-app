@@ -2,8 +2,8 @@
 
 **Status:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex one-bug repair verification complete; awaiting independent Vector re-review<br>
-**Last verified state:** remaining canonical check-contract gap repaired; targeted and exact uncached full checks green
+**Reviewer:** Codex final three-class repair verification complete; awaiting independent Vector re-review<br>
+**Last verified state:** host-map isolation, adversarial canonical preflight, and paginated metadata parsing repaired; targeted/container and exact uncached full checks green
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -195,6 +195,37 @@ Exact uncached repair pipeline, all exit 0:
 | `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,830 modules                                                                   |
 
 No UI code changed, so browser QA was not repeated. No Milestone 2, deployment, merge, or PR-ready work was performed. Current state is `AWAITING VECTOR GATE 1 RE-REVIEW`; approval remains intentionally withheld.
+
+#### Final three-class Gate 1 follow-up
+
+The final independent follow-up confirmed three remaining classes, all repaired on 2026-08-13:
+
+1. Git and Docker now root-ignore `/runtime-secrets/`. A behavioral Node regression creates the exact `runtime-secrets/body-weight-legacy-unit-map.json` fixture in disposable contexts, proves `git check-ignore` matches it, exports a real BuildKit `COPY .` context, and proves the map/directory are absent while a control fixture is present. No map or secret is tracked.
+2. Canonical preflight reads the SQLite `PRAGMA index_list.partial` field and accepts only a non-partial unique `(user_id,date)` index. Existing canonical dates are additionally validated with shared `dateSchema` semantics, rejecting impossible dates and non-ISO formats that can survive or bypass the schema's shape check. Adversarial regressions cover `WHERE 0`, `2026-02-30`, and `2026/02/28`; real migration 0041 and the complete fresh migration chain continue to pass.
+3. Paginated weight hooks now treat `apiRequestWithMeta` data and metadata as unknown, parse entries as before (including mixed-unit rejection), and parse metadata with shared `apiMetaSchema`. Regressions reject page zero and negative totals.
+
+Focused and runtime checks, all exit 0:
+
+| Command/check                                                                     | Observed result                                                                                   |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm test:gate0-isolation`                                                       | 7/7 passed, including real Git-ignore and Docker BuildKit context export                          |
+| API migration/database/enrichment Vitest                                          | 25/25 passed; migration 0041 index reported `partial: 0`, adversarial partial/date cases rejected |
+| Web weight boundary/history Vitest                                                | 26/26 passed; malformed metadata and existing mixed-unit behavior covered                         |
+| `docker build --target api -t pulse-gate1-final:local .`                          | Pass; image `sha256:c6e6b4a2031770ea7b6498def6228d6905a98ce223263238200f041bf6eb0c69`             |
+| Real image legacy preflight                                                       | Without map exit 1; with read-only mode-0600 map exit 0                                           |
+| Real image fresh startup                                                          | `/health` returned `{"status":"ok"}`                                                              |
+| `git check-ignore -v --no-index runtime-secrets/body-weight-legacy-unit-map.json` | Matched `.gitignore:19:/runtime-secrets/`; `git ls-files runtime-secrets` was empty               |
+
+Exact uncached pipeline, all exit 0 on the final tree:
+
+| Command                           | Observed result                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                            |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                                                  |
+| `TURBO_FORCE=true pnpm test`      | Startup/security 7/7; Turbo 6/6, 0 cached; shared 342, API 606, web 957 (1,905 package tests across 245 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,830 modules                                                                  |
+
+The first exact run exposed the root monorepo-script assertion that records the startup test list; it was updated to include the new behavioral isolation test, and the complete exact command was rerun from lint through build successfully. `git diff --check` passed. Self-review found no secret fixture, Milestone 2, deployment, merge, or PR-ready scope. No browser QA was run because no UI changed.
 
 ### Nutrition completeness and target provenance
 

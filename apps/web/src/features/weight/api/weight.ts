@@ -1,5 +1,6 @@
 import { type QueryKey, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  apiMetaSchema,
   bodyWeightEntrySchema,
   deleteWeightResultSchema,
   type BodyWeightEntry,
@@ -32,12 +33,6 @@ type LogWeightCache =
   | null
   | DashboardSnapshot
   | DashboardWeightTrendPoint[];
-
-type PaginatedWeightListMeta = {
-  limit: number;
-  page: number;
-  total: number;
-};
 
 const normalizeWeightListFilters = ({ days, from, limit, page, to }: WeightListFilters = {}) => ({
   days: days ?? null,
@@ -119,10 +114,13 @@ const fetchWeightEntries = async (filters: WeightListFilters) => {
 const fetchPaginatedWeightEntries = async (
   filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters,
 ) => {
-  const { data, meta } = await apiRequestWithMeta<unknown, PaginatedWeightListMeta>(
+  const { data, meta } = await apiRequestWithMeta<unknown, unknown>(
     buildWeightEntriesPath(filters),
   );
-  return { data: parseWeightEntryCollection(data), meta };
+  return {
+    data: parseWeightEntryCollection(data),
+    meta: apiMetaSchema.parse(meta),
+  };
 };
 
 const postWeightEntry = async (input: CreateWeightInput) => {

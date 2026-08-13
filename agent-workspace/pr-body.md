@@ -60,6 +60,10 @@ Milestone 1 Gate 1 repair is complete and the branch is `AWAITING VECTOR GATE 1 
 - [x] Final isolated kg-to-pounds browser QA passed with zero console/request diagnostics
 - [x] Final SQLite audit passed: 25 rows, zero invalid rows, zero compatibility delta; production snapshot hash unchanged
 - [x] Exact uncached lint/typecheck/test/build pipeline passed (1,899 package tests plus 6 startup-isolation tests)
+- [x] Host-only `/runtime-secrets/` is excluded from Git and a real Docker build context, with behavioral regression coverage
+- [x] Canonical preflight rejects partial unique indexes and malformed existing calendar dates while migration 0041 continues to pass
+- [x] Paginated weight metadata is runtime-parsed with shared schema coverage for page zero and negative totals
+- [x] Final exact uncached pipeline passed (1,905 package tests plus 7 startup/security tests; zero cached Turbo tasks)
 - [ ] Vector Gate 1 re-review and approval
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 

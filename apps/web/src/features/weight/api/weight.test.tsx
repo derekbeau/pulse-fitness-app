@@ -267,6 +267,38 @@ describe('weight api hooks', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
 
+  it.each([
+    ['page zero', { page: 0, limit: 10, total: 1 }],
+    ['a negative total', { page: 1, limit: 10, total: -1 }],
+  ])('rejects paginated weight metadata with %s', async (_label, meta) => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'weight-1',
+              date: '2026-03-07',
+              weight: 181.4,
+              unit: 'lbs',
+              notes: null,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+          meta,
+        }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 },
+      ),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => usePaginatedWeightEntries({ page: 1, limit: 10 }), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
   it('rejects mixed display units before returning a weight collection', async () => {
     mockFetch.mockResolvedValue(
       createJsonResponse([

@@ -9,7 +9,7 @@
     "dev:gate0": "node scripts/dev-gate0-isolated.mjs",
     "build": "turbo run build",
     "test": "pnpm test:gate0-isolation && turbo run test",
-    "test:gate0-isolation": "node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs",
+    "test:gate0-isolation": "node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write ."

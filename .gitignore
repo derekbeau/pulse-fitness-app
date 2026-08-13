@@ -16,6 +16,7 @@ node_modules/
 skills-lock.json
 data/
 logs/
+/runtime-secrets/
 .env
 .env.local
 .env*.local
